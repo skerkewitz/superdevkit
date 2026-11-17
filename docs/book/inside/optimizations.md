@@ -8,7 +8,7 @@ it may use at most 60 % of an NTSC [frame](/glossary#frame), about 0.6 frames pe
 vertical blank and a safety margin come off that. The game's benchmark runs the same game code
 with a fixed input for 1,800 ticks and measures every tick in Mesen.
 
-During play, the code dampf now generates takes 1.08 frames per tick (worst tick 1.86) with
+During play, the code dampf now generates takes 1.06 frames per tick (worst tick 1.83) with
 FastROM, which is the default, and 1.31 (worst 2.25) at SlowROM speed, as the earlier figures on
 this page were measured. dampf's
 own [naive code generator](/glossary#naive-code-generator) takes 5.17 frames per tick for the
@@ -550,7 +550,11 @@ each of these is:
   loading it, is never stored. The code generator also remembers what X and Y hold, and every
   place A equals (after `LDA x` and `STA y`, both), and leaves out a load of the same thing. A
   write to a place drops it and its byte neighbours. Remembering every place instead of one
-  took play from 1.50 to 1.49.
+  took play from 1.50 to 1.49. A 1-word value that every use takes from A, in whichever block,
+  is not stored at all. The code generator learns that over its passes: a value stored in one
+  pass but never read from its place is not stored in the next, and if that pass reads it after
+  all, the pass is thrown away and the value stays stored. A φ that shares the value's place
+  counts as a read. Play 1.08 to 1.06.
 - **What A, X and Y hold where a block starts.** Counted over the whole benchmark, 41 % of the
   `LDX dp` loaded the value X held already, and 28 % of the `LDA dp` the value A held (counted
   by value, so some are coincidences). A block starts with what every way into it brings: the
@@ -745,6 +749,7 @@ budget is hardest to meet; the worst tick is in parentheses where the source giv
 | labels inside blocks, assumptions kept after a contradiction | 1.31 (2.25) | 1.98 (4.08) |
 | FastROM: the ROM in banks `$80` and up at 3.58 MHz (`MEMSEL`) | 1.10 (1.88) | 1.69 (3.51) |
 | no `cmp #0` where N and Z already describe A | 1.08 (1.86) | 1.68 (3.49) |
+| values every use takes from A not stored | 1.06 (1.83) | 1.66 (3.48) |
 
 The steps are cumulative: each row includes everything above it. Loop rotation is not in the
 table; it brought about 0.5 %, measured on the benchmark's bare loop (801 to 783 clocks per
