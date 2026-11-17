@@ -31,6 +31,7 @@ public final class Simplify {
                 }
             }
             changed |= foldTerminator(b);
+            changed |= narrowSwitch(b);
         }
         DeadCode.replaceUses(f, s.replaced);
         changed |= Cfg.removeUnreachable(f);
@@ -431,6 +432,33 @@ public final class Simplify {
 
     private static Value.Const truth(boolean b) {
         return new Value.Const(MType.I1, b ? 1 : 0);
+    }
+
+    /**
+     * A switch on a 32-bit widening of an 8 or 16-bit value (C's promotion of a {@code uint8_t})
+     * whose cases all lie in the narrow value's range compares 16 bits instead: the widened 8-bit
+     * value as an I16, or the 16-bit value itself. Every case then needs one comparison instead of
+     * two, and the high word is not computed.
+     */
+    private static boolean narrowSwitch(Block b) {
+        if (!(b.terminator() instanceof Instr.Switch s) || s.op(0).type() != MType.I32
+                || !(s.op(0) instanceof Instr.Cast c) || c.kind != Instr.CastKind.ZEXT && c.kind != Instr.CastKind.SEXT) {
+            return false;
+        }
+        MType from = c.op(0).type();
+        if (from != MType.I8 && from != MType.I16) {
+            return false;
+        }
+        long lo = c.kind == Instr.CastKind.ZEXT ? 0 : -(1L << (from.bits() - 1));
+        long hi = c.kind == Instr.CastKind.ZEXT ? (1L << from.bits()) - 1 : (1L << (from.bits() - 1)) - 1;
+        for (long k : s.cases) {
+            long v = MType.I32.signed(MType.I32.wrap(k));
+            if (v < lo || v > hi) {
+                return false;
+            }
+        }
+        s.setOp(0, from == MType.I16 ? c.op(0) : insert(s, new Instr.Cast(c.kind, c.op(0), MType.I16, c.pos())));
+        return true;
     }
 
     /** A branch or switch whose way is known becomes a jump. */

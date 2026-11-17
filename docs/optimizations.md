@@ -694,9 +694,19 @@ benchmark run 2.15 → 1.66 million, play 386,306 → 379,855 clocks per tick (1
 `exec/unstored.c` has the cases where a read is easy to miss; counting no reads at all fails it
 and 19 other programs of `ExecutionTest`, leaving out the φ's read fails it and 11 others.
 
-Among the dead stores left, the most frequent are in `items_update`: its `switch` on a `uint8_t`
-compares an `int`, so the high word is zeroed (six times, in the same place) and compared with 0
-for every case. That is a matter of the switch's width, not of register allocation.
+Among the dead stores left, the most frequent were in `items_update`: its `switch` on a
+`uint8_t` compared an `int`, so the high word was zeroed (six times, in the same place) and
+compared with 0 for every case. That was a matter of the switch's width (next section).
+
+### Switches on bytes compare 16 bits, 2026-11-17
+
+C widens the value of a `switch` to `int`, so `switch (it->kind)` on a `uint8_t` compared two
+words per case: the low word, then the high word, which is known to be 0 (and was zeroed six
+times in a row, for every case's comparison). `Simplify` now switches on the 16-bit widening
+instead (or on a `uint16_t` itself) when every case lies in the range of the narrow value: 0 to
+255 for a `uint8_t`, -128 to 127 for an `int8_t`. A case outside it keeps the switch at 32
+bits, since a case such as 65,545 would equal 9 in 16 bits (`exec/switch_narrow.c`; narrowing
+without the check fails it). Play 379,855 → 370,620 clocks per tick (1.04 frames).
 
 ### Summary of the code from MIR so far (2026-11-17, the latest measurement)
 
@@ -705,16 +715,16 @@ rounds (`for (i = 0; i < 768; i++)`) used to give its counter the type's whole r
 it from being narrowed and from indexed addressing as nonnegative. Narrowing again after the
 widened fixpoint gives it 0..768. Play 1.53 → 1.50, title 0.68 → 0.60. Then A's places and the
 byte loads, the short branches, INC/DEC, STZ, the bit selections, fewer copies and the registers
-across blocks (sections above): play 1.31. The last column adds FastROM, the CMP #0 that went and the
-values not stored (see their sections); the column before it is SlowROM speed, as the earlier columns were measured.
+across blocks (sections above): play 1.31. The last column adds FastROM, the CMP #0 that went, the
+values not stored and the narrow switches (see their sections); the column before it is SlowROM speed, as the earlier columns were measured.
 
 | State | naive | from MIR, no passes | SlowROM | now (FastROM) |
 | --- | --- | --- | --- | --- |
 | title | 1.94 | 12.21 | 0.54 | 0.45 |
 | story | 0.70 | 3.56 | 0.22 | 0.18 |
-| round intro | 5.76 | 12.13 | 1.76 | 1.47 |
-| play | 5.17 (worst 8.58) | 18.93 | 1.31 (worst 2.25) | 1.06 (worst 1.83) |
-| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 1.98 (worst 4.08) | 1.66 (worst 3.48) |
+| round intro | 5.76 | 12.13 | 1.76 | 1.46 |
+| play | 5.17 (worst 8.58) | 18.93 | 1.31 (worst 2.25) | 1.04 (worst 1.80) |
+| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 1.98 (worst 4.08) | 1.64 (worst 3.45) |
 | `level_solid_px`, per call | 3,849 | 6,648 | 1,149 | 951 clocks |
 
 Calypsi's 2.72 frames per tick during play (on an older version of the game) is passed. On the
