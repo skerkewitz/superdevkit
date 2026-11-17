@@ -579,6 +579,17 @@ up to six optimistic passes): it cut the `LDY`s of `separate` from 13 to 2, but 
 the hot block, because the head's state reaches the end of the body only one block per pass, and
 the game as a whole got no faster (468,257 clocks per tick). It was not kept.
 
+### Counting down, tried, 2026-11-17
+
+A counter used for nothing but its own test (`for (i = 0; i < n; i++)` once the induction
+variables have taken over its other uses; 210 such loops in the game's MIR, copies by inlining
+included) can count down instead: j = n - i, the test `j != 0`, the step a `DEC`, no comparison
+with n. It is exact (0 <= i <= n at the head), and it made the title screen faster (192,815 →
+191,346 clocks per tick), but play slower (468,441 → 469,298) and the whole benchmark too
+(431,343 → 431,849): copying n into j at every loop entry costs more than the comparisons it
+saves in the game's short loops, and an i8 j would need a clean high byte for `j != 0`. It was
+not kept.
+
 ### Blocks laid out by a profile, 2026-11-17
 
 The jumps over large loop bodies (the section on short branches) need to know which blocks run
