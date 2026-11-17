@@ -71,4 +71,45 @@ class ConstAddressTest {
         assertEquals(99L, v.get("read_low[2]"));
         assertEquals(35L, v.get("read_low[3]"));
     }
+
+    /**
+     * A register pair as the SNES platform's bgSetScroll writes it: h = 0x210D + 2 * n, then
+     * REG8(h) and REG8(h + 1). h is the sum of one constant address and the index of the other,
+     * so it must be computed (the code generator once folded it away and crashed).
+     */
+    @Test
+    void aSumThatIsAlsoAnIndexIsComputed() throws Exception {
+        Path src = tmp.resolve("pair.c");
+        Files.writeString(src, """
+                #include <stdint.h>
+                #define MEM8(a) (*(volatile uint8_t *)(a))
+
+                uint8_t read_low[6];
+
+                static void put2(uint8_t n, uint16_t x)
+                {
+                    uint16_t h = (uint16_t)(0x1E40 + (n << 1));
+                    MEM8(h) = (uint8_t)x;
+                    MEM8(h + 1) = (uint8_t)(x >> 8);
+                }
+
+                void test_main(void)
+                {
+                    uint8_t i;
+                    put2(0, 0x1234);
+                    put2(2, 0xABCD);
+                    put2(1, 0x5678);
+                    for (i = 0; i < 6; i++) {
+                        read_low[i] = MEM8(0x7E1E40 + i);
+                    }
+                }
+                """);
+        Compiler.Result r = Compiler.compile(new Compiler.Options(List.of(src), List.of(), List.of(), "test_main",
+                tmp.resolve("pair.sfc"), Map.of(), Compiler.Backend.MIR));
+        Map<String, Long> v = new EmulatorRunner().run(r.rom(), Observed.of(r.program().globals())).values();
+        long[] want = {0x34, 0x12, 0x78, 0x56, 0xCD, 0xAB};
+        for (int k = 0; k < want.length; k++) {
+            assertEquals(want[k], v.get("read_low[" + k + "]"), "read_low[" + k + "]");
+        }
+    }
 }
