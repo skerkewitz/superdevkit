@@ -178,6 +178,7 @@ ideas that looked good measured zero, see [optimizations.md](optimizations.md)) 
 | 9 | Value ranges from array bounds | 1-2 % | medium | More 8-bit narrowing, fewer masks. |
 | 10 | Superoptimizer for short hot sequences | 1-3 % | high | Gains spread thin. |
 | 11 | `<<8` as a byte store, `switch` as a jump table, `MVN` for copies, unrolling by hint | <1 % each | low to medium | Large locally, small on the whole game. |
+| 12 | Hardware registers at constant addresses: `STA f:$00210B` (and `,X` with an index) instead of a pointer through `dampf_ptr` | none on the benchmark (its platform functions are empty); 33 → 15 cycles per register write in the platform layer | low | **Done 2026-11-17.** It matters for the playable ROM's vertical blank, which the benchmark does not measure. |
 
 **The order:** FastROM first (almost free, if a FastROM cartridge is acceptable for the game), then
 the comparisons (6) as a quick check, then register allocation (2), or the split of struct arrays

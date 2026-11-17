@@ -593,6 +593,19 @@ with n. It is exact (0 <= i <= n at the head), and it made the title screen fast
 saves in the game's short loops, and an i8 j would need a clean high byte for `j != 0`. It was
 not kept.
 
+### Registers at constant addresses, 2026-11-17
+
+A write to a hardware register, `REG8(0x210B + i) = v` in the platform layer, went through
+`dampf_ptr` like any pointer: the 24-bit address built in the direct page, then
+`STA [dampf_ptr],Y`, 33 cycles. A pointer made from a constant (`inttoptr` of a constant in MIR)
+is now a fixed address like a variable's: `STA f:$00210B`, 15 cycles with the switch to 8 bits.
+With a constant plus a 16-bit index whose value range is never negative and stays in the bank
+(below $8000 with C's sign extension of `int`), it is `STA f:$00210B,X`, and the sum is never
+computed. Long addressing, because the data bank is $7E: an absolute `$210B` would reach WRAM.
+The benchmark does not change (its platform functions are empty); the playable ROM's register
+accesses do. `ConstAddressTest` runs such accesses on WRAM in dampf's emulator (a program
+writing to fixed addresses cannot run on the PC).
+
 ### Blocks laid out by a profile, 2026-11-17
 
 The jumps over large loop bodies (the section on short branches) need to know which blocks run

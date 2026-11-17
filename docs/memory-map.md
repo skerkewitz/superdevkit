@@ -41,9 +41,12 @@ become 16 bits (docs/subset.md, decision 3).
 
 The PPU and CPU registers (`$2100-$21FF`, `$4200-$43FF`) are in bank 0, which DBR does not point
 to. The runtime writes them with 24-bit long addresses (`sta f:$002100`). C code reaches them
-through pointers to `volatile` memory ([subset.md](subset.md), *Hardware access*), today through
-`[dampf_ptr],y` with the pointer built first (about 30 cycles a register); a long address for a
-constant one is the obvious improvement. Only the platform layer (`platform/snes`) does this.
+through pointers to `volatile` memory ([subset.md](subset.md), *Hardware access*). A pointer made
+from a constant becomes a long address in the code (`sta f:$00210B`, 5 cycles for a byte), and a
+constant plus a 16-bit index that is never negative and stays in the bank an indexed long address
+(`REG8(0x210B + i)` is `sta f:$00210B,x`): no pointer is built (it used to go through
+`[dampf_ptr],y`, about 30 cycles a register). Other pointers made from numbers still go through
+`dampf_ptr`. Only the platform layer (`platform/snes`) does this.
 
 ## ROM
 

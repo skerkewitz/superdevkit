@@ -1178,6 +1178,9 @@ public final class MirCodeGen {
         return switch (address) {
             case Value.GlobalAddr g -> (rom.contains(g.symbol()) ? "f:" : "") + g.symbol() + (k == 0 ? "" : "+" + k);
             case Value.SlotAddr s -> at(place.get(s.slot()) + k);
+            // a number made into a pointer (a hardware register): long addressing, since the data
+            // bank is $7E and an absolute $210B would reach WRAM
+            case Value.Const c -> String.format("f:$%06X", (c.bits() + k) & 0xFFFFFF);
             default -> null;
         };
     }

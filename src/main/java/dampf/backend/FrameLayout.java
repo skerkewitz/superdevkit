@@ -128,7 +128,48 @@ final class FrameLayout {
         if (base instanceof Instr.PtrAdd q && indexable(q)) {
             return new Address(q.op(0), offset, q.op(1));
         }
+        ConstAddress c = constAddress(base);
+        if (c != null) {
+            return new Address(new Value.Const(MType.I32, c.address()), offset, c.index());
+        }
         return new Address(base, offset, null);
+    }
+
+    /**
+     * A pointer made from a number, {@code (volatile uint8_t *)0x210B} (a hardware register):
+     * {@code inttoptr} of a constant, or of a constant plus a 16-bit index that is never negative
+     * and stays in the same bank ({@code REG8(0x210B + i)}). The access goes to that address
+     * directly (long addressing, with X for the index) instead of through dampf_ptr. The base is
+     * then a constant in the Address.
+     */
+    record ConstAddress(long address, Value index) {}
+
+    ConstAddress constAddress(Value v) {
+        if (!(v instanceof Instr.Cast c) || c.kind != Instr.CastKind.INTTOPTR) {
+            return null;
+        }
+        Value x = c.op(0);
+        boolean signed = false;
+        while (x instanceof Instr.Cast z && (z.kind == Instr.CastKind.ZEXT || z.kind == Instr.CastKind.SEXT)) {
+            signed |= z.kind == Instr.CastKind.SEXT;
+            x = z.op(0);
+        }
+        if (x instanceof Value.Const k) {
+            long a = k.bits() & 0xFFFFFFL;
+            return a == k.bits() ? new ConstAddress(a, null) : null;
+        }
+        if (x instanceof Instr.Bin b && b.op == Instr.BinOp.ADD && b.type() == MType.I16
+                && (b.op(0) instanceof Value.Const) != (b.op(1) instanceof Value.Const)) {
+            Value.Const k = (Value.Const) (b.op(0) instanceof Value.Const ? b.op(0) : b.op(1));
+            Value index = b.op(0) instanceof Value.Const ? b.op(1) : b.op(0);
+            Ranges.Range r = ranges.at(index, b.block());
+            // the sum never wraps, and with a sign extension (C's int arithmetic) it is never
+            // negative either, so the extension adds nothing
+            if (r != null && r.lo() >= 0 && k.bits() + r.hi() <= (signed ? 0x7FFF : 0xFFFF)) {
+                return new ConstAddress(k.bits(), index);
+            }
+        }
+        return null;
     }
 
     /**
@@ -197,6 +238,51 @@ final class FrameLayout {
         onlyAddresses.forEach((q, ok) -> {
             if (ok) {
                 folded.add(q);
+            }
+        });
+        // a constant plus an index made into a pointer (REG8(0x210B + i)), used only as an
+        // address: the accesses index with X from the constant, the sum is never computed
+        Map<Instr, Boolean> sums = new HashMap<>();
+        for (Block b : f.blocks()) {
+            for (Instr i : b.instrs()) {
+                if (!(i instanceof Instr.Cast c) || c.kind != Instr.CastKind.INTTOPTR) {
+                    continue;
+                }
+                ConstAddress a = constAddress(c);
+                if (a == null || a.index() == null) {
+                    continue;
+                }
+                Value x = c.op(0);
+                List<Instr> chain = new ArrayList<>();
+                while (x instanceof Instr.Cast z && (z.kind == Instr.CastKind.ZEXT || z.kind == Instr.CastKind.SEXT)) {
+                    chain.add(z);
+                    x = z.op(0);
+                }
+                chain.add((Instr) x);
+                chain.add(c);
+                for (Instr d : chain) {
+                    sums.merge(d, true, Boolean::logicalAnd);
+                }
+            }
+        }
+        // each link of such a chain may have no other use than the next link, or (the cast) addresses
+        for (Block b : f.blocks()) {
+            for (Instr i : b.instrs()) {
+                for (int k = 0; k < i.operands().size(); k++) {
+                    if (i.op(k) instanceof Instr d && sums.containsKey(d)) {
+                        boolean link = sums.containsKey(i) && !(d instanceof Instr.Cast c && c.kind == Instr.CastKind.INTTOPTR);
+                        boolean address = k == 0 && (i instanceof Instr.Load || i instanceof Instr.Store)
+                                || i instanceof Instr.PtrAdd p && k == 0 && folded.contains(p);
+                        if (!link && !address) {
+                            sums.put(d, false);
+                        }
+                    }
+                }
+            }
+        }
+        sums.forEach((d, ok) -> {
+            if (ok) {
+                folded.add(d);
             }
         });
     }
