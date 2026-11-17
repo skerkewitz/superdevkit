@@ -1,5 +1,7 @@
 package dampf.mir;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -58,7 +60,105 @@ public final class Simplify {
         }
         changed |= mergeBlocks(f);
         changed |= threadJumps(f);
+        changed |= threadConstants(f);
         return changed || !s.replaced.isEmpty();
+    }
+
+    /**
+     * A block that only decides a branch from a φ ({@code phi [P: 1, Q: %x]; cmp ne %phi, 0; br})
+     * is skipped by a predecessor that gives the φ a constant: that predecessor already knows
+     * where the branch goes. Typical after inlining a function that returns a truth value. The
+     * block may hold nothing but φs, the comparison and the branch, and nothing outside it may use
+     * its values (the predecessor no longer passes through).
+     */
+    private static boolean threadConstants(MFunction f) {
+        boolean changed = false;
+        for (Block b : List.copyOf(f.blocks())) {
+            if (!f.blocks().contains(b) || b == f.entry() || !(b.terminator() instanceof Instr.Branch br)) {
+                continue;
+            }
+            Instr.Phi phi;
+            Instr.Cmp cmp = null;
+            if (br.op(0) instanceof Instr.Phi p && p.block() == b) {
+                phi = p;
+            } else if (br.op(0) instanceof Instr.Cmp c && c.block() == b && c.op(0) instanceof Instr.Phi p
+                    && p.block() == b && c.op(1) instanceof Value.Const) {
+                phi = p;
+                cmp = c;
+            } else {
+                continue;
+            }
+            if (!onlyDecides(f, b, cmp)) {
+                continue;
+            }
+            for (int k = 0; k < phi.from.size(); k++) {
+                Block pred = phi.from.get(k);
+                if (!(phi.op(k) instanceof Value.Const v) || pred == b || Collections.frequency(b.preds(), pred) != 1) {
+                    continue;
+                }
+                boolean taken = cmp == null ? v.bits() != 0
+                        : Interpreter.cmp(cmp.pred, phi.type(), v.bits(), ((Value.Const) cmp.op(1)).bits());
+                Block target = taken ? br.ifTrue : br.ifFalse;
+                if (target == b || target.preds().contains(pred) && target.instrs().getFirst() instanceof Instr.Phi) {
+                    continue;
+                }
+                // what target's φs get along the new edge: what they would get from b
+                List<Value> incoming = new ArrayList<>();
+                for (Instr i : target.instrs()) {
+                    if (!(i instanceof Instr.Phi tp)) {
+                        break;
+                    }
+                    Value fromB = tp.op(tp.from.indexOf(b));
+                    incoming.add(fromB instanceof Instr.Phi bp && bp.block() == b ? bp.op(bp.from.indexOf(pred)) : fromB);
+                }
+                if (Cfg.retarget(pred, b, target) != 1) {
+                    continue;
+                }
+                int n = 0;
+                for (Instr i : target.instrs()) {
+                    if (!(i instanceof Instr.Phi tp)) {
+                        break;
+                    }
+                    tp.add(pred, incoming.get(n++));
+                }
+                for (Instr i : b.instrs()) {
+                    if (i instanceof Instr.Phi bp) {
+                        int j = bp.from.indexOf(pred);
+                        bp.from.remove(j);
+                        bp.operands().remove(j);
+                    }
+                }
+                changed = true;
+                break;   // the φ's operands changed: look at the block again next round
+            }
+        }
+        if (changed) {
+            Cfg.removeUnreachable(f);
+        }
+        return changed;
+    }
+
+    /** b holds only φs, the comparison (if any) and its branch, and its values are used only in b. */
+    private static boolean onlyDecides(MFunction f, Block b, Instr.Cmp cmp) {
+        for (Instr i : b.instrs()) {
+            if (!(i instanceof Instr.Phi) && i != cmp && !i.isTerminator()) {
+                return false;
+            }
+        }
+        for (Block o : f.blocks()) {
+            for (Instr i : o.instrs()) {
+                for (int k = 0; k < i.operands().size(); k++) {
+                    Value v = i.op(k);
+                    if (v instanceof Instr d && d.block() == b && o != b) {
+                        // a φ of the target may read b's φ along b's edge: that is handled
+                        if (!(i instanceof Instr.Phi tp && tp.from.get(k) == b && d instanceof Instr.Phi)) {
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+        return true;
     }
 
     /**

@@ -346,6 +346,12 @@ becomes unsigned (no sign bias); a 16-bit test for `< 0` or `>= 0` is the sign f
 (`bmi`/`bpl`). Play 1.74 frames per tick (worst 2.98), with the CPU partner 2.43 (worst 4.68);
 `level_solid_px` 1,230 clocks per call (816-tcc: 2,449; Calypsi: 931).
 
+Jump threading over constant φs (`Simplify`): a block that only branches on a φ (directly, or
+on a comparison of it with a constant) is skipped by every predecessor that gives the φ a
+constant, because that predecessor already knows the way. This is the shape `a || b` and an
+inlined function returning a truth value leave behind. Play 1.67 frames per tick (worst 2.87),
+with the CPU partner 2.36 (worst 4.62).
+
 ### Where the naive code spends its time (2026-11-17)
 
 `tools/profile_game.sh bench` profiles the benchmark's play ticks 900–1700 (as the game's own

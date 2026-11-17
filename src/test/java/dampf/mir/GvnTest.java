@@ -145,4 +145,61 @@ class GvnTest {
                 }
                 """));
     }
+
+    @Test
+    void aBranchOnATruthValueFromAPhiIsDecidedInThePredecessorThatKnowsIt() {
+        // if (a == 2 || a == 3) g = 1;  with the || as a φ of 1 and the second comparison
+        String out = optimize("""
+                global @_g : 2
+
+                func @_f(i16 %a) -> void {
+                b0_entry:
+                    %0 = cmp eq i16 %a, 2
+                    br %0, b2, b1
+                b1:
+                    %1 = cmp eq i16 %a, 3
+                    %2 = zext i1 %1 to i8
+                    jump b2
+                b2:
+                    %3 = phi i8 [b0_entry, 1], [b1, %2]
+                    %4 = cmp ne i8 %3, 0
+                    br %4, b3, b4
+                b3:
+                    store i16 @_g, 1
+                    jump b4
+                b4:
+                    ret
+                }
+                """);
+        // the entry branches straight to the store when a == 2; no φ is left
+        assertEquals(false, out.contains("phi"), out);
+        MModule m = MirParser.parse(Printer.print(MirParser.parse("""
+                global @_g : 2
+
+                func @_f(i16 %a) -> void {
+                b0_entry:
+                    %0 = cmp eq i16 %a, 2
+                    br %0, b2, b1
+                b1:
+                    %1 = cmp eq i16 %a, 3
+                    %2 = zext i1 %1 to i8
+                    jump b2
+                b2:
+                    %3 = phi i8 [b0_entry, 1], [b1, %2]
+                    %4 = cmp ne i8 %3, 0
+                    br %4, b3, b4
+                b3:
+                    store i16 @_g, 1
+                    jump b4
+                b4:
+                    ret
+                }
+                """)));
+        Optimizer.run(m, true, false);
+        for (long a = 0; a < 6; a++) {
+            Interpreter in = new Interpreter(m, 1000);
+            in.call("_f", java.util.List.of(a));
+            assertEquals(a == 2 || a == 3 ? 1L : 0L, in.load(in.addressOf("_g"), 2), "a = " + a);
+        }
+    }
 }
