@@ -466,21 +466,42 @@ The integer part of an 8.8 value (`PX(b->x)`, `b->x >> 8`) was a 16-bit load, `X
 load of the high byte, widened again: `LDA _g_bubbles+20,X` and the mask. Volatile loads stay as
 they are. Play 533,388 → 529,880 clocks per tick (1.48 frames).
 
+### Short branches where they reach, 2026-11-17
+
+A conditional branch whose target is not the next block either reaches it (a short branch) or
+skips a `JMP` to it. 1,505 of the 3,715 `JMP`s in the game's code were such long forms, run
+about 684,000 times in the 800 play ticks of the profile, 5 cycles each where a taken branch
+costs 3. Three causes, all fixed:
+
+- an equality test of a 16-bit value made a label for "the first word differs" that only 32-bit
+  values need, and with it the code generator never took the short form (525,171 clocks per
+  tick, from 529,803);
+- the distances came from one first pass that wrote every branch long; now the passes repeat
+  until no further branch reaches. Each pass is at most as long as the one before everywhere,
+  so a branch that reached keeps reaching;
+- a jump that reaches its block is `BRA`, the same 3 cycles as `JMP` and one byte shorter, so
+  more branches reach (524,771).
+
+The long forms left mostly jump over large loop bodies, such as the pair loop of `separate`,
+whose rarely run parts (bubbles that touch) lie between its test and its start. Placing such
+blocks at the end of the function needs to know which blocks are rare: profile-guided layout
+from the replays (M4).
+
 ### Summary of the code from MIR so far (2026-11-17, the latest measurement)
 
 Measured after the range analysis learned to narrow after widening: a loop of more than 24
 rounds (`for (i = 0; i < 768; i++)`) used to give its counter the type's whole range, which kept
 it from being narrowed and from indexed addressing as nonnegative. Narrowing again after the
 widened fixpoint gives it 0..768. Play 1.53 → 1.50, title 0.68 → 0.60. Then A's places and the
-byte loads (sections above): play 1.48.
+byte loads and the short branches (sections above): play 1.47.
 
 | State | naive | from MIR, no passes | now |
 | --- | --- | --- | --- |
 | title | 1.94 | 12.21 | 0.60 |
 | story | 0.70 | 3.56 | 0.25 |
 | round intro | 5.76 | 12.13 | 1.91 |
-| play | 5.17 (worst 8.58) | 18.93 | 1.48 (worst 2.55) |
-| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 2.18 (worst 4.36) |
+| play | 5.17 (worst 8.58) | 18.93 | 1.47 (worst 2.53) |
+| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 2.16 (worst 4.34) |
 | `level_solid_px`, per call | 3,849 | 6,648 | 1,208 clocks |
 
 Calypsi's 2.72 frames per tick during play (on an older version of the game) is passed; a fair
@@ -533,7 +554,7 @@ the catalogue come first. Compared with Calypsi, dampf promises nothing until it
 | D | Data layout | Split arrays of structs into one array per field (index in X/Y), or point D at the current object | High in the loops over bubbles and enemies | | | open |
 | E | 8.8 fixed point | `>>8`, `<<8` and comparisons of the integer part as byte accesses instead of shifts | Medium to high; the game uses 8.8 everywhere | B | play 1.49 → 1.48 frames per tick | in progress: a load shifted right by 8 or more is a byte load (`ByteLoads`); `<<8` open |
 | F | Loops | Counter in X/Y, count down to zero, hoist invariant code, unroll small loops (by hint) | Medium | H | | open |
-| G | Branches | Branch on flags instead of materialising 0/1, common path falls through, correct branch distances | Medium | | | open |
+| G | Branches | Branch on flags instead of materialising 0/1, common path falls through, correct branch distances | Medium | | play 1.48 → 1.47 frames per tick | in progress: compare and branch in one, short branches wherever they reach, `BRA` for near jumps; the layout of rare blocks open |
 | H | Standard optimizations | Constant folding and propagation, dead code removal, common subexpressions | Medium; mostly a prerequisite for A–G | IR in SSA form | play 6.12 → 5.17 frames per tick (code from MIR) | built: folding, identities, branch folding, block merging, value numbering, redundant loads, dead code; loop-invariant code open |
 | I | Multiply and divide | Constants as shifts and adds, hardware multiplier with useful work during its latency, division by powers of two with correct signed rounding | Medium, depends on the code; **measured: 37 % of the naive code's time is the runtime multiplication, mostly struct array indexing by a constant size** | range analysis for signed division | play 8.16 → 6.12 frames per tick (code from MIR) | constants built (shifts and adds, powers of two); hardware multiplier open |
 | J | Banks and placement | Keep the data bank register right, 16-bit instead of 24-bit addresses, hot code in FastROM | Small to medium | pointer width analysis | | open |

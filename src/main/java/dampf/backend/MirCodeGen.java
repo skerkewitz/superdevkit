@@ -119,21 +119,32 @@ public final class MirCodeGen {
         }
         layout();
         for (MFunction f : module.functions()) {
-            // twice: the first pass finds out which branches reach their block directly
+            // several passes: each finds out which branches reach their block directly. Every
+            // pass is at most as long as the one before everywhere (branches only get shorter),
+            // so a distance that fitted still fits, and the passes stop when nothing new does.
             near = null;
-            jumpSites = 0;
-            sitePos.clear();
-            siteTargets.clear();
-            AsmWriter dry = new AsmWriter();
-            function(f, dry);
-            near = new ArrayList<>();
-            for (int k = 0; k < sitePos.size(); k++) {
-                near.add(new boolean[] {reaches(dry, sitePos.get(k), siteTargets.get(k)[0]),
-                        reaches(dry, sitePos.get(k), siteTargets.get(k)[1])});
+            AsmWriter code = null;
+            for (int pass = 0; pass < BRANCH_PASSES; pass++) {
+                jumpSites = 0;
+                sitePos.clear();
+                siteTargets.clear();
+                code = new AsmWriter();
+                function(f, code);
+                boolean more = near == null;
+                Map<Integer, boolean[]> next = new HashMap<>(near == null ? Map.of() : near);
+                for (Map.Entry<Integer, Integer> e : sitePos.entrySet()) {
+                    int k = e.getKey();
+                    boolean[] was = next.getOrDefault(k, new boolean[2]);
+                    Block[] to = siteTargets.get(k);
+                    boolean[] now = {was[0] || reaches(code, e.getValue(), to[0]), was[1] || reaches(code, e.getValue(), to[1])};
+                    more |= now[0] != was[0] || now[1] != was[1];
+                    next.put(k, now);
+                }
+                if (!more) {
+                    break;
+                }
+                near = next;
             }
-            jumpSites = 0;
-            AsmWriter code = new AsmWriter();
-            function(f, code);
             written.put(f, new Written(code.items(), code.loopBounds(), lastOrder, layout.ranges));
             if (code.unknownInstructions() > 0) {
                 throw new IllegalStateException("the cycle table does not know an instruction in " + f.name());
@@ -172,10 +183,37 @@ public final class MirCodeGen {
      * and its targets; in the second pass, which targets a short branch reaches. The second pass
      * only gets shorter, so a distance that fitted in the first still fits.
      */
-    private final List<Integer> sitePos = new ArrayList<>();
-    private final List<Block[]> siteTargets = new ArrayList<>();
-    private List<boolean[]> near;
+    private static final int BRANCH_PASSES = 6;
+    private final Map<Integer, Integer> sitePos = new HashMap<>();
+    private final Map<Integer, Block[]> siteTargets = new HashMap<>();
+    /** Per site: whether a short branch reaches each target (in some pass so far). */
+    private Map<Integer, boolean[]> near;
+    /**
+     * Sites are numbered the same way in every pass: one per jump of a block, and a fixed group per
+     * conditional (its branch and each JMP any of its forms may need), measured only in passes
+     * where it was written.
+     */
     private int jumpSites;
+    private static final int SITES_PER_CONDITIONAL = 5;
+
+    private boolean nearAt(int site, int target) {
+        boolean[] n = near == null ? null : near.get(site);
+        return n != null && n[target];
+    }
+
+    /**
+     * An unconditional jump to a block: BRA where it reaches (the same 3 cycles as JMP, one byte
+     * shorter, so other branches reach more often), else JMP. A site of the branch passes.
+     */
+    private void jumpTo(Block target) {
+        jumpTo(jumpSites++, target);
+    }
+
+    private void jumpTo(int site, Block target) {
+        sitePos.put(site, out.position());
+        siteTargets.put(site, new Block[] {target, target});
+        ins(nearAt(site, 0) ? "bra" : "jmp", target.name());
+    }
 
     private static boolean reaches(AsmWriter w, int branchAt, Block target) {
         Integer to = w.labelAt(target.name());
@@ -1014,7 +1052,7 @@ public final class MirCodeGen {
             case Instr.Phi p -> throw new IllegalStateException("φ after the start of a block");
             case Instr.Jump j -> {
                 if (j.target != next) {
-                    ins("jmp", j.target.name());
+                    jumpTo(j.target);
                 }
             }
             case Instr.Branch br -> {
@@ -1502,7 +1540,8 @@ public final class MirCodeGen {
             return;
         }
         if (c.pred == Instr.Pred.EQ || c.pred == Instr.Pred.NE) {
-            String differ = label();
+            // the label for "the first word already differs" only exists for 32-bit values
+            String differ = words(c.op(0).type()) > 1 ? label() : null;
             eqFlags(c, differ);
             jumpOn(c.pred == Instr.Pred.EQ ? "beq" : "bne", differ, c.pred == Instr.Pred.NE, ifTrue, ifFalse, next);
         } else {
@@ -1516,13 +1555,13 @@ public final class MirCodeGen {
      * label earlier code branches to; it means true if {@code differMeansTrue}, else false.
      */
     private void jumpOn(String taken, String differ, boolean differMeansTrue, Block ifTrue, Block ifFalse, Block next) {
-        int site = jumpSites++;
-        if (near == null) {
-            sitePos.add(out.position());   // the first pass: where the branch is
-            siteTargets.add(new Block[] {ifTrue, ifFalse});
-        } else if (differ == null) {
-            boolean t = near.get(site)[0];
-            boolean f = near.get(site)[1];
+        int site = jumpSites;
+        jumpSites += SITES_PER_CONDITIONAL;
+        sitePos.put(site, out.position());   // where the branch is in this pass
+        siteTargets.put(site, new Block[] {ifTrue, ifFalse});
+        if (differ == null) {
+            boolean t = nearAt(site, 0);
+            boolean f = nearAt(site, 1);
             // a short branch straight to the block where it reaches
             if (ifFalse == next && t) {
                 ins(taken, ifTrue.name());
@@ -1534,7 +1573,7 @@ public final class MirCodeGen {
             }
             if (ifTrue != next && ifFalse != next && t) {
                 ins(taken, ifTrue.name());
-                ins("jmp", ifFalse.name());
+                jumpTo(site + 1, ifFalse);
                 return;
             }
         }
@@ -1544,7 +1583,7 @@ public final class MirCodeGen {
             if (differ != null && differMeansTrue) {
                 place(differ);
             }
-            ins("jmp", ifTrue.name());
+            jumpTo(site + 2, ifTrue);
             place(skip);
             if (differ != null && !differMeansTrue) {
                 place(differ);
@@ -1555,13 +1594,13 @@ public final class MirCodeGen {
         if (differ != null && !differMeansTrue) {
             place(differ);
         }
-        ins("jmp", ifFalse.name());
+        jumpTo(site + 3, ifFalse);
         place(skip);
         if (differ != null && differMeansTrue) {
             place(differ);
         }
         if (ifTrue != next) {
-            ins("jmp", ifTrue.name());
+            jumpTo(site + 4, ifTrue);
         }
     }
 
