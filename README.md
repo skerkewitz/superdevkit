@@ -8,19 +8,18 @@ separate project in parallel with the game.
 The name: in German, *Dampf machen* ("make steam") means to get things moving fast. It also fits
 the steam factory of Blubber Blasen.
 
-Status: milestone M1 (end to end) is done, including stepping through the C source in Mesen
-(checked 2026-11-17). Milestone M2 (naive but complete) is in progress. The naive code generator
-handles the C the game uses: all integer types and operators with gcc's exact semantics, control
-flow, enums, arrays, structs, pointers, strings, initializers and constant data in ROM. The
-execution tests run programs in Mesen and compare every result with gcc on the PC; random
-programs check the arithmetic. All 16 files of the game pass the front end (`dampf check`). ROMs can have up to 4 MB: code and data are packed into
-32 KB LoROM banks. The game's own benchmark (all of `src/game`) runs on dampf and gives the same
-checksums as the PC on every one of its 3,610 ticks; the naive code is about as fast as 816-tcc
-(`tools/bench_game.sh`, numbers in [docs/optimizations.md](docs/optimizations.md)). The game's
-recorded replays also match the PC on the SNES (`./gradlew test -Preplays`), and
-`tools/profile_game.sh` shows the cycles per function. Not done yet: the SNES platform layer, and the parts of the design that come
-with the optimizer (IR levels, cycle counting, hints). The plan is in
-[docs/roadmap.md](docs/roadmap.md).
+Status (2026-11-17): milestones M0 to M2 are done, M3 (the optimizer) is in progress. dampf
+compiles all of Blubber Blasen: the front end turns C into a typed AST, which is lowered to MIR
+(an SSA intermediate representation), optimized (width narrowing with value ranges, constant
+multiplication and division, folding, common subexpressions, redundant loads, inlining) and
+translated to 65816 code with its frames in the direct page. The naive code generator, straight
+from the AST, stays as an independent reference (`--backend naive`). Every program in the tests
+is built with both and compared with gcc on the PC: the execution tests (also in Mesen), random
+programs, the game's replays, and the game's own benchmark, where every one of its 3,610 ticks
+gives the PC's checksums. During play the game takes 1.76 frames per tick with dampf (the naive
+code: 5.17; Calypsi took 2.72 on an older version of the game), numbers in
+[docs/optimizations.md](docs/optimizations.md). Not done yet: the SNES platform layer for a
+playable ROM, and the timing analysis and hints. The plan is in [docs/roadmap.md](docs/roadmap.md).
 
 ## Why
 
@@ -109,7 +108,7 @@ Gradle comes with the wrapper; nothing to install.
 ./gradlew test -PcpuTests                                    # the emulator against the 65816 test suite (downloads ~50 MB once)
 tools/bench_game.sh                                          # the game's benchmark: checksums and cycles (about a minute)
 tools/profile_game.sh bench                                  # cycles per function in the game's play ticks (seconds)
-BACKEND=mir tools/bench_game.sh                              # the same with the code generator from MIR
+BACKEND=naive tools/bench_game.sh                            # the same with the naive code generator (the reference)
 tools/game_mir.sh -O                                         # the game's MIR after the passes
 ./gradlew installDist                                        # build/install/dampf/bin/dampf
 ```
@@ -154,7 +153,7 @@ src/main/java/dampf/parser/    support classes for the grammar (symbol table for
 src/main/java/dampf/frontend/  preprocessor call, source positions, parsing, AST builder
 src/main/java/dampf/ast/       typed AST of the whole program
 src/main/java/dampf/check/     subset checks (call graph, no recursion)
-src/main/java/dampf/backend/   naive code generator (ca65 assembly)
+src/main/java/dampf/backend/   code generators (from MIR, and the naive one from the AST; ca65 assembly)
 src/main/java/dampf/snes/      ROM build with ca65/ld65
 src/main/resources/dampf/include/  dampf's own <stdint.h>
 src/main/resources/dampf/snes/     SNES runtime (start-up, header, vectors) and ld65 memory map

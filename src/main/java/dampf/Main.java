@@ -16,7 +16,7 @@ import java.util.List;
  *
  * <pre>
  * dampf parse [-I dir] [-D name[=value]] file.c ...                   preprocess and parse
- * dampf build [-I dir] [-D name[=value]] [--entry name] [--backend naive|mir] [--replace fn=file.s] -o out.sfc file.c ...   compile to a ROM
+ * dampf build [-I dir] [-D name[=value]] [--entry name] [--backend mir|naive] [--replace fn=file.s] -o out.sfc file.c ...   compile to a ROM
  * dampf check [-I dir] [-D name[=value]] file.c ...                   front end only: first problem per file
  * dampf profile rom.sfc profile.txt [top]                              cycles per function (tools/profile.lua)
  * </pre>
@@ -47,7 +47,7 @@ public final class Main {
         String entry = "main";
         Path output = null;
         java.util.Map<String, Path> replacements = new java.util.LinkedHashMap<>();
-        Compiler.Backend backend = Compiler.Backend.NAIVE;
+        Compiler.Backend backend = null;
         for (int i = 1; i < args.length; i++) {
             String a = args[i];
             if (a.equals("--backend") && i + 1 < args.length) {
@@ -90,7 +90,8 @@ public final class Main {
                 System.exit(2);
             }
             try {
-                Compiler.Result r = Compiler.compile(new Compiler.Options(files, includes, defines, entry, output, replacements, backend));
+                Compiler.Result r = Compiler.compile(new Compiler.Options(files, includes, defines, entry, output, replacements,
+                        backend != null ? backend : replacements.isEmpty() ? Compiler.Backend.MIR : Compiler.Backend.NAIVE));
                 System.err.println("wrote " + r.rom().rom() + " and " + r.rom().dbg());
                 return;
             } catch (CompileError e) {
@@ -129,7 +130,7 @@ public final class Main {
 
     private static void usage() {
         System.err.println("usage: dampf parse [-I dir] [-D name[=value]] file.c ...");
-        System.err.println("       dampf build [-I dir] [-D name[=value]] [--entry name] [--backend naive|mir] [--replace fn=file.s] -o out.sfc file.c ...");
+        System.err.println("       dampf build [-I dir] [-D name[=value]] [--entry name] [--backend mir|naive] [--replace fn=file.s] -o out.sfc file.c ...");
         System.err.println("       dampf check [-I dir] [-D name[=value]] file.c ...");
         System.err.println("       dampf profile rom.sfc profile.txt [top]");
     }
