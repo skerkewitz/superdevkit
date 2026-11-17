@@ -71,6 +71,7 @@ Non-goals:
 - [docs/architecture.md](docs/architecture.md): the pipeline, the three IR levels, core and target, the assembly output.
 - [docs/subset.md](docs/subset.md): the C subset, derived from what the game uses, and the decisions about it.
 - [docs/hints.md](docs/hints.md): hints that tell dampf what a human assembly programmer would know.
+- [docs/subrange-types.md](docs/subrange-types.md): subrange types (`DAMPF_RANGED`) and the value ranges dampf infers (design, not built yet).
 - [docs/optimizations.md](docs/optimizations.md): the baseline measurements, the optimization catalogue, the gap to hand-written assembly, and what knowing the machine allows.
 - [docs/timing.md](docs/timing.md): exact timing, worst-case bounds and cycle budgets.
 - [docs/memory-map.md](docs/memory-map.md): where code, data, variables and pointers live.

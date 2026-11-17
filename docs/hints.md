@@ -51,7 +51,9 @@ A wrong hint produces wrong code, silently. If `i` ever reaches 16 despite
 `DAMPF_RANGE(i, 0, 15)`, the SNES build misbehaves without any error. Therefore every hint that
 states a fact is checked in the PC and test builds:
 
-- `DAMPF_RANGE(i, 0, 15)` asserts `0 <= i && i <= 15` on the PC.
+- `DAMPF_RANGE(i, 0, 15)` asserts `0 <= i && i <= 15` on the PC. Ranges that belong to a type
+  rather than to one point in the code are subrange types (`DAMPF_RANGED`, with the checked
+  conversion `DAMPF_AS`), see [subrange-types.md](subrange-types.md).
 - `DAMPF_TRIPS(16)` counts loop iterations on the PC and asserts the count stays within 16.
 - `restrict` can be checked on the PC by an address-overlap assertion where practical.
 - `DAMPF_PIN_X`, `DAMPF_SPLIT`, `DAMPF_DP` and `DAMPF_TABLE` do not state facts, they request a
