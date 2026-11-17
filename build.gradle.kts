@@ -3,6 +3,8 @@ import java.time.Duration
 plugins {
     application
     antlr
+    jacoco
+    pmd
 }
 
 group = "dampf"
@@ -12,6 +14,8 @@ repositories {
     mavenCentral()
 }
 
+
+val coverage = providers.gradleProperty("coverage").isPresent
 
 dependencies {
     antlr("org.antlr:antlr4:4.13.2")
@@ -56,6 +60,66 @@ tasks.test {
     providers.gradleProperty("replays").orNull?.let { systemProperty("dampf.replays", "true") }
     // The 65816 emulator against the SingleStepTests suite (downloads ~50 MB once): -PcpuTests
     providers.gradleProperty("cpuTests").orNull?.let { systemProperty("dampf.cpuTests", it.ifEmpty { "300" }) }
+    // Code coverage (JaCoCo): -Pcoverage, report in build/reports/jacoco/test/html/index.html.
+    // Off by default: the agent slows down the tests that run the emulator.
+    extensions.configure<JacocoTaskExtension> { isEnabled = coverage }
+    if (coverage) finalizedBy(tasks.jacocoTestReport)
+}
+
+jacoco {
+    toolVersion = "0.8.16"
+}
+
+tasks.jacocoTestReport {
+    onlyIf { coverage }
+    reports {
+        xml.required = true // for tools (IDE, CI)
+        html.required = true
+    }
+    // The ANTLR-generated parser is not dampf's code.
+    classDirectories.setFrom(classDirectories.files.map { fileTree(it) {
+        exclude("dampf/parser/CLexer.class", "dampf/parser/CParser.class", "dampf/parser/CParser$*",
+            "dampf/parser/CParserVisitor*", "dampf/parser/CParserBaseVisitor*")
+    } })
+}
+
+// Static analysis (PMD): ./gradlew pmdMain, report in build/reports/pmd/main.html.
+// Not part of `build`: the findings are for reading, not a gate.
+pmd {
+    toolVersion = "7.29.0"
+    ruleSets = listOf()
+    ruleSetFiles = files("config/pmd/ruleset.xml")
+    isIgnoreFailures = true
+    isConsoleOutput = false
+    sourceSets = emptyList() // keeps pmdMain and pmdTest out of `check`
+}
+
+tasks.withType<Pmd>().configureEach {
+    // The ANTLR-generated parser is not dampf's code; CParserBase is vendored from grammars-v4.
+    exclude("dampf/parser/CLexer.java", "dampf/parser/CParser.java", "dampf/parser/CParser*Visitor.java",
+        "dampf/parser/CParserBase.java")
+    reports { html.required = true; xml.required = true }
+}
+
+// Copied code (PMD's CPD): ./gradlew cpd, report in build/reports/cpd/main.txt.
+// -PcpdTokens=<N> sets the smallest duplicate reported (default 100 tokens).
+val cpdTool = configurations.create("cpdTool")
+dependencies { cpdTool("net.sourceforge.pmd:pmd-cli:7.29.0"); cpdTool("net.sourceforge.pmd:pmd-java:7.29.0") }
+
+tasks.register<JavaExec>("cpd") {
+    group = "verification"
+    description = "Finds copied code in src/main/java with PMD's CPD"
+    classpath = cpdTool
+    mainClass = "net.sourceforge.pmd.cli.PmdCli"
+    val report = layout.buildDirectory.file("reports/cpd/main.txt")
+    outputs.file(report)
+    val tokens = providers.gradleProperty("cpdTokens").getOrElse("100")
+    inputs.dir("src/main/java")
+    inputs.property("tokens", tokens)
+    args("cpd", "--language", "java", "--dir", "src/main/java", "--minimum-tokens", tokens,
+        "--format", "text", "--report-file", report.get().asFile.path, "--no-fail-on-violation")
+    doFirst { report.get().asFile.parentFile.mkdirs() }
+    doLast { println("CPD report: " + report.get().asFile) }
 }
 
 application {

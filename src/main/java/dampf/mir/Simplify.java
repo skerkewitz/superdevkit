@@ -224,10 +224,10 @@ public final class Simplify {
                     b.instrs().add(i);
                 }
                 for (Block succ : s.terminator().successors()) {
-                    java.util.Collections.replaceAll(succ.preds(), s, b);
+                    Collections.replaceAll(succ.preds(), s, b);
                     for (Instr i : succ.instrs()) {
                         if (i instanceof Instr.Phi p) {
-                            java.util.Collections.replaceAll(p.from, s, b);
+                            Collections.replaceAll(p.from, s, b);
                         }
                     }
                 }

@@ -3,6 +3,7 @@ package dampf.mir;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
+import java.util.Locale;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -19,7 +20,7 @@ class StrengthReduceTest {
     }
 
     private static void check(String type, long[] inputs, long[] constants) {
-        MType t = MType.valueOf(type.toUpperCase());
+        MType t = MType.valueOf(type.toUpperCase(Locale.ROOT));
         for (String op : OPS) {
             for (long c : constants) {
                 if (t.wrap(c) == 0 && !op.equals("mul")) {

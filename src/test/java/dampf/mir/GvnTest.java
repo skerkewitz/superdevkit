@@ -1,6 +1,7 @@
 package dampf.mir;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import org.junit.jupiter.api.Test;
 
@@ -172,7 +173,7 @@ class GvnTest {
                 }
                 """);
         // the entry branches straight to the store when a == 2; no φ is left
-        assertEquals(false, out.contains("phi"), out);
+        assertFalse(out.contains("phi"), out);
         MModule m = MirParser.parse(Printer.print(MirParser.parse("""
                 global @_g : 2
 

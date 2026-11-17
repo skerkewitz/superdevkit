@@ -30,19 +30,14 @@ import java.util.Map;
  * Narrowing by value ranges (where the types alone do not show that a value fits) is a later step.
  */
 public final class Narrow {
-    private final MFunction f;
     private final Map<Instr, Value> replaced = new HashMap<>();
     /** Set when an instruction was changed in place. */
     private boolean changed;
     private Map<Instr, Integer> uses;
 
-    private Narrow(MFunction f) {
-        this.f = f;
-    }
-
     /** Returns whether anything changed. */
     public static boolean run(MFunction f) {
-        Narrow n = new Narrow(f);
+        Narrow n = new Narrow();
         n.uses = DeadCode.useCounts(f);
         for (Block b : f.blocks()) {
             for (Instr i : List.copyOf(b.instrs())) {

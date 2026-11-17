@@ -32,7 +32,6 @@ import java.util.Set;
  * signedness of each C type picks the operation (sdiv/udiv, ashr/lshr, slt/ult, sext/zext).
  */
 public final class Lower {
-    private final Program program;
     private final MModule module = new MModule();
 
     // per function
@@ -48,12 +47,8 @@ public final class Lower {
 
     private final Deque<Targets> targets = new ArrayDeque<>();
 
-    private Lower(Program program) {
-        this.program = program;
-    }
-
     public static MModule lower(Program program) {
-        Lower l = new Lower(program);
+        Lower l = new Lower();
         for (Variable v : program.globals()) {
             List<MModule.Datum> init = new ArrayList<>();
             dampf.ast.Init astInit = program.initialValues().get(v);

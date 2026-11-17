@@ -86,7 +86,6 @@ public final class MirCodeGen {
     private Ranges ranges;
     private final Set<Instr> folded = new HashSet<>();
     private int labels;
-    private SourcePos lastPos;
 
     /**
      * @param entry     the label of the function the runtime calls
@@ -292,7 +291,6 @@ public final class MirCodeGen {
     private boolean lastTransfer;
     /** N and Z describe the value in A (set by the instruction that computed or loaded it). */
     private boolean nzFromA;
-    private boolean lastFallsThrough;
     /** The states assumed at the labels inside blocks placed so far (this pass). */
     private final Map<String, RegState> assumedAt = new HashMap<>();
     /** A branch back to such a label brought less than was assumed there. */
@@ -384,10 +382,6 @@ public final class MirCodeGen {
 
     // ---------------------------------------------------------------- frames
 
-    private static int bytes(MType t) {
-        return t.size <= 2 ? 2 : 4;
-    }
-
     private static int words(MType t) {
         return t.size <= 2 ? 1 : 2;
     }
@@ -408,7 +402,7 @@ public final class MirCodeGen {
 
     /** Best and worst case in CPU cycles per function (by label), after generate(); see {@link Timing}. */
     public Map<String, long[]> timing() {
-        Map<String, long[]> out = new java.util.TreeMap<>();
+        Map<String, long[]> out = new TreeMap<>();
         for (MFunction f : module.functions()) {
             Timing.Bound b = bound(f.name(), new HashSet<>());
             out.put(f.name(), new long[] {b.best(), b.bounded() ? b.worst() : -1});
@@ -422,7 +416,7 @@ public final class MirCodeGen {
      * bound ("loop at file:line"), else the first call of a function without one ("calls f").
      */
     public Map<String, String> unboundedWhy() {
-        Map<String, String> out = new java.util.TreeMap<>();
+        Map<String, String> out = new TreeMap<>();
         for (MFunction f : module.functions()) {
             if (bound(f.name(), new HashSet<>()).bounded()) {
                 continue;
@@ -472,14 +466,13 @@ public final class MirCodeGen {
     private final Map<MFunction, FrameLayout> layouts = new HashMap<>();
 
     /** Every function's value ranges, computed with the checks of the hints (see {@link dampf.mir.Hints}). */
-    private Map<MFunction, Ranges> hintRanges;
 
     private void layout() {
         for (MFunction f : module.functions()) {
             dampf.mir.ExitEdges.split(f);
             dampf.mir.Returns.duplicate(f);
         }
-        hintRanges = dampf.mir.Hints.strip(module);
+        Map<MFunction, Ranges> hintRanges = dampf.mir.Hints.strip(module);
         for (MFunction f : module.functions()) {
             for (Block b : f.blocks()) {
                 for (Instr i : b.instrs()) {
@@ -667,7 +660,7 @@ public final class MirCodeGen {
 
     private void function(MFunction f, AsmWriter code) {
         out = code;
-        lastPos = null;
+        SourcePos lastPos = null;
         arriving.clear();
         readValues.clear();
         storedValues.clear();
@@ -1944,10 +1937,6 @@ public final class MirCodeGen {
         return layout.address(v);
     }
 
-    private static boolean foldable(Instr.PtrAdd p) {
-        return FrameLayout.foldable(p);
-    }
-
     /**
      * The operand of {@code mnemonic} for a memory access at byte k of the object, or null if it
      * goes through a pointer. An indexed one loads X with the index first, or Y: where the index
@@ -2191,7 +2180,7 @@ public final class MirCodeGen {
      * calls and stores through pointers, and when an instruction changes A; a place is dropped
      * when something else writes it or a neighbouring byte.
      */
-    private final java.util.Set<String> aHolds = new java.util.HashSet<>();
+    private final Set<String> aHolds = new HashSet<>();
     /** The pointers in dampf_ptr and dampf_ptr+4 (forgotten like aHolds), and what Y holds. */
     private Value ptrP;
     private Value ptrQ;
@@ -2430,7 +2419,7 @@ public final class MirCodeGen {
     private int usesFitX(Instr.Phi v, Instr step, dampf.mir.Loops.Loop loop, Map<Value, List<Instr>> users) {
         int indexes = 0;
         List<Instr> work = new ArrayList<>(users.getOrDefault(v, List.of()));
-        for (int n = 0; n < work.size(); n++) {
+        for (int n = 0; n < work.size(); n++) { // NOPMD ForLoopCanBeForeach: work grows in the loop
             Instr u = work.get(n);
             if (!loop.blocks().contains(u.block())) {
                 return -1;
@@ -2630,7 +2619,7 @@ public final class MirCodeGen {
     private void place(String label) {
         flushHeld();
         boolean block = blockLabels.contains(label);
-        lastFallsThrough = !lastTransfer;
+        boolean lastFallsThrough = !lastTransfer;
         if (block && !lastTransfer) {
             arrive(label);   // the code before falls through
         }

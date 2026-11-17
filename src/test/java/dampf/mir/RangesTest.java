@@ -2,6 +2,7 @@ package dampf.mir;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -61,7 +62,7 @@ class RangesTest {
     @Test
     void parametersGetTheRangeOfTheirArguments() {
         MModule m = MirParser.parse(CALLS);
-        assertEquals(true, ParamRanges.run(m));
+        assertTrue(ParamRanges.run(m));
         assertEquals(new Ranges.Range(3, 40), m.function("_get").params().get(0).known);
         assertNull(m.function("_get").params().get(1).known);   // %n is anything: no range
         assertNull(m.function("_main").params().getFirst().known);   // no caller

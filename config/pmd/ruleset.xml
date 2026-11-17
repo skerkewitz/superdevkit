@@ -1,0 +1,42 @@
+<?xml version="1.0"?>
+<ruleset name="dampf"
+         xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
+    <description>
+        PMD's quickstart rules, without those that only flag dampf's deliberate style.
+        Run with ./gradlew pmdMain pmdTest.
+    </description>
+    <rule ref="rulesets/java/quickstart.xml">
+        <!-- IR nodes, blocks and values are compared by identity on purpose. -->
+        <exclude name="CompareObjectsWithEquals"/>
+        <!-- Flags the variable of a type pattern (case Expr.Const k ->) that a case does not use. -->
+        <exclude name="UnusedLocalVariable"/>
+        <!-- Style. -->
+        <exclude name="LiteralsFirstInComparisons"/>
+        <exclude name="ControlStatementBraces"/>
+        <exclude name="AssignmentInOperand"/>
+        <exclude name="MethodNamingConventions"/>
+        <exclude name="LocalVariableNamingConventions"/>
+        <exclude name="LooseCoupling"/>
+        <exclude name="UselessParentheses"/>
+        <exclude name="AvoidBranchingStatementAsLastInLoop"/>
+        <!-- dampf has no logging framework. -->
+        <exclude name="GuardLogStatement"/>
+        <!-- A NumberFormatException becomes a compile error for the user; its stack trace does not help them. -->
+        <exclude name="PreserveStackTrace"/>
+        <!-- Flags Process objects, whose output dampf sends to files. -->
+        <exclude name="CloseResource"/>
+        <!-- Flags "or null" results that are documented and checked, such as a byte[]. -->
+        <exclude name="ReturnEmptyCollectionRatherThanNull"/>
+        <!-- Empty callbacks such as idle() are written as {}. -->
+        <exclude name="UncommentedEmptyMethodBody"/>
+        <!-- Replaced below: a catch block with a comment saying why is fine. -->
+        <exclude name="EmptyCatchBlock"/>
+    </rule>
+    <rule ref="category/java/errorprone.xml/EmptyCatchBlock">
+        <properties>
+            <property name="allowCommentedBlocks" value="true"/>
+        </properties>
+    </rule>
+</ruleset>

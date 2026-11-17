@@ -1,7 +1,6 @@
 package dampf.exec;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
@@ -49,6 +48,6 @@ final class PcReference {
     }
 
     private static String exec(Path dir, String... cmd) throws IOException, InterruptedException {
-        return dampf.util.Processes.check(dir, java.time.Duration.ofMinutes(1), java.util.List.of(cmd));
+        return dampf.util.Processes.check(dir, java.time.Duration.ofMinutes(1), List.of(cmd));
     }
 }

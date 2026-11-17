@@ -55,7 +55,7 @@ public final class Ranges {
 
     /** Ranges of a first pass, for conditions between two values (null in the first pass). */
     private Map<Value, Range> prior;
-    private boolean variableConditions;
+    private boolean variableConditions; // NOPMD SingularField: set by conditions(), read by the constructor
 
     public Ranges(MFunction f) {
         Map<Block, Block> idom = Cfg.idoms(f);

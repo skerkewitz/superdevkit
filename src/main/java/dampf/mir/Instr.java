@@ -3,6 +3,7 @@ package dampf.mir;
 import dampf.frontend.SourcePos;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * An MIR instruction. Instructions that produce a value are that value (as in LLVM), so other
@@ -70,7 +71,7 @@ public abstract sealed class Instr implements Value
 
         @Override
         public String toString() {
-            return name().toLowerCase();
+            return name().toLowerCase(Locale.ROOT);
         }
     }
 
@@ -89,7 +90,7 @@ public abstract sealed class Instr implements Value
 
         @Override
         public String toString() {
-            return name().toLowerCase();
+            return name().toLowerCase(Locale.ROOT);
         }
     }
 
@@ -108,7 +109,7 @@ public abstract sealed class Instr implements Value
 
         @Override
         public String toString() {
-            return name().toLowerCase();
+            return name().toLowerCase(Locale.ROOT);
         }
     }
 

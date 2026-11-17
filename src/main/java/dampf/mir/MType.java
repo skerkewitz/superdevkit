@@ -1,5 +1,7 @@
 package dampf.mir;
 
+import java.util.Locale;
+
 /**
  * Types of MIR values. Integers carry no signedness: the operations do (sdiv/udiv, ashr/lshr,
  * slt/ult, sext/zext). {@code I1} is a truth value (comparisons, branch conditions); {@code PTR}
@@ -40,6 +42,6 @@ public enum MType {
 
     @Override
     public String toString() {
-        return name().toLowerCase();
+        return name().toLowerCase(Locale.ROOT);
     }
 }

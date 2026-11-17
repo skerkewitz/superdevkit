@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Command line entry point.
@@ -65,7 +66,7 @@ public final class Main {
             } else if (a.equals("--backend") && i + 1 < args.length) {
                 String name = args[++i];
                 try {
-                    backend = Compiler.Backend.valueOf(name.toUpperCase());
+                    backend = Compiler.Backend.valueOf(name.toUpperCase(Locale.ROOT));
                 } catch (IllegalArgumentException e) {
                     System.err.println("unknown backend '" + name + "' (mir or naive)");
                     usage();
@@ -140,7 +141,7 @@ public final class Main {
             // then what only the whole program shows: recursion, functions called but defined in
             // none of the files, definitions in two files
             boolean whole = true;
-            if (passed.size() > 0) {
+            if (!passed.isEmpty()) {
                 try {
                     AstBuilder b = new AstBuilder(SystemHeaders.directory());
                     for (Parser.Result parsed : passed) {

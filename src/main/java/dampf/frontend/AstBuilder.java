@@ -17,6 +17,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import org.antlr.v4.runtime.ParserRuleContext;
@@ -147,7 +148,7 @@ public final class AstBuilder {
 
     /** Whether specs() may meet DAMPF_BUDGET (only for a function definition), and what it found. */
     private boolean budgetAllowed;
-    private Long budget;
+    private Long budget; // NOPMD SingularField: set by a pragma, read by the next function
 
     /** Declaration specifiers: storage class, base type, and whether {@code const} or {@code volatile} was given. */
     private record Specs(Storage storage, Type type, boolean isConst, boolean isVolatile) {
@@ -411,10 +412,6 @@ public final class AstBuilder {
     }
 
     /** Applies a declarator to a base type. C reads declarators inside out: {@code T *a[3]} is an array of pointers. */
-    private Declared declare(Type base, boolean baseConst, CParser.DeclaratorContext d) throws CompileError {
-        return declare(base, baseConst, false, d);
-    }
-
     private Declared declare(Specs s, CParser.DeclaratorContext d) throws CompileError {
         return declare(s.type(), s.isConst(), s.isVolatile(), d);
     }
@@ -499,13 +496,13 @@ public final class AstBuilder {
             t = new Type.Array(t, dims.get(i));
         }
         if (!dims.isEmpty()) {
-            objectConst = constElements(t, base, baseConst, objectConst);
+            objectConst = constElements(t, baseConst, objectConst);
         }
         return new Declared(name, t, objectConst, pos(dd), params);
     }
 
     /** An array is const (goes to ROM) when its innermost elements are. */
-    private static boolean constElements(Type arrayType, Type base, boolean baseConst, boolean pointerConst) {
+    private static boolean constElements(Type arrayType, boolean baseConst, boolean pointerConst) {
         Type e = arrayType;
         while (e instanceof Type.Array a) {
             e = a.element();
@@ -1916,7 +1913,7 @@ public final class AstBuilder {
 
     /** Integer constant with its C type, as on x86-64 (C99 6.4.4.1). */
     private Expr integerConstant(Token tok) throws CompileError {
-        String text = tok.getText().toLowerCase();
+        String text = tok.getText().toLowerCase(Locale.ROOT);
         boolean unsigned = false;
         while (text.endsWith("u") || text.endsWith("l")) {
             if (text.endsWith("l")) {

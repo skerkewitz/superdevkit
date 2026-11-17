@@ -4,6 +4,7 @@ import dampf.frontend.SourcePos;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -18,7 +19,6 @@ public final class MirParser {
     private final MModule module = new MModule();
 
     // per function
-    private MFunction fn;
     private final Map<String, Value.Param> params = new HashMap<>();
     private final Map<String, Value.Slot> slots = new HashMap<>();
     private final Map<String, Block> blocks = new HashMap<>();
@@ -148,7 +148,7 @@ public final class MirParser {
         t.expect("->");
         MType result = type(t.next());
         t.expect("{");
-        fn = new MFunction(name, result, null);
+        MFunction fn = new MFunction(name, result, null);
         fn.params().addAll(ps);
         module.functions().add(fn);
 
@@ -218,10 +218,10 @@ public final class MirParser {
                 Value x = value(t.next(), type, pending, 0);
                 t.expect(",");
                 Value y = value(t.next(), type, pending, 1);
-                instr = new Instr.Bin(Instr.BinOp.valueOf(op.toUpperCase()), x, y, pos);
+                instr = new Instr.Bin(Instr.BinOp.valueOf(op.toUpperCase(Locale.ROOT)), x, y, pos);
             }
             case "cmp" -> {
-                Instr.Pred pred = Instr.Pred.valueOf(t.next().toUpperCase());
+                Instr.Pred pred = Instr.Pred.valueOf(t.next().toUpperCase(Locale.ROOT));
                 MType type = type(t.next());
                 Value x = value(t.next(), type, pending, 0);
                 t.expect(",");
@@ -232,7 +232,7 @@ public final class MirParser {
                 MType from = type(t.next());
                 Value x = value(t.next(), from, pending, 0);
                 t.expect("to");
-                instr = new Instr.Cast(Instr.CastKind.valueOf(op.toUpperCase()), x, type(t.next()), pos);
+                instr = new Instr.Cast(Instr.CastKind.valueOf(op.toUpperCase(Locale.ROOT)), x, type(t.next()), pos);
             }
             case "ptradd" -> {
                 Value p = value(t.next(), MType.PTR, pending, 0);
@@ -388,7 +388,7 @@ public final class MirParser {
 
     private MType type(String token) {
         try {
-            return MType.valueOf(token.toUpperCase());
+            return MType.valueOf(token.toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {
             throw error("not a type: '" + token + "'");
         }

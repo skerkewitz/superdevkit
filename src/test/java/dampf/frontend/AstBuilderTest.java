@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dampf.Compiler;
 import dampf.ast.Program;
 import dampf.ast.Type;
+import dampf.ast.Variable;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -83,7 +84,7 @@ class AstBuilderTest {
                 #include <stdint.h>
                 int8_t a; uint8_t b; int16_t c; uint16_t d;
                 """);
-        assertEquals(List.of(Type.I8, Type.U8, Type.I16, Type.U16), p.globals().stream().map(v -> v.type()).toList());
+        assertEquals(List.of(Type.I8, Type.U8, Type.I16, Type.U16), p.globals().stream().map(Variable::type).toList());
     }
 
     @Test

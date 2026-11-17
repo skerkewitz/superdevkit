@@ -157,6 +157,10 @@ switched on with Gradle properties:
 | `./gradlew test -PcpuTests` | also the emulator against SingleStepTests, 300 tests per opcode |
 | `./gradlew test -PcpuTests=<N>` | the same with N tests per opcode |
 | `./gradlew test -Pblubberblasen=<path>` | tests that need the game's sources read them from there |
+| `./gradlew test -Pcoverage` | also measures code coverage with JaCoCo; the report is in `build/reports/jacoco/test/html/index.html` (and as XML), without the parser ANTLR generates |
+| `./gradlew pmdMain pmdTest` | PMD's checks with the rules in `config/pmd/ruleset.xml`; reports in `build/reports/pmd/`; findings do not fail the build |
+| `./gradlew cpd` | copied code in `src/main/java` (PMD's CPD), from 100 tokens on; report in `build/reports/cpd/main.txt` |
+| `./gradlew cpd -PcpdTokens=<N>` | the same from N tokens on |
 | `tools/bench_game.sh` | the game's benchmark: checksums and cycles |
 | `tools/check_game_rom.sh` | the playable ROM for a minute in Mesen: lost bytes, frames per tick, screenshots |
 

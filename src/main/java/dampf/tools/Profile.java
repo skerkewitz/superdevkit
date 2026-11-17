@@ -68,7 +68,7 @@ public final class Profile {
         Path rom = Path.of(positional.get(0));
         Path counts = Path.of(positional.get(1));
         long clocks = readClocks(counts);
-        Map<Integer, long[]> perOpcode = new java.util.TreeMap<>();
+        Map<Integer, long[]> perOpcode = new TreeMap<>();
         List<Entry> all = analyse(rom, counts, perOpcode,
                 file -> file == null || skip.stream().noneMatch(file::endsWith));
         List<Entry> entries = all.stream().filter(e -> e.file() == null || skip.stream().noneMatch(f -> e.file().endsWith(f))).toList();

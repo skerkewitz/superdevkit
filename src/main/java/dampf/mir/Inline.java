@@ -145,7 +145,7 @@ public final class Inline {
         for (Block cb : callee.blocks()) {
             Block nb = blocks.get(cb);
             for (Instr i : cb.instrs()) {
-                Instr n = copy(i, blocks, slots, cont);
+                Instr n = copy(i, blocks, cont);
                 if (n instanceof Instr.Phi p) {
                     phis.add(p);
                 }
@@ -191,8 +191,8 @@ public final class Inline {
     }
 
     /** A copy of i with its blocks mapped; its operands are fixed afterwards. */
-    private static Instr copy(Instr i, Map<Block, Block> blocks, Map<Value.Slot, Value.Slot> slots, Block cont) {
-        Instr n = switch (i) {
+    private static Instr copy(Instr i, Map<Block, Block> blocks, Block cont) {
+        return switch (i) {
             case Instr.Bin x -> new Instr.Bin(x.op, x.op(0), x.op(1), x.pos());
             case Instr.Cmp x -> new Instr.Cmp(x.pred, x.op(0), x.op(1), x.pos());
             case Instr.Cast x -> new Instr.Cast(x.kind, x.op(0), x.type(), x.pos());
@@ -221,6 +221,5 @@ public final class Inline {
             case Instr.Ret x -> new Instr.Jump(cont, x.pos());
             case Instr.Unreachable x -> new Instr.Unreachable(x.pos());
         };
-        return n;
     }
 }
