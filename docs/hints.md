@@ -1,9 +1,17 @@
 # Hints
 
 Hints tell dampf what a human assembly programmer would know about the program but the C code
-does not say. This is the agreed design (kickoff and design discussion, 2026-11-17); the first
-hint, `DAMPF_RANGE`, is built (see "As built" at the end). Where the others fit into the
-milestones is in [roadmap.md](roadmap.md).
+does not say. This is the agreed design; where the hints fit into the milestones is in
+[roadmap.md](roadmap.md).
+
+| Hint | Built |
+| --- | --- |
+| `DAMPF_RANGE` | yes |
+| `DAMPF_BUDGET` | yes ([timing.md](timing.md)) |
+| `DAMPF_TRIPS` | no, postponed (see "As built") |
+| `restrict` | no, rejected by the front end ("not supported yet") |
+| `DAMPF_LIKELY` / `DAMPF_UNLIKELY`, unroll hint, `DAMPF_PIN_X`, `DAMPF_SPLIT`, `DAMPF_TABLE`, `DAMPF_DP` | no |
+| subrange types (`DAMPF_RANGED`, `DAMPF_AS`) | no ([subrange-types.md](subrange-types.md)) |
 
 ## The idea
 
@@ -11,14 +19,15 @@ Most tricks of an assembly programmer rest on knowledge: "this value is always b
 two pointers never overlap", "this branch is rare". Knowledge can be written down. dampf lets the
 programmer state it in the C source as hints, so the compiler knows what the human would know.
 
-Hints are macros. In the dampf build they expand to built-ins the dampf parser recognises (for
-example `__dampf_range(...)`). In the PC build they expand to plain C: a checked assertion for
-hints that state a fact, nothing for the others (see the rule below; the kickoff first said
-"nothing" for all of them, the design discussion changed that). The source stays valid C, and one
-preprocessor (`gcc -E`) serves both builds, so both builds see exactly the same code. Inside dampf
-a fact hint becomes an `assume` operation in the IR ([architecture.md](architecture.md)).
+Hints are macros from `<dampf.h>`. In the dampf build they expand to built-ins the dampf parser
+recognises (for example `__dampf_range(...)`). In the PC build they expand to plain C: a checked
+assertion for hints that state a fact, nothing for the others (see the rule below). The source
+stays valid C, and one preprocessor (`gcc -E`) serves both builds, so both builds see the same
+code. Inside dampf a fact hint becomes an assumption in the IR ([architecture.md](architecture.md)).
 
-## Catalogue (working names)
+## Catalogue
+
+The working names are the names.
 
 | What a human knows | Hint in C | What dampf does with it |
 | --- | --- | --- |
@@ -26,7 +35,7 @@ a fact hint becomes an `assume` operation in the IR ([architecture.md](architect
 | "these pointers never overlap" | `restrict` (or a dampf macro) | Values stay in registers instead of being reloaded after a store through a pointer |
 | "this branch is rare" | `DAMPF_UNLIKELY(cond)` / `DAMPF_LIKELY(cond)` | The common path falls through without a jump. Often unnecessary once profile data from replays is used ([optimizations.md](optimizations.md)). |
 | "this loop runs at most 16 times" | `DAMPF_TRIPS(16)` | Unrolling, an 8-bit counter, and a loop bound for the timing analysis |
-| "unroll this small loop" | an unroll hint (from the kickoff; `DAMPF_TRIPS` with a small bound may cover it) | The loop is unrolled |
+| "unroll this small loop" | an unroll hint (`DAMPF_TRIPS` with a small bound may cover it) | The loop is unrolled |
 | "X holds the current bubble during the whole update" | `DAMPF_PIN_X(cur)` for a block or a module | The value stays in X, also across function boundaries |
 | "store this array of structs as one array per field" | `DAMPF_SPLIT` on the array | One array per field, accessed as `lda bub_x,x` |
 | "this function only ever gets 256 different inputs" | `DAMPF_TABLE` on the function | dampf evaluates the function for every input **at compile time** and places the results as a table in ROM. At run time the call becomes one indexed read. |
@@ -43,8 +52,8 @@ Blubber Blasen's `BB_FAST` macro (the direct page placement for Calypsi) maps on
 Some knowledge is not a fact about the program but a decision about how it represents things,
 such as using bit 7 as a flag. Those decisions are written in C by the programmer, and dampf
 recognises the patterns. If a state is defined as `0x80`, then `if (flags & 0x80)` becomes `BIT` +
-`BMI` without a compare. The division of work: the programmer decides *what* the code represents;
-dampf takes care of the instructions.
+`BMI` without a compare. The programmer decides *what* the code represents; dampf takes care of
+the instructions.
 
 ## Rule: every hint that states a fact is a checked assertion on the PC
 
@@ -77,10 +86,8 @@ do damage on the SNES.
 
 - How `restrict` is checked on the PC in practice, and whether a dampf-specific no-alias hint is
   clearer than `restrict`.
-- The set of hint macros beyond `DAMPF_RANGE`. Decided (2026-11-17): the working names in the
-  catalogue are the names, and they come from `<dampf.h>`.
 
-## As built (2026-11-17)
+## As built
 
 `<dampf.h>` comes with dampf (in its own include directory, and as `include/dampf.h` next to the
 launcher in the distribution). With dampf (`__DAMPF__` defined) its macros expand to built-ins
@@ -90,12 +97,14 @@ tests compile the PC side that way.
 
 **`DAMPF_RANGE(v, lo, hi)`**, a statement: the local variable or parameter `v` (an integer type)
 lies in `lo..hi` at this point; both bounds are constants of `v`'s type. Misuse is a compile
-error (a global, bounds that are not constants or do not fit the type, `lo` above `hi`).
+error (a global or a `static` local, bounds that are not constants or do not fit the type, `lo`
+above `hi`).
 
 - **In MIR** the hint becomes comparisons that branch to a block ending in `unreachable` when
-  `v` is outside the range. The range analysis treats them like any condition: `v` has the
-  range in every block the hint dominates, so `while (s[n]) { DAMPF_RANGE(n, 0, 10); n++; }`
-  gives the loop a bound for the timing analysis and the counter a range for the narrowing.
+  `v` is outside the range (the role of LLVM's `llvm.assume`). The range analysis treats them
+  like any condition: `v` has the range in every block the hint dominates, so
+  `while (s[n]) { DAMPF_RANGE(n, 0, 10); n++; }` gives the loop a bound for the timing analysis
+  and the counter a range for the narrowing.
 - **The MIR interpreter** fails at `unreachable` ("a hint does not hold"), so the tests check
   every hint on the MIR level as well.
 - **The code generator** computes the ranges first and then takes the checks out
@@ -104,14 +113,13 @@ error (a global, bounds that are not constants or do not fit the type, `lo` abov
 - **On the PC** it is `assert`, written as one unsigned comparison so that `DAMPF_RANGE(n, 0,
   10)` on an unsigned `n` gives no "always true" warning under `-Wextra`. `NDEBUG` switches it
   off.
+- **The naive code generator** ignores the hint.
 
-The naive code generator ignores the hint.
-
-**`DAMPF_BUDGET(n)`**, in front of a function definition: built, see [timing.md](timing.md),
-"Budgets". With the naive code generator there is no timing, and budgets are not checked.
+**`DAMPF_BUDGET(n)`**, in front of a function definition: see [timing.md](timing.md). The naive
+code generator has no timing and does not check budgets.
 
 **`DAMPF_TRIPS` is postponed.** On the PC it would have to count the rounds per entry into the
 loop, and a macro in front of or inside a loop cannot see the entry (nor a `break` or `return`
 on the way out) without changing the loop. `DAMPF_RANGE` on a counter in the loop covers the
-loops of the game that need a bound (`while (s[n]) { DAMPF_RANGE(n, 0, 10); n++; }`, a queue
-index); a loop without any counter can be given one. Not built yet: the other hints.
+loops of the game that need a bound (the `while (s[n])` loop above, a queue index); a loop
+without any counter can be given one.

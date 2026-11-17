@@ -13,8 +13,9 @@ assembly: HIR keeps the structure of C (loops, structs, array indexing), MIR des
 flow, and LIR the 65816 with its registers and processor state. MIR is the middle level,
 comparable to LLVM IR; despite the name it is neither Rust's MIR nor LLVM's machine IR. Of the
 three, only MIR is built: the program goes straight from the [AST](/glossary#ast) to MIR, and
-the code generator from MIR writes assembly from it. HIR and LIR are on the
-[roadmap](/inside/roadmap).
+the code generator from MIR writes assembly from it and does LIR's jobs itself: `REP` and `SEP`,
+direct page places, the registers A, X and Y, branch distances and cycles. HIR and LIR are not
+built ([Roadmap](/inside/roadmap)).
 
 A function in MIR is a graph of basic blocks: straight runs of instructions that end in exactly
 one jump, branch, switch, return or `unreachable`. The instructions are in

@@ -2,6 +2,8 @@
 title: Testing
 sources:
   - docs/testing.md
+  - docs/timing.md
+  - tools/README.md
   - README.md
   - build.gradle.kts
   - src/test/java/dampf/exec/*.java

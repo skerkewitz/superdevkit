@@ -4,16 +4,21 @@
 
 The game logic of [Blubber Blasen](/glossary#blubber-blasen) has a budget: in its busiest scene
 it may use at most 60 % of an NTSC [frame](/glossary#frame), about 0.6 frames per
-[tick](/glossary#tick). A frame has roughly 45,000 to 55,000 CPU cycles, and the work in the
-vertical blank and a safety margin come off that. The game's benchmark runs the same game code
-with a fixed input for 1,800 ticks and measures every tick in Mesen.
+[tick](/glossary#tick). A frame is 357,366 master clocks (the SNES's 21.477 MHz clock), and the
+work in the vertical blank and a safety margin come off that; how many CPU cycles that leaves is
+on [Exact timing](/inside/timing). The game's benchmark runs the same game code with a fixed
+input for 3,610 ticks and measures every tick.
 
 During play, the code dampf now generates takes 0.91 frames per tick (worst tick 1.60) with
-FastROM, which is the default. The figures on this page before FastROM were measured at SlowROM
-speed, where dampf's code took 1.31 (worst 2.25) when FastROM came. dampf's
-own [naive code generator](/glossary#naive-code-generator) takes 5.17 frames per tick for the
-same code at SlowROM speed, and [Calypsi](/glossary#calypsi) took 2.72, measured on an older
-version of the game. dampf is past Calypsi, but still about 1.5 times away from the budget. This page explains, pass by pass, where that speed comes from.
+FastROM, which is the default: the ROM read at 3.58 MHz instead of 2.68 MHz. These figures were
+measured on 2026-11-18. The figures on this page before FastROM were measured at SlowROM speed,
+where dampf's code took 1.31 (worst 2.25) when FastROM came. dampf's own
+[naive code generator](/glossary#naive-code-generator) takes 4.37 frames per tick (worst 7.26)
+for the same code, 4.8 times as long. Against [Calypsi](/glossary#calypsi), on the same version
+of the game and with FastROM for both, dampf is 1.81 times as fast: in the play ticks where both
+play the same scene, Calypsi takes 1.42 frames per tick and dampf 0.79. dampf is past Calypsi,
+but still about 1.5 times away from the budget. This page explains, pass by pass, where that
+speed comes from.
 
 ## Why the 65816 needs a different optimizer
 
@@ -60,15 +65,15 @@ catalogue. The letters map to this page as follows:
 | Letter | Optimization | Where it is built |
 | --- | --- | --- |
 | A | Static frames in the direct page | code generator: frames, shared places |
-| B | Width analysis (8/16 bit) | `Narrow`, `RangeNarrow`; `REP`/`SEP` tracking not built |
+| B | Width analysis (8/16 bit) | `Narrow`, `RangeNarrow`; full `REP`/`SEP` tracking not built |
 | C | Inlining and calling convention | `Inline`; parameters in registers not built |
 | D | Data layout (one array per field) | not built |
 | E | 8.8 fixed point as byte accesses | `ByteLoads`; `<<8` not built |
-| F | Loops | `Induction`, `Licm`, loop counters in X; the rest not built |
+| F | Loops | `Induction`, `Licm`, loop counters in X, loop rotation; unrolling not built |
 | G | Branches | compare and branch, `BitSelect`, block layout (also by a profile), short branches, `BRA` |
 | H | Standard optimizations | `Simplify`, `Gvn`, `DeadCode`; loop-invariant code under F |
 | I | Multiply and divide | `StrengthReduce`, multiplication in A; hardware multiplier not built |
-| J | Banks and placement | not built |
+| J | Banks and placement | FastROM for all code and constant data, registers at constant addresses |
 | K | Peephole | in the code generator: `STZ`, `INC`/`DEC`, and a few more |
 | L | `switch` as jump table | not built |
 | M | Copy and fill with `MVN`/`MVP` or DMA | not built |
@@ -380,15 +385,16 @@ void clear_sprites(void) {
 }
 ```
 
-Before the passes, `o` is a `ptr` φ; after them, it is an `i16` offset into `@_oam`:
+Before the passes, `o` is a `ptr` φ; after them, it is an `i16` offset into `@_oam`, and the
+loop tests it instead of `n`, as under [Induction](#induction):
 
 ```
 b1_for:                    ; from b0_entry, b2_body
-    %0 = phi i8 [b0_entry, 0], [b2_body, %6]    ; sprites.c:7
-    %1 = phi i16 [b0_entry, 0], [b2_body, %5]   ; sprites.c:6
-    %2 = ptradd @_oam, i16 %1                   ; sprites.c:6
+    %0 = phi i16 [b0_entry, 0], [b2_body, %4]   ; sprites.c:6
+    %1 = ptradd @_oam, i16 %0                   ; sprites.c:6
+    %2 = cmp ult i16 %0, 64                     ; sprites.c:7
 ; ...
-    %5 = add i16 %1, 4                          ; sprites.c:10
+    %4 = add i16 %0, 4                          ; sprites.c:10
 ```
 
 The code generator writes the two stores as `stz _oam,x` and `sta _oam+1,x`. Together with
@@ -695,6 +701,7 @@ Several parts of dampf use the ranges:
 - **The code generator** indexes with X only when the index is never negative, leaves out byte
   masks where a sum stays below 256, and keeps an 8-bit loop counter in X only when it cannot
   wrap.
+- **The timing analysis** takes loop bounds from them ([Exact timing](/inside/timing)).
 
 A wrong range would give wrong code without any sign. The tests therefore check the analysis
 itself: the interpreter reports every value it computes and every parameter it receives, and
@@ -773,6 +780,12 @@ budget is hardest to meet; the worst tick is in parentheses where the source giv
 | the loop test on the offset | 0.92 (1.64) | 1.51 (3.31) |
 | a row of a 2D array as the pointer for an index in Y | 0.91 (1.60) | 1.48 (3.18) |
 
+The last row is also the current state, measured again on 2026-11-18. The other parts of the
+benchmark take 0.39 frames per tick on the title screen, 0.17 in the story and 1.39 in the round
+intro, and the whole benchmark 0.89. On the console, the playable ROM took 1.57 frames per tick
+during a minute of play; that includes waiting for the vertical blank and the platform layer, so
+it is not comparable with the benchmark.
+
 The steps are cumulative: each row includes everything above it. Loop rotation is not in the
 table; it brought about 0.5 %, measured on the benchmark's bare loop (801 to 783 clocks per
 pass). Neither is the block layout by a profile: all figures are measured without block counts,
@@ -787,23 +800,25 @@ from the direct page are still a third of the time. Most `JMP`s left are where a
 reach its target because a large loop body lies between them; placing the rarely run blocks at
 the end of the function needs to know which are rare, which block counts from a profile tell
 (see *Block layout* above). The full account of every step is in
-`docs/optimizations.md`.
+`docs/optimizations-log.md`.
 
 ## How far it can go
 
 One function has been written by hand in 65816 assembly as a yardstick: `level_solid_px`, a
 tile collision test of the game. Measured in master clocks per call, from the benchmark's micro
-part:
+part, at SlowROM speed:
 
 | Code | Clocks per call | Times the hand-written code |
 | --- | --- | --- |
 | dampf, naive code generator | 3,849 | 4.5 |
 | 816-tcc | 2,449 | 2.9 |
 | Calypsi | 931 | 1.1 |
-| dampf, code from MIR | 1,208 | 1.4 |
+| dampf, code from MIR | 1,149 | 1.34 |
 | hand-written | 856 | 1.0 |
 
-The 816-tcc and Calypsi figures come from older runs on the game's side. On a small function
+With FastROM, measured on 2026-11-18, dampf's code takes 871 master clocks per call and the
+hand-written code 724: 1.20 times. The 816-tcc and Calypsi figures come from older runs on the
+game's side. On a small function
 like this one, Calypsi already comes close to hand-written code, and dampf is behind it there.
 
 A gap remains because a skilled assembly programmer knows things about the program that are not
@@ -829,15 +844,15 @@ into shifts and adds in MIR. After `j * 23` had become `(j << 5) - (j << 3) - j`
 lost the connection between the three parts and could no longer show that an index was never
 negative, so indexed addressing was lost. In 8 and 16 bits the multiplication now stays a `mul`
 in MIR, where its range is exact, and the code generator does the shifts and adds in A. Pass I
-keeps the rule for i32 only. (`docs/optimizations.md`, *Arrays indexed with X, multiplication
-in A*)
+keeps the rule for i32 only. (`docs/optimizations-log.md`, *Arrays indexed with X,
+multiplication in A*)
 
 **Pointer compression only into one object.** dampf compresses a pointer only where every value
 it can take points into the same object, which it can see within a function or across the calls
 of a parameter. The alternative, a points-to analysis over the whole program, would also cover a
 `Bubble *` into either of two arrays and pointers loaded from memory. The indirect accesses that
 are left did not justify it, so those pointers stay full 4-byte pointers used as `[dp],y`.
-(`docs/optimizations.md`, *Pointer compression*)
+(`docs/optimizations-log.md`, *Pointer compression*)
 
 **Trusting C's rules, and checking them.** The value ranges and pointer compression rely on C's
 rules: a pointer stays within its object, an index within its array. Other compilers draw
@@ -846,4 +861,5 @@ makes them rules of the subset that the tests check: every value the interpreter
 lie in its inferred range. That check caught a wrong range in the first version of `Induction`
 and a pointer stepped past the end of its array in a test program. The cost: on a path the
 tests never run, a broken rule gives wrong SNES code without any sign. (`docs/subrange-types.md`,
-*The array bounds rule*; `docs/optimizations.md`, *Value ranges* and *Induction variables*)
+*The array bounds rule*; `docs/optimizations.md`, *Value ranges (B)*;
+`docs/optimizations-log.md`, *Induction variables* and *Pointer compression*)

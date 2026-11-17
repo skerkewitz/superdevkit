@@ -3,8 +3,9 @@
 
 This page lists what dampf does not do: first what is planned but not built, then what dampf
 will never do, and last where its results could differ from the [PC build](/glossary#pc-build).
-The milestones named here (M3 for the optimizer, M4 for fine tuning) are on the
-[Roadmap](/inside/roadmap), which also has their state; this page makes no promise beyond it.
+The milestones named here (M3 for the optimizer, M4 for fine tuning, M6 for standing alone) are
+on the [Roadmap](/inside/roadmap), which also has their state; this page makes no promise beyond
+it.
 
 ## Not built yet
 
@@ -23,12 +24,13 @@ fixed places.
 as `DAMPF_RANGE(i, 0, 15)` for "`i` is always between 0 and 15", or `DAMPF_TRIPS(16)` for a loop
 that runs at most 16 times. In the PC build a hint that states a fact becomes a checked
 assertion, so a wrong hint is caught on the PC before it does damage on the SNES. Two hints
-from `<dampf.h>` are built, `DAMPF_RANGE` and `DAMPF_BUDGET` (see the timing report below); the
-names of the others are decided, but none of them is built. `DAMPF_TRIPS` is postponed: on the
-PC it would have to count the rounds per entry into the loop, and a macro cannot see that entry
-without changing the loop. Meanwhile a `DAMPF_RANGE` on a counter in the loop gives the loop its
-bound, and a loop without a counter can be given one. The hints that request a transformation
-(`DAMPF_TABLE`, `DAMPF_PIN_X` and the others) belong to M4. dampf also infers
+from `<dampf.h>` are built, `DAMPF_RANGE` and `DAMPF_BUDGET` (a cycle budget for a function,
+see [Exact timing](/inside/timing)); the names of the others are decided, but none of them is
+built. `DAMPF_TRIPS` is postponed: on the PC it would have to count the rounds per entry into
+the loop, and a macro cannot see that entry without changing the loop. Meanwhile a
+`DAMPF_RANGE` on a counter in the loop gives the loop its bound, and a loop without a counter
+can be given one. The hints that request a transformation (`DAMPF_TABLE`, `DAMPF_PIN_X` and the
+others) belong to M4. dampf also infers
 [value ranges](/glossary#value-range) itself from constants, operations, conditions and loops,
 so a range hint is needed only where it cannot. Declared subrange types
 (`DAMPF_RANGED`, `DAMPF_AS`) are not scheduled at all: they are built only when a profile shows
@@ -42,22 +44,25 @@ registers through pointers to `volatile` memory, and casts a pointer to an integ
 SNES address a DMA channel copies from ([The C subset](/reference/c-subset)). Meanwhile,
 platform code reaches the hardware the same way.
 
-**The timing report and cycle budgets.** dampf already computes a best and a worst case in CPU
-cycles for every function, from its entry to its return with calls included, and `dampf build`
-writes them to `<rom>.timing.txt`, most expensive first. A loop whose bound dampf cannot find in
-the code makes the worst case "unbounded"; in Blubber Blasen that is so for 38 functions, and
-the report names, after each of them, the first loop without a bound or else the call that makes
-it so. The loops left run over memory (`while (s[n]) n++;`), have a counter that is not stepped
-by a constant, or could really run forever in C; they need a hint, as described above. A
-function marked with `DAMPF_BUDGET(n)` fails the build when it can take more than `n` CPU cycles
-or has no worst case, and `dampf build` warns when its worst case is above 90 % of the budget.
-The rest of the timing work of M3 is not built: the costliest path line by line in the report
-and in the budget errors, and cycle counts in master cycles that include the speed of each
-memory region. Budgets for a whole frame, which add the cost of interrupt handlers, are not
-built either, nor a check of the measured cycles of budgeted functions in the emulator. The
+**Timing in master cycles and outside the CPU.** dampf computes a best and a worst case for
+every function, writes them to the timing report and checks `DAMPF_BUDGET` at build time
+([Exact timing](/inside/timing)), but it counts in CPU cycles only. Master cycles, the unit that
+includes the speed of each memory region (FastROM, SlowROM, WRAM, I/O), are not counted yet;
+they are the next step of M3, together with the costliest path line by line in the report and
+in the budget errors. Nor does dampf account for the time lost outside the CPU: DRAM refresh,
+HDMA and interrupts. Budgets for a whole frame, which would add the cost of interrupt handlers,
+are not built, nor a check of the measured cycles of budgeted functions in the emulator. The
 comments of the generated assembly carry the CPU cycles of each instruction, and each
 straight-line C line their sum; a line with branches does not show its best and worst case yet.
-For measured cycles per function, use `dampf profile` ([Command line](/reference/command-line)).
+A loop whose bound dampf cannot find in the code makes a worst case "unbounded", which is so
+for 38 functions of Blubber Blasen; such a loop needs a hint, as described above. For measured
+cycles per function, use `dampf profile` ([Command line](/reference/command-line)).
+
+**An own assembler and linker.** dampf writes assembly for [ca65](/glossary#ca65-and-ld65) and
+links with ld65, so you need both installed next to Java. In M6, dampf gets its own assembler
+and linker, so that using it needs nothing but Java; ca65 and ld65 then stay in the tests, which
+check that dampf's own ROM is byte-identical to theirs. M6 is deliberately the last step,
+because it changes nothing in the code dampf generates.
 
 **Other items you might notice.** These are smaller, but each changes what you can write or
 expect:
@@ -75,9 +80,10 @@ expect:
   registers, profile-guided optimization from the replays) has only started with the layout of
   blocks by a profile, so the generated code is not yet as fast as the goal of 60 % of a
   [frame](/glossary#frame) per [tick](/glossary#tick): during play, Blubber Blasen takes 0.91
-  frames per tick with dampf (with FastROM; 1.31 without). On the console, during a minute of play of the playable ROM, it takes 2.28 frames per tick,
-  because a tick that needs more than one frame waits for the next vertical blank and the
-  benchmark leaves out what `video.c` costs on the hardware.
+  frames per tick with dampf (with FastROM). On the console, during a minute of play of the
+  playable ROM, it takes 1.57 frames per tick (measured on 2026-11-18), because a tick
+  that needs more than one frame waits for the next vertical blank and the benchmark leaves out
+  what `video.c` costs on the hardware.
 
 ## Never planned
 
@@ -89,8 +95,8 @@ These are non-goals of dampf, not gaps that a later milestone closes.
   all memory use is known at compile time.
 - **Other CPUs or targets.** dampf compiles for the 65816 in the SNES and nothing else. Its code
   keeps the 65816 core and the SNES target apart, but nothing is built for a second target.
-- **An own assembler, linker or debugger.** dampf writes assembly for
-  [ca65](/glossary#ca65-and-ld65), links with ld65 and leaves debugging to Mesen.
+- **An own debugger.** dampf leaves debugging to Mesen, which shows the C source from the
+  debug file dampf writes.
 - **Floating point.** `float` and `double` are rejected and will stay so.
 
 Fast compilation is not a goal either; a game the size of Blubber Blasen compiles in seconds.

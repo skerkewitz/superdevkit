@@ -92,8 +92,9 @@ line, column), then its segment. The parts of one C line are these:
 - **The cycle counts** stand at the right end of each instruction line.
 
 The processor state is not repeated per line in the code generator from MIR. Its file starts
-with `; A/X/Y are 16 bit throughout, DBR = $7E`, and where a line switches the accumulator to
-[8-bit mode](/glossary#_8-bit-and-16-bit-mode) the `sep #$20` and `rep #$20` are in the code.
+with `; A/X/Y are 16 bit (A goes to 8 bit where SEP #$20 says so), DBR = $7E`, and where a line
+switches the accumulator to [8-bit mode](/glossary#_8-bit-and-16-bit-mode) the `sep #$20` and
+`rep #$20` are in the code.
 The counts follow the switch: the `sta` in 8-bit mode costs 4 cycles, in 16-bit mode 5.
 
 ```asm
@@ -182,7 +183,7 @@ writes them to `calls.timing.txt`, the most expensive function first:
 # dampf timing: best and worst case per function in CPU cycles, from entry to return,
 # calls included, interrupts and DMA not (docs/timing.md). "unbounded": a loop without
 # a known bound on the way; the first such loop in the function, or the first call
-# of a function without a bound, is named after it.
+# of a function without a bound, is named after it. "never": the function never returns.
         best        worst  function
         1940         2594  dampf_sdiv32
         1888         2432  dampf_udiv32
@@ -204,8 +205,17 @@ call of a function without a bound (`calls` and that function). A function that 
 of the register `$4212` in a `while` loop on line 5 of `wait.c` gets:
 
 ```
-          43    unbounded  _wait_ready   (loop at wait.c:5)
+          22    unbounded  _wait_ready   (loop at wait.c:5)
 ```
+
+A function that never returns has no best case either, and gets `never` in its place. For a
+function `halt` whose body is the endless loop `for (;;) {}` on line 11 of the same file:
+
+```
+       never    unbounded  _halt   (loop at wait.c:11)
+```
+
+How dampf computes these numbers is on [Exact timing](/inside/timing).
 
 ## The debug file
 

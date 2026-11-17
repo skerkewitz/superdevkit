@@ -40,9 +40,9 @@ wrote /…/build/examples/m1/calls.sfc and /…/build/examples/m1/calls.dbg
 
 With the [code generator from MIR](/glossary#code-generator-from-mir), the default, dampf also
 writes `calls.timing.txt` next to the ROM, with the best and worst case of every function in CPU
-cycles. The other files dampf writes next to the ROM are described in
-[The generated files](/reference/output-files). If the program has an error, dampf prints its
-[messages](#messages) and exits with status 1.
+cycles; [Exact timing](/inside/timing) explains how they are computed. The other files dampf
+writes next to the ROM are described in [The generated files](/reference/output-files). If the
+program has an error, dampf prints its [messages](#messages) and exits with status 1.
 
 ### -I {#option-i}
 

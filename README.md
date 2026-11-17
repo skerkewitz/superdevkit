@@ -10,23 +10,17 @@ separate project in parallel with the game.
 The name: in German, *Dampf machen* ("make steam") means to get things moving fast. It also fits
 the steam factory of Blubber Blasen.
 
-Status (2026-11-17): milestones M0 to M2 are done, M3 (the optimizer) is in progress. dampf
-compiles all of Blubber Blasen: the front end turns C into a typed AST, which is lowered to MIR
-(an SSA intermediate representation), optimized (width narrowing with value ranges, constant
-multiplication and division, folding, common subexpressions, redundant loads, inlining) and
-translated to 65816 code with its frames in the direct page. The naive code generator, straight
-from the AST, stays as an independent reference (`--backend naive`). Every program in the tests
-is built with both and compared with gcc on the PC: the execution tests (also in Mesen), random
-programs, the game's replays, and the game's own benchmark, where every one of its 3,610 ticks
-gives the PC's checksums. During play the game takes 0.91 frames per tick with dampf (with FastROM; the
-naive code: 5.17), numbers in [docs/optimizations.md](docs/optimizations.md). On the same game version
-and the same scene, dampf's code is 1.81 times as fast as Calypsi's (both with FastROM) (`tools/bench_compilers.sh`,
-[docs/roadmap.md](docs/roadmap.md), *The plan from here*). dampf also computes a best and a worst case in CPU
-cycles for every function (`<rom>.timing.txt`, [docs/timing.md](docs/timing.md)). dampf builds a
-playable ROM of the game: the SNES platform layer in [platform/snes](platform/snes/README.md)
-implements the game's console API in C. On the console the game runs at 2.28 frames per tick for
-now (sound and save RAM are not built). Not done yet: most of the hints (`DAMPF_RANGE` and
-`DAMPF_BUDGET` from `<dampf.h>` are built; a function over its cycle budget fails the build). The plan is in [docs/roadmap.md](docs/roadmap.md).
+Status: milestones M0 to M2 are done, M3 (the optimizer) is in progress; the state of each
+milestone is in [docs/roadmap.md](docs/roadmap.md). dampf compiles all of Blubber Blasen and
+builds a playable ROM of it, with the game's console API written in C in
+[platform/snes](platform/snes/README.md) (sound and save RAM are not built yet). During play the
+game takes 0.91 frames per tick, and dampf's code is 1.81 times as fast as Calypsi's on the same
+scene; the current figures are in
+[docs/optimizations.md](docs/optimizations.md#where-things-stand). dampf computes a best and a
+worst case in CPU cycles for every function, and a function over its cycle budget
+(`DAMPF_BUDGET`) fails the build ([docs/timing.md](docs/timing.md)). The naive code generator,
+straight from the AST, stays as an independent reference (`--backend naive`): every test program
+is built with both and compared with gcc on the PC.
 
 ## Why
 
@@ -35,7 +29,7 @@ The game's stage 3 needs a C compiler for the 65816, and the existing ones are n
 | Compiler | Result |
 | --- | --- |
 | PVSnesLib with 816-tcc | Very slow code. The data layout needed workarounds because the compiler throws errors on ordinary code. |
-| Calypsi | Works as intended, but the code is still too slow (2.72 frames per tick during play on an older version of the game; on today's version dampf's code is 1.81 times as fast on the same scene, both with FastROM, see [docs/roadmap.md](docs/roadmap.md)). |
+| Calypsi | Works as intended, but the code is still too slow: 2.72 frames per tick during play on an older version of the game. The comparison with dampf on today's version is in [docs/optimizations.md](docs/optimizations.md#where-things-stand). |
 | llvm-mos | Good 6502 code, but no native 16-bit 65816 code generation. LLVM is a poor fit: it assumes many uniform registers and fixed-width values, while on the 65816 the operand width (8 or 16 bit) is processor state set by `REP`/`SEP`. |
 | Hand-written assembly for the whole game | Tried years ago and failed. Hand-written assembly for a few hot functions stays possible later, but should not be the plan. |
 
@@ -62,13 +56,15 @@ Goals:
 4. Readable output: the generated assembly is commented so a human can follow what each part is
    meant to do.
 5. Correctness first: every optimization is checked automatically against a reference.
+6. In the end, nothing to install but Java: dampf gets its own assembler and linker (milestone
+   M6). Until then it uses ca65 and ld65.
 
 Non-goals:
 
 - Full C, or C standard conformance beyond the subset.
 - Other CPUs or targets. The code keeps the 65816 core and the SNES target apart, but nothing is
   built for a second target.
-- An own assembler, linker or debugger. dampf uses ca65, ld65 and Mesen.
+- An own debugger. dampf uses Mesen.
 - Floating point.
 - Fast compilation. A game this size compiles in seconds either way.
 
@@ -81,24 +77,24 @@ working documents it is written from.
 - [docs/architecture.md](docs/architecture.md): the pipeline, the three IR levels, core and target, the assembly output.
 - [docs/subset.md](docs/subset.md): the C subset, derived from what the game uses, and the decisions about it.
 - [docs/hints.md](docs/hints.md): hints that tell dampf what a human assembly programmer would know.
-- [docs/subrange-types.md](docs/subrange-types.md): subrange types (`DAMPF_RANGED`) and the value ranges dampf infers (the inferred ranges and pointer compression are built, declared subrange types are not).
-- [docs/optimizations.md](docs/optimizations.md): the baseline measurements, the optimization catalogue, the gap to hand-written assembly, and what knowing the machine allows.
+- [docs/subrange-types.md](docs/subrange-types.md): design proposal for subrange types (`DAMPF_RANGED`) and inferred value ranges; what is built of it is in optimizations.md.
+- [docs/optimizations.md](docs/optimizations.md): where things stand, the optimization catalogue, the gap to hand-written assembly.
+- [docs/optimizations-log.md](docs/optimizations-log.md): dated measurements of each optimization step.
 - [docs/timing.md](docs/timing.md): exact timing, worst-case bounds and cycle budgets.
+- [docs/transition-to-lir.md](docs/transition-to-lir.md): the plan from today's code generator to LIR and to machine code without ca65 and ld65.
 - [docs/memory-map.md](docs/memory-map.md): where code, data, variables and pointers live.
 - [docs/testing.md](docs/testing.md): the test layers and how they work.
 - [docs/roadmap.md](docs/roadmap.md): milestones and their state, risks, open questions, the relation to Blubber Blasen.
 - [docs/game-findings.md](docs/game-findings.md): things in Blubber Blasen's code worth changing, for whoever works on the game.
+- [tools/README.md](tools/README.md): the scripts in `tools/`.
 - [examples/blubberblasen/SNAPSHOT.md](examples/blubberblasen/SNAPSHOT.md): the snapshot of the game dampf is developed against.
 
 ## Prerequisites
 
-| Tool | Used for |
-| --- | --- |
-| JDK 25 or newer | building and running dampf (the code targets Java 25, the current LTS release) |
-| gcc | the preprocessor (`gcc -E`) and the PC side of the execution tests |
-| clang | `tools/subset_scan.py` |
-| ca65, ld65 (cc65 2.19) | assembling and linking the generated code (from M1 on) |
-| Python 3 | `tools/subset_scan.py` |
+JDK 25 or newer, gcc, ca65 and ld65 from cc65 2.19, and Python 3. Mesen 2 is optional (the tests
+then also run there), clang is needed only for `tools/subset_scan.py`, Node.js only for the
+book. Gradle comes with the wrapper. The book's
+[getting started](docs/book/guide/getting-started.md) page has the full list.
 
 On Arch Linux, cc65 is not in the official repositories; build it from source:
 
@@ -107,78 +103,85 @@ git clone --depth 1 --branch V2.19 https://github.com/cc65/cc65.git
 cd cc65 && make bin && sudo make install PREFIX=/usr/local
 ```
 
-Gradle comes with the wrapper; nothing to install.
-
 ## Building and testing
 
 ```bash
-./gradlew build                                              # compile and run the unit tests
-./gradlew test -Pmesen=/path/to/Mesen.exe                    # execution tests with another Mesen
-./gradlew test -Pblubberblasen=/path/to/BlubberBlasen        # parse the live game instead of the snapshot
-./gradlew test -Preplays                                     # also play the game's replays
-./gradlew test -PcpuTests                                    # the emulator against the 65816 test suite (downloads ~50 MB once)
-tools/bench_game.sh                                          # the game's benchmark: checksums and cycles (about a minute)
-tools/profile_game.sh bench                                  # cycles per function in the game's play ticks (seconds)
-INSTRUCTIONS=1 tools/profile_game.sh bench                   # the same, and cycles per kind of instruction
-BLOCKS=build/profile/bench.blocks.txt tools/bench_game.sh    # the benchmark with the blocks laid out by that profile
-BACKEND=naive tools/bench_game.sh                            # the same with the naive code generator (the reference)
-tools/game_mir.sh -O                                         # the game's MIR after the passes
-tools/build_game_rom.sh                                      # the playable ROM: build/game/blubberblasen.sfc
-tools/check_game_rom.sh                                      # play it in Mesen for a minute: lost bytes, frames per tick, screenshots
-./gradlew installDist                                        # build/install/dampf/bin/dampf
+./gradlew build                          # compile and run the tests
+./gradlew installDist                    # the launcher: build/install/dampf/bin/dampf
+./gradlew test -Preplays                 # also play the game's replays
+./gradlew test -Prandom=500 -PrandomSeed=1   # more random programs, from a given seed
+./gradlew test -Pcoverage                # JaCoCo: build/reports/jacoco/test/html/index.html
+./gradlew pmdMain pmdTest                # PMD: build/reports/pmd/ (not a gate)
+./gradlew cpd                            # copied code: build/reports/cpd/main.txt
+tools/bench_game.sh                      # the game's benchmark: checksums and cycles
+tools/build_game_rom.sh                  # the playable ROM: build/game/blubberblasen.sfc
 ```
 
-The execution tests compile each program in `src/test/resources/exec/` twice: with gcc on the PC
-(with the undefined behaviour sanitizer, so a test with undefined behaviour fails) and with dampf
-into a ROM that runs in dampf's emulator, and headless in Mesen 2 (`--testrunner`) when one is
-available. All globals must have the same values
-afterwards. From WSL, the Windows `Mesen.exe` works; paths are converted with `wslpath`.
-
-The tests use `.mesen/Mesen.exe` if it exists (not in git): unpack Mesen 2.1.1 there and allow
-Lua scripts I/O access (in `settings.json`: `"Debug": { "ScriptWindow": { "AllowIoOsAccess": true } }`).
-Without a Mesen they still run, in dampf's own emulator (`dampf.emu`); with one, they also run
-in Mesen.
-
-The game parse test uses the snapshot in `examples/blubberblasen`. To refresh the snapshot, build
-the game once (so its `build/generated` is current) and run
-`tools/update_game_snapshot.sh /path/to/BlubberBlasen`.
+The tests run in dampf's own emulator (`dampf.emu`) and, when `.mesen/Mesen.exe` exists (not in
+git), headless in Mesen 2 as well: unpack Mesen 2.1.1 there and allow Lua scripts I/O access
+(in `settings.json`: `"Debug": { "ScriptWindow": { "AllowIoOsAccess": true } }`). From WSL, the
+Windows `Mesen.exe` works. All Gradle switches are listed in the book's
+[testing](docs/book/inside/testing.md) page, the scripts in [tools/README.md](tools/README.md).
 
 ## Using it
 
 ```bash
 dampf build --entry test_main -o build/examples/m1/calls.sfc examples/m1/calls.c
 dampf parse -I $BB/src -I $BB/build/generated $BB/src/game/*.c
+dampf check -I $BB/src -I $BB/build/generated $BB/src/game/*.c
 ```
 
-`build` writes the ROM and next to it the generated assembly (`.s`, with the C source line, the
-processor state and a comment for each instruction), ld65's debug file (`.dbg`), a label file
+The launcher is `build/install/dampf/bin/dampf` (`./gradlew installDist`).
+
+`build` writes the ROM and next to it the generated assembly (`.s`, with the C source line and a
+comment for each instruction; the naive code also shows the processor state), ld65's debug file (`.dbg`), a label file
 and a map file. The runtime calls the entry function after start-up (`void name(void)`, default
-`main`) and writes to $21FB when it returns. `parse` only preprocesses and parses.
+`main`) and writes to $21FB when it returns. With the code generator from MIR it also writes the
+timing report (`.timing.txt`). `--backend naive` picks the naive code generator, `--slowrom`
+builds for a SlowROM cartridge (FastROM is the default), `--replace fn=file.s` links a
+hand-written function ([reference](reference/README.md)) and `--block-counts` lays out the
+blocks by a profile. `parse` only preprocesses and parses. `check` runs the front end on every
+file alone, then on all of them together (recursion, functions defined nowhere or twice).
+`dampf mir`, `dampf profile` and `dampf bench` are the tools behind the scripts in `tools/`.
 
 ## Debugging in Mesen
 
 Open the ROM in Mesen 2 with the `.dbg` file next to it. In the debugger's integration settings,
-let Mesen load `.dbg` files automatically. The debug file names the C sources relative to itself,
-so Mesen finds them as long as the repository keeps its layout. From WSL, open the ROM through
-`\\wsl.localhost\...`.
+let Mesen load `.dbg` files automatically; it then shows the C source. The debug file names the C
+sources relative to itself, so keep the repository's layout. From WSL, open the ROM through
+`\\wsl.localhost\...`. The book's [debugging](docs/book/guide/debugging.md) page shows how to
+step through C.
 
 ## Repository layout
 
 ```
 src/main/antlr/dampf/parser/   C grammar from grammars-v4 (see its README.md)
+src/main/java/dampf/           Main (the command line) and Compiler (the pipeline)
 src/main/java/dampf/parser/    support classes for the grammar (symbol table for typedef names)
 src/main/java/dampf/frontend/  preprocessor call, source positions, parsing, AST builder
 src/main/java/dampf/ast/       typed AST of the whole program
 src/main/java/dampf/check/     subset checks (call graph, no recursion)
-src/main/java/dampf/backend/   code generators (from MIR, and the naive one from the AST; ca65 assembly)
-src/main/java/dampf/snes/      ROM build with ca65/ld65
-src/main/resources/dampf/include/  dampf's own <stdint.h>
-src/main/resources/dampf/snes/     SNES runtime (start-up, header, vectors) and ld65 memory map
+src/main/java/dampf/mir/       MIR: lowering from the AST, the passes, the interpreter
+src/main/java/dampf/backend/   code generators (from MIR, and the naive one from the AST; ca65 assembly), timing
+src/main/java/dampf/target/    the 65816's cycle table
+src/main/java/dampf/snes/      ROM build with ca65/ld65 (writes the ld65 memory map)
+src/main/java/dampf/emu/       dampf's own 65816 and SNES emulator
+src/main/java/dampf/tools/     dampf mir, dampf bench, dampf profile
+src/main/java/dampf/util/      running external programs
+src/main/resources/dampf/include/  dampf's own <stdint.h> and <dampf.h>
+src/main/resources/dampf/snes/     SNES runtime (start-up, header, vectors)
+src/test/java/dampf/           unit, execution, random, replay and emulator tests; book source checks
 src/test/resources/exec/       execution test programs
 examples/m1/                   example for stepping through C in Mesen
 examples/blubberblasen/        snapshot of the game's code (do not edit; refresh with tools/update_game_snapshot.sh)
+platform/snes/                 the game's console API in C, for the playable ROM
+reference/                     hand-written assembly of hot functions, the yardstick for dampf's code
+tools/                         scripts: benchmark, profile, playable ROM, snapshot, subset scan (see its README.md)
+tools/replay/                  the driver that plays the game's recordings (ReplayTest)
 tools/subset_scan.py           M0 scanner: which C constructs a code base uses
-docs/                          subset and optimization documents
+config/pmd/                    PMD rules (./gradlew pmdMain pmdTest)
+assets/                        the logo
+docs/                          the working documents (see Documents)
 docs/book/                     the user book (VitePress), mostly generated from doc-specs/
 doc-specs/                     what each page of the book covers, and its sources
 ```

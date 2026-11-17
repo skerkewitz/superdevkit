@@ -104,8 +104,9 @@ has checked each file on its own; the command is on [Command line](/reference/co
 ## MIR and its passes
 
 dampf's design has three intermediate levels below the AST: HIR for the structure of C, MIR
-for data flow and LIR for the 65816; today only MIR exists, and HIR and LIR are planned (see
-the [Roadmap](/inside/roadmap)).
+for data flow and LIR for the 65816; today only MIR exists, HIR would come once splitting
+arrays of structs needs it, and the code generator from MIR does LIR's jobs itself (see the
+[Roadmap](/inside/roadmap)).
 
 The class `Lower` translates the AST into MIR directly: each function becomes a graph of basic
 blocks in [SSA](/glossary#ssa) form, with explicit widths and the signedness in the operations.
@@ -138,11 +139,16 @@ What MIR looks like is on [MIR](/inside/mir); what each pass does is on
 ## Code generation
 
 The [code generator from MIR](/glossary#code-generator-from-mir), `MirCodeGen`, is dampf's
-main code generator. Besides the assembly, it computes the best and worst case of every
-function in CPU cycles, which `dampf build` writes to a `.timing.txt` file next to the ROM.
-`Compiler` then checks every function with a `DAMPF_BUDGET` against its worst case: a function
-above its budget, or one without a worst case, stops the build with an error, and one above
-90 % of its budget gets a warning that does not.
+main code generator. It writes 65816 assembly directly and does the jobs of LIR on the way: it
+sets the processor modes with `REP` and `SEP`, gives every value a place in a frame or in A, X
+or Y, and decides branch distances. Before that it prepares the MIR once more: loop exits get
+blocks of their own (`ExitEdges`), return blocks are copied into their predecessors
+(`Returns`), and the checks of the hints come out (`Hints`). Besides the assembly, it computes
+the best and worst case of every function in CPU cycles, which `dampf build` writes to a
+`.timing.txt` file next to the ROM. `Compiler` then checks every function with a
+`DAMPF_BUDGET` against its worst case: a function above its budget, or one without a worst
+case, stops the build with an error, and one above 90 % of its budget gets a warning that does
+not.
 
 The [naive code generator](/glossary#naive-code-generator), `NaiveCodeGen`, translates the AST
 directly, almost everything in 32-bit `int` as C's promotions say. It stays as an independent
@@ -208,10 +214,10 @@ the subset checker can say what is not supported, such as recursion, with a clea
 
 **ca65 and ld65 instead of an own assembler.** Because dampf compiles the whole program, it
 already knows every instruction size and decides branch distances itself, and it controls
-placement through segments; an own assembler or linker would gain nothing. ld65 also writes
-the `.dbg` file Mesen reads, which makes debugging at the level of the C source possible. The
-price is the second link to learn the segment sizes (`docs/architecture.md`, *Assembly output
-and debugging*).
+placement through segments; an own assembler or linker would gain nothing for the code. ld65
+also writes the `.dbg` file Mesen reads, which makes debugging at the level of the C source
+possible. The price is the second link to learn the segment sizes (`docs/architecture.md`,
+*Assembly output and debugging*).
 
 **Not more than three intermediate levels.** Every level costs a lowering step, a verifier, a
 text format and tests, so dampf plans three, one each for the structure of C, the data flow and

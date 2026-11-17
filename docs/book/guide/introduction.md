@@ -78,13 +78,15 @@ dampf's goals:
 4. **Readable output.** The generated assembly is commented, so you can follow what each part is
    meant to do.
 5. **Correctness first.** Every optimization is checked automatically against a reference.
+6. **Nothing to install but Java, in the end.** dampf uses
+   [ca65 and ld65](/glossary#ca65-and-ld65) for now; its own assembler and linker are the last
+   milestone, M6.
 
 Its non-goals:
 
 - Full C, or conformance to the C standard beyond the subset.
 - Other CPUs or targets.
-- An assembler, linker or debugger of its own: dampf uses [ca65, ld65](/glossary#ca65-and-ld65)
-  and Mesen.
+- A debugger of its own: dampf uses Mesen.
 - Floating point.
 - Fast compilation. A game the size of Blubber Blasen compiles in seconds either way.
 
@@ -94,19 +96,21 @@ dampf compiles all of Blubber Blasen. The milestones M0 (define the subset), M1 
 stepping through C in Mesen) and M2 (all of the game compiled by the
 [naive code generator](/glossary#naive-code-generator), with the PC's checksums) are done. M3, the
 optimizer, is in progress: dampf lowers the program to [MIR](/glossary#mir), its intermediate
-representation, optimizes it and generates 65816 code from it. The fine tuning of M4 has not
+representation, optimizes it and generates 65816 code from it. Parts of the fine tuning of M4
+have started early. M5 (publishing) and M6 (an assembler and linker of its own) have not
 started.
 
-During play, Blubber Blasen's game logic takes 0.91 frames per tick with dampf (1.31 without
-FastROM), against 5.17 with the naive code generator. Calypsi's 2.72 came from an older version of the game. On the same
-version, in the play ticks where both compilers play the same scene, both with FastROM, Calypsi
-takes 1.42 frames per tick and dampf 0.79: dampf is 1.81 times as fast, so M3's goal of beating
-Calypsi is reached. The goal of 0.6 frames is not reached yet, and the compiler alone is not expected to
-reach it: the game is being made to do less work at the same time.
+During play, Blubber Blasen's game logic takes 0.91 frames per tick with dampf, against 4.37
+with the naive code generator (measured on 2026-11-18). Calypsi's 2.72 came from an older
+version of the game. On the same version, in the play ticks where both compilers play the same
+scene, both with FastROM, Calypsi takes 1.42 frames per tick and dampf 0.79: dampf is 1.81
+times as fast, so M3's goal of beating Calypsi is reached. The goal of 0.6 frames is not
+reached yet, and the compiler alone is not expected to reach it: the game is being made to do
+less work at the same time.
 
 dampf builds a playable ROM of the game. The SNES platform layer, written in C, implements the
 game's console API: the PVSnesLib-shaped calls the game makes, and the main loop. On the console
-the game runs at 2.28 frames per tick for now: a tick that needs more than one frame waits for
+the game runs at 1.57 frames per tick for now: a tick that needs more than one frame waits for
 the next vertical blank, and the benchmark leaves out what the game's video code costs on the
 hardware. Sound and save RAM are not built. Most of the hints are not built either. dampf
 computes a best and a worst case in CPU cycles for every function, and a function marked with

@@ -37,6 +37,7 @@ const inside = [
       { text: 'How a compile works', link: '/inside/how-a-compile-works' },
       { text: 'MIR', link: '/inside/mir' },
       { text: 'Optimizations', link: '/inside/optimizations' },
+      { text: 'Exact timing', link: '/inside/timing' },
       { text: 'Testing', link: '/inside/testing' },
       { text: 'Roadmap', link: '/inside/roadmap' }
     ]

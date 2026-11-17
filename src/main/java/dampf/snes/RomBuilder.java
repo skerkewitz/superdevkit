@@ -109,7 +109,7 @@ public final class RomBuilder {
     private static String ramPart() {
         return """
                     DP:    start = $0000, size = $0100, type = rw;   # direct page (D = 0)
-                    #      $0100-$1DFF free; $1E00-$1FFF stack
+                    #      $0020-$1DFF the frames of the code from MIR (dampf_frame); $1E00-$1FFF stack
                     RAM:   start = $2000, size = $DFFF, type = rw;   # bank $7E (DBR = $7E), see docs/memory-map.md; $FFFF stays free (one past the end)
                 """;
     }

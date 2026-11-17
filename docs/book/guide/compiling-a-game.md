@@ -61,7 +61,8 @@ over the budget, or has no worst case, the build fails.
 Next to the ROM, dampf writes the generated assembly (one `.s` file per module, plus the
 runtime's), the label and map files, and `dampf.timing.txt` with the best and worst case of
 each function in CPU cycles. A function without a worst case is marked `unbounded`, with the
-loop or call that has no bound, such as `(loop at game.c:1217)`. Every option of `build` is on
+loop or call that has no bound, such as `(loop at game.c:1217)`; a function that never returns,
+such as the benchmark's `main`, has `never` as its best case. Every option of `build` is on
 [Command line](/reference/command-line).
 
 ## Find what does not fit first
@@ -159,33 +160,34 @@ which writes the counts, and prints the report:
 tools/profile_game.sh bench
 ```
 
-The script builds into `build/profile`; its last step is this call, where `40` is the number of
-rows and `--skip bench.c` leaves the functions of the benchmark harness out of the table and
-the shares:
+The script builds into `build/profile` and writes the counts to
+`build/profile/bench.profile.txt`; its last step is this call, where `40` is the number of rows
+and `--skip bench.c` leaves the functions of the benchmark harness out of the table and the
+shares (`--blocks` is explained below):
 
 ```sh
 build/install/dampf/bin/dampf profile build/profile/bench.sfc \
-    build/profile/bench.profile.txt 40 --skip bench.c
+    build/profile/bench.profile.txt 40 --skip bench.c --blocks build/profile/bench.blocks.txt
 ```
 
 The report starts like this (cut after twelve rows):
 
 ```
-13,763,091 instructions, 48,754,882 CPU cycles (measured stretch: 8,618,199,382 master clocks, 24115.9 frames)
-left out (bench.c): 95.6% of all CPU cycles
+11,355,896 instructions, 38,988,074 CPU cycles (measured stretch: 7,199,675,048 master clocks, 20146.5 frames)
+left out (bench.c): 96.5% of all CPU cycles
   share      calls  instructions      CPU cycles   cyc/call  function
-  16.8%        680     2,367,304       8,190,812     12,045  separate
-  11.6%        800     1,594,555       5,662,956      7,078  build_sprites
-   7.9%        680     1,084,816       3,863,100      5,681  bubbles_update
-   6.4%        800       840,939       3,112,274      3,890  bubbles_draw
-   5.0%      1,600       653,216       2,457,312      1,535  player_update
-   4.9%     12,008       730,037       2,408,706        200  ground_px
-   4.3%        680       592,389       2,105,064      3,095  items_update
-   4.3%        800       576,197       2,079,998      2,599  update_play
-   3.6%        800       494,829       1,775,069      2,218  enemies_draw
-   3.6%        800       511,111       1,744,477      2,180  items_draw
-   2.8%      1,501       366,039       1,348,469        898  think_walker
-   2.6%      2,892       400,596       1,281,264        443  level_wall_ahead
+  15.7%        680     1,906,250       6,118,499      8,997  separate
+  12.9%        800     1,420,008       5,012,808      6,266  build_sprites
+   7.9%        680       900,669       3,092,424      4,547  bubbles_update
+   6.8%        800       727,513       2,653,277      3,316  bubbles_draw
+   4.7%      1,600       491,428       1,836,203      1,147  player_update
+   4.1%     12,008       501,885       1,616,178        134  ground_px
+   3.9%        800       428,164       1,507,796      1,884  enemies_draw
+   3.8%        680       444,386       1,483,240      2,181  items_update
+   3.5%        800       405,379       1,363,887      1,704  update_play
+   3.2%        800       395,695       1,250,837      1,563  items_draw
+   3.1%      1,501       334,418       1,221,713        813  think_walker
+   2.6%      2,892       319,620       1,006,524        348  level_wall_ahead
 ```
 
 The first line sums up all functions that are not left out. The measured stretch in brackets
@@ -209,15 +211,15 @@ functions that are not left out (cut after six rows):
 
 ```
   share      executed      CPU cycles  instruction
-  15.5%     1,892,217       7,568,166  sta dp
-  15.4%     1,878,581       7,514,324  lda dp
-   8.1%     1,311,144       3,933,432  cmp #imm
-   7.5%       610,758       3,664,548  lda abs,x
-   4.9%       592,531       2,370,124  ldx dp
-   4.7%       759,786       2,279,358  and #imm
+  14.1%     1,377,889       5,510,854  sta dp
+  12.1%     1,175,511       4,702,044  lda dp
+   8.1%       528,206       3,169,236  lda abs,x
+   7.6%       982,252       2,946,756  cmp #imm
+   5.8%       759,786       2,279,358  and #imm
+   4.0%       521,125       1,563,375  jmp abs
 ```
 
-Here almost a third of the time goes to loading and storing variables in the
+Here about a quarter of the time goes to loading and storing variables in the
 [direct page](/glossary#direct-page).
 
 The profile also says how often each block of the generated code ran. The script writes that to

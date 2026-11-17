@@ -6,6 +6,7 @@ sources:
   - docs/subset.md
   - docs/hints.md
   - docs/timing.md
+  - docs/optimizations.md
 audience: Users who need to know what dampf does not do yet before they rely on it
 ---
 
@@ -17,10 +18,11 @@ repeating plans: what is not built yet, and what will never be.
 ## Sections
 
 1. **Not built yet** – what the SNES platform layer of the playable ROM leaves out (sound, save
-   RAM), hints, intrinsics, the timing report and cycle budgets, other planned items of the roadmap that a user would notice. For
-   each, a sentence on what it will do and what to do meanwhile, if the sources say.
+   RAM), hints, intrinsics, timing in master cycles and outside the CPU (DMA, interrupts), an
+   own assembler and linker (M6), other planned items of the roadmap that a user would notice.
+   For each, a sentence on what it will do and what to do meanwhile, if the sources say.
 2. **Never planned** – the README's non-goals that limit a user: full C, other targets, an own
-   assembler or linker, floating point.
+   debugger, floating point.
 3. **Known differences from gcc** – anything where dampf's result can differ from the PC build,
    if the sources name any; otherwise one sentence that none is known and that the tests compare
    every program with gcc.

@@ -2,30 +2,30 @@
 
 How dampf is built: the pipeline from C source to ROM, the intermediate representations, the
 split between the 65816 core and the SNES target, and what the generated assembly looks like.
-Decided at the kickoff (2026-11-17) and extended by the design discussion the same day.
+Milestone state is in [roadmap.md](roadmap.md).
 
 ## Where the code stands
 
-The target pipeline below is not built in full yet. Today dampf has the front end (preprocessor,
-parser, typed AST with C's conversions made explicit), the call graph check, and the **naive code
-generator**, which works directly on the AST and produces ca65 assembly. That generator stays as
-the reference for all optimized builds (see [testing.md](testing.md)).
+Of the three IR levels below only MIR is built (`dampf.mir`): the lowering from the AST (SSA built
+directly, Braun et al.), a text format (`dampf mir file.c`) that parses back (`MirParser`), a
+verifier and an interpreter. HIR will sit between the AST and MIR once struct splitting needs it.
+The code generator from MIR (`dampf.backend.MirCodeGen`, the default of `dampf build`) writes
+65816 assembly text directly and does LIR's jobs itself (`REP`/`SEP`, direct page places, A, X
+and Y, branch distances, cycles), with `FrameLayout` for the places and `Timing` for the best and
+worst case. The naive code generator works on the AST and stays the reference for optimized
+builds (`--backend naive`; `--replace` works only with it; see [testing.md](testing.md)).
 
-**MIR** exists (`dampf.mir`): the lowering from the AST (SSA built directly, Braun et al.), a text
-format (`dampf mir file.c`) that parses back (`MirParser`), a verifier and an interpreter. All of Blubber Blasen lowers to MIR,
-and the game's benchmark run in the MIR interpreter gives the PC's checksums on all 3,610 ticks.
-A code generator turns MIR into 65816 code (`dampf.backend.MirCodeGen`); it is the default of
-`dampf build` (`--backend naive` picks the naive one). Every value has a place in a compiled stack
-in low RAM (a function's frame starts after the frames of the functions it calls, so the leaves
-lie in the direct page), values share places where their lifetimes allow, and the generator keeps
-values in A and loop counters in X where it can ([optimizations.md](optimizations.md)). It also
-computes each function's best and worst case in CPU cycles ([timing.md](timing.md)). The MIR passes (`dampf.mir.Optimizer`) so far: simplification (`Simplify`),
-width narrowing (`Narrow`, and `RangeNarrow` with the value ranges of `Ranges`), multiplication and division by constants (`StrengthReduce`), induction variables
-(`Induction`), pointer compression (`PointerOffsets`, `PointerParams`), common
-subexpressions and redundant loads (`Gvn`) and dead code removal (`DeadCode`), repeated until
-nothing changes; then inlining (`Inline`) and the passes once more. HIR and LIR are still to be built;
-[roadmap.md](roadmap.md) says when. MIR currently goes straight from the AST; HIR will sit
-between them once inlining and struct splitting need it.
+The MIR passes (`dampf.mir.Optimizer`): simplification (`Simplify`), a bit chosen by a bit
+(`BitSelect`), 8.8 values read as bytes (`ByteLoads`), width narrowing (`Narrow`, and
+`RangeNarrow` with the value ranges of `Ranges`), loop-invariant code (`Licm`), induction
+variables (`Induction`), pointer compression (`PointerOffsets`), multiplication and division by
+constants (`StrengthReduce`), common subexpressions and redundant loads (`Gvn`) and dead code
+removal (`DeadCode`), repeated until nothing changes; then parameter ranges from the calls
+(`ParamRanges`), inlining (`Inline`) and pointer parameters as offsets (`PointerParams`), and the
+passes once more; last, the order of the instructions for the code generator (`Schedule`). The
+code generator itself first gives loop exits their own blocks (`ExitEdges`), copies return blocks
+into their predecessors (`Returns`) and takes out the checks of the hints (`Hints`). How values
+get places, registers and frames is in [optimizations.md](optimizations.md).
 
 ## Pipeline
 
@@ -42,13 +42,17 @@ C source
   → Mesen             runs and debugs at C source level
 ```
 
+As built, HIR and LIR are skipped: `dampf.mir.Lower` lowers the AST to MIR and
+`dampf.backend.MirCodeGen` writes the ca65 assembly; `dampf.backend.NaiveCodeGen` goes from the
+AST to ca65 assembly. `dampf.snes.RomBuilder` runs ca65 and ld65, and `dampf.Compiler` ties the
+steps together.
+
 The parser accepts more C than the subset on purpose: a construct outside the subset is better
 reported by the subset checker ("recursion is not supported: …") than by a parse error.
 
 Preprocessing runs `gcc -E -nostdinc -undef -D__DAMPF__=1` with dampf's own `<stdint.h>`, so host
-headers and host macros never reach the code. The same preprocessor serves the PC build and the
-dampf build, so both see exactly the same code (this matters for the hints, see
-[hints.md](hints.md)).
+headers and host macros never reach the code. The same preprocessor serves the PC build, so both
+builds see the same code (this matters for the hints, see [hints.md](hints.md)).
 
 ## Intermediate representations
 
@@ -56,8 +60,7 @@ dampf build, so both see exactly the same code (this matters for the hints, see
 
 High-level optimizations need the structure of the program: loops, structs, arrays, calls.
 Low-level optimizations need the details of the 65816: registers, processor state, memory
-regions, cycle costs. One representation can do both only badly. Modern compilers therefore use
-several levels: Swift goes from SIL to LLVM IR, Rust from MIR to LLVM IR to LLVM's machine IR.
+regions, cycle costs. One representation does both badly, so compilers use several levels: Swift goes from SIL to LLVM IR, Rust from MIR to LLVM IR to LLVM's machine IR.
 dampf uses three levels, plus the checked syntax tree in front.
 
 A note on names: dampf's MIR is the mid-level IR, comparable to LLVM IR. It is not Rust's MIR and
@@ -67,9 +70,9 @@ not LLVM's machine IR; dampf's LIR plays the role of LLVM's machine IR.
 
 | Level | Comparable to | What it represents | What happens there |
 | --- | --- | --- | --- |
-| **HIR** (high-level) | Rust MIR, Swift SIL | A control flow graph that still has struct fields, array indexing, calls and intrinsics. C's integer promotions are made explicit here, so the meaning of every operation is unambiguous. | Call graph and recursion check; inlining; recognising loops; `DAMPF_SPLIT` (arrays of structs into one array per field); `DAMPF_TABLE` (evaluating functions at compile time) |
-| **MIR** (mid-level) | LLVM IR | SSA form (every value is assigned exactly once). Types `i8`, `i16`, `i24`; pointers as `ptr16` (within the current data bank) or `ptr24` (any bank). Memory as symbol plus offset. *As built: `i1`, `i8`, `i16`, `i32` (C's int) and one `ptr` type; signedness in the operations (sdiv/udiv, ashr/lshr, slt/ult, sext/zext); memory through `load`/`store`/`copy` on addresses from `ptradd`; locals whose address is taken, and arrays and structs, in frame slots.* | Constant propagation, dead code removal, common subexpressions, hoisting invariant code out of loops, **narrowing widths** using value ranges (16 → 8 bit where provably identical), recognising 8.8 fixed-point patterns as byte accesses |
-| **LIR** (low-level) | LLVM machine IR | Real 65816 instructions on virtual locations, with the processor state (M, X, D, DB) as part of the representation | Instruction selection; placing `REP`/`SEP` optimally; direct page slot allocation; assigning A, X and Y; peephole optimization; branch distances; **counting cycles and computing bounds** ([timing.md](timing.md)) |
+| **HIR** (high-level) | Rust MIR, Swift SIL | A control flow graph that still has struct fields, array indexing, calls and intrinsics. C's integer promotions are made explicit here, so the meaning of every operation is unambiguous. *Not built: the typed AST makes the conversions explicit.* | Call graph and recursion check; inlining; recognising loops; `DAMPF_SPLIT` (arrays of structs into one array per field); `DAMPF_TABLE` (evaluating functions at compile time). *As built: the recursion check runs on the AST (`dampf.check.CallGraph`), inlining and loops on MIR (`Inline`, `Loops`); `DAMPF_SPLIT` and `DAMPF_TABLE` are not built.* |
+| **MIR** (mid-level) | LLVM IR | SSA form (every value is assigned exactly once). Types `i8`, `i16`, `i24`; pointers as `ptr16` (within the current data bank) or `ptr24` (any bank). Memory as symbol plus offset. *As built: `i1`, `i8`, `i16`, `i32` (C's int) and one `ptr` type; signedness in the operations (sdiv/udiv, ashr/lshr, slt/ult, sext/zext); memory through `load`/`store`/`copy` on addresses from `ptradd`; locals whose address is taken, and arrays and structs, in frame slots.* | Constant propagation, dead code removal, common subexpressions, hoisting invariant code out of loops, **narrowing widths** using value ranges (16 → 8 bit where provably identical), recognising 8.8 fixed-point patterns as byte accesses. *As built: all of these (constants in `Simplify`), plus the other passes listed above.* |
+| **LIR** (low-level) | LLVM machine IR | Real 65816 instructions on virtual locations, with the processor state (M, X, D, DB) as part of the representation | Instruction selection; placing `REP`/`SEP` optimally; direct page slot allocation; assigning A, X and Y; peephole optimization; branch distances; **counting cycles and computing bounds** ([timing.md](timing.md)). *Not built: `MirCodeGen` does these jobs on the assembly it writes.* |
 
 ### What runs through all levels
 
@@ -83,7 +86,8 @@ not LLVM's machine IR; dampf's LIR plays the role of LLVM's machine IR.
   positions. Only this makes the assembly comments and the C source view in Mesen possible.
 
 Every level also has a text format that can be printed and parsed back, a verifier, and (for HIR
-and MIR) an interpreter; what that brings for testing is in [testing.md](testing.md).
+and MIR) an interpreter; what that brings for testing is in [testing.md](testing.md). MIR has all
+three (`Printer`/`MirParser`, `Verifier`, `Interpreter`).
 
 ### Deliberately not more than three
 
@@ -97,7 +101,7 @@ Almost everything is plain 65816: the IR, width analysis, direct page frames, in
 selection. SNES specifics live in one target module:
 
 - the memory map: direct page and stack in the first 8 KB of bank 0, WRAM, LoROM/HiROM (the
-  current layout is in [memory-map.md](memory-map.md));
+  current layout is in [memory-map.md](memory-map.md); dampf builds LoROM only);
 - the cost of each memory access in cycles (FastROM, WRAM and I/O registers differ); the
   optimizer and the timing analysis need these ([timing.md](timing.md));
 - the multiply and divide registers;
@@ -105,20 +109,29 @@ selection. SNES specifics live in one target module:
 
 Nothing is built for a second target, but the split keeps one possible.
 
+As built, the split is only partly there. The SNES side is `dampf.snes.RomBuilder` (ca65, ld65,
+banks, header) and the runtime `src/main/resources/dampf/snes/runtime.s` (start-up, arithmetic
+routines, header, vectors); the 65816 cycle table is `dampf.target.Cycles65816`. The code
+generators still contain SNES facts themselves (DBR `$7E`, the RAM and frame addresses, long
+addresses for I/O registers). Of the list above only the memory map is built: the cost model
+counts CPU cycles, multiplication and division are software routines in the runtime, and there
+are no intrinsics.
+
 ## Assembly output and debugging
 
-dampf emits ca65 assembly and links with ld65. An own assembler or linker would gain nothing: with
-whole-program compilation the compiler already knows every instruction size (so it decides branch
-distances itself) and controls placement through segments. ld65 also writes `.dbg` debug files,
+dampf emits ca65 assembly and links with ld65. For the code, an own assembler or linker would gain
+nothing: with whole-program compilation the compiler already knows every instruction size (so it
+decides branch distances itself) and controls placement through segments. They come in M6 only to
+drop the dependency on cc65 ([roadmap.md](roadmap.md)). ld65 also writes `.dbg` debug files,
 which Mesen reads. With source line directives (`.dbg line`) in the assembly, Mesen shows and
 steps through the C source. This was the biggest pain in the earlier attempt, so it was verified
-first, in M1 (it works since 2026-11-17).
+first, in M1.
 
 Every C statement is emitted with its source line, the processor state and a comment per
 instruction. Optimizations add why the code looks the way it does, for example
-`; >>8 read as high byte`. Once the cycle counting exists, every instruction also gets its cost
-and every C line the sum (for code with branches: best and worst case). The target format (the
-numbers only illustrate it):
+`; >>8 read as high byte`. Every instruction also gets its cost and every C line the sum (planned
+for code with branches: best and worst case). The target format, as an illustration of the
+design and not dampf's current output (dampf runs X and Y at 16 bit with D = 0):
 
 ```
 ; bubble.c:142   b->x += b->vx;                       [ 13 cyc ]
@@ -131,10 +144,13 @@ numbers only illustrate it):
 
 The naive code generator writes all of this: the source line, the processor state, a comment per
 instruction, and the CPU cycles of every instruction (from `dampf.target.Cycles65816`; a
-conditional branch shows "not taken/taken"). A C line of straight-line code gets the sum in its
-header; a line with branches gets none until the static timing analysis gives its best and worst
-case. The cycles are CPU cycles; master cycles, which depend on the memory each access touches,
-come with that analysis.
+conditional branch shows "not taken/taken"). The code generator from MIR writes the source line,
+the cycles, and a comment per MIR instruction (`; %0 = add i16 %a, %b`) above the instructions it
+became; it writes no processor state line. Both share `dampf.backend.AsmWriter`. A C line of
+straight-line code gets the sum in its header; a line with branches gets none. The static timing
+analysis gives the best and worst case per function, not per line (`<rom>.timing.txt`, code from
+MIR only). The cycles are CPU cycles; master cycles, which depend on the memory each access
+touches, are not computed yet ([timing.md](timing.md)).
 
 ## Implementation
 
@@ -142,5 +158,5 @@ come with that analysis.
   matching suit an IR and compiler passes well, and strong types catch many errors early.
 - ANTLR 4 for the parser, with the C grammar from grammars-v4 (vendored, see
   `src/main/antlr/dampf/parser/README.md`).
-- Gradle with the wrapper as the build tool (decided 2026-11-17).
+- Gradle with the wrapper as the build tool.
 - Compilation speed does not matter: a game this size compiles in seconds either way.

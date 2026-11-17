@@ -2,8 +2,8 @@
 """M0 subset scanner.
 
 Parses C files with clang (JSON AST) and reports which C constructs they use,
-so the dampf subset can be derived from real code. Throwaway tooling: the dampf
-subset checker replaces it once it exists.
+so the dampf subset can be derived from real code. M0 tooling: the subset is
+now enforced by dampf itself (dampf check); this stays for scanning other code.
 
 Usage:
     tools/subset_scan.py [--details] -I<dir> ... file.c ...

@@ -197,7 +197,7 @@ public final class Compiler {
                 # dampf timing: best and worst case per function in CPU cycles, from entry to return,
                 # calls included, interrupts and DMA not (docs/timing.md). "unbounded": a loop without
                 # a known bound on the way; the first such loop in the function, or the first call
-                # of a function without a bound, is named after it.
+                # of a function without a bound, is named after it. "never": the function never returns.
                 """);
         out.append(String.format("%12s %12s  %s%n", "best", "worst", "function"));
         timing.entrySet().stream()
@@ -205,7 +205,7 @@ public final class Compiler {
                         a.getValue()[1] < 0 ? Long.MAX_VALUE : a.getValue()[1]))
                 .forEach(e -> {
                     String reason = why.get(e.getKey());
-                    out.append(String.format("%12d %12s  %s%s%n", e.getValue()[0],
+                    out.append(String.format("%12s %12s  %s%s%n", e.getValue()[0] < 0 ? "never" : Long.toString(e.getValue()[0]),
                             e.getValue()[1] < 0 ? "unbounded" : Long.toString(e.getValue()[1]), e.getKey(),
                             reason == null ? "" : "   (" + reason + ")"));
                 });

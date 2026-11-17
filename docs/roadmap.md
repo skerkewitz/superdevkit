@@ -1,280 +1,149 @@
 # Roadmap
 
-Milestones, risks and open questions. The plan was decided at the kickoff on 2026-11-17 and
-extended by the design discussion the same day (hints, reference benchmarks, exact timing, three
-IR levels). It was revised on 2026-11-17 after M1, see *Changes* below.
+Milestones, risks and open questions. The plan was set at the kickoff on 2026-11-17, extended by
+the design discussion the same day (hints, reference benchmarks, exact timing, three IR levels) and
+revised after M1 (see [History](#history)).
+
+## Where dampf stands
+
+M0 to M2 are done: all of Blubber Blasen compiles, and the benchmark and the replays give the PC's
+checksums, on the SNES and in a playable ROM. M3 is in progress, and its goal, faster than Calypsi,
+is reached. Parts of M4 have started early. During play the game takes 0.91 frames per tick
+against a goal of 0.6, so the compiler work goes on while the game reduces its own work in
+parallel. The current numbers are in [optimizations.md](optimizations.md#where-things-stand).
+M5 and M6 have not started.
 
 ## Milestones
 
 | Milestone | Goal | Done when | State |
 | --- | --- | --- | --- |
-| M0 | Define the subset | Blubber Blasen's `src/game` is scanned; [subset.md](subset.md) lists what is allowed, what is not, and what the game code has to change | Done 2026-11-17. The decisions in subset.md are implemented as recommended until decided. Still open: `goto` (decision 4). The hint macros: decided 2026-11-17 that the working names are the names, from `<dampf.h>`; `DAMPF_RANGE` and `DAMPF_BUDGET` are built ([hints.md](hints.md)). |
-| M1 | End to end | A small function is compiled, assembled with ca65, linked with ld65, runs automatically in a test, and Mesen shows its C source while stepping | Done 2026-11-17 (stepping through C in Mesen checked by hand) |
-| M2 | Naive but complete | All of Blubber Blasen compiles with the naive code generator, the game's benchmark and replays give the same checksums as the PC, cycles are measured per tick and per function and compared with Calypsi, and the first reference assembly function gives the first dampf/reference ratio | Done 2026-11-17, see the steps below. Calypsi on the same game version: done 2026-11-17 in dampf (`tools/bench_compilers.sh`, see *The plan from here*) |
-| Checkpoint | Decide whether the plan reaches the budget | See below | Decided 2026-11-17: compiler and game in parallel (below) |
-| M3 | The big levers | Optimizations A–D ([optimizations.md](optimizations.md)), built on the three IR levels. Goal: faster than Calypsi (reached 2026-11-17: 1.47 times as fast on the same scene, 1.81 times since, both with FastROM). Also: static best/worst case per function and the timing report, `DAMPF_BUDGET` checked at build time ([timing.md](timing.md)), the remaining reference functions; inferred value ranges and pointer compression ([subrange-types.md](subrange-types.md)) | In progress: MIR, the code generator from MIR (the default), the MIR passes (B, I, H, value ranges, inlining, induction variables, pointer compression), values kept in A and X, the static timing (best and worst case per function) and `DAMPF_BUDGET` are built, see below |
-| M4 | Fine tuning | Optimizations E–N until the frame budget is met, page-aligned arrays with 8-bit index registers. Also: profile-guided optimization from the replays, superoptimization of short hot sequences, `DAMPF_TABLE`, `DAMPF_PIN_X` and the other transforming hints | Started early: the block layout by a profile (`dampf profile --blocks`, `dampf build --block-counts`) |
-| M5 | Publishing | dampf can go public: own examples replace Blubber Blasen as test case and benchmark, dampf has its own preprocessor, the repository is hosted | Not started; see below |
-| M6 | Standing alone | dampf has its own assembler and linker; using dampf needs nothing but Java | Not started. The very last step, taken only when everything else runs to our satisfaction |
+| M0 | Define the subset | Blubber Blasen's `src/game` is scanned; [subset.md](subset.md) lists what is allowed, what is not, and what the game code has to change | Done 2026-11-17; `goto` (decision 4) still open |
+| M1 | End to end | A small function is compiled, assembled with ca65, linked with ld65, runs automatically in a test, and Mesen shows its C source while stepping | Done 2026-11-17 |
+| M2 | Naive but complete | All of Blubber Blasen compiles with the naive code generator, the game's benchmark and replays give the same checksums as the PC, cycles are measured per tick and per function and compared with Calypsi, and the first reference assembly function gives the first dampf/reference ratio | Done 2026-11-17 |
+| Checkpoint | Decide whether the plan reaches the budget | See [History](#checkpoint-after-m2) | Decided 2026-11-17: compiler and game in parallel |
+| M3 | The big levers | Optimizations A–D ([optimizations.md](optimizations.md)), built on the three IR levels. Goal: faster than Calypsi (reached 2026-11-17). Also: static best/worst case per function and the timing report, `DAMPF_BUDGET` checked at build time ([timing.md](timing.md)), the remaining reference functions; inferred value ranges and pointer compression ([subrange-types.md](subrange-types.md)) | In progress: MIR, its passes and the code generator from MIR built; HIR, LIR and the rest open (below) |
+| M4 | Fine tuning | Optimizations E–N until the frame budget is met, page-aligned arrays with 8-bit index registers. Also: profile-guided optimization from the replays, superoptimization of short hot sequences, `DAMPF_TABLE`, `DAMPF_PIN_X` and the other transforming hints | Started early: E, F, G, J, K and N in progress, block layout by a profile built |
+| M5 | Publishing | dampf can go public: own examples replace Blubber Blasen as test case and benchmark, dampf has its own preprocessor, the repository is hosted | Not started |
+| M6 | Standing alone | dampf has its own assembler and linker; using dampf needs nothing but Java | Not started; the very last step |
 
-### M2 in steps
+## What is left in M3 and M4
 
-The steps are ordered so that the most important question (does the game run on dampf, and how far
-is it from the budget?) is answered as early as possible.
-
-| Step | What | Done when | State |
-| --- | --- | --- | --- |
-| 1 | ROMs larger than 32 KB | Code and constant data spread over several ROM banks; calls across banks; no object crosses a bank boundary; a test program larger than one bank runs in Mesen | Done 2026-11-17 (`exec/banks.c` spans four banks) |
-| 2 | The game's benchmark on dampf | `bench.c` from the game (in the snapshot) and all of `src/game` compile with dampf. `bench.c` stubs out every PVSnesLib call, so no platform layer is needed. Its per-tick checksums match the PC reference (`tools/snesbench/pc`), and its cycles per tick are compared with 816-tcc and Calypsi in [optimizations.md](optimizations.md) | Done 2026-11-17: all 3,610 ticks match the PC (`tools/bench_game.sh`). 816-tcc and Calypsi on the same game version: measured 2026-11-17 (see *The plan from here*). |
-| 3 | The replays | A converter turns a replay (`tests/replays/*.bbr`: joypad words per tick, a checksum every 60 ticks) into an input table in ROM; the run on the SNES gives the recorded checksums. Replays need the game's debug code (`BB_DEBUG`) | Done 2026-11-17: `plus_bot_seed42.bbr` (3,000 ticks, 50 checksums) matches on the PC and on the SNES (`./gradlew test -Preplays`) |
-| 4 | Cycles per function | A Mesen profile script (as in the game's `tools/snesbench/profile.lua`) gives cycles per function for the benchmark and the replays | Done 2026-11-17: `tools/profile_game.sh bench|replay` and `dampf profile`; results in [optimizations.md](optimizations.md) |
-| 5 | First reference function | One hot function written by hand in assembly; its cycles against dampf's version give the first ratio ([optimizations.md](optimizations.md)) | Done 2026-11-17: `level_solid_px`, dampf's naive code is 4.5 times slower than hand-written (`reference/`, `dampf build --replace`) |
-
-The game's change from finding 5 (`(unsigned)` casts in `video.c`, [game-findings.md](game-findings.md))
-is in the snapshot since 2026-11-17: all 16 files of the game pass dampf's front end.
-
-### Checkpoint after M2
-
-During play, the game logic has to become about 4.5 times as fast as with Calypsi (6.4 times on the
-worst tick) to fit 60 % of a frame. The optimizations are expected to bring a factor of 3–6 over
-the naive code generator, which does almost everything in 32-bit `int` and will probably be slower
-than Calypsi. With the measurements of M2 in hand, decide explicitly: does the plan reach the
-budget, or does the game also have to do less work (for example a cheaper CPU partner or a
-cheaper bubble separation, see [game-findings.md](game-findings.md))? The answer also sets the order
-of the optimizations in M3 and M4.
-
-#### The decision (2026-11-17)
-
-The numbers after M2, in frames per tick of dampf's naive code:
-
-| | Average | Worst tick |
-| --- | --- | --- |
-| Play | 5.17 | 8.58 |
-| Play with the CPU partner | 6.55 | 12.23 |
-
-The goal (0.6 frames) needs 9–11 times faster on average and 14–20 times on the worst tick. The
-optimizations are expected to bring 3–6 times over the naive code, and the first reference
-function agrees (hand-written `level_solid_px` is 4.5 times faster). Even if dampf reached
-hand-written quality everywhere, play would be at about 1.2–1.7 frames on average and the worst
-tick with the CPU partner at 3–4 frames. The compiler alone cannot close the gap; a factor of about
-2–3 on average, more on the worst ticks, has to come from the game doing less work.
-
-Options were: compiler first and decide after M3 (defer), compiler and game in parallel, or relax
-the requirement (for example 30 Hz game logic on the heaviest ticks). **Decided: compiler and game
-in parallel.** dampf goes on with M3; the game works now on the hot spots no compiler can fix: the
-CPU partner (up to 3.7 extra frames on the worst tick) and the pairwise bubble separation. The
-game's ROADMAP (step 2b) already plans this. The request to the game is finding 7 in
-[game-findings.md](game-findings.md). Relaxing the requirement stays as a fallback, to be decided
-on measured numbers after M3 if rare worst ticks still do not fit.
-
-The game's changes happen in the game's repository; dampf follows by refreshing its snapshot and
-measuring with the benchmark, the replays and the profile.
-
-### Start of M3: the foundation for the optimizer
-
-Before the first optimization, M3 builds:
-
-- **The three IR levels** (HIR, MIR, LIR; [architecture.md](architecture.md)), each with a text
-  format that can be parsed back and a verifier, and interpreters for HIR and MIR in the tests.
-  MIR first (2026-11-17): lowering with SSA, text format, verifier and interpreter are built; the
-  whole game runs on the MIR level with the PC's checksums. The text format parses back
-  (`dampf.mir.MirParser`; printing, parsing and printing again gives the same text for every
-  test program and the whole game). The simple code generator from MIR is built
-  (`--backend mir`): correct on the execution tests, the random programs, the replay and the
-  benchmark, and 3.7 times slower than the naive generator before any pass
-  ([optimizations.md](optimizations.md)). The MIR passes have started: width narrowing (B)
-  from the types and with 16-bit pointer offsets brings play from 18.93 to 8.16 frames per tick;
-  constant multiplication and division (I) to 6.12 (naive: 5.17); the standard optimizations (H)
-  to 5.17, the same as the naive generator, and 6.10 against 6.55 with the CPU partner.
-  The optimizing pipeline is built next to the naive code generator, which keeps working on the
-  AST: an independent reference catches more bugs than one that shares code with what it checks.
-- **The Java 65816 CPU emulator** with master-cycle counting and the exact memory speeds
-  ([testing.md](testing.md)), validated against public per-instruction test suites. It makes the
-  tests fast and lets every test report cycles. Done 2026-11-17: passes the SingleStepTests
-  native-mode suite and matches Mesen on the game's benchmark (checksums and master cycles); the
-  benchmark takes 30 seconds instead of 6 minutes, a replay 11 instead of 100.
-- **Cycle counts in the assembly comments** ([architecture.md](architecture.md)). Done 2026-11-17
-  for CPU cycles per instruction and per straight-line C line.
-
-Then the optimizations. B (from the types), I and H are built (see above). Next, in this order;
-the profile after each step can change the order of the later ones:
-
-1. **Compare and branch in one** in the code generator from MIR. Done 2026-11-17: play 5.17 →
-   4.48 frames per tick, now 13 % faster than the naive generator.
-2. **Inferred value ranges in MIR** ([subrange-types.md](subrange-types.md), section 7). Done
-   2026-11-17 for constants, operations, conditions on the path and loops (`Ranges`,
-   `RangeNarrow`): play 4.48 → 4.38, with the CPU partner 5.37 → 5.15. Since then also: loop
-   bounds for the timing analysis, parameter ranges from the call sites (`ParamRanges`),
-   conditions between two values, and narrowing after widening (play 1.53 → 1.50). Still open:
-   ranges from array bounds.
-3. **Pointer compression** (section 8 there): a points-to analysis over the whole program, and a
-   pointer that only ever points into one array becomes an index (`b->x` as `lda bub_x,x` instead
-   of a 4-byte pointer through `[dampf_ptr],y`). The game passes `Bubble *` everywhere. Needs the
-   subset rules on integer/pointer casts and pointer arithmetic, which the game already keeps.
-4. **Values in registers and the direct page** (A, C, D in [optimizations.md](optimizations.md)):
-   the code generator stops sending every value through RAM. Started 2026-11-17: reloads of what
-   A holds are left out, φs are written directly, and the frames lie in low RAM with the leaves in
-   the direct page, values share places where their lifetimes allow, so all of the game's
-   values are in the direct page; with inlining, indexed addressing and smaller changes play is
-   at 1.53 frames per tick (1.50 after the range fixes in step 2, 1.41 after byte loads, short
-   branches, `INC`/`DEC` and `STZ` in the code generator, [optimizations.md](optimizations.md)).
-
-   Where the time goes now (play, game code only): loads and stores of values in the direct page
-   are 37 % of the cycles, `JMP` 5.5 %, comparisons 5.7 %, masks 4.5 %. Next, in this order:
-
-   1. **Register allocation across instructions:** done 2026-11-17 in the form the 65816 allows
-      (the direct page is its register file): scheduling for hand-overs in A, comparisons and
-      offsets taken from A, loop counters in X. Play 1.67 → 1.53 together with 2 and 3.
-   2. **Induction variables:** done 2026-11-17 (`Induction`): play 1.61 → 1.57.
-   3. **Pointer compression:** done 2026-11-17 for pointers into a single object, within functions
-      and through parameters (`PointerOffsets`, `PointerParams`): play 1.56 → 1.54.
-
-   **Static timing** (best and worst case per function, [timing.md](timing.md)): built
-   2026-11-17 in CPU cycles and checked against the emulator on every call. The loop bounds
-   were extended after it (unsigned counters, tests further down the loop, limits that are not
-   constants): 38 of the game's functions are still unbounded, and the report names the loop
-   or call that makes each of them so. The first hint, `DAMPF_RANGE` from `<dampf.h>`, bounds
-   such loops by hand (`while (s[n]) { DAMPF_RANGE(n, 0, 10); n++; }`), checked on the PC and
-   in the MIR interpreter, at no cost on the SNES. `DAMPF_BUDGET` is checked at build
-   time (an error over the budget or without a worst case, a warning above 90 %).
-   `DAMPF_TRIPS` is postponed ([hints.md](hints.md)). Next: master cycles and the costliest
-   path per C line in the report and in the budget errors.
-
-**Subrange types** (`DAMPF_RANGED`, `DAMPF_AS` and their checker, sections 3–6 there) are not
-scheduled. They are built when a profile shows a hot value whose range dampf cannot infer and
-that costs real cycles. Until then the design stays as it is.
-
-### The plan from here (2026-11-17)
-
-**Where dampf stands.** During play the game took 1.31 frames per tick with dampf when this plan
-was made; the goal is 0.6. With FastROM (row 1 below) and the steps done since it takes 0.91. On
-the same game version (the snapshot, the game's own benchmark and Calypsi's options), in the play
-ticks where both play the same scene (711-812), with FastROM for both, Calypsi takes 1.42 frames
-per tick and dampf 0.79: dampf is 1.81 times as fast (1.47 when this plan was made, both at
-SlowROM speed), and 1.5 to 2.0 times on the title, the story and the round intro
-(`CMP_NAME=calypsi_fast CALYPSI_OPT="-O2 --speed --no-cross-call -DBENCH_FASTROM"
-tools/bench_compilers.sh`). 816-tcc is about 3.6 times slower than dampf and no longer of interest. Calypsi's
-results drift away from the PC's from tick 596 on, its play average over the whole run (3.82)
-therefore compares other scenes; no Calypsi option does better (smaller memory models do not
-link, more inlining changes nothing). `tools/bench_compilers.sh` repeats the comparison in about
-30 seconds; dampf's emulator now runs HiROM and matches Mesen on Calypsi's ROM. The claim rests
-on one game and on dampf's C subset; WDC's commercial compiler was not measured.
-
-**Where the time goes** (play, game code, `INSTRUCTIONS=1 tools/profile_game.sh bench`): values to
-and from the direct page 30 % (`sta dp` 16.0 %, `lda dp` 14.2 %), comparisons 8.5 % (`cmp #imm`),
-indexed reads 7 % (`lda abs,x`), byte masks 5 % (`and #imm`), jumps 3-4 % (without block counts).
-The runtime's multiplication and division are no longer among the most expensive.
-
-**What is left**, by likely gain on play (estimates from those shares, not measurements; several
-ideas that looked good measured zero, see [optimizations.md](optimizations.md)) and effort:
+The open rows of the plan made on 2026-11-17, by likely gain on play and effort. The gains are
+estimates from the profile's shares, not measurements; several ideas that looked good measured
+zero ([optimizations.md](optimizations.md#tried-and-rejected)). The numbers follow the original plan; the done rows
+(1 FastROM, 12 hardware registers at constant addresses) are in [History](#history).
 
 | # | Idea | Likely gain | Effort | Notes |
 | --- | --- | --- | --- | --- |
-| 1 | FastROM: banks $80+ at 3.58 MHz (`MEMSEL`), the header says so | 10-15 % | tiny | **Done 2026-11-17: play 1.31 → 1.10 frames per tick (−16 %).** The default; `--slowrom` for a SlowROM cartridge. Calypsi gains as much with FastROM, so the comparison stays at 1.5 times. |
-| 2 | Register allocation: values in A, X and Y over several instructions instead of a direct page place each | 10-20 % | high | The 30 %. With one accumulator, choosing what lives where is the hard part. **Started 2026-11-17:** values every use takes from A are not stored, play 1.08 → 1.06 (−1.7 %); with narrow switches, copied returns, indexes through pointers in Y, loop counters in X next to an index in Y and loop tests on the offset: 0.92; with sums as pointers for an index in Y: 0.91. Next: stores moved to the path that needs them, fewer reloads. |
-| 3 | 8-bit stretches: the M flag followed (`REP`/`SEP`), `uint8_t` code in 8-bit mode | 5-10 % | high | Fewer `AND #$00FF`, and 8-bit accesses are a cycle cheaper. Needs the processor state across blocks. |
+| 2 | Register allocation: values in A, X and Y over several instructions instead of a direct page place each | 10-20 % | high | Loads and stores of direct page values are the largest share of the cycles. With one accumulator, choosing what lives where is the hard part. In progress (steps in History). Next: stores moved to the path that needs them, fewer reloads. |
+| 3 | 8-bit stretches: the M flag followed (`REP`/`SEP`), `uint8_t` code in 8-bit mode | 5-10 % | high | Fewer `AND #$00FF`, and 8-bit accesses are a cycle cheaper. Needs the processor state across blocks. Only a small start: 8-bit mode kept across C lines within a block. |
 | 4 | Arrays of structs as one array per field (catalogue D, `DAMPF_SPLIT`) | 5-10 % in the bubble loops | high | `separate`, `bubbles_update` and `bubbles_draw` are 30 %. Needs a subset decision or a hint, since the layout then differs from the PC. |
 | 5 | 8-bit index registers, arrays aligned to pages | 2-4 % | high | `LDA abs,X` a cycle cheaper; needs the X flag followed and the alignment in the memory map. |
-| 6 | Comparisons on the flags: no `CMP` where the instruction before set them, `BIT` for bit tests | 2-4 % | low to medium | **Done 2026-11-17 for `CMP #0`: play 1.10 → 1.08 (−1.3 %).** Of the 1.3 million `CMP #imm` in 800 play ticks, about 150,000 compared with 0 after an instruction that had set the flags; the rest compare with other constants and feed `BCC`/`BCS`. `BIT` not tried. |
+| 6 | Comparisons on the flags: `BIT` for bit tests | 2-4 % for the whole row | low to medium | Done for `CMP #0`; `BIT` not tried. Most remaining `CMP #imm` compare with other constants and feed `BCC`/`BCS`. |
 | 7 | Calling convention (catalogue C): the first argument in A, `JMP` for tail calls | 1-3 % | medium | `ground_px` is called 12,000 times in 800 ticks. |
 | 8 | The block layout by a profile by default (from the replays) | ~1 % | low | Built (`--block-counts`), opt-in; needs a profile in the game's build. |
 | 9 | Value ranges from array bounds | 1-2 % | medium | More 8-bit narrowing, fewer masks. |
 | 10 | Superoptimizer for short hot sequences | 1-3 % | high | Gains spread thin. |
 | 11 | `<<8` as a byte store, `switch` as a jump table, `MVN` for copies, unrolling by hint | <1 % each | low to medium | Large locally, small on the whole game. |
-| 12 | Hardware registers at constant addresses: `STA f:$00210B` (and `,X` with an index) instead of a pointer through `dampf_ptr` | none on the benchmark (its platform functions are empty); 33 → 15 cycles per register write in the platform layer | low | **Done 2026-11-17.** It matters for the playable ROM's vertical blank, which the benchmark does not measure. |
 
-**The order:** FastROM first (almost free, if a FastROM cartridge is acceptable for the game), then
-the comparisons (6) as a quick check, then register allocation (2), or the split of struct arrays
-(4) once its subset question is decided; then 3, 5 and 7. FastROM and 2 to 6 together might bring
-play to about 0.85-1.0 frames per tick. The rest has to come from the game doing less work: the
-pair loop of `separate` (16 %) and the CPU partner ([game-findings.md](game-findings.md),
-finding 7), as the checkpoint after M2 concluded.
+The order: register allocation (2), or the split of struct arrays (4) once its subset question is
+decided; then 3, 5 and 7. FastROM and rows 2 to 6 together might bring play to about 0.85-1.0
+frames per tick. The rest has to come from the game doing less work: the pair loop of `separate`
+(16 %) and the CPU partner ([game-findings.md](game-findings.md), finding 7), as the checkpoint
+after M2 concluded.
 
-### After M2: a playable ROM
+Also open in M3:
 
-Built 2026-11-17, ahead of the game's own SNES port: with every iteration of dampf, the real
-game can be built and played, and the whole toolchain is tested on what only the console shows.
+- **HIR and LIR.** MIR is lowered straight from the AST, and the code generator writes 65816 code
+  from MIR. Both are open and not scheduled. [architecture.md](architecture.md) places the split
+  of struct arrays (row 4) in HIR and the processor state across blocks (rows 3 and 5) in LIR.
+  The way to LIR, and from there to machine code without ca65 and ld65 (M6), is planned step by
+  step in [transition-to-lir.md](transition-to-lir.md).
+- **Master cycles per C line.** The assembly comments and the timing report count CPU cycles.
+  Next: master cycles and the costliest path per C line in the report and in the budget errors.
+- **Unbounded loops.** 38 of the game's functions have no worst case yet; the report names the
+  loop or call that causes it, and `DAMPF_RANGE` bounds such loops by hand. `DAMPF_TRIPS` is
+  postponed ([hints.md](hints.md)).
+- **Ranges from array bounds** (row 9).
+- **Subrange types** (`DAMPF_RANGED`, `DAMPF_AS` and their checker, sections 3–6 of
+  [subrange-types.md](subrange-types.md)) are not scheduled. They are built when a profile shows a
+  hot value whose range dampf cannot infer and that costs real cycles.
 
-- **The platform layer** is `platform/snes`, in C: the 19 PVSnesLib-shaped calls of `snes.h`
-  and the rest of its API (`snes.c`), and the main loop (`main.c`). It reaches the hardware
-  through pointers to `volatile` memory and needs one new language feature, the cast from a
-  pointer to an integer for DMA source addresses ([subset.md](subset.md), *Hardware access*).
+## The playable ROM
+
+Built 2026-11-17, ahead of the game's own SNES port, so that every iteration of dampf can be played
+and the toolchain is tested on what only the console shows.
+
+- **The platform layer** is `platform/snes`, in C: the 19 PVSnesLib-shaped calls of `snes.h` and
+  the rest of its API (`snes.c`), and the main loop (`main.c`). It reaches the hardware through
+  pointers to `volatile` memory and needs one language feature of its own, the cast from a pointer
+  to an integer for DMA source addresses ([subset.md](subset.md), *Hardware access*).
 - **No interrupt handler.** The loop waits for the vertical blank, then copies the OAM shadow and
-  calls `game_vblank`. C code called from an NMI in the middle of a tick would overwrite the
-  frames of the code it interrupted, since dampf keeps them at fixed places.
+  calls `game_vblank`. C code called from an NMI in the middle of a tick would overwrite the frames
+  of the code it interrupted, since dampf keeps them at fixed places.
 - **Not built:** sound (the game has none yet), save RAM (the high scores start empty at every
   power-on).
 - **Building and checking:** `tools/build_game_rom.sh` writes `build/game/blubberblasen.sfc`.
-  `tools/check_game_rom.sh` plays it in Mesen for a minute with scripted input, saves
-  screenshots, and fails if any byte reaches VRAM, CGRAM or OAM outside a vertical blank.
-  `ReplayTest` (`-Preplays`, with a Mesen) plays the recording through the platform layer: the
-  same checksums as the PC, and no byte lost.
+  `tools/check_game_rom.sh` plays it in Mesen for a minute with scripted input, saves screenshots,
+  and fails if any byte reaches VRAM, CGRAM or OAM outside a vertical blank. `ReplayTest`
+  (`-Preplays`, with a Mesen) plays the recording through the platform layer: the same checksums
+  as the PC, and no byte lost.
 
-What the console showed that the benchmark could not:
+The console showed things the benchmark could not. A tick that needs more than one frame waits for
+the next vertical blank, and the benchmark leaves out what `video.c` costs on the hardware. With the
+naive code generator the vertical blank code is so slow that the room tiles never fit
+([game-findings.md](game-findings.md), finding 8). The console figure (frames per tick during a
+minute of play, measured again on 2026-11-18) is in
+[optimizations.md](optimizations.md#where-things-stand).
 
-- **The game runs at 2.28 frames per tick** during a minute of play (26 ticks a second), while the
-  benchmark gave 1.34 for play at the time:
-  a tick that needs more than one frame waits for the start of the next vertical blank, and the
-  benchmark leaves out what `video.c` costs on the hardware.
-- **The vertical blank is mostly spent on C code.** `video_vblank` reaches its first upload about
-  25 of the 37 lines into it. Every register write goes through `[dampf_ptr],y` with the pointer
-  built first (about 30 cycles); a volatile access at a constant address should be one long
-  `sta`/`lda`. A 32-bit shift by 16 is a loop of 16 steps (about 600 cycles); a shift by a
-  multiple of 8 should move bytes. Both are worth doing next.
-- **`snesDmaFits` must leave room for the code around a copy.** From the check to the start of a
-  tileset copy takes 3.5 lines, and `video.c` asks once for two copies (tiles and palette).
-  A copy that starts after the last line of the vertical blank is lost; the first version lost a
-  row of the text layer ("READY!" stayed on screen). The margin is 8 lines now and can shrink when
-  the register writes get faster.
-- **With the naive code generator the game never gets its room tiles**: its vertical blank code is
-  so slow that no upload ever fits ([game-findings.md](game-findings.md), finding 8).
+Open:
 
-### M5: publishing
+- **Constant shifts longer than 8 still loop.** A 32-bit shift by 16 is a loop of 16 steps (about
+  600 cycles); a shift by a multiple of 8 should move bytes.
+- **The DMA margin is not measured again.** `snesDmaFits` leaves `SETUP_LINES` (8) lines for the
+  code around a copy, because a copy that starts after the vertical blank is lost (the first
+  version lost a row of the text layer). The margin can shrink since the register writes got
+  faster.
+
+## M5: publishing
 
 - **Own examples.** The Blubber Blasen snapshot (`examples/blubberblasen`), its platform layer
-  (`platform/snes`) and the hand-written
-  benchmark in `reference/` (assembly of a Blubber Blasen function) leave the repository. Deleting
-  them is not enough: they are in the git history, so either the history is cleaned
-  (`git filter-repo`) or the public repository starts without it. Own examples take over their
-  jobs: a program large enough to be a test case, a busy scene as speed benchmark, and new
-  hand-written reference functions.
-- **Own preprocessor.** Today dampf calls `gcc -E`, which users on Windows have to install
-  (MinGW or MSYS) only for that. dampf gets its own C preprocessor in Java: macro expansion
-  following Prosser's algorithm, `#` and `##`, variadic macros with `__VA_OPT__`, `#if`
-  arithmetic in `intmax_t`, line markers for the debug information. `gcc -E` stays in the tests
-  as the oracle: the output of dampf's preprocessor is compared with gcc's on every test program,
-  every example and on generated macro cases. After this, gcc is only needed to develop dampf
-  (the PC side of the execution tests), not to use it.
+  (`platform/snes`) and the hand-written benchmark in `reference/` (assembly of a Blubber Blasen
+  function) leave the repository. Deleting them is not enough: they are in the git history, so
+  either the history is cleaned (`git filter-repo`) or the public repository starts without it.
+  Own examples take over their jobs: a program large enough to be a test case, a busy scene as
+  speed benchmark, and new hand-written reference functions.
+- **Own preprocessor.** Today dampf calls `gcc -E`, which users on Windows have to install (MinGW
+  or MSYS) only for that. dampf gets its own C preprocessor in Java: macro expansion following
+  Prosser's algorithm, `#` and `##`, variadic macros with `__VA_OPT__`, `#if` arithmetic in
+  `intmax_t`, line markers for the debug information. `gcc -E` stays in the tests as the oracle:
+  the output of dampf's preprocessor is compared with gcc's on every test program, every example
+  and on generated macro cases. After this, gcc is only needed to develop dampf (the PC side of
+  the execution tests), not to use it.
 - **Hosting**, and the book online.
 
-### M6: standing alone
+## After M5: better C debugging in Mesen
+
+Mesen shows the C source and the names of global variables from the `.dbg` file, and that is
+all: of a C symbol (`csym`) it reads only the name and the assembly symbol it belongs to, and the
+type that cc65 and dampf write is always `"00"`. dampf's users would gain from variables shown
+with their C type (`uint8_t`, signed `int16_t`), struct fields, and the locals of a function in
+their direct page slots. The cc65 format already has fields for part of this (a storage class
+`sc` and an offset on `csym`) that Mesen ignores. The plan: dampf first fills what the format
+has, then a small patch teaches Mesen to read it, offered to Mesen's author. NES developers who
+use cc65 would gain from it too. This comes when dampf is public and has users, since a patch
+from a compiler with users is easier to argue for.
+
+## M6: standing alone
 
 dampf assembles and links itself, so ca65 and ld65 are no longer needed and using dampf needs
 nothing but Java. dampf only uses a small part of ca65 (its own output) and of ld65 (its own
 memory map), so both stay as the oracle in the tests: the ROM dampf builds itself must be
 byte-identical to the one ca65 and ld65 build from the same assembly, and the debug information
-must still let Mesen show the C source. This is deliberately the last step: it changes nothing
-in the code dampf generates, so it waits until everything else runs to our satisfaction.
-
-### Changes
-
-- **2026-11-17, after M1.** The design discussion had added three items to M1: the Java CPU
-  emulator with cycle counting, cycle counts in the assembly comments, and the three IR levels
-  with text format and verifier (and HIR/MIR interpreters to M2). M1 was completed by its original
-  definition without them. They move to the start of M3: the IR levels and interpreters protect
-  lowering and optimization passes, which do not exist before M3, and the M2 measurements work
-  with Mesen. M2 was split into steps so the first measurement of the whole game comes early, the
-  checkpoint was added, and the playable ROM was separated from M2.
-- **2026-11-17, during M3.** The playable ROM was built before the game's own SNES port needs it,
-  so that every iteration of dampf can be played and the whole toolchain is tested on the real
-  console (see *After M2: a playable ROM*).
-- **2026-11-17, during M3.** dampf was measured against Calypsi on the same game version and
-  is faster (M3's goal). What is left was estimated and ordered (*The plan from here*); FastROM
-  was added as a platform step, and 816-tcc dropped from the comparisons.
-- **2026-11-17, during M3.** The design for value ranges ([subrange-types.md](subrange-types.md))
-  was added. Inferred ranges and pointer compression (planned for M4 in that design) go into
-  M3, because they need no language change and the profile points at them. Declared subrange
-  types wait until a profile shows a range dampf cannot infer.
+must still let Mesen show the C source. This is deliberately the last step: it changes nothing in
+the code dampf generates, so it waits until everything else runs to our satisfaction. It was
+decided on 2026-11-18 that it comes: dampf should need nothing but Java. The steps are planned in
+[transition-to-lir.md](transition-to-lir.md) (phase C).
 
 ## Risks
 
@@ -282,62 +151,148 @@ in the code dampf generates, so it waits until everything else runs to our satis
   oracle ([testing.md](testing.md)).
 - **Different behaviour on PC and SNES.** Mitigated by fixed-width types only, exact promotion
   rules and the differential tests against gcc.
-- **Mesen cannot show the C source with our debug output.** Checked in M1, before the code
-  generator was settled: it works.
 - **Scope creep.** The compiler could become the project and stall the game. Mitigated by running
   it in parallel and by milestones that are measured against Blubber Blasen.
-- **Gains smaller than hoped.** Each optimization is measured; the catalogue is re-prioritised
+- **Gains smaller than hoped.** Each optimization is measured; the catalogue was re-prioritised
   after M2.
 - **A wrong hint silently produces wrong code.** Mitigated by checking every fact hint as an
   assertion on the PC, with the replays running against them ([hints.md](hints.md)).
 
 ## Open questions
 
-Resolved:
-
-- ~~Build tool: Gradle or Maven?~~ Gradle (Kotlin DSL, with the wrapper), decided 2026-11-17.
-- ~~How Blubber Blasen's stage 2 platform API maps onto dampf intrinsics~~: no intrinsics are
-  needed. The API is a platform layer in C with volatile register access (`platform/snes`),
-  decided 2026-11-17.
-- ~~How whole ROMs run headless in tests~~: Mesen 2 has a test runner mode
-  (`Mesen.exe --testrunner rom.sfc script.lua`). Blubber Blasen's `tools/snesbench` already uses
-  it to measure compilers tick by tick, with checksums against the PC; dampf's execution tests
-  use it too.
-- ~~Whether Mesen shows the C source with dampf's debug output~~: yes, stepping through C works
-  (2026-11-17).
-- ~~Licence~~: Apache License 2.0 with LLVM Exceptions, the same as LLVM (2026-11-17). The
-  exception keeps the games free: code dampf puts into a ROM carries no licence conditions.
-
-Open:
-
-- How Mesen shows locals that live in fixed direct page slots (with the naive generator they are
-  in RAM; the `.dbg` file declares them as static C symbols).
-- ~~What the Calypsi investigation finds~~: measured on the same game version 2026-11-17, dampf
-  is 1.47 times as fast as Calypsi on the same scene (1.81 times since, both with FastROM); the order of the optimizations follows
-  *The plan from here*. Open: why Calypsi's results drift from the PC's from tick 596 on (a
-  miscompile, RAM its start-up leaves uncleared, or a step of the game's own Calypsi build that
-  `tools/bench_compilers.sh` lacks).
+- How Mesen shows locals that live in fixed direct page slots. The code generator from MIR keeps
+  the game's values in the direct page, several values sharing a place; the `.dbg` file names the
+  source files and lines (and, from the naive generator, the functions), not the locals.
+- Why Calypsi's results drift from the PC's from tick 596 on: a miscompile, RAM its start-up
+  leaves uncleared, or a step of the game's own Calypsi build that `tools/bench_compilers.sh`
+  lacks.
 - `goto`: forbid it entirely, or allow a restricted form that keeps the code structured?
   ([subset.md](subset.md), decision 4)
 - How to express impossible path combinations, should the worst-case bounds turn out too
   pessimistic in practice ([timing.md](timing.md)).
 - How `restrict` is checked on the PC in practice, and whether a dampf-specific no-alias hint is
   clearer than `restrict` ([hints.md](hints.md)).
-- Which functions become reference benchmarks: decided once the Calypsi investigation and the
-  first profiles show where the cycles go.
+- Which functions become reference benchmarks. The Calypsi comparison and the profiles that were
+  to decide it are in; `level_solid_px` is still the only one (`reference/`).
 - How a linked-in hand-written assembly function declares its calling convention, direct page
   usage and cycle cost, so the timing analysis can include it.
 - How much HDMA the game uses, since it changes the frame-level budget ([timing.md](timing.md)).
 
+## History
+
+Dates are 2026-11-17 unless a line says otherwise. The measurements are in [optimizations-log.md](optimizations-log.md).
+
+### Changes to the plan
+
+- **After M1.** The design discussion had added three items to M1: the Java CPU emulator with
+  cycle counting, cycle counts in the assembly comments, and the three IR levels with text format
+  and verifier (and HIR/MIR interpreters to M2). M1 was completed by its original definition
+  without them. They moved to the start of M3, because the IR levels and interpreters protect
+  lowering and optimization passes, which do not exist before M3, and the M2 measurements work
+  with Mesen. M2 was split into steps so the first measurement of the whole game came early, the
+  checkpoint was added, and the playable ROM was separated from M2.
+- **During M3.** The playable ROM was built before the game's own SNES port needs it, so that
+  every iteration of dampf can be played and the toolchain is tested on the real console.
+- **During M3.** dampf was measured against Calypsi on the same game version and is faster (M3's
+  goal). What is left was estimated and ordered; FastROM was added as a platform step, and 816-tcc
+  dropped from the comparisons (about 3.6 times slower than dampf).
+- **During M3.** The design for value ranges ([subrange-types.md](subrange-types.md)) was added.
+  Inferred ranges and pointer compression (planned for M4 in that design) went into M3, because
+  they need no language change and the profile points at them. Declared subrange types wait until
+  a profile shows a range dampf cannot infer.
+
+### M0 to M2
+
+- **M0.** The decisions in subset.md are implemented as recommended until decided. The hint macros
+  keep their working names, from `<dampf.h>`.
+- **M1.** Stepping through C in Mesen was checked by hand.
+- **M2, step 1: ROMs larger than 32 KB.** Code and constant data spread over several banks, calls
+  across banks, no object across a bank boundary; `exec/banks.c` spans four banks.
+- **Step 2: the game's benchmark.** `bench.c` and all of `src/game` compile; all 3,610 ticks match
+  the PC (`tools/bench_game.sh`). The game's finding 5 (`(unsigned)` casts in `video.c`) is in
+  the snapshot, so all 16 files pass the front end.
+- **Step 3: the replays.** A converter turns a replay into an input table in ROM;
+  `plus_bot_seed42.bbr` (3,000 ticks, 50 checksums) matches on the PC and on the SNES
+  (`./gradlew test -Preplays`).
+- **Step 4: cycles per function.** `tools/profile_game.sh bench|replay` and `dampf profile`.
+- **Step 5: first reference function.** `level_solid_px` by hand (`reference/`,
+  `dampf build --replace`); dampf's naive code was 4.5 times slower.
+
+### Checkpoint after M2
+
+The question was whether the optimizations reach the budget or the game also has to do less work.
+After M2 the goal of 0.6 frames needed the naive code to get 9–11 times faster on average and
+14–20 times on the worst tick. The optimizations were expected to bring 3–6 times, and the first
+reference function agreed (4.5 times). Even at hand-written quality everywhere, play would have
+stayed at about 1.2–1.7 frames on average and the worst tick with the CPU partner at 3–4 frames.
+The compiler alone cannot close the gap.
+
+The options were: compiler first and decide after M3, compiler and game in parallel, or relax the
+requirement (for example 30 Hz game logic on the heaviest ticks). **Decided: compiler and game in
+parallel.** dampf goes on with M3; the game works on the hot spots no compiler can fix, the CPU
+partner and the pairwise bubble separation, as its own ROADMAP (step 2b) already planned. The
+request to the game is finding 7 in [game-findings.md](game-findings.md). Relaxing the requirement
+stays as a fallback, decided on measured numbers if rare worst ticks still do not fit. The game's
+changes happen in its own repository; dampf refreshes its snapshot and measures.
+
+### Done in M3 and M4
+
+- **MIR.** Lowering with SSA, a text format that parses back (`dampf.mir.MirParser`), verifier and
+  interpreter; the whole game runs on MIR with the PC's checksums. The optimizing pipeline is
+  built next to the naive code generator, which keeps working on the AST: an independent reference
+  catches more bugs than one that shares code with what it checks.
+- **The code generator from MIR** (now the default), correct on all test layers.
+- **The CPU emulator** with master cycles and exact memory speeds; passes the SingleStepTests
+  native-mode suite and matches Mesen on the benchmark (checksums and master cycles).
+- **Cycle counts in the assembly comments**, in CPU cycles per instruction and per straight-line
+  C line.
+- **MIR passes:** width narrowing (B), constant multiplication and division (I), the standard
+  optimizations (H), compare and branch in one.
+- **Inferred value ranges** (`Ranges`, `RangeNarrow`): constants, operations, conditions on the
+  path, loops, loop bounds for the timing analysis, parameter ranges from the call sites
+  (`ParamRanges`), conditions between two values, narrowing after widening.
+- **Values in registers and the direct page:** reloads of what A holds left out, φs written
+  directly, frames in low RAM with the leaves in the direct page and shared places, inlining,
+  indexed addressing, byte loads, short branches, `INC`/`DEC`, `STZ`. Register allocation across
+  instructions in the form the 65816 allows: scheduling for hand-overs in A, comparisons and
+  offsets taken from A, loop counters in X. Later steps of row 2: values every use takes from A
+  are not stored, narrow switches, copied returns, indexes through pointers in Y, loop counters in
+  X next to an index in Y, loop tests on the offset, sums as pointers for an index in Y.
+- **Induction variables** (`Induction`).
+- **Pointer compression** for pointers into a single object, within functions and through
+  parameters (`PointerOffsets`, `PointerParams`).
+- **Static timing:** best and worst case per function in CPU cycles, checked against the emulator
+  on every call. `DAMPF_RANGE` bounds loops by hand, checked on the PC and in the MIR interpreter,
+  at no cost on the SNES. `DAMPF_BUDGET` is checked at build time (an error over the budget or
+  without a worst case, a warning above 90 %).
+- **FastROM** (row 1): banks $80+ at 3.58 MHz, the default; `--slowrom` for a SlowROM cartridge.
+  Calypsi gains as much with FastROM.
+- **`CMP #0` left out** where the instruction before set the flags (row 6).
+- **Hardware registers at constant addresses** (row 12): `STA f:$00210B` instead of a pointer
+  through `dampf_ptr`. It matters for the playable ROM's vertical blank, which the benchmark does
+  not measure.
+- **Block layout by a profile** (`dampf profile --blocks`, `dampf build --block-counts`), opt-in.
+
+### Answered questions
+
+- An own assembler and linker: yes, in M6, so that dampf needs nothing but Java (decided
+  2026-11-18). An own debugger stays a non-goal.
+- Build tool: Gradle (Kotlin DSL, with the wrapper).
+- Stage 2 platform API: no intrinsics needed; a platform layer in C with volatile register access
+  (`platform/snes`).
+- Whole ROMs headless in tests: Mesen 2's test runner (`Mesen.exe --testrunner rom.sfc
+  script.lua`), as the game's `tools/snesbench` does.
+- Mesen shows the C source with dampf's debug output: yes.
+- Licence: Apache License 2.0 with LLVM Exceptions, the same as LLVM, so code dampf puts into a
+  ROM carries no licence conditions.
+- What the Calypsi investigation finds: dampf is faster on the same scene; the order of the
+  optimizations follows the plan above.
+
 ## Relation to Blubber Blasen
 
-Blubber Blasen is dampf's first user and its main test case. Its deterministic replays (recorded
-input, checksum of the game state per frame) are the oracle for correctness, and its busiest scene
-is the benchmark for speed. Both projects run in parallel: the game keeps going on the PC, and
-dampf catches up until it can build the SNES version.
-
-dampf works on a snapshot of the game's code in `examples/blubberblasen` (refreshed with
-`tools/update_game_snapshot.sh`), so the compiler is never broken by a change in the game that it
-cannot handle yet. What dampf finds worth changing in the game is collected in
-[game-findings.md](game-findings.md) and passed on to the game. When dampf is finished, a guide
-(`docs/game-guide.md`) explains how to write game code that dampf compiles well.
+Blubber Blasen is dampf's first user and its main test case. Its deterministic replays are the
+oracle for correctness, and its busiest scene is the benchmark for speed. dampf works on a snapshot
+in `examples/blubberblasen` (refreshed with `tools/update_game_snapshot.sh`), so a change in the
+game that dampf cannot handle yet never breaks it. What dampf finds worth changing in the game goes
+to [game-findings.md](game-findings.md); when dampf is finished, `docs/game-guide.md` explains how
+to write game code that dampf compiles well.

@@ -26,10 +26,12 @@ import java.util.function.Function;
  * of a block (to another block, or the return) gets a cost interval.
  *
  * <p>Across blocks: the loops of the function, innermost first, each collapsed into one node. A
- * loop needs a bound on how often its head runs: a counter that the way back always steps by the
- * same constant, without wrapping, whose value range in the head is finite, runs the head at most
- * (hi - lo) / step + 1 times. Without one the worst case is unbounded. The rest of the function
- * is then free of cycles, and the bounds are the shortest and longest paths to the return.
+ * loop needs a bound on how often its head runs, from a counter that every way back steps by the
+ * same constant ({@link #headRuns}): its finite value range in the head without wrapping, a step
+ * of 1 towards the constant a test compares it with for equality ({@link #untilEqual}), or a step
+ * towards the end of an ordered test ({@link #untilBound}); the smallest bound wins. Without one
+ * the worst case is unbounded. The rest of the function is then free of cycles, and the bounds
+ * are the shortest and longest paths to the return. A function that never returns has neither.
  *
  * <p>A call costs its own cycles plus the callee's bounds (functions are analysed callees
  * first; there is no recursion); the runtime routines have fixed bounds.
@@ -205,8 +207,10 @@ final class Timing {
     }
 
     /**
-     * How often the loop's head runs at most: a counter φ that every way back steps by the same
-     * constant c, without wrapping, with a finite range [lo, hi] in the head: (hi - lo) / |c| + 1.
+     * How often the loop's head runs at most, the smallest of three bounds for each counter φ that
+     * every way back steps by the same constant c: a test every round for equality or against an
+     * end ({@link #untilEqual}, {@link #untilBound}), and, without wrapping, its finite range
+     * [lo, hi] in the head: (hi - lo) / |c| + 1.
      */
     static long headRuns(Loops.Loop loop, Ranges ranges) {
         long best = UNBOUNDED;

@@ -80,13 +80,15 @@ following code comes from: `inc8(-1)` has been reduced to storing the byte 0. He
 comment column after the instructions stays empty; in a build with `--backend naive` it says
 what each instruction does, such as `; A = a + b`.
 
-The processor state is stated once at the top of the file: `A/X/Y are 16 bit throughout,
-DBR = $7E` (the [DBR](/glossary#dbr) is the bank for data addresses). Where a line needs the
-accumulator in [8-bit mode](/glossary#_8-bit-and-16-bit-mode), as for the byte
+The processor state is stated once at the top of the file:
+`A/X/Y are 16 bit (A goes to 8 bit where SEP #$20 says so), DBR = $7E` (the
+[DBR](/glossary#dbr) is the bank for data addresses). Where a line needs the accumulator in
+[8-bit mode](/glossary#_8-bit-and-16-bit-mode), as for the byte
 `small_result` above, `sep #$20` switches it, and the cycles of the instructions after it are
-counted for 8 bits. `rep #$20` switches back where code needs 16 bits again; dampf leaves it out
-as long as the following lines can stay in 8-bit mode, so here it comes at the start of line 31. The naive code generator writes the
-state under every C header instead, as `; M=16 X=16`.
+counted for 8 bits. `rep #$20` switches back where code needs 16 bits again; dampf leaves it
+out as long as the following lines can stay in 8-bit mode, so here it comes at the start of
+line 31. The naive code generator also writes the state under every C header, as
+`; M=16 X=16`.
 
 ## When the PC and the SNES disagree
 

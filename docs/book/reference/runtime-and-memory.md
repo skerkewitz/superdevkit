@@ -59,7 +59,7 @@ and the stack live there, because the 65816 always addresses both through bank 0
 | `$0000`–`$001F` | the runtime's scratch registers in the direct page (`dampf_regs`, `dampf_ptr`) |
 | `$0020`–`$1DFF` | the frames of functions compiled by the [code generator from MIR](/glossary#code-generator-from-mir) (`dampf_frame`) |
 | `$1E00`–`$1FFF` | the stack |
-| `$2000`–`$FFFE` | variables: globals, static locals, and the frames of the naive code generator |
+| `$2000`–`$FFFE` | variables: globals, static locals, and the frames of the [naive code generator](/glossary#naive-code-generator) |
 
 The byte at `$7E:FFFF` stays free, for the reason given under [Pointers](#pointers). Bank `$7F`,
 another 64 KB of RAM, is not used.
@@ -76,19 +76,20 @@ dampf keeps `D = 0`, so the window is `$0000`–`$00FF`.
 
 The runtime takes the start of it: `dampf_regs` (18 bytes) for the arithmetic routines, and
 `dampf_ptr`, room for two 24-bit pointers of 4 bytes each. The 65816 can only follow a 24-bit
-pointer that is in the direct page (`lda [dampf_ptr],y`), so generated code copies a pointer
-there right before it uses it.
+pointer that is in the direct page (`lda [dampf_ptr],y`). The code generator from MIR uses a
+pointer whose place in its frame is in the direct page where it is; any other pointer it copies
+to `dampf_ptr` right before it uses it, as the naive code generator does with every pointer.
 
 From `$0020` on come the frames of functions: the memory a function's parameters, locals and
 intermediate values occupy. The code generator from MIR gives every value a fixed place in its
 function's frame, 2 bytes for a value of up to 16 bits and 4 bytes for a 32-bit value or a
 pointer; values whose lifetimes do not overlap share a place. The frames form one region from
 `$0020` to `$1DFF`, and the part below `$0100` is in the direct page, where every access to a
-value is cheaper. How dampf decides which frames get that part is on
-[Optimizations](/inside/optimizations).
+value is cheaper. The build fails when the frames do not fit into this region. How dampf
+decides which frames get that part is on [Optimizations](/inside/optimizations).
 
-The [naive code generator](/glossary#naive-code-generator) does not use this region; its frames
-are static variables above `$2000`.
+The naive code generator does not use this region; its frames are static variables above
+`$2000`.
 
 ## Pointers
 
@@ -146,7 +147,7 @@ is written next to the ROM as `<name>.cfg`. For `examples/m1/calls.c` built with
 ```
 MEMORY {
     DP:    start = $0000, size = $0100, type = rw;   # direct page (D = 0)
-    #      $0100-$1DFF free; $1E00-$1FFF stack
+    #      $0020-$1DFF the frames of the code from MIR (dampf_frame); $1E00-$1FFF stack
     RAM:   start = $2000, size = $DFFF, type = rw;   # bank $7E (DBR = $7E), see docs/memory-map.md; $FFFF stays free (one past the end)
     ROM80: start = $808000, size = $8000, type = ro, fill = yes, fillval = $FF, file = %O;
 }
@@ -219,9 +220,10 @@ A `volatile` byte is read as exactly one byte. A byte that is not `volatile` may
 bits and masked, which reads the byte after it as well.
 
 A register with an index, `*(volatile uint8_t *)(0x210B + i)` for an `i` that is never negative,
-becomes `sta f:$00210B,x`. Other pointers made from numbers go through `dampf_ptr`. In a playable
-game only the SNES platform layer in `platform/snes` writes registers: it implements the game's
-console API in C, and the game logic does not touch the registers itself.
+becomes `sta f:$00210B,x`. Other pointers made from numbers go through `dampf_ptr`, and so does
+every one in code from the naive code generator. In a playable game only the SNES platform layer
+in `platform/snes` writes registers: it implements the game's console API in C, and the game
+logic does not touch the registers itself.
 
 The hardware intrinsics that will give C code access to the hardware are not built yet (see
 [intrinsic](/glossary#intrinsic) and [Limits](/reference/limits)).

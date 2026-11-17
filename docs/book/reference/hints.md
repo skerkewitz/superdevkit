@@ -64,20 +64,21 @@ void test_main(void)
 }
 ```
 
-Without the hint the loop's length depends on the data, and the timing report of that build
-(the same program as `nohint.c`, `nohint.timing.txt`) has no worst case for it:
+Without the hint the loop's length depends on the data, and the
+[timing report](/inside/timing) of that build (the same program as `nohint.c`,
+`nohint.timing.txt`) has no worst case for it:
 
 ```
           24    unbounded  _test_main   (loop at nohint.c:10)
-          55    unbounded  _text_len   (loop at nohint.c:10)
+          31    unbounded  _text_len   (loop at nohint.c:10)
 ```
 
 With the hint, `n` is at most 10 inside the loop and at most 11 after the step, so the loop
 runs a bounded number of times (`names.timing.txt`):
 
 ```
-          24         1977  _test_main
-          55          605  _text_len
+          24         1113  _test_main
+          31          317  _text_len
 ```
 
 The [value ranges](/glossary#value-range) dampf infers use the hint as well, for narrower code.
@@ -96,7 +97,7 @@ A misused hint is a compile error:
 
 | Use | Message |
 | --- | --- |
-| a global variable | `DAMPF_RANGE needs a local variable or parameter of an integer type` |
+| a global or `static` local variable | `DAMPF_RANGE needs a local variable or parameter of an integer type` |
 | a bound that is not a constant | `the bounds of DAMPF_RANGE must be constants` |
 | `lo` above `hi` | `DAMPF_RANGE: the lowest value is above the highest` |
 | a bound outside the type | `DAMPF_RANGE: 300 is outside the range of uint8_t` |

@@ -29,8 +29,8 @@ The subset has these types:
   as on x86-64 (see [Open decisions](#open-decisions)).
 - **`void`**, **pointers**, **arrays** (also multi-dimensional), **structs**, **enums**, and
   `typedef`s of these.
-- **`const`** and **`static`** as in C99. `volatile` is accepted on what a pointer points to,
-  such as a hardware register: `*(volatile uint8_t *)0x2100 = 0x0F;` (see
+- **`const`**, **`static`** and **`extern`** as in C99. `volatile` is accepted on what a
+  pointer points to, such as a hardware register: `*(volatile uint8_t *)0x2100 = 0x0F;` (see
   [Hardware access](#hardware-access)).
 
 Plain integer types are rejected, because their size differs between compilers: `int` is 32 bit
@@ -43,19 +43,30 @@ int.c:2:1: error: 'int' is not allowed: use int32_t (plain C integer types diffe
 ```
 
 The same holds for `short`, `unsigned`, `signed`, and for `signed char` and `unsigned char`
-(`use int8_t`, `use uint8_t`). The one exception is the return type of `int main(void)`, which C
-requires for the PC build; on the SNES the return value is ignored.
+(`use int8_t`, `use uint8_t`), also in casts such as `(unsigned)level`. The one exception is the
+return type of `int main(void)`, which C requires for the PC build; on the SNES the return value
+is ignored.
 
 | Rejected | Message |
 |---|---|
-| `long` | `'long' is not supported: use int32_t or uint32_t (long is 64 bit on the PC)` |
+| `long`, `long long` | `'long' is not supported: use int32_t or uint32_t (long is 64 bit on the PC)` |
 | `float`, `double` | `'float' is not supported: dampf has no floating point` |
 | `_Bool` | `not supported yet: _Bool` |
 | `union` | `unions are not supported` |
 | bit fields | `bit fields are not supported` |
 | `volatile` on a variable itself | `not supported yet: volatile variables (only pointers to volatile memory)` |
 | `register`, `auto` | `not supported yet: 'register'`, `not supported yet: 'auto'` |
+| `restrict` | `not supported yet: 'restrict' on a pointer itself` |
 | enums with a fixed underlying type | a syntax error |
+| flexible array members, `uint8_t data[];` | `field 'data' has an incomplete type` |
+| anonymous struct members | `not supported yet: anonymous struct members` |
+| a typedef of a function type | `not supported yet: this kind of typedef` |
+| `__attribute__` in front of a function | `not supported yet: '__attribute__((noinline))'` (with the attribute written) |
+| `__attribute__` after a name | `not supported yet: attributes and extensions in declarators` |
+
+There are no 64-bit types: dampf's `<stdint.h>` has no `uint64_t`, so a declaration with it is a
+syntax error. The only attribute dampf accepts is the one `DAMPF_BUDGET` expands to (see
+[Whole program](#whole-program)).
 
 ### Sizes
 
@@ -184,7 +195,9 @@ definition needs a name, and a call must pass exactly as many arguments as the f
 
 **`inline`** is accepted and ignored: whether a function is inlined is dampf's decision.
 
-Old-style (K&R) parameter declarations are rejected.
+A function without parameters is written `f(void)`. An empty list, `void f();`, is rejected with
+`missing parameter type`, and old-style (K&R) parameter declarations with
+`not supported yet: old-style (K&R) parameter declarations`.
 
 ## Function pointers
 
@@ -221,15 +234,18 @@ Every statement of C99 is accepted except these:
 
 | Rejected | Message |
 |---|---|
-| `goto` and labels | `not supported yet: labels and goto` |
+| `goto` | `not supported yet: 'goto'` |
+| labels | `not supported yet: labels and goto` |
 | variable-length arrays | `an array size must be a positive integer constant` |
 | `case` or `default` not directly in the switch body | `not supported yet: 'case' labels that are not directly in the switch body` |
 | a `switch` body that is not a block | `not supported yet: a switch body that is not a block` |
 | `typedef` inside a function | `not supported yet: typedef inside a function` |
 | `extern` inside a function | `not supported yet: 'extern' inside a function` |
 | a function declaration inside a function | `not supported yet: function declarations inside a function` |
-| `_Static_assert` | `not supported yet: _Static_assert` |
-| inline assembly | `not supported yet: inline assembly` |
+| `_Static_assert` at file scope | `not supported yet: _Static_assert` |
+| `_Static_assert` inside a function | a syntax error |
+| inline assembly at file scope | `not supported yet: inline assembly` |
+| inline assembly inside a function | `not supported yet: this statement` |
 
 `setjmp` and `longjmp` are not available, since dampf has no header that declares them.
 
@@ -243,6 +259,8 @@ Every expression of C99 is accepted except these:
 | designated initializers | `not supported yet: designated initializers` |
 | the comma operator outside the first and third part of a `for` | `not supported yet: the comma operator` |
 | `+=`, `++` and the like on an lvalue with side effects, such as `buf[i++] += 1` | `not supported yet: compound assignment to an lvalue with side effects` |
+| `_Alignof` | `not supported yet: '_Alignof'` |
+| `_Generic` | `not supported yet: this expression` |
 
 The comma operator is accepted where loops use it, as in
 `for (i = 0, j = 3; i < j; i++, j--)`.
@@ -283,9 +301,13 @@ Only what a pointer points to can be `volatile`:
 **A cast from a pointer to an integer** gives the SNES address of what the pointer points to,
 `bank << 16 | address`, which a DMA channel needs as its source address. A cast to a narrower
 type truncates that number: for an array `static const uint8_t tiles[64]`,
-`(uint16_t)(uint32_t)tiles` is its 16-bit address within its [bank](/glossary#bank). On the PC the number is something else, and gcc warns
-`cast from pointer to integer of different size`. The two builds agree only on distances
-within one object: `(uint32_t)&tiles[64] - (uint32_t)tiles` is 64 on both.
+`(uint16_t)(uint32_t)tiles` is its 16-bit address within its [bank](/glossary#bank). On the PC
+the number is something else, and gcc warns `cast from pointer to integer of different size`.
+The two builds agree only on distances within one object:
+`(uint32_t)&tiles[64] - (uint32_t)tiles` is 64 on both.
+
+dampf does not tell platform code from game code. Both constructs, and the cast from an integer
+to a pointer such as `(uint8_t *)0x7E2000`, are accepted in any file.
 
 ## Preprocessor
 

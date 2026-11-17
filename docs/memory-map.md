@@ -1,8 +1,11 @@
 # Memory map
 
-How dampf lays out a program in the SNES address space, and why. This describes the naive code
-generator; optimizations may refine it (for example optimization A puts frames into the direct
-page, J keeps hot code in FastROM).
+How dampf lays out a program in the SNES address space, and why. The text describes the code
+generated from MIR, the default. The naive code generator differs in three places: it keeps each
+function's frame as static variables from `$2000` up instead of in the compiled stack, it copies
+every pointer to `dampf_ptr` before reading through it, and it reaches I/O registers only through
+`dampf_ptr`. D pointing at the current object (optimization D) or DBR switched locally (J) would
+change the layout; neither is built.
 
 ## RAM: everything in bank $7E, DBR = $7E
 
@@ -16,9 +19,14 @@ The first 8 KB of bank `$7E` are the same memory as `$0000-$1FFF` in bank 0. The
 | Address (bank $7E) | Use |
 | --- | --- |
 | `$0000-$001F` | direct page: the runtime's scratch registers (`dampf_regs`, `dampf_ptr`) |
-| `$0020-$1DFF` | the frames of the code generated from MIR (`dampf_frame`, a compiled stack; the part below `$0100` is in the direct page). Unused by the naive generator. |
+| `$0020-$1DFF` | the frames (`dampf_frame`, a compiled stack; the part below `$0100` is in the direct page). Unused by the naive generator. |
 | `$1E00-$1FFF` | stack |
-| `$2000-$FFFF` | variables: globals, static locals, the static frames of functions |
+| `$2000-$FFFE` | variables: globals, static locals, and the naive generator's frames |
+
+The frames must fit into `$0020-$1DFF`, or the build fails. A function's frame starts after the
+frames of the functions it calls, so the leaves of the call graph lie in the direct page
+([optimizations.md](optimizations.md), optimization A). ld65 does not know this area: the
+generated code sets `dampf_frame = $0020` itself.
 
 Bank `$7F` (another 64 KB) is not used yet.
 
@@ -27,26 +35,32 @@ fit. Code that needs a full 24-bit RAM address (a pointer) adds the bank itself.
 
 ## Pointers
 
-The naive code generator makes every pointer 4 bytes: the 16-bit address, the bank, and a zero
-byte. A pointer to RAM has bank `$7E`, a pointer to ROM the bank of the data. Pointers are read
-through the direct page (`lda [dampf_ptr],y`). No object crosses a bank boundary, so pointer
-arithmetic only changes the low word. The last byte of every ROM bank and of RAM ($7E:FFFF)
-stays free, so a pointer just past the end of an object never wraps to the start of its bank and
-still compares greater than every pointer into the object. Objects are at most 32 KB, so every
-offset within an object fits a signed 16-bit number (MIR's `ptradd` with an i16 offset relies on
-that). Pointers that provably always point into RAM can later
-become 16 bits (docs/subset.md, decision 3).
+A pointer is 4 bytes in memory: the 16-bit address, the bank, and a zero byte (MIR's `ptr` type).
+A pointer to RAM has bank `$7E`, a pointer to ROM the bank of the data. Pointers are read through
+the direct page: a pointer whose place is in the direct page is used where it is
+(`lda [place],y`), any other is copied to `dampf_ptr` first (`lda [dampf_ptr],y`).
+
+No object crosses a bank boundary, so pointer arithmetic only changes the low word. The last byte
+of every ROM bank and of RAM ($7E:FFFF) stays free, so a pointer just past the end of an object
+never wraps to the start of its bank and still compares greater than every pointer into the
+object. Objects are at most 32 KB, so every offset within an object fits a signed 16-bit number
+(MIR's `ptradd` with an i16 offset relies on that).
+
+Pointers that provably always point into RAM could become 16 bits ([subset.md](subset.md),
+decision 3); that is not built. Built is a narrower form: a pointer that provably points into one
+known object becomes a 16-bit offset into it, within a function and across calls
+(`PointerOffsets`, `PointerParams`; [optimizations.md](optimizations.md#pointer-compression)).
 
 ## I/O registers
 
 The PPU and CPU registers (`$2100-$21FF`, `$4200-$43FF`) are in bank 0, which DBR does not point
 to. The runtime writes them with 24-bit long addresses (`sta f:$002100`). C code reaches them
-through pointers to `volatile` memory ([subset.md](subset.md), *Hardware access*). A pointer made
-from a constant becomes a long address in the code (`sta f:$00210B`, 5 cycles for a byte), and a
-constant plus a 16-bit index that is never negative and stays in the bank an indexed long address
-(`REG8(0x210B + i)` is `sta f:$00210B,x`): no pointer is built (it used to go through
-`[dampf_ptr],y`, about 30 cycles a register). Other pointers made from numbers still go through
-`dampf_ptr`. Only the platform layer (`platform/snes`) does this.
+through pointers to `volatile` memory ([subset.md](subset.md), *Hardware access*); only the
+platform layer (`platform/snes`) does this. A pointer made from a constant becomes a long address
+in the code (`sta f:$00210B`, 5 cycles for a byte), and a constant plus a 16-bit index that is
+never negative and stays in the bank an indexed long address (`REG8(0x210B + i)` is
+`sta f:$00210B,x`): no pointer is built (it used to go through `[dampf_ptr],y`, about 30 cycles a
+register). Other pointers made from numbers still go through `dampf_ptr`.
 
 ## ROM
 

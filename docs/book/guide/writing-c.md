@@ -20,7 +20,9 @@ declaration such as `int lives;` in line 3 of `lives.c` stops with:
 lives.c:3:1: error: 'int' is not allowed: use int32_t (plain C integer types differ between the PC and the SNES)
 ```
 
-The rule also covers casts: `(unsigned)a` is rejected in the same way as a declaration.
+The rule also covers casts: `(unsigned)a` is rejected in the same way as a declaration. The
+one exception is `int main(void)`, which the PC build needs; on the SNES its return value is
+ignored.
 
 dampf ships its own `<stdint.h>`, and its typedefs use the same underlying types as gcc on the
 PC (`int32_t` is `int`, `int16_t` is `short`), so each type means the same thing on both sides.
@@ -79,6 +81,9 @@ The constructs the subset rejects most often:
 Recursion is reported with the cycle of calls, for example
 `recursion is not supported: count_down → count_down`. Struct assignment is allowed: it is a
 copy of known size.
+
+Write a function without parameters as `void game_init(void)`. An empty list,
+`void game_init()`, is rejected with `missing parameter type`.
 
 A `sizeof` whose value differs from gcc's on the PC is rejected as well, because the program
 would compute other values than its PC build. That is a `sizeof` of a pointer (4 bytes in dampf,

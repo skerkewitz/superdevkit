@@ -117,8 +117,8 @@ The entry function takes no arguments and returns nothing: `void test_main(void)
 
 `build/examples/m1/` now holds, next to `calls.sfc`:
 
-- **`calls.s`**: the generated 65816 assembly, with the C source line, the processor state and a
-  comment for each instruction.
+- **`calls.s`**: the generated 65816 assembly, with the C source line and a comment for each
+  instruction.
 - **`calls.dbg`**: ld65's debug file, which lets Mesen show the C source while you step.
 - **`calls.lbl`**: a label file.
 - **`calls.map`**: the map file ld65 writes when it links the ROM.

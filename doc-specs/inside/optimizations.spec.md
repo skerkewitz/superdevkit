@@ -2,6 +2,7 @@
 title: Optimizations
 sources:
   - docs/optimizations.md
+  - docs/optimizations-log.md
   - docs/subrange-types.md
   - docs/architecture.md
   - src/main/java/dampf/Compiler.java
@@ -31,6 +32,7 @@ latest overall figure against the naive code and Calypsi.
 4. **Value ranges** – the ranges dampf infers, what uses them, pointer compression; what is
    planned (`DAMPF_RANGED`) in one sentence.
 5. **The measurements** – a table of the steps with frames per tick during play, from
+   `docs/optimizations-log.md`; the current figures from *Where things stand* in
    `docs/optimizations.md`.
 6. **How far it can go** – the comparison with hand-written assembly (`level_solid_px`), and
    where a gap remains.
@@ -46,4 +48,4 @@ latest overall figure against the naive code and Calypsi.
 ## Out of scope
 
 - The optimizations not started (M4): one line linking [Roadmap](/inside/roadmap).
-- Exact timing: not built.
+- Exact timing: [Exact timing](/inside/timing).

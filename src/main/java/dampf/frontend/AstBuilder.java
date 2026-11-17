@@ -148,7 +148,7 @@ public final class AstBuilder {
 
     /** Whether specs() may meet DAMPF_BUDGET (only for a function definition), and what it found. */
     private boolean budgetAllowed;
-    private Long budget; // NOPMD SingularField: set by a pragma, read by the next function
+    private Long budget; // NOPMD SingularField: set by specs() from DAMPF_BUDGET, read by functionDefinition()
 
     /** Declaration specifiers: storage class, base type, and whether {@code const} or {@code volatile} was given. */
     private record Specs(Storage storage, Type type, boolean isConst, boolean isVolatile) {

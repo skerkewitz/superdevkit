@@ -66,9 +66,9 @@ every operator. The programs are free of undefined behaviour by construction: di
 odd, shift counts are masked, wide arithmetic is done in `uint32_t`, where overflow wraps.
 Values at the edges of the types, such as `-32768`, `255` and `65536`, are chosen often, because
 that is where sign and overflow handling go wrong. `RandomProgramTest` runs 50 of them per build,
-with the same steps as the execution tests, the timing check included, but in dampf's emulator
-only. The seeds are fixed, so a failure can be reproduced, and the failing program is printed
-in the message.
+with the same steps as the execution tests, the timing check included, but without the ROM laid
+out by block counts and in dampf's emulator only. The seeds are fixed, so a failure can be
+reproduced, and the failing program is printed in the message.
 
 **The game's replays** check the whole of [Blubber Blasen](/glossary#blubber-blasen). The game
 records a play session as a `.bbr` file: its start (seed, save RAM, round, options), the joypad
@@ -101,15 +101,18 @@ vertical blank had ended.
 **The game's benchmark** (`tools/bench_game.sh`) is the second check of the whole game. It plays
 3,610 ticks, compares three checksums per tick with a PC build of the same program, and counts
 the cycles of every tick, which is how dampf's speed is measured. It runs in dampf's emulator
-(`dampf bench`), and the MIR interpreter can run it as well (`dampf mir --bench main ...`), where
-it also gives the PC's checksums on all 3,610 ticks. With `-Preplays`, `GameTimingTest` runs the
-benchmark built by the code generator from MIR in the emulator as part of the tests, measures
-every call of every function and checks that each lies between the best and the worst case
-dampf computes for that function, as the execution tests do for their programs.
+(`dampf bench`) or, with `WITH_MESEN=1`, in Mesen, and the MIR interpreter can run it as well
+(`dampf mir --bench main ...`), where it also gives the PC's checksums on all 3,610 ticks. With
+`-Preplays`, `GameTimingTest` runs the benchmark built by the code generator from MIR in the
+emulator as part of the tests, measures every call of every function, 180,000 calls in all, and
+checks that each lies between the best and the worst case dampf computes for that function, as
+the execution tests do for their programs.
 
 Next to these layers are tests of single parts: front-end tests such as `ParserTest` and
 `AstBuilderTest`, and pass tests written as MIR text, such as `NarrowTest`, `GvnTest` and
-`InlineTest`. The text format they use is described on [MIR](/inside/mir).
+`InlineTest`. The text format they use is described on [MIR](/inside/mir). `MirTextTest` prints
+the MIR of every execution program and of the whole game, parses it back and checks that it
+verifies and prints to the same text.
 
 ## dampf's emulator and Mesen
 
@@ -135,9 +138,12 @@ ways:
 Mesen itself runs only for the execution tests and the replay through the platform layer, and
 only when it is there: when `.mesen/Mesen.exe` exists in the repository (it is not in git) or
 `-Pmesen` names one. `MesenRunner` starts it headless (`--testrunner`) with a Lua script that
-waits for the write to `$21FB`, reads the globals and writes them to a file. The random
-programs, the other replays and the benchmark run in dampf's emulator only.
-`tools/check_game_rom.sh` starts Mesen on its own, outside the Gradle tests.
+waits for the write to `$21FB`, reads the globals and writes them to a file. In the tests, the
+random programs, the other replays and the benchmark run in dampf's emulator only.
+
+Outside the Gradle tests, `tools/check_game_rom.sh` starts Mesen on its own, and
+`tools/bench_game.sh` and `tools/profile_game.sh` run their ROM in it with `WITH_MESEN=1`.
+Each takes the Mesen from `.mesen/Mesen.exe`, or the one `MESEN` names.
 
 ## Running the tests
 
@@ -167,6 +173,11 @@ switched on with Gradle properties:
 The first run with `-PcpuTests` downloads the start of each opcode's file of the suite, about
 50 MB, into `~/.cache/dampf/65816-tests`; later runs use the copy. Without a property, the tests
 that need one are skipped, not failed.
+
+Coverage, PMD and CPD are not part of `./gradlew build`. JaCoCo is off by default because it
+slows down the tests that run the emulator, and PMD's findings are there to be read, not to stop
+a build. All scripts in `tools/`, with their arguments and variables, are listed in
+`tools/README.md` in the repository.
 
 ## Adding an execution test
 
@@ -210,12 +221,13 @@ a test was added for them.
 A test must fail, not wait forever. Every program test runs under a hard time limit
 (`assertTimeoutPreemptively`): 3 minutes per execution test, 2 per random program, 15 per
 replay (20 through the platform layer) and 2 per MIR round trip, because JUnit's default
-timeouts do not cover the dynamic tests these are built from; `GameTimingTest` has 10 minutes. External programs (gcc, the PC builds,
-ca65, ld65) run through `dampf.util.Processes` with a time limit and are killed when it runs
-out. The emulator stops after 600 frames in the program tests and after 200,000 frames in
-`dampf bench` and the replays; the MIR interpreter counts its steps. The Gradle test task has an
-overall limit of 2 hours as a last resort. A program that loops forever fails in about a
-minute with "did not finish within 60 s and was stopped (does it hang?)".
+timeouts do not cover the dynamic tests these are built from; `GameTimingTest` has 10 minutes.
+External programs (gcc, the PC builds, ca65, ld65) run through `dampf.util.Processes` with a
+time limit and are killed when it runs out. The emulator stops after 600 frames in the program
+tests and after 200,000 frames in `dampf bench` and the replays; the MIR interpreter counts its
+steps. The Gradle test task has an overall limit of 2 hours as a last resort. A program that
+loops forever fails in about a minute with
+"did not finish within 60 s and was stopped (does it hang?)".
 
 ## Why it works this way
 
@@ -223,7 +235,7 @@ minute with "did not finish within 60 s and was stopped (does it hang?)".
 one from MIR was better. It keeps it as a reference that shares only the front end with the
 optimized path: when the two disagree, the difference points to the optimization at fault. The
 cost is a second code generator to maintain and every test program built twice
-(`docs/testing.md`, *Supporting pieces*).
+(`docs/testing.md`, *The principle*).
 
 **An emulator of its own.** Mesen is a complete SNES emulator and runs the execution tests where
 it is installed, but it is an external program and much slower to run a ROM in. dampf's emulator
@@ -235,5 +247,4 @@ second emulator that has to be proved right, against the SingleStepTests suite a
 **UBSan on the PC side.** Without the sanitizer, a test program with undefined behaviour could
 give gcc's answer by luck, and a later change on either side would break it for no visible
 reason. With it, such a program fails at once, and the random program generator has to avoid
-undefined behaviour by construction (`docs/testing.md`, *How the execution and random tests
-work today*).
+undefined behaviour by construction (`docs/testing.md`, *The principle*).

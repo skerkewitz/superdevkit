@@ -1,7 +1,9 @@
 # The dampf C subset
 
 Status: first draft from milestone M0, 2026-11-17. Based on Blubber Blasen's `src/game` as of that
-day: 14 `.c` files and 4 headers, about 8,000 lines, 291 functions.
+day: 14 `.c` files and 4 headers, about 8,000 lines, 291 functions. The scan results below are
+from then. The rules in *The subset* and *Decisions* were checked against what the front end
+accepts on 2026-11-18.
 
 dampf is not a general C compiler: it compiles a subset of C that it defines itself, and a checker
 enforces it, so every assumption the optimizer makes is guaranteed. C is the contract that keeps
@@ -9,7 +11,9 @@ the same source compiling on the PC with gcc or clang, which is what makes the c
 
 The subset is what Blubber Blasen uses, plus a little room around it. Everything outside it is
 rejected with a message that names the construct and the place. Nothing outside the subset is
-ever compiled silently.
+ever compiled silently. `dampf check` runs these checks without building a ROM: the front end on
+each file, then over all files together recursion, functions called but defined nowhere, and
+definitions in two files.
 
 ## How the game was scanned
 
@@ -87,7 +91,7 @@ API in `src/snes/snes.h`: `bgInitTileSet`, `bgSetDisable`, `bgSetGfxPtr`, `bgSet
 `bgSetScroll`, `dmaCopyCGram`, `dmaCopyVram`, `oamInit`, `oamInitGfxAttr`, `setBrightness`,
 `setColorEffect`, `setColorIntensity`, `setMode`, `setPaletteColor`, `setScreenOff`,
 `snesDmaFits`, `snesHdmaEnable`, `snesHdmaSet`, `snesRegWrite`. On the PC these are the pseudo
-SNES; for dampf they are a platform layer in C (`platform/snes/snes.c`, built 2026-11-17), which
+SNES; for dampf they are a platform layer in C (`platform/snes/snes.c`), which
 reaches the hardware through volatile pointers (*Hardware access* below) and needs no intrinsics.
 
 The platform calls into the game through `game_init`, `game_tick`, `game_vblank` and the getters
@@ -97,8 +101,12 @@ in `game.h`. These are the roots of the call graph.
 
 **Types.** `int8_t`, `uint8_t`, `int16_t`, `uint16_t`, `int32_t`, `uint32_t`, `char` (text
 only, see below), `void`, pointers, arrays (also multi-dimensional), structs, enums and
-`typedef`s of these. `const` and `static` as in C99. Plain `int`, `short`, `long`, `unsigned`,
-`signed`, `long long`, `float`, `double`, `_Bool`, unions and bit fields are rejected. Plain
+`typedef`s of these. `const`, `static` and `extern` as in C99. Plain `int`, `short`, `long`,
+`unsigned`, `signed`, `long long`, `float`, `double`, `_Bool`, unions and bit fields are rejected, in casts as
+well; the one exception is `int main(void)`, which the PC build needs (on the SNES the return value
+is ignored). There are no 64-bit types (`<stdint.h>` has no `uint64_t`). Also rejected today:
+`restrict`, `register`, enums with a fixed underlying type, flexible array members, anonymous
+struct members, typedefs of function types, and attributes other than `DAMPF_BUDGET`. Plain
 integer types are rejected because their size differs between compilers: `int` is 32 bit on the
 PC and 16 bit with the other 65816 compilers (816-tcc, Calypsi). dampf itself gives `int` its PC
 meaning in the integer promotions, but game code says what width it means.
@@ -106,13 +114,15 @@ meaning in the integer promotions, but game code says what width it means.
 **Semantics.** Exactly what gcc and clang do on the PC (x86-64): integer constants and the
 integer promotions use a 32-bit `int`, overflow of unsigned types wraps, conversions to narrower
 types truncate, signed division rounds towards zero, `>>` of a negative value is an arithmetic
-shift. dampf gets the same results on the 65816 and narrows operations only where it can prove
-the result is identical. dampf ships its own `<stdint.h>` with the same underlying types as the
+shift. A constant that is a 64-bit `long` on the PC (such as `3000000000` written in decimal)
+is rejected. dampf gets the same results on the 65816 and narrows operations only where it can
+prove the result is identical. dampf ships its own `<stdint.h>` with the same underlying types as the
 PC (`int32_t` is `int`), so the types mean the same thing on both sides.
 
-**Functions.** No recursion (the checker names the cycle), no variadic functions, no
-`inline` requirement (inlining is the compiler's decision), structs only by pointer. At most
-6 parameters is what the game needs; there is no fixed limit.
+**Functions.** No recursion (the checker names the cycle), no variadic functions, no `inline`
+requirement (inlining is the compiler's decision; `inline` is accepted and ignored), structs only
+by pointer. A function without parameters is written `f(void)`; an empty list `f()` and old-style
+(K&R) parameters are rejected. The game needs at most 6 parameters; there is no fixed limit.
 
 **Function pointers.** Not used by the game. Free function pointers are never allowed: the call
 graph must stay complete. Function pointers in constant tables known at compile time are allowed
@@ -122,12 +132,12 @@ by design, but not built until something needs them.
 known at compile time.
 
 **Statements.** Everything in C99 except `goto`, labels, `setjmp`/`longjmp` and variable-length
-arrays (`goto` is decision 4 below).
+arrays (`goto` is decision 4 below). Inline assembly is rejected too.
 
 **Expressions.** Everything in C99 except compound literals. Struct assignment is allowed (it is
 a copy of known size, a candidate for `MVN`), although the release build does not use it today.
 Designated initializers are not used and stay out for now; they are easy to add if the game
-wants them.
+wants them. The C11 additions (`_Static_assert`, `_Alignof`, `_Generic`) are rejected.
 
 **Hardware access.** For platform code, not game code. A pointer to `volatile` memory reads and
 writes I/O registers one access at a time, in order, with exactly the width of its type:
@@ -136,7 +146,8 @@ itself is rejected). A cast from a pointer to an integer gives the SNES address 
 `bank << 16 | address`, which a DMA channel needs as its source; a cast to a narrower type
 truncates that number. On the PC the number is something else, so only distances within one
 object agree between both sides (`exec/pointer_to_int.c`). The SNES platform layer in
-`platform/snes` is written this way.
+`platform/snes` is written this way. The checker does not tell platform code from game code: a
+cast from an integer to a pointer is accepted anywhere.
 
 **Preprocessor.** Anything `gcc -E` accepts. dampf preprocesses with `-nostdinc -undef
 -D__DAMPF__=1` and its own `include/`, so host headers and host macros never reach the code.
@@ -155,17 +166,18 @@ yet.
 
 ## Decisions
 
-Each open decision has a recommendation; until it is decided, dampf implements the
-recommendation, which is easy to change. Decision 5 is decided. Today:
+Decisions 1 to 4 are open; each has a recommendation, which dampf implements until it is
+decided. Decision 5 is decided. What dampf does today:
 
 - decision 1: plain `char` is a signed 8-bit type; the restriction to text is not enforced yet;
-- decision 2: the naive code generator stores enum objects in 4 bytes, like the PC; narrowing
-  them is an optimization;
-- decision 3: the naive code generator uses 4-byte pointers (address, bank, a zero byte) for all
-  pointers; 16-bit pointers into RAM are an optimization;
+- decision 2: both code generators store enum objects in 4 bytes, like the PC, and the checker
+  accepts any integer stored into an enum object; narrowing them is an optimization, not built;
+- decision 3: pointers are 4 bytes in memory (address, bank, a zero byte) with both code
+  generators; the code generator from MIR turns a pointer into one object into a 16-bit offset
+  within a function and through parameters ([optimizations.md](optimizations.md#pointer-compression)); 16-bit
+  pointers into RAM are not built;
 - decision 4: `goto` is rejected;
-- decision 5 (decided 2026-11-17): a `sizeof` that differs from the PC is rejected, except the
-  element count.
+- decision 5: a `sizeof` that differs from the PC is rejected, except the element count.
 
 1. **Plain `char` for text.** The game uses `char` only for strings and name buffers. Plain
    `char` is signed with gcc and clang on x86-64 and with MSVC, unsigned on ARM. Recommendation:
@@ -188,7 +200,7 @@ recommendation, which is easy to change. Decision 5 is decided. Today:
 4. **`goto`.** The game does not use it. Unrestricted `goto` would need a more general timing
    analysis ([timing.md](timing.md)), which computes bounds on structured code. Options: forbid it
    entirely, or allow a restricted form that keeps the code structured. Recommendation: forbid it
-   until a use appears. dampf rejects it today.
+   until a use appears.
 
 5. **`sizeof` of pointers and padded structs** (decided 2026-11-17). On the PC a pointer is 8
    bytes and gcc pads struct fields to their alignment (`struct { uint8_t a; int16_t b; }` is 4
@@ -208,14 +220,15 @@ Very little:
 
 1. `video.c`, lines 339 and 340, cast with plain `(unsigned)`. The scan above only looked at
    declarations and missed these casts; dampf's front end found them. Use `uint32_t` (or a
-   narrower type). See `docs/game-findings.md`, finding 5.
+   narrower type). See `docs/game-findings.md`, finding 5. Done: the snapshot has `(uint8_t)`
+   there.
 2. `BB_FAST` in `internal.h` expands to `__attribute__((tiny))` for Calypsi and to nothing
-   otherwise. It needs a `__DAMPF__` branch that expands to dampf's direct page hint, once that
-   hint has a name.
+   otherwise. It needs a `__DAMPF__` branch that expands to `DAMPF_DP` ([hints.md](hints.md))
+   once that hint is built.
 3. If decision 1 goes the other way: replace `char` in the 27 text declarations.
 
 Generated data (`build/generated/level_data.c`, `gfx_data.c`) is plain `const` C arrays and fits
-the subset. For the PVSnesLib and Calypsi builds, `map2c --snes` and `gfx2c --snes` write the arrays as
-assembly instead, because those compilers copy initialised data into RAM or cannot spread it
-over banks; with dampf the C arrays can be compiled directly and placed in ROM banks
-by dampf, which makes the `--snes` variants unnecessary.
+the subset. For the PVSnesLib and Calypsi builds, `map2c --snes` and `gfx2c --snes` write the
+arrays as assembly instead, because those compilers copy initialised data into RAM or cannot
+spread it over banks. dampf compiles the C arrays directly and places them in ROM banks, so it
+needs no `--snes` variants.

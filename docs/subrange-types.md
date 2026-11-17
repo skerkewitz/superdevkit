@@ -1,18 +1,20 @@
 # Subrange types and value ranges
 
-Date: 2026-11-17 · Status: agreed in discussion, not built yet; inferred ranges and pointer
-compression are scheduled for M3, declared subrange types wait for a measured need (section 11). Related: [hints.md](hints.md)
-(`DAMPF_RANGE` and the other hints), [subset.md](subset.md) (the subset rules),
-[architecture.md](architecture.md) (where the analysis runs).
+Date: 2026-11-17 · Status: Proposal, not scheduled; what is built of it (inferred ranges, pointer
+compression) is in [optimizations.md](optimizations.md). Related: [hints.md](hints.md)
+(`DAMPF_RANGE` and the other hints), [subset.md](subset.md) (the subset rules).
 
-This document describes how dampf learns the **range of values** a variable can hold, and what it does with that knowledge. There are two sources:
+This document describes how dampf learns the range of values a variable can hold, and what it
+does with that knowledge. There are two sources:
 
-1. **Subrange types** that the programmer declares: "this is an 8-bit value, but only 2..6 ever occur".
-2. **Ranges dampf infers** on its own: from loops, array accesses, conditions, call sites and pointers.
+1. Subrange types that the programmer declares: "this is an 8-bit value, but only 2..6 ever occur".
+2. Ranges dampf infers on its own: from loops, array accesses, conditions, call sites and pointers.
 
-Both are also checked: `dampf check` proves on the PC, without building a ROM, that every subrange type holds; the only exceptions are explicit conversions, which are checked at run time.
-
-Background in one paragraph: dampf compiles a subset of C for the 65816 CPU of the Super Nintendo. It always compiles the whole program at once, and the same source also compiles on the PC with gcc or clang, where it must behave bit-identically. dampf is designed with three intermediate representations (HIR, MIR, LIR) and interpreters for HIR and MIR; so far MIR and its interpreter exist. Hints to the compiler are written as macros that expand to plain C on the PC and to built-ins in the dampf build. Every hint that states a fact is checked on the PC ([hints.md](hints.md)).
+Declared subrange types are also checked: `dampf check` proves on the PC, without building a ROM,
+that every one holds; only explicit conversions are checked at run time. (The `dampf check` that
+exists today checks the subset rules only.) The same source compiles on the PC with gcc, where it
+must behave bit-identically, so every hint that states a fact is checked there
+([hints.md](hints.md)).
 
 ---
 
@@ -22,7 +24,7 @@ On a modern CPU, knowing that a value lies in 2..6 rarely matters. On the 65816 
 
 - **8 instead of 16 bit.** The CPU switches between 8- and 16-bit operations as processor state. A value known to fit in 8 bits is cheaper to load, store, compare and compute.
 - **Indices go straight into X or Y.** An index known to be inside an array needs no bounds handling and fits the 8-bit index registers.
-- **No page-crossing penalty.** An indexed read with an 8-bit index costs an extra cycle when base + index crosses a 256-byte page. With a known index range, dampf can place the array so no page is crossed. The cycle disappears, and the cost no longer depends on the data, which keeps the timing analysis exact. This needs the index registers in 8-bit mode: with a 16-bit index the extra cycle is always paid ([timing.md](timing.md)), and dampf's code so far keeps X and Y at 16 bits. Switching X/Y to 8 bits is processor state, like the accumulator width.
+- **No page-crossing penalty.** An indexed read with an 8-bit index costs an extra cycle when base + index crosses a 256-byte page. With a known index range, dampf can place the array so no page is crossed. The cycle disappears, and the cost no longer depends on the data, which keeps the timing analysis exact. This needs X and Y in 8-bit mode (processor state, like the accumulator width): with a 16-bit index the extra cycle is always paid ([timing.md](timing.md)), and dampf's code keeps X and Y at 16 bits so far.
 - **Comparisons disappear.** If `lane` is always 2..6, then `lane >= 2` is always true and `lane > 10` always false.
 - **Jump tables and lookup tables get small.** A `switch` over a value in 2..6 is a dense five-entry jump table. A function evaluated at compile time (`DAMPF_TABLE`) needs only five table entries.
 - **Loops get bounds.** The worst-case timing analysis (`DAMPF_BUDGET`) needs a bound for every loop. Ranges often provide it without a hint.
@@ -145,8 +147,6 @@ Every place where a value enters a location of a subrange type:
 
 There is no wrap-around: `++` on a `Lane` holding 6 is a violation, not a jump back to 2.
 
-How these stores are checked is the subject of the next two parts: section 6 says what dampf requires at compile time, the table below says what is checked at run time.
-
 ### How it is checked
 
 | Where | How |
@@ -225,7 +225,7 @@ dampf only proves what its analysis can see, and it is conservative. It will som
 
 With a simple interval analysis at the start, this will happen more often. As the analysis gets smarter, many of these conversions can be removed again; dampf can even report conversions it now proves on its own. In the worst case there is one `DAMPF_AS` too many in the code, never one check too few.
 
-Whether a program compiles must not depend on details of the optimizer: otherwise a change to a pass could make code that compiled yesterday fail today. What counts as a proof for the check should therefore be a fixed, documented set of rules (as SPARK and Java's definite assignment have), separate from the ranges the optimizer infers for speed. See the open questions.
+Whether a program compiles must not depend on details of the optimizer: otherwise a change to a pass could make code that compiled yesterday fail today. What counts as a proof for the check should therefore be a fixed, documented set of rules (as SPARK and Java's definite assignment have), separate from the ranges the optimizer infers for speed (section 10).
 
 ---
 
@@ -248,13 +248,13 @@ Most ranges do not need to be declared. Value range analysis is a standard compi
 
 Inferred ranges are used for optimization exactly like declared ones. They need no run-time checks, because they are derived from code that dampf has fully seen. Which of them also count as proofs for the static check (section 6) is part of the fixed proof rules (section 10).
 
-Inferred ranges need no change to the language and come first: the width narrowing in MIR needs them now. In `level_solid_px`, `(sy - 16) >> 3` can only be computed in 16 bits once dampf knows from the branch before it (`sy < 16` returns) that `sy - 16` cannot overflow ([optimizations.md](optimizations.md)).
+Inferred ranges need no change to the language, so they came first: the width narrowing in MIR needed them. In `level_solid_px`, `(sy - 16) >> 3` can only be computed in 16 bits once dampf knows from the branch before it (`sy < 16` returns) that `sy - 16` cannot overflow. What is built of this table is in [optimizations.md](optimizations.md), *Value ranges*.
 
 ### The array bounds rule
 
 In C, an out-of-bounds array access is undefined behaviour, and compilers draw conclusions from it that surprise programmers. dampf draws one such conclusion too, but makes it an explicit, checked rule of the subset: **every array index must be within the array's bounds**, checked in the PC build (gcc's `-fsanitize=bounds`, part of the `-fsanitize=undefined` the execution tests use) and always in the interpreter. With that rule, dampf may assume after `bubbles[i]` that `i` is in 0..15. Every array access then acts as a checked range statement.
 
-The check covers the paths the tests and replays run; on any other path a violation gives silently wrong SNES code, as a wrong hint does. The rule is about reading and writing elements: `&a[16]`, the address just past the end, is legal C and allowed.
+The check covers the paths the tests and replays run; on any other path a violation gives silently wrong SNES code, as a wrong hint does. (Today only gcc's sanitizer checks it, in the execution tests and the random programs.) The rule is about reading and writing elements: `&a[16]`, the address just past the end, is legal C and allowed.
 
 ---
 
@@ -281,7 +281,7 @@ On the 65816 this is a large gain: full pointers are expensive there, an index i
 
 The analysis is only sound if every pointer value comes from taking the address of something dampf knows. The subset therefore adds:
 
-- **No casts between integers and pointers.** Hardware registers are accessed only through intrinsics, never through `(uint8_t *)0x2100`. This is a new subset rule. The game's code keeps to it already (it reaches the hardware through PVSnesLib); dampf's own SNES platform layer, still to be built, has to use intrinsics.
+- **No casts between integers and pointers.** Hardware registers would be reached only through intrinsics, never through `(uint8_t *)0x2100`. *Not adopted:* the platform layer (`platform/snes`) uses pointers to `volatile` memory made from numbers, and dampf accepts such casts ([subset.md](subset.md), *Hardware access*). A full points-to analysis would need the rule back.
 - **Pointer arithmetic stays within one array.** `p + 1` must point into the same array as `p` (or one past its end), checked in the interpreter. MIR's `ptradd` with a 16-bit offset already relies on this ([memory-map.md](memory-map.md)).
 
 ### Loop bounds for linked structures
@@ -318,12 +318,8 @@ A list threaded through `bubbles[16]` has at most 16 elements **if it has no cyc
 
 ## 11. Where it fits into the milestones
 
-M0 to M2 were done before this design ([roadmap.md](roadmap.md)). Decided 2026-11-17: the parts
-that need no language change come first, and declared subrange types only when they pay.
-
-| When | Part |
-| --- | --- |
-| M3 | Inferred value ranges in MIR (conditions, loops, masks, array bounds), used for width narrowing and loop bounds |
-| M3 | The subset rules on array bounds, integer/pointer casts and pointer arithmetic within one array; points-to analysis and pointer compression |
-| M4 | Page-aligned array placement with 8-bit index registers |
-| When a profile shows a hot value whose range dampf cannot infer | `DAMPF_RANGED` and `DAMPF_AS`; subrange types carried through the front end (and HIR, once it exists); the interpreter checks every subrange store and every read of a never-written subrange location, over the replays; `dampf check` with the fixed proof rules; the debug ROM with checks |
+Decided 2026-11-17: the parts that need no language change come first (inferred ranges and
+pointer compression in M3; page-aligned arrays with 8-bit index registers in M4), and declared
+subrange types only when a profile shows a hot value whose range dampf cannot infer. That last
+part (`DAMPF_RANGED`, `DAMPF_AS`, the types carried through the front end, the checks of sections
+5 and 6, the debug ROM) is not scheduled ([roadmap.md](roadmap.md)).
