@@ -11,7 +11,7 @@ IR levels). It was revised on 2026-11-17 after M1, see *Changes* below.
 | M0 | Define the subset | Blubber Blasen's `src/game` is scanned; [subset.md](subset.md) lists what is allowed, what is not, and what the game code has to change | Done 2026-11-17. The decisions in subset.md are implemented as recommended until decided. Still open: `goto` (decision 4) and the names and set of the hint macros with their PC assertions ([hints.md](hints.md)); both are needed by M3. |
 | M1 | End to end | A small function is compiled, assembled with ca65, linked with ld65, runs automatically in a test, and Mesen shows its C source while stepping | Done 2026-11-17 (stepping through C in Mesen checked by hand) |
 | M2 | Naive but complete | All of Blubber Blasen compiles with the naive code generator, the game's benchmark and replays give the same checksums as the PC, cycles are measured per tick and per function and compared with Calypsi, and the first reference assembly function gives the first dampf/reference ratio | Done 2026-11-17, see the steps below. Open: 816-tcc and Calypsi on the same game version (on the game's side) |
-| Checkpoint | Decide whether the plan reaches the budget | See below | Now |
+| Checkpoint | Decide whether the plan reaches the budget | See below | Decided 2026-11-17: compiler and game in parallel (below) |
 | M3 | The big levers | Optimizations A–D ([optimizations.md](optimizations.md)), built on the three IR levels. Goal: faster than Calypsi. Also: static best/worst case per function and the timing report, `DAMPF_BUDGET` checked at build time ([timing.md](timing.md)), the remaining reference functions | Not started |
 | M4 | Fine tuning | Optimizations E–N until the frame budget is met. Also: profile-guided optimization from the replays, superoptimization of short hot sequences, `DAMPF_TABLE`, `DAMPF_PIN_X` and the other transforming hints | Not started |
 
@@ -41,6 +41,33 @@ budget, or does the game also have to do less work (for example a cheaper CPU pa
 cheaper bubble separation, see [game-findings.md](game-findings.md))? The answer also sets the order
 of the optimizations in M3 and M4.
 
+#### The decision (2026-11-17)
+
+The numbers after M2, in frames per tick of dampf's naive code:
+
+| | Average | Worst tick |
+| --- | --- | --- |
+| Play | 5.17 | 8.58 |
+| Play with the CPU partner | 6.55 | 12.23 |
+
+The goal (0.6 frames) needs 9–11 times faster on average and 14–20 times on the worst tick. The
+optimizations are expected to bring 3–6 times over the naive code, and the first reference
+function agrees (hand-written `level_solid_px` is 4.5 times faster). Even if dampf reached
+hand-written quality everywhere, play would be at about 1.2–1.7 frames on average and the worst
+tick with the CPU partner at 3–4 frames. The compiler alone cannot close the gap; a factor of about
+2–3 on average, more on the worst ticks, has to come from the game doing less work.
+
+Options were: compiler first and decide after M3 (defer), compiler and game in parallel, or relax
+the requirement (for example 30 Hz game logic on the heaviest ticks). **Decided: compiler and game
+in parallel.** dampf goes on with M3; the game works now on the hot spots no compiler can fix: the
+CPU partner (up to 3.7 extra frames on the worst tick) and the pairwise bubble separation. The
+game's ROADMAP (step 2b) already plans this. The request to the game is finding 7 in
+[game-findings.md](game-findings.md). Relaxing the requirement stays as a fallback, to be decided
+on measured numbers after M3 if rare worst ticks still do not fit.
+
+The game's changes happen in the game's repository; dampf follows by refreshing its snapshot and
+measuring with the benchmark, the replays and the profile.
+
 ### Start of M3: the foundation for the optimizer
 
 Before the first optimization, M3 builds:
@@ -53,6 +80,9 @@ Before the first optimization, M3 builds:
   ([testing.md](testing.md)), validated against public per-instruction test suites. It makes the
   tests fast and lets every test report cycles.
 - **Cycle counts in the assembly comments** ([architecture.md](architecture.md)).
+
+Then the first optimizations, in the order the profile suggests: I and D (indexing arrays of
+structs is 37 % of the naive code's time), then A and B.
 
 ### After M2: a playable ROM
 
