@@ -1,6 +1,7 @@
 # Subrange types and value ranges
 
-Date: 2026-11-17 · Status: agreed in discussion, not built yet. Related: [hints.md](hints.md)
+Date: 2026-11-17 · Status: agreed in discussion, not built yet; inferred ranges and pointer
+compression are scheduled for M3, declared subrange types wait for a measured need (section 11). Related: [hints.md](hints.md)
 (`DAMPF_RANGE` and the other hints), [subset.md](subset.md) (the subset rules),
 [architecture.md](architecture.md) (where the analysis runs).
 
@@ -317,10 +318,12 @@ A list threaded through `bubbles[16]` has at most 16 elements **if it has no cyc
 
 ## 11. Where it fits into the milestones
 
-M0 to M2 were done before this design ([roadmap.md](roadmap.md)), so its parts go into M3 and M4:
+M0 to M2 were done before this design ([roadmap.md](roadmap.md)). Decided 2026-11-17: the parts
+that need no language change come first, and declared subrange types only when they pay.
 
-| Milestone | Part |
+| When | Part |
 | --- | --- |
-| M3 – the big levers, first | Inferred value ranges in MIR (conditions, loops, masks, array bounds), used for width narrowing and loop bounds. No language change. |
-| M3 – then | The subset rules (array bounds, no integer/pointer casts, pointer arithmetic within one array, the enum decision); `DAMPF_RANGED` and `DAMPF_AS`; subrange types carried through the front end (and HIR, once it exists); the interpreter checks every subrange store and every read of a never-written subrange location, over the replays in the test suite; `dampf check` reports the stores it cannot prove, with the fixed proof rules |
-| M4 – fine tuning | Points-to analysis and pointer compression; page-aligned array placement with 8-bit index registers; debug ROM with checks |
+| M3 | Inferred value ranges in MIR (conditions, loops, masks, array bounds), used for width narrowing and loop bounds |
+| M3 | The subset rules on array bounds, integer/pointer casts and pointer arithmetic within one array; points-to analysis and pointer compression |
+| M4 | Page-aligned array placement with 8-bit index registers |
+| When a profile shows a hot value whose range dampf cannot infer | `DAMPF_RANGED` and `DAMPF_AS`; subrange types carried through the front end (and HIR, once it exists); the interpreter checks every subrange store and every read of a never-written subrange location, over the replays; `dampf check` with the fixed proof rules; the debug ROM with checks |

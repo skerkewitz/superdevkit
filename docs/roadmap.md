@@ -12,8 +12,8 @@ IR levels). It was revised on 2026-11-17 after M1, see *Changes* below.
 | M1 | End to end | A small function is compiled, assembled with ca65, linked with ld65, runs automatically in a test, and Mesen shows its C source while stepping | Done 2026-11-17 (stepping through C in Mesen checked by hand) |
 | M2 | Naive but complete | All of Blubber Blasen compiles with the naive code generator, the game's benchmark and replays give the same checksums as the PC, cycles are measured per tick and per function and compared with Calypsi, and the first reference assembly function gives the first dampf/reference ratio | Done 2026-11-17, see the steps below. Open: 816-tcc and Calypsi on the same game version (on the game's side) |
 | Checkpoint | Decide whether the plan reaches the budget | See below | Decided 2026-11-17: compiler and game in parallel (below) |
-| M3 | The big levers | Optimizations A–D ([optimizations.md](optimizations.md)), built on the three IR levels. Goal: faster than Calypsi. Also: static best/worst case per function and the timing report, `DAMPF_BUDGET` checked at build time ([timing.md](timing.md)), the remaining reference functions; inferred value ranges, then subrange types ([subrange-types.md](subrange-types.md)) | In progress: MIR, the code generator from MIR and passes B, I and H are built, see below |
-| M4 | Fine tuning | Optimizations E–N until the frame budget is met. Also: profile-guided optimization from the replays, superoptimization of short hot sequences, `DAMPF_TABLE`, `DAMPF_PIN_X` and the other transforming hints | Not started |
+| M3 | The big levers | Optimizations A–D ([optimizations.md](optimizations.md)), built on the three IR levels. Goal: faster than Calypsi. Also: static best/worst case per function and the timing report, `DAMPF_BUDGET` checked at build time ([timing.md](timing.md)), the remaining reference functions; inferred value ranges and pointer compression ([subrange-types.md](subrange-types.md)) | In progress: MIR, the code generator from MIR and passes B, I and H are built, see below |
+| M4 | Fine tuning | Optimizations E–N until the frame budget is met, page-aligned arrays with 8-bit index registers. Also: profile-guided optimization from the replays, superoptimization of short hot sequences, `DAMPF_TABLE`, `DAMPF_PIN_X` and the other transforming hints | Not started |
 
 ### M2 in steps
 
@@ -94,8 +94,25 @@ Before the first optimization, M3 builds:
 - **Cycle counts in the assembly comments** ([architecture.md](architecture.md)). Done 2026-11-17
   for CPU cycles per instruction and per straight-line C line.
 
-Then the first optimizations, in the order the profile suggests: I and D (indexing arrays of
-structs is 37 % of the naive code's time), then A and B.
+Then the optimizations. B (from the types), I and H are built (see above). Next, in this order;
+the profile after each step can change the order of the later ones:
+
+1. **Compare and branch in one** in the code generator from MIR: today a comparison stores its
+   truth value and the branch loads it again. Small, and it affects every condition.
+2. **Inferred value ranges in MIR** ([subrange-types.md](subrange-types.md), section 7): from
+   conditions on the path, loops, masks and array bounds. They complete B (for example
+   `(sy - 16) >> 3` in `level_solid_px`, which only fits 16 bits because of the branch before it)
+   and give loop bounds for the timing analysis. No change to the language.
+3. **Pointer compression** (section 8 there): a points-to analysis over the whole program, and a
+   pointer that only ever points into one array becomes an index (`b->x` as `lda bub_x,x` instead
+   of a 4-byte pointer through `[dampf_ptr],y`). The game passes `Bubble *` everywhere. Needs the
+   subset rules on integer/pointer casts and pointer arithmetic, which the game already keeps.
+4. **Values in registers and the direct page** (A, C, D in [optimizations.md](optimizations.md)):
+   the code generator stops sending every value through RAM.
+
+**Subrange types** (`DAMPF_RANGED`, `DAMPF_AS` and their checker, sections 3–6 there) are not
+scheduled. They are built when a profile shows a hot value whose range dampf cannot infer and
+that costs real cycles. Until then the design stays as it is.
 
 ### After M2: a playable ROM
 
@@ -114,6 +131,10 @@ stage 3 proof of concept) needs it.
   lowering and optimization passes, which do not exist before M3, and the M2 measurements work
   with Mesen. M2 was split into steps so the first measurement of the whole game comes early, the
   checkpoint was added, and the playable ROM was separated from M2.
+- **2026-11-17, during M3.** The design for value ranges ([subrange-types.md](subrange-types.md))
+  was added. Inferred ranges and pointer compression (planned for M4 in that design) go into
+  M3, because they need no language change and the profile points at them. Declared subrange
+  types wait until a profile shows a range dampf cannot infer.
 
 ## Risks
 
