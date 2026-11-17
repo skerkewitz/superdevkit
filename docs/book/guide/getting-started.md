@@ -2,7 +2,8 @@
 # Getting started
 
 This page takes you from a fresh checkout of dampf to a ROM built from `examples/m1/calls.c`,
-open in Mesen. On the way you use every tool dampf needs once: the JDK, gcc, ca65 and ld65.
+open in [Mesen](/glossary#mesen). On the way you use every tool dampf needs once: the JDK, gcc,
+[ca65 and ld65](/glossary#ca65-and-ld65).
 
 All commands run from the top of the repository. The launcher dampf builds is
 `build/install/dampf/bin/dampf`; put that directory on your `PATH` if you like. The page writes
@@ -18,9 +19,9 @@ All commands run from the top of the repository. The launcher dampf builds is
 | Mesen 2 | running the ROM and stepping through the C source |
 
 dampf runs gcc only to preprocess your source: `#include` and `#define` work as on the PC, with
-dampf's own `<stdint.h>`. [ca65 and ld65](/glossary#ca65-and-ld65) come from the cc65 suite. Some
-distributions do not package cc65 (Arch Linux has it only outside the official repositories);
-build it from source there:
+dampf's own `<stdint.h>`. ca65 and ld65 come from the cc65 suite. Some distributions do not
+package cc65 (Arch Linux has it only outside the official repositories); build it from source
+there:
 
 ```sh
 git clone --depth 1 --branch V2.19 https://github.com/cc65/cc65.git
@@ -117,6 +118,8 @@ The entry function takes no arguments and returns nothing: `void test_main(void)
 - **`calls.dbg`**: ld65's debug file, which lets Mesen show the C source while you step.
 - **`calls.lbl`**: a label file.
 - **`calls.map`**: the map file ld65 writes when it links the ROM.
+- **`calls.timing.txt`**: the best and worst case of each function in CPU cycles, from entry to
+  return.
 
 dampf leaves a few more intermediate files there, such as the runtime's assembly
 (`dampf_runtime.s`) and the object files. [The generated files](/reference/output-files)
@@ -124,7 +127,7 @@ describes them all.
 
 ## Look at it in Mesen
 
-Open `calls.sfc` in [Mesen](/glossary#mesen) with `calls.dbg` next to it. In the debugger's
+Open `calls.sfc` in Mesen with `calls.dbg` next to it. In the debugger's
 integration settings, let Mesen load `.dbg` files automatically; it then shows `calls.c` in the
 debugger and you can step through `test_main` line by line in the C source. The debug file
 names the C sources relative to itself, so Mesen finds them as long as the repository keeps its

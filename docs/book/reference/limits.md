@@ -35,12 +35,18 @@ the hardware multiplier and divider, DMA, waiting for vertical blank, placing co
 ROM banks. In the PC build each is a plain function. None is built, and the roadmap ties them
 to the playable ROM rather than to a milestone.
 
-**The timing report and cycle budgets.** In M3, dampf is to compute a best and a worst case per
-function, report the costliest path line by line, and fail the build when a function marked
-with `DAMPF_BUDGET(n)` can take more than `n` cycles. None of that is built. What exists already
-is the cycle count in the comments of the generated assembly: each instruction carries its CPU
-cycles, and each straight-line C line their sum. For measured cycles per function, use
-`dampf profile` ([Command line](/reference/command-line)).
+**The timing report and cycle budgets.** dampf already computes a best and a worst case in CPU
+cycles for every function, from its entry to its return with calls included, and `dampf build`
+writes them to `<rom>.timing.txt`, most expensive first. A loop whose bound dampf cannot find in
+the code makes the worst case "unbounded"; in Blubber Blasen that is so for 91 functions, mostly
+loops up to a parameter such as `for (i = 0; i < count; i++)`. The rest of the timing work of M3
+is not built: `DAMPF_TRIPS(n)` to give such a loop its bound, the costliest path line by line in
+the report, cycle counts in master cycles that include the speed of each memory region, and
+failing the build when a function marked with `DAMPF_BUDGET(n)` can take more than `n` cycles.
+Budgets for a whole frame, which add the cost of interrupt handlers, are not built either. The
+comments of the generated assembly carry the CPU cycles of each instruction, and each
+straight-line C line their sum; a line with branches does not show its best and worst case yet.
+For measured cycles per function, use `dampf profile` ([Command line](/reference/command-line)).
 
 **Other items you might notice.** These are smaller, but each changes what you can write or
 expect:
@@ -57,7 +63,7 @@ expect:
 - **Speed.** The fine tuning of M4 (more optimizations, page-aligned arrays with 8-bit index
   registers, profile-guided optimization from the replays) has not started, so the generated
   code is not yet as fast as the goal of 60 % of a [frame](/glossary#frame) per
-  [tick](/glossary#tick).
+  [tick](/glossary#tick): during play, Blubber Blasen takes 1.53 frames per tick with dampf.
 
 ## Never planned
 
@@ -77,7 +83,18 @@ Fast compilation is not a goal either; a game the size of Blubber Blasen compile
 
 ## Known differences from gcc
 
-None are known. The result of every program must match gcc on x86-64 bit for bit, and the tests
+None are known. Where dampf lays out data differently from gcc on x86-64, a program cannot see
+it: dampf's pointers are 4 bytes instead of 8 and it does not pad struct fields, so a `sizeof`
+whose value would differ from the PC is rejected. Only the element count
+`sizeof a / sizeof a[0]` is allowed for such types, because its quotient is the same on both
+sides. For `sizeof(struct pair)` with `struct pair { uint8_t a; int16_t b; }`, dampf reports,
+after the place in the source:
+
+```
+error: sizeof struct pair is 3 in dampf but 4 on the PC (dampf's pointers are 4 bytes, 8 on x86-64, and dampf does not pad struct fields): the program would compute other values than its PC build. Only the element count sizeof a / sizeof a[0] is allowed for such types
+```
+
+The result of every program must match gcc on x86-64 bit for bit, and the tests
 check that for every program: the execution tests, random programs, the replays of Blubber
 Blasen and its benchmark are each built with dampf and compared with gcc on the PC. The
 execution tests build the PC side with [UBSan](/glossary#ubsan), so a test whose result depends

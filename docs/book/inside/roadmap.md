@@ -19,6 +19,8 @@ also describes plans. What is not built yet, listed for users, is on
 | Checkpoint | Decide whether the plan reaches the budget | Decided: compiler and game in parallel |
 | M3 | The big levers: the optimizer on [MIR](/glossary#mir), timing report, inferred value ranges, pointer compression; faster than [Calypsi](/glossary#calypsi) | In progress |
 | M4 | Fine tuning until the frame budget is met | Not started |
+| M5 | Publishing: own examples instead of Blubber Blasen, an own preprocessor, a hosted repository | Not started |
+| M6 | Standing alone: an own assembler and linker, so that using dampf needs nothing but Java | Not started; the very last step |
 
 M2 showed that the whole game works on dampf. All of Blubber Blasen compiles with the
 [naive code generator](/glossary#naive-code-generator), the game's benchmark gives the
@@ -39,9 +41,12 @@ loops, values in the [direct page](/glossary#direct-page) instead of RAM, regist
 in the form the 65816 allows, induction variables, and
 [pointer compression](/glossary#pointer-compression) for pointers into a single object. With
 them, play of Blubber Blasen takes 1.53 frames per tick, against 5.17 with the naive code.
-Still to come in M3: a static best and worst case per function with a timing report and a cycle
-budget checked at build time, more hand-written reference functions, and value ranges from
-array bounds and from call sites.
+The static timing analysis is built as well: a best and a worst case in CPU cycles for every
+function, written to `<rom>.timing.txt` and checked against the emulator on every call. Still
+to come in M3: `DAMPF_TRIPS` and parameter ranges from call sites, since 91 of the game's
+functions still have no bound, then a cycle budget (`DAMPF_BUDGET`) checked at build time,
+timing in master cycles and a report per C line; more hand-written reference functions, and
+value ranges from array bounds.
 
 **M4, next.** M4 is fine tuning until the frame budget is met: the remaining optimizations of
 the catalogue, arrays aligned to a page so that 8-bit index registers reach them,
@@ -108,5 +113,12 @@ Open questions a user may run into:
   its use of the direct page and its cycle cost, so that the timing analysis can include it.
 - **Timing.** How to express path combinations that cannot happen, should the worst-case bounds
   turn out too pessimistic, and how much HDMA the game uses, which changes the budget of a frame.
-- **Licence and hosting.** dampf is meant to be open source like the game; where it is hosted
-  and under which licence is not decided.
+- **Publishing.** The licence is decided: dampf is under the Apache License 2.0 with LLVM
+  Exceptions, the same as LLVM, so code dampf puts into a ROM carries no licence conditions and
+  games built with dampf can use any licence. Before dampf can go public (M5), the snapshot of
+  Blubber Blasen and the hand-written reference function leave the repository and dampf's own
+  examples take over their jobs as test case and benchmark. They are also in the git history, so
+  either the history is cleaned or the public repository starts without it. dampf also gets its
+  own C preprocessor, so that using it no longer needs gcc, which users on Windows would
+  otherwise install only for that. Hosting the repository and putting the book online are part
+  of M5 as well.

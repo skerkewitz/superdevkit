@@ -80,6 +80,12 @@ Recursion is reported with the cycle of calls, for example
 `recursion is not supported: count_down → count_down`. Struct assignment is allowed: it is a
 copy of known size.
 
+A `sizeof` whose value differs from gcc's on the PC is rejected as well, because the program
+would compute other values than its PC build. That is a `sizeof` of a pointer (4 bytes in dampf,
+8 on x86-64) or of a struct that gcc pads (dampf does not pad struct fields). The message gives
+both values. The element count `sizeof a / sizeof a[0]` is allowed for any array, because its
+value is the same on both sides.
+
 The complete list, with every construct and the counts from the scan of the game, is in
 [The C subset](/reference/c-subset).
 
@@ -90,8 +96,9 @@ hardware, are not built yet; see [Limits](/reference/limits).
 
 dampf compiles all `.c` files of a game together, as one
 [whole program](/glossary#whole-program). There is no separate compilation and no linking of
-object files: you name every `.c` file on the command line at once. `static` names stay local to their file as in C, so two files, or two
-functions, can each have a static variable of the same name.
+object files: you name every `.c` file on the command line at once. `static` names stay local
+to their file as in C, so two files, or two functions, can each have a static variable of the
+same name.
 
 Seeing the whole program lets dampf know every call and every use of every variable. It builds
 the complete call graph, which is possible because there are no free function pointers, checks
@@ -106,10 +113,11 @@ gcc -E -std=c99 -nostdinc -undef -D__DAMPF__=1 -I <dampf's include directory> ..
 ```
 
 `-nostdinc` switches off the host's headers, so `#include <stdint.h>` finds dampf's own header
-and `#include <stdio.h>` fails. `-undef` drops the host's predefined macros such as
-`__x86_64__`. Your own `-D` options are added after `-D__DAMPF__=1`, your `-I` directories
-after dampf's include directory. Anything `gcc -E` accepts works, and line markers are kept, so
-every message points to the line in your source.
+and `#include <stdio.h>` fails. The failure is an ordinary error at the place gcc names, the
+line of the `#include`: `stdio.h: No such file or directory`. `-undef` drops the host's
+predefined macros such as `__x86_64__`. Your own `-D` options are added after
+`-D__DAMPF__=1`, your `-I` directories after dampf's include directory. Anything `gcc -E`
+accepts works, and line markers are kept, so every message points to the line in your source.
 
 Use `__DAMPF__` to keep a branch apart that only one build may see. Here the PC build prints a
 trace with `printf`, and the dampf build never sees `<stdio.h>` or the `unsigned` cast:
@@ -140,7 +148,7 @@ give dampf its own `#ifdef __DAMPF__` branch.
 
 Run `dampf check` on a set of files to see whether they are in the subset, without building a
 ROM. It takes the same `-I` and `-D` options as `dampf build`, checks each file on its own and
-prints one line per file:
+prints one line per file, then checks the files that pass together:
 
 ```sh
 dampf check score.c hud.c
@@ -150,11 +158,39 @@ dampf check score.c hud.c
 ok      score.c
 FAILS   hud.c:3:1: error: 'float' is not supported: dampf has no floating point
 1 of 2 file(s) pass the front end
+the 1 file(s) together: ok
 ```
 
 Only the first problem of each file is reported. Because each file is checked on its own, one
 unsupported construct in one file does not hide the problems of the others; fix the reported
-one and run the check again for the next. The exit status is 0 only when every file passes.
-Recursion is found when `dampf build` puts the whole program together, not by `dampf check`.
+one and run the check again for the next.
+
+The last line covers what only the whole program shows: recursion, a function that is called
+but defined in none of the files, and a definition in two files. Here a function in `rec.c`
+calls itself:
+
+```c [rec.c]
+#include <stdint.h>
+
+void count_down(uint8_t n)
+{
+    if (n > 0) {
+        count_down(n - 1);
+    }
+}
+```
+
+```sh
+dampf check score.c rec.c
+```
+
+```
+ok      score.c
+ok      rec.c
+2 of 2 file(s) pass the front end
+FAILS   rec.c:6:9: error: recursion is not supported: count_down → count_down   (the 2 file(s) together)
+```
+
+The exit status is 0 only when every file passes and the files pass together.
 
 All options are on [Command line](/reference/command-line#check).

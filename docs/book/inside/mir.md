@@ -224,7 +224,9 @@ not three steps later as a wrong result. It checks:
   operand the definition must dominate the end of the predecessor it comes from.
 
 When a rule is broken, the verifier throws an error that starts with `MIR is broken:` and lists
-up to 20 violations, each naming the function, the block and the instruction.
+up to 20 violations, each naming the function, the block and the instruction. Values in the
+messages carry the numbers of the text format, so a use before the definition of `%1` reads
+`uses %1 where its definition does not dominate the use`.
 
 The interpreter (`dampf.mir.Interpreter`) runs a whole program in MIR, with C's meaning of every
 instruction. It is a definition of what the program does that does not depend on gcc or on any
@@ -248,7 +250,8 @@ whole of [Blubber Blasen](/glossary#blubber-blasen), parses the text, verifies t
 prints it again; the second text must equal the first. Pass tests can therefore start from MIR
 text, as `NarrowTest`, `GvnTest` and `InlineTest` do. The test also runs hand-written MIR, a
 loop that sums 1 to 100, in the interpreter, and checks that the verifier rejects a use before
-its definition.
+its definition with that message. Each round trip has a time limit of two minutes, so a lowering
+that hangs fails the test instead of holding up the run.
 
 [Testing](/inside/testing) shows where these checks sit among dampf's other tests.
 

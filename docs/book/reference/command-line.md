@@ -19,8 +19,9 @@ The commands `build`, `check` and `parse` print everything on the standard error
 
 ## build
 
-Use `build` to compile C files into a ROM. dampf compiles the whole program at once, so name
-every C file of the program in one call:
+Use `build` to compile C files into a ROM. dampf compiles the
+[whole program](/glossary#whole-program) at once, so name every C file of the program in one
+call:
 
 ```sh
 dampf build --entry test_main -o build/examples/m1/calls.sfc examples/m1/calls.c
@@ -37,7 +38,9 @@ exits with status 0:
 wrote /…/build/examples/m1/calls.sfc and /…/build/examples/m1/calls.dbg
 ```
 
-The other files dampf writes next to the ROM are described in
+With the [code generator from MIR](/glossary#code-generator-from-mir), the default, dampf also
+writes `calls.timing.txt` next to the ROM, with the best and worst case of every function in CPU
+cycles. The other files dampf writes next to the ROM are described in
 [The generated files](/reference/output-files). If the program has an error, dampf prints its
 [messages](#messages) and exits with status 1.
 
@@ -74,17 +77,21 @@ Use `--backend mir` or `--backend naive` to choose the code generator: `mir` is 
 [code generator from MIR](/glossary#code-generator-from-mir), `naive` the
 [naive code generator](/glossary#naive-code-generator). Without `--backend`, dampf uses `mir`,
 unless `--replace` is given: then the default is `naive`, because only the naive code generator
-can link replaced functions. A value other than `mir` or `naive` ends dampf with a Java
-exception and status 1.
+can link replaced functions. For any other value, dampf prints this line, then its usage, and
+exits with status 2:
+
+```
+unknown backend 'fast' (mir or naive)
+```
 
 ### --replace {#replace}
 
 Use `--replace fn=file.s` to link the function `fn` from hand-written
 [ca65](/glossary#ca65-and-ld65) assembly in `file.s` instead of compiling it from C. The option
 may be given more than once, once per function. It is meant for reference versions of single
-functions, written by hand to compare with dampf's code. The replacement keeps dampf's calling convention: parameters in the
-function's static frame (`_<name>__<param>`), the result in A (and X for 32 bits), `JSL`/`RTL`,
-A, X and Y 16 bits wide, [DBR](/glossary#dbr) at `$7E`.
+functions, written by hand to compare with dampf's code. The replacement keeps dampf's calling
+convention: parameters in the function's static frame (`_<name>__<param>`), the result in A
+(and X for 32 bits), `JSL`/`RTL`, A, X and Y 16 bits wide, [DBR](/glossary#dbr) at `$7E`.
 
 The function must be defined in the C files, or the build stops:
 
@@ -102,7 +109,8 @@ add.c:5:6: error: --replace works with the naive code generator only
 ### -o {#output}
 
 Use `-o out.sfc` to name the ROM; it is required. All files of the build go into the directory
-of the ROM and take its name without `.sfc` as their base name.
+of the ROM, which dampf creates if it does not exist, and take its name without `.sfc` as their
+base name.
 
 ## check
 
@@ -123,10 +131,34 @@ FAILS   score.c:12:5: error: 'float' is not supported: dampf has no floating poi
 0 of 1 file(s) pass the front end
 ```
 
-The exit status is 0 if every file passes and 1 otherwise. Because each file is checked alone,
-`check` does not see problems that only the whole program shows, such as recursion; `build`
-reports them. A file that the preprocessor rejects (a missing header, for example) ends `check`
-at once with gcc's message, a Java stack trace and status 1. `check` takes `-I` and `-D` as
+A file that the preprocessor rejects (a missing header, for example) fails like any other, with
+gcc's message at gcc's position, and `check` goes on with the next file.
+
+Some problems only show in the whole program: recursion, a function that is called but defined
+in none of the files, and a function defined in two files. So `check` then takes the files that
+passed together and prints one more line: `the N file(s) together: ok`, or a `FAILS` line with
+the first such problem, ending in `(the N file(s) together)`. If no file passed, this line is
+missing. For this file:
+
+```c [rec.c]
+#include <stdint.h>
+
+void count(uint16_t n)
+{
+    if (n > 0) count(n - 1);
+}
+```
+
+`dampf check rec.c` prints:
+
+```
+ok      rec.c
+1 of 1 file(s) pass the front end
+FAILS   rec.c:5:16: error: recursion is not supported: count → count   (the 1 file(s) together)
+```
+
+The exit status is 0 if every file passes and the files pass together, and 1 otherwise. `check`
+does not look for the entry function; `build` does. `check` takes `-I` and `-D` as
 [build](#build) does.
 
 ## parse
@@ -174,7 +206,8 @@ status 2; otherwise it exits with 0.
 ## mir
 
 Use `mir` to print the program's [MIR](/glossary#mir) or to run it in the MIR interpreter,
-without building a ROM. It is a tool for working on dampf, not for building a game. It has no usage message; its forms are:
+without building a ROM. It is a tool for working on dampf, not for building a game. It has no
+usage message; its forms are:
 
 ```
 dampf mir [-O] [-I dir] [-D def] file.c ...
@@ -188,7 +221,7 @@ exits with status 1.
 ### -O {#mir-optimize}
 
 Prints or runs the MIR after the optimizer's [passes](/glossary#pass) instead of the MIR as it
-comes from the AST.
+comes from the [AST](/glossary#ast).
 
 ### --bench {#mir-bench}
 
@@ -196,7 +229,12 @@ Use `--bench name` to call the function `name` in the MIR interpreter instead of
 MIR. It is meant for the benchmark of [Blubber Blasen](/glossary#blubber-blasen): `mir` prints
 one line per [tick](/glossary#tick) in the format of [bench](#bench), with `0` for the clocks,
 because the interpreter does not count cycles. The run ends when the function returns or when
-the program writes to `$21FB`.
+the program writes to `$21FB`. If the program does not define the function, `mir` prints this
+line and exits with status 2:
+
+```
+function 'nothere' is not defined
+```
 
 ### --check-ranges {#check-ranges}
 
@@ -260,21 +298,29 @@ void main(void)
 score.c:12:5: error: 'float' is not supported: dampf has no floating point
 ```
 
-Errors of the preprocessor come from gcc in its own format, after a line
-`preprocessing file.c failed:` and before a Java stack trace.
+Errors of the preprocessor are messages of the same form: dampf takes gcc's first error and its
+position, as for a missing header:
+
+```
+hdr.c:1:10: error: missing.h: No such file or directory
+```
+
+Where gcc gives no position, as for a C file that does not exist, the message is at line 1,
+column 1 of the file, and its text starts with `preprocessing failed:` and gcc's first line.
 
 ## Exit status
 
 | Command | 0 | 1 | 2 |
 |---|---|---|---|
 | `build` | ROM written | error in the program | usage error |
-| `check` | every file passes | at least one file fails | usage error |
+| `check` | every file passes, also together | a file or the files together fail | usage error |
 | `parse` | no errors | at least one error | usage error |
 | `profile` | table printed | — | fewer than two arguments |
-| `mir` | MIR printed or run | error in the program | — |
+| `mir` | MIR printed or run | error in the program | `--bench` function not defined |
 | `bench` | benchmark finished | benchmark did not finish | wrong arguments |
 
 A usage error is a missing command or one dampf does not know, an option without its value at
-the end of the command line, and for `build` also a missing `-o` or no C file. Any unexpected
-failure, such as a preprocessor error, a missing file or an invalid `--backend` value, ends
-dampf with a Java exception and status 1.
+the end of the command line, and for `build` also a missing `-o`, no C file or an unknown
+`--backend` value. A missing C file or header is an error in the program. Any other unexpected
+failure, such as a missing `.s` file for `--replace` or a missing profile file, ends dampf with
+a Java exception and status 1.

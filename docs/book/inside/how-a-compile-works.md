@@ -43,7 +43,8 @@ The class `Preprocessor` runs `gcc -E -std=c99 -nostdinc -undef -D__DAMPF__=1` o
 file. The option `-nostdinc` keeps the host's headers out, and dampf's own include directory
 provides `<stdint.h>`; `-undef` drops the host's predefined macros such as `__x86_64__`, and
 `__DAMPF__` lets a header tell the dampf build apart. The `-I` directories and `-D` macros of
-the command line are passed on. If gcc fails, dampf stops with gcc's messages.
+the command line are passed on. If gcc fails, on a missing header for example, dampf stops with
+gcc's first error message at gcc's position, like any other error of the compile.
 
 The parser comes from ANTLR 4, a tool that generates a parser in Java from a grammar. dampf
 uses the C grammar of the grammars-v4 collection unchanged; only its support classes were
@@ -63,6 +64,12 @@ The class `AstBuilder` takes the parse tree of each file in turn and builds one 
 [whole program](/glossary#whole-program). In the AST every expression has its type, and C's
 conversions, the integer promotions among them, are made explicit, so the meaning of every
 operation is fixed before any code is generated.
+
+A `sizeof` becomes a constant here, and it has to have the value gcc gives on x86-64, because
+the result must match the PC build bit for bit. dampf's pointers are 4 bytes against 8 on the
+PC, and dampf does not pad struct fields, so for such types dampf rejects `sizeof` with a
+message. The one use it allows is the element count `sizeof a / sizeof a[0]`, whose quotient is
+the same on both.
 
 The subset is enforced here, not in the grammar. A construct outside the subset parses, and
 then gets a message that says what is not supported, with the position of the C source. Once
@@ -84,6 +91,9 @@ Because dampf sees every file at once, it builds the call graph of the whole pro
 (`CallGraph`) and rejects recursion, direct or through other functions. Every function then
 has a fixed set of callers, which the code generators rely on when they place the frames of
 functions in memory.
+
+The command `dampf check` runs the same check on the files that pass the front end, after it
+has checked each file on its own; the command is on [Command line](/reference/command-line).
 
 ## MIR and its passes
 
@@ -154,7 +164,8 @@ The segments of the final configuration:
 The runtime and the initial values must fit into bank `$80` together, and no function or
 constant object may be larger than 32 KB; dampf stops with a message if either is not so.
 
-All files go into the directory of the ROM. For `-o build/calls.sfc` they are:
+All files go into the directory of the ROM, which dampf creates if it is missing. For
+`-o build/calls.sfc` they are:
 
 | File | What it is |
 |---|---|

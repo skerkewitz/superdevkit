@@ -64,7 +64,10 @@ each function in CPU cycles. Every option of `build` is on
 A game written for gcc on the PC uses some C that dampf does not accept. Before the first build,
 run `dampf check` over all the files, with the same `-I` and `-D` options. It runs the front end
 on each file on its own and reports the first problem of each file, so one unsupported
-construct does not hide the others. For the snapshot every file passes (cut):
+construct does not hide the others. Then it takes the files that passed together and looks for
+what only the whole program shows: a recursion, a function that is called but defined in none
+of the files, a function defined in two files. For the snapshot every file passes, alone and
+together (cut):
 
 ```sh
 build/install/dampf/bin/dampf check -I examples/blubberblasen/src \
@@ -78,10 +81,12 @@ ok      examples/blubberblasen/src/game/bubble.c
 ...
 ok      examples/blubberblasen/bench/bench.c
 17 of 17 file(s) pass the front end
+the 17 file(s) together: ok
 ```
 
 A file that does not fit is marked `FAILS`, with the position and the message, and `check`
-exits with 1. Here a game in `mygame/src` has one file that uses `float`:
+exits with 1. Here a game in `mygame/src` has one file that uses `float`, and one,
+`countdown.c`, whose function calls itself:
 
 ```c [mygame/src/physics.c]
 #include <stdint.h>
@@ -103,6 +108,7 @@ ok      mygame/src/countdown.c
 FAILS   mygame/src/physics.c:3:1: error: 'float' is not supported: dampf has no floating point
 ok      mygame/src/score.c
 2 of 3 file(s) pass the front end
+FAILS   mygame/src/countdown.c:5:25: error: recursion is not supported: countdown → countdown   (the 2 file(s) together)
 ```
 
 For each report, change the game's code so that it fits the subset, in a way that the
@@ -111,9 +117,9 @@ is meant to build with gcc and with dampf, and dampf's code must match gcc's bit
 that means integer or fixed-point arithmetic instead of `float`. Run `check` again until every
 file passes. [The C subset](/reference/c-subset) lists what dampf accepts.
 
-`check` looks at each file alone, so it cannot see problems that need the whole program. A
-recursion is one: `countdown.c` passes `check`, but its function calls itself, and `build`
-rejects it once it sees the call graph:
+The last line comes from the files taken together. On its own `countdown.c` passes, but its
+function calls itself, which only the call graph of the whole program shows; `build` rejects it
+with the same message:
 
 ```c [mygame/src/countdown.c]
 #include <stdint.h>
@@ -127,6 +133,9 @@ uint8_t countdown(uint8_t n)
 ```
 mygame/src/countdown.c:5:25: error: recursion is not supported: countdown → countdown
 ```
+
+Only the files that pass alone go into this second round, so fix those first: a function
+defined in a failing file can show up here as called but never defined.
 
 ## Where the time goes
 
@@ -176,8 +185,9 @@ left out (bench.c): 95.5% of all CPU cycles
 
 The first line sums up all functions that are not left out. The measured stretch in brackets
 covers everything that ran, the harness included, also counted in [frames](/glossary#frame);
-the second line says how much of it the harness took. Each row then gives the function's share of the cycles, how often it was called,
-its instructions, its CPU cycles and the cycles per call, the most expensive function first.
+the second line says how much of it the harness took. Each row then gives the function's share
+of the cycles, how often it was called, its instructions, its CPU cycles and the cycles per
+call, the most expensive function first.
 The cycles per call tell a function that is cheap but called often, such as `ground_px`, from
 one that is expensive each time, such as `separate`. The runtime's routines, such as the
 multiplication, appear as `(runtime) dampf_mul16`.

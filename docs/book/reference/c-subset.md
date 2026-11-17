@@ -12,10 +12,11 @@ This page lists what is accepted, what is rejected with which message, and what 
 constructs mean. For an introduction with examples, read
 [Writing C for dampf](/guide/writing-c) first.
 
-Most messages below come from `dampf check`, which runs the front end on each file on its own.
-Checks that need the [whole program](/glossary#whole-program), such as recursion and functions
-that are called but never defined, report only at `dampf build`. Both commands are described on
-[Command line](/reference/command-line). Many messages start with `not supported yet:`; the
+Most messages below come from `dampf check`, which runs the front end on each file on its own
+and then checks the files that pass together. Checks that need the
+[whole program](/glossary#whole-program), such as recursion and functions that are called but
+never defined, run in that second step, and again at `dampf build`. Both commands are described
+on [Command line](/reference/command-line). Many messages start with `not supported yet:`; the
 construct is outside the subset today.
 
 ## Types
@@ -57,7 +58,7 @@ requires for the PC build; on the SNES the return value is ignored.
 
 ### Sizes
 
-`sizeof` gives these sizes today:
+dampf gives the types these sizes today:
 
 | Type | Size in bytes |
 |---|---|
@@ -75,13 +76,38 @@ padding.
 
 ::: warning Two sizes differ from the PC
 A pointer is 8 bytes and `struct { uint8_t kind; int16_t x; }` is 4 bytes with gcc on x86-64;
-dampf gives 4 and 3. Code whose result depends on `sizeof` of a pointer or of a struct with
-padding computes different values on the two sides.
+dampf gives 4 and 3.
 :::
 
-`sizeof` with a typedef name in parentheses, such as `sizeof(uint8_t)` or `sizeof(Bubble)`, is
-rejected today with `'uint8_t' is not declared`. Write `sizeof` of a variable
-(`sizeof bubbles[0]`) or of a `struct` tag type (`sizeof(struct Bubble)`) instead.
+Because the result must match gcc on x86-64 bit for bit, a `sizeof` whose value differs from
+the PC's is rejected, with a message that gives both values. For this file:
+
+```c [sizes.c]
+#include <stdint.h>
+
+uint8_t *cursor;
+uint32_t cursor_bytes;
+
+void game_tick(void) {
+    cursor_bytes = sizeof cursor;
+}
+```
+
+For it, `dampf check` reports:
+
+```
+sizes.c:7:20: error: sizeof uint8_t * is 4 in dampf but 8 on the PC (dampf's pointers are 4 bytes, 8 on x86-64, and dampf does not pad struct fields): the program would compute other values than its PC build. Only the element count sizeof a / sizeof a[0] is allowed for such types
+```
+
+The same holds for a struct gcc pads, and for an array of pointers or of such structs. The one
+exception is a division whose quotient is the same on both sides: the element count
+`sizeof names / sizeof names[0]` is accepted for `const char *names[3]`, which is 12 bytes in
+dampf and 24 on the PC, and gives 3 on both. A struct without padding, such as
+`struct { uint8_t kind; uint8_t flags; int16_t x; }`, has the same size on both sides, and its
+`sizeof` is accepted anywhere.
+
+A typedef name in parentheses works as in C: `sizeof(uint8_t)`, or `sizeof` of a struct type
+made with `typedef`. Where a variable has the same name as the typedef, the variable wins.
 
 ## Semantics
 
@@ -228,7 +254,12 @@ or struct with an initializer is accepted too; it is copied from a constant copy
 dampf preprocesses every file with `gcc -E -nostdinc -undef -D__DAMPF__=1` and its own include
 directory, which holds only `<stdint.h>`. Anything `gcc -E` accepts is allowed. Host headers and
 host macros never reach the code: `__GNUC__` and `__x86_64__` are not defined, and
-`#include <stdio.h>` fails with gcc's message `fatal error: stdio.h: No such file or directory`.
+`#include <stdio.h>` fails. A failure of the preprocessor is an ordinary error at the place gcc
+names, with gcc's message. For a file `stdio.c` whose second line is `#include <stdio.h>`:
+
+```
+stdio.c:2:10: error: stdio.h: No such file or directory
+```
 
 `__DAMPF__` is defined as 1, so code can tell the dampf build from the PC build:
 
@@ -257,8 +288,15 @@ missing.c:3:18: error: function 'missing' is called but never defined
 ```
 
 A variable that is declared `extern` but defined nowhere gives
-`'name' is declared extern but never defined`. These checks, like the check for recursion, run
-at `dampf build`, not at `dampf check`.
+`'name' is declared extern but never defined`. A variable without `static` that is defined in two
+files is an error, as it is for gcc's linker since gcc 10; within one file it may be repeated:
+
+```
+b.c:2:9: error: redefinition of 'phase' (first defined at a.c:2:9); declare it extern in all files but one
+```
+
+These checks, like the check for recursion, run when `dampf check` checks the files together,
+and at `dampf build`.
 
 Hints, which tell dampf what it cannot infer, and intrinsics for the SNES hardware are not built
 yet; see [Limits](/reference/limits).

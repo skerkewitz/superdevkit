@@ -16,10 +16,11 @@ translated to 65816 code with its frames in the direct page. The naive code gene
 from the AST, stays as an independent reference (`--backend naive`). Every program in the tests
 is built with both and compared with gcc on the PC: the execution tests (also in Mesen), random
 programs, the game's replays, and the game's own benchmark, where every one of its 3,610 ticks
-gives the PC's checksums. During play the game takes 1.76 frames per tick with dampf (the naive
+gives the PC's checksums. During play the game takes 1.53 frames per tick with dampf (the naive
 code: 5.17; Calypsi took 2.72 on an older version of the game), numbers in
-[docs/optimizations.md](docs/optimizations.md). Not done yet: the SNES platform layer for a
-playable ROM, and the timing analysis and hints. The plan is in [docs/roadmap.md](docs/roadmap.md).
+[docs/optimizations.md](docs/optimizations.md). dampf also computes a best and a worst case in CPU
+cycles for every function (`<rom>.timing.txt`, [docs/timing.md](docs/timing.md)). Not done yet:
+the SNES platform layer for a playable ROM, cycle budgets checked at build time, and the hints. The plan is in [docs/roadmap.md](docs/roadmap.md).
 
 ## Why
 
@@ -74,7 +75,7 @@ working documents it is written from.
 - [docs/architecture.md](docs/architecture.md): the pipeline, the three IR levels, core and target, the assembly output.
 - [docs/subset.md](docs/subset.md): the C subset, derived from what the game uses, and the decisions about it.
 - [docs/hints.md](docs/hints.md): hints that tell dampf what a human assembly programmer would know.
-- [docs/subrange-types.md](docs/subrange-types.md): subrange types (`DAMPF_RANGED`) and the value ranges dampf infers (design, not built yet).
+- [docs/subrange-types.md](docs/subrange-types.md): subrange types (`DAMPF_RANGED`) and the value ranges dampf infers (the inferred ranges and pointer compression are built, declared subrange types are not).
 - [docs/optimizations.md](docs/optimizations.md): the baseline measurements, the optimization catalogue, the gap to hand-written assembly, and what knowing the machine allows.
 - [docs/timing.md](docs/timing.md): exact timing, worst-case bounds and cycle budgets.
 - [docs/memory-map.md](docs/memory-map.md): where code, data, variables and pointers live.
@@ -119,12 +120,14 @@ tools/game_mir.sh -O                                         # the game's MIR af
 
 The execution tests compile each program in `src/test/resources/exec/` twice: with gcc on the PC
 (with the undefined behaviour sanitizer, so a test with undefined behaviour fails) and with dampf
-into a ROM that runs headless in Mesen 2 (`--testrunner`). All globals must have the same values
+into a ROM that runs in dampf's emulator, and headless in Mesen 2 (`--testrunner`) when one is
+available. All globals must have the same values
 afterwards. From WSL, the Windows `Mesen.exe` works; paths are converted with `wslpath`.
 
 The tests use `.mesen/Mesen.exe` if it exists (not in git): unpack Mesen 2.1.1 there and allow
 Lua scripts I/O access (in `settings.json`: `"Debug": { "ScriptWindow": { "AllowIoOsAccess": true } }`).
-Without a Mesen the execution tests are skipped.
+Without a Mesen they still run, in dampf's own emulator (`dampf.emu`); with one, they also run
+in Mesen.
 
 The game parse test uses the snapshot in `examples/blubberblasen`. To refresh the snapshot, build
 the game once (so its `build/generated` is current) and run

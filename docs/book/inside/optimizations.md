@@ -8,7 +8,7 @@ it may use at most 60 % of an NTSC [frame](/glossary#frame), about 0.6 frames pe
 vertical blank and a safety margin come off that. The game's benchmark runs the same game code
 with a fixed input for 1,800 ticks and measures every tick in Mesen.
 
-During play, the code dampf now generates takes 1.53 frames per tick (worst tick 2.67). dampf's
+During play, the code dampf now generates takes 1.53 frames per tick (worst tick 2.65). dampf's
 own [naive code generator](/glossary#naive-code-generator) takes 5.17 frames per tick for the
 same code, and [Calypsi](/glossary#calypsi) took 2.72, measured on an older version of the game.
 dampf is past Calypsi and about 3.4 times as fast as its naive code, but still about 2.5 times
@@ -460,9 +460,11 @@ branches on the flags, and the loop test sits after the body. What each of these
 `dampf.mir.Ranges` infers an interval for every integer value of a function. The intervals come
 from constants, from the operations (a result that may leave its type's range gets the whole
 range, because it wraps), and from the conditions of branches: in a block reached only when
-`sy >= 16`, `sy` lies in 16..32767, in that block and every block it dominates. A φ joins its
-incoming values. Loops are iterated until nothing changes, and a value whose interval keeps
-growing is widened to its type's whole range after 24 changes, so the iteration ends.
+`sy >= 16`, `sy` lies in 16..32767, in that block and every block it dominates. A loop head
+whose other predecessors are all back edges gets the condition of the one edge that enters the
+loop, because a value tested before the loop does not change inside it. A φ joins its incoming
+values. Loops are iterated until nothing changes, and a value whose interval keeps growing is
+widened to its type's whole range after 24 changes, so the iteration ends.
 
 Several parts of dampf use the ranges:
 
@@ -480,9 +482,9 @@ interval, in all execution tests, the random programs, the replay of the game, a
 
 [Pointer compression](/glossary#pointer-compression) is the other use of C's rules about
 ranges. A pointer must stay within its object or point one past its end, so an offset into
-one object lies between 0 and the object's size. `PointerOffsets` and `PointerParams` give the new φs and
-parameters exactly that range, which indexed addressing needs. What is not compressed are
-pointers that may point into several objects (a `Bubble *` into either of two arrays) and
+one object lies between 0 and the object's size. `PointerOffsets` and `PointerParams` give the
+new φs and parameters exactly that range, which indexed addressing needs. What is not compressed
+are pointers that may point into several objects (a `Bubble *` into either of two arrays) and
 pointers loaded from memory.
 
 Declared ranges, subrange types written with `DAMPF_RANGED`, are designed but not built yet; see
@@ -526,7 +528,7 @@ budget is hardest to meet; the worst tick is in parentheses where the source giv
 | induction variables | 1.57 (2.74) | 2.26 (4.50) |
 | lazy byte masks | 1.56 | |
 | pointer compression | 1.54 (2.68) | 2.24 (4.47) |
-| loop counters in X | 1.53 (2.67) | 2.22 (4.46) |
+| loop counters in X | 1.53 (2.65) | 2.22 (4.46) |
 
 The steps are cumulative: each row includes everything above it. Loop rotation is not in the
 table; it brought about 0.5 %, measured on the benchmark's bare loop (801 to 783 clocks per
@@ -534,9 +536,10 @@ pass). The early steps brought the most, because they removed whole classes of w
 arithmetic, the runtime multiplication, RAM accesses outside the direct page. The later ones
 each take a few percent.
 
-Where the time goes now: in the measured play ticks, loads and stores of values in the direct
-page are 38 % of the cycles, `JMP` 5 %, comparisons and masks 5 % each. The full account of
-every step is in `docs/optimizations.md`.
+Where the time went at 1.95 frames per tick, the last time the sources broke it down: in the
+measured play ticks, loads and stores of values in the direct page were 38 % of the cycles, `JMP`
+5 %, comparisons and masks 5 % each. The full account of every step is in
+`docs/optimizations.md`.
 
 ## How far it can go
 
@@ -549,7 +552,7 @@ part:
 | dampf, naive code generator | 3,849 | 4.5 |
 | 816-tcc | 2,449 | 2.9 |
 | Calypsi | 931 | 1.1 |
-| dampf, code from MIR | 1,230 | 1.4 |
+| dampf, code from MIR | 1,208 | 1.4 |
 | hand-written | 856 | 1.0 |
 
 The 816-tcc and Calypsi figures come from older runs on the game's side. On a small function

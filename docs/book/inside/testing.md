@@ -48,6 +48,12 @@ exercise one area: 8-bit wrap-around, calls, pointers, banks, 32-bit arithmetic,
 passes, and as two ROMs in dampf's emulator, one per code generator. When Mesen is available,
 the ROM of the naive code generator also runs there. Every run must give the PC's globals.
 
+The ROM of the code generator from MIR also checks dampf's static timing. dampf computes a best
+and a worst case in CPU cycles for every function, and in the emulator `test_main` as a whole,
+and every call of every function and runtime routine on the way, must take between the two
+(`Timing.check`). A call is measured from its first instruction to the instruction after the
+`JSL` that called it.
+
 **Random programs** come from a generator, `RandomProgram`, that writes programs within the
 [subset](/glossary#subset): ten global variables of the six integer types from `int8_t` to
 `uint32_t`, and thirty statements of assignments, `if`, short `for` loops and expressions with
@@ -55,8 +61,9 @@ every operator. The programs are free of undefined behaviour by construction: di
 odd, shift counts are masked, wide arithmetic is done in `uint32_t`, where overflow wraps.
 Values at the edges of the types, such as `-32768`, `255` and `65536`, are chosen often, because
 that is where sign and overflow handling go wrong. `RandomProgramTest` runs 50 of them per build,
-with the same steps as the execution tests but in dampf's emulator only. The seeds are fixed, so
-a failure can be reproduced, and the failing program is printed in the message.
+with the same steps as the execution tests, the timing check included, but in dampf's emulator
+only. The seeds are fixed, so a failure can be reproduced, and the failing program is printed
+in the message.
 
 **The game's replays** check the whole of [Blubber Blasen](/glossary#blubber-blasen). The game
 records a play session as a `.bbr` file: its start (seed, save RAM, round, options), the joypad
@@ -75,8 +82,8 @@ the cycles of every tick, which is how dampf's speed is measured. It runs in dam
 (`dampf bench`), and the MIR interpreter can run it as well (`dampf mir --bench main ...`), where
 it also gives the PC's checksums on all 3,610 ticks. With `-Preplays`, `GameTimingTest` runs the
 benchmark built by the code generator from MIR in the emulator as part of the tests, measures
-every call of every function and checks that each lies within the cycle bounds dampf computes
-for that function.
+every call of every function and checks that each lies between the best and the worst case
+dampf computes for that function, as the execution tests do for their programs.
 
 Next to these layers are tests of single parts: front-end tests such as `ParserTest` and
 `AstBuilderTest`, and pass tests written as MIR text, such as `NarrowTest`, `GvnTest` and
@@ -161,7 +168,7 @@ void test_main(void)
 small harness that includes the file, calls `test_main` and prints every global, and compiles it
 with `gcc -std=c99 -O1 -Wall` and UBSan. Here the PC prints `lives 4` and `score 1275`, and the
 test passes when the MIR interpreter, both ROMs in dampf's emulator and, if present, Mesen all
-end with these values.
+end with these values, and every call in the ROM from MIR stays within its static timing.
 
 A test is only useful if its result depends on what it tests: a global that nothing writes
 stays at its initial value whatever dampf does. Deliberately broken code generation must make a
@@ -173,12 +180,12 @@ a test was added for them.
 A test must fail, not wait forever. Every program test runs under a hard time limit
 (`assertTimeoutPreemptively`): 3 minutes per execution test, 2 per random program, 15 per
 replay and 2 per MIR round trip, because JUnit's default timeouts do not cover the dynamic tests
-these are built from. External programs (gcc, the PC builds, ca65, ld65) run through
-`dampf.util.Processes` with a time limit and are killed when it runs out. The emulator stops
-after 600 frames in the program tests and after 200,000 frames in `dampf bench` and the replays;
-the MIR interpreter counts its steps. The Gradle test task has an overall limit of 2 hours as a
-last resort. A program that loops forever fails in about a minute with "did not finish within
-60 s and was stopped (does it hang?)".
+these are built from; `GameTimingTest` has 10 minutes. External programs (gcc, the PC builds,
+ca65, ld65) run through `dampf.util.Processes` with a time limit and are killed when it runs
+out. The emulator stops after 600 frames in the program tests and after 200,000 frames in
+`dampf bench` and the replays; the MIR interpreter counts its steps. The Gradle test task has an
+overall limit of 2 hours as a last resort. A program that loops forever fails in about a
+minute with "did not finish within 60 s and was stopped (does it hang?)".
 
 ## Why it works this way
 

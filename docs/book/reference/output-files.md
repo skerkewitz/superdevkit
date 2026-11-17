@@ -7,11 +7,11 @@ generated assembly, the files of [ca65 and ld65](/glossary#ca65-and-ld65), and t
 for [Mesen](/glossary#mesen). The examples on this page come from building the M1 example:
 
 ```sh
-mkdir -p build/examples/m1
 build/install/dampf/bin/dampf build --entry test_main -o build/examples/m1/calls.sfc examples/m1/calls.c
 ```
 
-The options of `dampf build` are on [Command line](/reference/command-line).
+dampf creates the output directory if it does not exist yet. The options of `dampf build` are
+on [Command line](/reference/command-line).
 
 ## The files
 
@@ -180,14 +180,21 @@ writes them to `calls.timing.txt`, the most expensive function first:
 # calls included, interrupts and DMA not (docs/timing.md). "unbounded": a loop without
 # a known bound on the way.
         best        worst  function
+        1940         2594  dampf_sdiv32
+        1888         2432  dampf_udiv32
+        1168         1968  dampf_mul32
+         564          772  dampf_udiv16
+         287          367  dampf_mul16
           48           48  _test_main
           22           22  _add3
           18           18  _inc8
           18           18  _neg8
 ```
 
-Unlike the sums in the line headers, these include the calls a function makes. A function with
-a loop whose number of rounds dampf cannot bound gets `unbounded` as its worst case.
+The first five lines are the multiplication and division routines of the runtime, which the
+file lists with the functions of the program. Unlike the sums in the line headers, these numbers
+include the calls a function makes. A function with a loop whose number of rounds dampf cannot
+bound gets `unbounded` as its worst case and comes first in the file.
 
 ## The debug file
 

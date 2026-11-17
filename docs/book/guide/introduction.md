@@ -104,9 +104,11 @@ being made to do less work at the same time.
 
 dampf does not yet produce a playable game ROM on its own. The SNES platform layer it would need
 (start-up, joypad input, the vertical blank handler with DMA, and the PVSnesLib-shaped calls the
-game makes) is not built; the benchmark stubs those calls out. The timing analysis and the hints
-are not built either. The [Roadmap](/inside/roadmap) has the plan, and [Limits](/reference/limits)
-lists what dampf does not do yet.
+game makes) is not built; the benchmark stubs those calls out. The hints are not built either.
+The timing analysis has a first part: dampf computes a best and a worst case in CPU cycles for
+every function, but cycle budgets checked at build time are still to come. The
+[Roadmap](/inside/roadmap) has the plan, and [Limits](/reference/limits) lists what dampf does
+not do yet.
 
 ## Where to go next
 
