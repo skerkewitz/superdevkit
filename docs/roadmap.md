@@ -172,7 +172,7 @@ ideas that looked good measured zero, see [optimizations.md](optimizations.md)) 
 | 3 | 8-bit stretches: the M flag followed (`REP`/`SEP`), `uint8_t` code in 8-bit mode | 5-10 % | high | Fewer `AND #$00FF`, and 8-bit accesses are a cycle cheaper. Needs the processor state across blocks. |
 | 4 | Arrays of structs as one array per field (catalogue D, `DAMPF_SPLIT`) | 5-10 % in the bubble loops | high | `separate`, `bubbles_update` and `bubbles_draw` are 30 %. Needs a subset decision or a hint, since the layout then differs from the PC. |
 | 5 | 8-bit index registers, arrays aligned to pages | 2-4 % | high | `LDA abs,X` a cycle cheaper; needs the X flag followed and the alignment in the memory map. |
-| 6 | Comparisons on the flags: no `CMP` where the instruction before set them, `BIT` for bit tests | 2-4 % | low to medium | `CMP #imm` is 8.5 %; first count how much of it can go. |
+| 6 | Comparisons on the flags: no `CMP` where the instruction before set them, `BIT` for bit tests | 2-4 % | low to medium | **Done 2026-11-17 for `CMP #0`: play 1.10 → 1.08 (−1.3 %).** Of the 1.3 million `CMP #imm` in 800 play ticks, about 150,000 compared with 0 after an instruction that had set the flags; the rest compare with other constants and feed `BCC`/`BCS`. `BIT` not tried. |
 | 7 | Calling convention (catalogue C): the first argument in A, `JMP` for tail calls | 1-3 % | medium | `ground_px` is called 12,000 times in 800 ticks. |
 | 8 | The block layout by a profile by default (from the replays) | ~1 % | low | Built (`--block-counts`), opt-in; needs a profile in the game's build. |
 | 9 | Value ranges from array bounds | 1-2 % | medium | More 8-bit narrowing, fewer masks. |

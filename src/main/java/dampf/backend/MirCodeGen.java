@@ -255,6 +255,8 @@ public final class MirCodeGen {
     private String entryLabel;
     /** The last instruction written goes elsewhere for sure (JMP, BRA, RTL): nothing falls through. */
     private boolean lastTransfer;
+    /** N and Z describe the value in A (set by the instruction that computed or loaded it). */
+    private boolean nzFromA;
     private boolean lastFallsThrough;
     /** The states assumed at the labels inside blocks placed so far (this pass). */
     private final Map<String, RegState> assumedAt = new HashMap<>();
@@ -2197,6 +2199,9 @@ public final class MirCodeGen {
     private void flagsOf(String operand) {
         if (!m8 && aHolds.contains(operand)) {
             flushHeld();
+            if (nzFromA) {
+                return;   // the instruction that left the value in A set N and Z for it already
+            }
             out.ins("cmp", imm(0), null);
             track("cmp", imm(0));
         } else {
@@ -2416,6 +2421,16 @@ public final class MirCodeGen {
             case "jmp", "bra", "brl", "jml", "rtl", "rts" -> true;
             default -> false;
         };
+        nzFromA = switch (mnemonic) {
+            // N and Z from A's (new) 16-bit value
+            case "lda", "and", "ora", "eor", "adc", "sbc", "txa", "tya", "pla", "tax", "tay", "tcd" -> !m8;
+            case "asl", "lsr", "rol", "ror", "inc", "dec" -> !m8 && "a".equals(operand);
+            // N and Z untouched (REP #$20 changes only M)
+            case "sta", "stx", "sty", "stz", "clc", "sec", "jmp", "bra", "brl", "pha", "phx", "phy",
+                 "bcc", "bcs", "beq", "bne", "bmi", "bpl", "bvc", "bvs" -> nzFromA;
+            case "rep" -> nzFromA && "#$20".equals(operand);
+            default -> false;   // ldx, inx, cmp, bit, memory INC/ASL ..., calls, SEP, MVN: something else
+        };
         boolean writesMemory = switch (mnemonic) {
             case "sta", "stx", "sty", "stz", "inc", "dec", "asl", "lsr", "rol", "ror" -> operand != null && !operand.equals("a");
             default -> false;
@@ -2540,6 +2555,7 @@ public final class MirCodeGen {
         ptrQ = null;
         m8 = false;
         lastTransfer = false;
+        nzFromA = false;   // something may jump here
     }
 
     /** The label of one of the code generator's small loops: a branch comes back to it, so nothing is assumed there. */

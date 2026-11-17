@@ -593,6 +593,19 @@ with n. It is exact (0 <= i <= n at the head), and it made the title screen fast
 saves in the game's short loops, and an i8 j would need a clean high byte for `j != 0`. It was
 not kept.
 
+### No CMP #0 where the flags are set, 2026-11-17
+
+In 800 play ticks 1.3 million `CMP #imm` ran. Most compare with a constant other than 0 and feed
+`BCC`/`BCS`; about 150,000 compared with 0 right after an instruction that had set N and Z for
+the value in A already: an `AND` (110,000), a load, an addition before a store. The code generator
+now follows whether N and Z describe the value in A: the instructions that load or compute A set
+that, stores, `REP #$20`, `CLC`/`SEC`, jumps and branches keep it, anything else (`LDX`, `INX`,
+`CMP`, `BIT`, a read-modify-write on memory, a call, `SEP`, a label) clears it. A test for 0 or
+for the sign of a value that A holds then needs no `CMP #0` while it is set. Play 391,423 →
+386,306 clocks per tick (1.08 frames). Counting every instruction as setting them, on purpose,
+fails `exec/flags_after.c` (a value tested after an index load, a store, a call, a comparison)
+and two random programs.
+
 ### FastROM, 2026-11-17
 
 All of dampf's code and constant data lie in banks $80 and up, which the SNES can run at
@@ -664,16 +677,16 @@ rounds (`for (i = 0; i < 768; i++)`) used to give its counter the type's whole r
 it from being narrowed and from indexed addressing as nonnegative. Narrowing again after the
 widened fixpoint gives it 0..768. Play 1.53 → 1.50, title 0.68 → 0.60. Then A's places and the
 byte loads, the short branches, INC/DEC, STZ, the bit selections, fewer copies and the registers
-across blocks (sections above): play 1.31. The last column adds FastROM (see its section); the
-column before it is the same code at SlowROM speed, as the earlier columns were measured.
+across blocks (sections above): play 1.31. The last column adds FastROM and the CMP #0 that went
+(see their sections); the column before it is SlowROM speed, as the earlier columns were measured.
 
 | State | naive | from MIR, no passes | SlowROM | now (FastROM) |
 | --- | --- | --- | --- | --- |
-| title | 1.94 | 12.21 | 0.54 | 0.46 |
-| story | 0.70 | 3.56 | 0.22 | 0.19 |
+| title | 1.94 | 12.21 | 0.54 | 0.45 |
+| story | 0.70 | 3.56 | 0.22 | 0.18 |
 | round intro | 5.76 | 12.13 | 1.76 | 1.48 |
-| play | 5.17 (worst 8.58) | 18.93 | 1.31 (worst 2.25) | 1.10 (worst 1.88) |
-| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 1.98 (worst 4.08) | 1.69 (worst 3.51) |
+| play | 5.17 (worst 8.58) | 18.93 | 1.31 (worst 2.25) | 1.08 (worst 1.86) |
+| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 1.98 (worst 4.08) | 1.68 (worst 3.49) |
 | `level_solid_px`, per call | 3,849 | 6,648 | 1,149 | 961 clocks |
 
 Calypsi's 2.72 frames per tick during play (on an older version of the game) is passed. On the
