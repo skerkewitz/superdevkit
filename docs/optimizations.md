@@ -352,6 +352,24 @@ constant, because that predecessor already knows the way. This is the shape `a |
 inlined function returning a truth value leave behind. Play 1.67 frames per tick (worst 2.87),
 with the CPU partner 2.36 (worst 4.62).
 
+### Fewer stores: scheduling and more hand-overs in A, 2026-11-17
+
+On the 65816 the direct page is the register file: arithmetic works between A and memory, X and
+Y hold indices. "Register allocation" here means storing and loading less. Counting the result
+stores that still ran (play, game code): 31 % were values with several users, 21 % values used
+by a φ, 14 % values going into the next comparison, 14 % offsets going into the next `ptradd`,
+8 % values going into the next cast.
+
+- `Schedule` (the last MIR pass) moves an instruction whose value one later instruction of the
+  same block uses right before that user (loads not past stores, copies, calls or volatile
+  accesses).
+- A comparison with 0 of a value that is in A (and was perhaps never stored) uses `cmp #0`
+  instead of loading it for the flags; comparisons may now take their operand from A.
+- A `ptradd` whose 16-bit offset is in A adds the pointer to it, unless it is an indexed array
+  access, whose loads read the offset into X from its place (`exec/indexed_pointer.c` tests that).
+
+Play 1.67 → 1.61 frames per tick (worst 2.80), with the CPU partner 2.36 → 2.30 (worst 4.52).
+
 ### Summary of the code from MIR so far (2026-11-17)
 
 | State | naive | from MIR, no passes | now |

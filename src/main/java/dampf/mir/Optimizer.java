@@ -31,6 +31,10 @@ public final class Optimizer {
             }
             functions(m, writes, verifyEach);
         }
+        // last: the order of the instructions for the code generator
+        for (MFunction f : m.functions()) {
+            Schedule.run(f);
+        }
         Verifier.verify(m);
     }
 

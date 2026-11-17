@@ -112,7 +112,7 @@ the profile after each step can change the order of the later ones:
    A holds are left out, φs are written directly, and the frames lie in low RAM with the leaves in
    the direct page, values share places where their lifetimes allow, so all of the game's
    values are in the direct page; with inlining, indexed addressing and smaller changes play is
-   at 1.67 frames per tick.
+   at 1.61 frames per tick.
 
    Where the time goes now (play, game code only): loads and stores of values in the direct page
    are 37 % of the cycles, `JMP` 5.5 %, comparisons 5.7 %, masks 4.5 %. Next, in this order:

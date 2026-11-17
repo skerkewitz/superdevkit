@@ -504,6 +504,10 @@ public final class MirCodeGen {
             case Instr.Ret r -> true;
             case Instr.Cast c -> c.kind == Instr.CastKind.SEXT || c.kind == Instr.CastKind.TRUNC && words(c.type()) == 1;
             case Instr.Call c -> c.op(0) == v;
+            case Instr.Cmp c -> cmpReadsFirst(c, v);
+            // an i16 offset in A: the pointer is added to it
+            // (not an indexed access: its loads read the offset into X from its place)
+            case Instr.PtrAdd p -> p.op(1) == v && v.type() == MType.I16 && p.op(0) != v && !layout.indexable(p);
             default -> false;
         };
     }
@@ -539,15 +543,17 @@ public final class MirCodeGen {
                 return false;
             }
         }
+        return cmpReadsFirst(c, v);
+    }
+
+    /** The code of comparison c (with its value, or fused with the branch) starts by loading v. */
+    private static boolean cmpReadsFirst(Instr.Cmp c, Value v) {
         if (words(c.op(0).type()) != 1 || c.op(0) == c.op(1)) {
             return false;
         }
         return switch (c.pred) {
-            case EQ, NE -> c.op(0) == v && !(c.op(1) instanceof Value.Const k && k.bits() == 0);
-            case ULT, UGE -> c.op(0) == v;
-            // (against 0 in 16 bits it is a forced load for the sign: v must be in its place)
-            case SLT, SGE -> c.op(0) == v && c.op(1) instanceof Value.Const k
-                    && !(k.bits() == 0 && c.op(0).type() == MType.I16);
+            case EQ, NE, ULT, UGE -> c.op(0) == v;
+            case SLT, SGE -> c.op(0) == v && c.op(1) instanceof Value.Const;
             case UGT, ULE -> c.op(1) == v;
             case SGT, SLE -> c.op(1) == v && c.op(0) instanceof Value.Const;
         };
@@ -597,7 +603,46 @@ public final class MirCodeGen {
             }
             b = next;
         }
+        //ROTATE rotateLoops(order);
         return order;
+    }
+
+    /**
+     * A small loop head (only φs, a comparison and a branch) goes right after the block that
+     * jumps back to it: that block falls through into the test, and the test branches back into
+     * the loop. Per round one branch instead of a jump and a branch.
+     */
+    private static void rotateLoops(List<Block> order) {
+        for (Block h : List.copyOf(order)) {
+            if (h == order.getFirst() || !(h.terminator() instanceof Instr.Branch) || !onlyTest(h)) {
+                continue;
+            }
+            int at = order.indexOf(h);
+            Block latch = null;
+            for (Block p : h.preds()) {
+                if (order.indexOf(p) > at) {
+                    if (latch != null || !(p.terminator() instanceof Instr.Jump)) {
+                        latch = null;
+                        break;
+                    }
+                    latch = p;
+                }
+            }
+            if (latch == null || order.indexOf(latch) + 1 < order.size() && order.get(order.indexOf(latch) + 1) == h) {
+                continue;
+            }
+            order.remove(h);
+            order.add(order.indexOf(latch) + 1, h);
+        }
+    }
+
+    private static boolean onlyTest(Block h) {
+        for (Instr i : h.instrs()) {
+            if (!(i instanceof Instr.Phi || i instanceof Instr.Cmp || i.isTerminator())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private void sourceLine(SourcePos pos) {
@@ -731,8 +776,12 @@ public final class MirCodeGen {
             case Instr.Cast c -> cast(c);
             case Instr.PtrAdd p -> {
                 ins("clc", null);
-                ins("lda", operand(p.op(0), 0));
-                ins("adc", operand(p.op(1), 0));
+                if (p.op(1).type() == MType.I16 && operand(p.op(1), 0).equals(aHolds)) {
+                    ins("adc", operand(p.op(0), 0));   // A has the offset already
+                } else {
+                    ins("lda", operand(p.op(0), 0));
+                    ins("adc", operand(p.op(1), 0));
+                }
                 result(p, 0);
                 if (p.op(1).type() == MType.I32) {
                     ins("lda", operand(p.op(0), 1));
@@ -1155,7 +1204,7 @@ public final class MirCodeGen {
                 ins("lda", operand(c.op(0), w));
                 ins("cmp", operand(c.op(1), w));
             } else {
-                load(operand(c.op(0), w));     // the load sets Z for a comparison with 0
+                flagsOf(operand(c.op(0), w));   // Z for a comparison with 0
             }
             if (w < n - 1) {
                 ins("bne", differ);
@@ -1228,7 +1277,7 @@ public final class MirCodeGen {
     private void compareAndBranch(Instr.Cmp c, Block ifTrue, Block ifFalse, Block next) {
         if ((c.pred == Instr.Pred.SLT || c.pred == Instr.Pred.SGE) && c.op(0).type() == MType.I16
                 && c.op(1) instanceof Value.Const k && k.bits() == 0) {
-            load(operand(c.op(0), 0));   // N is the sign
+            flagsOf(operand(c.op(0), 0));   // N is the sign
             jumpOn(c.pred == Instr.Pred.SLT ? "bmi" : "bpl", null, false, ifTrue, ifFalse, next);
             return;
         }
@@ -1556,6 +1605,20 @@ public final class MirCodeGen {
         }
         out.ins(mnemonic, operand, null);
         track(mnemonic, operand);
+    }
+
+    /**
+     * N and Z for a value: CMP #0 if A holds it already (perhaps never stored, see forward), else
+     * a load (which sets them).
+     */
+    private void flagsOf(String operand) {
+        if (!m8 && operand.equals(aHolds)) {
+            flushHeld();
+            out.ins("cmp", imm(0), null);
+            track("cmp", imm(0));
+        } else {
+            load(operand);
+        }
     }
 
     /** A load that always happens, for code that branches on the flags it sets. */
