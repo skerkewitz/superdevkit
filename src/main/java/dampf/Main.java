@@ -1,5 +1,6 @@
 package dampf;
 
+import dampf.frontend.CompileError;
 import dampf.frontend.Diagnostic;
 import dampf.frontend.Parser;
 import dampf.frontend.Preprocessor;
@@ -13,23 +14,36 @@ import java.util.List;
  * Command line entry point.
  *
  * <pre>
- * dampf parse [-I dir] [-D name[=value]] file.c ...   preprocess and parse, report syntax errors
+ * dampf parse [-I dir] [-D name[=value]] file.c ...                   preprocess and parse
+ * dampf build [-I dir] [-D name[=value]] [--entry name] -o out.sfc file.c ...   compile to a ROM
  * </pre>
  */
 public final class Main {
     private Main() {}
 
     public static void main(String[] args) throws IOException {
-        if (args.length == 0 || !args[0].equals("parse")) {
+        if (args.length == 0 || !args[0].equals("parse") && !args[0].equals("build")) {
             usage();
             System.exit(2);
         }
         List<Path> includes = new ArrayList<>();
         List<String> defines = new ArrayList<>();
         List<Path> files = new ArrayList<>();
+        String entry = "main";
+        Path output = null;
         for (int i = 1; i < args.length; i++) {
             String a = args[i];
-            if (a.equals("-I") || a.equals("-D")) {
+            if (a.equals("--entry") || a.equals("-o")) {
+                if (i + 1 == args.length) {
+                    usage();
+                    System.exit(2);
+                }
+                if (a.equals("-o")) {
+                    output = Path.of(args[++i]);
+                } else {
+                    entry = args[++i];
+                }
+            } else if (a.equals("-I") || a.equals("-D")) {
                 if (i + 1 == args.length) {
                     usage();
                     System.exit(2);
@@ -48,6 +62,20 @@ public final class Main {
                 files.add(Path.of(a));
             }
         }
+        if (args[0].equals("build")) {
+            if (output == null || files.isEmpty()) {
+                usage();
+                System.exit(2);
+            }
+            try {
+                Compiler.Result r = Compiler.compile(new Compiler.Options(files, includes, defines, entry, output));
+                System.err.println("wrote " + r.rom().rom() + " and " + r.rom().dbg());
+                return;
+            } catch (CompileError e) {
+                e.diagnostics().forEach(System.err::println);
+                System.exit(1);
+            }
+        }
         Preprocessor pp = new Preprocessor("gcc", SystemHeaders.directory(), includes, defines);
         int errors = 0;
         for (Path f : files) {
@@ -63,5 +91,6 @@ public final class Main {
 
     private static void usage() {
         System.err.println("usage: dampf parse [-I dir] [-D name[=value]] file.c ...");
+        System.err.println("       dampf build [-I dir] [-D name[=value]] [--entry name] -o out.sfc file.c ...");
     }
 }

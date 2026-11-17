@@ -3,7 +3,9 @@
 C-subset compiler for the 65816 / SNES, written in Java. Read kickoff.md first; docs/subset.md and
 docs/optimizations.md hold the current state of M0.
 
-- Build and test: `./gradlew build`. With the game: `./gradlew test -Pblubberblasen=/mnt/d/Develop/AiProject/BlubberBlasen`.
+- Build and test: `./gradlew build`. Everything, with the execution tests in Mesen and the game:
+  `./gradlew build -Pmesen=/mnt/d/Develop/AiProject/BlubberBlasen/build/mesen/Mesen.exe -Pblubberblasen=/mnt/d/Develop/AiProject/BlubberBlasen`.
+- A new language feature needs an execution test in `src/test/resources/exec/` (PC vs SNES).
 - Blubber Blasen (the first user and test case) is at `/mnt/d/Develop/AiProject/BlubberBlasen`
   (Windows `D:\Develop\AiProject\BlubberBlasen`). Its `tools/snesbench` is the benchmark that
   compares compilers in Mesen 2 headless (`Mesen.exe --testrunner` with a Lua script).

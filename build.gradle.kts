@@ -39,6 +39,8 @@ tasks.test {
     useJUnitPlatform()
     // Tests that need the Blubber Blasen sources read their location from this property.
     providers.gradleProperty("blubberblasen").orNull?.let { systemProperty("dampf.blubberblasen", it) }
+    // Execution tests run ROMs in Mesen 2: -Pmesen=/path/to/Mesen.exe
+    providers.gradleProperty("mesen").orNull?.let { systemProperty("dampf.mesen", it) }
 }
 
 application {
