@@ -97,8 +97,8 @@ Before the first optimization, M3 builds:
 Then the optimizations. B (from the types), I and H are built (see above). Next, in this order;
 the profile after each step can change the order of the later ones:
 
-1. **Compare and branch in one** in the code generator from MIR: today a comparison stores its
-   truth value and the branch loads it again. Small, and it affects every condition.
+1. **Compare and branch in one** in the code generator from MIR. Done 2026-11-17: play 5.17 →
+   4.48 frames per tick, now 13 % faster than the naive generator.
 2. **Inferred value ranges in MIR** ([subrange-types.md](subrange-types.md), section 7): from
    conditions on the path, loops, masks and array bounds. They complete B (for example
    `(sy - 16) >> 3` in `level_solid_px`, which only fits 16 bits because of the branch before it)

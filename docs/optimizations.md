@@ -163,6 +163,21 @@ result, a comparison stores its truth value before the branch reads it again, an
 has its own RAM address. The next gains are in the code generator: compare and branch in one,
 values in registers and in the direct page (A, C, D in the catalogue).
 
+### Compare and branch in one, 2026-11-17
+
+A comparison that only its block's branch uses no longer stores a truth value: the code
+generator sets the flags and branches on them (`bcc`/`bcs`/`beq`/`bne` over a `JMP`, because
+blocks can be far apart; a comparison with 0 needs no `CMP`). Frames per tick:
+
+| State | naive | MIR after H | + compare and branch |
+| --- | --- | --- | --- |
+| title | 1.94 | 1.67 | 1.49 |
+| story | 0.70 | 0.77 | 0.69 |
+| round intro | 5.76 | 5.78 | 5.34 |
+| play | 5.17 (worst 8.58) | 5.17 (worst 8.77) | 4.48 (worst 7.58) |
+| play, CPU partner | 6.55 (worst 12.23) | 6.10 (worst 11.22) | 5.37 (worst 10.12) |
+| `level_solid_px`, per call | 3,849 | 3,806 | 3,276 clocks |
+
 ### Where the naive code spends its time (2026-11-17)
 
 `tools/profile_game.sh bench` profiles the benchmark's play ticks 900–1700 (as the game's own

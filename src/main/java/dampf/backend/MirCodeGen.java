@@ -73,6 +73,7 @@ public final class MirCodeGen {
     private final Map<String, Path> sourceFiles = new LinkedHashMap<>();
 
     private AsmWriter out;
+    private final Set<Instr> fused = new HashSet<>();
     private int labels;
     private SourcePos lastPos;
 
@@ -367,6 +368,24 @@ public final class MirCodeGen {
         for (Value.Param p : f.params()) {
             out.note("parameter " + p.type() + " " + p + " at " + at(place.get(p)));
         }
+        // a comparison that only its block's branch uses is compared right at the branch
+        fused.clear();
+        Map<Instr, Integer> uses = new HashMap<>();
+        for (Block b : f.blocks()) {
+            for (Instr i : b.instrs()) {
+                for (Value v : i.operands()) {
+                    if (v instanceof Instr d) {
+                        uses.merge(d, 1, Integer::sum);
+                    }
+                }
+            }
+        }
+        for (Block b : f.blocks()) {
+            if (b.terminator() instanceof Instr.Branch br && br.op(0) instanceof Instr.Cmp c && c.block() == b
+                    && uses.get(c) == 1) {
+                fused.add(c);
+            }
+        }
         List<Block> blocks = f.blocks();
         for (int k = 0; k < blocks.size(); k++) {
             Block b = blocks.get(k);
@@ -386,6 +405,9 @@ public final class MirCodeGen {
                     lastPos = i.pos();
                 }
                 out.note(Printer.instr(i));
+                if (fused.contains(i)) {
+                    continue;   // compared at the branch
+                }
                 if (i.isTerminator()) {
                     phiCopies(b, i);
                 }
@@ -505,13 +527,11 @@ public final class MirCodeGen {
                 }
             }
             case Instr.Branch br -> {
-                String skip = label();
-                ins("lda", operand(br.op(0), 0));
-                ins("beq", skip);
-                ins("jmp", br.ifTrue.name());
-                out.label(skip);
-                if (br.ifFalse != next) {
-                    ins("jmp", br.ifFalse.name());
+                if (br.op(0) instanceof Instr.Cmp c && fused.contains(c)) {
+                    compareAndBranch(c, br.ifTrue, br.ifFalse, next);
+                } else {
+                    ins("lda", operand(br.op(0), 0));
+                    jumpOn("bne", null, false, br.ifTrue, br.ifFalse, next);
                 }
             }
             case Instr.Switch s -> {
@@ -795,19 +815,12 @@ public final class MirCodeGen {
     }
 
     private void cmp(Instr.Cmp c) {
-        MType t = c.op(0).type();
-        int n = words(t);
-        Value a = c.op(0);
-        Value b = c.op(1);
         switch (c.pred) {
             case EQ, NE -> {
                 String differ = label();
                 String done = label();
-                for (int w = 0; w < n; w++) {
-                    ins("lda", operand(a, w));
-                    ins("cmp", operand(b, w));
-                    ins("bne", differ);
-                }
+                eqFlags(c, differ);
+                ins("bne", differ);
                 ins("lda", imm(c.pred == Instr.Pred.EQ ? 1 : 0));
                 ins("bra", done);
                 out.label(differ);
@@ -816,50 +829,134 @@ public final class MirCodeGen {
                 ins("sta", dest(c, 0));
             }
             default -> {
-                // x < y, or its negation; signed by flipping the sign bits, so an unsigned compare works
-                boolean swap = switch (c.pred) {
-                    case UGT, ULE, SGT, SLE -> true;
-                    default -> false;
-                };
-                boolean wantLess = switch (c.pred) {
-                    case ULT, UGT, SLT, SGT -> true;
-                    default -> false;
-                };
-                boolean signed = switch (c.pred) {
-                    case SLT, SLE, SGT, SGE -> true;
-                    default -> false;
-                };
-                Value x = swap ? b : a;
-                Value y = swap ? a : b;
-                int top = n - 1;
-                int bias = !signed ? 0 : t == MType.I8 ? 0x80 : t == MType.I1 ? 1 : 0x8000;
-                String yTop = operand(y, top);
-                if (bias != 0) {
-                    if (y instanceof Value.Const k) {
-                        yTop = imm((k.bits() >> (16 * top)) ^ bias);
-                    } else {
-                        ins("lda", operand(y, top));
-                        ins("eor", imm(bias));
-                        ins("sta", "z:R0");
-                        yTop = "z:R0";
-                    }
-                }
-                if (n == 2) {
-                    ins("lda", operand(x, 0));
-                    ins("cmp", operand(y, 0));
-                }
-                ins("lda", operand(x, top));
-                if (bias != 0) {
-                    ins("eor", imm(bias));
-                }
-                ins(n == 2 ? "sbc" : "cmp", yTop);   // C = x >= y
+                boolean less = orderedFlags(c).equals("bcc");
                 ins("lda", imm(0));
-                ins("rol", "a");
-                if (wantLess) {
+                ins("rol", "a");          // A = C = x >= y
+                if (less) {
                     ins("eor", imm(1));
                 }
                 ins("sta", dest(c, 0));
             }
+        }
+    }
+
+    /**
+     * Compares the operands of an eq/ne word by word: every word but the last branches to
+     * {@code differ} when it differs, the last one leaves Z set if it is equal.
+     */
+    private void eqFlags(Instr.Cmp c, String differ) {
+        int n = words(c.op(0).type());
+        for (int w = 0; w < n; w++) {
+            ins("lda", operand(c.op(0), w));
+            if (!(c.op(1) instanceof Value.Const k && (k.bits() >> (16 * w) & 0xFFFF) == 0)) {
+                ins("cmp", operand(c.op(1), w));     // (a load sets Z already for a comparison with 0)
+            }
+            if (w < n - 1) {
+                ins("bne", differ);
+            }
+        }
+    }
+
+    /**
+     * Sets the carry for an ordered comparison, C = x >= y (with x and y swapped for > and <=);
+     * returns the branch that is taken when the comparison is true ("bcc" or "bcs").
+     */
+    private String orderedFlags(Instr.Cmp c) {
+        MType t = c.op(0).type();
+        int n = words(t);
+        Value a = c.op(0);
+        Value b = c.op(1);
+        // x < y, or its negation; signed by flipping the sign bits, so an unsigned compare works
+        boolean swap = switch (c.pred) {
+            case UGT, ULE, SGT, SLE -> true;
+            default -> false;
+        };
+        boolean wantLess = switch (c.pred) {
+            case ULT, UGT, SLT, SGT -> true;
+            default -> false;
+        };
+        boolean signed = switch (c.pred) {
+            case SLT, SLE, SGT, SGE -> true;
+            default -> false;
+        };
+        Value x = swap ? b : a;
+        Value y = swap ? a : b;
+        int top = n - 1;
+        int bias = !signed ? 0 : t == MType.I8 ? 0x80 : t == MType.I1 ? 1 : 0x8000;
+        String yTop = operand(y, top);
+        if (bias != 0) {
+            if (y instanceof Value.Const k) {
+                yTop = imm((k.bits() >> (16 * top)) ^ bias);
+            } else {
+                ins("lda", operand(y, top));
+                ins("eor", imm(bias));
+                ins("sta", "z:R0");
+                yTop = "z:R0";
+            }
+        }
+        if (n == 2) {
+            ins("lda", operand(x, 0));
+            ins("cmp", operand(y, 0));
+        }
+        ins("lda", operand(x, top));
+        if (bias != 0) {
+            ins("eor", imm(bias));
+        }
+        ins(n == 2 ? "sbc" : "cmp", yTop);   // C = x >= y
+        return wantLess ? "bcc" : "bcs";
+    }
+
+    private static String inverse(String branch) {
+        return switch (branch) {
+            case "bcc" -> "bcs";
+            case "bcs" -> "bcc";
+            case "beq" -> "bne";
+            case "bne" -> "beq";
+            default -> throw new IllegalArgumentException(branch);
+        };
+    }
+
+    /** A branch on the comparison c without its truth value: flags, then the jump. */
+    private void compareAndBranch(Instr.Cmp c, Block ifTrue, Block ifFalse, Block next) {
+        if (c.pred == Instr.Pred.EQ || c.pred == Instr.Pred.NE) {
+            String differ = label();
+            eqFlags(c, differ);
+            jumpOn(c.pred == Instr.Pred.EQ ? "beq" : "bne", differ, c.pred == Instr.Pred.NE, ifTrue, ifFalse, next);
+        } else {
+            jumpOn(orderedFlags(c), null, false, ifTrue, ifFalse, next);
+        }
+    }
+
+    /**
+     * Goes to ifTrue if the branch {@code taken} would be taken, else to ifFalse. Blocks may be
+     * far away, so the conditional branch only skips a JMP. {@code differ}, if not null, is a
+     * label earlier code branches to; it means true if {@code differMeansTrue}, else false.
+     */
+    private void jumpOn(String taken, String differ, boolean differMeansTrue, Block ifTrue, Block ifFalse, Block next) {
+        String skip = label();
+        if (ifFalse == next) {
+            ins(inverse(taken), skip);
+            if (differ != null && differMeansTrue) {
+                out.label(differ);
+            }
+            ins("jmp", ifTrue.name());
+            out.label(skip);
+            if (differ != null && !differMeansTrue) {
+                out.label(differ);
+            }
+            return;
+        }
+        ins(taken, skip);
+        if (differ != null && !differMeansTrue) {
+            out.label(differ);
+        }
+        ins("jmp", ifFalse.name());
+        out.label(skip);
+        if (differ != null && differMeansTrue) {
+            out.label(differ);
+        }
+        if (ifTrue != next) {
+            ins("jmp", ifTrue.name());
         }
     }
 
