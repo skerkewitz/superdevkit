@@ -129,28 +129,55 @@ public final class MirCodeGen {
             // several passes: each finds out which branches reach their block directly. Every
             // pass is at most as long as the one before everywhere (branches only get shorter),
             // so a distance that fitted still fits, and the passes stop when nothing new does.
-            near = null;
+            // The passes also learn what A, X and Y hold where each block starts (entryIn: what
+            // every way into it brings, from the pass before). The code that is kept must be
+            // consistent: every assumption it made holds on every way in, and every short branch
+            // reaches. If the passes with assumptions do not end so, the function is written again
+            // without them.
             AsmWriter code = null;
-            for (int pass = 0; pass < BRANCH_PASSES; pass++) {
-                jumpSites = 0;
-                sitePos.clear();
-                siteTargets.clear();
-                code = new AsmWriter();
-                function(f, code);
-                boolean more = near == null;
-                Map<Integer, boolean[]> next = new HashMap<>(near == null ? Map.of() : near);
-                for (Map.Entry<Integer, Integer> e : sitePos.entrySet()) {
-                    int k = e.getKey();
-                    boolean[] was = next.getOrDefault(k, new boolean[2]);
-                    Block[] to = siteTargets.get(k);
-                    boolean[] now = {was[0] || reaches(code, e.getValue(), to[0]), was[1] || reaches(code, e.getValue(), to[1])};
-                    more |= now[0] != was[0] || now[1] != was[1];
-                    next.put(k, now);
+            for (int attempt = 0; attempt < 2; attempt++) {
+                trackEntries = attempt == 0;
+                near = null;
+                entryIn = Map.of();
+                boolean ok = false;
+                for (int pass = 0; pass < BRANCH_PASSES + 4; pass++) {
+                    jumpSites = 0;
+                    sitePos.clear();
+                    siteTargets.clear();
+                    code = new AsmWriter();
+                    function(f, code);
+                    boolean more = near == null;
+                    Map<Integer, boolean[]> next = new HashMap<>(near == null ? Map.of() : near);
+                    for (Map.Entry<Integer, Integer> e : sitePos.entrySet()) {
+                        int k = e.getKey();
+                        boolean[] was = next.getOrDefault(k, new boolean[2]);
+                        Block[] to = siteTargets.get(k);
+                        boolean[] now = {was[0] || reaches(code, e.getValue(), to[0]), was[1] || reaches(code, e.getValue(), to[1])};
+                        more |= now[0] != was[0] || now[1] != was[1];
+                        next.put(k, now);
+                    }
+                    boolean consistent = true;
+                    for (Map.Entry<String, RegState> e : entryIn.entrySet()) {
+                        consistent &= e.getValue().within(arriving.getOrDefault(e.getKey(), RegState.NONE));
+                    }
+                    ok = consistent && code.branchesReach();
+                    if (!consistent) {
+                        break;
+                    }
+                    Map<String, RegState> learnt = trackEntries ? Map.copyOf(arriving) : Map.of();
+                    boolean grow = !learnt.equals(entryIn);
+                    if (!more && !grow || pass >= BRANCH_PASSES + 3) {
+                        break;
+                    }
+                    near = next;
+                    entryIn = learnt;
                 }
-                if (!more) {
+                if (ok) {
                     break;
                 }
-                near = next;
+                if (attempt == 1) {
+                    throw new IllegalStateException("branches out of reach in " + f.name());
+                }
             }
             written.put(f, new Written(code.items(), code.loopBounds(), lastOrder, layout.ranges));
             if (code.unknownInstructions() > 0) {
@@ -191,6 +218,42 @@ public final class MirCodeGen {
      * only gets shorter, so a distance that fitted in the first still fits.
      */
     private static final int BRANCH_PASSES = 6;
+
+    /**
+     * What A, X and Y hold for sure, as aHolds, xHolds and yHolds do: the places (or immediate)
+     * each equals.
+     */
+    private record RegState(Set<String> a, String x, String y) {
+        static final RegState NONE = new RegState(Set.of(), null, null);
+
+        /** What both hold. */
+        RegState meet(RegState o) {
+            Set<String> both = new HashSet<>(a);
+            both.retainAll(o.a);
+            return new RegState(Set.copyOf(both), x != null && x.equals(o.x) ? x : null, y != null && y.equals(o.y) ? y : null);
+        }
+
+        /** Whether everything this says holds in o too. */
+        boolean within(RegState o) {
+            return o.a.containsAll(a) && (x == null || x.equals(o.x)) && (y == null || y.equals(o.y));
+        }
+    }
+
+    /** Whether this pass may assume what the registers hold where a block starts. */
+    private boolean trackEntries;
+    /** The assumptions of this pass: what every way into a block brings (from the pass before). */
+    private Map<String, RegState> entryIn = Map.of();
+    /** What arrives at each block label in this pass, on all ways in so far. */
+    private final Map<String, RegState> arriving = new HashMap<>();
+    private Set<String> blockLabels = Set.of();
+    private String entryLabel;
+    /** The last instruction written goes elsewhere for sure (JMP, BRA, RTL): nothing falls through. */
+    private boolean lastTransfer;
+
+    private void arrive(String label) {
+        RegState st = new RegState(Set.copyOf(aHolds), xHolds, yHolds);
+        arriving.merge(label, st, RegState::meet);
+    }
     private final Map<Integer, Integer> sitePos = new HashMap<>();
     private final Map<Integer, Block[]> siteTargets = new HashMap<>();
     /** Per site: whether a short branch reaches each target (in some pass so far). */
@@ -545,6 +608,13 @@ public final class MirCodeGen {
     private void function(MFunction f, AsmWriter code) {
         out = code;
         lastPos = null;
+        arriving.clear();
+        lastTransfer = false;
+        blockLabels = new HashSet<>();
+        for (Block b : f.blocks()) {
+            blockLabels.add(b.name());
+        }
+        entryLabel = f.entry().name();
         aHolds.clear();
         yHolds = null;
         xHolds = null;
@@ -1774,19 +1844,32 @@ public final class MirCodeGen {
     }
 
     /**
-     * The operand for a memory access at byte k of the object, or null if it goes through a
-     * pointer. An indexed one loads X with the index first.
+     * The operand of {@code mnemonic} for a memory access at byte k of the object, or null if it
+     * goes through a pointer. An indexed one loads X with the index first, or Y: where the index
+     * is in Y already, or X holds another index and Y is free for it (two arrays indexed by two
+     * values, such as two bubbles), as long as the instruction has an absolute,Y form.
      */
-    private String fixedAt(FrameLayout.Address a, int k) {
+    private String fixedAt(FrameLayout.Address a, int k, String mnemonic) {
         String f = fixed(a.base(), a.offset() + k);
         if (f == null || a.index() == null) {
             return f;
         }
-        if (!xResident.containsKey(throughCopies(a.index()))) {
-            ins("ldx", operand(a.index(), 0));
-        }   // (else X holds the loop's index already)
+        if (xResident.containsKey(throughCopies(a.index()))) {
+            return f + ",x";   // X holds the loop's index already
+        }
+        String index = operand(a.index(), 0);
+        boolean yForm = ABS_Y.contains(mnemonic) && !f.startsWith("z:") && !f.startsWith("f:");
+        if (yForm && !index.equals(xHolds)
+                && (index.equals(yHolds) || xTaken != null || xHolds != null && !xHolds.startsWith("#"))) {
+            ins("ldy", index);
+            return f + ",y";
+        }
+        ins("ldx", index);
         return f + ",x";
     }
+
+    /** The instructions dampf uses with an absolute,Y operand (the 65816 has it for these). */
+    private static final Set<String> ABS_Y = Set.of("lda", "sta", "adc", "sbc", "and", "ora", "eor", "cmp");
 
     /** Whether the access goes to a fixed or indexed address (no pointer); emits nothing. */
     private boolean isFixed(FrameLayout.Address a) {
@@ -1805,12 +1888,12 @@ public final class MirCodeGen {
             if (l.isVolatile) {
                 // exactly one byte: reading an I/O register can have an effect
                 ins("sep", "#$20");
-                ins("lda", direct ? fixedAt(a, 0) : via);
+                ins("lda", direct ? fixedAt(a, 0, "lda") : via);
                 ins("rep", "#$20");
             } else {
                 // a 16-bit read and a mask is cheaper than switching to 8 bits; the byte after the
                 // object is always in the same bank (the last byte of every bank stays free)
-                ins("lda", direct ? fixedAt(a, 0) : via);
+                ins("lda", direct ? fixedAt(a, 0, "lda") : via);
             }
             maskResult(l);   // (the byte after it, or after an 8-bit read the old B, is in the high byte)
             result(l, 0);
@@ -1820,7 +1903,7 @@ public final class MirCodeGen {
             if (!direct) {
                 ins("ldy", imm(a.offset() + 2 * w));
             }
-            ins("lda", direct ? fixedAt(a, 2 * w) : via);
+            ins("lda", direct ? fixedAt(a, 2 * w, "lda") : via);
             result(l, w);
         }
     }
@@ -1833,7 +1916,7 @@ public final class MirCodeGen {
         String via = direct ? null : via(a.base(), P);
         if (direct && v instanceof Value.Const k && k.bits() == 0) {
             // STZ: no load of the zero (direct page, absolute and X-indexed; not long or [dp],y)
-            String at0 = fixedAt(a, 0);
+            String at0 = fixedAt(a, 0, "stz");
             if (!at0.startsWith("f:")) {
                 if (t.size == 1) {
                     ins("sep", "#$20");
@@ -1843,7 +1926,7 @@ public final class MirCodeGen {
                 }
                 ins("stz", at0);
                 for (int w = 1; w < words(t); w++) {
-                    ins("stz", fixedAt(a, 2 * w));
+                    ins("stz", fixedAt(a, 2 * w, "stz"));
                 }
                 return;
             }
@@ -1854,7 +1937,7 @@ public final class MirCodeGen {
                 ins("ldy", imm(a.offset()));
             }
             ins("sep", "#$20");
-            ins("sta", direct ? fixedAt(a, 0) : via);
+            ins("sta", direct ? fixedAt(a, 0, "sta") : via);
             ins("rep", "#$20");
             return;
         }
@@ -1863,7 +1946,7 @@ public final class MirCodeGen {
             if (!direct) {
                 ins("ldy", imm(a.offset() + 2 * w));
             }
-            ins("sta", direct ? fixedAt(a, 2 * w) : via);
+            ins("sta", direct ? fixedAt(a, 2 * w, "sta") : via);
         }
     }
 
@@ -1971,6 +2054,9 @@ public final class MirCodeGen {
     private boolean heldAnd;
 
     private void flushHeld() {
+        if (heldRep || heldAnd) {
+            lastTransfer = false;
+        }
         if (heldRep) {
             out.ins("rep", "#$20", null);
         }
@@ -2021,6 +2107,10 @@ public final class MirCodeGen {
         }
         if (mnemonic.equals("ldx") && operand != null && operand.equals(xHolds)) {
             return;
+        }
+        if (operand != null && blockLabels.contains(operand) && (mnemonic.startsWith("b") && !mnemonic.equals("bit")
+                || mnemonic.equals("jmp") || mnemonic.equals("brl"))) {
+            arrive(operand);
         }
         out.ins(mnemonic, operand, null);
         track(mnemonic, operand);
@@ -2248,6 +2338,10 @@ public final class MirCodeGen {
     }
 
     private void track(String mnemonic, String operand) {
+        lastTransfer = switch (mnemonic) {
+            case "jmp", "bra", "brl", "jml", "rtl", "rts" -> true;
+            default -> false;
+        };
         boolean writesMemory = switch (mnemonic) {
             case "sta", "stx", "sty", "stz", "inc", "dec", "asl", "lsr", "rol", "ror" -> operand != null && !operand.equals("a");
             default -> false;
@@ -2255,8 +2349,11 @@ public final class MirCodeGen {
         if (writesMemory && (operand.startsWith("[") || operand.equals(xHolds))) {
             xHolds = null;
         }
+        if (writesMemory && (operand.startsWith("[") || operand.equals(yHolds))) {
+            yHolds = null;
+        }
         switch (mnemonic) {
-            case "ldy" -> yHolds = operand != null && operand.startsWith("#") ? operand : null;
+            case "ldy" -> yHolds = trackable(operand) ? operand : null;
             case "ldx" -> xHolds = trackable(operand) ? operand : null;
             case "inx", "dex", "tax", "tsx", "plx" -> xHolds = null;
             case "iny", "dey", "tay", "ply" -> yHolds = null;
@@ -2340,13 +2437,22 @@ public final class MirCodeGen {
 
     private void place(String label) {
         flushHeld();
+        boolean block = blockLabels.contains(label);
+        if (block && !lastTransfer) {
+            arrive(label);   // the code before falls through
+        }
         out.label(label);
-        aHolds.clear();   // something may jump here
-        yHolds = null;
-        xHolds = null;
+        // something may jump here: what holds is what every way in brings (for a block, as the
+        // pass before found it; for a label inside a block, nothing)
+        RegState in = block && trackEntries && !label.equals(entryLabel) ? entryIn.getOrDefault(label, RegState.NONE) : RegState.NONE;
+        aHolds.clear();
+        aHolds.addAll(in.a());
+        xHolds = in.x();
+        yHolds = in.y();
         ptrP = null;
         ptrQ = null;
         m8 = false;
+        lastTransfer = false;
     }
 
     private String label() {

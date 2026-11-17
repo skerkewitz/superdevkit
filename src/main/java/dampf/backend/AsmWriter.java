@@ -39,6 +39,24 @@ final class AsmWriter {
         return position;
     }
 
+    /** Short branches (conditional and BRA): where each starts, and its target. */
+    private final List<Object[]> shortBranches = new ArrayList<>();
+
+    /** Whether every short branch reaches its label (-128..127 from the next instruction). */
+    boolean branchesReach() {
+        for (Object[] b : shortBranches) {
+            Integer to = labelAt.get((String) b[1]);
+            if (to == null) {
+                continue;   // a label outside this code (none in practice)
+            }
+            int d = to - ((Integer) b[0] + 2);
+            if (d < -128 || d > 127) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     /**
      * What was written, for the timing analysis: instructions with their CPU cycles (a
      * conditional branch: not taken, taken) and labels; and the bound of the small loops the code
@@ -82,6 +100,9 @@ final class AsmWriter {
             line.append("; ").append(comment);
         }
         int op = Cycles65816.opcode(mnemonic, Cycles65816.mode(mnemonic, operand));
+        if (op >= 0 && (Cycles65816.isConditionalBranch(op) || mnemonic.equals("bra"))) {
+            shortBranches.add(new Object[] {position, operand});
+        }
         if (op >= 0) {
             position += Cycles65816.length(op, m16, true);
         }

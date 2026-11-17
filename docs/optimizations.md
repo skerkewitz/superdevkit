@@ -522,6 +522,23 @@ accumulator, a value that is not used right away has to go to memory. Two kinds 
   Such an edge now gets a block of its own just before code generation (`ExitEdges`), and the φ
   values are written there. Play 492,510 → 488,759 clocks per tick (1.37 frames).
 
+### What A, X and Y hold across blocks; a second index in Y, 2026-11-17
+
+How much could knowing the registers save? Counted in the emulator over the whole benchmark,
+41 % of the `LDX dp` load the value X holds already, and 28 % of the `LDA dp` the value A holds
+(counted by value, so some are coincidences). The code generator forgot A, X and Y at every
+label. Now it learns what each holds where a block starts: what every way into the block brings
+(the branches and jumps to it, and the code that falls through). The passes that already find
+the short branches carry it: a pass assumes what the pass before found. The code that is kept
+must be consistent, every assumption holding on every way in, and every short branch must still
+reach; otherwise the function is written again without assumptions (8 of the game's functions).
+A meet that takes only the first way in, on purpose, fails five execution tests. Play 487,041 →
+478,185 clocks per tick (1.34 frames).
+
+Before that, an indexed access uses Y when X holds another index (two bubbles of a pair, one in
+X, one in Y), for the instructions that have an absolute,Y form (`LDA`, `STA` and the
+arithmetic, not `INC`, `STZ` or direct page): play 488,759 → 487,041.
+
 ### Blocks laid out by a profile, 2026-11-17
 
 The jumps over large loop bodies (the section on short branches) need to know which blocks run
@@ -561,15 +578,15 @@ Measured after the range analysis learned to narrow after widening: a loop of mo
 rounds (`for (i = 0; i < 768; i++)`) used to give its counter the type's whole range, which kept
 it from being narrowed and from indexed addressing as nonnegative. Narrowing again after the
 widened fixpoint gives it 0..768. Play 1.53 → 1.50, title 0.68 → 0.60. Then A's places and the
-byte loads, the short branches, INC/DEC, STZ, the bit selections and fewer copies (sections above): play 1.37.
+byte loads, the short branches, INC/DEC, STZ, the bit selections, fewer copies and the registers across blocks (sections above): play 1.34.
 
 | State | naive | from MIR, no passes | now |
 | --- | --- | --- | --- |
 | title | 1.94 | 12.21 | 0.56 |
-| story | 0.70 | 3.56 | 0.23 |
-| round intro | 5.76 | 12.13 | 1.79 |
-| play | 5.17 (worst 8.58) | 18.93 | 1.37 (worst 2.37) |
-| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 2.04 (worst 4.19) |
+| story | 0.70 | 3.56 | 0.22 |
+| round intro | 5.76 | 12.13 | 1.78 |
+| play | 5.17 (worst 8.58) | 18.93 | 1.34 (worst 2.33) |
+| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 2.02 (worst 4.15) |
 | `level_solid_px`, per call | 3,849 | 6,648 | 1,208 clocks |
 
 Calypsi's 2.72 frames per tick during play (on an older version of the game) is passed; a fair
