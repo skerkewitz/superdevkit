@@ -182,7 +182,7 @@ class NarrowTest {
                 br %0, b1, b2
                 ret i16 0
                 %1 = sub i16 %sy, 16
-                %2 = ashr i16 %1, 3
+                %2 = lshr i16 %1, 3
                 ret i16 %2
                 """, optimize("""
                 func @_f(i16 %sy) -> i16 {

@@ -545,7 +545,9 @@ public final class MirCodeGen {
         return switch (c.pred) {
             case EQ, NE -> c.op(0) == v && !(c.op(1) instanceof Value.Const k && k.bits() == 0);
             case ULT, UGE -> c.op(0) == v;
-            case SLT, SGE -> c.op(0) == v && c.op(1) instanceof Value.Const;
+            // (against 0 in 16 bits it is a forced load for the sign: v must be in its place)
+            case SLT, SGE -> c.op(0) == v && c.op(1) instanceof Value.Const k
+                    && !(k.bits() == 0 && c.op(0).type() == MType.I16);
             case UGT, ULE -> c.op(1) == v;
             case SGT, SLE -> c.op(1) == v && c.op(0) instanceof Value.Const;
         };
@@ -1216,12 +1218,20 @@ public final class MirCodeGen {
             case "bcs" -> "bcc";
             case "beq" -> "bne";
             case "bne" -> "beq";
+            case "bmi" -> "bpl";
+            case "bpl" -> "bmi";
             default -> throw new IllegalArgumentException(branch);
         };
     }
 
     /** A branch on the comparison c without its truth value: flags, then the jump. */
     private void compareAndBranch(Instr.Cmp c, Block ifTrue, Block ifFalse, Block next) {
+        if ((c.pred == Instr.Pred.SLT || c.pred == Instr.Pred.SGE) && c.op(0).type() == MType.I16
+                && c.op(1) instanceof Value.Const k && k.bits() == 0) {
+            load(operand(c.op(0), 0));   // N is the sign
+            jumpOn(c.pred == Instr.Pred.SLT ? "bmi" : "bpl", null, false, ifTrue, ifFalse, next);
+            return;
+        }
         if (c.pred == Instr.Pred.EQ || c.pred == Instr.Pred.NE) {
             String differ = label();
             eqFlags(c, differ);

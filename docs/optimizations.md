@@ -340,6 +340,12 @@ of a pointer that stays in place): play 1.93 frames per tick (worst 3.29), with 
 | `level_solid_px`, per call | 3,849 | 1,525 | 1,463 clocks |
 | benchmark loop alone, per pass | 1,068 | 1,252 | 801 clocks |
 
+Then the value ranges also choose cheaper operations: `ashr`, `sdiv` and `srem` of values that
+are never negative become `lshr`, `udiv` and `urem`, and a signed comparison of two such values
+becomes unsigned (no sign bias); a 16-bit test for `< 0` or `>= 0` is the sign flag of the load
+(`bmi`/`bpl`). Play 1.74 frames per tick (worst 2.98), with the CPU partner 2.43 (worst 4.68);
+`level_solid_px` 1,230 clocks per call (816-tcc: 2,449; Calypsi: 931).
+
 ### Where the naive code spends its time (2026-11-17)
 
 `tools/profile_game.sh bench` profiles the benchmark's play ticks 900–1700 (as the game's own

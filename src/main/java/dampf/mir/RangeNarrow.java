@@ -37,7 +37,10 @@ public final class RangeNarrow {
             for (Instr i : List.copyOf(b.instrs())) {
                 Value r = switch (i) {
                     case Instr.Cmp c -> n.compare(c, b);
-                    case Instr.Bin x -> x.type() == MType.I32 ? n.bin(x, b) : null;
+                    case Instr.Bin x -> {
+                        Value w = x.type() == MType.I32 ? n.bin(x, b) : null;
+                        yield w != null ? w : n.unsignedOp(x, b);
+                    }
                     default -> null;
                 };
                 if (r != null) {
@@ -129,6 +132,10 @@ public final class RangeNarrow {
         if (known != null) {
             return new Value.Const(MType.I1, known ? 1 : 0);
         }
+        if (signedPred(c.pred) && ra.lo() >= 0 && rb.lo() >= 0) {
+            // neither is negative: the unsigned comparison is the same, and cheaper on the 65816
+            return insert(c, new Instr.Cmp(unsignedPred(c.pred), c.op(0), c.op(1), c.pos()));
+        }
         if (t != MType.I32 || c.op(0) instanceof Value.Const && c.op(1) instanceof Value.Const
                 || !cheap(c.op(0)) || !cheap(c.op(1))) {
             return null;
@@ -148,6 +155,42 @@ public final class RangeNarrow {
             return insert(c, new Instr.Cmp(p, to16(c.op(0), c), to16(c.op(1), c), c.pos()));
         }
         return null;
+    }
+
+    private static boolean signedPred(Instr.Pred p) {
+        return switch (p) {
+            case SLT, SLE, SGT, SGE -> true;
+            default -> false;
+        };
+    }
+
+    private static Instr.Pred unsignedPred(Instr.Pred p) {
+        return switch (p) {
+            case SLT -> Instr.Pred.ULT;
+            case SLE -> Instr.Pred.ULE;
+            case SGT -> Instr.Pred.UGT;
+            case SGE -> Instr.Pred.UGE;
+            default -> p;
+        };
+    }
+
+    /** ashr, sdiv and srem of values that are not negative are lshr, udiv and urem (cheaper). */
+    private Value unsignedOp(Instr.Bin x, Block b) {
+        Instr.BinOp op = switch (x.op) {
+            case ASHR -> Instr.BinOp.LSHR;
+            case SDIV -> Instr.BinOp.UDIV;
+            case SREM -> Instr.BinOp.UREM;
+            default -> null;
+        };
+        if (op == null) {
+            return null;
+        }
+        Ranges.Range ra = ranges.at(x.op(0), b);
+        Ranges.Range rb = ranges.at(x.op(1), b);
+        if (ra == null || rb == null || ra.lo() < 0 || x.op != Instr.BinOp.ASHR && rb.lo() < 0) {
+            return null;
+        }
+        return insert(x, new Instr.Bin(op, x.op(0), x.op(1), x.pos()));
     }
 
     /** The outcome of a comparison if the ranges decide it, else null. */
