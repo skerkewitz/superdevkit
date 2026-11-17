@@ -99,6 +99,12 @@ public final class MirCodeGen {
         if (entryFunction == null || !entryFunction.params().isEmpty()) {
             throw new IllegalStateException("the entry function " + entry + " must exist and have no parameters");
         }
+        for (MModule.Global g : module.globals()) {
+            if (g.size() > 0x8000) {
+                throw new CompileError(entryFunction.pos(), "'" + g.symbol() + "' is " + g.size()
+                        + " bytes; objects can be at most 32 KB (docs/memory-map.md)");
+            }
+        }
         layout();
         for (MFunction f : module.functions()) {
             AsmWriter code = new AsmWriter();
@@ -479,11 +485,14 @@ public final class MirCodeGen {
             case Instr.Cast c -> cast(c);
             case Instr.PtrAdd p -> {
                 ins("clc", null);
-                for (int w = 0; w < 2; w++) {
-                    ins("lda", operand(p.op(0), w));
-                    ins("adc", operand(p.op(1), w));
-                    ins("sta", dest(p, w));
-                }
+                ins("lda", operand(p.op(0), 0));
+                ins("adc", operand(p.op(1), 0));
+                ins("sta", dest(p, 0));
+                ins("lda", operand(p.op(0), 1));
+                if (p.op(1).type() == MType.I32) {
+                    ins("adc", operand(p.op(1), 1));
+                }   // an i16 offset stays within the bank (Instr.PtrAdd)
+                ins("sta", dest(p, 1));
             }
             case Instr.Load l -> load(l);
             case Instr.Store s -> store(s);

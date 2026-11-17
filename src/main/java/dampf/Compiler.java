@@ -91,7 +91,9 @@ public final class Compiler {
                 throw new CompileError(entry.pos(), "--replace works with the naive code generator only");
             }
             NaiveCodeGen.checkEntry(entry);
-            asm = new java.util.ArrayList<>(new MirCodeGen(Lower.lower(program), entry.label(), debugName).generate());
+            dampf.mir.MModule mir = Lower.lower(program);
+            dampf.mir.Optimizer.run(mir);
+            asm = new java.util.ArrayList<>(new MirCodeGen(mir, entry.label(), debugName).generate());
         } else {
             asm = new java.util.ArrayList<>(new NaiveCodeGen(program, entry, o.replacements().keySet(), debugName).generate());
         }

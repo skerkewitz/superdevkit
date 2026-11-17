@@ -30,7 +30,11 @@ fit. Code that needs a full 24-bit RAM address (a pointer) adds the bank itself.
 The naive code generator makes every pointer 4 bytes: the 16-bit address, the bank, and a zero
 byte. A pointer to RAM has bank `$7E`, a pointer to ROM the bank of the data. Pointers are read
 through the direct page (`lda [dampf_ptr],y`). No object crosses a bank boundary, so pointer
-arithmetic only changes the low word. Pointers that provably always point into RAM can later
+arithmetic only changes the low word. The last byte of every ROM bank and of RAM ($7E:FFFF)
+stays free, so a pointer just past the end of an object never wraps to the start of its bank and
+still compares greater than every pointer into the object. Objects are at most 32 KB, so every
+offset within an object fits a signed 16-bit number (MIR's `ptradd` with an i16 offset relies on
+that). Pointers that provably always point into RAM can later
 become 16 bits (docs/subset.md, decision 3).
 
 ## I/O registers

@@ -10,6 +10,7 @@ import java.util.stream.Collectors;
  * global @_result : 2
  * global @_table : 4 const = [0: i16 1234, 2: i16 -1]
  * global @_names : 4 const = [0: ptr @__str3+2]
+ * (ptradd %p, i16 %k: an offset within the object, see Instr.PtrAdd)
  * func @_add3(i16 %a, i16 %b) -&gt; i16 {
  *     slot $buf : 8
  * b0_entry:
@@ -88,7 +89,7 @@ public final class Printer {
             case Instr.Bin b -> b.op + " " + b.type() + " " + b.op(0) + ", " + b.op(1);
             case Instr.Cmp c -> "cmp " + c.pred + " " + c.op(0).type() + " " + c.op(0) + ", " + c.op(1);
             case Instr.Cast c -> c.kind + " " + c.op(0).type() + " " + c.op(0) + " to " + c.type();
-            case Instr.PtrAdd p -> "ptradd " + p.op(0) + ", " + p.op(1);
+            case Instr.PtrAdd p -> "ptradd " + p.op(0) + ", " + p.op(1).type() + " " + p.op(1);
             case Instr.Load l -> "load" + (l.isVolatile ? " volatile" : "") + " " + l.type() + " " + l.op(0);
             case Instr.Store s -> "store" + (s.isVolatile ? " volatile" : "") + " " + s.op(1).type() + " " + s.op(0) + ", " + s.op(1);
             case Instr.Copy c -> "copy " + c.size + " " + c.op(0) + ", " + c.op(1);

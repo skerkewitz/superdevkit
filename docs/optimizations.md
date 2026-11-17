@@ -84,10 +84,35 @@ computes in C's 32-bit `int` everywhere the C source does, and the naive generat
 narrows to 16 bits from the operand types. Also, every value makes a round trip through RAM. The
 first pass, width narrowing (B), removes most of the first cause.
 
+### After width narrowing (B), 2026-11-17
+
+Pass B (`dampf.mir.Narrow`) works from the types alone, with exact rules: a truncated sum,
+product or bit operation is computed at the narrow width; operations and comparisons on
+zero- or sign-extended operands become narrow; casts of casts collapse; and pointer offsets become
+16 bits, because an offset within an object always fits (objects are at most 32 KB and never
+cross a bank, see [memory-map.md](memory-map.md)). Frames per tick, code from MIR:
+
+| State | naive | MIR, no passes | B, types only | B with 16-bit offsets |
+| --- | --- | --- | --- | --- |
+| title | 1.94 | 12.21 | 11.40 | 4.03 |
+| story | 0.70 | 3.56 | 3.21 | 1.41 |
+| round intro | 5.76 | 12.13 | 10.73 | 7.00 |
+| play | 5.17 | 18.93 | 16.08 | 8.16 (worst 14.34) |
+| play, CPU partner | 6.55 | 23.13 | 20.55 | 9.92 (worst 19.96) |
+| `level_solid_px`, per call | 3,849 | 6,648 | 4,789 | 4,214 clocks |
+
+The 16-bit offsets bring the most: before them, 61 % of the time went into `dampf_mul32`, for the
+32-bit index arithmetic in front of every array access. The multiplications that are left are
+16-bit, by the constant size of a struct; pass I turns them into shifts and adds.
+
+What the types cannot show stays wide. In `level_solid_px`, `(sy - 16) >> 3` needs 17 bits for
+an arbitrary `int16_t sy`; only the branch before it (`sy < 16` returns) shows that `sy - 16`
+cannot overflow. That needs value ranges with the conditions of branches (later, as part of B).
+
 ### Where the naive code spends its time (2026-11-17)
 
 `tools/profile_game.sh bench` profiles the benchmark's play ticks 900–1700 (as the game's own
-profile does): Mesen counts how often each instruction runs, dampf's cycle table
+profile does): dampf's emulator (or Mesen, with `WITH_MESEN=1`) counts how often each instruction runs, dampf's cycle table
 (`dampf.target.Cycles65816`) gives what each instruction costs, and `dampf profile` adds it up
 per function. The benchmark's own checksum code (`bench.c`) is left out. The model agrees with the
 measurement: 231,000 CPU cycles per tick in the game code, about 8 master clocks per CPU cycle,
@@ -125,13 +150,13 @@ the catalogue come first. Compared with Calypsi, dampf promises nothing until it
 | # | Optimization | What it does | Expected gain | Prerequisite | Measured gain | Status |
 | --- | --- | --- | --- | --- | --- | --- |
 | A | Static frames in the direct page | Locals, parameters and temporaries get fixed direct page slots, shared between functions that are never active at the same time. Possible because the call graph is complete and has no recursion. No stack frames, no stack-relative access. | Very high; probably the largest single gain | complete call graph, no recursion (given, see [subset.md](subset.md)) | | open (the naive generator already uses static frames, in RAM and not shared) |
-| B | Width analysis (8/16 bit) | Choose the smallest width per value, track `REP`/`SEP` as processor state, minimise switches | High, especially for `uint8_t`-heavy code | H | | open |
+| B | Width analysis (8/16 bit) | Choose the smallest width per value, track `REP`/`SEP` as processor state, minimise switches | High, especially for `uint8_t`-heavy code | H | play 18.93 → 8.16 frames per tick (code from MIR) | in progress: narrowing from the types and 16-bit pointer offsets are built; value ranges, `REP`/`SEP` tracking open |
 | C | Inlining and calling convention | Inline small functions, pass parameters in A/X/Y or the direct page, `JMP` instead of `JSR`+`RTS` for tail calls | High with many small helpers | call graph | | open |
 | D | Data layout | Split arrays of structs into one array per field (index in X/Y), or point D at the current object | High in the loops over bubbles and enemies | | | open |
 | E | 8.8 fixed point | `>>8`, `<<8` and comparisons of the integer part as byte accesses instead of shifts | Medium to high; the game uses 8.8 everywhere | B | | open |
 | F | Loops | Counter in X/Y, count down to zero, hoist invariant code, unroll small loops (by hint) | Medium | H | | open |
 | G | Branches | Branch on flags instead of materialising 0/1, common path falls through, correct branch distances | Medium | | | open |
-| H | Standard optimizations | Constant folding and propagation, dead code removal, common subexpressions | Medium; mostly a prerequisite for A–G | IR in SSA form | | open |
+| H | Standard optimizations | Constant folding and propagation, dead code removal, common subexpressions | Medium; mostly a prerequisite for A–G | IR in SSA form | | open (dead code removal is built) |
 | I | Multiply and divide | Constants as shifts and adds, hardware multiplier with useful work during its latency, division by powers of two with correct signed rounding | Medium, depends on the code; **measured: 37 % of the naive code's time is the runtime multiplication, mostly struct array indexing by a constant size** | range analysis for signed division | | open |
 | J | Banks and placement | Keep the data bank register right, 16-bit instead of 24-bit addresses, hot code in FastROM | Small to medium | pointer width analysis | | open |
 | K | Peephole | Remove redundant loads and stores, `STZ`, `INC`/`DEC` on memory | Small, but everywhere | | | open |

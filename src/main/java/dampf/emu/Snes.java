@@ -75,8 +75,20 @@ public final class Snes implements Bus {
 
     /** Resets and runs until the program writes $21FB or the master clock passes {@code limit}. */
     public boolean run(long limit) {
+        return run(limit, null);
+    }
+
+    /** Called before every instruction with its 24-bit address (for profiles). */
+    public interface StepListener {
+        void before(int address);
+    }
+
+    public boolean run(long limit, StepListener steps) {
         cpu.reset();
         while (!done && master < limit) {
+            if (steps != null) {
+                steps.before(cpu.pbr << 16 | cpu.pc);
+            }
             cpu.step();
         }
         return done;

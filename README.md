@@ -107,7 +107,9 @@ Gradle comes with the wrapper; nothing to install.
 ./gradlew test -Preplays                                     # also play the game's replays
 ./gradlew test -PcpuTests                                    # the emulator against the 65816 test suite (downloads ~50 MB once)
 tools/bench_game.sh                                          # the game's benchmark: checksums and cycles (about a minute)
-tools/profile_game.sh bench                                  # cycles per function in the game's play ticks (minutes)
+tools/profile_game.sh bench                                  # cycles per function in the game's play ticks (seconds)
+BACKEND=mir tools/bench_game.sh                              # the same with the code generator from MIR
+tools/game_mir.sh -O                                         # the game's MIR after the passes
 ./gradlew installDist                                        # build/install/dampf/bin/dampf
 ```
 

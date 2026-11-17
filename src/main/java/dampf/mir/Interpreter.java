@@ -278,7 +278,7 @@ public final class Interpreter {
                     case SEXT -> t.wrap(c.op(0).type().signed(x));
                 };
             }
-            case Instr.PtrAdd p -> MType.PTR.wrap(eval(p.op(0), frame) + MType.I32.signed(eval(p.op(1), frame)));
+            case Instr.PtrAdd p -> MType.PTR.wrap(eval(p.op(0), frame) + p.op(1).type().signed(eval(p.op(1), frame)));
             case Instr.Load l -> load(address(l.op(0), frame), t.size);
             case Instr.Store s -> {
                 store(address(s.op(0), frame), s.op(1).type().size, eval(s.op(1), frame));

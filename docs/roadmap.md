@@ -80,7 +80,8 @@ Before the first optimization, M3 builds:
   test program and the whole game). The simple code generator from MIR is built
   (`--backend mir`): correct on the execution tests, the random programs, the replay and the
   benchmark, and 3.7 times slower than the naive generator before any pass
-  ([optimizations.md](optimizations.md)).
+  ([optimizations.md](optimizations.md)). The MIR passes have started: width narrowing (B)
+  from the types and with 16-bit pointer offsets brings play from 18.93 to 8.16 frames per tick.
   The optimizing pipeline is built next to the naive code generator, which keeps working on the
   AST: an independent reference catches more bugs than one that shares code with what it checks.
 - **The Java 65816 CPU emulator** with master-cycle counting and the exact memory speeds

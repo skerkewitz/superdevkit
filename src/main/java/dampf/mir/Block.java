@@ -39,6 +39,16 @@ public final class Block {
         return terminator() != null;
     }
 
+    /** Inserts an instruction before another one of this block (for passes). */
+    void insertBefore(Instr at, Instr instr) {
+        int k = instrs.indexOf(at);
+        if (k < 0 || instr.isTerminator() || instr instanceof Instr.Phi) {
+            throw new IllegalStateException("cannot insert " + instr + " before " + at + " in " + name);
+        }
+        instr.block = this;
+        instrs.add(k, instr);
+    }
+
     /** Appends an instruction (a φ goes before the other instructions). */
     public <T extends Instr> T add(T instr) {
         if (terminated() && !(instr instanceof Instr.Phi)) {

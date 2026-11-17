@@ -16,7 +16,7 @@ import java.util.List;
  * {@code dampf mir}: prints a program's MIR, or runs it in the MIR interpreter.
  *
  * <pre>
- * dampf mir [-I dir] [-D def] file.c ...                 print the MIR
+ * dampf mir [-O] [-I dir] [-D def] file.c ...            print the MIR (-O: after the MIR passes)
  * dampf mir [-I dir] [-D def] --bench main file.c ...    run the game's benchmark (bench.c) in the
  *                                                        interpreter: one line per tick, as bench.lua
  *                                                        writes them (clocks 0), for report.py
@@ -39,9 +39,12 @@ public final class Mir {
         List<String> defines = new ArrayList<>();
         List<Path> files = new ArrayList<>();
         String bench = null;
+        boolean optimize = false;
         for (int i = 0; i < args.length; i++) {
             String a = args[i];
-            if (a.equals("-I")) {
+            if (a.equals("-O")) {
+                optimize = true;
+            } else if (a.equals("-I")) {
                 includes.add(Path.of(args[++i]));
             } else if (a.startsWith("-I")) {
                 includes.add(Path.of(a.substring(2)));
@@ -64,6 +67,9 @@ public final class Mir {
             return;
         }
         MModule m = Lower.lower(program);
+        if (optimize) {
+            dampf.mir.Optimizer.run(m);
+        }
         if (bench == null) {
             System.out.print(Printer.print(m));
             return;

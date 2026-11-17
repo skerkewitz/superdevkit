@@ -181,8 +181,8 @@ public final class Verifier {
                 }
             }
             case Instr.PtrAdd p -> {
-                if (p.op(0).type() != MType.PTR || p.op(1).type() != MType.I32) {
-                    error(f, b, i, "ptradd needs a pointer and an i32 offset");
+                if (p.op(0).type() != MType.PTR || !(p.op(1).type() == MType.I32 || p.op(1).type() == MType.I16)) {
+                    error(f, b, i, "ptradd needs a pointer and an i32 or i16 offset");
                 }
             }
             case Instr.Load l -> {

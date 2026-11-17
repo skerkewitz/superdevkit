@@ -39,6 +39,7 @@ class RandomProgramTest {
             List<Observed> globals = Observed.of(r.program().globals());
             Map<String, Long> pc = PcReference.wrap(PcReference.run(src, "test_main", globals, work), globals);
             assertEquals(pc, MirRunner.run(r.program(), "test_main", globals), () -> "seed " + seed + " differs (PC vs MIR); the program:\n" + program);
+            assertEquals(pc, MirRunner.run(r.program(), "test_main", globals, true), () -> "seed " + seed + " differs (PC vs optimized MIR); the program:\n" + program);
             Map<String, Long> snes = runner.run(r.rom(), globals).values();
             assertEquals(pc, snes, () -> "seed " + seed + " differs (PC vs SNES); the program:\n" + program);
             Compiler.Result m = Compiler.compile(new Compiler.Options(List.of(src), List.of(), List.of(), "test_main",

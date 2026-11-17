@@ -237,7 +237,8 @@ public final class MirParser {
             case "ptradd" -> {
                 Value p = value(t.next(), MType.PTR, pending, 0);
                 t.expect(",");
-                Value o = value(t.next(), MType.I32, pending, 1);
+                MType ot = type(t.next());
+                Value o = value(t.next(), ot, pending, 1);
                 instr = new Instr.PtrAdd(p, o, pos);
             }
             case "load" -> {

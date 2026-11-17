@@ -101,7 +101,7 @@ public final class RomBuilder {
         return """
                     DP:    start = $0000, size = $0100, type = rw;   # direct page (D = 0)
                     #      $0100-$1DFF free; $1E00-$1FFF stack
-                    RAM:   start = $2000, size = $E000, type = rw;   # bank $7E (DBR = $7E), see docs/memory-map.md
+                    RAM:   start = $2000, size = $DFFF, type = rw;   # bank $7E (DBR = $7E), see docs/memory-map.md; $FFFF stays free (one past the end)
                 """;
     }
 
@@ -171,7 +171,9 @@ public final class RomBuilder {
                     throw new IOException("the program does not fit into 4 MB of ROM");
                 }
                 banks.add(new ArrayList<>());
-                free.add(BANK);
+                // the last byte stays free: a pointer just past an object's end must not wrap to
+                // the start of the bank, because address arithmetic stays within the bank
+                free.add(BANK - 1);
             }
             banks.get(b).add(s);
             free.set(b, free.get(b) - size);

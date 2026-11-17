@@ -121,7 +121,12 @@ public abstract sealed class Instr implements Value
         }
     }
 
-    /** {@code pointer + offset} bytes; the offset is an I32. */
+    /**
+     * {@code pointer + offset} bytes. The offset is an I32, or an I16 (signed): the result is only
+     * used while it points into the same object (or just past its end), and objects are at most
+     * 32 KB and never cross a bank, so the target only adds the low 16 bits, within the bank
+     * (docs/memory-map.md).
+     */
     public static final class PtrAdd extends Instr {
         public PtrAdd(Value pointer, Value offset, SourcePos pos) {
             super(MType.PTR, pos, pointer, offset);
