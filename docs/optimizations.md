@@ -357,8 +357,8 @@ with the CPU partner 2.36 (worst 4.62).
 | State | naive | from MIR, no passes | now |
 | --- | --- | --- | --- |
 | title | 1.94 | 12.21 | 0.70 |
-| story | 0.70 | 3.56 | (see the benchmark) |
-| round intro | 5.76 | 12.13 | (see the benchmark) |
+| story | 0.70 | 3.56 | 0.29 |
+| round intro | 5.76 | 12.13 | 2.35 |
 | play | 5.17 (worst 8.58) | 18.93 | 1.67 (worst 2.87) |
 | play, CPU partner | 6.55 (worst 12.23) | 23.13 | 2.36 (worst 4.62) |
 | `level_solid_px`, per call | 3,849 | 6,648 | 1,230 clocks |
