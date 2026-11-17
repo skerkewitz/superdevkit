@@ -128,10 +128,14 @@ public final class NaiveCodeGen {
             if (f.isDefined() && !replaced.contains(f.name())) {
                 AsmWriter code = new AsmWriter();
                 function(f, code);
+                String text = code.toString();
+                if (code.unknownInstructions() > 0) {
+                    throw new IllegalStateException("the cycle table does not know an instruction in " + f.name());
+                }
                 if (f == entry) {
                     entryBlock = banked.size();
                 }
-                banked.add(code.toString());
+                banked.add(text);
             }
         }
         AsmWriter ram = new AsmWriter();
@@ -521,7 +525,7 @@ public final class NaiveCodeGen {
         out.blank();
         String file = pos.file();
         sourceFiles.putIfAbsent(file, Path.of(file));
-        out.raw("; " + Path.of(file).getFileName() + ":" + pos.line() + "   " + lineText(file, pos.line()));
+        out.sourceHeader("; " + Path.of(file).getFileName() + ":" + pos.line() + "   " + lineText(file, pos.line()));
         out.raw("        .dbg    line, \"" + debugName.apply(file) + "\", " + pos.line());
         out.note("M=16 X=16");
     }

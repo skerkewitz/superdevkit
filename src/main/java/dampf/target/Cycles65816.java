@@ -246,6 +246,61 @@ public final class Cycles65816 {
         return c;
     }
 
+    private static final java.util.Map<String, Integer> BY_NAME = new java.util.HashMap<>();
+
+    static {
+        for (int i = 0; i < 256; i++) {
+            BY_NAME.put(NAME[i], i);
+        }
+    }
+
+    /**
+     * The opcode for a mnemonic and an addressing mode as named in this table ("lda abs",
+     * "sta [dp],y", "rtl", "bne"), or -1.
+     */
+    public static int opcode(String mnemonic, String mode) {
+        Integer op = BY_NAME.get(mode.isEmpty() ? mnemonic : mnemonic + " " + mode);
+        return op == null ? -1 : op;
+    }
+
+    /**
+     * The addressing mode of a ca65 operand as dampf writes it: {@code #$0001} immediate,
+     * {@code f:x} long, {@code z:x} direct page, {@code [dampf_ptr],y}, {@code x,x}, a plain
+     * symbol absolute; branches, JSL and JMP are recognised by their mnemonic.
+     */
+    public static String mode(String mnemonic, String operand) {
+        if (operand == null) {
+            return "";
+        }
+        String o = operand.strip();
+        if (o.equals("a")) {
+            return "a";
+        }
+        if (o.startsWith("#")) {
+            return "#imm";
+        }
+        if (mnemonic.equals("jsl") || mnemonic.equals("jml")) {
+            return "long";
+        }
+        if (o.startsWith("f:")) {
+            return o.endsWith(",x") ? "long,x" : "long";
+        }
+        if (o.startsWith("[")) {
+            return o.endsWith(",y") ? "[dp],y" : "[dp]";
+        }
+        boolean dp = o.startsWith("z:");
+        if (o.endsWith(",x")) {
+            return dp ? "dp,x" : "abs,x";
+        }
+        if (o.endsWith(",y")) {
+            return dp ? "dp,y" : "abs,y";
+        }
+        if (BY_NAME.containsKey(mnemonic) && (FLAGS[BY_NAME.get(mnemonic)] & BR) != 0 || mnemonic.equals("bra") || mnemonic.equals("brl")) {
+            return "";
+        }
+        return dp ? "dp" : "abs";
+    }
+
     public static boolean isConditionalBranch(int opcode) {
         return (FLAGS[opcode] & BR) != 0;
     }

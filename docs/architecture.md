@@ -112,8 +112,12 @@ numbers only illustrate it):
         sta z:BUB_X         ; x = A                     3
 ```
 
-The naive code generator already writes the source line, the processor state and the instruction
-comments; the cycle column is still missing.
+The naive code generator writes all of this: the source line, the processor state, a comment per
+instruction, and the CPU cycles of every instruction (from `dampf.target.Cycles65816`; a
+conditional branch shows "not taken/taken"). A C line of straight-line code gets the sum in its
+header; a line with branches gets none until the static timing analysis gives its best and worst
+case. The cycles are CPU cycles; master cycles, which depend on the memory each access touches,
+come with that analysis.
 
 ## Implementation
 

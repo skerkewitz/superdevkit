@@ -79,7 +79,8 @@ Before the first optimization, M3 builds:
 - **The Java 65816 CPU emulator** with master-cycle counting and the exact memory speeds
   ([testing.md](testing.md)), validated against public per-instruction test suites. It makes the
   tests fast and lets every test report cycles.
-- **Cycle counts in the assembly comments** ([architecture.md](architecture.md)).
+- **Cycle counts in the assembly comments** ([architecture.md](architecture.md)). Done 2026-11-17
+  for CPU cycles per instruction and per straight-line C line.
 
 Then the first optimizations, in the order the profile suggests: I and D (indexing arrays of
 structs is 37 % of the naive code's time), then A and B.
