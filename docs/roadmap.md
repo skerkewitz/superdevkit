@@ -146,15 +146,46 @@ that costs real cycles. Until then the design stays as it is.
 
 ### After M2: a playable ROM
 
-A ROM that plays the game on real hardware needs a platform layer for dampf: start-up, joypad
-input, the vertical blank handler with DMA for sprites, tile maps and palettes, and the 19
-PVSnesLib-shaped calls that `video.c` makes ([subset.md](subset.md)). It is not needed for the M2
-measurements (the benchmark stubs those calls out) and is planned when the game's SNES port (its
-stage 3 proof of concept) needs it.
+Built 2026-11-17, ahead of the game's own SNES port: with every iteration of dampf, the real
+game can be built and played, and the whole toolchain is tested on what only the console shows.
+
+- **The platform layer** is `platform/snes`, in C: the 19 PVSnesLib-shaped calls of `snes.h`
+  and the rest of its API (`snes.c`), and the main loop (`main.c`). It reaches the hardware
+  through pointers to `volatile` memory and needs one new language feature, the cast from a
+  pointer to an integer for DMA source addresses ([subset.md](subset.md), *Hardware access*).
+- **No interrupt handler.** The loop waits for the vertical blank, then copies the OAM shadow and
+  calls `game_vblank`. C code called from an NMI in the middle of a tick would overwrite the
+  frames of the code it interrupted, since dampf keeps them at fixed places.
+- **Not built:** sound (the game has none yet), save RAM (the high scores start empty at every
+  power-on).
+- **Building and checking:** `tools/build_game_rom.sh` writes `build/game/blubberblasen.sfc`.
+  `tools/check_game_rom.sh` plays it in Mesen for a minute with scripted input, saves
+  screenshots, and fails if any byte reaches VRAM, CGRAM or OAM outside a vertical blank.
+  `ReplayTest` (`-Preplays`, with a Mesen) plays the recording through the platform layer: the
+  same checksums as the PC, and no byte lost.
+
+What the console showed that the benchmark could not:
+
+- **The game runs at 2.28 frames per tick** during a minute of play (26 ticks a second), not 1.34:
+  a tick that needs more than one frame waits for the start of the next vertical blank, and the
+  benchmark leaves out what `video.c` costs on the hardware.
+- **The vertical blank is mostly spent on C code.** `video_vblank` reaches its first upload about
+  25 of the 37 lines into it. Every register write goes through `[dampf_ptr],y` with the pointer
+  built first (about 30 cycles); a volatile access at a constant address should be one long
+  `sta`/`lda`. A 32-bit shift by 16 is a loop of 16 steps (about 600 cycles); a shift by a
+  multiple of 8 should move bytes. Both are worth doing next.
+- **`snesDmaFits` must leave room for the code around a copy.** From the check to the start of a
+  tileset copy takes 3.5 lines, and `video.c` asks once for two copies (tiles and palette).
+  A copy that starts after the last line of the vertical blank is lost; the first version lost a
+  row of the text layer ("READY!" stayed on screen). The margin is 8 lines now and can shrink when
+  the register writes get faster.
+- **With the naive code generator the game never gets its room tiles**: its vertical blank code is
+  so slow that no upload ever fits ([game-findings.md](game-findings.md), finding 8).
 
 ### M5: publishing
 
-- **Own examples.** The Blubber Blasen snapshot (`examples/blubberblasen`) and the hand-written
+- **Own examples.** The Blubber Blasen snapshot (`examples/blubberblasen`), its platform layer
+  (`platform/snes`) and the hand-written
   benchmark in `reference/` (assembly of a Blubber Blasen function) leave the repository. Deleting
   them is not enough: they are in the git history, so either the history is cleaned
   (`git filter-repo`) or the public repository starts without it. Own examples take over their
@@ -187,6 +218,9 @@ in the code dampf generates, so it waits until everything else runs to our satis
   lowering and optimization passes, which do not exist before M3, and the M2 measurements work
   with Mesen. M2 was split into steps so the first measurement of the whole game comes early, the
   checkpoint was added, and the playable ROM was separated from M2.
+- **2026-11-17, during M3.** The playable ROM was built before the game's own SNES port needs it,
+  so that every iteration of dampf can be played and the whole toolchain is tested on the real
+  console (see *After M2: a playable ROM*).
 - **2026-11-17, during M3.** The design for value ranges ([subrange-types.md](subrange-types.md))
   was added. Inferred ranges and pointer compression (planned for M4 in that design) go into
   M3, because they need no language change and the profile points at them. Declared subrange
@@ -212,6 +246,9 @@ in the code dampf generates, so it waits until everything else runs to our satis
 Resolved:
 
 - ~~Build tool: Gradle or Maven?~~ Gradle (Kotlin DSL, with the wrapper), decided 2026-11-17.
+- ~~How Blubber Blasen's stage 2 platform API maps onto dampf intrinsics~~: no intrinsics are
+  needed. The API is a platform layer in C with volatile register access (`platform/snes`),
+  decided 2026-11-17.
 - ~~How whole ROMs run headless in tests~~: Mesen 2 has a test runner mode
   (`Mesen.exe --testrunner rom.sfc script.lua`). Blubber Blasen's `tools/snesbench` already uses
   it to measure compilers tick by tick, with checksums against the PC; dampf's execution tests
@@ -228,8 +265,6 @@ Open:
 - What the Calypsi investigation finds, and what that means for the order of the optimizations.
   First numbers are in [optimizations.md](optimizations.md): Calypsi needs 2.72 frames per tick
   during play, so the 0.6-frame goal is about 4.5 times faster than Calypsi.
-- How Blubber Blasen's stage 2 platform API maps onto dampf intrinsics ([subset.md](subset.md)
-  lists the 19 calls `video.c` makes); needed for the playable ROM.
 - `goto`: forbid it entirely, or allow a restricted form that keeps the code structured?
   ([subset.md](subset.md), decision 4)
 - How to express impossible path combinations, should the worst-case bounds turn out too

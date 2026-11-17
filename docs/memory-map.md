@@ -40,8 +40,10 @@ become 16 bits (docs/subset.md, decision 3).
 ## I/O registers
 
 The PPU and CPU registers (`$2100-$21FF`, `$4200-$43FF`) are in bank 0, which DBR does not point
-to. Code writes them with 24-bit long addresses (`sta f:$002100`). Only the runtime and the
-hardware intrinsics touch them.
+to. The runtime writes them with 24-bit long addresses (`sta f:$002100`). C code reaches them
+through pointers to `volatile` memory ([subset.md](subset.md), *Hardware access*), today through
+`[dampf_ptr],y` with the pointer built first (about 30 cycles a register); a long address for a
+constant one is the obvious improvement. Only the platform layer (`platform/snes`) does this.
 
 ## ROM
 

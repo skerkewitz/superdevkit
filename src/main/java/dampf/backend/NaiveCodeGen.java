@@ -871,6 +871,7 @@ public final class NaiveCodeGen {
             case Expr.PointerAdd p -> out.ins("lda", gen32(p), null);
             case Expr.PointerDiff p -> out.ins("lda", gen32(p), null);
             case Expr.PointerCast c -> out.ins("lda", gen32(c), null);
+            case Expr.PointerToInt c -> out.ins("lda", gen32(c), "A = the address (low word)");
         }
     }
 
@@ -1095,6 +1096,9 @@ public final class NaiveCodeGen {
             }
             case Expr.PointerCast c -> {
                 return gen32(c.operand()); // the same bits
+            }
+            case Expr.PointerToInt c -> {
+                return gen32(c.operand()); // the same bits: address, bank, a zero byte
             }
             case Expr.PointerAdd p -> {
                 String ptr = gen32(p.pointer());

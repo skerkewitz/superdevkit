@@ -40,6 +40,19 @@ driver with the game in its debug configuration (`BB_DEBUG`) twice, with gcc and
 requires both to match every recorded checksum and each other. The replays run in dampf's
 emulator and take minutes, so the test runs only with `-Preplays`.
 
+With a Mesen, `ReplayTest` also plays each recording through the SNES platform layer
+(`platform/snes`, the code of the playable ROM) instead of the stubs: the driver, built with
+`REPLAY_PLATFORM`, starts the console before `game_init` and after every tick waits for the
+vertical blank, copies the OAM shadow and runs `game_vblank`'s uploads. This needs Mesen, since
+dampf's emulator has no PPU. The checksums must match the PC, and `MesenRunner` (with its PPU
+check) counts every byte written to VRAM, CGRAM or OAM outside a vertical blank with the screen
+on, which must be none. Lua runs for every one of those bytes, so this test takes about nine
+minutes.
+
+The playable ROM has a quicker check of its own, `tools/check_game_rom.sh`: a minute of scripted
+play in Mesen with the same count of lost bytes, the frames per tick, and screenshots. It found
+the first platform bug (a map row copied after the vertical blank had ended).
+
 The game's compiler benchmark (`tools/bench_game.sh`) is the second whole-game check: 3,610 ticks,
 three checksums per tick against a PC build of the same program, plus the cycles per tick.
 
@@ -62,7 +75,8 @@ three checksums per tick against a PC build of the same program, plus the cycles
     opcode in dampf's processor state (`CycleTableAgainstEmulatorTest`).
 
   The execution tests run in both the emulator and Mesen when Mesen is available; the random
-  programs (50 per build) and the replays run in the emulator only.
+  programs (50 per build) and the replays run in the emulator only, except the replay through the
+  platform layer, which needs Mesen's PPU.
 - **Naive versus optimized:** the naive code generator stays as a reference. Every optimized
   build is compared against it; a difference points to the optimization that caused it.
 - **Performance tracking:** cycle counts of the benchmarks are recorded per commit, so a slowdown

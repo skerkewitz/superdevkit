@@ -17,9 +17,16 @@ import java.util.concurrent.TimeUnit;
  * writes them to a file. Works with the Windows Mesen from WSL: paths are converted with wslpath.
  */
 final class MesenRunner {
+    /**
+     * With {@link #withPpuCheck()}: the result also holds this key, the number of bytes written to
+     * VRAM, CGRAM or OAM outside a vertical blank with the screen on (the PPU drops them).
+     */
+    static final String PPU_BYTES_LOST = "ppu_bytes_lost";
+
     private final Path mesen;
     private final int timeoutFrames;
     private final int timeoutSeconds;
+    private final boolean ppuCheck;
 
     /** For short test programs: at most 600 frames, one minute. */
     MesenRunner(Path mesen) {
@@ -27,9 +34,19 @@ final class MesenRunner {
     }
 
     MesenRunner(Path mesen, int timeoutFrames, int timeoutSeconds) {
+        this(mesen, timeoutFrames, timeoutSeconds, false);
+    }
+
+    private MesenRunner(Path mesen, int timeoutFrames, int timeoutSeconds, boolean ppuCheck) {
         this.mesen = mesen;
         this.timeoutFrames = timeoutFrames;
         this.timeoutSeconds = timeoutSeconds;
+        this.ppuCheck = ppuCheck;
+    }
+
+    /** The same runner, also counting the bytes the PPU drops ({@link #PPU_BYTES_LOST}). */
+    MesenRunner withPpuCheck() {
+        return new MesenRunner(mesen, timeoutFrames, timeoutSeconds, true);
     }
 
     Map<String, Long> run(RomBuilder.Rom rom, List<Observed> globals) throws IOException, InterruptedException {
@@ -48,15 +65,32 @@ final class MesenRunner {
                 local function rd(a) return emu.read(0x7E0000 + a, emu.memType.snesMemory) end   -- variables are in bank $7E
                 local ok, err = pcall(function()
                   local frames = 0
+                  local ppuLost = 0
                   emu.addEventCallback(function()
                     frames = frames + 1
                 """);
         lua.append("    if frames > ").append(timeoutFrames).append(" then finish(\"timeout\\n\", 3) end\n");
         lua.append("""
                   end, emu.eventType.endFrame)
+                """);
+        if (ppuCheck) {
+            // the data ports of OAM ($2104), VRAM ($2118/$2119) and CGRAM ($2122)
+            lua.append("""
+                      emu.addMemoryCallback(function(addr, value)
+                        if addr == 0x2104 or addr == 0x2118 or addr == 0x2119 or addr == 0x2122 then
+                          local st = emu.getState()
+                          if st["ppu.scanline"] < 225 and not st["ppu.forcedBlank"] then ppuLost = ppuLost + 1 end
+                        end
+                      end, emu.callbackType.write, 0x2104, 0x2122)
+                    """);
+        }
+        lua.append("""
                   emu.addMemoryCallback(function(addr, value)
                     local s = ""
                 """);
+        if (ppuCheck) {
+            lua.append("    s = s .. \"" + PPU_BYTES_LOST + " \" .. ppuLost .. \"\\n\"\n");
+        }
         for (Observed v : globals) {
             Long base = addresses.get(v.label());
             if (base == null) {
@@ -102,6 +136,9 @@ final class MesenRunner {
         Map<String, Long> values = new LinkedHashMap<>();
         for (Observed v : globals) {
             values.put(v.path(), v.type().wrap(raw.get(v.path())));
+        }
+        if (ppuCheck) {
+            values.put(PPU_BYTES_LOST, raw.get(PPU_BYTES_LOST));
         }
         return values;
     }
