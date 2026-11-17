@@ -104,8 +104,9 @@ Gradle comes with the wrapper; nothing to install.
 ./gradlew build                                              # compile and run the unit tests
 ./gradlew test -Pmesen=/path/to/Mesen.exe                    # execution tests with another Mesen
 ./gradlew test -Pblubberblasen=/path/to/BlubberBlasen        # parse the live game instead of the snapshot
-./gradlew test -Preplays                                     # also play the game's replays (minutes)
-tools/bench_game.sh                                          # the game's benchmark: checksums and cycles (minutes)
+./gradlew test -Preplays                                     # also play the game's replays
+./gradlew test -PcpuTests                                    # the emulator against the 65816 test suite (downloads ~50 MB once)
+tools/bench_game.sh                                          # the game's benchmark: checksums and cycles (about a minute)
 tools/profile_game.sh bench                                  # cycles per function in the game's play ticks (minutes)
 ./gradlew installDist                                        # build/install/dampf/bin/dampf
 ```

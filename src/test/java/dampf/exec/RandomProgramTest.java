@@ -1,7 +1,6 @@
 package dampf.exec;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import dampf.Compiler;
 import java.nio.file.Files;
@@ -16,10 +15,10 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Random programs (test layer 3): each one runs on the PC (gcc) and on the SNES (dampf, in
- * Mesen), and all globals must match. The seeds are fixed, so a failure can be reproduced; the
- * failing program is printed in the message.
+ * dampf's emulator), and all globals must match. The seeds are fixed, so a failure can be
+ * reproduced; the failing program is printed in the message.
  *
- * <p>{@code -Prandom=N} runs N programs (default 10), {@code -PrandomSeed=S} starts at seed S.
+ * <p>{@code -Prandom=N} runs N programs (default 50), {@code -PrandomSeed=S} starts at seed S.
  */
 class RandomProgramTest {
     @TempDir
@@ -27,10 +26,8 @@ class RandomProgramTest {
 
     @TestFactory
     Stream<DynamicTest> randomProgramsMatchGcc() {
-        String mesen = System.getProperty("dampf.mesen");
-        assumeTrue(mesen != null, "set -Pmesen=<path to Mesen.exe> to run");
-        MesenRunner runner = new MesenRunner(Path.of(mesen));
-        int count = Integer.getInteger("dampf.random.count", 10);
+        EmulatorRunner runner = new EmulatorRunner();
+        int count = Integer.getInteger("dampf.random.count", 50);
         long first = Long.getLong("dampf.random.seed", 1);
         return LongStream.range(first, first + count).mapToObj(seed -> DynamicTest.dynamicTest("seed " + seed, () -> {
             Path work = Files.createDirectories(tmp.resolve("seed" + seed));
@@ -41,7 +38,7 @@ class RandomProgramTest {
                     work.resolve("random.sfc")));
             List<Observed> globals = Observed.of(r.program().globals());
             Map<String, Long> pc = PcReference.wrap(PcReference.run(src, "test_main", globals, work), globals);
-            Map<String, Long> snes = runner.run(r.rom(), globals);
+            Map<String, Long> snes = runner.run(r.rom(), globals).values();
             assertEquals(pc, snes, () -> "seed " + seed + " differs (PC vs SNES); the program:\n" + program);
         }));
     }

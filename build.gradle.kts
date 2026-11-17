@@ -17,6 +17,7 @@ dependencies {
 
     testImplementation(platform("org.junit:junit-bom:5.13.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("com.fasterxml.jackson.core:jackson-databind:2.17.2") // reads the CPU test suite
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
@@ -48,6 +49,8 @@ tasks.test {
     providers.gradleProperty("randomSeed").orNull?.let { systemProperty("dampf.random.seed", it) }
     // Replays of the game (minutes in Mesen): -Preplays
     providers.gradleProperty("replays").orNull?.let { systemProperty("dampf.replays", "true") }
+    // The 65816 emulator against the SingleStepTests suite (downloads ~50 MB once): -PcpuTests
+    providers.gradleProperty("cpuTests").orNull?.let { systemProperty("dampf.cpuTests", it.ifEmpty { "300" }) }
 }
 
 application {

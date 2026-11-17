@@ -9,8 +9,8 @@ is checked automatically against a reference.
 | Layer | What | Speed | State |
 | --- | --- | --- | --- |
 | Unit tests | Each compiler pass on its own, at IR level | Milliseconds | Front-end tests exist (`ParserTest`, `AstBuilderTest`); IR-level tests come with the IRs |
-| Execution tests | Small C programs compiled with gcc on the PC and with dampf; the results must match | Seconds | Built: `src/test/resources/exec/*.c`, run in Mesen |
-| Random programs | A generator produces thousands of random programs within the subset; each is compared against gcc | Minutes, e.g. nightly | Built: `RandomProgramTest`, 10 per build, `-Prandom=N` for more |
+| Execution tests | Small C programs compiled with gcc on the PC and with dampf; the results must match | Seconds | Built: `src/test/resources/exec/*.c`, run in dampf's emulator and in Mesen |
+| Random programs | A generator produces thousands of random programs within the subset; each is compared against gcc | Minutes, e.g. nightly | Built: `RandomProgramTest`, 50 per build, `-Prandom=N` for more |
 | Replays | The whole of Blubber Blasen with its deterministic replays and a checksum of the game state per frame; also cycles per frame as the benchmark | Minutes | Built: `ReplayTest` (`-Preplays`) and `tools/bench_game.sh` |
 
 ### How the execution and random tests work today
@@ -45,13 +45,24 @@ three checksums per tick against a PC build of the same program, plus the cycles
 
 ## Supporting pieces
 
-- **A 65816 CPU emulator in Java** (CPU only, no graphics or sound) runs the execution and
-  random-program tests inside the JVM, without starting Mesen, and **counts cycles in master
-  cycles**, with the exact memory speeds (FastROM, SlowROM, WRAM, I/O; [timing.md](timing.md)).
-  Every test can then also report whether code got faster or slower. The emulator itself is
-  validated against public per-instruction CPU test suites. It also runs the candidate sequences
-  of the superoptimizer ([optimizations.md](optimizations.md)). *Not built yet* (start of M3,
-  [roadmap.md](roadmap.md)); the tests use Mesen for now.
+- **A 65816 CPU emulator in Java** (`dampf.emu`: CPU, LoROM, WRAM, no graphics or sound) runs
+  the execution, random-program and replay tests and the game's benchmark inside the JVM, and
+  **counts master cycles**, with the memory speeds of the SNES (WRAM and SlowROM 8, I/O 6,
+  internal cycles 6, DRAM refresh 40 per scanline; [timing.md](timing.md)). It also runs the
+  candidate sequences of the superoptimizer later ([optimizations.md](optimizations.md)).
+  Validation:
+  - the CPU against the SingleStepTests 65816 suite (github.com/SingleStepTests/65816): native
+    mode, all 256 opcodes, about 300 random tests each (76,059 in all): registers, flags, memory,
+    CPU cycles and the number of memory accesses match (`./gradlew test -PcpuTests`; downloads
+    about 50 MB once). Emulation mode is only modelled as far as the start-up needs it.
+  - the whole machine against Mesen on the game's benchmark: the same checksums on all 3,610
+    ticks, and the same master cycles per tick within a few cycles out of millions
+    (`dampf bench`).
+  - the cycle table of the cost model (`dampf.target.Cycles65816`) against the emulator, every
+    opcode in dampf's processor state (`CycleTableAgainstEmulatorTest`).
+
+  The execution tests run in both the emulator and Mesen when Mesen is available; the random
+  programs (50 per build) and the replays run in the emulator only.
 - **Naive versus optimized:** the naive code generator stays as a reference. Every optimized
   build is compared against it; a difference points to the optimization that caused it.
 - **Performance tracking:** cycle counts of the benchmarks are recorded per commit, so a slowdown

@@ -1,7 +1,6 @@
 package dampf.exec;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import dampf.Compiler;
 import java.io.IOException;
@@ -17,10 +16,10 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Execution tests: every program in {@code src/test/resources/exec} runs on the PC (gcc) and on
- * the SNES (dampf, in Mesen), and all its globals must have the same values afterwards.
- * Each program's entry function is {@code test_main}.
- *
- * <p>Needs Mesen 2: {@code ./gradlew test -Pmesen=/path/to/Mesen.exe}. Skipped otherwise.
+ * the SNES (dampf), and all its globals must have the same values afterwards. The SNES side runs
+ * in dampf's emulator, and also in Mesen 2 when one is available (.mesen/ or -Pmesen=...), so the
+ * emulator is checked against a complete SNES emulator too. Each program's entry function is
+ * {@code test_main}.
  */
 class ExecutionTest {
     @TempDir
@@ -29,8 +28,8 @@ class ExecutionTest {
     @TestFactory
     Stream<DynamicTest> sameResultsOnPcAndSnes() throws IOException, URISyntaxException {
         String mesen = System.getProperty("dampf.mesen");
-        assumeTrue(mesen != null, "set -Pmesen=<path to Mesen.exe> to run");
-        MesenRunner runner = new MesenRunner(Path.of(mesen));
+        MesenRunner mesenRunner = mesen == null ? null : new MesenRunner(Path.of(mesen));
+        EmulatorRunner emulator = new EmulatorRunner();
         Path dir = Path.of(ExecutionTest.class.getResource("/exec").toURI());
         List<Path> programs;
         try (Stream<Path> s = Files.list(dir)) {
@@ -43,8 +42,11 @@ class ExecutionTest {
                     work.resolve(name + ".sfc")));
             List<Observed> globals = Observed.of(r.program().globals());
             Map<String, Long> pc = PcReference.wrap(PcReference.run(src, "test_main", globals, work), globals);
-            Map<String, Long> snes = runner.run(r.rom(), globals);
-            assertEquals(pc, snes, "globals after test_main() (PC vs SNES)");
+            Map<String, Long> snes = emulator.run(r.rom(), globals).values();
+            assertEquals(pc, snes, "globals after test_main() (PC vs SNES in dampf's emulator)");
+            if (mesenRunner != null) {
+                assertEquals(pc, mesenRunner.run(r.rom(), globals), "globals after test_main() (PC vs SNES in Mesen)");
+            }
         }));
     }
 }

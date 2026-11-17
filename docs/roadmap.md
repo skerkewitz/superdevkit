@@ -78,7 +78,9 @@ Before the first optimization, M3 builds:
   AST: an independent reference catches more bugs than one that shares code with what it checks.
 - **The Java 65816 CPU emulator** with master-cycle counting and the exact memory speeds
   ([testing.md](testing.md)), validated against public per-instruction test suites. It makes the
-  tests fast and lets every test report cycles.
+  tests fast and lets every test report cycles. Done 2026-11-17: passes the SingleStepTests
+  native-mode suite and matches Mesen on the game's benchmark (checksums and master cycles); the
+  benchmark takes 30 seconds instead of 6 minutes, a replay 11 instead of 100.
 - **Cycle counts in the assembly comments** ([architecture.md](architecture.md)). Done 2026-11-17
   for CPU cycles per instruction and per straight-line C line.
 
