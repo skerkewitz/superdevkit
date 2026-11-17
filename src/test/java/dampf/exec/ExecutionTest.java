@@ -55,6 +55,13 @@ class ExecutionTest {
                     work.resolve(name + "_mir.sfc")).withBackend(Compiler.Backend.MIR));
             assertEquals(pc, emulator.run(m.rom(), globals).values(), "globals after test_main() (PC vs SNES, code generated from MIR)");
             Timing.check(m, emulator, src.getFileName().toString());
+            // block counts only change the order of the blocks: an arbitrary profile (about a third
+            // of the blocks "never ran") must give the same results
+            Compiler.Result l = Compiler.compile(new Compiler.Options(List.of(src), List.of(), List.of(), "test_main",
+                    work.resolve(name + "_layout.sfc")).withBackend(Compiler.Backend.MIR)
+                    .withBlockCounts((function, block) -> (long) Math.floorMod((function + block).hashCode(), 3)));
+            assertEquals(pc, emulator.run(l.rom(), globals).values(), "globals after test_main() (PC vs SNES, blocks laid out by a profile)");
+            Timing.check(l, emulator, src.getFileName().toString() + " (laid out by a profile)");
         }, "took too long: hangs?")));
     }
 }

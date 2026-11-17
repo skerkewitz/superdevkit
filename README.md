@@ -115,6 +115,7 @@ Gradle comes with the wrapper; nothing to install.
 tools/bench_game.sh                                          # the game's benchmark: checksums and cycles (about a minute)
 tools/profile_game.sh bench                                  # cycles per function in the game's play ticks (seconds)
 INSTRUCTIONS=1 tools/profile_game.sh bench                   # the same, and cycles per kind of instruction
+BLOCKS=build/profile/bench.blocks.txt tools/bench_game.sh    # the benchmark with the blocks laid out by that profile
 BACKEND=naive tools/bench_game.sh                            # the same with the naive code generator (the reference)
 tools/game_mir.sh -O                                         # the game's MIR after the passes
 ./gradlew installDist                                        # build/install/dampf/bin/dampf

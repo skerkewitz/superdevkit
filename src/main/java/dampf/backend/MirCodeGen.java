@@ -93,6 +93,13 @@ public final class MirCodeGen {
      * @param debugName maps a source file path to the name written into the debug information
      */
     public MirCodeGen(MModule module, String entry, java.util.function.Function<String, String> debugName) {
+        this(module, entry, debugName, null);
+    }
+
+    /** {@code blockCounts}: see {@link dampf.Compiler.Options}; null without a profile. */
+    public MirCodeGen(MModule module, String entry, java.util.function.Function<String, String> debugName,
+                      java.util.function.BiFunction<String, String, Long> blockCounts) {
+        this.blockCounts = blockCounts;
         this.module = module;
         this.entry = entry;
         this.debugName = debugName;
@@ -284,6 +291,9 @@ public final class MirCodeGen {
     private final Map<MFunction, Written> written = new HashMap<>();
     private List<Block> lastOrder;
     private final Map<String, Timing.Bound> bounds = new HashMap<>();
+
+    /** How often each block ran, (function, block) → count or null, from a profile; null without one. */
+    private final java.util.function.BiFunction<String, String, Long> blockCounts;
 
     /** Best and worst case in CPU cycles per function (by label), after generate(); see {@link Timing}. */
     public Map<String, long[]> timing() {
@@ -511,7 +521,7 @@ public final class MirCodeGen {
         findXCounters(f);
         findForwards(f);
         forward.removeAll(xSteps.keySet());
-        List<Block> blocks = layoutOrder(f);
+        List<Block> blocks = layoutOrder(f, blockCounts == null ? null : blockName -> blockCounts.apply(f.name(), blockName));
         lastOrder = blocks;
         for (int k = 0; k < blocks.size(); k++) {
             Block b = blocks.get(k);
@@ -703,6 +713,15 @@ public final class MirCodeGen {
      * and the branch skips only one jump), the entry block first.
      */
     static List<Block> layoutOrder(MFunction f) {
+        return layoutOrder(f, null);
+    }
+
+    /**
+     * With {@code counts} (how often each block ran, by name, from a profile): the successor that
+     * ran more often follows, and blocks that never ran go to the end of the function, so the
+     * code that runs stays together and its branches reach.
+     */
+    static List<Block> layoutOrder(MFunction f, java.util.function.Function<String, Long> counts) {
         List<Block> order = new ArrayList<>();
         Set<Block> placed = new HashSet<>();
         int scan = 0;
@@ -720,16 +739,30 @@ public final class MirCodeGen {
             Instr t = b.terminator();
             if (t != null) {
                 for (Block s : t.successors()) {
-                    if (!placed.contains(s)) {
+                    if (!placed.contains(s) && (next == null || counts != null && count(counts, s) > count(counts, next))) {
                         next = s;
-                        break;
                     }
                 }
             }
             b = next;
         }
         rotateLoops(order);
+        if (counts != null) {
+            List<Block> cold = new ArrayList<>();
+            for (Block x : order) {
+                if (x != f.entry() && count(counts, x) == 0) {
+                    cold.add(x);
+                }
+            }
+            order.removeAll(cold);
+            order.addAll(cold);
+        }
         return order;
+    }
+
+    private static long count(java.util.function.Function<String, Long> counts, Block b) {
+        Long n = counts.apply(b.name());
+        return n == null ? 0 : n;
     }
 
     /**

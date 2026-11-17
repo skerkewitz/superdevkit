@@ -31,6 +31,7 @@ import java.util.regex.Pattern;
  * {@code --skip file.c} (a test harness, such as the benchmark's bench.c) are left out of the
  * table and the shares. {@code --instructions} adds a table of the cycles per instruction and
  * addressing mode (outside those files): which kinds of instruction the time goes to.
+ * {@code --blocks file} writes how often each block ran, for {@code dampf build --block-counts}.
  */
 public final class Profile {
     private static final double FRAME = 357_366; // master clocks per NTSC frame
@@ -47,17 +48,20 @@ public final class Profile {
         List<String> positional = new ArrayList<>();
         List<String> skip = new ArrayList<>();
         boolean byInstruction = false;
+        Path blocksOut = null;
         for (int i = 0; i < args.length; i++) {
             if (args[i].equals("--skip") && i + 1 < args.length) {
                 skip.add(args[++i]);
             } else if (args[i].equals("--instructions")) {
                 byInstruction = true;
+            } else if (args[i].equals("--blocks") && i + 1 < args.length) {
+                blocksOut = Path.of(args[++i]);
             } else {
                 positional.add(args[i]);
             }
         }
         if (positional.size() < 2) {
-            System.err.println("usage: dampf profile <rom.sfc> <profile.txt> [top N] [--skip file.c ...] [--instructions]");
+            System.err.println("usage: dampf profile <rom.sfc> <profile.txt> [top N] [--skip file.c ...] [--instructions] [--blocks file]");
             System.exit(2);
         }
         int top = positional.size() > 2 ? Integer.parseInt(positional.get(2)) : 40;
@@ -84,6 +88,9 @@ public final class Profile {
             }
             System.out.printf("%6.1f%% %,10d %,13d %,15d %,10d  %s%n", 100.0 * e.cycles() / totalCycles, e.calls(),
                     e.instructions(), e.cycles(), e.calls() > 0 ? e.cycles() / e.calls() : 0, e.name());
+        }
+        if (blocksOut != null) {
+            writeBlockCounts(rom, counts, blocksOut);
         }
         if (byInstruction) {
             System.out.println();
@@ -185,6 +192,49 @@ public final class Profile {
         acc.forEach((k, v) -> out.add(new Entry(k, files.get(k), v[0], v[1], v[2])));
         out.sort((x, y) -> Long.compare(y.cycles(), x.cycles()));
         return out;
+    }
+
+    /**
+     * How often each block of the generated code ran: per function (a .proc label) every block
+     * label in it (bNN_name, from the label file) with the count of the instruction there. Read by
+     * the layout of the code generator from MIR (dampf.blockCounts).
+     */
+    static void writeBlockCounts(Path romFile, Path countsFile, Path out) throws IOException {
+        String base = romFile.getFileName().toString().replaceAll("\\.sfc$", "");
+        Path lbl = romFile.toAbsolutePath().getParent().resolve(base + ".lbl");
+        Map<Integer, Long> counts = new HashMap<>();
+        for (String line : Files.readAllLines(countsFile)) {
+            String[] p = line.strip().split("\\s+");
+            if (p.length == 2 && p[0].matches("\\d+")) {
+                counts.merge(Integer.parseInt(p[0]), Long.parseLong(p[1]), Long::sum);
+            }
+        }
+        TreeMap<Integer, List<String>> labels = new TreeMap<>();
+        for (String line : Files.readAllLines(lbl)) {
+            String[] p = line.strip().split("\\s+");
+            if (p.length >= 3 && p[2].startsWith(".")) {
+                int a = Integer.parseInt(p[1], 16);
+                if ((a & 0x8000) == 0) {
+                    continue;   // RAM, not code
+                }
+                labels.computeIfAbsent(romOffset(a), k -> new ArrayList<>()).add(p[2].substring(1));
+            }
+        }
+        StringBuilder sb = new StringBuilder();
+        String function = null;
+        for (Map.Entry<Integer, List<String>> e : labels.entrySet()) {
+            for (String name : e.getValue()) {
+                if (name.startsWith("_")) {
+                    function = name;
+                }
+            }
+            for (String name : e.getValue()) {
+                if (function != null && name.matches("b\\d+_.*")) {
+                    sb.append(function).append(' ').append(name).append(' ').append(counts.getOrDefault(e.getKey(), 0L)).append('\n');
+                }
+            }
+        }
+        Files.writeString(out, sb);
     }
 
     /** ROM offset of every function: the .procs of the generated modules and the runtime's routines. */

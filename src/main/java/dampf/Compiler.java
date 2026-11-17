@@ -29,9 +29,19 @@ public final class Compiler {
      *                     (docs/optimizations.md). The function keeps dampf's calling convention:
      *                     parameters in its static frame ({@code _<name>__<param>}), result in A
      *                     (and X for 32 bits), JSL/RTL, A/X/Y 16 bit, DBR $7E.
+     * @param blockCounts  how often each block ran, (function label, block name) → count, from a
+     *                     profile ({@code dampf profile --blocks}); null without one. Only the order
+     *                     of the blocks follows it, so a profile of other code makes the code
+     *                     slower, never wrong.
      */
     public record Options(List<Path> sources, List<Path> includeDirs, List<String> defines, String entry, Path output,
-                          Map<String, Path> replacements, Backend backend) {
+                          Map<String, Path> replacements, Backend backend,
+                          java.util.function.BiFunction<String, String, Long> blockCounts) {
+        public Options(List<Path> sources, List<Path> includeDirs, List<String> defines, String entry, Path output,
+                       Map<String, Path> replacements, Backend backend) {
+            this(sources, includeDirs, defines, entry, output, replacements, backend, null);
+        }
+
         public Options(List<Path> sources, List<Path> includeDirs, List<String> defines, String entry, Path output) {
             this(sources, includeDirs, defines, entry, output, Map.of(), Backend.NAIVE);
         }
@@ -42,7 +52,23 @@ public final class Compiler {
         }
 
         public Options withBackend(Backend b) {
-            return new Options(sources, includeDirs, defines, entry, output, replacements, b);
+            return new Options(sources, includeDirs, defines, entry, output, replacements, b, blockCounts);
+        }
+
+        public Options withBlockCounts(java.util.function.BiFunction<String, String, Long> counts) {
+            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, counts);
+        }
+
+        /** Block counts from a file of lines "function block count" ({@code dampf profile --blocks}). */
+        public static java.util.function.BiFunction<String, String, Long> readBlockCounts(Path file) throws IOException {
+            Map<String, Long> m = new java.util.HashMap<>();
+            for (String line : Files.readAllLines(file)) {
+                String[] p = line.strip().split("\\s+");
+                if (p.length == 3) {
+                    m.merge(p[0] + " " + p[1], Long.parseLong(p[2]), Long::sum);
+                }
+            }
+            return (function, block) -> m.get(function + " " + block);
         }
     }
 
@@ -101,7 +127,7 @@ public final class Compiler {
             NaiveCodeGen.checkEntry(entry);
             dampf.mir.MModule mir = Lower.lower(program);
             dampf.mir.Optimizer.run(mir);
-            MirCodeGen gen = new MirCodeGen(mir, entry.label(), debugName);
+            MirCodeGen gen = new MirCodeGen(mir, entry.label(), debugName, o.blockCounts());
             asm = new java.util.ArrayList<>(gen.generate());
             timing = gen.timing();
             Map<String, String> why = gen.unboundedWhy();

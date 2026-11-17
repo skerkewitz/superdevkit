@@ -119,6 +119,10 @@ about a minute with "did not finish within 60 s and was stopped (does it hang?)"
 
 ## Static timing in the tests
 
+Each execution test is also built with arbitrary block counts (`--block-counts`, a third of the
+blocks "never ran") and must still give gcc's results: a profile changes only the order of the
+blocks.
+
 The execution tests and the random programs compare the static timing with the emulator:
 `test_main` as a whole, and every call of every function and runtime routine on the way, must
 take between the best and the worst case (`Timing.check`). `GameTimingTest` (with `-Preplays`)

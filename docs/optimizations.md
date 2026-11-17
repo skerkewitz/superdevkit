@@ -506,6 +506,24 @@ If the old value is clean too (a parameter, or a φ of clean values), an 8-bit `
 between `SEP` and `REP` keeps the high byte 0: 11 cycles instead of 16. Play 496,395 → 494,619
 clocks per tick (1.38 frames).
 
+### Blocks laid out by a profile, 2026-11-17
+
+The jumps over large loop bodies (the section on short branches) need to know which blocks run
+rarely. A profile knows: `dampf profile ... --blocks file` writes how often each block ran (the
+block labels are in the label file), and `dampf build --block-counts file` lays the blocks out
+by it: the successor that ran more often follows, and blocks that never ran go to the end of the
+function. The code that runs stays together, its branches reach, and `JMP` drops out of the top
+instructions (it was 5.6 % of the cycles). `tools/profile_game.sh` writes
+`build/profile/<what>.blocks.txt`; `BLOCKS=<file>` passes it to `tools/bench_game.sh` and
+`tools/profile_game.sh`.
+
+Only the order of the blocks follows the counts, so counts of other code make the code slower,
+never wrong; the execution tests build every program once more with arbitrary counts (a third of
+the blocks "never ran") and compare it with gcc. Play 494,619 → 488,323 clocks per tick (1.37
+frames) with counts from the same ticks, 488,877 with counts from other ticks (2000–3610): the
+gain does not depend on profiling exactly what is measured. Without counts nothing changes; the
+numbers in this document are measured without them unless they say so.
+
 ### STZ for zeros, 2026-11-17
 
 A zero stored to a fixed address (direct page, absolute, X-indexed; not long or through a
@@ -588,7 +606,7 @@ the catalogue come first. Compared with Calypsi, dampf promises nothing until it
 | D | Data layout | Split arrays of structs into one array per field (index in X/Y), or point D at the current object | High in the loops over bubbles and enemies | | | open |
 | E | 8.8 fixed point | `>>8`, `<<8` and comparisons of the integer part as byte accesses instead of shifts | Medium to high; the game uses 8.8 everywhere | B | play 1.49 → 1.48 frames per tick | in progress: a load shifted right by 8 or more is a byte load (`ByteLoads`); `<<8` open |
 | F | Loops | Counter in X/Y, count down to zero, hoist invariant code, unroll small loops (by hint) | Medium | H | | open |
-| G | Branches | Branch on flags instead of materialising 0/1, common path falls through, correct branch distances | Medium | | play 1.48 → 1.47 frames per tick | in progress: compare and branch in one, short branches wherever they reach, `BRA` for near jumps; the layout of rare blocks open |
+| G | Branches | Branch on flags instead of materialising 0/1, common path falls through, correct branch distances | Medium | | play 1.48 → 1.47 frames per tick; 1.38 → 1.37 with a profile | in progress: compare and branch in one, short branches wherever they reach, `BRA` for near jumps, the layout of rare blocks by a profile (`--block-counts`), bit selections without a branch |
 | H | Standard optimizations | Constant folding and propagation, dead code removal, common subexpressions | Medium; mostly a prerequisite for A–G | IR in SSA form | play 6.12 → 5.17 frames per tick (code from MIR) | built: folding, identities, branch folding, block merging, value numbering, redundant loads, dead code; loop-invariant code open |
 | I | Multiply and divide | Constants as shifts and adds, hardware multiplier with useful work during its latency, division by powers of two with correct signed rounding | Medium, depends on the code; **measured: 37 % of the naive code's time is the runtime multiplication, mostly struct array indexing by a constant size** | range analysis for signed division | play 8.16 → 6.12 frames per tick (code from MIR) | constants built (shifts and adds, powers of two); hardware multiplier open |
 | J | Banks and placement | Keep the data bank register right, 16-bit instead of 24-bit addresses, hot code in FastROM | Small to medium | pointer width analysis | | open |
@@ -714,7 +732,8 @@ this fixed target allows optimizations that are impossible on general hardware.
 
 ### Profile-guided optimization with the replays
 
-Blubber Blasen's replays are recordings of real play. Running them in the cycle-counting emulator
+The first part is built: the layout of the blocks by a profile's block counts (see "Blocks
+laid out by a profile" above). Blubber Blasen's replays are recordings of real play. Running them in the cycle-counting emulator
 shows how often each branch is taken and which functions are hot. This profile data is fed back
 into dampf:
 

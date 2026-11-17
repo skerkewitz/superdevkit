@@ -16,11 +16,12 @@ import java.util.List;
  *
  * <pre>
  * dampf parse [-I dir] [-D name[=value]] file.c ...                   preprocess and parse
- * dampf build [-I dir] [-D name[=value]] [--entry name] [--backend mir|naive] [--replace fn=file.s] -o out.sfc file.c ...   compile to a ROM
+ * dampf build [-I dir] [-D name[=value]] [--entry name] [--backend mir|naive] [--replace fn=file.s]
+ *             [--block-counts file] -o out.sfc file.c ...         compile to a ROM (block counts: dampf profile --blocks)
  * dampf check [-I dir] [-D name[=value]] file.c ...                   front end: first problem per file, then the
  *                                                                      files that pass together (recursion, calls of
  *                                                                      functions defined nowhere, double definitions)
- * dampf profile rom.sfc profile.txt [top] [--skip file.c ...] [--instructions]
+ * dampf profile rom.sfc profile.txt [top] [--skip file.c ...] [--instructions] [--blocks file]
  *                                                                      cycles per function (tools/profile.lua), and
  *                                                                      per kind of instruction
  * </pre>
@@ -52,9 +53,12 @@ public final class Main {
         Path output = null;
         java.util.Map<String, Path> replacements = new java.util.LinkedHashMap<>();
         Compiler.Backend backend = null;
+        Path blockCounts = null;
         for (int i = 1; i < args.length; i++) {
             String a = args[i];
-            if (a.equals("--backend") && i + 1 < args.length) {
+            if (a.equals("--block-counts") && i + 1 < args.length) {
+                blockCounts = Path.of(args[++i]);
+            } else if (a.equals("--backend") && i + 1 < args.length) {
                 String name = args[++i];
                 try {
                     backend = Compiler.Backend.valueOf(name.toUpperCase());
@@ -102,7 +106,8 @@ public final class Main {
             }
             try {
                 Compiler.Result r = Compiler.compile(new Compiler.Options(files, includes, defines, entry, output, replacements,
-                        backend != null ? backend : replacements.isEmpty() ? Compiler.Backend.MIR : Compiler.Backend.NAIVE));
+                        backend != null ? backend : replacements.isEmpty() ? Compiler.Backend.MIR : Compiler.Backend.NAIVE,
+                        blockCounts == null ? null : Compiler.Options.readBlockCounts(blockCounts)));
                 r.warnings().forEach(System.err::println);
                 System.err.println("wrote " + r.rom().rom() + " and " + r.rom().dbg());
                 return;
@@ -168,8 +173,8 @@ public final class Main {
 
     private static void usage() {
         System.err.println("usage: dampf parse [-I dir] [-D name[=value]] file.c ...");
-        System.err.println("       dampf build [-I dir] [-D name[=value]] [--entry name] [--backend mir|naive] [--replace fn=file.s] -o out.sfc file.c ...");
+        System.err.println("       dampf build [-I dir] [-D name[=value]] [--entry name] [--backend mir|naive] [--replace fn=file.s] [--block-counts file] -o out.sfc file.c ...");
         System.err.println("       dampf check [-I dir] [-D name[=value]] file.c ...");
-        System.err.println("       dampf profile rom.sfc profile.txt [top] [--skip file.c ...] [--instructions]");
+        System.err.println("       dampf profile rom.sfc profile.txt [top] [--skip file.c ...] [--instructions] [--blocks file]");
     }
 }
