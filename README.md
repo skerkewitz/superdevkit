@@ -67,6 +67,10 @@ Non-goals:
 
 ## Documents
 
+The user book is in [docs/book](docs/book) (`npm install`, then `npm run docs:dev`); its pages
+are generated from the specs in [doc-specs](doc-specs/README.md). The documents below are the
+working documents it is written from.
+
 - [docs/architecture.md](docs/architecture.md): the pipeline, the three IR levels, core and target, the assembly output.
 - [docs/subset.md](docs/subset.md): the C subset, derived from what the game uses, and the decisions about it.
 - [docs/hints.md](docs/hints.md): hints that tell dampf what a human assembly programmer would know.
@@ -162,4 +166,14 @@ examples/m1/                   example for stepping through C in Mesen
 examples/blubberblasen/        snapshot of the game's code (do not edit; refresh with tools/update_game_snapshot.sh)
 tools/subset_scan.py           M0 scanner: which C constructs a code base uses
 docs/                          subset and optimization documents
+docs/book/                     the user book (VitePress), mostly generated from doc-specs/
+doc-specs/                     what each page of the book covers, and its sources
 ```
+
+## Licence
+
+dampf is under the Apache License v2.0 with LLVM Exceptions, the same licence as LLVM
+(SPDX: `Apache-2.0 WITH LLVM-exception`); see [LICENSE](LICENSE) and [NOTICE](NOTICE). The
+exception means that code dampf puts into a compiled program carries no licence conditions: games
+built with dampf can use any licence. Third-party parts (the C grammar from grammars-v4) keep their
+own licence, listed in NOTICE.

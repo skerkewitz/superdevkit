@@ -14,6 +14,8 @@ IR levels). It was revised on 2026-11-17 after M1, see *Changes* below.
 | Checkpoint | Decide whether the plan reaches the budget | See below | Decided 2026-11-17: compiler and game in parallel (below) |
 | M3 | The big levers | Optimizations A–D ([optimizations.md](optimizations.md)), built on the three IR levels. Goal: faster than Calypsi. Also: static best/worst case per function and the timing report, `DAMPF_BUDGET` checked at build time ([timing.md](timing.md)), the remaining reference functions; inferred value ranges and pointer compression ([subrange-types.md](subrange-types.md)) | In progress: MIR, the code generator from MIR and passes B, I and H are built, see below |
 | M4 | Fine tuning | Optimizations E–N until the frame budget is met, page-aligned arrays with 8-bit index registers. Also: profile-guided optimization from the replays, superoptimization of short hot sequences, `DAMPF_TABLE`, `DAMPF_PIN_X` and the other transforming hints | Not started |
+| M5 | Publishing | dampf can go public: own examples replace Blubber Blasen as test case and benchmark, dampf has its own preprocessor, the repository is hosted | Not started; see below |
+| M6 | Standing alone | dampf has its own assembler and linker; using dampf needs nothing but Java | Not started. The very last step, taken only when everything else runs to our satisfaction |
 
 ### M2 in steps
 
@@ -141,6 +143,32 @@ PVSnesLib-shaped calls that `video.c` makes ([subset.md](subset.md)). It is not 
 measurements (the benchmark stubs those calls out) and is planned when the game's SNES port (its
 stage 3 proof of concept) needs it.
 
+### M5: publishing
+
+- **Own examples.** The Blubber Blasen snapshot (`examples/blubberblasen`) and the hand-written
+  benchmark in `reference/` (assembly of a Blubber Blasen function) leave the repository. Deleting
+  them is not enough: they are in the git history, so either the history is cleaned
+  (`git filter-repo`) or the public repository starts without it. Own examples take over their
+  jobs: a program large enough to be a test case, a busy scene as speed benchmark, and new
+  hand-written reference functions.
+- **Own preprocessor.** Today dampf calls `gcc -E`, which users on Windows have to install
+  (MinGW or MSYS) only for that. dampf gets its own C preprocessor in Java: macro expansion
+  following Prosser's algorithm, `#` and `##`, variadic macros with `__VA_OPT__`, `#if`
+  arithmetic in `intmax_t`, line markers for the debug information. `gcc -E` stays in the tests
+  as the oracle: the output of dampf's preprocessor is compared with gcc's on every test program,
+  every example and on generated macro cases. After this, gcc is only needed to develop dampf
+  (the PC side of the execution tests), not to use it.
+- **Hosting**, and the book online.
+
+### M6: standing alone
+
+dampf assembles and links itself, so ca65 and ld65 are no longer needed and using dampf needs
+nothing but Java. dampf only uses a small part of ca65 (its own output) and of ld65 (its own
+memory map), so both stay as the oracle in the tests: the ROM dampf builds itself must be
+byte-identical to the one ca65 and ld65 build from the same assembly, and the debug information
+must still let Mesen show the C source. This is deliberately the last step: it changes nothing
+in the code dampf generates, so it waits until everything else runs to our satisfaction.
+
 ### Changes
 
 - **2026-11-17, after M1.** The design discussion had added three items to M1: the Java CPU
@@ -181,10 +209,11 @@ Resolved:
   use it too.
 - ~~Whether Mesen shows the C source with dampf's debug output~~: yes, stepping through C works
   (2026-11-17).
+- ~~Licence~~: Apache License 2.0 with LLVM Exceptions, the same as LLVM (2026-11-17). The
+  exception keeps the games free: code dampf puts into a ROM carries no licence conditions.
 
 Open:
 
-- Repository hosting and licence (the compiler should be open source like the game).
 - How Mesen shows locals that live in fixed direct page slots (with the naive generator they are
   in RAM; the `.dbg` file declares them as static C symbols).
 - What the Calypsi investigation finds, and what that means for the order of the optimizations.

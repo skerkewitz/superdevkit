@@ -62,3 +62,13 @@ application {
     mainClass = "dampf.Main"
     applicationName = "dampf"
 }
+
+// Records the sources of generated book pages in doc-specs/_sources.lock, read by BookSourcesTest:
+// ./gradlew stampBook -Pspecs=doc-specs/guide/introduction.spec.md (several separated by commas, or all)
+tasks.register<JavaExec>("stampBook") {
+    group = "documentation"
+    description = "Records the sources of generated book pages in doc-specs/_sources.lock"
+    classpath = sourceSets.test.get().runtimeClasspath
+    mainClass = "dampf.book.BookSources"
+    args((findProperty("specs") as String? ?: "all").split(","))
+}

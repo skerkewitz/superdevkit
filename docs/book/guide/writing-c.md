@@ -1,0 +1,160 @@
+<!-- GENERATED from doc-specs/guide/writing-c.spec.md by /docs-gen. Do not edit; change the spec or its sources. -->
+# Writing C for dampf
+
+dampf does not compile all of C. It compiles a [subset](/glossary#subset) that it defines
+itself, and it rejects everything outside it with a message that names the construct and the
+place; nothing outside the subset is ever compiled silently. The subset is what a game needs:
+it was taken from the C of [Blubber Blasen](/glossary#blubber-blasen), plus a little room
+around it. Because the same source must also build with gcc on the PC, every rule below keeps
+the code valid C99 that gives the same result in both builds.
+
+## Integer types say their width
+
+Declare integers with the types of `<stdint.h>`: `int8_t`, `uint8_t`, `int16_t`, `uint16_t`,
+`int32_t` and `uint32_t`. dampf rejects plain `int`, `short`, `long`, `unsigned`, `signed` and
+`long long`, because their size differs between compilers: `int` is 32 bits with gcc on the PC
+and 16 bits with the other 65816 compilers, 816-tcc and [Calypsi](/glossary#calypsi). A
+declaration such as `int lives;` in line 3 of `lives.c` stops with:
+
+```
+lives.c:3:1: error: 'int' is not allowed: use int32_t (plain C integer types differ between the PC and the SNES)
+```
+
+The rule also covers casts: `(unsigned)a` is rejected in the same way as a declaration.
+
+dampf ships its own `<stdint.h>`, and its typedefs use the same underlying types as gcc on the
+PC (`int32_t` is `int`, `int16_t` is `short`), so each type means the same thing on both sides.
+It also defines the limits (`INT8_MIN` to `UINT32_MAX`) and the `INT8_C` to `UINT32_C` macros.
+
+Plain `char` is allowed, for text such as string tables and name buffers. dampf gives it the
+meaning it has with gcc on x86-64, a signed 8-bit type.
+
+## Same arithmetic as gcc on the PC
+
+The [PC build](/glossary#pc-build) is the reference: what your code computes on the SNES must
+match what gcc computes on an x86-64 PC, bit for bit. So dampf follows C's rules exactly as gcc
+applies them there. Integer constants and the integer promotions use a 32-bit `int`: an
+`int8_t` or `uint16_t` operand becomes an `int` before the operation. Overflow of an unsigned
+type wraps, a conversion to a narrower type truncates, signed division rounds towards zero, and
+`>>` of a negative value is an arithmetic shift.
+
+Two functions of the first example program show the promotion:
+
+```c [examples/m1/calls.c]
+static uint8_t inc8(int8_t x)
+{
+    return x + 1;               /* int arithmetic, then truncated to uint8_t */
+}
+
+static int8_t neg8(uint8_t x)
+{
+    return -x;                  /* -(int)x, then converted to int8_t */
+}
+```
+
+In `neg8`, `-x` is not the negation of an unsigned byte: `x` becomes an `int` first, so
+`neg8(127)` computes the `int` value -127 and converts it to `int8_t`, which gives -127. In the
+same way `inc8(127)` computes 128 as an `int` and truncates it to `uint8_t`, which gives 128,
+and `inc8(-1)` gives 0. The promotion shows wherever the intermediate value is used before it
+is truncated: for an `int8_t x` holding 127, `x + 1 > 127` is true.
+
+Computing everything in 32 bits would be slow on the 65816. dampf narrows an operation to 8 or
+16 bits, but only where it can prove the result is the same as in 32 bits.
+
+## What is left out
+
+The constructs the subset rejects most often:
+
+| Construct | Why it is left out |
+| --- | --- |
+| `float`, `double` | the 65816 has no floating point, and the game needs none |
+| Recursion | every local has a fixed address, which is only correct without recursion |
+| Function pointers | dampf must see the complete call graph |
+| `union`, bit fields | not used by the game |
+| Structs passed or returned by value | not used by the game; pass a pointer instead |
+| `goto` and labels | would need a more general timing analysis |
+| `malloc`, any heap | all objects are static, so memory use is known at compile time |
+| Library functions | the only system header is `<stdint.h>` |
+
+Recursion is reported with the cycle of calls, for example
+`recursion is not supported: count_down → count_down`. Struct assignment is allowed: it is a
+copy of known size.
+
+The complete list, with every construct and the counts from the scan of the game, is in
+[The C subset](/reference/c-subset).
+
+Hints and intrinsics, macros that tell dampf a value range or give the code access to the SNES
+hardware, are not built yet; see [Limits](/reference/limits).
+
+## One program, not separate files
+
+dampf compiles all `.c` files of a game together, as one
+[whole program](/glossary#whole-program). There is no separate compilation and no linking of
+object files: you name every `.c` file on the command line at once. `static` names stay local to their file as in C, so two files, or two
+functions, can each have a static variable of the same name.
+
+Seeing the whole program lets dampf know every call and every use of every variable. It builds
+the complete call graph, which is possible because there are no free function pointers, checks
+that it has no cycle, and so can give every local of every function a fixed address.
+
+## The preprocessor
+
+dampf preprocesses each file with gcc:
+
+```sh
+gcc -E -std=c99 -nostdinc -undef -D__DAMPF__=1 -I <dampf's include directory> ...
+```
+
+`-nostdinc` switches off the host's headers, so `#include <stdint.h>` finds dampf's own header
+and `#include <stdio.h>` fails. `-undef` drops the host's predefined macros such as
+`__x86_64__`. Your own `-D` options are added after `-D__DAMPF__=1`, your `-I` directories
+after dampf's include directory. Anything `gcc -E` accepts works, and line markers are kept, so
+every message points to the line in your source.
+
+Use `__DAMPF__` to keep a branch apart that only one build may see. Here the PC build prints a
+trace with `printf`, and the dampf build never sees `<stdio.h>` or the `unsigned` cast:
+
+```c
+#include <stdint.h>
+
+#ifndef __DAMPF__
+#include <stdio.h>
+#define TRACE_SCORE(s) printf("score %u\n", (unsigned)(s))
+#else
+#define TRACE_SCORE(s) ((void)0)
+#endif
+
+uint16_t score;
+
+void add_points(uint8_t points)
+{
+    score = score + points;
+    TRACE_SCORE(score);
+}
+```
+
+The same works for macros that another compiler needs, such as an `__attribute__` for Calypsi:
+give dampf its own `#ifdef __DAMPF__` branch.
+
+## Checking your code
+
+Run `dampf check` on a set of files to see whether they are in the subset, without building a
+ROM. It takes the same `-I` and `-D` options as `dampf build`, checks each file on its own and
+prints one line per file:
+
+```sh
+dampf check score.c hud.c
+```
+
+```
+ok      score.c
+FAILS   hud.c:3:1: error: 'float' is not supported: dampf has no floating point
+1 of 2 file(s) pass the front end
+```
+
+Only the first problem of each file is reported. Because each file is checked on its own, one
+unsupported construct in one file does not hide the problems of the others; fix the reported
+one and run the check again for the next. The exit status is 0 only when every file passes.
+Recursion is found when `dampf build` puts the whole program together, not by `dampf check`.
+
+All options are on [Command line](/reference/command-line#check).

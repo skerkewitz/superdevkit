@@ -1,0 +1,62 @@
+/* Use the width of a desktop screen instead of the default theme's narrow column, so that wide
+   tables fit. The default theme's own rules are scoped, which makes them more specific than any
+   selector here; hence the !important. */
+:root {
+  --vp-layout-max-width: 1920px;
+}
+
+.VPDoc.has-aside .content-container,
+.VPDoc .content-container {
+  max-width: none !important;
+}
+
+.VPDoc:not(.has-sidebar) .container,
+.VPDoc:not(.has-sidebar) .content {
+  max-width: none !important;
+}
+
+@media (min-width: 80rem) {
+  .VPDoc .content {
+    flex-grow: 1;
+  }
+}
+
+/* Inline code in a flat orange, so that blue means a link. */
+:root {
+  --vp-code-color: #c2410c;
+}
+
+.dark {
+  --vp-code-color: #fb923c;
+}
+
+/* Links without the underline until the pointer is on them, at the weight of the text around. */
+.vp-doc a {
+  text-decoration: none;
+  font-weight: inherit;
+}
+
+.vp-doc a:hover {
+  text-decoration: underline;
+}
+
+/* The file a code block belongs to (code-titles.ts), as a tab on top of the block. */
+.vp-doc .code-titled {
+  margin: 16px 0;
+}
+
+.vp-doc .code-title {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 8px 8px 0 0;
+  background-color: var(--vp-code-block-bg);
+  border-bottom: 1px solid var(--vp-c-divider);
+  color: var(--vp-c-text-2);
+  font-family: var(--vp-font-family-mono);
+  font-size: 13px;
+}
+
+.vp-doc .code-titled > div[class*='language-'] {
+  margin-top: 0;
+  border-top-left-radius: 0;
+}

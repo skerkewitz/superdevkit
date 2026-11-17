@@ -6,3 +6,6 @@ build/
 out/
 .vscode/
 .mesen/
+node_modules/
+docs/book/.vitepress/cache/
+docs/book/.vitepress/dist/
