@@ -722,6 +722,24 @@ returns its own value (`LDA #1`, `RTL`), and the φs are gone. Earlier, the pass
 clocks per tick (1.02 frames). `ReturnsTest` covers a jump, a branch and a switch with two cases
 to the same return; `exec/returns.c` fails if a path returns another path's value.
 
+### A pointer plus an index: the index in Y, 2026-11-17
+
+`cells[((uint16_t)ty << 5) + (uint16_t)tx]` with `cells` a pointer variable computed the sum
+of pointer and index (`CLC`, `LDA`, `ADC`, `STA`, `LDA`, `STA`: 22 cycles) and then read with
+`LDY #0`, `LDA [dp],y`. `[dp],y` adds Y to the 24-bit pointer, so the index can go into Y
+directly: `LDY index`, `LDA [dp],y`. `FrameLayout` folds a pointer plus a 16-bit index the
+value ranges show to be never negative (Y adds as an unsigned number and carries into the bank;
+a nonnegative index stays inside the object, which never crosses a bank), when the sum is only
+the address of loads and stores. A 32-bit access steps Y with `INY INY` for the second word. An
+index plus a constant (a field of `p[i]`) still computes the sum, since Y has no room for the
+constant. Play 364,829 → 359,710 clocks per tick (1.01 frames); `level_solid_px` 951 → 871
+clocks per call. `exec/pointer_index.c`: allowing a negative index fails it, and so does
+stepping Y by one for the second word.
+
+An index that is an induction variable (an offset that grows by the element size every round)
+is not folded yet: the range analysis gives it the type's whole range, since it cannot see that
+the loop ends before the offset wraps.
+
 ### Summary of the code from MIR so far (2026-11-17, the latest measurement)
 
 Measured after the range analysis learned to narrow after widening: a loop of more than 24
@@ -730,16 +748,16 @@ it from being narrowed and from indexed addressing as nonnegative. Narrowing aga
 widened fixpoint gives it 0..768. Play 1.53 → 1.50, title 0.68 → 0.60. Then A's places and the
 byte loads, the short branches, INC/DEC, STZ, the bit selections, fewer copies and the registers
 across blocks (sections above): play 1.31. The last column adds FastROM, the CMP #0 that went, the
-values not stored, the narrow switches and the copied returns (see their sections); the column before it is SlowROM speed, as the earlier columns were measured.
+values not stored, the narrow switches, the copied returns and the index in Y (see their sections); the column before it is SlowROM speed, as the earlier columns were measured.
 
 | State | naive | from MIR, no passes | SlowROM | now (FastROM) |
 | --- | --- | --- | --- | --- |
 | title | 1.94 | 12.21 | 0.54 | 0.45 |
 | story | 0.70 | 3.56 | 0.22 | 0.18 |
 | round intro | 5.76 | 12.13 | 1.76 | 1.45 |
-| play | 5.17 (worst 8.58) | 18.93 | 1.31 (worst 2.25) | 1.02 (worst 1.78) |
-| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 1.98 (worst 4.08) | 1.62 (worst 3.42) |
-| `level_solid_px`, per call | 3,849 | 6,648 | 1,149 | 951 clocks |
+| play | 5.17 (worst 8.58) | 18.93 | 1.31 (worst 2.25) | 1.01 (worst 1.76) |
+| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 1.98 (worst 4.08) | 1.60 (worst 3.40) |
+| `level_solid_px`, per call | 3,849 | 6,648 | 1,149 | 871 clocks |
 
 Calypsi's 2.72 frames per tick during play (on an older version of the game) is passed. On the
 same version (the snapshot, `tools/bench_compilers.sh`, measured in dampf's emulator, which

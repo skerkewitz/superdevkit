@@ -2017,6 +2017,22 @@ public final class MirCodeGen {
         return fixed(a.base(), a.offset()) != null;
     }
 
+    /**
+     * Y for a [dp],y access at byte k of the object: the constant offset, or the index (a pointer
+     * plus a 16-bit value that is never negative), and INY INY for the next word.
+     */
+    private void yAt(FrameLayout.Address a, int k) {
+        if (a.index() == null) {
+            ins("ldy", imm(a.offset() + k));
+        } else if (k == 0) {
+            // (never a loop counter kept in X: usesFitX counts only globals and slots it indexes)
+            ins("ldy", operand(a.index(), 0));
+        } else {
+            ins("iny", null);
+            ins("iny", null);
+        }
+    }
+
     private void load(Instr.Load l) {
         MType t = l.type();
         FrameLayout.Address a = address(l.op(0));
@@ -2024,7 +2040,7 @@ public final class MirCodeGen {
         String via = direct ? null : via(a.base(), P);
         if (t.size == 1) {
             if (!direct) {
-                ins("ldy", imm(a.offset()));
+                yAt(a, 0);
             }
             if (l.isVolatile) {
                 // exactly one byte: reading an I/O register can have an effect
@@ -2042,7 +2058,7 @@ public final class MirCodeGen {
         }
         for (int w = 0; w < words(t); w++) {
             if (!direct) {
-                ins("ldy", imm(a.offset() + 2 * w));
+                yAt(a, 2 * w);
             }
             ins("lda", direct ? fixedAt(a, 2 * w, "lda") : via);
             result(l, w);
@@ -2075,7 +2091,7 @@ public final class MirCodeGen {
         if (t.size == 1) {
             ins("lda", operand(v, 0));
             if (!direct) {
-                ins("ldy", imm(a.offset()));
+                yAt(a, 0);
             }
             ins("sep", "#$20");
             ins("sta", direct ? fixedAt(a, 0, "sta") : via);
@@ -2085,7 +2101,7 @@ public final class MirCodeGen {
         for (int w = 0; w < words(t); w++) {
             ins("lda", operand(v, w));
             if (!direct) {
-                ins("ldy", imm(a.offset() + 2 * w));
+                yAt(a, 2 * w);
             }
             ins("sta", direct ? fixedAt(a, 2 * w, "sta") : via);
         }

@@ -125,7 +125,7 @@ final class FrameLayout {
             base = p.op(0);
             offset = (int) p.op(1).type().signed(((Value.Const) p.op(1)).bits());
         }
-        if (base instanceof Instr.PtrAdd q && indexable(q)) {
+        if (base instanceof Instr.PtrAdd q && (indexable(q) || offset == 0 && pointerIndexable(q))) {
             return new Address(q.op(0), offset, q.op(1));
         }
         ConstAddress c = constAddress(base);
@@ -186,6 +186,24 @@ final class FrameLayout {
         return r != null && r.lo() >= 0;
     }
 
+    /**
+     * A pointer plus a 16-bit value that is never negative: {@code [dp],y} with the value in Y,
+     * the sum never computed. Y adds as an unsigned number and carries into the bank, so a
+     * negative offset would leave the object's bank; a nonnegative one stays in the object, which
+     * never crosses a bank. The pointer is a value with a place of its own (not a sum folded
+     * into its accesses itself).
+     */
+    boolean pointerIndexable(Instr.PtrAdd q) {
+        Value p = q.op(0);
+        if (!(p instanceof Instr || p instanceof Value.Param) || p instanceof Instr.PtrAdd || constAddress(p) != null
+                || p instanceof Instr i && transparent(i)
+                || q.op(1) instanceof Value.Const || q.op(1).type() != MType.I16) {
+            return false;
+        }
+        Ranges.Range r = ranges.at(q.op(1), q.block());
+        return r != null && r.lo() >= 0;
+    }
+
     static boolean foldable(Instr.PtrAdd p) {
         if (!(p.op(1) instanceof Value.Const k)) {
             return false;
@@ -227,9 +245,11 @@ final class FrameLayout {
         for (Block b : f.blocks()) {
             for (Instr i : b.instrs()) {
                 for (int k = 0; k < i.operands().size(); k++) {
-                    if (i.op(k) instanceof Instr.PtrAdd q && indexable(q)) {
+                    if (i.op(k) instanceof Instr.PtrAdd q && (indexable(q) || pointerIndexable(q))) {
+                        // through a pointer only directly: Y holds the index, there is no room
+                        // for a constant on top
                         boolean ok = k == 0 && (i instanceof Instr.Load || i instanceof Instr.Store)
-                                || i instanceof Instr.PtrAdd p && k == 0 && folded.contains(p);
+                                || indexable(q) && i instanceof Instr.PtrAdd p && k == 0 && folded.contains(p);
                         onlyAddresses.merge(q, ok, Boolean::logicalAnd);
                     }
                 }
