@@ -1,5 +1,6 @@
 package dampf;
 
+import dampf.frontend.AstBuilder;
 import dampf.frontend.CompileError;
 import dampf.frontend.Diagnostic;
 import dampf.frontend.Parser;
@@ -16,13 +17,14 @@ import java.util.List;
  * <pre>
  * dampf parse [-I dir] [-D name[=value]] file.c ...                   preprocess and parse
  * dampf build [-I dir] [-D name[=value]] [--entry name] -o out.sfc file.c ...   compile to a ROM
+ * dampf check [-I dir] [-D name[=value]] file.c ...                   front end only: first problem per file
  * </pre>
  */
 public final class Main {
     private Main() {}
 
     public static void main(String[] args) throws IOException {
-        if (args.length == 0 || !args[0].equals("parse") && !args[0].equals("build")) {
+        if (args.length == 0 || !List.of("parse", "build", "check").contains(args[0])) {
             usage();
             System.exit(2);
         }
@@ -76,6 +78,22 @@ public final class Main {
                 System.exit(1);
             }
         }
+        if (args[0].equals("check")) {
+            // every file on its own, so one unsupported construct does not hide the others
+            int ok = 0;
+            for (Path f : files) {
+                try {
+                    AstBuilder b = new AstBuilder(SystemHeaders.directory());
+                    b.addFile(Parser.parse(new Preprocessor("gcc", SystemHeaders.directory(), includes, defines).run(f), f.toString()));
+                    ok++;
+                    System.err.println("ok      " + f);
+                } catch (CompileError e) {
+                    System.err.println("FAILS   " + e.diagnostics().getFirst());
+                }
+            }
+            System.err.printf("%d of %d file(s) pass the front end%n", ok, files.size());
+            System.exit(ok == files.size() ? 0 : 1);
+        }
         Preprocessor pp = new Preprocessor("gcc", SystemHeaders.directory(), includes, defines);
         int errors = 0;
         for (Path f : files) {
@@ -92,5 +110,6 @@ public final class Main {
     private static void usage() {
         System.err.println("usage: dampf parse [-I dir] [-D name[=value]] file.c ...");
         System.err.println("       dampf build [-I dir] [-D name[=value]] [--entry name] -o out.sfc file.c ...");
+        System.err.println("       dampf check [-I dir] [-D name[=value]] file.c ...");
     }
 }

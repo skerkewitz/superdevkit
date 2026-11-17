@@ -1,7 +1,8 @@
 ; dampf SNES runtime: start-up, header and vectors (milestone M1).
 ;
-; After reset: native mode, A/X/Y 16 bit, D = 0, DBR = 0, stack at $1FFF,
-; BSS cleared, DATA copied from ROM to RAM. Then it calls the entry function
+; After reset: native mode, A/X/Y 16 bit, D = 0, DBR = $7E (all variables are
+; in bank $7E, see docs/memory-map.md), stack at $1FFF, BSS cleared, DATA
+; copied from ROM to RAM. Then it calls the entry function
 ; (dampf_entry, set by the compiler) and, when that returns, writes 1 to
 ; $21FB (an unused B-bus port) so a test script knows the program is done,
 ; and stops.
@@ -30,16 +31,17 @@ reset:
         txs
         lda     #$0000
         tcd                     ; D = 0
-        pha
-        plb                     ; DBR = 0 (PHA pushed two zero bytes, pull both)
-        plb
         sep     #$20
         .a8
-        stz     $4200           ; no NMI, no IRQ, no auto joypad
+        lda     #0
+        sta     f:$004200       ; no NMI, no IRQ, no auto joypad
         lda     #$80
-        sta     $2100           ; forced blank
+        sta     f:$002100       ; forced blank
         rep     #$20
         .a16
+        pea     $7E7E
+        plb                     ; DBR = $7E (PEA pushed two bytes, pull both)
+        plb
 
         ; clear BSS
         ldx     #.loword(__BSS_SIZE__)
@@ -62,9 +64,7 @@ reset:
         dec     a
         ldx     #.loword(__DATA_LOAD__)
         ldy     #.loword(__DATA_RUN__)
-        mvn     #^__DATA_LOAD__, #^__DATA_RUN__
-        phk                     ; MVN leaves DBR at the destination bank: restore it
-        plb
+        mvn     #^__DATA_LOAD__, #$7E   ; leaves DBR = $7E, the destination bank
 @data_done:
 
         jsr     dampf_entry
@@ -73,7 +73,7 @@ dampf_done:
         sep     #$20
         .a8
         lda     #1
-        sta     DONE_PORT
+        sta     f:DONE_PORT     ; a long address: DBR points at RAM, not at the I/O registers
         rep     #$20
         .a16
 @halt:  stp

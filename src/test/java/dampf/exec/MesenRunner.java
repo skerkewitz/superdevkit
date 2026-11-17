@@ -40,7 +40,7 @@ final class MesenRunner {
                 local function finish(text, code)
                   local f = io.open(out, "w"); f:write(text); f:close(); emu.stop(code)
                 end
-                local function rd(a) return emu.read(a, emu.memType.snesMemory) end
+                local function rd(a) return emu.read(0x7E0000 + a, emu.memType.snesMemory) end   -- variables are in bank $7E
                 local ok, err = pcall(function()
                   local frames = 0
                   emu.addEventCallback(function()

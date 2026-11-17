@@ -50,11 +50,13 @@ public final class AstBuilder {
     private int fileIndex;
     private Map<String, Type> typedefs;
     private Map<String, Object> fileScope;
+    private Map<String, Type> enumTags;
 
     // per function
     private Function current;
     private List<Variable> currentLocals;
-    private final Deque<Map<String, Variable>> blockScopes = new ArrayDeque<>();
+    /** Block scopes: variables and enumeration constants ({@link EnumConst}). */
+    private final Deque<Map<String, Object>> blockScopes = new ArrayDeque<>();
     private int loopDepth;
     private int breakDepth;
 
@@ -71,6 +73,7 @@ public final class AstBuilder {
         fileIndex++;
         typedefs = new HashMap<>();
         fileScope = new HashMap<>();
+        enumTags = new HashMap<>();
         CParser.TranslationUnitContext tu = parsed.tree().translationUnit();
         if (tu == null) {
             return;
@@ -149,7 +152,7 @@ public final class AstBuilder {
                     } else if (ts.structOrUnionSpecifier() != null) {
                         throw unsupported(ts, "structs and unions");
                     } else if (ts.enumSpecifier() != null) {
-                        throw unsupported(ts, "enums");
+                        named = enumType(ts.enumSpecifier());
                     } else {
                         keywords.add(ts.getText());
                     }
@@ -208,6 +211,55 @@ public final class AstBuilder {
         } catch (RuntimeException e) {
             return false;
         }
+    }
+
+    /** An enumeration constant: in C it has type int. */
+    private record EnumConst(String name, long value) {}
+
+    /**
+     * An enum type, as gcc sees it: unsigned int if no enumerator is negative, otherwise int.
+     * Its enumerators go into the current scope.
+     */
+    private Type enumType(CParser.EnumSpecifierContext es) throws CompileError {
+        String tag = es.Identifier() != null ? es.Identifier().getText() : null;
+        if (es.enumTypeSpecifier() != null) {
+            throw unsupported(es, "enums with a fixed underlying type");
+        }
+        if (es.enumeratorList() == null) {
+            Type t = enumTags.get(tag);
+            if (t == null) {
+                throw error(es, "unknown enum '" + tag + "'");
+            }
+            return t;
+        }
+        long next = 0;
+        boolean negative = false;
+        Map<String, Object> scope = blockScopes.isEmpty() ? fileScope : blockScopes.peek();
+        for (CParser.EnumeratorContext en : es.enumeratorList().enumerator()) {
+            String name = en.enumerationConstant().getText();
+            long value = next;
+            if (en.constantExpression() != null) {
+                Long v = fold(conditional(en.constantExpression().conditionalExpression()));
+                if (v == null) {
+                    throw error(en, "the value of '" + name + "' must be an integer constant");
+                }
+                value = v;
+            }
+            if (value < Type.I32.min() || value > Type.I32.max()) {
+                throw error(en, "the value of '" + name + "' does not fit in an int");
+            }
+            if (scope.containsKey(name)) {
+                throw error(en, "'" + name + "' is already declared");
+            }
+            scope.put(name, new EnumConst(name, value));
+            negative |= value < 0;
+            next = value + 1;
+        }
+        Type t = negative ? Type.I32 : Type.U32;
+        if (tag != null) {
+            enumTags.put(tag, t);
+        }
+        return t;
     }
 
     private Declarator declarator(CParser.DeclaratorContext d) throws CompileError {
@@ -397,7 +449,7 @@ public final class AstBuilder {
         current = f;
         currentLocals = f.locals();
         blockScopes.clear();
-        Map<String, Variable> paramScope = new LinkedHashMap<>();
+        Map<String, Object> paramScope = new LinkedHashMap<>();
         List<Variable> params = new ArrayList<>();
         for (Param p : dec.params()) {
             if (p.name() == null) {
@@ -459,7 +511,7 @@ public final class AstBuilder {
             if (!(s.type() instanceof Type.Int t)) {
                 throw new CompileError(dec.pos(), "variable '" + dec.name() + "' has type void");
             }
-            Map<String, Variable> scope = blockScopes.peek();
+            Map<String, Object> scope = blockScopes.peek();
             if (scope.containsKey(dec.name())) {
                 throw new CompileError(dec.pos(), "redeclaration of '" + dec.name() + "'");
             }
@@ -933,6 +985,9 @@ public final class AstBuilder {
             if (o instanceof Variable v) {
                 return new Expr.Var(v, pos(prim));
             }
+            if (o instanceof EnumConst k) {
+                return new Expr.Const(k.value(), Type.I32, pos(prim));
+            }
             if (o instanceof Function) {
                 throw unsupported(prim, "function pointers");
             }
@@ -958,10 +1013,10 @@ public final class AstBuilder {
     }
 
     private Object lookup(String name) {
-        for (Map<String, Variable> scope : blockScopes) {
-            Variable v = scope.get(name);
-            if (v != null) {
-                return v;
+        for (Map<String, Object> scope : blockScopes) {
+            Object o = scope.get(name);
+            if (o != null) {
+                return o;
             }
         }
         return fileScope.get(name);
