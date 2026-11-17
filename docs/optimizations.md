@@ -571,6 +571,14 @@ arrived agree on and go on, instead of writing the function without assumptions 
 assumptions only shrink then, so the passes end. Play 474,124 → 468,441 clocks per tick (1.31
 frames), title 193,463 → 192,815.
 
+The pair loop of `separate` still loads bubble a into Y in every round. The analysis starts
+pessimistic: in the first pass nothing is assumed at the loop's head, so the way back brings
+nothing, and the meet keeps it so. An optimistic start was tried (a block first assumes what
+its ways in that are not the way back of a loop bring, and shrinks after a contradiction, with
+up to six optimistic passes): it cut the `LDY`s of `separate` from 13 to 2, but not the one in
+the hot block, because the head's state reaches the end of the body only one block per pass, and
+the game as a whole got no faster (468,257 clocks per tick). It was not kept.
+
 ### Blocks laid out by a profile, 2026-11-17
 
 The jumps over large loop bodies (the section on short branches) need to know which blocks run
