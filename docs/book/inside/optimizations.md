@@ -8,7 +8,7 @@ it may use at most 60 % of an NTSC [frame](/glossary#frame), about 0.6 frames pe
 vertical blank and a safety margin come off that. The game's benchmark runs the same game code
 with a fixed input for 1,800 ticks and measures every tick in Mesen.
 
-During play, the code dampf now generates takes 0.92 frames per tick (worst tick 1.64) with
+During play, the code dampf now generates takes 0.91 frames per tick (worst tick 1.60) with
 FastROM, which is the default. The figures on this page before FastROM were measured at SlowROM
 speed, where dampf's code took 1.31 (worst 2.25) when FastROM came. dampf's
 own [naive code generator](/glossary#naive-code-generator) takes 5.17 frames per tick for the
@@ -609,7 +609,8 @@ each of these is:
   and X is left to the index that changes. Play 1.34 to 1.33. Through a pointer, an index that
   is never negative goes into Y for `lda [dp],y`, which adds Y to the pointer: the sum of
   pointer and index is not computed. An index plus a constant (a field of `p[i]`) still computes
-  it. Play 1.02 to 1.01.
+  it. Play 1.02 to 1.01. The pointer may itself be a sum, such as a row of a 2D array: play 0.92
+  to 0.91, the title 0.44 to 0.39.
 - **Loop counters in X.** A φ of a loop head can live in X for the whole loop when it is only
   compared with constants, indexes the loop's array accesses and is stepped by a constant
   (`INX`, `DEX`, or `TXA`/`ADC`/`TAX`). Loops with calls, the runtime's multiplication or
@@ -770,6 +771,7 @@ budget is hardest to meet; the worst tick is in parentheses where the source giv
 | an index through a pointer in Y | 1.01 (1.76) | 1.60 (3.40) |
 | loop counters in X next to an index in Y | 1.00 (1.74) | 1.60 (3.40) |
 | the loop test on the offset | 0.92 (1.64) | 1.51 (3.31) |
+| a row of a 2D array as the pointer for an index in Y | 0.91 (1.60) | 1.48 (3.18) |
 
 The steps are cumulative: each row includes everything above it. Loop rotation is not in the
 table; it brought about 0.5 %, measured on the benchmark's bare loop (801 to 783 clocks per

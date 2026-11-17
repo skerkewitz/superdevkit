@@ -44,11 +44,11 @@ them, play of Blubber Blasen takes 1.31 frames per tick, against 5.17 with the n
 1.10 with FastROM, which is switched on since, 1.08 without the comparisons with 0 that
 the flags already answer, 1.06 without storing values that every use takes from A, 1.04
 with switches on bytes that compare 16 bits, 1.02 with returns copied into each path, 1.01
-with the index through a pointer in Y, and 0.92 with loop tests on the offset of the array
-accesses.
+with the index through a pointer in Y, 0.92 with loop tests on the offset of the array
+accesses, and 0.91 with rows of 2D arrays as pointers for an index in Y.
 That reaches M3's goal against Calypsi. On the same version of the game, with Calypsi's options,
 in the play ticks where both compilers play the same scene, both with FastROM, Calypsi takes
-1.42 frames per tick and dampf 0.79: dampf is 1.79 times as fast, and 1.3 to 1.9 times on the
+1.42 frames per tick and dampf 0.79: dampf is 1.81 times as fast, and 1.5 to 2.0 times on the
 title, the story and the round intro. Only those ticks are compared because Calypsi's results drift away from the
 PC's from tick 596 on. The claim rests on one game and on dampf's subset; WDC's commercial
 compiler was not measured, and 816-tcc, about 3.6 times slower than dampf, is no longer
@@ -88,7 +88,7 @@ optimization guided by the profiles of the replays (the first part, laying out t
 a profile's counts, is built), superoptimization of short hot sequences,
 and the hints that transform code, such as `DAMPF_TABLE` and `DAMPF_PIN_X`.
 
-**What is left, and in which order.** Play takes 1.31 frames per tick (0.92 with FastROM, the
+**What is left, and in which order.** Play takes 1.31 frames per tick (0.91 with FastROM, the
 first item, the comparisons on the flags, the first steps of register allocation, narrower
 switches, copied returns, indexes in Y and loop tests on the offset, done since), and the goal is 0.6. A
 profile of play shows where the cycles of the game code go: moving values to and from the
