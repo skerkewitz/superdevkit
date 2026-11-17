@@ -948,7 +948,8 @@ public final class MirCodeGen {
     }
 
     private void sourceLine(SourcePos pos) {
-        flushHeld();
+        // (a held REP and mask stay held across the line: a SEP on the next line drops them both;
+        // otherwise the next instruction that needs 16 bits writes them, under the new line)
         out.blank();
         String file = pos.file();
         sourceFiles.putIfAbsent(file, Path.of(file));

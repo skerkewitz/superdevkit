@@ -68,12 +68,11 @@ path; a line that calls a function gets the sum of its own instructions marked `
 This is line 30 of `calls.c` as the default build writes it:
 
 ```asm
-; calls.c:30   small_result = inc8(-1);                                         [ 10 cyc ]
+; calls.c:30   small_result = inc8(-1);                                         [ 7 cyc ]
         .dbg    line, "../../../examples/m1/calls.c", 30
                                     ; store i8 @_small_result, 0
         sep     #$20                ;                                                           3
         stz     _small_result       ;                                                           4
-        rep     #$20                ;                                                           3
 ```
 
 The comment line `; store i8 @_small_result, 0` is the [MIR](/glossary#mir) instruction the
@@ -84,8 +83,9 @@ what each instruction does, such as `; A = a + b`.
 The processor state is stated once at the top of the file: `A/X/Y are 16 bit throughout,
 DBR = $7E` (the [DBR](/glossary#dbr) is the bank for data addresses). Where a line needs the
 accumulator in [8-bit mode](/glossary#_8-bit-and-16-bit-mode), as for the byte
-`small_result` above, `sep #$20` switches it and `rep #$20` switches it back, and the cycles
-of the instructions in between are counted for 8 bits. The naive code generator writes the
+`small_result` above, `sep #$20` switches it, and the cycles of the instructions after it are
+counted for 8 bits. `rep #$20` switches back where code needs 16 bits again; dampf leaves it out
+as long as the following lines can stay in 8-bit mode, so here it comes at the start of line 31. The naive code generator writes the
 state under every C header instead, as `; M=16 X=16`.
 
 ## When the PC and the SNES disagree

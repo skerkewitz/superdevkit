@@ -100,11 +100,14 @@ The counts follow the switch: the `sta` in 8-bit mode costs 4 cycles, in 16-bit 
 ; calls.c:31   signed_result = neg8(inc8(126));                                 [ 13 cyc ]
         .dbg    line, "../../../examples/m1/calls.c", 31
                                     ; store i8 @_signed_result, -127
+        rep     #$20                ;                                                           3
         lda     #$0081              ;                                                           3
         sep     #$20                ;                                                           3
         sta     _signed_result      ;                                                           4
-        rep     #$20                ;                                                           3
 ```
+
+The `rep #$20` at the start belongs to line 30, which ended in 8-bit mode: dampf switches back
+only when code needs 16 bits again, here the load of the 16-bit immediate.
 
 The calls in this line are gone: the program is compiled as a [whole](/glossary#whole-program),
 so dampf inlined `neg8` and `inc8` and computed the result at compile time.

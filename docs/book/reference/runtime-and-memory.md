@@ -201,28 +201,25 @@ void main(void) {
 }
 ```
 
-The code generator from MIR writes the first line as a store through `dampf_ptr`, with the
-accumulator in 8-bit mode:
+The code generator from MIR addresses them directly: a pointer made from a constant becomes a
+long address, and the accumulator stays in 8-bit mode for the three accesses:
 
 ```
-        lda     #$2100
-        sta     z:dampf_ptr
-        lda     #$0000
-        sta     z:dampf_ptr+2
         lda     #$000F
-        ldy     #$0000
         sep     #$20
-        sta     [dampf_ptr],y
+        sta     f:$002100
+        lda     f:$004212
+        sta     f:$002101
         rep     #$20
 ```
 
 A `volatile` byte is read as exactly one byte. A byte that is not `volatile` may be read as 16
 bits and masked, which reads the byte after it as well.
 
-Every such access builds the pointer in `dampf_ptr` first and goes through `[dampf_ptr],y`,
-which costs about 30 cycles a register. In a playable game only the SNES platform layer in
-`platform/snes` does this: it implements the game's console API in C, and the game logic does
-not touch the registers itself.
+A register with an index, `*(volatile uint8_t *)(0x210B + i)` for an `i` that is never negative,
+becomes `sta f:$00210B,x`. Other pointers made from numbers go through `dampf_ptr`. In a playable
+game only the SNES platform layer in `platform/snes` writes registers: it implements the game's
+console API in C, and the game logic does not touch the registers itself.
 
 The hardware intrinsics that will give C code access to the hardware are not built yet (see
 [intrinsic](/glossary#intrinsic) and [Limits](/reference/limits)).

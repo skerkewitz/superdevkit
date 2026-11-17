@@ -606,6 +606,11 @@ The benchmark does not change (its platform functions are empty); the playable R
 accesses do. `ConstAddressTest` runs such accesses on WRAM in dampf's emulator (a program
 writing to fixed addresses cannot run on the PC).
 
+Several register accesses on consecutive lines also stay in 8-bit mode now: the held `REP` is no
+longer written at each new C line, so the `SEP` of the next line drops it. The I/O example of the
+book (three register accesses) takes 24 cycles instead of 36, the whole benchmark 431,280 →
+430,851 clocks per tick.
+
 ### Blocks laid out by a profile, 2026-11-17
 
 The jumps over large loop bodies (the section on short branches) need to know which blocks run
