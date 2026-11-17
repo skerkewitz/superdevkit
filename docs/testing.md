@@ -11,7 +11,7 @@ is checked automatically against a reference.
 | Unit tests | Each compiler pass on its own, at IR level | Milliseconds | Front-end tests exist (`ParserTest`, `AstBuilderTest`); IR-level tests come with the IRs |
 | Execution tests | Small C programs compiled with gcc on the PC and with dampf; the results must match | Seconds | Built: `src/test/resources/exec/*.c`, run in Mesen |
 | Random programs | A generator produces thousands of random programs within the subset; each is compared against gcc | Minutes, e.g. nightly | Built: `RandomProgramTest`, 10 per build, `-Prandom=N` for more |
-| Replays | The whole of Blubber Blasen with its deterministic replays and a checksum of the game state per frame; also cycles per frame as the benchmark | Minutes | Not yet (M2) |
+| Replays | The whole of Blubber Blasen with its deterministic replays and a checksum of the game state per frame; also cycles per frame as the benchmark | Minutes | Not yet (M2, step 3) |
 
 ### How the execution and random tests work today
 
@@ -36,8 +36,8 @@ When one did not (a 32-bit arithmetic shift whose high bits no test observed), a
   cycles**, with the exact memory speeds (FastROM, SlowROM, WRAM, I/O; [timing.md](timing.md)).
   Every test can then also report whether code got faster or slower. The emulator itself is
   validated against public per-instruction CPU test suites. It also runs the candidate sequences
-  of the superoptimizer ([optimizations.md](optimizations.md)). *Not built yet*; the tests use
-  Mesen for now.
+  of the superoptimizer ([optimizations.md](optimizations.md)). *Not built yet* (start of M3,
+  [roadmap.md](roadmap.md)); the tests use Mesen for now.
 - **Naive versus optimized:** the naive code generator stays as a reference. Every optimized
   build is compared against it; a difference points to the optimization that caused it.
 - **Performance tracking:** cycle counts of the benchmarks are recorded per commit, so a slowdown

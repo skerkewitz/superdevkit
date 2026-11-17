@@ -16,7 +16,8 @@ execution tests run programs in Mesen and compare every result with gcc on the P
 programs check the arithmetic. 15 of the game's 16 files pass the front end (`dampf check`); the
 last one needs a small fix in the game. Not done yet: ROMs larger than 32 KB, the SNES platform
 layer, building the whole game, and the parts of the design that come with the optimizer (IR
-levels, cycle counting, hints). Details in [docs/roadmap.md](docs/roadmap.md).
+levels, cycle counting, hints). The next step is ROMs larger than 32 KB; the plan is in
+[docs/roadmap.md](docs/roadmap.md).
 
 ## Why
 

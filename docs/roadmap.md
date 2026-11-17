@@ -2,20 +2,75 @@
 
 Milestones, risks and open questions. The plan was decided at the kickoff on 2026-11-17 and
 extended by the design discussion the same day (hints, reference benchmarks, exact timing, three
-IR levels).
+IR levels). It was revised on 2026-11-17 after M1, see *Changes* below.
 
 ## Milestones
 
-The "Done when" column is the kickoff's definition. "Also" lists what the design discussion added
-to each milestone.
+| Milestone | Goal | Done when | State |
+| --- | --- | --- | --- |
+| M0 | Define the subset | Blubber Blasen's `src/game` is scanned; [subset.md](subset.md) lists what is allowed, what is not, and what the game code has to change | Done 2026-11-17. The decisions in subset.md are implemented as recommended until decided. Still open: `goto` (decision 4) and the names and set of the hint macros with their PC assertions ([hints.md](hints.md)); both are needed by M3. |
+| M1 | End to end | A small function is compiled, assembled with ca65, linked with ld65, runs automatically in a test, and Mesen shows its C source while stepping | Done 2026-11-17 (stepping through C in Mesen checked by hand) |
+| M2 | Naive but complete | All of Blubber Blasen compiles with the naive code generator, the game's benchmark and replays give the same checksums as the PC, cycles are measured per tick and per function and compared with Calypsi, and the first reference assembly function gives the first dampf/reference ratio | In progress, see the steps below |
+| Checkpoint | Decide whether the plan reaches the budget | See below | After M2 |
+| M3 | The big levers | Optimizations A–D ([optimizations.md](optimizations.md)), built on the three IR levels. Goal: faster than Calypsi. Also: static best/worst case per function and the timing report, `DAMPF_BUDGET` checked at build time ([timing.md](timing.md)), the remaining reference functions | Not started |
+| M4 | Fine tuning | Optimizations E–N until the frame budget is met. Also: profile-guided optimization from the replays, superoptimization of short hot sequences, `DAMPF_TABLE`, `DAMPF_PIN_X` and the other transforming hints | Not started |
 
-| Milestone | Goal | Done when | Also | State |
-| --- | --- | --- | --- | --- |
-| M0 | Define the subset | Blubber Blasen's `src/game` is scanned; [subset.md](subset.md) lists what is allowed, what is not, and what the game code has to change | Decide on `goto` (forbidden, or restricted to keep code structured for the timing analysis). Define the hint macros and their PC assertions ([hints.md](hints.md)). | Done 2026-11-17; the decisions in subset.md are implemented as recommended until decided. Open: `goto`, the hint macros. |
-| M1 | End to end | A small function is compiled, assembled with ca65, linked with ld65, runs automatically in a test, and Mesen shows its C source while stepping | The Java 65816 CPU emulator counts master cycles with the exact memory speeds. Cycle counts appear in the assembly comments from the start. All three IR levels exist with text format and verifier, even if their passes are still trivial. | Done 2026-11-17 (stepping through C in Mesen checked by hand). The additions are **not** done: no Java emulator (tests run in Mesen), no cycle counts in the comments, no IR levels yet (the naive generator works on the AST). They are carried over into M2. |
-| M2 | Naive but complete | All of Blubber Blasen compiles, all replays pass, cycles per frame are measured and compared with Calypsi | Measured cycles per function from the replays. First reference assembly function, so the first dampf/reference ratio exists. HIR and MIR interpreters run in the tests. | In progress: the naive generator covers the C the game uses; 15 of 16 game files pass the front end. Missing: ROMs larger than 32 KB, the SNES platform layer, the whole game, replays, measurements, and the carried-over M1 additions. |
-| M3 | The big levers | Optimizations A–D ([optimizations.md](optimizations.md)). Goal: faster than Calypsi | Static best/worst case per function and the timing report. `DAMPF_BUDGET` checked at build time ([timing.md](timing.md)). Remaining reference functions. | Not started |
-| M4 | Fine tuning | Optimizations E–N until the frame budget is met | Profile-guided optimization from the replays. Superoptimization of short hot sequences. `DAMPF_TABLE`, `DAMPF_PIN_X` and the other transforming hints. | Not started |
+### M2 in steps
+
+The steps are ordered so that the most important question (does the game run on dampf, and how far
+is it from the budget?) is answered as early as possible.
+
+| Step | What | Done when | State |
+| --- | --- | --- | --- |
+| 1 | ROMs larger than 32 KB | Code and constant data spread over several ROM banks; calls across banks; no object crosses a bank boundary; a test program larger than one bank runs in Mesen | Next |
+| 2 | The game's benchmark on dampf | `bench.c` from the game (in the snapshot) and all of `src/game` compile with dampf. `bench.c` stubs out every PVSnesLib call, so no platform layer is needed. Its per-tick checksums match the PC reference (`tools/snesbench/pc`), and its cycles per tick are compared with 816-tcc and Calypsi in [optimizations.md](optimizations.md) | Open |
+| 3 | The replays | A converter turns a replay (`tests/replays/*.bbr`: joypad words per tick, a checksum every 60 ticks) into an input table in ROM; the run on the SNES gives the recorded checksums. Replays need the game's debug code (`BB_DEBUG`) | Open |
+| 4 | Cycles per function | A Mesen profile script (as in the game's `tools/snesbench/profile.lua`) gives cycles per function for the benchmark and the replays | Open |
+| 5 | First reference function | One hot function written by hand in assembly; its cycles against dampf's version give the first ratio ([optimizations.md](optimizations.md)) | Open |
+
+The game's change from finding 5 (`(unsigned)` casts in `video.c`, [game-findings.md](game-findings.md))
+is needed before step 2.
+
+### Checkpoint after M2
+
+During play, the game logic has to become about 4.5 times as fast as with Calypsi (6.4 times on the
+worst tick) to fit 60 % of a frame. The optimizations are expected to bring a factor of 3–6 over
+the naive code generator, which does almost everything in 32-bit `int` and will probably be slower
+than Calypsi. With the measurements of M2 in hand, decide explicitly: does the plan reach the
+budget, or does the game also have to do less work (for example a cheaper CPU partner or a
+cheaper bubble separation, see [game-findings.md](game-findings.md))? The answer also sets the order
+of the optimizations in M3 and M4.
+
+### Start of M3: the foundation for the optimizer
+
+Before the first optimization, M3 builds:
+
+- **The three IR levels** (HIR, MIR, LIR; [architecture.md](architecture.md)), each with a text
+  format that can be parsed back and a verifier, and interpreters for HIR and MIR in the tests.
+  The optimizing pipeline is built next to the naive code generator, which keeps working on the
+  AST: an independent reference catches more bugs than one that shares code with what it checks.
+- **The Java 65816 CPU emulator** with master-cycle counting and the exact memory speeds
+  ([testing.md](testing.md)), validated against public per-instruction test suites. It makes the
+  tests fast and lets every test report cycles.
+- **Cycle counts in the assembly comments** ([architecture.md](architecture.md)).
+
+### After M2: a playable ROM
+
+A ROM that plays the game on real hardware needs a platform layer for dampf: start-up, joypad
+input, the vertical blank handler with DMA for sprites, tile maps and palettes, and the 19
+PVSnesLib-shaped calls that `video.c` makes ([subset.md](subset.md)). It is not needed for the M2
+measurements (the benchmark stubs those calls out) and is planned when the game's SNES port (its
+stage 3 proof of concept) needs it.
+
+### Changes
+
+- **2026-11-17, after M1.** The design discussion had added three items to M1: the Java CPU
+  emulator with cycle counting, cycle counts in the assembly comments, and the three IR levels
+  with text format and verifier (and HIR/MIR interpreters to M2). M1 was completed by its original
+  definition without them. They move to the start of M3: the IR levels and interpreters protect
+  lowering and optimization passes, which do not exist before M3, and the M2 measurements work
+  with Mesen. M2 was split into steps so the first measurement of the whole game comes early, the
+  checkpoint was added, and the playable ROM was separated from M2.
 
 ## Risks
 
@@ -53,7 +108,7 @@ Open:
   First numbers are in [optimizations.md](optimizations.md): Calypsi needs 2.72 frames per tick
   during play, so the 0.6-frame goal is about 4.5 times faster than Calypsi.
 - How Blubber Blasen's stage 2 platform API maps onto dampf intrinsics ([subset.md](subset.md)
-  lists the 19 calls `video.c` makes).
+  lists the 19 calls `video.c` makes); needed for the playable ROM.
 - `goto`: forbid it entirely, or allow a restricted form that keeps the code structured?
   ([subset.md](subset.md), decision 4)
 - How to express impossible path combinations, should the worst-case bounds turn out too
