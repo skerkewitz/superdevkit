@@ -15,7 +15,7 @@ class ParserTest {
     @TempDir
     Path tmp;
 
-    private Parser.Result preprocessAndParse(String name, String code) throws IOException {
+    private Parser.Result preprocessAndParse(String name, String code) throws Exception {
         Path f = tmp.resolve(name);
         Files.writeString(f, code);
         Preprocessor pp = new Preprocessor("gcc", SystemHeaders.directory(), List.of(tmp), List.of());
@@ -23,7 +23,7 @@ class ParserTest {
     }
 
     @Test
-    void parsesTypedefsFromDampfStdint() throws IOException {
+    void parsesTypedefsFromDampfStdint() throws Exception {
         Parser.Result r = preprocessAndParse("ok.c", """
                 #include <stdint.h>
                 typedef int16_t fx8_8;
@@ -34,7 +34,7 @@ class ParserTest {
     }
 
     @Test
-    void reportsSyntaxErrorsAtTheOriginalLine() throws IOException {
+    void reportsSyntaxErrorsAtTheOriginalLine() throws Exception {
         Files.writeString(tmp.resolve("defs.h"), "#define ONE 1\n#define TWO 2\n");
         Parser.Result r = preprocessAndParse("bad.c", """
                 #include "defs.h"
@@ -51,7 +51,7 @@ class ParserTest {
     }
 
     @Test
-    void hostMacrosAreNotDefined() throws IOException {
+    void hostMacrosAreNotDefined() throws Exception {
         Parser.Result r = preprocessAndParse("host.c", """
                 #if defined(__x86_64__) || defined(__GNUC__) || !defined(__DAMPF__)
                 #error host leaked

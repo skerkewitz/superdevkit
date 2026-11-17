@@ -1501,6 +1501,16 @@ public final class AstBuilder {
                 throw error(u, "sizeof of an incomplete type");
             }
             e = new Expr.Const(t.size(), Type.SIZE, pos(u));
+        } else if (u.postfixExpression() != null && first > 0 && u.getChild(first - 1).getText().equals("sizeof")
+                && sizeofTypedef(u.postfixExpression()) != null) {
+            // sizeof (name) with a typedef name: the grammar's first alternative reads it as a
+            // parenthesised expression; it is sizeof of the type (unless a variable hides the name)
+            Type t = sizeofTypedef(u.postfixExpression());
+            if (!complete(t)) {
+                throw error(u, "sizeof of an incomplete type");
+            }
+            e = new Expr.Const(t.size(), Type.SIZE, pos(u));
+            first--;
         } else if (u.postfixExpression() != null) {
             e = postfix(u.postfixExpression());
         } else if (u.unaryOperator != null) {
@@ -1741,6 +1751,15 @@ public final class AstBuilder {
         }
         initialValues.put(v, new Init(items));
         return new Expr.Var(v, pos(prim));
+    }
+
+    /** The type, if a postfix expression is just "(name)" with a typedef name no variable hides; else null. */
+    private Type sizeofTypedef(CParser.PostfixExpressionContext p) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\(([A-Za-z_][A-Za-z_0-9]*)\\)").matcher(p.getText());
+        if (!m.matches() || lookup(m.group(1)) != null) {
+            return null;
+        }
+        return typedefs.get(m.group(1));
     }
 
     private Object lookup(String name) {

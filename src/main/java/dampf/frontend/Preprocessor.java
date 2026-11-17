@@ -41,11 +41,23 @@ public final class Preprocessor {
         return cmd;
     }
 
-    /** Preprocesses {@code source}; throws with gcc's messages if it fails. */
-    public String run(Path source) throws IOException {
+    /**
+     * Preprocesses {@code source}. If gcc fails (a missing header, a broken directive), the error
+     * is gcc's first error message at its position, as a CompileError like any other.
+     */
+    public String run(Path source) throws IOException, CompileError {
         dampf.util.Processes.Result r = dampf.util.Processes.run(null, java.time.Duration.ofMinutes(2), commandLine(source));
         if (r.exit() != 0) {
-            throw new IOException("preprocessing " + source + " failed:\n" + r.err());
+            java.util.regex.Pattern at = java.util.regex.Pattern.compile("^(.+?):(\\d+):(\\d+): (?:fatal )?error: (.*)$");
+            for (String line : r.err().split("\\R")) {
+                java.util.regex.Matcher m = at.matcher(line);
+                if (m.matches()) {
+                    throw new CompileError(new SourcePos(m.group(1), Integer.parseInt(m.group(2)), Integer.parseInt(m.group(3))),
+                            m.group(4));
+                }
+            }
+            String first = r.err().strip().isEmpty() ? "gcc failed" : r.err().strip().split("\\R")[0];
+            throw new CompileError(new SourcePos(source.toString(), 1, 1), "preprocessing failed: " + first);
         }
         return r.out();
     }

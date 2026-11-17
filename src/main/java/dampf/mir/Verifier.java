@@ -57,11 +57,11 @@ public final class Verifier {
     }
 
     private void error(MFunction f, Block b, Instr i, String message) {
-        f.number();
         errors.add(f.name() + " " + (b == null ? "" : b.name() + ": ") + (i == null ? "" : Printer.instr(i) + ": ") + message);
     }
 
     private void function(MFunction f) {
+        f.number();   // messages name values by their numbers
         if (f.blocks().isEmpty()) {
             error(f, null, null, "no blocks");
             return;

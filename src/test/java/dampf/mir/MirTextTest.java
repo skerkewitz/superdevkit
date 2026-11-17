@@ -108,6 +108,6 @@ class MirTextTest {
                 }
                 """;
         List<String> errors = Verifier.check(MirParser.parse(text));
-        assertTrue(errors.stream().anyMatch(e -> e.contains("does not dominate")), errors.toString());
+        assertTrue(errors.stream().anyMatch(e -> e.contains("uses %1 where its definition does not dominate")), errors.toString());
     }
 }

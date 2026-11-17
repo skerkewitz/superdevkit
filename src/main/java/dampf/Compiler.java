@@ -76,6 +76,7 @@ public final class Compiler {
                     "entry function '" + o.entry() + "' is not defined");
         }
         Path outDir = o.output().toAbsolutePath().getParent();
+        Files.createDirectories(outDir);   // the timing report is written before the ROM builder makes it
         String fileName = o.output().getFileName().toString();
         String baseName = fileName.endsWith(".sfc") ? fileName.substring(0, fileName.length() - 4) : fileName;
         // Debug file names are relative to the .dbg file, so Mesen finds the sources wherever the ROM is opened.

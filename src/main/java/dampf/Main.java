@@ -51,7 +51,14 @@ public final class Main {
         for (int i = 1; i < args.length; i++) {
             String a = args[i];
             if (a.equals("--backend") && i + 1 < args.length) {
-                backend = Compiler.Backend.valueOf(args[++i].toUpperCase());
+                String name = args[++i];
+                try {
+                    backend = Compiler.Backend.valueOf(name.toUpperCase());
+                } catch (IllegalArgumentException e) {
+                    System.err.println("unknown backend '" + name + "' (mir or naive)");
+                    usage();
+                    System.exit(2);
+                }
             } else if (a.equals("--replace") && i + 1 < args.length) {
                 String[] kv = args[++i].split("=", 2);
                 replacements.put(kv[0], Path.of(kv[1]));
@@ -102,10 +109,13 @@ public final class Main {
         if (args[0].equals("check")) {
             // every file on its own, so one unsupported construct does not hide the others
             int ok = 0;
+            List<Parser.Result> passed = new ArrayList<>();
             for (Path f : files) {
                 try {
                     AstBuilder b = new AstBuilder(SystemHeaders.directory());
-                    b.addFile(Parser.parse(new Preprocessor("gcc", SystemHeaders.directory(), includes, defines).run(f), f.toString()));
+                    Parser.Result parsed = Parser.parse(new Preprocessor("gcc", SystemHeaders.directory(), includes, defines).run(f), f.toString());
+                    b.addFile(parsed);
+                    passed.add(parsed);
                     ok++;
                     System.err.println("ok      " + f);
                 } catch (CompileError e) {
@@ -113,12 +123,35 @@ public final class Main {
                 }
             }
             System.err.printf("%d of %d file(s) pass the front end%n", ok, files.size());
-            System.exit(ok == files.size() ? 0 : 1);
+            // then what only the whole program shows: recursion, functions called but defined in
+            // none of the files, definitions in two files
+            boolean whole = true;
+            if (passed.size() > 0) {
+                try {
+                    AstBuilder b = new AstBuilder(SystemHeaders.directory());
+                    for (Parser.Result parsed : passed) {
+                        b.addFile(parsed);
+                    }
+                    dampf.check.CallGraph.of(b.finish()).checkNoRecursion();
+                    System.err.println("the " + passed.size() + " file(s) together: ok");
+                } catch (CompileError e) {
+                    whole = false;
+                    System.err.println("FAILS   " + e.diagnostics().getFirst() + "   (the " + passed.size() + " file(s) together)");
+                }
+            }
+            System.exit(ok == files.size() && whole ? 0 : 1);
         }
         Preprocessor pp = new Preprocessor("gcc", SystemHeaders.directory(), includes, defines);
         int errors = 0;
         for (Path f : files) {
-            Parser.Result r = Parser.parse(pp.run(f), f.toString());
+            Parser.Result r;
+            try {
+                r = Parser.parse(pp.run(f), f.toString());
+            } catch (CompileError e) {
+                e.diagnostics().forEach(System.err::println);
+                errors++;
+                continue;
+            }
             for (Diagnostic d : r.diagnostics()) {
                 System.err.println(d);
             }

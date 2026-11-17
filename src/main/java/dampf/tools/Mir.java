@@ -100,6 +100,10 @@ public final class Mir {
                 default -> { }
             }
         });
+        if (program.function(bench) == null || !program.function(bench).isDefined()) {
+            System.err.println("function '" + bench + "' is not defined");
+            System.exit(2);
+        }
         try {
             in.call(program.function(bench).label(), List.of());
         } catch (Done d) {
