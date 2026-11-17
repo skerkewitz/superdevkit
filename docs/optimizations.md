@@ -670,6 +670,34 @@ the φ chooses between one bit K and 0, the φ is the masked bit itself, shifted
 K's (`BitSelect`; `(x & M) ? 0 : K` is the same with the bit inverted). The branch then has no
 reason left and goes. Play 503,373 → 496,395 clocks per tick (1.39 frames).
 
+### Values not stored, 2026-11-17
+
+The first step of register allocation (row 2 of the plan in [roadmap.md](roadmap.md)): a 16-bit
+value that every use takes from A is not stored to its place in the direct page. Measured before,
+a quarter of the direct-page stores (2.05 of 7.85 million in 800 play ticks) were overwritten
+before anything read them.
+
+The code generator learns it over its passes, as it learns what the registers hold (*What A, X
+and Y hold across blocks*). In each pass it notes every value it stored and every value whose
+place an instruction read; a value stored but never read from its place is not stored in the
+next pass. If that pass reads it after all (A changed in between, so the use loads it), the pass
+is thrown away and the value is stored for good. Which value a read is for: every read of a place
+follows the request for the operand of the value read there, so the place is mapped to the value
+it was last handed out for. Two things count as a read without an instruction: a φ whose place
+the value shares (no copy at the end of the block, but the φ reads the place), and an argument
+computed in its parameter's place.
+
+The first version mapped a place to every value that ever had it. Values that share a place one
+after another then blocked each other, and only 57 of 7,105 stores went (play −0.07 %). With the
+place mapped to the last value: 409 stores fewer in the game's code, dead stores over the whole
+benchmark run 2.15 → 1.66 million, play 386,306 → 379,855 clocks per tick (1.06 frames).
+`exec/unstored.c` has the cases where a read is easy to miss; counting no reads at all fails it
+and 19 other programs of `ExecutionTest`, leaving out the φ's read fails it and 11 others.
+
+Among the dead stores left, the most frequent are in `items_update`: its `switch` on a `uint8_t`
+compares an `int`, so the high word is zeroed (six times, in the same place) and compared with 0
+for every case. That is a matter of the switch's width, not of register allocation.
+
 ### Summary of the code from MIR so far (2026-11-17, the latest measurement)
 
 Measured after the range analysis learned to narrow after widening: a loop of more than 24
@@ -677,17 +705,17 @@ rounds (`for (i = 0; i < 768; i++)`) used to give its counter the type's whole r
 it from being narrowed and from indexed addressing as nonnegative. Narrowing again after the
 widened fixpoint gives it 0..768. Play 1.53 → 1.50, title 0.68 → 0.60. Then A's places and the
 byte loads, the short branches, INC/DEC, STZ, the bit selections, fewer copies and the registers
-across blocks (sections above): play 1.31. The last column adds FastROM and the CMP #0 that went
-(see their sections); the column before it is SlowROM speed, as the earlier columns were measured.
+across blocks (sections above): play 1.31. The last column adds FastROM, the CMP #0 that went and the
+values not stored (see their sections); the column before it is SlowROM speed, as the earlier columns were measured.
 
 | State | naive | from MIR, no passes | SlowROM | now (FastROM) |
 | --- | --- | --- | --- | --- |
 | title | 1.94 | 12.21 | 0.54 | 0.45 |
 | story | 0.70 | 3.56 | 0.22 | 0.18 |
-| round intro | 5.76 | 12.13 | 1.76 | 1.48 |
-| play | 5.17 (worst 8.58) | 18.93 | 1.31 (worst 2.25) | 1.08 (worst 1.86) |
-| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 1.98 (worst 4.08) | 1.68 (worst 3.49) |
-| `level_solid_px`, per call | 3,849 | 6,648 | 1,149 | 961 clocks |
+| round intro | 5.76 | 12.13 | 1.76 | 1.47 |
+| play | 5.17 (worst 8.58) | 18.93 | 1.31 (worst 2.25) | 1.06 (worst 1.83) |
+| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 1.98 (worst 4.08) | 1.66 (worst 3.48) |
+| `level_solid_px`, per call | 3,849 | 6,648 | 1,149 | 951 clocks |
 
 Calypsi's 2.72 frames per tick during play (on an older version of the game) is passed. On the
 same version (the snapshot, `tools/bench_compilers.sh`, measured in dampf's emulator, which

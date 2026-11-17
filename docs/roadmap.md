@@ -168,7 +168,7 @@ ideas that looked good measured zero, see [optimizations.md](optimizations.md)) 
 | # | Idea | Likely gain | Effort | Notes |
 | --- | --- | --- | --- | --- |
 | 1 | FastROM: banks $80+ at 3.58 MHz (`MEMSEL`), the header says so | 10-15 % | tiny | **Done 2026-11-17: play 1.31 → 1.10 frames per tick (−16 %).** The default; `--slowrom` for a SlowROM cartridge. Calypsi gains as much with FastROM, so the comparison stays at 1.5 times. |
-| 2 | Register allocation: values in A, X and Y over several instructions instead of a direct page place each | 10-20 % | high | The 30 %. With one accumulator, choosing what lives where is the hard part. |
+| 2 | Register allocation: values in A, X and Y over several instructions instead of a direct page place each | 10-20 % | high | The 30 %. With one accumulator, choosing what lives where is the hard part. **Started 2026-11-17:** values every use takes from A are not stored, play 1.08 → 1.06 (−1.7 %). Next: stores moved to the path that needs them, fewer reloads. |
 | 3 | 8-bit stretches: the M flag followed (`REP`/`SEP`), `uint8_t` code in 8-bit mode | 5-10 % | high | Fewer `AND #$00FF`, and 8-bit accesses are a cycle cheaper. Needs the processor state across blocks. |
 | 4 | Arrays of structs as one array per field (catalogue D, `DAMPF_SPLIT`) | 5-10 % in the bubble loops | high | `separate`, `bubbles_update` and `bubbles_draw` are 30 %. Needs a subset decision or a hint, since the layout then differs from the PC. |
 | 5 | 8-bit index registers, arrays aligned to pages | 2-4 % | high | `LDA abs,X` a cycle cheaper; needs the X flag followed and the alignment in the memory map. |

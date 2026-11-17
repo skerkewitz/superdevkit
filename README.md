@@ -16,7 +16,7 @@ translated to 65816 code with its frames in the direct page. The naive code gene
 from the AST, stays as an independent reference (`--backend naive`). Every program in the tests
 is built with both and compared with gcc on the PC: the execution tests (also in Mesen), random
 programs, the game's replays, and the game's own benchmark, where every one of its 3,610 ticks
-gives the PC's checksums. During play the game takes 1.08 frames per tick with dampf (with FastROM; the
+gives the PC's checksums. During play the game takes 1.06 frames per tick with dampf (with FastROM; the
 naive code: 5.17), numbers in [docs/optimizations.md](docs/optimizations.md). On the same game version
 and the same scene, dampf's code is 1.47 times as fast as Calypsi's (`tools/bench_compilers.sh`,
 [docs/roadmap.md](docs/roadmap.md), *The plan from here*). dampf also computes a best and a worst case in CPU

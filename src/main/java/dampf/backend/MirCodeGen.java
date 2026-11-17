@@ -140,6 +140,8 @@ public final class MirCodeGen {
                 trackEntries = attempt == 0;
                 near = null;
                 entryIn = Map.of();
+                skipStore = Set.of();
+                neverSkip.clear();
                 boolean ok = false;
                 for (int pass = 0; pass < BRANCH_PASSES + 8; pass++) {
                     jumpSites = 0;
@@ -157,7 +159,8 @@ public final class MirCodeGen {
                         more |= now[0] != was[0] || now[1] != was[1];
                         next.put(k, now);
                     }
-                    boolean consistent = !internalBroken;
+                    // a value not stored must not be read from its place
+                    boolean consistent = !internalBroken && java.util.Collections.disjoint(skipStore, readValues);
                     for (Map.Entry<String, RegState> e : entryIn.entrySet()) {
                         consistent &= e.getValue().within(arriving.getOrDefault(e.getKey(), RegState.NONE));
                     }
@@ -171,12 +174,29 @@ public final class MirCodeGen {
                             learnt.put(b.name(), consistent ? got : got.meet(entryIn.getOrDefault(b.name(), RegState.NONE)));
                         }
                     }
-                    boolean changes = !learnt.equals(entryIn);
+                    // values stored but never read from their place: not stored in the next pass
+                    Set<Instr> skipNext = new HashSet<>();
+                    if (trackEntries) {
+                        for (Instr v : skipStore) {
+                            if (readValues.contains(v)) {
+                                neverSkip.add(v);
+                            } else {
+                                skipNext.add(v);
+                            }
+                        }
+                        for (Instr v : storedValues) {
+                            if (!readValues.contains(v) && !neverSkip.contains(v) && !argumentPlaced.contains(v)) {
+                                skipNext.add(v);
+                            }
+                        }
+                    }
+                    boolean changes = !learnt.equals(entryIn) || !skipNext.equals(skipStore);
                     if (ok && !more && !changes || pass >= BRANCH_PASSES + 7) {
                         break;
                     }
                     near = next;
                     entryIn = learnt;
+                    skipStore = skipNext;
                 }
                 if (ok) {
                     break;
@@ -244,6 +264,21 @@ public final class MirCodeGen {
             return o.a.containsAll(a) && (x == null || x.equals(o.x)) && (y == null || y.equals(o.y));
         }
     }
+
+    /**
+     * Dead stores: values whose every use took them from A in the pass before are not stored
+     * (skipStore); readValues are the values a written instruction read from their place in this
+     * pass (an operand of theirs reached the code), storedValues those stored. A skipped value
+     * that is read after all is stored again (neverSkip), and the pass that is kept reads none.
+     */
+    private Set<Instr> skipStore = Set.of();
+    private final Set<Instr> neverSkip = new HashSet<>();
+    private final Set<Instr> readValues = new HashSet<>();
+    private final Set<Instr> storedValues = new HashSet<>();
+    /** Operand strings handed out for values in this pass (one place may serve several values). */
+    private final Map<String, Instr> operandOf = new HashMap<>();
+    /** Values computed into a callee's parameter place (argumentsInPlace): always stored. */
+    private final Set<Instr> argumentPlaced = new HashSet<>();
 
     /** Whether this pass may assume what the registers hold where a block starts. */
     private boolean trackEntries;
@@ -525,6 +560,7 @@ public final class MirCodeGen {
                         Value.Param p = callee.params().get(k);
                         if (!callBetween && place.containsKey(p) && words(p.type()) == words(v.type())) {
                             place.put(v, place.get(p));
+                            argumentPlaced.add(v);
                         }
                     }
                 }
@@ -632,6 +668,9 @@ public final class MirCodeGen {
         out = code;
         lastPos = null;
         arriving.clear();
+        readValues.clear();
+        storedValues.clear();
+        operandOf.clear();
         assumedAt.clear();
         internalBroken = false;
         lastTransfer = false;
@@ -988,6 +1027,9 @@ public final class MirCodeGen {
                 int to = direct.contains(s) ? place.get(p) : incoming.get(p);
                 for (int w = 0; w < words(p.type()); w++) {
                     if (operand(v, w).equals(at(to + 2 * w))) {
+                        if (v instanceof Instr iv) {
+                            readValues.add(iv);   // the φ reads v's place: v must be stored
+                        }
                         continue;   // the operand shares the φ's place
                     }
                     if (operand(v, w).equals(imm(0)) && !aHolds.contains(imm(0))) {
@@ -1020,7 +1062,7 @@ public final class MirCodeGen {
             case Value.SlotAddr s -> w == 0 ? "#.loword(" + FRAME + "+" + place.get(s.slot()) + ")" : imm(0x7E);
             case Value.Param p -> w >= words(p.type()) ? imm(0) : at(place.get(p) + 2 * w);
             case Instr i when FrameLayout.transparent(i) -> w >= words(i.type()) ? imm(0) : operand(i.op(0), w);
-            case Instr i -> w >= words(i.type()) ? imm(0) : at(place.get(i) + 2 * w);
+            case Instr i -> w >= words(i.type()) ? imm(0) : noteOperand(i, at(place.get(i) + 2 * w));
         };
     }
 
@@ -1034,7 +1076,39 @@ public final class MirCodeGen {
             aHolds.add(dest(i, 0));
             return;
         }
+        if (w == 0 && words(i.type()) == 1 && skipStore.contains(i)) {
+            track("sta", dest(i, 0));   // A holds it as if stored; every use takes it from A
+            return;
+        }
+        if (w == 0 && words(i.type()) == 1) {
+            storedValues.add(i);
+        }
         ins("sta", dest(i, w));
+    }
+
+    private String noteOperand(Instr i, String operand) {
+        operandOf.put(operand, i);
+        return operand;
+    }
+
+    /**
+     * A written instruction that reads its operand: the value that operand was last handed out for
+     * counts as read. (Every read of a place follows the operand() call for the value read there;
+     * values that share a place are not live at the same time.)
+     */
+    private void noteRead(String mnemonic, String operand) {
+        if (operand == null || operandOf.isEmpty()) {
+            return;
+        }
+        switch (mnemonic) {
+            case "sta", "stx", "sty", "stz" -> { }
+            default -> {
+                Instr v = operandOf.get(operand);
+                if (v != null) {
+                    readValues.add(v);
+                }
+            }
+        }
     }
 
     private String dest(Instr i, int w) {
@@ -1314,7 +1388,7 @@ public final class MirCodeGen {
     /** Whether an instruction's result is written to its place (not only handed on in A, folded or in X). */
     private boolean stored(Instr x) {
         return !forward.contains(x) && !folded.contains(x) && !fused.contains(x) && !xSteps.containsKey(x)
-                && !xResident.containsKey(x);
+                && !xResident.containsKey(x) && !skipStore.contains(x);
     }
 
     private void bin(Instr.Bin b) {
@@ -2188,6 +2262,7 @@ public final class MirCodeGen {
                 }
             }
         }
+        noteRead(mnemonic, operand);
         out.ins(mnemonic, operand, null);
         track(mnemonic, operand);
     }
@@ -2408,6 +2483,7 @@ public final class MirCodeGen {
     /** A load that always happens, for code that branches on the flags it sets. */
     private void load(String operand) {
         flushHeld();
+        noteRead("lda", operand);
         out.ins("lda", operand, null);
         track("lda", operand);
     }
