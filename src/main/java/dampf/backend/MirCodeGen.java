@@ -1095,6 +1095,32 @@ public final class MirCodeGen {
         }
     }
 
+    /**
+     * INC or DEC on the place itself, for x ± 1 whose result goes back to x's place (a counter's
+     * step): 7 cycles instead of CLC, LDA, ADC, STA (13). The 16 bits are those ADC #1 gives (an
+     * i8 minus 1 differs in the high byte only, which an i8 that needs no mask may have any).
+     * Not when the result is handed on in A. Null if it does not apply.
+     */
+    private String incDec(Instr.Bin b) {
+        if (b.type() != MType.I16 && b.type() != MType.I8 || m8 || forward.contains(b) || place.get(b) == null
+                || !(b.op(1) instanceof Value.Const k) || b.op(0) instanceof Value.Const
+                || b.type() == MType.I8 && masked.contains(b)
+                || b.op(0) instanceof Instr x && !stored(x) || !operand(b.op(0), 0).equals(dest(b, 0))) {
+            return null;
+        }
+        long c = b.type().signed(k.bits());
+        if (b.op == Instr.BinOp.SUB) {
+            c = -c;
+        }
+        return c == 1 ? "inc" : c == -1 ? "dec" : null;
+    }
+
+    /** Whether an instruction's result is written to its place (not only handed on in A, folded or in X). */
+    private boolean stored(Instr x) {
+        return !forward.contains(x) && !folded.contains(x) && !fused.contains(x) && !xSteps.containsKey(x)
+                && !xResident.containsKey(x);
+    }
+
     private void bin(Instr.Bin b) {
         MType t = b.type();
         int n = words(t);
@@ -1102,6 +1128,11 @@ public final class MirCodeGen {
         Value y = b.op(1);
         switch (b.op) {
             case ADD, SUB -> {
+                String step = incDec(b);
+                if (step != null) {
+                    ins(step, dest(b, 0));
+                    return;
+                }
                 if (n == 1 && b.op == Instr.BinOp.ADD && aHolds.contains(operand(y, 0))) {
                     Value s = x;   // A has the second operand already: add the first to it
                     x = y;

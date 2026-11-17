@@ -487,21 +487,30 @@ whose rarely run parts (bubbles that touch) lie between its test and its start. 
 blocks at the end of the function needs to know which blocks are rare: profile-guided layout
 from the replays (M4).
 
+### INC and DEC for counter steps, 2026-11-17
+
+A step `x + 1` or `x - 1` whose result goes back to `x`'s place (a loop counter, `++counter`)
+was `CLC`, `LDA`, `ADC #1`, `STA`: 13 cycles. Now it is `INC` or `DEC` on the place: 7 cycles,
+the same 16 bits as `ADC #1` (an i8 minus 1 differs in the high byte only, which an i8 that needs
+no mask may have any). It needs `x` really in its place: a value handed on in A has a place of
+that name but was never stored there, which the execution tests caught (`locals.c`). Play
+524,771 → 510,797 clocks per tick (1.43 frames), title 0.60 → 0.58.
+
 ### Summary of the code from MIR so far (2026-11-17, the latest measurement)
 
 Measured after the range analysis learned to narrow after widening: a loop of more than 24
 rounds (`for (i = 0; i < 768; i++)`) used to give its counter the type's whole range, which kept
 it from being narrowed and from indexed addressing as nonnegative. Narrowing again after the
 widened fixpoint gives it 0..768. Play 1.53 → 1.50, title 0.68 → 0.60. Then A's places and the
-byte loads and the short branches (sections above): play 1.47.
+byte loads, the short branches and INC/DEC (sections above): play 1.43.
 
 | State | naive | from MIR, no passes | now |
 | --- | --- | --- | --- |
-| title | 1.94 | 12.21 | 0.60 |
-| story | 0.70 | 3.56 | 0.25 |
-| round intro | 5.76 | 12.13 | 1.91 |
-| play | 5.17 (worst 8.58) | 18.93 | 1.47 (worst 2.53) |
-| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 2.16 (worst 4.34) |
+| title | 1.94 | 12.21 | 0.58 |
+| story | 0.70 | 3.56 | 0.24 |
+| round intro | 5.76 | 12.13 | 1.86 |
+| play | 5.17 (worst 8.58) | 18.93 | 1.43 (worst 2.46) |
+| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 2.11 (worst 4.28) |
 | `level_solid_px`, per call | 3,849 | 6,648 | 1,208 clocks |
 
 Calypsi's 2.72 frames per tick during play (on an older version of the game) is passed; a fair
@@ -558,7 +567,7 @@ the catalogue come first. Compared with Calypsi, dampf promises nothing until it
 | H | Standard optimizations | Constant folding and propagation, dead code removal, common subexpressions | Medium; mostly a prerequisite for A–G | IR in SSA form | play 6.12 → 5.17 frames per tick (code from MIR) | built: folding, identities, branch folding, block merging, value numbering, redundant loads, dead code; loop-invariant code open |
 | I | Multiply and divide | Constants as shifts and adds, hardware multiplier with useful work during its latency, division by powers of two with correct signed rounding | Medium, depends on the code; **measured: 37 % of the naive code's time is the runtime multiplication, mostly struct array indexing by a constant size** | range analysis for signed division | play 8.16 → 6.12 frames per tick (code from MIR) | constants built (shifts and adds, powers of two); hardware multiplier open |
 | J | Banks and placement | Keep the data bank register right, 16-bit instead of 24-bit addresses, hot code in FastROM | Small to medium | pointer width analysis | | open |
-| K | Peephole | Remove redundant loads and stores, `STZ`, `INC`/`DEC` on memory | Small, but everywhere | | | open |
+| K | Peephole | Remove redundant loads and stores, `STZ`, `INC`/`DEC` on memory | Small, but everywhere | | play 1.47 → 1.43 frames per tick (`INC`/`DEC`) | in progress: A remembers every place it equals, `INC`/`DEC` for steps in place; `STZ` open |
 | L | `switch` as jump table | `JMP (abs,X)` | Small overall, large locally | | | open |
 | M | Copy and fill | `MVN`/`MVP` or DMA instead of loops | Large locally | | | open |
 | N | Values in X/Y | Keep values in the index registers within a block | Small to medium | | | open |
