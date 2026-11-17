@@ -211,66 +211,8 @@ public final class Interpreter {
     private long execute(Instr i, Frame frame) {
         MType t = i.type();
         return switch (i) {
-            case Instr.Bin b -> {
-                long x = eval(b.op(0), frame);
-                long y = eval(b.op(1), frame);
-                int bits = t.bits();
-                yield t.wrap(switch (b.op) {
-                    case ADD -> x + y;
-                    case SUB -> x - y;
-                    case MUL -> x * y;
-                    case UDIV -> {
-                        if (y == 0) {
-                            throw new ArithmeticException("division by zero");
-                        }
-                        yield Long.divideUnsigned(x, y);
-                    }
-                    case UREM -> {
-                        if (y == 0) {
-                            throw new ArithmeticException("division by zero");
-                        }
-                        yield Long.remainderUnsigned(x, y);
-                    }
-                    case SDIV -> {
-                        if (y == 0) {
-                            throw new ArithmeticException("division by zero");
-                        }
-                        yield t.signed(x) / t.signed(y); // Java truncates towards zero, as C does
-                    }
-                    case SREM -> {
-                        if (y == 0) {
-                            throw new ArithmeticException("division by zero");
-                        }
-                        yield t.signed(x) % t.signed(y);
-                    }
-                    case AND -> x & y;
-                    case OR -> x | y;
-                    case XOR -> x ^ y;
-                    case SHL -> y >= bits ? 0 : x << y;
-                    case LSHR -> y >= bits ? 0 : x >>> y;
-                    case ASHR -> t.signed(x) >> Math.min(y, bits - 1);
-                });
-            }
-            case Instr.Cmp c -> {
-                MType ot = c.op(0).type();
-                long x = eval(c.op(0), frame);
-                long y = eval(c.op(1), frame);
-                long sx = ot.signed(x);
-                long sy = ot.signed(y);
-                boolean r = switch (c.pred) {
-                    case EQ -> x == y;
-                    case NE -> x != y;
-                    case ULT -> x < y;
-                    case ULE -> x <= y;
-                    case UGT -> x > y;
-                    case UGE -> x >= y;
-                    case SLT -> sx < sy;
-                    case SLE -> sx <= sy;
-                    case SGT -> sx > sy;
-                    case SGE -> sx >= sy;
-                };
-                yield r ? 1 : 0;
-            }
+            case Instr.Bin b -> bin(b.op, t, eval(b.op(0), frame), eval(b.op(1), frame));
+            case Instr.Cmp c -> cmp(c.pred, c.op(0).type(), eval(c.op(0), frame), eval(c.op(1), frame)) ? 1 : 0;
             case Instr.Cast c -> {
                 long x = eval(c.op(0), frame);
                 yield switch (c.kind) {
@@ -301,6 +243,64 @@ public final class Interpreter {
                 yield t.wrap(run(module.function(c.callee), args));
             }
             default -> throw new IllegalStateException("cannot execute " + Printer.instr(i));
+        };
+    }
+
+    /** {@code x op y} at type t, both already wrapped to t; division by zero throws ArithmeticException. */
+    static long bin(Instr.BinOp op, MType t, long x, long y) {
+        int bits = t.bits();
+        return t.wrap(switch (op) {
+            case ADD -> x + y;
+            case SUB -> x - y;
+            case MUL -> x * y;
+            case UDIV -> {
+                if (y == 0) {
+                    throw new ArithmeticException("division by zero");
+                }
+                yield Long.divideUnsigned(x, y);
+            }
+            case UREM -> {
+                if (y == 0) {
+                    throw new ArithmeticException("division by zero");
+                }
+                yield Long.remainderUnsigned(x, y);
+            }
+            case SDIV -> {
+                if (y == 0) {
+                    throw new ArithmeticException("division by zero");
+                }
+                yield t.signed(x) / t.signed(y); // Java truncates towards zero, as C does
+            }
+            case SREM -> {
+                if (y == 0) {
+                    throw new ArithmeticException("division by zero");
+                }
+                yield t.signed(x) % t.signed(y);
+            }
+            case AND -> x & y;
+            case OR -> x | y;
+            case XOR -> x ^ y;
+            case SHL -> y >= bits ? 0 : x << y;
+            case LSHR -> y >= bits ? 0 : x >>> y;
+            case ASHR -> t.signed(x) >> Math.min(y, bits - 1);
+        });
+    }
+
+    /** A comparison of x and y of type t (both wrapped to t). */
+    static boolean cmp(Instr.Pred pred, MType t, long x, long y) {
+        long sx = t.signed(x);
+        long sy = t.signed(y);
+        return switch (pred) {
+            case EQ -> x == y;
+            case NE -> x != y;
+            case ULT -> x < y;
+            case ULE -> x <= y;
+            case UGT -> x > y;
+            case UGE -> x >= y;
+            case SLT -> sx < sy;
+            case SLE -> sx <= sy;
+            case SGT -> sx > sy;
+            case SGE -> sx >= sy;
         };
     }
 

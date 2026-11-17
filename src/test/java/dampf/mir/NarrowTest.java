@@ -140,4 +140,37 @@ class NarrowTest {
                 }
                 """));
     }
+
+    @Test
+    void aConditionalExpressionTruncatedTo16BitsIsNarrow() {
+        // (uint16_t)(d > 0 ? x - 64 : x + 64)
+        assertEquals("""
+                %0 = cmp sgt i16 %d, 0
+                br %0, b1, b2
+                %1 = sub i16 %x, 64
+                jump b3
+                %2 = add i16 %x, 64
+                jump b3
+                %3 = phi i16 [b1, %1], [b2, %2]
+                ret i16 %3
+                """, optimize("""
+                func @_f(i16 %d, i16 %x) -> i16 {
+                b0_entry:
+                    %0 = cmp sgt i16 %d, 0
+                    br %0, b1, b2
+                b1:
+                    %1 = zext i16 %x to i32
+                    %2 = sub i32 %1, 64
+                    jump b3
+                b2:
+                    %3 = zext i16 %x to i32
+                    %4 = add i32 %3, 64
+                    jump b3
+                b3:
+                    %5 = phi i32 [b1, %2], [b2, %4]
+                    %6 = trunc i32 %5 to i16
+                    ret i16 %6
+                }
+                """));
+    }
 }

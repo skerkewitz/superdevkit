@@ -22,6 +22,8 @@ import java.util.Map;
  *     unsigned order).</li>
  * <li><b>Casts of casts</b> collapse: {@code trunc (zext x)}, {@code zext (zext x)}, ...; casts
  *     of constants fold.</li>
+ * <li>The demanded-bits rule goes through <b>φs</b> used only by the truncation: each operand is
+ *     narrowed at the end of the block it comes from.</li>
  * <li><b>Pointer offsets</b> become i16 (see {@link Instr.PtrAdd}).</li>
  * </ul>
  *
@@ -140,7 +142,7 @@ public final class Narrow {
             return null;
         }
         Value v = c.op(0);
-        if (!(v instanceof Instr.Bin) || !canEval(v, n, 0)) {
+        if (!(v instanceof Instr.Bin || v instanceof Instr.Phi) || !canEval(v, n, 0)) {
             return null;
         }
         return eval(v, n, c);
@@ -156,6 +158,9 @@ public final class Narrow {
                 case SHL -> b.op(1) instanceof Value.Const k && k.bits() < n.bits() && canEval(b.op(0), n, depth + 1);
                 default -> false;
             };
+            // a φ (a ?: or a truth value as an int): its operands are narrowed where they come from
+            case Instr.Phi p -> depth < 12 && uses.getOrDefault(p, 0) == 1
+                    && p.operands().stream().allMatch(o -> o != p && canEval(o, n, depth + 1));
             default -> false;
         };
     }
@@ -181,6 +186,14 @@ public final class Narrow {
                 Value x = eval(b.op(0), n, at);
                 Value y = b.op == Instr.BinOp.SHL ? new Value.Const(n, ((Value.Const) b.op(1)).bits()) : eval(b.op(1), n, at);
                 yield insert(at, new Instr.Bin(b.op, x, y, b.pos()));
+            }
+            case Instr.Phi p -> {
+                Instr.Phi narrow = p.block().add(new Instr.Phi(n, p.pos()));
+                for (int k = 0; k < p.from.size(); k++) {
+                    Block pred = p.from.get(k);
+                    narrow.add(pred, eval(p.op(k), n, pred.terminator()));
+                }
+                yield narrow;
             }
             default -> throw new IllegalStateException("cannot narrow " + v);
         };

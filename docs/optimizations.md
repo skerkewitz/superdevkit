@@ -130,6 +130,39 @@ by variables and by constants with more digits). The code from MIR is now within
 generator during play and faster in the title. What is left is mostly the code generator: every
 value goes through RAM, with a load and a store per instruction.
 
+### After the standard optimizations (H), 2026-11-17
+
+Three passes, all exact:
+
+- **Simplify:** constants fold (with the interpreter's arithmetic), identities such as
+  `x + 0` and `x - x` simplify, branches on constants become jumps, unreachable blocks and
+  trivial φs go, and a block that only one block jumps to is merged into it.
+- **Gvn:** a computation that a dominating one already did is reused. A load is reused when
+  nothing in between may have written its address, and a store forwards its value to later
+  loads. A store kills only what it may overlap: two different globals or frame slots never
+  overlap. A call kills nothing if the called function writes no memory.
+- **B, extended:** narrowing reaches through φs, so `(uint16_t)(d > 0 ? x - 64 : x + 64)` is
+  computed in 16 bits.
+
+Frames per tick:
+
+| State | naive | MIR after B and I | after B, I and H |
+| --- | --- | --- | --- |
+| title | 1.94 | 1.91 | 1.67 |
+| story | 0.70 | 0.95 | 0.77 |
+| round intro | 5.76 | 6.12 | 5.78 |
+| play | 5.17 (worst 8.58) | 6.12 (worst 10.65) | 5.17 (worst 8.77) |
+| play, CPU partner | 6.55 (worst 12.23) | 7.11 (worst 13.54) | 6.10 (worst 11.22) |
+| `level_solid_px`, per call | 3,849 | 3,781 | 3,806 clocks |
+
+The code from MIR has caught up with the naive generator during play and is 7 % faster with
+the CPU partner, the case where the budget is tightest. The naive generator is not simple: it
+narrows from the types, indexes with X and keeps values in A within an expression. The code from
+MIR still does none of that. Every MIR instruction loads its operands from RAM and stores its
+result, a comparison stores its truth value before the branch reads it again, and every value
+has its own RAM address. The next gains are in the code generator: compare and branch in one,
+values in registers and in the direct page (A, C, D in the catalogue).
+
 ### Where the naive code spends its time (2026-11-17)
 
 `tools/profile_game.sh bench` profiles the benchmark's play ticks 900–1700 (as the game's own
@@ -177,7 +210,7 @@ the catalogue come first. Compared with Calypsi, dampf promises nothing until it
 | E | 8.8 fixed point | `>>8`, `<<8` and comparisons of the integer part as byte accesses instead of shifts | Medium to high; the game uses 8.8 everywhere | B | | open |
 | F | Loops | Counter in X/Y, count down to zero, hoist invariant code, unroll small loops (by hint) | Medium | H | | open |
 | G | Branches | Branch on flags instead of materialising 0/1, common path falls through, correct branch distances | Medium | | | open |
-| H | Standard optimizations | Constant folding and propagation, dead code removal, common subexpressions | Medium; mostly a prerequisite for A–G | IR in SSA form | | open (dead code removal is built) |
+| H | Standard optimizations | Constant folding and propagation, dead code removal, common subexpressions | Medium; mostly a prerequisite for A–G | IR in SSA form | play 6.12 → 5.17 frames per tick (code from MIR) | built: folding, identities, branch folding, block merging, value numbering, redundant loads, dead code; loop-invariant code open |
 | I | Multiply and divide | Constants as shifts and adds, hardware multiplier with useful work during its latency, division by powers of two with correct signed rounding | Medium, depends on the code; **measured: 37 % of the naive code's time is the runtime multiplication, mostly struct array indexing by a constant size** | range analysis for signed division | play 8.16 → 6.12 frames per tick (code from MIR) | constants built (shifts and adds, powers of two); hardware multiplier open |
 | J | Banks and placement | Keep the data bank register right, 16-bit instead of 24-bit addresses, hot code in FastROM | Small to medium | pointer width analysis | | open |
 | K | Peephole | Remove redundant loads and stores, `STZ`, `INC`/`DEC` on memory | Small, but everywhere | | | open |
