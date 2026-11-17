@@ -8,6 +8,7 @@ import dampf.mir.MFunction;
 import dampf.mir.MModule;
 import dampf.mir.MType;
 import dampf.mir.Printer;
+import dampf.mir.Ranges;
 import dampf.mir.Value;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -79,6 +80,7 @@ public final class MirCodeGen {
 
     private AsmWriter out;
     private final Set<Instr> fused = new HashSet<>();
+    private Ranges ranges;
     private final Set<Instr> folded = new HashSet<>();
     private int labels;
     private SourcePos lastPos;
@@ -346,6 +348,7 @@ public final class MirCodeGen {
             out.note("parameter " + p.type() + " " + p + " at " + at(place.get(p)));
         }
         FrameLayout layout = layouts.get(f);
+        ranges = new Ranges(f);
         fused.clear();
         fused.addAll(layout.fused);
         folded.clear();
@@ -376,7 +379,7 @@ public final class MirCodeGen {
                     continue;   // compared at the branch
                 }
                 if (folded.contains(i)) {
-                    continue;   // the loads and stores add the offset themselves
+                    continue;   // the loads and stores add the offset themselves; a copying cast reads its source
                 }
                 if (i.isTerminator()) {
                     phiCopies(b, i);
@@ -435,6 +438,7 @@ public final class MirCodeGen {
                     : (w == 0 ? "#.loword(" + g.symbol() + ")" : imm(0x7E));
             case Value.SlotAddr s -> w == 0 ? "#.loword(" + FRAME + "+" + place.get(s.slot()) + ")" : imm(0x7E);
             case Value.Param p -> w >= words(p.type()) ? imm(0) : at(place.get(p) + 2 * w);
+            case Instr i when FrameLayout.transparent(i) -> w >= words(i.type()) ? imm(0) : operand(i.op(0), w);
             case Instr i -> w >= words(i.type()) ? imm(0) : at(place.get(i) + 2 * w);
         };
     }
@@ -444,6 +448,29 @@ public final class MirCodeGen {
     }
 
     /** The bits above an i1 or i8 are zero in its place. */
+    /**
+     * Whether an 8-bit add, subtract, multiply or left shift, done in 16 bits on zero-extended
+     * operands, provably gives a result below 256, so it needs no mask (from the value ranges,
+     * in the unsigned view the 16-bit code computes in).
+     */
+    private boolean staysByte(Instr.Bin b) {
+        if (b.type() != MType.I8 || ranges == null) {
+            return false;
+        }
+        Ranges.Range x = Ranges.unsigned(ranges.at(b.op(0), b.block()), MType.I8);
+        Ranges.Range y = Ranges.unsigned(ranges.at(b.op(1), b.block()), MType.I8);
+        if (x == null || y == null) {
+            return false;
+        }
+        return switch (b.op) {
+            case ADD -> x.hi() + y.hi() <= 0xFF;
+            case SUB -> x.lo() - y.hi() >= 0;
+            case MUL -> x.hi() * y.hi() <= 0xFF;
+            case SHL -> y.lo() == y.hi() && y.lo() < 8 && x.hi() << y.lo() <= 0xFF;
+            default -> false;
+        };
+    }
+
     private void mask(MType t) {
         if (t == MType.I8) {
             ins("and", imm(0xFF));
@@ -547,7 +574,9 @@ public final class MirCodeGen {
                 for (int w = 0; w < n; w++) {
                     ins("lda", operand(x, w));
                     ins(b.op == Instr.BinOp.ADD ? "adc" : "sbc", operand(y, w));
-                    mask(t);
+                    if (!staysByte(b)) {
+                        mask(t);
+                    }
                     ins("sta", dest(b, w));
                 }
             }
@@ -565,7 +594,9 @@ public final class MirCodeGen {
                     ins("sta", "z:R0");
                     ins("lda", operand(x, 0));
                     ins("jsl", "dampf_mul16");
-                    mask(t);
+                    if (!staysByte(b)) {
+                        mask(t);
+                    }
                     ins("sta", dest(b, 0));
                 } else {
                     to32(x, "z:R0", "z:R2");
@@ -708,7 +739,9 @@ public final class MirCodeGen {
             ins("dex", null);
             ins("bne", loop);
             place(done);
-            mask(t);
+            if (b.op != Instr.BinOp.LSHR && !staysByte(b)) {
+                mask(t);   // (a right shift of a zero-extended value stays zero-extended)
+            }
             ins("sta", dest(b, 0));
         } else {
             String lo = dest(b, 0);
@@ -758,7 +791,9 @@ public final class MirCodeGen {
                     }
                 }
             }
-            mask(t);
+            if (b.op != Instr.BinOp.LSHR && !staysByte(b)) {
+                mask(t);
+            }
             ins("sta", dest(b, 0));
             return;
         }
@@ -1034,6 +1069,9 @@ public final class MirCodeGen {
      * dampf_ptr (or dampf_ptr+4) after copying it there, unless it is there already.
      */
     private String via(Value pointer, String dp) {
+        while (pointer instanceof Instr i && FrameLayout.transparent(i)) {
+            pointer = i.op(0);   // the same bytes
+        }
         if (pointer instanceof Value.Param || pointer instanceof Instr) {
             int p = place.get(pointer);
             if (FRAME_START + p + 3 < 0x100) {

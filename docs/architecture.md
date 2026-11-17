@@ -21,7 +21,7 @@ function's frame starts after the frames of all its callers), and φs are copied
 make it fast. The MIR passes (`dampf.mir.Optimizer`) so far: simplification (`Simplify`),
 width narrowing (`Narrow`, and `RangeNarrow` with the value ranges of `Ranges`), multiplication and division by constants (`StrengthReduce`), common
 subexpressions and redundant loads (`Gvn`) and dead code removal (`DeadCode`), repeated until
-nothing changes. HIR and LIR are still to be built;
+nothing changes; then inlining (`Inline`) and the passes once more. HIR and LIR are still to be built;
 [roadmap.md](roadmap.md) says when. MIR currently goes straight from the AST; HIR will sit
 between them once inlining and struct splitting need it.
 

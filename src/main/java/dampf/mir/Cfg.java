@@ -44,6 +44,45 @@ final class Cfg {
         old.block = null;
     }
 
+    /**
+     * Makes every edge p → from go to {@code to} instead (a new terminator for p). Returns the
+     * number of edges moved (0 if p's terminator cannot be changed).
+     */
+    static int retarget(Block p, Block from, Block to) {
+        Instr old = p.terminator();
+        Instr t = switch (old) {
+            case Instr.Jump j -> new Instr.Jump(to, j.pos());
+            case Instr.Branch b -> new Instr.Branch(b.op(0), b.ifTrue == from ? to : b.ifTrue,
+                    b.ifFalse == from ? to : b.ifFalse, b.pos());
+            case Instr.Switch s -> {
+                Instr.Switch n = new Instr.Switch(s.op(0), s.otherwise == from ? to : s.otherwise, s.pos());
+                n.cases.addAll(s.cases);
+                for (Block b : s.targets) {
+                    n.targets.add(b == from ? to : b);
+                }
+                yield n;
+            }
+            default -> null;
+        };
+        if (t == null) {
+            return 0;
+        }
+        int edges = 0;
+        for (Block s : old.successors()) {
+            if (s == from) {
+                edges++;
+            }
+        }
+        for (int k = 0; k < edges; k++) {
+            from.preds().remove(p);
+            to.preds().add(p);
+        }
+        p.instrs().set(p.instrs().size() - 1, t);
+        t.block = p;
+        old.block = null;
+        return edges;
+    }
+
     static Set<Block> reachable(MFunction f) {
         Set<Block> seen = new HashSet<>();
         Deque<Block> work = new ArrayDeque<>(List.of(f.entry()));

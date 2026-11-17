@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 class GvnTest {
     private static String optimize(String body) {
         MModule m = MirParser.parse(body);
-        Optimizer.run(m, true);
+        Optimizer.run(m, true, false);
         StringBuilder out = new StringBuilder();
         for (String line : Printer.print(m).split("\n")) {
             if (line.startsWith("    ")) {

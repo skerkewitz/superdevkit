@@ -57,7 +57,46 @@ public final class Simplify {
             }
         }
         changed |= mergeBlocks(f);
+        changed |= threadJumps(f);
         return changed || !s.replaced.isEmpty();
+    }
+
+    /**
+     * A branch to a block that only jumps on goes straight to where that block jumps. Not for a
+     * predecessor that already goes to the target when the target has φs (one edge per value),
+     * nor for the entry block.
+     */
+    private static boolean threadJumps(MFunction f) {
+        boolean changed = false;
+        for (Block e : List.copyOf(f.blocks())) {
+            if (e == f.entry() || e.instrs().size() != 1 || !(e.terminator() instanceof Instr.Jump j) || j.target == e) {
+                continue;
+            }
+            Block t = j.target;
+            boolean phis = t.instrs().getFirst() instanceof Instr.Phi;
+            for (Block p : List.copyOf(e.preds())) {
+                if (p == e || phis && t.preds().contains(p)) {
+                    continue;
+                }
+                int edges = Cfg.retarget(p, e, t);
+                if (edges == 0) {
+                    continue;
+                }
+                for (Instr i : t.instrs()) {
+                    if (i instanceof Instr.Phi phi) {
+                        Value v = phi.op(phi.from.indexOf(e));
+                        for (int k = 0; k < edges; k++) {
+                            phi.add(p, v);
+                        }
+                    }
+                }
+                changed = true;
+            }
+        }
+        if (changed) {
+            Cfg.removeUnreachable(f);
+        }
+        return changed;
     }
 
     /** A block that only its one predecessor jumps to joins that predecessor. */

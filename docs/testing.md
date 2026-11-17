@@ -79,7 +79,7 @@ and run by the MIR interpreter (`dampf.mir.Interpreter`), and compared with gcc.
 shows up there, independent of any 65816 code. The verifier (`dampf.mir.Verifier`) runs after the
 lowering. `MirTextTest` prints the MIR of every execution program and of the whole game,
 parses it back and checks that it verifies and prints to the same text; pass tests can therefore
-be written as MIR text, as `NarrowTest` and `GvnTest` do. The interpreter can also check the range analysis: every value it computes must lie in its
+be written as MIR text, as `NarrowTest`, `GvnTest` and `InlineTest` do. The interpreter can also check the range analysis: every value it computes must lie in its
 inferred interval (`Ranges.checker`), in the execution tests, the random programs and the replay.
 `StrengthReduceTest` compares every reduced
 multiplication and division with the original in the interpreter (all 8-bit inputs, many

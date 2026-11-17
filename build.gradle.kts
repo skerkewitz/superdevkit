@@ -38,6 +38,7 @@ tasks.withType<JavaCompile>().configureEach {
 
 tasks.test {
     useJUnitPlatform()
+    maxHeapSize = "2g"
     // Tests that need the Blubber Blasen sources read their location from this property.
     providers.gradleProperty("blubberblasen").orNull?.let { systemProperty("dampf.blubberblasen", it) }
     // Execution tests run ROMs in Mesen 2: -Pmesen=/path/to/Mesen.exe, or the one in .mesen/

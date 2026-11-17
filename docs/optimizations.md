@@ -241,6 +241,27 @@ shrink to 214 bytes, so every value of every function is in the direct page.
 | play | 5.17 (worst 8.58) | 2.90 (worst 4.93) | 2.72 (worst 4.64) |
 | play, CPU partner | 6.55 (worst 12.23) | 3.68 (worst 6.92) | 3.45 (worst 6.38) |
 
+### Inlining and smaller things, 2026-11-17
+
+- **Inlining** (`dampf.mir.Inline`): functions of at most 30 MIR instructions, and functions
+  with one call site of at most 150, are copied into their callers, leaves first; then the
+  passes run again on the larger functions.
+- **Casts that only copy bytes** (zero extension, truncation to 16 bits, integer/pointer) get no
+  place and no code; their users read the source.
+- **No mask** after an 8-bit add, subtract, multiply or left shift whose unsigned operand ranges
+  keep the 16-bit result below 256, and never after a right shift.
+- **Jump threading** in `Simplify`: a branch to a block that only jumps goes to the final target.
+
+| State | naive | before | all of these |
+| --- | --- | --- | --- |
+| title | 1.94 | 0.98 | 0.91 |
+| play | 5.17 (worst 8.58) | 2.72 (worst 4.64) | 2.55 (worst 4.28) |
+| play, CPU partner | 6.55 (worst 12.23) | 3.45 (worst 6.38) | 3.31 (worst 6.08) |
+| `level_solid_px`, per call | 3,849 | 1,912 | 1,774 clocks |
+
+With inlining the frames grow to 410 bytes; 91 % of the frame accesses in the code still use the
+direct page.
+
 ### Where the naive code spends its time (2026-11-17)
 
 `tools/profile_game.sh bench` profiles the benchmark's play ticks 900–1700 (as the game's own

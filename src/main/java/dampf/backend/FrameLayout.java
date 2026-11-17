@@ -29,6 +29,8 @@ import java.util.Set;
  * <li>A block whose predecessors all end with a jump, and whose φs do not read each other, gets
  *     its φs written at the end of each predecessor ("direct"); else the predecessors write an
  *     "incoming" place, which the block copies on entry.</li>
+ * <li>A cast that only copies bytes ({@link #transparent}) has no place; its users read its
+ *     source.</li>
  * <li>An instruction may write its result before it has read all its operands (word by word),
  *     so a result never shares a place with an operand of the same instruction.</li>
  * </ul>
@@ -119,11 +121,24 @@ final class FrameLayout {
                 fused.add(c);
             }
             for (Instr i : b.instrs()) {
-                if (i instanceof Instr.PtrAdd p && foldable(p) && !otherUse.contains(p)) {
-                    folded.add(p);
+                if (i instanceof Instr.PtrAdd p && foldable(p) && !otherUse.contains(p) || transparent(i)) {
+                    folded.add(i);
                 }
             }
         }
+    }
+
+    /**
+     * A cast whose bytes are its source's: zero extension (values are kept zero-extended in their
+     * places, and the missing high word reads as 0), truncation to i16 (the low word), and the
+     * casts between i32 and pointers. It gets no place and no code; its users read the source.
+     */
+    static boolean transparent(Instr i) {
+        return i instanceof Instr.Cast c && switch (c.kind) {
+            case ZEXT, PTRTOINT, INTTOPTR -> true;
+            case TRUNC -> c.type() == MType.I16;
+            case SEXT -> false;
+        };
     }
 
     private static boolean directPhis(Block s) {
