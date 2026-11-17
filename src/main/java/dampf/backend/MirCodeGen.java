@@ -393,6 +393,7 @@ public final class MirCodeGen {
                 instr(i, next);
             }
         }
+        flushHeld();
         out.raw(".endproc");
     }
 
@@ -527,6 +528,7 @@ public final class MirCodeGen {
     }
 
     private void sourceLine(SourcePos pos) {
+        flushHeld();
         out.blank();
         String file = pos.file();
         sourceFiles.putIfAbsent(file, Path.of(file));
@@ -1370,9 +1372,53 @@ public final class MirCodeGen {
     /** The accumulator is 8 bit (between SEP #$20 and REP #$20). */
     private boolean m8;
 
+    /**
+     * A REP #$20 and an AND #$00FF held back for one instruction: if SEP #$20 comes next (after
+     * at most an LDY), all of them go, and the code stays 8 bit between a byte load and a byte
+     * store. (A value is masked to 8 bits only for code that reads all 16; a byte store does not,
+     * and after SEP nothing assumes what A holds.)
+     */
+    private boolean heldRep;
+    private boolean heldAnd;
+
+    private void flushHeld() {
+        if (heldRep) {
+            out.ins("rep", "#$20", null);
+        }
+        if (heldAnd) {
+            out.ins("and", imm(0xFF), null);
+        }
+        heldRep = false;
+        heldAnd = false;
+    }
+
     private void ins(String mnemonic, String operand) {
+        if (mnemonic.equals("rep") && "#$20".equals(operand)) {
+            flushHeld();
+            heldRep = true;
+            track(mnemonic, operand);
+            return;
+        }
+        if (mnemonic.equals("and") && imm(0xFF).equals(operand) && !m8) {
+            heldAnd = true;
+            track(mnemonic, operand);
+            return;
+        }
+        if (mnemonic.equals("sep") && "#$20".equals(operand) && (heldRep || heldAnd)) {
+            boolean both = heldRep;
+            heldRep = false;
+            heldAnd = false;
+            if (!both) {
+                out.ins(mnemonic, operand, null);
+            }
+            track(mnemonic, operand);
+            return;
+        }
         if (mnemonic.equals("lda") && !m8 && operand != null && operand.equals(aHolds)) {
             return;   // A has it already (the flags are not set again: see load())
+        }
+        if (!mnemonic.equals("ldy")) {
+            flushHeld();
         }
         if (mnemonic.equals("ldy") && operand != null && operand.equals(yHolds)) {
             return;
@@ -1386,6 +1432,7 @@ public final class MirCodeGen {
 
     /** A load that always happens, for code that branches on the flags it sets. */
     private void load(String operand) {
+        flushHeld();
         out.ins("lda", operand, null);
         track("lda", operand);
     }
@@ -1454,6 +1501,7 @@ public final class MirCodeGen {
     }
 
     private void place(String label) {
+        flushHeld();
         out.label(label);
         aHolds = null;   // something may jump here
         yHolds = null;
