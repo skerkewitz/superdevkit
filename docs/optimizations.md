@@ -387,6 +387,22 @@ body, and the tests' range check caught it at once.
 
 Play 1.61 → 1.57 frames per tick (worst 2.74), with the CPU partner 2.29 → 2.26 (worst 4.50).
 
+### Lazy byte masks, 2026-11-17
+
+An 8-bit value used to be masked to zero-extended form where it was computed. Now it may carry
+any high byte unless one of its readers needs it clean: comparisons, extensions (which have no
+code; their readers read the place as 16 bits), right shifts and divisions, shift counts, calls,
+returns and switches. Parameters and results stay clean by convention. A φ that must be clean
+passes that on to its operands. Some values are clean anyway (constants, call results, an AND
+with a clean operand, a sum the value ranges keep below 256). Only the rest get an
+`and #$00FF`.
+
+The gain is small: play 1.57 → 1.56 frames per tick (0.3 %). Most of the game's bytes are loaded
+to be compared or to index an array, and both need a clean value; `and #imm` still runs 826,000
+times in the measured play ticks (883,000 before, some of them real ANDs of the C code). The
+tests found one hole at once: AND, OR and XOR never masked, because clean operands used to give a
+clean result.
+
 ### Summary of the code from MIR so far (2026-11-17)
 
 | State | naive | from MIR, no passes | now |

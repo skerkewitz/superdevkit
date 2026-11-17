@@ -385,6 +385,8 @@ public final class MirCodeGen {
         }
         layout = layouts.get(f);
         ranges = layout.ranges;
+        findMasks(f);
+        ranges = layout.ranges;
         forward.clear();
         fused.clear();
         fused.addAll(layout.fused);
@@ -742,6 +744,107 @@ public final class MirCodeGen {
         };
     }
 
+    /**
+     * Masks the result of i, if it is an i1 (always) or an i8 that must be clean ({@link #masked}).
+     * An i8 that only byte-wise code reads (byte stores, adds, ...) keeps whatever high byte it got.
+     */
+    private void maskResult(Instr i) {
+        if (i.type() == MType.I8) {
+            if (masked.contains(i)) {
+                ins("and", imm(0xFF));
+            }
+        } else {
+            mask(i.type());
+        }
+    }
+
+    /** The i8 results the code must mask: one of their readers needs a clean high byte, and they have none of their own. */
+    private final Set<Instr> masked = new HashSet<>();
+
+    /**
+     * Lazy byte masks. An i8 value in A or in its place may carry any high byte, unless one of its
+     * readers needs it clean: comparisons, extensions (they need no code, their readers read the
+     * place as 16 bits), right shifts and divisions, shift counts, calls, returns and switches
+     * (parameters and results are clean by convention). A φ needs it if a reader of the φ does,
+     * and passes that on to its operands. Clean by themselves: constants, parameters, call
+     * results, an AND with a clean operand, an OR or XOR of clean ones, a right shift or unsigned
+     * division (their operands are clean), a sum or product of clean operands the value ranges
+     * keep below 256, a truth value extended to a byte.
+     */
+    private void findMasks(MFunction f) {
+        masked.clear();
+        Set<Value> need = new HashSet<>();
+        java.util.ArrayDeque<Value> work = new java.util.ArrayDeque<>();
+        for (Block b : f.blocks()) {
+            for (Instr u : b.instrs()) {
+                for (int k = 0; k < u.operands().size(); k++) {
+                    Value v = u.op(k);
+                    if (v.type() == MType.I8 && (v instanceof Instr || v instanceof Value.Param) && needsClean(u, k) && need.add(v)) {
+                        work.add(v);
+                    }
+                }
+            }
+        }
+        while (!work.isEmpty()) {
+            if (work.removeFirst() instanceof Instr.Phi p) {
+                for (Value v : p.operands()) {
+                    if (v.type() == MType.I8 && (v instanceof Instr || v instanceof Value.Param) && need.add(v)) {
+                        work.add(v);
+                    }
+                }
+            }
+        }
+        Map<Value, Boolean> natural = new HashMap<>();
+        for (Value v : need) {
+            if (v instanceof Instr i && !(i instanceof Instr.Phi) && !naturallyClean(i, need, natural)) {
+                masked.add(i);
+            }
+        }
+    }
+
+    private static boolean needsClean(Instr u, int k) {
+        return switch (u) {
+            case Instr.Phi p -> false;   // passed on when the φ itself needs it
+            case Instr.Store s -> k == 0;
+            case Instr.Bin b -> switch (b.op) {
+                case ADD, SUB, MUL, AND, OR, XOR -> false;
+                case SHL -> k == 1;
+                default -> true;
+            };
+            case Instr.Cast c -> c.kind != Instr.CastKind.TRUNC;
+            default -> true;
+        };
+    }
+
+    private boolean clean(Value v, Set<Value> need, Map<Value, Boolean> natural) {
+        if (!(v instanceof Instr i) || v.type() != MType.I8) {
+            return true;   // constants, parameters, undefined values, truth values
+        }
+        return need.contains(v) || !(i instanceof Instr.Phi) && naturallyClean(i, need, natural);
+    }
+
+    private boolean naturallyClean(Instr i, Set<Value> need, Map<Value, Boolean> natural) {
+        Boolean known = natural.get(i);
+        if (known != null) {
+            return known;
+        }
+        natural.put(i, false);   // (a cycle runs through a φ, which is not looked into)
+        boolean r = switch (i) {
+            case Instr.Call c -> true;
+            case Instr.Bin b -> switch (b.op) {
+                case AND -> clean(b.op(0), need, natural) || clean(b.op(1), need, natural);
+                case OR, XOR -> clean(b.op(0), need, natural) && clean(b.op(1), need, natural);
+                case LSHR, UDIV, UREM -> true;
+                case ADD, SUB, MUL, SHL -> staysByte(b) && clean(b.op(0), need, natural) && clean(b.op(1), need, natural);
+                default -> false;
+            };
+            case Instr.Cast c -> c.kind == Instr.CastKind.ZEXT;
+            default -> false;
+        };
+        natural.put(i, r);
+        return r;
+    }
+
     private void mask(MType t) {
         if (t == MType.I8) {
             ins("and", imm(0xFF));
@@ -858,9 +961,7 @@ public final class MirCodeGen {
                 for (int w = 0; w < n; w++) {
                     ins("lda", operand(x, w));
                     ins(b.op == Instr.BinOp.ADD ? "adc" : "sbc", operand(y, w));
-                    if (!staysByte(b)) {
-                        mask(t);
-                    }
+                    maskResult(b);
                     result(b, w);
                 }
             }
@@ -874,6 +975,9 @@ public final class MirCodeGen {
                 for (int w = 0; w < n; w++) {
                     ins("lda", operand(x, w));
                     ins(m, operand(y, w));
+                    if (n == 1) {
+                        maskResult(b);   // (operands may have any high byte)
+                    }
                     result(b, w);
                 }
             }
@@ -882,18 +986,14 @@ public final class MirCodeGen {
                     Value v = x instanceof Value.Const ? y : x;
                     long c = ((Value.Const) (x instanceof Value.Const ? x : y)).bits();
                     multiplyBy(v, c, t);
-                    if (!staysByte(b)) {
-                        mask(t);
-                    }
+                    maskResult(b);
                     result(b, 0);
                 } else if (n == 1) {
                     ins("lda", operand(y, 0));
                     ins("sta", "z:R0");
                     ins("lda", operand(x, 0));
                     ins("jsl", "dampf_mul16");
-                    if (!staysByte(b)) {
-                        mask(t);
-                    }
+                    maskResult(b);
                     result(b, 0);
                 } else {
                     to32(x, "z:R0", "z:R2");
@@ -932,7 +1032,7 @@ public final class MirCodeGen {
                 ins("jsl", "dampf_sdiv32");
                 if (n == 1) {
                     ins("lda", rem ? "z:R12" : "z:R8");
-                    mask(t);
+                    maskResult(b);
                     result(b, 0);
                 } else {
                     from32(b, rem ? "z:R12" : "z:R8", rem ? "z:R14" : "z:R10");
@@ -1071,9 +1171,7 @@ public final class MirCodeGen {
             ins("dex", null);
             ins("bne", loop);
             place(done);
-            if (b.op != Instr.BinOp.LSHR && !staysByte(b)) {
-                mask(t);   // (a right shift of a zero-extended value stays zero-extended)
-            }
+            maskResult(b);
             result(b, 0);
         } else {
             String lo = dest(b, 0);
@@ -1138,9 +1236,7 @@ public final class MirCodeGen {
                     }
                 }
             }
-            if (b.op != Instr.BinOp.LSHR && !staysByte(b)) {
-                mask(t);
-            }
+            maskResult(b);
             result(b, 0);
             return;
         }
@@ -1351,7 +1447,7 @@ public final class MirCodeGen {
         if (c.kind == Instr.CastKind.SEXT) {
             loadSigned16(c.op(0), from);
             if (words(to) == 1) {
-                mask(to);
+                maskResult(c);
                 result(c, 0);
             } else {
                 storeWithSign(dest(c, 0), dest(c, 1));
@@ -1360,7 +1456,7 @@ public final class MirCodeGen {
         }
         // zext, trunc, ptrtoint, inttoptr: the low bits, zero-extended
         ins("lda", operand(c.op(0), 0));
-        mask(to);
+        maskResult(c);
         result(c, 0);
         if (words(to) == 2) {
             if (words(from) == 2) {
@@ -1418,7 +1514,7 @@ public final class MirCodeGen {
                 // object is always in the same bank (the last byte of every bank stays free)
                 ins("lda", direct ? fixedAt(a, 0) : via);
             }
-            ins("and", imm(t == MType.I1 ? 1 : 0xFF));   // (after an 8-bit read, B still has an old value)
+            maskResult(l);   // (the byte after it, or after an 8-bit read the old B, is in the high byte)
             result(l, 0);
             return;
         }
