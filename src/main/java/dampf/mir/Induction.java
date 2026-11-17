@@ -50,7 +50,7 @@ public final class Induction {
                 if (step == null) {
                     continue;
                 }
-                long c = i.type().signed(((Value.Const) (step.op(0) == i ? step.op(1) : step.op(0))).bits());
+                long c = stepOf(i, step);
                 Map<Long, Instr.Phi> made = new HashMap<>();
                 for (Instr e : products(i, users)) {
                     long factor = ((Value.Const) (e.op(0) instanceof Value.Const ? e.op(0) : e.op(1))).bits();
@@ -80,9 +80,121 @@ public final class Induction {
                 }
             }
         }
+        if (replaced.isEmpty()) {
+            // the loop tests move only once the variables are made and the products gone
+            for (Block h : f.blocks()) {
+                for (Instr x : List.copyOf(h.instrs())) {
+                    if (!(x instanceof Instr.Phi i)) {
+                        break;
+                    }
+                    Instr.Bin step = i.type() == MType.I8 ? step(i, h, idom) : null;
+                    if (step != null && staysInByte(i, step, stepOf(i, step), ranges)) {
+                        moveTest(i, h, step, users, replaced);
+                    }
+                }
+            }
+        }
         DeadCode.replaceUses(f, replaced);
         return !replaced.isEmpty();
     }
+
+    /** What the counter i grows by per round: the constant of {@code add i, c}. */
+    private static long stepOf(Instr.Phi i, Instr.Bin step) {
+        return i.type().signed(((Value.Const) (step.op(0) == i ? step.op(1) : step.op(0))).bits());
+    }
+
+    /**
+     * The loop's test moves from the 8-bit counter i to a variable o = zext(i) * F of the same
+     * loop (the kind this pass makes: it starts at zext(start) * F and grows by c * F), if i
+     * serves nothing else: {@code i < N} becomes {@code o < N * F} (unsigned, and equality).
+     * Exact: o never wraps (i stays in its byte, 0 < F, F * 255 <= 0xFFFF), so the order is the
+     * same. The counter and its step then feed only each other and go (DeadCode); in the game's
+     * pair loop the offset in X is all that is left.
+     */
+    private static void moveTest(Instr.Phi i, Block h, Instr.Bin step, Map<Instr, List<Instr>> users,
+                                 Map<Instr, Value> replaced) {
+        Instr.Cmp test = null;
+        for (Instr u : users.getOrDefault(i, List.of())) {
+            if (u == step) {
+                continue;
+            }
+            if (u instanceof Instr.Cmp c && test == null && c.op(0) == i && c.op(1) instanceof Value.Const
+                    && switch (c.pred) {
+                        case EQ, NE, ULT, ULE, UGT, UGE -> true;
+                        default -> false;
+                    }) {
+                test = c;
+                continue;
+            }
+            return;   // i is used for something else
+        }
+        if (test == null || !users.getOrDefault(step, List.of()).stream().allMatch(u -> u == i)) {
+            return;
+        }
+        long c = stepOf(i, step);
+        for (Instr x : h.instrs()) {
+            if (!(x instanceof Instr.Phi o)) {
+                break;
+            }
+            long factor = o == i || o.type() != MType.I16 ? 0 : factorOf(i, o, c);
+            if (factor > 0) {
+                long n = ((Value.Const) test.op(1)).bits() & 0xFF;
+                Instr.Cmp moved = new Instr.Cmp(test.pred, o, new Value.Const(MType.I16, n * factor), test.pos());
+                test.block().insertBefore(test, moved);
+                replaced.put(test, moved);
+                return;
+            }
+        }
+    }
+
+    /** F if o = zext(i) * F with 0 < F, F * 255 <= 0xFFFF, read off o's start and step; else 0. */
+    private static long factorOf(Instr.Phi i, Instr.Phi o, long c) {
+        long factor = 0;
+        for (int k = 0; k < i.from.size(); k++) {
+            int ko = o.from.indexOf(i.from.get(k));
+            if (ko < 0) {
+                return 0;
+            }
+            Value vi = i.op(k);
+            Value vo = o.op(ko);
+            long f;
+            Value.Const d = vo instanceof Instr.Bin s && s.op == Instr.BinOp.ADD
+                    ? (s.op(0) == o && s.op(1) instanceof Value.Const k1 ? k1 : s.op(1) == o && s.op(0) instanceof Value.Const k2 ? k2 : null)
+                    : null;
+            if (d != null && vi instanceof Instr.Bin si && (si.op(0) == i || si.op(1) == i)) {
+                // the back edge: i grows by c, o by c * F
+                long ds = MType.I16.signed(d.bits());
+                if (c == 0 || ds % c != 0) {
+                    return 0;
+                }
+                f = ds / c;
+            } else if (vi instanceof Value.Const k0 && vo instanceof Value.Const o0) {
+                long u = k0.bits() & 0xFF;
+                if (u == 0) {
+                    if (o0.bits() != 0) {
+                        return 0;
+                    }
+                    continue;   // says nothing about F
+                }
+                if (o0.bits() % u != 0) {
+                    return 0;
+                }
+                f = o0.bits() / u;
+            } else if (vo instanceof Instr.Bin m && m.op == Instr.BinOp.MUL && m.op(1) instanceof Value.Const fk
+                    && m.op(0) instanceof Instr.Cast z && z.kind == Instr.CastKind.ZEXT && z.op(0) == vi) {
+                f = fk.bits();
+            } else {
+                return 0;
+            }
+            if (f <= 0 || f * 0xFF > 0xFFFF || factor != 0 && f != factor) {
+                return 0;
+            }
+            factor = f;
+        }
+        return factor;
+    }
+
+
 
     /**
      * The instruction every back edge into h gives the φ i: {@code add i, c} with a constant c

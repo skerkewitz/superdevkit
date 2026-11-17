@@ -740,6 +740,37 @@ An index that is an induction variable (an offset that grows by the element size
 is not folded yet: the range analysis gives it the type's whole range, since it cannot see that
 the loop ends before the offset wraps.
 
+### Loop counters in X next to an index in Y, 2026-11-17
+
+A loop whose array accesses use a second index was left out of X entirely: such an access
+would load X. In the pair loop of `separate` (bubble b's offset changes, bubble a's does not),
+a's index goes into Y anyway (*What A, X and Y hold across blocks*), and every instruction that
+indexes memory there has an absolute,Y form (`LDA`, `STA`). Only `STZ` (a store of 0) and
+accesses in the direct page or at a long address have none; such an access still keeps X out.
+With that, b's offset lives in X: `TXA`, `ADC #23`, `TAX` instead of `CLC`, `LDA`, `ADC`, `STA`
+and an `LDX` in every round. The code generator throws if anything changes X in a loop whose
+counter lives there, so a mistake here would fail the build instead of the program. Play
+359,710 → 356,238 clocks per tick.
+
+### The loop test on the offset, 2026-11-17
+
+After `Induction`, a loop over an array of structs has two counters: `i` and the offset
+`i * size`. Often `i` is only compared with the bound and stepped. `Induction` then moves the
+test to the offset, `i < N` becoming `offset < N * size`, and `i` goes (`DeadCode` removes φs
+that only feed each other). The offset is recognised by its form, whichever round made it: a
+16-bit φ of the same loop head that starts at `zext(start) * F` and grows by `step * F`. Exact
+for an 8-bit counter that stays in its byte, with `0 < F` and `F * 255 <= 0xFFFF`: the offset
+never wraps, so the order is the same; for unsigned comparisons and equality only. The pair loop
+of `separate` is now `CPX #$0170`, `BCC`, its body, and `TXA`/`ADC #23`/`TAX`. Most loops over
+the game's arrays of structs have this shape: play 356,238 → 329,834 clocks per tick (0.92
+frames, −7.4 %). `exec/loop_test_moved.c` has element sizes at the limit (256, 257), beyond it
+(258), one where the offset would pass 65,536 inside the loop (allowing it fails the test), and
+loops whose test must stay; a bound one element short fails it and others.
+
+A counter that counts down (`i--`, a subtraction in MIR) gets no induction variable yet, and the
+value ranges treat an 8-bit counter above 127 as negative, so such a loop keeps its
+multiplication.
+
 ### Summary of the code from MIR so far (2026-11-17, the latest measurement)
 
 Measured after the range analysis learned to narrow after widening: a loop of more than 24
@@ -748,21 +779,24 @@ it from being narrowed and from indexed addressing as nonnegative. Narrowing aga
 widened fixpoint gives it 0..768. Play 1.53 → 1.50, title 0.68 → 0.60. Then A's places and the
 byte loads, the short branches, INC/DEC, STZ, the bit selections, fewer copies and the registers
 across blocks (sections above): play 1.31. The last column adds FastROM, the CMP #0 that went, the
-values not stored, the narrow switches, the copied returns and the index in Y (see their sections); the column before it is SlowROM speed, as the earlier columns were measured.
+values not stored, the narrow switches, the copied returns, the index in Y and the loop tests on
+the offset (see their sections); the column before it is SlowROM speed, as the earlier columns were measured.
 
 | State | naive | from MIR, no passes | SlowROM | now (FastROM) |
 | --- | --- | --- | --- | --- |
-| title | 1.94 | 12.21 | 0.54 | 0.45 |
+| title | 1.94 | 12.21 | 0.54 | 0.44 |
 | story | 0.70 | 3.56 | 0.22 | 0.18 |
-| round intro | 5.76 | 12.13 | 1.76 | 1.45 |
-| play | 5.17 (worst 8.58) | 18.93 | 1.31 (worst 2.25) | 1.01 (worst 1.76) |
-| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 1.98 (worst 4.08) | 1.60 (worst 3.40) |
+| round intro | 5.76 | 12.13 | 1.76 | 1.43 |
+| play | 5.17 (worst 8.58) | 18.93 | 1.31 (worst 2.25) | 0.92 (worst 1.64) |
+| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 1.98 (worst 4.08) | 1.51 (worst 3.31) |
 | `level_solid_px`, per call | 3,849 | 6,648 | 1,149 | 871 clocks |
 
 Calypsi's 2.72 frames per tick during play (on an older version of the game) is passed. On the
 same version (the snapshot, `tools/bench_compilers.sh`, measured in dampf's emulator, which
 matches Mesen on Calypsi's ROM), in the play ticks where both play the same scene (711-812),
-Calypsi takes 1.67 frames per tick and dampf 1.14, 1.47 times as fast; Calypsi's results drift
+Calypsi took 1.67 frames per tick and dampf 1.14 (both at SlowROM speed), 1.47 times as fast;
+with FastROM for both and the steps since, Calypsi takes 1.42 and dampf 0.79, 1.79 times as fast.
+Calypsi's results drift
 from the PC's from tick 596 on, so later ticks compare other scenes ([roadmap.md](roadmap.md),
 *The plan from here*). The hand-written `level_solid_px` takes
 856 clocks (at SlowROM speed), so for that function dampf is now 1.34 times hand-written assembly

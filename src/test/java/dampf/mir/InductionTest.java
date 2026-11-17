@@ -2,6 +2,7 @@ package dampf.mir;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -96,5 +97,15 @@ class InductionTest {
         long[] want = run(plain, false);
         long[] got = run(optimized, true);
         assertEquals(java.util.Arrays.toString(want), java.util.Arrays.toString(got));
+    }
+
+    @Test
+    void anOnlyCountingCounterGivesItsTestToTheOffsetAndGoes() {
+        MModule optimized = MirParser.parse(PROGRAM);
+        Optimizer.run(optimized, true, false);
+        String up = Printer.print(optimized.function("_up"));
+        // i < 30 is now offset < 90 (offset = i * 3), and the 8-bit counter is gone
+        assertTrue(up.contains("cmp ult i16") && up.contains(", 90"), up);
+        assertFalse(up.contains("phi i8"), up);
     }
 }
