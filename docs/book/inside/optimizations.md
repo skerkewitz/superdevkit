@@ -8,7 +8,7 @@ it may use at most 60 % of an NTSC [frame](/glossary#frame), about 0.6 frames pe
 vertical blank and a safety margin come off that. The game's benchmark runs the same game code
 with a fixed input for 1,800 ticks and measures every tick in Mesen.
 
-During play, the code dampf now generates takes 1.02 frames per tick (worst tick 1.78) with
+During play, the code dampf now generates takes 1.01 frames per tick (worst tick 1.76) with
 FastROM, which is the default, and 1.31 (worst 2.25) at SlowROM speed, as the earlier figures on
 this page were measured. dampf's
 own [naive code generator](/glossary#naive-code-generator) takes 5.17 frames per tick for the
@@ -606,7 +606,10 @@ each of these is:
   that have an absolute,Y form (`LDA`, `STA` and the arithmetic, not `INC`, `STZ` or the
   direct page). Play 1.37 to 1.36. An index that does not change in a loop that also indexes
   with something else prefers Y wherever it is used: it stays in Y across the loop's rounds,
-  and X is left to the index that changes. Play 1.34 to 1.33.
+  and X is left to the index that changes. Play 1.34 to 1.33. Through a pointer, an index that
+  is never negative goes into Y for `lda [dp],y`, which adds Y to the pointer: the sum of
+  pointer and index is not computed. An index plus a constant (a field of `p[i]`) still computes
+  it. Play 1.02 to 1.01.
 - **Loop counters in X.** A φ of a loop head can live in X for the whole loop when it is only
   compared with constants, indexes the loop's array accesses and is stepped by a constant
   (`INX`, `DEX`, or `TXA`/`ADC`/`TAX`). Loops with calls, the runtime's multiplication or
@@ -762,6 +765,7 @@ budget is hardest to meet; the worst tick is in parentheses where the source giv
 | values every use takes from A not stored | 1.06 (1.83) | 1.66 (3.48) |
 | a `switch` on a byte compares 16 bits | 1.04 (1.80) | 1.64 (3.45) |
 | returns copied into each path | 1.02 (1.78) | 1.62 (3.42) |
+| an index through a pointer in Y | 1.01 (1.76) | 1.60 (3.40) |
 
 The steps are cumulative: each row includes everything above it. Loop rotation is not in the
 table; it brought about 0.5 %, measured on the benchmark's bare loop (801 to 783 clocks per

@@ -43,7 +43,8 @@ register allocation in the form the 65816 allows, induction variables, and
 them, play of Blubber Blasen takes 1.31 frames per tick, against 5.17 with the naive code;
 1.10 with FastROM, which is switched on since, 1.08 without the comparisons with 0 that
 the flags already answer, 1.06 without storing values that every use takes from A, 1.04
-with switches on bytes that compare 16 bits, and 1.02 with returns copied into each path.
+with switches on bytes that compare 16 bits, 1.02 with returns copied into each path, and
+1.01 with the index through a pointer in Y.
 That reaches M3's goal against Calypsi. On the same version of the game, with Calypsi's options,
 in the play ticks where both compilers play the same scene, Calypsi takes 1.67 frames per tick
 and dampf 1.14: dampf is 1.47 times as fast, and 1.3 to 1.8 times on the title, the story and
@@ -86,9 +87,9 @@ optimization guided by the profiles of the replays (the first part, laying out t
 a profile's counts, is built), superoptimization of short hot sequences,
 and the hints that transform code, such as `DAMPF_TABLE` and `DAMPF_PIN_X`.
 
-**What is left, and in which order.** Play takes 1.31 frames per tick (1.02 with FastROM, the
+**What is left, and in which order.** Play takes 1.31 frames per tick (1.01 with FastROM, the
 first item, the comparisons on the flags, the first step of register allocation, narrower
-switches and copied returns, done since), and the goal is 0.6. A
+switches, copied returns and indexes in Y, done since), and the goal is 0.6. A
 profile of play shows where the cycles of the game code go: moving values to and from the
 direct page takes 30 % (`sta` 16.0 %, `lda` 14.2 %), comparisons with a constant 8.5 %, indexed
 reads 7 %, byte masks 5 % and jumps 3 to 4 %. The runtime's multiplication and division are no
