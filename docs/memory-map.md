@@ -25,6 +25,14 @@ Bank `$7F` (another 64 KB) is not used yet.
 The linker sees RAM addresses without the bank (`$2000`, not `$7E2000`), so 16-bit address fixups
 fit. Code that needs a full 24-bit RAM address (a pointer) adds the bank itself.
 
+## Pointers
+
+The naive code generator makes every pointer 4 bytes: the 16-bit address, the bank, and a zero
+byte. A pointer to RAM has bank `$7E`, a pointer to ROM the bank of the data. Pointers are read
+through the direct page (`lda [dampf_ptr],y`). No object crosses a bank boundary, so pointer
+arithmetic only changes the low word. Pointers that provably always point into RAM can later
+become 16 bits (docs/subset.md, decision 3).
+
 ## I/O registers
 
 The PPU and CPU registers (`$2100-$21FF`, `$4200-$43FF`) are in bank 0, which DBR does not point

@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import dampf.Compiler;
-import dampf.ast.Variable;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
@@ -42,8 +41,7 @@ class ExecutionTest {
             Path work = Files.createDirectories(tmp.resolve(name));
             Compiler.Result r = Compiler.compile(new Compiler.Options(List.of(src), List.of(), List.of(), "test_main",
                     work.resolve(name + ".sfc")));
-            // the variables both sides can name: globals at file scope
-            List<Variable> globals = r.program().globals().stream().filter(v -> v.kind() == Variable.Kind.GLOBAL).toList();
+            List<Observed> globals = Observed.of(r.program().globals());
             Map<String, Long> pc = PcReference.wrap(PcReference.run(src, "test_main", globals, work), globals);
             Map<String, Long> snes = runner.run(r.rom(), globals);
             assertEquals(pc, snes, "globals after test_main() (PC vs SNES)");

@@ -2,11 +2,13 @@ package dampf.frontend;
 
 import dampf.ast.Expr;
 import dampf.ast.Function;
+import dampf.ast.Init;
 import dampf.ast.Program;
 import dampf.ast.Stmt;
 import dampf.ast.Type;
 import dampf.ast.Variable;
 import dampf.parser.CParser;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -24,13 +26,14 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 
 /**
  * Turns parse trees into the typed AST of the whole program. Applies C's typing rules exactly
- * as gcc does on x86-64 (integer promotions to a 32-bit int, usual arithmetic conversions) and
- * makes every implicit conversion explicit.
+ * as gcc does on x86-64 (integer promotions to a 32-bit int, usual arithmetic conversions,
+ * array-to-pointer decay) and makes every implicit conversion explicit.
  *
  * <p>It accepts only what the current code generator supports and stops with a clear message at
- * anything else. The full subset checker comes later; the one subset rule enforced here already
- * is that plain {@code char}, {@code short}, {@code int} and {@code long} may not be written in
- * game code, only in dampf's own {@code <stdint.h>}.
+ * anything else. The full subset checker comes later; the subset rule enforced here already is
+ * that {@code short}, {@code int}, {@code long}, {@code signed} and {@code unsigned} may not be
+ * written in game code, only in dampf's own {@code <stdint.h>}. Plain {@code char} is allowed for
+ * text and means what it means on x86-64: a signed 8-bit type (docs/subset.md, decision 1).
  */
 public final class AstBuilder {
     private final Path systemHeaders;
@@ -40,17 +43,18 @@ public final class AstBuilder {
     private final Map<String, Variable> externGlobals = new LinkedHashMap<>();
     private final List<Function> functions = new ArrayList<>();
     private final List<Variable> globals = new ArrayList<>();
-    private final Map<Variable, Long> initialValues = new HashMap<>();
-    private final Set<Variable> definedGlobals = new HashSet<>();
+    private final Map<Variable, Init> initialValues = new HashMap<>();
+    private final Set<String> definedGlobals = new HashSet<>();
     private final Map<Function, SourcePos> firstCall = new HashMap<>();
     private final Set<String> labels = new HashSet<>();
+    private int anonymous;
 
     // per file
     private SourceMap sourceMap;
-    private int fileIndex;
     private Map<String, Type> typedefs;
     private Map<String, Object> fileScope;
     private Map<String, Type> enumTags;
+    private Map<String, Type.StructDef> structTags;
 
     // per function
     private Function current;
@@ -70,10 +74,10 @@ public final class AstBuilder {
             throw new CompileError(parsed.diagnostics());
         }
         sourceMap = parsed.sourceMap();
-        fileIndex++;
         typedefs = new HashMap<>();
         fileScope = new HashMap<>();
         enumTags = new HashMap<>();
+        structTags = new HashMap<>();
         CParser.TranslationUnitContext tu = parsed.tree().translationUnit();
         if (tu == null) {
             return;
@@ -97,8 +101,11 @@ public final class AstBuilder {
             }
         }
         for (Variable v : globals) {
-            if (!definedGlobals.contains(v)) {
+            if (!definedGlobals.contains(v.label())) {
                 throw new CompileError(v.pos(), "'" + v.name() + "' is declared extern but never defined");
+            }
+            if (v.type() instanceof Type.Array a && a.length() < 0) {
+                throw new CompileError(v.pos(), "the size of '" + v.name() + "' is unknown");
             }
         }
         return new Program(List.copyOf(globals), Map.copyOf(initialValues), List.copyOf(functions));
@@ -108,12 +115,16 @@ public final class AstBuilder {
 
     private enum Storage { NONE, STATIC, EXTERN, TYPEDEF }
 
-    private record Specs(Storage storage, Type type) {}
+    /** Declaration specifiers: storage class, base type, and whether {@code const} was given. */
+    private record Specs(Storage storage, Type type, boolean isConst) {}
 
     private record Param(String name, Type type, SourcePos pos) {}
 
-    /** A declarator: a name, and for a function its parameters. */
-    private record Declarator(String name, SourcePos pos, List<Param> params) {
+    /**
+     * A declarator applied to a base type: the name, the full type, whether the object itself is
+     * const, and for a function its parameters (the type is then the return type).
+     */
+    private record Declared(String name, Type type, boolean objectConst, SourcePos pos, List<Param> params) {
         boolean isFunction() {
             return params != null;
         }
@@ -123,6 +134,7 @@ public final class AstBuilder {
         Storage storage = Storage.NONE;
         List<String> keywords = new ArrayList<>();
         Type named = null;
+        boolean isConst = false;
         for (ParserRuleContext s : specifiers) {
             ParserRuleContext inner = (ParserRuleContext) s.getChild(0);
             switch (inner) {
@@ -142,6 +154,7 @@ public final class AstBuilder {
                     if (!tq.getText().equals("const")) {
                         throw unsupported(tq, "'" + tq.getText() + "'");
                     }
+                    isConst = true;
                 }
                 case CParser.TypeSpecifierContext ts -> {
                     if (ts.typedefName() != null) {
@@ -150,28 +163,37 @@ public final class AstBuilder {
                             throw error(ts, "unknown type '" + ts.typedefName().getText() + "'");
                         }
                     } else if (ts.structOrUnionSpecifier() != null) {
-                        throw unsupported(ts, "structs and unions");
+                        named = structType(ts.structOrUnionSpecifier());
                     } else if (ts.enumSpecifier() != null) {
                         named = enumType(ts.enumSpecifier());
                     } else {
                         keywords.add(ts.getText());
                     }
                 }
+                case CParser.FunctionSpecifierContext fs -> {
+                    if (!fs.getText().equals("inline")) {
+                        throw unsupported(fs, "'" + fs.getText() + "'");
+                    }
+                    // inline is a hint; dampf decides inlining itself
+                }
                 default -> throw unsupported(inner, "'" + inner.getText() + "'");
             }
         }
         if (named != null) {
             if (!keywords.isEmpty()) {
-                throw error(where, "'" + keywords.getFirst() + "' cannot be combined with a typedef name");
+                throw error(where, "'" + keywords.getFirst() + "' cannot be combined with a type name");
             }
-            return new Specs(storage, named);
+            return new Specs(storage, named, isConst);
         }
-        return new Specs(storage, typeFromKeywords(keywords, where));
+        return new Specs(storage, typeFromKeywords(keywords, where), isConst);
     }
 
     private Type typeFromKeywords(List<String> kw, ParserRuleContext where) throws CompileError {
         if (kw.equals(List.of("void"))) {
             return Type.VOID;
+        }
+        if (kw.equals(List.of("char"))) {
+            return Type.I8; // text; signed 8 bit as on x86-64
         }
         for (String k : kw) {
             switch (k) {
@@ -189,9 +211,6 @@ public final class AstBuilder {
         boolean unsigned = kw.contains("unsigned");
         Type.Int t;
         if (kw.contains("char")) {
-            if (!kw.contains("signed") && !unsigned && !inSystemHeader(where)) {
-                throw new CompileError(pos(where), "plain 'char' is not supported yet: use int8_t or uint8_t (see docs/subset.md, decision 1)");
-            }
             t = unsigned ? Type.U8 : Type.I8;
         } else if (kw.contains("short")) {
             t = unsigned ? Type.U16 : Type.I16;
@@ -262,24 +281,120 @@ public final class AstBuilder {
         return t;
     }
 
-    private Declarator declarator(CParser.DeclaratorContext d) throws CompileError {
-        if (!d.pointer().isEmpty()) {
-            throw unsupported(d, "pointers");
+    /** A struct type; its fields are laid out one after the other, without padding. */
+    private Type structType(CParser.StructOrUnionSpecifierContext ss) throws CompileError {
+        if (ss.structOrUnion().getText().equals("union")) {
+            throw new CompileError(pos(ss), "unions are not supported");
+        }
+        String tag = ss.Identifier() != null ? ss.Identifier().getText() : null;
+        boolean hasBody = ss.getText().contains("{");
+        if (!hasBody) {
+            // a reference, possibly before the definition (struct Node *next;)
+            return new Type.Struct(structTags.computeIfAbsent(tag, Type.StructDef::new));
+        }
+        Type.StructDef def = tag != null ? structTags.computeIfAbsent(tag, Type.StructDef::new) : new Type.StructDef("<anonymous " + (anonymous++) + ">");
+        if (def.complete()) {
+            throw error(ss, "redefinition of struct " + tag);
+        }
+        List<Type.Field> fields = new ArrayList<>();
+        int offset = 0;
+        if (ss.memberDeclarationList() != null) {
+            for (CParser.MemberDeclarationContext md : ss.memberDeclarationList().memberDeclaration()) {
+                if (md.specifierQualifierList() == null) {
+                    throw unsupported(md, "this kind of struct member");
+                }
+                Specs s = specs(md.specifierQualifierList().typeSpecifierQualifier(), md);
+                if (md.memberDeclaratorList() == null) {
+                    throw unsupported(md, "anonymous struct members");
+                }
+                for (CParser.MemberDeclaratorContext m : md.memberDeclaratorList().memberDeclarator()) {
+                    if (m.declarator() == null || m.constantExpression() != null) {
+                        throw new CompileError(pos(m), "bit fields are not supported");
+                    }
+                    Declared d = declare(s.type(), s.isConst(), m.declarator());
+                    if (d.isFunction() || d.type() instanceof Type.Void || !complete(d.type())) {
+                        throw new CompileError(d.pos(), "field '" + d.name() + "' has an incomplete type");
+                    }
+                    for (Type.Field f : fields) {
+                        if (f.name().equals(d.name())) {
+                            throw new CompileError(d.pos(), "duplicate field '" + d.name() + "'");
+                        }
+                    }
+                    fields.add(new Type.Field(d.name(), d.type(), offset));
+                    offset += d.type().size();
+                }
+            }
+        }
+        def.complete(fields);
+        return new Type.Struct(def);
+    }
+
+    private static boolean complete(Type t) {
+        return switch (t) {
+            case Type.Array a -> a.length() >= 0 && complete(a.element());
+            case Type.Struct s -> s.def().complete();
+            case Type.Void v -> false;
+            default -> true;
+        };
+    }
+
+    /** Applies a declarator to a base type. C reads declarators inside out: {@code T *a[3]} is an array of pointers. */
+    private Declared declare(Type base, boolean baseConst, CParser.DeclaratorContext d) throws CompileError {
+        Type t = base;
+        boolean objectConst = baseConst;
+        for (ParseTree c : d.children) {
+            if (c instanceof CParser.PointerContext p) {
+                for (ParseTree pc : p.children) {
+                    if (pc instanceof TerminalNode tn && tn.getText().equals("*")) {
+                        t = new Type.Pointer(t);
+                        objectConst = false; // a pointer is const only if its own qualifier says so
+                    } else if (pc instanceof CParser.TypeQualifierListContext ql) {
+                        for (CParser.TypeQualifierContext q : ql.typeQualifier()) {
+                            if (!q.getText().equals("const")) {
+                                throw unsupported(q, "'" + q.getText() + "'");
+                            }
+                            objectConst = true;
+                        }
+                    } else {
+                        throw unsupported(p, "this kind of pointer");
+                    }
+                }
+            } else if (c instanceof CParser.DeclarationSpecifiersContext || c instanceof CParser.GnuAttributeContext
+                    || c instanceof CParser.GccDeclaratorExtensionContext) {
+                throw unsupported(d, "attributes and extensions in declarators");
+            }
         }
         CParser.DirectDeclaratorContext dd = d.directDeclarator();
-        if (dd.Identifier() == null || dd.getChildCount() > 1 && dd.getChild(1) instanceof TerminalNode t && t.getText().equals(":")) {
-            throw unsupported(dd, "this kind of declarator");
+        if (dd.Identifier() == null || dd.getChildCount() > 1 && dd.getChild(1) instanceof TerminalNode tn && tn.getText().equals(":")) {
+            throw unsupported(dd, "this kind of declarator (function pointers, bit fields)");
         }
         String name = dd.Identifier().getText();
+        List<Integer> dims = new ArrayList<>();
         List<Param> params = null;
         for (int i = 1; i < dd.getChildCount(); i++) {
             ParseTree c = dd.getChild(i);
-            if (c instanceof TerminalNode t && t.getText().equals("[")) {
-                throw unsupported(dd, "arrays");
-            }
-            if (c instanceof TerminalNode t && t.getText().equals("(")) {
+            if (c instanceof TerminalNode tn && tn.getText().equals("[")) {
                 if (params != null) {
-                    throw unsupported(dd, "functions returning functions");
+                    throw unsupported(dd, "functions returning arrays");
+                }
+                ParseTree next = dd.getChild(i + 1);
+                if (next instanceof CParser.AssignmentExpressionContext size) {
+                    Long n = fold(rvalue(assignment(size)));
+                    if (n == null || n <= 0) {
+                        throw error(size, "an array size must be a positive integer constant");
+                    }
+                    dims.add(n.intValue());
+                } else if (next instanceof TerminalNode close && close.getText().equals("]")) {
+                    if (!dims.isEmpty()) {
+                        throw error(dd, "only the first dimension of an array may be left out");
+                    }
+                    dims.add(-1);
+                } else {
+                    throw unsupported(dd, "this kind of array declarator");
+                }
+            } else if (c instanceof TerminalNode tn && tn.getText().equals("(")) {
+                if (params != null || !dims.isEmpty()) {
+                    throw unsupported(dd, "this kind of function declarator");
                 }
                 params = new ArrayList<>();
                 if (dd.getChild(i + 1) instanceof CParser.ParameterTypeListContext ptl) {
@@ -289,7 +404,40 @@ public final class AstBuilder {
                 throw unsupported(dd, "attributes");
             }
         }
-        return new Declarator(name, pos(dd), params);
+        for (int i = dims.size() - 1; i >= 0; i--) {
+            t = new Type.Array(t, dims.get(i));
+        }
+        if (!dims.isEmpty()) {
+            objectConst = constElements(t, base, baseConst, objectConst);
+        }
+        return new Declared(name, t, objectConst, pos(dd), params);
+    }
+
+    /** An array is const (goes to ROM) when its innermost elements are. */
+    private static boolean constElements(Type arrayType, Type base, boolean baseConst, boolean pointerConst) {
+        Type e = arrayType;
+        while (e instanceof Type.Array a) {
+            e = a.element();
+        }
+        return e instanceof Type.Pointer ? pointerConst : baseConst;
+    }
+
+    /** A type name (in casts and sizeof): specifiers, optionally followed by pointers. */
+    private Type typeName(CParser.TypeNameContext tn) throws CompileError {
+        Specs s = specs(tn.specifierQualifierList().typeSpecifierQualifier(), tn);
+        Type t = s.type();
+        CParser.AbstractDeclaratorContext ad = tn.abstractDeclarator();
+        if (ad != null) {
+            if (ad.directAbstractDeclarator() != null || ad.pointer() == null) {
+                throw unsupported(ad, "this kind of type name");
+            }
+            for (ParseTree c : ad.pointer().children) {
+                if (c instanceof TerminalNode tnode && tnode.getText().equals("*")) {
+                    t = new Type.Pointer(t);
+                }
+            }
+        }
+        return t;
     }
 
     private List<Param> parameters(CParser.ParameterTypeListContext ptl) throws CompileError {
@@ -307,42 +455,70 @@ public final class AstBuilder {
                 throw error(pd, "storage class on a parameter");
             }
             if (pd.abstractDeclarator() != null) {
-                throw unsupported(pd, "this kind of parameter");
+                // unnamed parameter with pointers: void f(uint8_t *);
+                CParser.AbstractDeclaratorContext ad = pd.abstractDeclarator();
+                if (ad.directAbstractDeclarator() != null || ad.pointer() == null) {
+                    throw unsupported(pd, "this kind of parameter");
+                }
+                Type t = s.type();
+                for (ParseTree c : ad.pointer().children) {
+                    if (c instanceof TerminalNode tn && tn.getText().equals("*")) {
+                        t = new Type.Pointer(t);
+                    }
+                }
+                params.add(new Param(null, t, pos(pd)));
+                continue;
             }
-            if (s.type() instanceof Type.Void) {
-                if (decls.size() != 1 || pd.declarator() != null) {
+            if (s.type() instanceof Type.Void && pd.declarator() == null) {
+                if (decls.size() != 1) {
                     throw error(pd, "'void' must be the only parameter");
                 }
                 return List.of();
             }
-            if (pd.declarator() == null) {
-                params.add(new Param(null, s.type(), pos(pd)));
-            } else {
-                Declarator d = declarator(pd.declarator());
+            Type t = s.type();
+            String name = null;
+            SourcePos p = pos(pd);
+            if (pd.declarator() != null) {
+                Declared d = declare(s.type(), s.isConst(), pd.declarator());
                 if (d.isFunction()) {
                     throw unsupported(pd, "function pointers");
                 }
-                params.add(new Param(d.name(), s.type(), d.pos()));
+                t = d.type();
+                name = d.name();
+                p = d.pos();
             }
+            if (t instanceof Type.Array a) {
+                t = new Type.Pointer(a.element()); // an array parameter is a pointer
+            }
+            if (t instanceof Type.Struct) {
+                throw new CompileError(p, "structs passed by value are not supported: pass a pointer");
+            }
+            if (t instanceof Type.Void) {
+                throw new CompileError(p, "a parameter cannot have type void");
+            }
+            params.add(new Param(name, t, p));
         }
         return params;
     }
 
     private void topLevelDeclaration(CParser.DeclarationContext d) throws CompileError {
         if (d.declarationSpecifiers() == null) {
+            if (d.staticAssertDeclaration() != null) {
+                throw unsupported(d, "_Static_assert");
+            }
             throw unsupported(d, "this kind of declaration");
         }
         Specs s = specs(d.declarationSpecifiers().declarationSpecifier(), d);
         if (d.initDeclaratorList() == null) {
-            return; // e.g. "int;" - nothing declared
+            return; // only a struct or enum definition
         }
         for (CParser.InitDeclaratorContext id : d.initDeclaratorList().initDeclarator()) {
-            Declarator dec = declarator(id.declarator());
+            Declared dec = declare(s.type(), s.isConst(), id.declarator());
             if (s.storage() == Storage.TYPEDEF) {
                 if (dec.isFunction() || id.initializer() != null) {
                     throw unsupported(id, "this kind of typedef");
                 }
-                typedefs.put(dec.name(), s.type());
+                typedefs.put(dec.name(), dec.type());
             } else if (dec.isFunction()) {
                 if (id.initializer() != null) {
                     throw error(id, "a function cannot have an initializer");
@@ -354,14 +530,14 @@ public final class AstBuilder {
         }
     }
 
-    private Function declareFunction(Declarator dec, Specs s) throws CompileError {
+    private Function declareFunction(Declared dec, Specs s) throws CompileError {
         List<Type> paramTypes = dec.params().stream().map(Param::type).toList();
         Object existing = fileScope.get(dec.name());
         if (existing == null && s.storage() != Storage.STATIC) {
             existing = externFunctions.get(dec.name());
         }
         if (existing instanceof Function f) {
-            if (!f.returnType().equals(s.type()) || !f.paramTypes().equals(paramTypes)) {
+            if (!f.returnType().equals(dec.type()) || !f.paramTypes().equals(paramTypes)) {
                 throw new CompileError(dec.pos(), "conflicting types for '" + dec.name() + "' (first declared at " + f.pos() + ")");
             }
             fileScope.put(dec.name(), f);
@@ -370,7 +546,7 @@ public final class AstBuilder {
         if (existing != null) {
             throw new CompileError(dec.pos(), "'" + dec.name() + "' is already declared as a variable");
         }
-        Function f = new Function(dec.name(), uniqueLabel("_" + dec.name()), s.type(), paramTypes, dec.pos());
+        Function f = new Function(dec.name(), uniqueLabel("_" + dec.name()), dec.type(), paramTypes, dec.pos());
         functions.add(f);
         fileScope.put(dec.name(), f);
         if (s.storage() != Storage.STATIC) {
@@ -379,8 +555,9 @@ public final class AstBuilder {
         return f;
     }
 
-    private void globalVariable(Declarator dec, Specs s, CParser.InitializerContext init) throws CompileError {
-        if (!(s.type() instanceof Type.Int t)) {
+    private void globalVariable(Declared dec, Specs s, CParser.InitializerContext init) throws CompileError {
+        Type t = dec.type();
+        if (t instanceof Type.Void) {
             throw new CompileError(dec.pos(), "variable '" + dec.name() + "' has type void");
         }
         Object existing = fileScope.get(dec.name());
@@ -389,14 +566,11 @@ public final class AstBuilder {
         }
         Variable v;
         if (existing instanceof Variable old) {
-            if (!old.type().equals(t)) {
-                throw new CompileError(dec.pos(), "conflicting types for '" + dec.name() + "' (first declared at " + old.pos() + ")");
-            }
-            v = old;
+            v = merge(old, t, dec);
         } else if (existing != null) {
             throw new CompileError(dec.pos(), "'" + dec.name() + "' is already declared as a function");
         } else {
-            v = new Variable(dec.name(), uniqueLabel("_" + dec.name()), t, Variable.Kind.GLOBAL, dec.pos());
+            v = new Variable(dec.name(), uniqueLabel("_" + dec.name()), t, Variable.Kind.GLOBAL, dec.pos(), dec.objectConst());
             globals.add(v);
             if (s.storage() != Storage.STATIC) {
                 externGlobals.put(dec.name(), v);
@@ -404,7 +578,7 @@ public final class AstBuilder {
         }
         fileScope.put(dec.name(), v);
         if (s.storage() != Storage.EXTERN) {
-            definedGlobals.add(v);
+            definedGlobals.add(v.label());
         }
         if (init != null) {
             if (s.storage() == Storage.EXTERN) {
@@ -413,16 +587,273 @@ public final class AstBuilder {
             if (initialValues.containsKey(v)) {
                 throw error(init, "'" + dec.name() + "' is initialised twice");
             }
-            if (init.assignmentExpression() == null) {
-                throw unsupported(init, "brace initializers");
-            }
-            Expr e = convert(assignment(init.assignmentExpression()), t, pos(init));
-            Long value = fold(e);
-            if (value == null) {
-                throw error(init, "the initializer of a global must be a constant");
-            }
-            initialValues.put(v, value);
+            v = staticInit(v, init);
+        } else if (s.storage() != Storage.EXTERN && !complete(v.type())) {
+            throw new CompileError(dec.pos(), "the size of '" + dec.name() + "' is unknown");
         }
+    }
+
+    /**
+     * A second declaration of a global: the types must agree, except that one may give the size
+     * of an array the other leaves out. The variable keeps its label, so earlier uses stay valid.
+     */
+    private Variable merge(Variable old, Type t, Declared dec) throws CompileError {
+        if (old.type().equals(t)) {
+            return old;
+        }
+        if (old.type() instanceof Type.Array a && t instanceof Type.Array b && a.element().equals(b.element())
+                && (a.length() < 0 || b.length() < 0)) {
+            if (b.length() < 0) {
+                return old;
+            }
+            return replace(old, t);
+        }
+        throw new CompileError(dec.pos(), "conflicting types for '" + dec.name() + "' (first declared at " + old.pos() + ")");
+    }
+
+    /** Replaces a global by the same variable with a completed type. */
+    private Variable replace(Variable old, Type t) {
+        Variable v = new Variable(old.name(), old.label(), t, old.kind(), old.pos(), old.readOnly());
+        globals.set(globals.indexOf(old), v);
+        externGlobals.replaceAll((k, x) -> x == old ? v : x);
+        fileScope.replaceAll((k, x) -> x == old ? v : x);
+        Init i = initialValues.remove(old);
+        if (i != null) {
+            initialValues.put(v, i);
+        }
+        return v;
+    }
+
+    /** Builds the initial contents of a global or static local; completes an array size from it. */
+    private Variable staticInit(Variable v, CParser.InitializerContext init) throws CompileError {
+        List<Init.Item> items = new ArrayList<>();
+        Type t = v.type();
+        int length = initialize(t, init, 0, items);
+        if (t instanceof Type.Array a && a.length() < 0) {
+            v = replace(v, new Type.Array(a.element(), length));
+        }
+        initialValues.put(v, new Init(items));
+        return v;
+    }
+
+    // ---------------------------------------------------------------- initializers
+
+    /**
+     * Records the initial contents of an object of type {@code t} at {@code offset}. Returns the
+     * number of top-level elements given (the length of an array whose size was left out).
+     */
+    private int initialize(Type t, CParser.InitializerContext init, int offset, List<Init.Item> items) throws CompileError {
+        if (init.assignmentExpression() != null) {
+            CParser.AssignmentExpressionContext a = init.assignmentExpression();
+            if (t instanceof Type.Array arr && stringLiteral(a) != null) {
+                byte[] s = stringLiteral(a);
+                int n = arr.length() < 0 ? s.length + 1 : arr.length();
+                if (!(arr.element() instanceof Type.Int e && e.bits() == 8) || s.length > n) {
+                    throw error(init, "string literal does not fit");
+                }
+                for (int i = 0; i < s.length; i++) {
+                    items.add(Init.Item.number(offset + i, 1, s[i]));
+                }
+                return n;
+            }
+            if (!Type.isScalar(t)) {
+                throw error(init, "an array or struct needs a brace initializer");
+            }
+            items.add(scalarInit(t, rvalue(assignment(a)), offset, init));
+            return 1;
+        }
+        List<CParser.InitializerContext> list = new ArrayList<>();
+        if (init.initializerList() != null) {
+            for (ParseTree c : init.initializerList().children) {
+                if (c instanceof CParser.DesignationContext) {
+                    throw unsupported(init, "designated initializers");
+                }
+                if (c instanceof CParser.InitializerContext i) {
+                    list.add(i);
+                }
+            }
+        }
+        if (Type.isScalar(t)) {
+            if (list.size() != 1) {
+                throw error(init, "a scalar needs exactly one initializer");
+            }
+            return initialize(t, list.getFirst(), offset, items);
+        }
+        int[] pos = {0};
+        int n = aggregate(t, list, pos, offset, items, true);
+        if (pos[0] < list.size()) {
+            throw error(list.get(pos[0]), "too many initializers");
+        }
+        return n;
+    }
+
+    /**
+     * Fills an array or struct from {@code list}, starting at {@code pos[0]}, with C's brace
+     * elision: an aggregate member without its own braces takes as many values as it needs.
+     */
+    private int aggregate(Type t, List<CParser.InitializerContext> list, int[] pos, int offset, List<Init.Item> items,
+                          boolean outermost) throws CompileError {
+        List<Type> members = new ArrayList<>();
+        List<Integer> offsets = new ArrayList<>();
+        boolean open = false;
+        if (t instanceof Type.Array a) {
+            open = a.length() < 0;
+            int n = open ? Integer.MAX_VALUE : a.length();
+            for (int i = 0; i < n && (!open || pos[0] < list.size()); i++) {
+                members.add(a.element());
+                offsets.add(offset + i * a.element().size());
+                if (open) {
+                    // an open array takes as many elements as there are values
+                    memberInit(a.element(), list, pos, offset + i * a.element().size(), items);
+                }
+            }
+            if (open) {
+                if (!outermost) {
+                    throw error(list.getFirst(), "only the outermost array may leave its size out");
+                }
+                return members.size();
+            }
+        } else if (t instanceof Type.Struct s) {
+            for (Type.Field f : s.def().fields()) {
+                members.add(f.type());
+                offsets.add(offset + f.offset());
+            }
+        } else {
+            throw new IllegalStateException(t.toString());
+        }
+        int i = 0;
+        for (; i < members.size() && pos[0] < list.size(); i++) {
+            memberInit(members.get(i), list, pos, offsets.get(i), items);
+        }
+        return t instanceof Type.Array a ? a.length() : 1;
+    }
+
+    private void memberInit(Type m, List<CParser.InitializerContext> list, int[] pos, int offset, List<Init.Item> items)
+            throws CompileError {
+        CParser.InitializerContext next = list.get(pos[0]);
+        boolean braced = next.assignmentExpression() == null;
+        boolean string = !braced && m instanceof Type.Array && stringLiteral(next.assignmentExpression()) != null;
+        if (braced || string || Type.isScalar(m)) {
+            initialize(m, next, offset, items);
+            pos[0]++;
+        } else {
+            aggregate(m, list, pos, offset, items, false); // brace elision
+        }
+    }
+
+    /** One scalar of static data: a number or an address constant. */
+    private Init.Item scalarInit(Type t, Expr e, int offset, ParserRuleContext where) throws CompileError {
+        Expr v = assignConvert(e, t, pos(where));
+        if (t instanceof Type.Int it) {
+            Long k = fold(v);
+            if (k == null) {
+                throw error(where, "the initializer of a static object must be a constant");
+            }
+            return Init.Item.number(offset, it.size(), k);
+        }
+        Init.Item a = addressConstant(v, offset);
+        if (a == null) {
+            throw error(where, "the initializer of a static pointer must be a constant address");
+        }
+        return a;
+    }
+
+    /** {@code &global}, an array name, a string literal, plus a constant offset; or the null pointer. */
+    private Init.Item addressConstant(Expr e, int offset) {
+        return switch (e) {
+            case Expr.PointerCast c when fold(c.operand()) != null && fold(c.operand()) == 0 -> Init.Item.number(offset, 4, 0);
+            case Expr.PointerCast c -> addressConstant(c.operand(), offset);
+            case Expr.Decay d -> lvalueAddress(d.array(), offset);
+            case Expr.AddressOf a -> lvalueAddress(a.lvalue(), offset);
+            case Expr.PointerAdd p -> {
+                Long k = fold(p.offset());
+                Init.Item base = addressConstant(p.pointer(), offset);
+                if (k == null || base == null || base.address() == null) {
+                    yield null;
+                }
+                long d = (p.subtract() ? -k : k) * p.scale();
+                yield Init.Item.address(offset, base.address(), base.addressOffset() + d);
+            }
+            default -> null;
+        };
+    }
+
+    private Init.Item lvalueAddress(Expr lv, int offset) {
+        return switch (lv) {
+            case Expr.Var v when v.variable().kind() == Variable.Kind.GLOBAL || v.variable().kind() == Variable.Kind.STATIC_LOCAL ->
+                    Init.Item.address(offset, v.variable(), 0);
+            case Expr.Index i -> {
+                Long k = fold(i.index());
+                Init.Item base = i.base().type() instanceof Type.Array ? lvalueAddress(i.base(), offset) : null;
+                yield k == null || base == null ? null
+                        : Init.Item.address(offset, base.address(), base.addressOffset() + k * i.type().size());
+            }
+            case Expr.Member m -> {
+                Init.Item base = lvalueAddress(m.base(), offset);
+                yield base == null ? null : Init.Item.address(offset, base.address(), base.addressOffset() + m.field().offset());
+            }
+            default -> null;
+        };
+    }
+
+    /** The bytes of a string literal expression (adjacent literals joined), or null. */
+    private static byte[] stringLiteral(CParser.AssignmentExpressionContext a) {
+        CParser.PrimaryExpressionContext p = primaryOf(a);
+        if (p == null || p.StringLiteral().isEmpty()) {
+            return null;
+        }
+        StringBuilder sb = new StringBuilder();
+        for (TerminalNode s : p.StringLiteral()) {
+            sb.append(unescape(s.getText()));
+        }
+        return sb.toString().getBytes(StandardCharsets.ISO_8859_1);
+    }
+
+    /** The primary expression an assignment expression consists of, if it is nothing more. */
+    private static CParser.PrimaryExpressionContext primaryOf(ParseTree t) {
+        ParseTree x = t;
+        while (x != null && !(x instanceof CParser.PrimaryExpressionContext)) {
+            if (x.getChildCount() != 1) {
+                return null;
+            }
+            x = x.getChild(0);
+        }
+        return (CParser.PrimaryExpressionContext) x;
+    }
+
+    private static String unescape(String literal) {
+        if (!literal.startsWith("\"")) {
+            throw new IllegalArgumentException("wide string literals are not supported: " + literal);
+        }
+        String body = literal.substring(1, literal.length() - 1);
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < body.length(); i++) {
+            char c = body.charAt(i);
+            if (c != '\\') {
+                sb.append(c);
+                continue;
+            }
+            char n = body.charAt(++i);
+            switch (n) {
+                case 'n' -> sb.append('\n');
+                case 't' -> sb.append('\t');
+                case 'r' -> sb.append('\r');
+                case '0' -> sb.append('\0');
+                case '\\' -> sb.append('\\');
+                case '\'' -> sb.append('\'');
+                case '"' -> sb.append('"');
+                case 'x' -> {
+                    int j = i + 1;
+                    while (j < body.length() && Character.digit(body.charAt(j), 16) >= 0) {
+                        j++;
+                    }
+                    sb.append((char) Integer.parseInt(body.substring(i + 1, j), 16));
+                    i = j - 1;
+                }
+                default -> throw new IllegalArgumentException("escape \\" + n + " is not supported");
+            }
+        }
+        return sb.toString();
     }
 
     // ---------------------------------------------------------------- functions and statements
@@ -438,9 +869,12 @@ public final class AstBuilder {
         if (s.storage() == Storage.TYPEDEF) {
             throw error(fd, "a function definition cannot be a typedef");
         }
-        Declarator dec = declarator(fd.declarator());
+        Declared dec = declare(s.type(), s.isConst(), fd.declarator());
         if (!dec.isFunction()) {
             throw error(fd, "expected a function");
+        }
+        if (dec.type() instanceof Type.Struct) {
+            throw new CompileError(dec.pos(), "structs returned by value are not supported");
         }
         Function f = declareFunction(dec, s);
         if (f.isDefined()) {
@@ -497,54 +931,69 @@ public final class AstBuilder {
     private void localDeclaration(CParser.DeclarationSpecifiersContext specs, CParser.InitDeclaratorListContext list,
                                   ParserRuleContext d, List<Stmt> out) throws CompileError {
         Specs s = specs(specs.declarationSpecifier(), d);
-        if (s.storage() == Storage.EXTERN || s.storage() == Storage.TYPEDEF) {
-            throw unsupported(d, "'" + s.storage().name().toLowerCase() + "' inside a function");
+        if (s.storage() == Storage.EXTERN) {
+            throw unsupported(d, "'extern' inside a function");
         }
         if (list == null) {
             return;
         }
         for (CParser.InitDeclaratorContext id : list.initDeclarator()) {
-            Declarator dec = declarator(id.declarator());
+            Declared dec = declare(s.type(), s.isConst(), id.declarator());
             if (dec.isFunction()) {
                 throw unsupported(id, "function declarations inside a function");
             }
-            if (!(s.type() instanceof Type.Int t)) {
+            Map<String, Object> scope = blockScopes.peek();
+            if (s.storage() == Storage.TYPEDEF) {
+                throw unsupported(id, "typedef inside a function");
+            }
+            if (dec.type() instanceof Type.Void) {
                 throw new CompileError(dec.pos(), "variable '" + dec.name() + "' has type void");
             }
-            Map<String, Object> scope = blockScopes.peek();
             if (scope.containsKey(dec.name())) {
                 throw new CompileError(dec.pos(), "redeclaration of '" + dec.name() + "'");
             }
             if (s.storage() == Storage.STATIC) {
                 // a static local is a global with a name only this block sees
-                Variable v = new Variable(dec.name(), uniqueLabel(current.label() + "__" + dec.name()), t, Variable.Kind.STATIC_LOCAL, dec.pos());
+                Variable v = new Variable(dec.name(), uniqueLabel(current.label() + "__" + dec.name()), dec.type(),
+                        Variable.Kind.STATIC_LOCAL, dec.pos(), dec.objectConst());
                 globals.add(v);
-                definedGlobals.add(v);
-                scope.put(dec.name(), v);
+                definedGlobals.add(v.label());
                 if (id.initializer() != null) {
-                    if (id.initializer().assignmentExpression() == null) {
-                        throw unsupported(id.initializer(), "brace initializers");
-                    }
-                    Long value = fold(convert(assignment(id.initializer().assignmentExpression()), t, pos(id.initializer())));
-                    if (value == null) {
-                        throw error(id.initializer(), "the initializer of a static variable must be a constant");
-                    }
-                    initialValues.put(v, value);
+                    v = staticInit(v, id.initializer());
+                } else if (!complete(v.type())) {
+                    throw new CompileError(dec.pos(), "the size of '" + dec.name() + "' is unknown");
                 }
+                scope.put(dec.name(), v);
                 continue;
             }
-            Variable v = new Variable(dec.name(), uniqueLabel(current.label() + "__" + dec.name()), t, Variable.Kind.LOCAL, dec.pos());
-            currentLocals.add(v);
-            if (id.initializer() != null) {
-                if (id.initializer().assignmentExpression() == null) {
-                    throw unsupported(id.initializer(), "brace initializers");
+            Type t = dec.type();
+            if (id.initializer() == null) {
+                if (!complete(t)) {
+                    throw new CompileError(dec.pos(), "the size of '" + dec.name() + "' is unknown");
                 }
-                // C: the variable is in scope inside its own initializer
+                Variable v = new Variable(dec.name(), uniqueLabel(current.label() + "__" + dec.name()), t, Variable.Kind.LOCAL, dec.pos());
+                currentLocals.add(v);
                 scope.put(dec.name(), v);
-                Expr value = convert(assignment(id.initializer().assignmentExpression()), t, pos(id.initializer()));
-                out.add(new Stmt.ExprStmt(new Expr.Assign(v, value, dec.pos()), pos(d)));
+                continue;
             }
+            if (Type.isScalar(t) && id.initializer().assignmentExpression() != null) {
+                Variable v = new Variable(dec.name(), uniqueLabel(current.label() + "__" + dec.name()), t, Variable.Kind.LOCAL, dec.pos());
+                currentLocals.add(v);
+                scope.put(dec.name(), v); // C: the variable is in scope inside its own initializer
+                Expr value = assignConvert(rvalue(assignment(id.initializer().assignmentExpression())), t, pos(id.initializer()));
+                out.add(new Stmt.ExprStmt(new Expr.Assign(new Expr.Var(v, dec.pos()), value, dec.pos()), pos(d)));
+                continue;
+            }
+            // an array or struct with an initializer: copied from a constant template in ROM
+            Variable template = new Variable(dec.name() + " (initial value)", uniqueLabel(current.label() + "__" + dec.name() + "__init"),
+                    t, Variable.Kind.STATIC_LOCAL, dec.pos(), true);
+            globals.add(template);
+            definedGlobals.add(template.label());
+            template = staticInit(template, id.initializer());
+            Variable v = new Variable(dec.name(), uniqueLabel(current.label() + "__" + dec.name()), template.type(), Variable.Kind.LOCAL, dec.pos());
+            currentLocals.add(v);
             scope.put(dec.name(), v);
+            out.add(new Stmt.ExprStmt(new Expr.Assign(new Expr.Var(v, dec.pos()), new Expr.Var(template, dec.pos()), dec.pos()), pos(d)));
         }
     }
 
@@ -581,10 +1030,10 @@ public final class AstBuilder {
                 }
                 return new Stmt.Return(null, pos(st));
             }
-            if (!(rt instanceof Type.Int t)) {
+            if (rt instanceof Type.Void) {
                 throw error(js, "'return' with a value in a void function");
             }
-            return new Stmt.Return(convert(expression(js.expression()), t, pos(js.expression())), pos(st));
+            return new Stmt.Return(assignConvert(rvalue(expression(js.expression())), rt, pos(js.expression())), pos(st));
         }
         if (st.selectionStatement() != null) {
             CParser.SelectionStatementContext sel = st.selectionStatement();
@@ -616,23 +1065,24 @@ public final class AstBuilder {
     }
 
     private Expr condition(CParser.ExpressionContext e) throws CompileError {
-        Expr c = expression(e);
-        intType(c, e);
+        Expr c = rvalue(expression(e));
+        scalar(c, e);
         return c;
     }
 
     /** An expression whose value is not used: x++ becomes ++x, which is simpler to compile. */
-    private static Expr discarded(Expr e) {
-        if (e instanceof Expr.PostIncDec p) {
-            Type.Int t = (Type.Int) p.target().type();
-            Type.Int pt = Type.common(t, Type.I32);
-            Expr old = new Expr.Var(p.target(), p.pos());
-            Expr widened = t.equals(pt) ? old : new Expr.Convert(old, pt, false, p.pos());
-            Expr sum = new Expr.Binary(p.increment() ? Expr.BinOp.ADD : Expr.BinOp.SUB, widened, new Expr.Const(1, pt, p.pos()), pt, p.pos());
-            Expr value = t.equals(pt) ? sum : new Expr.Convert(sum, t, false, p.pos());
-            return new Expr.Assign(p.target(), value, p.pos());
+    private Expr discarded(Expr e) throws CompileError {
+        if (e instanceof Expr.PostIncDec p && !hasSideEffects(p.target())) {
+            return incremented(p.target(), p.increment(), p.pos());
         }
         return e;
+    }
+
+    /** {@code target = target ± 1} (for a pointer: one element). */
+    private Expr incremented(Expr target, boolean increment, SourcePos p) throws CompileError {
+        Expr one = new Expr.Const(1, Type.I32, p);
+        Expr sum = binaryOp(increment ? "+" : "-", target, one, p);
+        return new Expr.Assign(target, assignConvert(sum, target.type(), p), p);
     }
 
     private Stmt loop(CParser.IterationStatementContext it) throws CompileError {
@@ -657,7 +1107,11 @@ public final class AstBuilder {
                     localDeclaration(d.declarationSpecifiers(), d.initDeclaratorList(), d, decl);
                     init = new Stmt.Block(decl, pos(d), pos(d));
                 } else if (fc.expression() != null) {
-                    init = new Stmt.ExprStmt(discarded(expression(fc.expression())), pos(fc.expression()));
+                    List<Stmt> parts = new ArrayList<>();
+                    for (CParser.AssignmentExpressionContext a : fc.expression().assignmentExpression()) {
+                        parts.add(new Stmt.ExprStmt(discarded(assignment(a)), pos(a)));
+                    }
+                    init = parts.size() == 1 ? parts.getFirst() : new Stmt.Block(parts, pos(fc), pos(fc));
                 }
                 // forCondition: (decl | expr?) ';' forExpression? ';' forExpression?
                 CParser.ForExpressionContext condCtx = null;
@@ -679,8 +1133,8 @@ public final class AstBuilder {
                     if (condCtx.assignmentExpression().size() > 1) {
                         throw unsupported(condCtx, "the comma operator");
                     }
-                    cond = assignment(condCtx.assignmentExpression(0));
-                    intType(cond, condCtx);
+                    cond = rvalue(assignment(condCtx.assignmentExpression(0)));
+                    scalar(cond, condCtx);
                 }
                 List<Expr> step = new ArrayList<>();
                 if (stepCtx != null) {
@@ -707,7 +1161,7 @@ public final class AstBuilder {
     }
 
     private Stmt switchStatement(CParser.SelectionStatementContext sel) throws CompileError {
-        Expr value = expression(sel.expression());
+        Expr value = rvalue(expression(sel.expression()));
         Type.Int t = Type.promote(intType(value, sel));
         value = convert(value, t, pos(sel.expression()));
         CParser.StatementContext bodyCtx = sel.statement(0);
@@ -739,8 +1193,8 @@ public final class AstBuilder {
         if (ls != null && (ls.getStart().getText().equals("case") || ls.getStart().getText().equals("default"))) {
             Long v = null;
             if (ls.getStart().getText().equals("case")) {
-                v = fold(convert(chain(ls.constantExpression().conditionalExpression().logicalOrExpression()), t, pos(ls)));
-                if (ls.constantExpression().conditionalExpression().expression() != null || v == null) {
+                v = fold(convert(rvalue(conditional(ls.constantExpression().conditionalExpression())), t, pos(ls)));
+                if (v == null) {
                     throw error(ls, "a case label must be an integer constant");
                 }
             }
@@ -776,20 +1230,27 @@ public final class AstBuilder {
             return integerConstant(a.DigitSequence().getSymbol());
         }
         Expr target = unary(a.unaryExpression());
-        if (!(target instanceof Expr.Var var)) {
-            throw error(a.unaryExpression(), "can only assign to a variable");
-        }
-        Type.Int t = (Type.Int) var.type();
         Token op = a.assignementOperator;
-        Expr rhs = assignment(a.assignmentExpression());
-        Expr value;
+        SourcePos p = pos(op);
+        checkAssignable(target, a.unaryExpression());
+        Expr rhs = rvalue(assignment(a.assignmentExpression()));
         if (op.getText().equals("=")) {
-            value = convert(rhs, t, pos(op));
-        } else {
-            String bin = op.getText().substring(0, op.getText().length() - 1);
-            value = convert(binary(bin, var, rhs, pos(op), a), t, pos(op));
+            return new Expr.Assign(target, assignConvert(rhs, target.type(), p), p);
         }
-        return new Expr.Assign(var.variable(), value, pos(op));
+        if (hasSideEffects(target)) {
+            throw unsupported(a, "compound assignment to an lvalue with side effects");
+        }
+        String bin = op.getText().substring(0, op.getText().length() - 1);
+        return new Expr.Assign(target, assignConvert(binaryOp(bin, target, rhs, p), target.type(), p), p);
+    }
+
+    private void checkAssignable(Expr target, ParserRuleContext where) throws CompileError {
+        if (!Expr.isLvalue(target)) {
+            throw error(where, "the left side of an assignment must be a variable or an element");
+        }
+        if (target.type() instanceof Type.Array) {
+            throw error(where, "arrays cannot be assigned");
+        }
     }
 
     private Expr conditional(CParser.ConditionalExpressionContext c) throws CompileError {
@@ -797,16 +1258,26 @@ public final class AstBuilder {
         if (c.expression() == null) {
             return cond;
         }
-        intType(cond, c);
-        Expr then = expression(c.expression());
-        Expr otherwise = conditional(c.conditionalExpression());
-        Type.Int t = Type.common(intType(then, c), intType(otherwise, c));
+        cond = rvalue(cond);
+        scalar(cond, c);
+        Expr then = rvalue(expression(c.expression()));
+        Expr otherwise = rvalue(conditional(c.conditionalExpression()));
         SourcePos p = pos(c);
+        Type t;
+        if (then.type() instanceof Type.Int a && otherwise.type() instanceof Type.Int b) {
+            t = Type.common(a, b);
+        } else if (then.type() instanceof Type.Pointer) {
+            t = then.type();
+        } else if (otherwise.type() instanceof Type.Pointer) {
+            t = otherwise.type();
+        } else {
+            throw error(c, "the branches of ?: must both be numbers or pointers");
+        }
         Long k = fold(cond);
         if (k != null) {
-            return convert(k != 0 ? then : otherwise, t, p);
+            return assignConvert(k != 0 ? then : otherwise, t, p);
         }
-        return new Expr.Conditional(cond, convert(then, t, p), convert(otherwise, t, p), t, p);
+        return new Expr.Conditional(cond, assignConvert(then, t, p), assignConvert(otherwise, t, p), t, p);
     }
 
     /** The binary operator rules, from logical-or down to multiplicative: a left-to-right chain. */
@@ -818,33 +1289,86 @@ public final class AstBuilder {
         for (int i = 1; i < ctx.getChildCount(); i += 2) {
             TerminalNode op = (TerminalNode) ctx.getChild(i);
             Expr right = chain((ParserRuleContext) ctx.getChild(i + 1));
-            left = binary(op.getText(), left, right, pos(op.getSymbol()), ctx);
+            left = binaryOp(op.getText(), rvalue(left), rvalue(right), pos(op.getSymbol()));
         }
         return left;
     }
 
-    private Expr binary(String op, Expr left, Expr right, SourcePos pos, ParserRuleContext where) throws CompileError {
-        Type.Int lt = intType(left, where);
-        Type.Int rt = intType(right, where);
-        Expr result;
+    /** A binary operator on two values (already through {@link #rvalue}). */
+    private Expr binaryOp(String op, Expr left, Expr right, SourcePos pos) throws CompileError {
+        left = rvalue(left);
+        right = rvalue(right);
         if (op.equals("&&") || op.equals("||")) {
-            result = new Expr.Logical(op.equals("&&"), left, right, pos);
+            scalar(left, pos);
+            scalar(right, pos);
+            Expr result = new Expr.Logical(op.equals("&&"), left, right, pos);
+            Long k = fold(result);
+            return k != null ? new Expr.Const(k, Type.I32, pos) : result;
+        }
+        Expr.BinOp bop = Expr.BinOp.of(op);
+        if (bop == null) {
+            throw new CompileError(pos, "operator '" + op + "' is not supported yet");
+        }
+        boolean lp = left.type() instanceof Type.Pointer;
+        boolean rp = right.type() instanceof Type.Pointer;
+        if (lp || rp) {
+            return pointerOp(bop, left, right, pos);
+        }
+        Type.Int lt = intType(left, pos);
+        Type.Int rt = intType(right, pos);
+        Expr result;
+        if (bop.isShift()) {
+            Type.Int t = Type.promote(lt);
+            result = new Expr.Binary(bop, convert(left, t, pos), convert(right, Type.promote(rt), pos), t, pos);
         } else {
-            Expr.BinOp bop = Expr.BinOp.of(op);
-            if (bop == null) {
-                throw new CompileError(pos, "operator '" + op + "' is not supported yet");
-            }
-            if (bop.isShift()) {
-                Type.Int t = Type.promote(lt);
-                result = new Expr.Binary(bop, convert(left, t, pos), convert(right, Type.promote(rt), pos), t, pos);
-            } else {
-                Type.Int t = Type.common(lt, rt);
-                Type.Int resultType = bop.isComparison() ? Type.I32 : t;
-                result = new Expr.Binary(bop, convert(left, t, pos), convert(right, t, pos), resultType, pos);
-            }
+            Type.Int t = Type.common(lt, rt);
+            Type.Int resultType = bop.isComparison() ? Type.I32 : t;
+            result = new Expr.Binary(bop, convert(left, t, pos), convert(right, t, pos), resultType, pos);
         }
         Long k = fold(result);
         return k != null ? new Expr.Const(k, (Type.Int) result.type(), pos) : result;
+    }
+
+    /** Pointer arithmetic and pointer comparisons. */
+    private Expr pointerOp(Expr.BinOp op, Expr left, Expr right, SourcePos pos) throws CompileError {
+        boolean lp = left.type() instanceof Type.Pointer;
+        boolean rp = right.type() instanceof Type.Pointer;
+        if (op == Expr.BinOp.ADD && lp != rp) {
+            Expr ptr = lp ? left : right;
+            Expr off = lp ? right : left;
+            return new Expr.PointerAdd(ptr, convert(off, Type.promote(intType(off, pos)), pos), elementSize(ptr, pos), false,
+                    (Type.Pointer) ptr.type(), pos);
+        }
+        if (op == Expr.BinOp.SUB && lp && !rp) {
+            return new Expr.PointerAdd(left, convert(right, Type.promote(intType(right, pos)), pos), elementSize(left, pos), true,
+                    (Type.Pointer) left.type(), pos);
+        }
+        if (op == Expr.BinOp.SUB && lp && rp) {
+            return new Expr.PointerDiff(left, right, elementSize(left, pos), pos);
+        }
+        if (op.isComparison()) {
+            // a pointer compared with a pointer, or with the null pointer constant 0
+            Expr l = lp ? left : nullPointer(left, (Type.Pointer) right.type(), pos);
+            Expr r = rp ? right : nullPointer(right, (Type.Pointer) left.type(), pos);
+            return new Expr.Binary(op, l, r, Type.I32, pos);
+        }
+        throw new CompileError(pos, "operator '" + op.symbol + "' does not work on pointers");
+    }
+
+    private Expr nullPointer(Expr e, Type.Pointer t, SourcePos pos) throws CompileError {
+        Long k = fold(e);
+        if (k == null || k != 0) {
+            throw new CompileError(pos, "a pointer can only be compared with a pointer or 0");
+        }
+        return new Expr.PointerCast(new Expr.Const(0, Type.I32, pos), t, pos);
+    }
+
+    private static int elementSize(Expr ptr, SourcePos pos) throws CompileError {
+        Type target = ((Type.Pointer) ptr.type()).target();
+        if (target instanceof Type.Void || !complete(target)) {
+            throw new CompileError(pos, "arithmetic on a pointer to an incomplete type");
+        }
+        return target.size();
     }
 
     private Expr cast(CParser.CastExpressionContext c) throws CompileError {
@@ -854,72 +1378,120 @@ public final class AstBuilder {
         if (c.unaryExpression() != null) {
             return unary(c.unaryExpression());
         }
-        CParser.TypeNameContext tn = c.typeName();
-        if (tn.abstractDeclarator() != null) {
-            throw unsupported(tn, "pointer casts");
+        Type t = typeName(c.typeName());
+        Expr operand = rvalue(cast(c.castExpression()));
+        SourcePos p = pos(c);
+        if (t instanceof Type.Void) {
+            return operand; // (void)x: only evaluated, the value is not used
         }
-        Specs s = specs(tn.specifierQualifierList().typeSpecifierQualifier(), tn);
-        Expr operand = cast(c.castExpression());
-        if (s.type() instanceof Type.Void) {
-            throw unsupported(c, "casts to void");
+        if (t instanceof Type.Pointer pt) {
+            if (operand.type() instanceof Type.Pointer) {
+                return new Expr.PointerCast(operand, pt, p);
+            }
+            intType(operand, p);
+            return new Expr.PointerCast(operand, pt, p);
         }
-        Type.Int t = (Type.Int) s.type();
-        intType(operand, c);
+        if (!(t instanceof Type.Int it)) {
+            throw error(c, "cannot cast to " + t);
+        }
+        if (operand.type() instanceof Type.Pointer) {
+            throw unsupported(c, "casts from pointers to integers");
+        }
+        intType(operand, p);
         if (operand instanceof Expr.Const k) {
-            return new Expr.Const(t.wrap(k.value()), t, pos(c));
+            return new Expr.Const(it.wrap(k.value()), it, p);
         }
-        return new Expr.Convert(operand, t, true, pos(c));
+        return new Expr.Convert(operand, it, true, p);
     }
 
     private Expr unary(CParser.UnaryExpressionContext u) throws CompileError {
-        ParseTree first = u.getChild(0);
-        if (first instanceof TerminalNode t) {
-            String op = t.getText();
-            if (op.equals("++") || op.equals("--")) {
-                // the grammar puts "++x" into one unaryExpression: the prefix, then the operand
-                if (u.getChildCount() != 2 || u.postfixExpression() == null) {
-                    throw unsupported(u, "this use of '" + op + "'");
-                }
-                Expr target = postfix(u.postfixExpression());
-                if (!(target instanceof Expr.Var var)) {
-                    throw error(u, "'" + op + "' needs a variable");
-                }
-                Type.Int vt = (Type.Int) var.type();
-                Expr one = new Expr.Const(1, Type.I32, pos(t.getSymbol()));
-                Expr sum = binary(op.equals("++") ? "+" : "-", var, one, pos(t.getSymbol()), u);
-                return new Expr.Assign(var.variable(), convert(sum, vt, pos(u)), pos(u));
-            }
-            if (op.equals("sizeof") || op.equals("_Alignof") || op.equals("&&")) {
-                throw unsupported(u, "'" + op + "'");
-            }
+        // unaryExpression: ('++' | '--' | 'sizeof')* core, where core is a postfix expression,
+        // an operator with its operand, or sizeof/_Alignof with a type name
+        int n = u.getChildCount();
+        int first = 0;
+        while (first < n && u.getChild(first) instanceof TerminalNode t
+                && (t.getText().equals("++") || t.getText().equals("--") || t.getText().equals("sizeof"))
+                && !(first + 1 < n && u.getChild(first + 1) instanceof TerminalNode paren && paren.getText().equals("(")
+                     && u.typeName() != null && first + 1 == n - 3)) {
+            first++;
         }
-        if (u.unaryOperator != null) {
-            String op = u.unaryOperator.getText();
-            Expr operand = cast(u.castExpression());
-            SourcePos p = pos(u.unaryOperator);
-            return switch (op) {
-                case "+" -> convert(operand, Type.promote(intType(operand, u)), p);
-                case "-", "~" -> {
-                    Type.Int t = Type.promote(intType(operand, u));
-                    Expr.UnOp uop = op.equals("-") ? Expr.UnOp.NEG : Expr.UnOp.NOT;
-                    Expr conv = convert(operand, t, p);
-                    if (conv instanceof Expr.Const k) {
-                        yield new Expr.Const(t.wrap(op.equals("-") ? -k.value() : ~k.value()), t, p);
+        Expr e;
+        if (u.typeName() != null) {
+            // sizeof ( type-name )
+            if (!u.getChild(first).getText().equals("sizeof")) {
+                throw unsupported(u, "'" + u.getChild(first).getText() + "'");
+            }
+            Type t = typeName(u.typeName());
+            if (!complete(t)) {
+                throw error(u, "sizeof of an incomplete type");
+            }
+            e = new Expr.Const(t.size(), Type.SIZE, pos(u));
+        } else if (u.postfixExpression() != null) {
+            e = postfix(u.postfixExpression());
+        } else if (u.unaryOperator != null) {
+            e = unaryOperator(u.unaryOperator, cast(u.castExpression()), u);
+        } else if (u.unaryExpression() != null) {
+            e = unary(u.unaryExpression()); // sizeof unary-expression (GNU form)
+        } else {
+            throw unsupported(u, "this expression");
+        }
+        for (int i = first - 1; i >= 0; i--) {
+            Token op = ((TerminalNode) u.getChild(i)).getSymbol();
+            switch (op.getText()) {
+                case "sizeof" -> {
+                    if (!complete(e.type())) {
+                        throw error(u, "sizeof of an incomplete type");
                     }
-                    yield new Expr.Unary(uop, conv, t, p);
+                    e = new Expr.Const(e.type().size(), Type.SIZE, pos(op));
                 }
-                case "!" -> {
-                    intType(operand, u);
-                    Long k = fold(operand);
-                    yield k != null ? new Expr.Const(k == 0 ? 1 : 0, Type.I32, p) : new Expr.LogicalNot(operand, p);
+                default -> {
+                    checkAssignable(e, u);
+                    if (hasSideEffects(e)) {
+                        throw unsupported(u, "'" + op.getText() + "' on an lvalue with side effects");
+                    }
+                    e = incremented(e, op.getText().equals("++"), pos(op));
                 }
-                default -> throw new CompileError(p, "operator '" + op + "' is not supported yet");
-            };
+            }
         }
-        if (u.postfixExpression() != null) {
-            return postfix(u.postfixExpression());
+        return e;
+    }
+
+    private Expr unaryOperator(Token opTok, Expr operand, ParserRuleContext where) throws CompileError {
+        String op = opTok.getText();
+        SourcePos p = pos(opTok);
+        if (op.equals("&")) {
+            if (!Expr.isLvalue(operand)) {
+                throw error(where, "'&' needs a variable or an element");
+            }
+            return new Expr.AddressOf(operand, new Type.Pointer(operand.type()), p);
         }
-        throw unsupported(u, "this expression");
+        operand = rvalue(operand);
+        if (op.equals("*")) {
+            if (!(operand.type() instanceof Type.Pointer pt)) {
+                throw error(where, "'*' needs a pointer");
+            }
+            if (pt.target() instanceof Type.Void) {
+                throw error(where, "cannot dereference a void pointer");
+            }
+            return new Expr.Deref(operand, pt.target(), p);
+        }
+        if (op.equals("!")) {
+            scalar(operand, where);
+            Long k = fold(operand);
+            return k != null ? new Expr.Const(k == 0 ? 1 : 0, Type.I32, p) : new Expr.LogicalNot(operand, p);
+        }
+        Type.Int t = Type.promote(intType(operand, where));
+        Expr conv = convert(operand, t, p);
+        return switch (op) {
+            case "+" -> conv;
+            case "-", "~" -> {
+                if (conv instanceof Expr.Const k) {
+                    yield new Expr.Const(t.wrap(op.equals("-") ? -k.value() : ~k.value()), t, p);
+                }
+                yield new Expr.Unary(op.equals("-") ? Expr.UnOp.NEG : Expr.UnOp.NOT, conv, t, p);
+            }
+            default -> throw new CompileError(p, "operator '" + op + "' is not supported yet");
+        };
     }
 
     private Expr postfix(CParser.PostfixExpressionContext p) throws CompileError {
@@ -928,34 +1500,91 @@ public final class AstBuilder {
             throw unsupported(p, "compound literals");
         }
         int n = p.getChildCount();
-        if (n == 1) {
-            return primary(prim);
-        }
-        String suffix = p.getChild(1).getText();
-        if ((suffix.equals("++") || suffix.equals("--")) && n == 2) {
-            Expr target = primary(prim);
-            if (!(target instanceof Expr.Var var)) {
-                throw error(p, "'" + suffix + "' needs a variable");
-            }
-            return new Expr.PostIncDec(var.variable(), suffix.equals("++"), pos(p));
-        }
-        if (suffix.equals("(")) {
+        Expr e = null;
+        int i = 1;
+        if (n > 1 && p.getChild(1).getText().equals("(")) {
             if (prim.Identifier() == null) {
                 throw unsupported(p, "calls through expressions");
             }
-            List<CParser.AssignmentExpressionContext> argCtx = p.argumentExpressionList(0) == null
-                    ? List.of() : p.argumentExpressionList(0).assignmentExpression();
-            int close = argCtx.isEmpty() ? 2 : 3;
-            if (n > close + 1) {
-                throw unsupported(p, "using the result of a call this way");
+            List<CParser.AssignmentExpressionContext> args = List.of();
+            i = 3;
+            if (p.getChild(2) instanceof CParser.ArgumentExpressionListContext al) {
+                args = al.assignmentExpression();
+                i = 4;
             }
-            return call(prim.Identifier().getSymbol(), argCtx);
+            e = call(prim.Identifier().getSymbol(), args);
+        } else {
+            e = primary(prim);
         }
-        throw unsupported(p, switch (suffix) {
-            case "[" -> "arrays";
-            case ".", "->" -> "structs";
-            default -> "postfix '" + suffix + "'";
-        });
+        while (i < n) {
+            String suffix = p.getChild(i).getText();
+            SourcePos sp = pos(((TerminalNode) p.getChild(i)).getSymbol());
+            switch (suffix) {
+                case "[" -> {
+                    Expr index = rvalue(expression((CParser.ExpressionContext) p.getChild(i + 1)));
+                    e = index(e, index, sp);
+                    i += 3;
+                }
+                case ".", "->" -> {
+                    String field = p.getChild(i + 1).getText();
+                    Expr base = e;
+                    if (suffix.equals("->")) {
+                        base = rvalue(e);
+                        if (!(base.type() instanceof Type.Pointer pt) || !(pt.target() instanceof Type.Struct)) {
+                            throw new CompileError(sp, "'->' needs a pointer to a struct");
+                        }
+                        base = new Expr.Deref(base, pt.target(), sp);
+                    }
+                    if (!(base.type() instanceof Type.Struct st)) {
+                        throw new CompileError(sp, "'" + suffix + "' needs a struct");
+                    }
+                    Type.Field f = st.def().field(field);
+                    if (f == null) {
+                        throw new CompileError(sp, "struct " + st.def().name() + " has no field '" + field + "'");
+                    }
+                    e = new Expr.Member(base, f, sp);
+                    i += 2;
+                }
+                case "++", "--" -> {
+                    checkAssignable(e, p);
+                    Type t = e.type();
+                    int step = t instanceof Type.Pointer ? elementSize(e, sp) : 1;
+                    if (!Type.isScalar(t)) {
+                        throw new CompileError(sp, "'" + suffix + "' needs a number or a pointer");
+                    }
+                    e = new Expr.PostIncDec(e, suffix.equals("++"), step, sp);
+                    i += 1;
+                }
+                case "(" -> throw unsupported(p, "calling the result of an expression");
+                default -> throw unsupported(p, "postfix '" + suffix + "'");
+            }
+        }
+        return e;
+    }
+
+    /** {@code base[index]}, where either side may be the pointer (C allows {@code 2[a]}). */
+    private Expr index(Expr base, Expr index, SourcePos p) throws CompileError {
+        Expr b = base;
+        Expr x = index;
+        if (!(b.type() instanceof Type.Array || b.type() instanceof Type.Pointer)) {
+            b = index;
+            x = base;
+        }
+        x = rvalue(x);
+        Type.Int it = Type.promote(intType(x, p));
+        Type element;
+        if (b.type() instanceof Type.Array a) {
+            element = a.element();
+        } else if (b.type() instanceof Type.Pointer pt) {
+            element = pt.target();
+            b = rvalue(b);
+        } else {
+            throw new CompileError(p, "'[]' needs an array or a pointer");
+        }
+        if (!complete(element)) {
+            throw new CompileError(p, "indexing an array of incomplete type");
+        }
+        return new Expr.Index(b, convert(x, it, p), element, p);
     }
 
     private Expr call(Token name, List<CParser.AssignmentExpressionContext> argCtx) throws CompileError {
@@ -966,13 +1595,16 @@ public final class AstBuilder {
         if (!(o instanceof Function f)) {
             throw new CompileError(pos(name), "'" + name.getText() + "' is not a function");
         }
+        if (f.returnType() instanceof Type.Struct) {
+            throw new CompileError(pos(name), "calls to functions that return a struct by value are not supported");
+        }
         if (argCtx.size() != f.paramTypes().size()) {
             throw new CompileError(pos(name), "'" + f.name() + "' takes " + f.paramTypes().size() + " argument(s), not " + argCtx.size());
         }
         List<Expr> args = new ArrayList<>();
         for (int i = 0; i < argCtx.size(); i++) {
-            Expr a = assignment(argCtx.get(i));
-            args.add(convert(a, (Type.Int) f.paramTypes().get(i), pos(argCtx.get(i))));
+            Expr a = rvalue(assignment(argCtx.get(i)));
+            args.add(assignConvert(a, f.paramTypes().get(i), pos(argCtx.get(i))));
         }
         firstCall.putIfAbsent(f, pos(name));
         return new Expr.Call(f, args, pos(name));
@@ -1007,9 +1639,33 @@ public final class AstBuilder {
             return expression(prim.expression());
         }
         if (!prim.StringLiteral().isEmpty()) {
-            throw unsupported(prim, "string literals");
+            return stringLiteralObject(prim);
         }
         throw unsupported(prim, "this expression");
+    }
+
+    /** A string literal: an anonymous const char array in ROM. */
+    private Expr stringLiteralObject(CParser.PrimaryExpressionContext prim) throws CompileError {
+        StringBuilder sb = new StringBuilder();
+        try {
+            for (TerminalNode s : prim.StringLiteral()) {
+                sb.append(unescape(s.getText()));
+            }
+        } catch (IllegalArgumentException e) {
+            throw error(prim, e.getMessage());
+        }
+        byte[] bytes = sb.toString().getBytes(StandardCharsets.ISO_8859_1);
+        Type.Array t = new Type.Array(Type.I8, bytes.length + 1);
+        Variable v = new Variable("\"" + sb.toString().replace("\n", "\\n") + "\"", uniqueLabel("__str" + (anonymous++)), t,
+                Variable.Kind.GLOBAL, pos(prim), true);
+        globals.add(v);
+        definedGlobals.add(v.label());
+        List<Init.Item> items = new ArrayList<>();
+        for (int i = 0; i < bytes.length; i++) {
+            items.add(Init.Item.number(i, 1, bytes[i]));
+        }
+        initialValues.put(v, new Init(items));
+        return new Expr.Var(v, pos(prim));
     }
 
     private Object lookup(String name) {
@@ -1097,19 +1753,71 @@ public final class AstBuilder {
         return new Expr.Const(v, Type.I32, pos(tok));
     }
 
-    // ---------------------------------------------------------------- helpers
+    // ---------------------------------------------------------------- conversions and helpers
+
+    /** An array used as a value becomes a pointer to its first element; everything else stays. */
+    private static Expr rvalue(Expr e) {
+        if (e.type() instanceof Type.Array a) {
+            return new Expr.Decay(e, new Type.Pointer(a.element()), e.pos());
+        }
+        return e;
+    }
+
+    /** Converts a value as an assignment does (also for arguments, return values and initializers). */
+    private static Expr assignConvert(Expr e, Type t, SourcePos pos) throws CompileError {
+        e = rvalue(e);
+        switch (t) {
+            case Type.Int it -> {
+                if (e.type() instanceof Type.Pointer) {
+                    throw new CompileError(pos, "a pointer cannot be assigned to an integer without a cast");
+                }
+                return convert(e, it, pos);
+            }
+            case Type.Pointer pt -> {
+                if (e.type() instanceof Type.Pointer) {
+                    return e.type().equals(pt) ? e : new Expr.PointerCast(e, pt, pos);
+                }
+                Long k = fold(e);
+                if (k == null || k != 0) {
+                    throw new CompileError(pos, "an integer cannot be assigned to a pointer (only the constant 0)");
+                }
+                return new Expr.PointerCast(e, pt, pos);
+            }
+            case Type.Struct st -> {
+                if (!e.type().equals(st)) {
+                    throw new CompileError(pos, "incompatible struct types");
+                }
+                return e;
+            }
+            default -> throw new CompileError(pos, "cannot assign a value of type " + e.type() + " to " + t);
+        }
+    }
 
     private Type.Int intType(Expr e, ParserRuleContext where) throws CompileError {
+        return intType(e, pos(where));
+    }
+
+    private static Type.Int intType(Expr e, SourcePos pos) throws CompileError {
         if (e.type() instanceof Type.Int t) {
             return t;
         }
-        throw error(where, "a void value is used");
+        throw new CompileError(pos, e.type() instanceof Type.Void ? "a void value is used" : "a number is needed here, not " + e.type());
+    }
+
+    private void scalar(Expr e, ParserRuleContext where) throws CompileError {
+        scalar(e, pos(where));
+    }
+
+    private static void scalar(Expr e, SourcePos pos) throws CompileError {
+        if (!Type.isScalar(e.type())) {
+            throw new CompileError(pos, "a number or a pointer is needed here, not " + e.type());
+        }
     }
 
     /** Converts to {@code t} as C does implicitly; constants are folded. */
     private static Expr convert(Expr e, Type.Int t, SourcePos pos) throws CompileError {
         if (!(e.type() instanceof Type.Int)) {
-            throw new CompileError(pos, "a void value is used");
+            throw new CompileError(pos, e.type() instanceof Type.Void ? "a void value is used" : "a number is needed here, not " + e.type());
         }
         if (e.type().equals(t)) {
             return e;
@@ -1118,6 +1826,19 @@ public final class AstBuilder {
             return new Expr.Const(t.wrap(k.value()), t, k.pos());
         }
         return new Expr.Convert(e, t, false, pos);
+    }
+
+    /** True if evaluating {@code e} changes something (so it must not be evaluated twice). */
+    private static boolean hasSideEffects(Expr e) {
+        if (e instanceof Expr.Assign || e instanceof Expr.PostIncDec || e instanceof Expr.Call) {
+            return true;
+        }
+        for (Expr c : dampf.ast.Children.of(e)) {
+            if (hasSideEffects(c)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** The value of a constant expression, or null if it is not constant. */
@@ -1133,6 +1854,9 @@ public final class AstBuilder {
                 yield v == null ? null : u.type().wrap(u.op() == Expr.UnOp.NEG ? -v : ~v);
             }
             case Expr.Binary b -> {
+                if (!(b.left().type() instanceof Type.Int)) {
+                    yield null; // pointer comparison
+                }
                 Long l = fold(b.left());
                 Long r = fold(b.right());
                 if (l == null || r == null) {

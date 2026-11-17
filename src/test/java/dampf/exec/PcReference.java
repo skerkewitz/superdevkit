@@ -1,7 +1,5 @@
 package dampf.exec;
 
-import dampf.ast.Type;
-import dampf.ast.Variable;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -18,13 +16,13 @@ import java.util.Map;
 final class PcReference {
     private PcReference() {}
 
-    static Map<String, Long> run(Path source, String entry, List<Variable> globals, Path workDir) throws IOException, InterruptedException {
+    static Map<String, Long> run(Path source, String entry, List<Observed> globals, Path workDir) throws IOException, InterruptedException {
         StringBuilder harness = new StringBuilder();
         harness.append("#include <stdio.h>\n");
         harness.append("#include \"").append(source.toAbsolutePath()).append("\"\n");
         harness.append("int main(void)\n{\n    ").append(entry).append("();\n");
-        for (Variable v : globals) {
-            harness.append("    printf(\"%s %lld\\n\", \"").append(v.name()).append("\", (long long)").append(v.name()).append(");\n");
+        for (Observed v : globals) {
+            harness.append("    printf(\"%s %lld\\n\", \"").append(v.path()).append("\", (long long)").append(v.path()).append(");\n");
         }
         harness.append("    return 0;\n}\n");
         Path c = workDir.resolve("pc_harness.c");
@@ -35,16 +33,16 @@ final class PcReference {
         String out = exec(workDir, exe.toString());
         Map<String, Long> values = new LinkedHashMap<>();
         for (String line : out.strip().split("\n")) {
-            String[] parts = line.split(" ");
-            values.put(parts[0], Long.parseLong(parts[1]));
+            int sp = line.lastIndexOf(' ');
+            values.put(line.substring(0, sp), Long.parseLong(line.substring(sp + 1)));
         }
         return values;
     }
 
-    static Map<String, Long> wrap(Map<String, Long> raw, List<Variable> globals) {
+    static Map<String, Long> wrap(Map<String, Long> raw, List<Observed> globals) {
         Map<String, Long> out = new LinkedHashMap<>();
-        for (Variable v : globals) {
-            out.put(v.name(), ((Type.Int) v.type()).wrap(raw.get(v.name())));
+        for (Observed v : globals) {
+            out.put(v.path(), v.type().wrap(raw.get(v.path())));
         }
         return out;
     }

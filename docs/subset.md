@@ -126,7 +126,14 @@ their file (`phase` exists as a static local in two functions, for example).
 
 ## Decisions
 
-These need a decision before the checker is written. Each has a recommendation.
+These need a decision before the checker is written. Each has a recommendation. Until they are
+decided, dampf implements the recommendations, which are easy to change:
+
+- decision 1: plain `char` is a signed 8-bit type; the restriction to text is not enforced yet;
+- decision 2: the naive code generator stores enum objects in 4 bytes, like the PC; narrowing
+  them is an optimization;
+- decision 3: the naive code generator uses 4-byte pointers (address, bank, a zero byte) for all
+  pointers; 16-bit pointers into RAM are an optimization.
 
 1. **Plain `char` for text.** The game uses `char` only for strings and name buffers. Plain
    `char` is signed with gcc and clang on x86-64 and with MSVC, unsigned on ARM. Recommendation:
@@ -150,10 +157,13 @@ These need a decision before the checker is written. Each has a recommendation.
 
 Very little:
 
-1. `BB_FAST` in `internal.h` expands to `__attribute__((tiny))` for Calypsi and to nothing
+1. `video.c`, lines 339 and 340, cast with plain `(unsigned)`. The scan above only looked at
+   declarations and missed these casts; dampf's front end found them. Use `uint32_t` (or a
+   narrower type). See `docs/game-findings.md`, finding 5.
+2. `BB_FAST` in `internal.h` expands to `__attribute__((tiny))` for Calypsi and to nothing
    otherwise. It needs a `__DAMPF__` branch that expands to dampf's direct page hint, once that
    hint has a name.
-2. If decision 1 goes the other way: replace `char` in the 27 text declarations.
+3. If decision 1 goes the other way: replace `char` in the 27 text declarations.
 
 Generated data (`build/generated/level_data.c`, `gfx_data.c`) is plain `const` C arrays and fits
 the subset. For the PVSnesLib and Calypsi builds, `map2c --snes` and `gfx2c --snes` write the arrays as

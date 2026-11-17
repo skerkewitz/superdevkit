@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import dampf.Compiler;
-import dampf.ast.Variable;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -40,7 +39,7 @@ class RandomProgramTest {
             Files.writeString(src, program);
             Compiler.Result r = Compiler.compile(new Compiler.Options(List.of(src), List.of(), List.of(), "test_main",
                     work.resolve("random.sfc")));
-            List<Variable> globals = r.program().globals();
+            List<Observed> globals = Observed.of(r.program().globals());
             Map<String, Long> pc = PcReference.wrap(PcReference.run(src, "test_main", globals, work), globals);
             Map<String, Long> snes = runner.run(r.rom(), globals);
             assertEquals(pc, snes, () -> "seed " + seed + " differs (PC vs SNES); the program:\n" + program);

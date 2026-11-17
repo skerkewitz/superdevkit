@@ -87,15 +87,15 @@ class AstBuilderTest {
                 int8_t c = 200;
                 uint8_t d = 'A';
                 """);
-        assertEquals(65535L, p.initialValues().get(p.global("a")));
-        assertEquals(65535L, p.initialValues().get(p.global("b")));
-        assertEquals(-56L, p.initialValues().get(p.global("c")));
-        assertEquals(65L, p.initialValues().get(p.global("d")));
+        assertEquals(65535L, p.initialScalar(p.global("a")));
+        assertEquals(65535L, p.initialScalar(p.global("b")));
+        assertEquals(-56L, p.initialScalar(p.global("c")));
+        assertEquals(65L, p.initialScalar(p.global("d")));
     }
 
     @Test
     void unsupportedConstructsSaySo() {
-        assertTrue(fails("#include <stdint.h>\nuint8_t a[4];\n").getMessage().contains("not supported yet: arrays"));
+        assertTrue(fails("#include <stdint.h>\nunion u { uint8_t a; };\n").getMessage().contains("unions are not supported"));
         assertTrue(fails("#include <stdint.h>\nvoid f(uint8_t x) { again: goto again; }\n").getMessage().contains("not supported yet: labels and goto"));
     }
 }

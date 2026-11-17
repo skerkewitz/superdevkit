@@ -14,7 +14,7 @@
         .import __BSS_RUN__, __BSS_SIZE__
         .import __DATA_LOAD__, __DATA_RUN__, __DATA_SIZE__
         .export dampf_done
-        .exportzp dampf_regs
+        .exportzp dampf_regs, dampf_ptr
         .export dampf_mul16, dampf_mul32, dampf_udiv16, dampf_udiv32, dampf_sdiv32
 
 DONE_PORT = $21FB
@@ -93,6 +93,9 @@ irq:
 
         .segment "ZEROPAGE"
 dampf_regs:     .res    18
+; Two 24-bit pointers (4 bytes each: address, bank, unused) for [dp],y
+; accesses: generated code copies a pointer here right before it uses it.
+dampf_ptr:      .res    8
 
 R0  = dampf_regs+0
 R2  = dampf_regs+2

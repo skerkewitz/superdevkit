@@ -1,7 +1,5 @@
 package dampf.exec;
 
-import dampf.ast.Type;
-import dampf.ast.Variable;
 import dampf.snes.RomBuilder;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -27,7 +25,7 @@ final class MesenRunner {
         this.mesen = mesen;
     }
 
-    Map<String, Long> run(RomBuilder.Rom rom, List<Variable> globals) throws IOException, InterruptedException {
+    Map<String, Long> run(RomBuilder.Rom rom, List<Observed> globals) throws IOException, InterruptedException {
         Map<String, Long> addresses = labels(rom.labels());
         Path dir = rom.rom().getParent();
         Path result = dir.resolve("mesen_result.txt");
@@ -52,17 +50,18 @@ final class MesenRunner {
                   emu.addMemoryCallback(function(addr, value)
                     local s = ""
                 """);
-        for (Variable v : globals) {
-            Long addr = addresses.get(v.label());
-            if (addr == null) {
+        for (Observed v : globals) {
+            Long base = addresses.get(v.label());
+            if (base == null) {
                 throw new IOException("no address for " + v.label() + " in " + rom.labels());
             }
+            long addr = base + v.offset();
             // little endian: rd(a) + rd(a+1) * 256 + ... (Lua 5.4 integers are 64 bit)
             StringBuilder expr = new StringBuilder();
             for (int i = 0; i < v.type().size(); i++) {
                 expr.append(i == 0 ? "" : " + ").append(String.format("rd(0x%06X)", addr + i)).append(i == 0 ? "" : " * " + (1L << (8 * i)));
             }
-            lua.append("    s = s .. \"").append(v.name()).append(" \" .. (").append(expr).append(") .. \"\\n\"\n");
+            lua.append("    s = s .. \"").append(v.path()).append(" \" .. (").append(expr).append(") .. \"\\n\"\n");
         }
         lua.append("""
                     finish(s, 0)
@@ -89,12 +88,13 @@ final class MesenRunner {
         }
         Map<String, Long> raw = new LinkedHashMap<>();
         for (String line : text.strip().split("\\R")) {   // Lua on Windows writes \r\n
-            String[] parts = line.strip().split(" ");
-            raw.put(parts[0], Long.parseLong(parts[1]));
+            String l = line.strip();
+            int sp = l.lastIndexOf(' ');
+            raw.put(l.substring(0, sp), Long.parseLong(l.substring(sp + 1)));
         }
         Map<String, Long> values = new LinkedHashMap<>();
-        for (Variable v : globals) {
-            values.put(v.name(), ((Type.Int) v.type()).wrap(raw.get(v.name())));
+        for (Observed v : globals) {
+            values.put(v.path(), v.type().wrap(raw.get(v.path())));
         }
         return values;
     }

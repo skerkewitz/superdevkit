@@ -4,10 +4,13 @@ A compiler for a subset of C that makes fast 65816 code for the Super Nintendo. 
 Blubber Blasen, whose game code is C that also builds on the PC with gcc and
 clang. Why it exists and how it is meant to work is in [kickoff.md](kickoff.md).
 
-Status: milestone M1 (end to end). dampf compiles small programs (8- and 16-bit integers,
-functions, `+ - & | ^ ~`, casts, calls) into a SNES ROM with debug information, and the execution
-tests run them in Mesen and compare every result with gcc on the PC. Everything else stops with
-"not supported yet". The front end parses all of Blubber Blasen's `src/game`.
+Status: milestone M2 (naive but complete) in progress. The naive code generator handles the C
+the game uses: all integer types and operators with gcc's exact semantics, control flow, enums,
+arrays, structs, pointers, strings, initializers and constant data in ROM. The execution tests run
+programs in Mesen and compare every result with gcc on the PC; random programs check the
+arithmetic. 15 of the game's 16 files pass the front end (`dampf check`); the last one needs a
+small fix in the game. Not done yet: ROMs larger than 32 KB, the SNES platform layer, and building
+the whole game.
 
 ## Documents
 

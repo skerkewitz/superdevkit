@@ -11,14 +11,22 @@ public final class Children {
         return switch (e) {
             case Expr.Const k -> List.of();
             case Expr.Var v -> List.of();
-            case Expr.PostIncDec p -> List.of();
+            case Expr.PostIncDec p -> List.of(p.target());
+            case Expr.Index i -> List.of(i.base(), i.index());
+            case Expr.Member m -> List.of(m.base());
+            case Expr.Deref d -> List.of(d.pointer());
+            case Expr.AddressOf a -> List.of(a.lvalue());
+            case Expr.Decay d -> List.of(d.array());
+            case Expr.PointerAdd p -> List.of(p.pointer(), p.offset());
+            case Expr.PointerDiff p -> List.of(p.left(), p.right());
+            case Expr.PointerCast p -> List.of(p.operand());
             case Expr.Binary b -> List.of(b.left(), b.right());
             case Expr.Unary u -> List.of(u.operand());
             case Expr.LogicalNot n -> List.of(n.operand());
             case Expr.Logical l -> List.of(l.left(), l.right());
             case Expr.Conditional c -> List.of(c.cond(), c.then(), c.otherwise());
             case Expr.Convert c -> List.of(c.operand());
-            case Expr.Assign a -> List.of(a.value());
+            case Expr.Assign a -> List.of(a.target(), a.value());
             case Expr.Call c -> c.args();
         };
     }
