@@ -279,6 +279,24 @@ direct page.
 | play, CPU partner | 6.55 (worst 12.23) | 3.31 | 3.27 | 3.18 | 3.12 (worst 5.69) |
 | `level_solid_px`, per call | 3,849 | 1,774 | 1,700 | 1,636 | 1,636 clocks |
 
+### Arrays indexed with X, multiplication in A, 2026-11-17
+
+- **Indexed addressing:** a load or store at a global (or frame slot) plus a 16-bit index the
+  value ranges show to be non-negative, plus a constant, is `ldx index` and
+  `lda symbol+constant,x`: no pointer is computed. (A negative index would carry into the bank,
+  because X adds as an unsigned number.) X is remembered like A and Y.
+- **Multiplication by a constant** in 8 and 16 bits stays a `mul` in MIR, where the value ranges
+  of the product are exact (after pass I turned `j * 23` into `(j << 5) - (j << 3) - j`, the
+  intervals lost the connection between the three parts and could not show the index is never
+  negative). The code generator multiplies in A, Horner's way over the non-adjacent form: shift
+  per digit, add or subtract the factor where a digit is ±1. Pass I keeps the rule for i32.
+
+| State | naive | before | indexed | and multiplication in A |
+| --- | --- | --- | --- | --- |
+| title | 1.94 | 0.82 | 0.80 | 0.80 |
+| play | 5.17 (worst 8.58) | 2.35 | 2.29 | 2.07 (worst 3.51) |
+| play, CPU partner | 6.55 (worst 12.23) | 3.12 | 3.05 | 2.79 (worst 5.33) |
+
 ### Where the naive code spends its time (2026-11-17)
 
 `tools/profile_game.sh bench` profiles the benchmark's play ticks 900–1700 (as the game's own

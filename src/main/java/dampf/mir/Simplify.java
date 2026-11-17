@@ -205,6 +205,9 @@ public final class Simplify {
                     if (c == 1) {
                         return x;
                     }
+                    if (c == 0 && b.op == Instr.BinOp.MUL) {
+                        return k;
+                    }
                 }
                 default -> { }
             }

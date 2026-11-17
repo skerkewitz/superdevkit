@@ -72,7 +72,9 @@ public final class StrengthReduce {
         long c = k.bits();
         int log = c != 0 && (c & (c - 1)) == 0 ? Long.numberOfTrailingZeros(c) : -1;
         return switch (b.op) {
-            case MUL -> multiply(b, x, c);
+            // 8 and 16 bits: the code generator multiplies by a constant in A itself (shifts and
+            // adds, Horner's way), and keeps the exact value range of the product in MIR
+            case MUL -> t == MType.I32 ? multiply(b, x, c) : null;
             case UDIV -> log < 0 ? null : log == 0 ? x : bin(b, Instr.BinOp.LSHR, x, new Value.Const(t, log));
             case UREM -> log < 0 ? null : bin(b, Instr.BinOp.AND, x, new Value.Const(t, c - 1));
             case SDIV -> log < 0 || log > bits - 2 ? null : log == 0 ? x : bin(b, Instr.BinOp.ASHR, roundedForShift(b, x, log), new Value.Const(t, log));
@@ -126,7 +128,7 @@ public final class StrengthReduce {
      * The non-adjacent form of c: (position, +1 or -1) from the lowest digit up; digits at
      * positions of {@code bits} and above are left out (they are 0 modulo 2^bits).
      */
-    static List<long[]> naf(long c, int bits) {
+    public static List<long[]> naf(long c, int bits) {
         List<long[]> digits = new ArrayList<>();
         for (int k = 0; c != 0 && k < bits; k++) {
             if ((c & 1) != 0) {

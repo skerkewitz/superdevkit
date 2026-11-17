@@ -111,8 +111,8 @@ the profile after each step can change the order of the later ones:
    the code generator stops sending every value through RAM. Started 2026-11-17: reloads of what
    A holds are left out, φs are written directly, and the frames lie in low RAM with the leaves in
    the direct page, values share places where their lifetimes allow, so all of the game's
-   values are in the direct page; with inlining and smaller changes play is at 2.35 frames per
-   tick.
+   values are in the direct page; with inlining, indexed addressing and smaller changes play is
+   at 2.07 frames per tick.
 
 **Subrange types** (`DAMPF_RANGED`, `DAMPF_AS` and their checker, sections 3–6 there) are not
 scheduled. They are built when a profile shows a hot value whose range dampf cannot infer and

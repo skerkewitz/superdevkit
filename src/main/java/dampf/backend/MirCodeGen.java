@@ -79,6 +79,7 @@ public final class MirCodeGen {
     private final Map<String, Path> sourceFiles = new LinkedHashMap<>();
 
     private AsmWriter out;
+    private FrameLayout layout;
     private final Set<Instr> fused = new HashSet<>();
     /** Results that stay in A for the next instruction, their only reader, and are never stored. */
     private final Set<Instr> forward = new HashSet<>();
@@ -338,6 +339,7 @@ public final class MirCodeGen {
         lastPos = null;
         aHolds = null;
         yHolds = null;
+        xHolds = null;
         ptrP = null;
         ptrQ = null;
         m8 = false;
@@ -349,8 +351,8 @@ public final class MirCodeGen {
         for (Value.Param p : f.params()) {
             out.note("parameter " + p.type() + " " + p + " at " + at(place.get(p)));
         }
-        FrameLayout layout = layouts.get(f);
-        ranges = new Ranges(f);
+        layout = layouts.get(f);
+        ranges = layout.ranges;
         forward.clear();
         fused.clear();
         fused.addAll(layout.fused);
@@ -479,8 +481,8 @@ public final class MirCodeGen {
 
     /** A load or store at this address needs A for nothing before the access itself. */
     private boolean addressNeedsNoA(Value address) {
-        Address a = address(address);
-        if (fixedAt(a, 0) != null) {
+        FrameLayout.Address a = address(address);
+        if (isFixed(a)) {
             return true;
         }
         Value p = a.base();
@@ -738,7 +740,15 @@ public final class MirCodeGen {
                 }
             }
             case MUL -> {
-                if (n == 1) {
+                if (n == 1 && (x instanceof Value.Const) != (y instanceof Value.Const)) {
+                    Value v = x instanceof Value.Const ? y : x;
+                    long c = ((Value.Const) (x instanceof Value.Const ? x : y)).bits();
+                    multiplyBy(v, c, t);
+                    if (!staysByte(b)) {
+                        mask(t);
+                    }
+                    result(b, 0);
+                } else if (n == 1) {
                     ins("lda", operand(y, 0));
                     ins("sta", "z:R0");
                     ins("lda", operand(x, 0));
@@ -791,6 +801,41 @@ public final class MirCodeGen {
                 }
             }
             case SHL, LSHR, ASHR -> shift(b);
+        }
+    }
+
+    /**
+     * A = x * c (low 16 bits): the constant in non-adjacent form, worked through from the top
+     * digit down (Horner): shift A left one place per digit, add or subtract x where the digit is
+     * +1 or -1. A run of ones such as 15 costs one subtraction: 16 - 1.
+     */
+    private void multiplyBy(Value x, long c, MType t) {
+        List<long[]> digits = dampf.mir.StrengthReduce.naf(t.wrap(c), 16);
+        if (digits.isEmpty()) {
+            ins("lda", imm(0));
+            return;
+        }
+        String xs = operand(x, 0);
+        int top = (int) digits.getLast()[0];
+        ins("lda", xs);
+        if (digits.getLast()[1] < 0) {
+            // the top digit is -1 (only for a constant of 2^16 - ...): start from -x
+            ins("eor", imm(0xFFFF));
+            ins("inc", "a");
+        }
+        int k = digits.size() - 2;
+        for (int pos = top - 1; pos >= 0; pos--) {
+            ins("asl", "a");
+            if (k >= 0 && digits.get(k)[0] == pos) {
+                if (digits.get(k)[1] > 0) {
+                    ins("clc", null);
+                    ins("adc", xs);
+                } else {
+                    ins("sec", null);
+                    ins("sbc", xs);
+                }
+                k--;
+            }
         }
     }
 
@@ -1160,28 +1205,36 @@ public final class MirCodeGen {
     }
 
     /** An address as a base plus a constant, non-negative offset (folded into Y or the operand). */
-    private record Address(Value base, int offset) {}
-
-    private static Address address(Value v) {
-        if (v instanceof Instr.PtrAdd p && foldable(p)) {
-            return new Address(p.op(0), (int) p.op(1).type().signed(((Value.Const) p.op(1)).bits()));
-        }
-        return new Address(v, 0);
+    private FrameLayout.Address address(Value v) {
+        return layout.address(v);
     }
 
     private static boolean foldable(Instr.PtrAdd p) {
         return FrameLayout.foldable(p);
     }
 
-    /** The operand for a memory access at byte k of the object, or null if it goes through a pointer. */
-    private String fixedAt(Address a, int k) {
-        return fixed(a.base(), a.offset() + k);
+    /**
+     * The operand for a memory access at byte k of the object, or null if it goes through a
+     * pointer. An indexed one loads X with the index first.
+     */
+    private String fixedAt(FrameLayout.Address a, int k) {
+        String f = fixed(a.base(), a.offset() + k);
+        if (f == null || a.index() == null) {
+            return f;
+        }
+        ins("ldx", operand(a.index(), 0));
+        return f + ",x";
+    }
+
+    /** Whether the access goes to a fixed or indexed address (no pointer); emits nothing. */
+    private boolean isFixed(FrameLayout.Address a) {
+        return fixed(a.base(), a.offset()) != null;
     }
 
     private void load(Instr.Load l) {
         MType t = l.type();
-        Address a = address(l.op(0));
-        boolean direct = fixedAt(a, 0) != null;
+        FrameLayout.Address a = address(l.op(0));
+        boolean direct = isFixed(a);
         String via = direct ? null : via(a.base(), P);
         if (t.size == 1) {
             if (!direct) {
@@ -1204,10 +1257,10 @@ public final class MirCodeGen {
     }
 
     private void store(Instr.Store s) {
-        Address a = address(s.op(0));
+        FrameLayout.Address a = address(s.op(0));
         Value v = s.op(1);
         MType t = v.type();
-        boolean direct = fixedAt(a, 0) != null;
+        boolean direct = isFixed(a);
         String via = direct ? null : via(a.base(), P);
         if (t.size == 1) {
             ins("lda", operand(v, 0));
@@ -1312,6 +1365,8 @@ public final class MirCodeGen {
     private Value ptrP;
     private Value ptrQ;
     private String yHolds;
+    /** What X holds (a frame place or a constant), like aHolds. */
+    private String xHolds;
     /** The accumulator is 8 bit (between SEP #$20 and REP #$20). */
     private boolean m8;
 
@@ -1320,6 +1375,9 @@ public final class MirCodeGen {
             return;   // A has it already (the flags are not set again: see load())
         }
         if (mnemonic.equals("ldy") && operand != null && operand.equals(yHolds)) {
+            return;
+        }
+        if (mnemonic.equals("ldx") && operand != null && operand.equals(xHolds)) {
             return;
         }
         out.ins(mnemonic, operand, null);
@@ -1337,12 +1395,22 @@ public final class MirCodeGen {
     }
 
     private void track(String mnemonic, String operand) {
+        boolean writesMemory = switch (mnemonic) {
+            case "sta", "stx", "sty", "stz", "inc", "dec", "asl", "lsr", "rol", "ror" -> operand != null && !operand.equals("a");
+            default -> false;
+        };
+        if (writesMemory && (operand.startsWith("[") || operand.equals(xHolds))) {
+            xHolds = null;
+        }
         switch (mnemonic) {
             case "ldy" -> yHolds = operand != null && operand.startsWith("#") ? operand : null;
+            case "ldx" -> xHolds = trackable(operand) ? operand : null;
+            case "inx", "dex", "tax", "tsx", "plx" -> xHolds = null;
             case "iny", "dey", "tay", "ply" -> yHolds = null;
             case "jsl" -> {
                 aHolds = null;
                 yHolds = null;
+                xHolds = null;
                 ptrP = null;   // the called function uses dampf_ptr too
                 ptrQ = null;
             }
@@ -1389,6 +1457,7 @@ public final class MirCodeGen {
         out.label(label);
         aHolds = null;   // something may jump here
         yHolds = null;
+        xHolds = null;
         ptrP = null;
         ptrQ = null;
         m8 = false;

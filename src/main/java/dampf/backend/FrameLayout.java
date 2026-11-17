@@ -4,6 +4,7 @@ import dampf.mir.Block;
 import dampf.mir.Instr;
 import dampf.mir.MFunction;
 import dampf.mir.MType;
+import dampf.mir.Ranges;
 import dampf.mir.Value;
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -58,8 +59,12 @@ final class FrameLayout {
     private final Map<Integer, Set<Integer>> samePlaceOnly = new HashMap<>();
     private final Map<Value, Integer> index = new IdentityHashMap<>();
 
+    /** The value ranges of the function (indexed addressing needs a non-negative index). */
+    final Ranges ranges;
+
     FrameLayout(MFunction f) {
         this.f = f;
+        this.ranges = new Ranges(f);
         findFolds();
         for (Block b : f.blocks()) {
             if (directPhis(b)) {
@@ -99,6 +104,39 @@ final class FrameLayout {
 
     // ------------------------------------------------------------------ what the code generator folds
 
+    /**
+     * Where a load or store goes: base (a pointer, or a global or frame slot) plus a constant,
+     * plus an index (an i16 in X) if the base is a global or slot indexed by a value.
+     */
+    record Address(Value base, int offset, Value index) {}
+
+    Address address(Value v) {
+        Value base = v;
+        int offset = 0;
+        if (v instanceof Instr.PtrAdd p && foldable(p)) {
+            base = p.op(0);
+            offset = (int) p.op(1).type().signed(((Value.Const) p.op(1)).bits());
+        }
+        if (base instanceof Instr.PtrAdd q && indexable(q)) {
+            return new Address(q.op(0), offset, q.op(1));
+        }
+        return new Address(base, offset, null);
+    }
+
+    /**
+     * A global or frame slot plus a 16-bit value that is never negative: X can hold it for
+     * {@code lda symbol,x} (X adds as an unsigned number, so a negative offset would carry into the
+     * bank).
+     */
+    boolean indexable(Instr.PtrAdd q) {
+        if (!(q.op(0) instanceof Value.GlobalAddr || q.op(0) instanceof Value.SlotAddr)
+                || q.op(1) instanceof Value.Const || q.op(1).type() != MType.I16) {
+            return false;
+        }
+        Ranges.Range r = ranges.at(q.op(1), q.block());
+        return r != null && r.lo() >= 0;
+    }
+
     static boolean foldable(Instr.PtrAdd p) {
         if (!(p.op(1) instanceof Value.Const k)) {
             return false;
@@ -134,6 +172,25 @@ final class FrameLayout {
                 }
             }
         }
+        // a global indexed by a value, used only as the address of loads and stores (directly or
+        // plus a constant): the accesses index with X, the sum is never computed
+        Map<Instr, Boolean> onlyAddresses = new HashMap<>();
+        for (Block b : f.blocks()) {
+            for (Instr i : b.instrs()) {
+                for (int k = 0; k < i.operands().size(); k++) {
+                    if (i.op(k) instanceof Instr.PtrAdd q && indexable(q)) {
+                        boolean ok = k == 0 && (i instanceof Instr.Load || i instanceof Instr.Store)
+                                || i instanceof Instr.PtrAdd p && k == 0 && folded.contains(p);
+                        onlyAddresses.merge(q, ok, Boolean::logicalAnd);
+                    }
+                }
+            }
+        }
+        onlyAddresses.forEach((q, ok) -> {
+            if (ok) {
+                folded.add(q);
+            }
+        });
     }
 
     /**
@@ -176,8 +233,14 @@ final class FrameLayout {
         }
         for (int k = 0; k < i.operands().size(); k++) {
             Value v = i.op(k);
-            if (k == 0 && (i instanceof Instr.Load || i instanceof Instr.Store) && v instanceof Instr.PtrAdd p && foldable(p)) {
-                v = p.op(0);   // the load or store reads the pointer and adds the constant itself
+            if (k == 0 && (i instanceof Instr.Load || i instanceof Instr.Store)) {
+                // the load or store reads the base and the index itself and adds the constant
+                Address a = address(v);
+                read(a.base(), out);
+                if (a.index() != null) {
+                    read(a.index(), out);
+                }
+                continue;
             }
             read(v, out);
         }
