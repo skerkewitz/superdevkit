@@ -39,6 +39,10 @@ reset:
         sta     f:$004200       ; no NMI, no IRQ, no auto joypad
         lda     #$80
         sta     f:$002100       ; forced blank
+.if DAMPF_FASTROM
+        lda     #1
+        sta     f:$00420D       ; MEMSEL: banks $80-$FF at 3.58 MHz (FastROM)
+.endif
         rep     #$20
         .a16
         pea     $7E7E
@@ -266,7 +270,11 @@ dampf_sdiv32:
         ; $FFC0: internal header (LoROM, no RAM). The ROM size and the checksum
         ; are filled in after linking (dampf.snes.RomBuilder).
         .byte   "DAMPF TEST           "     ; title, 21 bytes
+.if DAMPF_FASTROM
+        .byte   $30                         ; LoROM, FastROM
+.else
         .byte   $20                         ; LoROM, SlowROM
+.endif
         .byte   $00                         ; ROM only
         .byte   $05                         ; ROM size: 32 KB
         .byte   $00                         ; no cartridge RAM

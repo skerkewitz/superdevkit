@@ -147,7 +147,7 @@ that costs real cycles. Until then the design stays as it is.
 ### The plan from here (2026-11-17)
 
 **Where dampf stands.** During play the game takes 1.31 frames per tick with dampf; the goal is
-0.6. On the same game version (the snapshot, the game's own benchmark and Calypsi's options), in
+0.6. With FastROM (row 1 below, done since) it is 1.10. On the same game version (the snapshot, the game's own benchmark and Calypsi's options), in
 the play ticks where both play the same scene (711-812), Calypsi takes 1.67 frames per tick and
 dampf 1.14: dampf is 1.47 times as fast, and 1.3 to 1.8 times on the title, the story and the
 round intro. 816-tcc is about 3.6 times slower than dampf and no longer of interest. Calypsi's
@@ -167,7 +167,7 @@ ideas that looked good measured zero, see [optimizations.md](optimizations.md)) 
 
 | # | Idea | Likely gain | Effort | Notes |
 | --- | --- | --- | --- | --- |
-| 1 | FastROM: banks $80+ at 3.58 MHz (`MEMSEL`), the header says so | 10-15 % | tiny | A platform choice: the cartridge must be FastROM (flash carts are). Calypsi can do the same, so it changes the frames, not the comparison. |
+| 1 | FastROM: banks $80+ at 3.58 MHz (`MEMSEL`), the header says so | 10-15 % | tiny | **Done 2026-11-17: play 1.31 → 1.10 frames per tick (−16 %).** The default; `--slowrom` for a SlowROM cartridge. Calypsi gains as much with FastROM, so the comparison stays at 1.5 times. |
 | 2 | Register allocation: values in A, X and Y over several instructions instead of a direct page place each | 10-20 % | high | The 30 %. With one accumulator, choosing what lives where is the hard part. |
 | 3 | 8-bit stretches: the M flag followed (`REP`/`SEP`), `uint8_t` code in 8-bit mode | 5-10 % | high | Fewer `AND #$00FF`, and 8-bit accesses are a cycle cheaper. Needs the processor state across blocks. |
 | 4 | Arrays of structs as one array per field (catalogue D, `DAMPF_SPLIT`) | 5-10 % in the bubble loops | high | `separate`, `bubbles_update` and `bubbles_draw` are 30 %. Needs a subset decision or a hint, since the layout then differs from the PC. |

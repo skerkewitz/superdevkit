@@ -52,8 +52,10 @@ constant plus a 16-bit index that is never negative and stays in the bank an ind
 
 LoROM, up to 4 MB: banks `$80` to `$FF`, each with 32 KB at `$8000-$FFFF`. dampf uses the banks
 from `$80` up, not their mirrors from `$00`, because only accesses through `$80` and up can run at
-FastROM speed. Switching FastROM on is optimization J; the reset code already jumps from bank
-`$00`, where the CPU starts, to bank `$80`.
+FastROM speed. The reset code jumps from bank `$00`, where the CPU starts, to bank `$80` and
+switches the ROM there to 3.58 MHz (`MEMSEL` at `$420D`); the header says FastROM (map mode
+`$30`). A ROM access then takes 6 master cycles instead of 8. `dampf build --slowrom` leaves it at
+2.68 MHz, header `$20`, for a SlowROM cartridge (flash cartridges and emulators run FastROM).
 
 - **Bank `$80`** holds the parts with fixed places: the start-up code, the runtime's arithmetic
   routines, the initial values of variables (copied to RAM at start-up), the header at `$FFC0` and

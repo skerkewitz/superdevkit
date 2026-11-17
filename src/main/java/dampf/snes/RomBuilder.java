@@ -48,13 +48,22 @@ public final class RomBuilder {
      * @param baseName name of the ROM without extension
      */
     public static Rom build(List<String> modules, Path outDir, String baseName) throws IOException {
+        return build(modules, outDir, baseName, true);
+    }
+
+    /**
+     * {@code fastRom}: the start-up switches the ROM in banks $80-$FF, where all of the code and
+     * the constant data run, to 3.58 MHz (MEMSEL), and the header says FastROM; a SlowROM
+     * cartridge needs false.
+     */
+    public static Rom build(List<String> modules, Path outDir, String baseName, boolean fastRom) throws IOException {
         Files.createDirectories(outDir);
         Path runtime = copyResource("runtime.s", outDir.resolve("dampf_runtime.s"));
 
         // All tools run in outDir with plain file names, so the debug file holds relative paths.
         List<String> objects = new ArrayList<>();
         String runtimeObj = "dampf_runtime.o";
-        run(outDir, "ca65", "-g", "-o", runtimeObj, runtime.getFileName().toString());
+        run(outDir, "ca65", "-g", "-D", "DAMPF_FASTROM=" + (fastRom ? 1 : 0), "-o", runtimeObj, runtime.getFileName().toString());
         objects.add(runtimeObj);
         List<String> banked = new ArrayList<>();
         for (int i = 0; i < modules.size(); i++) {

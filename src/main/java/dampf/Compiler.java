@@ -33,13 +33,21 @@ public final class Compiler {
      *                     profile ({@code dampf profile --blocks}); null without one. Only the order
      *                     of the blocks follows it, so a profile of other code makes the code
      *                     slower, never wrong.
+     * @param fastRom      the ROM in banks $80-$FF runs at 3.58 MHz (FastROM, the default); false
+     *                     for a SlowROM cartridge
      */
     public record Options(List<Path> sources, List<Path> includeDirs, List<String> defines, String entry, Path output,
                           Map<String, Path> replacements, Backend backend,
-                          java.util.function.BiFunction<String, String, Long> blockCounts) {
+                          java.util.function.BiFunction<String, String, Long> blockCounts, boolean fastRom) {
         public Options(List<Path> sources, List<Path> includeDirs, List<String> defines, String entry, Path output,
                        Map<String, Path> replacements, Backend backend) {
-            this(sources, includeDirs, defines, entry, output, replacements, backend, null);
+            this(sources, includeDirs, defines, entry, output, replacements, backend, null, true);
+        }
+
+        public Options(List<Path> sources, List<Path> includeDirs, List<String> defines, String entry, Path output,
+                       Map<String, Path> replacements, Backend backend,
+                       java.util.function.BiFunction<String, String, Long> blockCounts) {
+            this(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, true);
         }
 
         public Options(List<Path> sources, List<Path> includeDirs, List<String> defines, String entry, Path output) {
@@ -52,11 +60,15 @@ public final class Compiler {
         }
 
         public Options withBackend(Backend b) {
-            return new Options(sources, includeDirs, defines, entry, output, replacements, b, blockCounts);
+            return new Options(sources, includeDirs, defines, entry, output, replacements, b, blockCounts, fastRom);
         }
 
         public Options withBlockCounts(java.util.function.BiFunction<String, String, Long> counts) {
-            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, counts);
+            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, counts, fastRom);
+        }
+
+        public Options withFastRom(boolean fast) {
+            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fast);
         }
 
         /** Block counts from a file of lines "function block count" ({@code dampf profile --blocks}). */
@@ -139,7 +151,7 @@ public final class Compiler {
         for (Path s : o.replacements().values()) {
             asm.add(Files.readString(s));
         }
-        RomBuilder.Rom rom = RomBuilder.build(asm, outDir, baseName);
+        RomBuilder.Rom rom = RomBuilder.build(asm, outDir, baseName, o.fastRom());
         return new Result(program, asm, rom, timing, warnings);
     }
 

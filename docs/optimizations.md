@@ -593,6 +593,19 @@ with n. It is exact (0 <= i <= n at the head), and it made the title screen fast
 saves in the game's short loops, and an i8 j would need a clean high byte for `j != 0`. It was
 not kept.
 
+### FastROM, 2026-11-17
+
+All of dampf's code and constant data lie in banks $80 and up, which the SNES can run at
+3.58 MHz instead of 2.68 MHz once `MEMSEL` ($420D) says so; the ROM chip must be fast enough
+(FastROM; flash cartridges and emulators are). The start-up now switches it on and the header
+says FastROM ($30); a ROM access takes 6 master cycles instead of 8, internal cycles and WRAM do
+not change. `dampf build --slowrom` keeps SlowROM. Play 468,119 → 391,423 clocks per tick (1.31 →
+1.10 frames), the whole benchmark 430,851 → 364,774. Mesen measures the same: identical checksums
+on all 3,610 ticks, master clocks within 40 per tick of dampf's emulator. A platform choice more than an
+optimization: Calypsi with FastROM (the game's `BENCH_FASTROM`) gains as much, 1.67 → 1.42 frames
+per tick in the comparable play ticks against dampf's 1.14 → 0.95, so dampf stays 1.5 times as
+fast.
+
 ### Registers at constant addresses, 2026-11-17
 
 A write to a hardware register, `REG8(0x210B + i) = v` in the platform layer, went through
@@ -650,16 +663,18 @@ Measured after the range analysis learned to narrow after widening: a loop of mo
 rounds (`for (i = 0; i < 768; i++)`) used to give its counter the type's whole range, which kept
 it from being narrowed and from indexed addressing as nonnegative. Narrowing again after the
 widened fixpoint gives it 0..768. Play 1.53 → 1.50, title 0.68 → 0.60. Then A's places and the
-byte loads, the short branches, INC/DEC, STZ, the bit selections, fewer copies and the registers across blocks (sections above): play 1.34.
+byte loads, the short branches, INC/DEC, STZ, the bit selections, fewer copies and the registers
+across blocks (sections above): play 1.31. The last column adds FastROM (see its section); the
+column before it is the same code at SlowROM speed, as the earlier columns were measured.
 
-| State | naive | from MIR, no passes | now |
-| --- | --- | --- | --- |
-| title | 1.94 | 12.21 | 0.54 |
-| story | 0.70 | 3.56 | 0.22 |
-| round intro | 5.76 | 12.13 | 1.76 |
-| play | 5.17 (worst 8.58) | 18.93 | 1.31 (worst 2.25) |
-| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 1.98 (worst 4.08) |
-| `level_solid_px`, per call | 3,849 | 6,648 | 1,208 clocks |
+| State | naive | from MIR, no passes | SlowROM | now (FastROM) |
+| --- | --- | --- | --- | --- |
+| title | 1.94 | 12.21 | 0.54 | 0.46 |
+| story | 0.70 | 3.56 | 0.22 | 0.19 |
+| round intro | 5.76 | 12.13 | 1.76 | 1.48 |
+| play | 5.17 (worst 8.58) | 18.93 | 1.31 (worst 2.25) | 1.10 (worst 1.88) |
+| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 1.98 (worst 4.08) | 1.69 (worst 3.51) |
+| `level_solid_px`, per call | 3,849 | 6,648 | 1,149 | 961 clocks |
 
 Calypsi's 2.72 frames per tick during play (on an older version of the game) is passed. On the
 same version (the snapshot, `tools/bench_compilers.sh`, measured in dampf's emulator, which
@@ -667,7 +682,8 @@ matches Mesen on Calypsi's ROM), in the play ticks where both play the same scen
 Calypsi takes 1.67 frames per tick and dampf 1.14, 1.47 times as fast; Calypsi's results drift
 from the PC's from tick 596 on, so later ticks compare other scenes ([roadmap.md](roadmap.md),
 *The plan from here*). The hand-written `level_solid_px` takes
-856 clocks, so for that function dampf is now 1.4 times hand-written assembly.
+856 clocks (at SlowROM speed), so for that function dampf is now 1.34 times hand-written assembly
+(1,149 clocks at the same speed).
 
 ### Where the naive code spends its time (2026-11-17)
 
@@ -718,7 +734,7 @@ the catalogue come first. Compared with Calypsi, dampf promises nothing until it
 | G | Branches | Branch on flags instead of materialising 0/1, common path falls through, correct branch distances | Medium | | play 1.48 → 1.47 frames per tick; 1.38 → 1.37 with a profile | in progress: compare and branch in one, short branches wherever they reach, `BRA` for near jumps, the layout of rare blocks by a profile (`--block-counts`), bit selections without a branch |
 | H | Standard optimizations | Constant folding and propagation, dead code removal, common subexpressions | Medium; mostly a prerequisite for A–G | IR in SSA form | play 6.12 → 5.17 frames per tick (code from MIR) | built: folding, identities, branch folding, block merging, value numbering, redundant loads, dead code; loop-invariant code (`Licm`, see F) |
 | I | Multiply and divide | Constants as shifts and adds, hardware multiplier with useful work during its latency, division by powers of two with correct signed rounding | Medium, depends on the code; **measured: 37 % of the naive code's time is the runtime multiplication, mostly struct array indexing by a constant size** | range analysis for signed division | play 8.16 → 6.12 frames per tick (code from MIR) | constants built (shifts and adds, powers of two); hardware multiplier open |
-| J | Banks and placement | Keep the data bank register right, 16-bit instead of 24-bit addresses, hot code in FastROM | Small to medium | pointer width analysis | | open |
+| J | Banks and placement | Keep the data bank register right, 16-bit instead of 24-bit addresses, hot code in FastROM | Small to medium | pointer width analysis | play 1.31 → 1.10 frames per tick (FastROM) | in progress: all code in banks $80+ at FastROM speed (the default, `--slowrom` to switch it off) |
 | K | Peephole | Remove redundant loads and stores, `STZ`, `INC`/`DEC` on memory | Small, but everywhere | | play 1.47 → 1.41 frames per tick (`INC`/`DEC`, `STZ`) | in progress: A remembers every place it equals, `INC`/`DEC` for steps in place, `STZ` |
 | L | `switch` as jump table | `JMP (abs,X)` | Small overall, large locally | | | open |
 | M | Copy and fill | `MVN`/`MVP` or DMA instead of loops | Large locally | | | open |
