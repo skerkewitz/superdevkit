@@ -145,6 +145,10 @@ public final class AstBuilder {
 
     private enum Storage { NONE, STATIC, EXTERN, TYPEDEF }
 
+    /** Whether specs() may meet DAMPF_BUDGET (only for a function definition), and what it found. */
+    private boolean budgetAllowed;
+    private Long budget;
+
     /** Declaration specifiers: storage class, base type, and whether {@code const} or {@code volatile} was given. */
     private record Specs(Storage storage, Type type, boolean isConst, boolean isVolatile) {
         Specs(Storage storage, Type type, boolean isConst) {
@@ -218,6 +222,18 @@ public final class AstBuilder {
                     } else {
                         keywords.add(ts.getText());
                     }
+                }
+                case CParser.FunctionSpecifierContext fs when fs.gnuAttribute() != null
+                        && fs.getText().startsWith("__attribute__((dampf_budget") -> {
+                    java.util.regex.Matcher m = java.util.regex.Pattern.compile("__attribute__\\(\\(dampf_budget\\((\\d+)[uU]?\\)\\)\\)")
+                            .matcher(fs.getText());
+                    if (!m.matches()) {
+                        throw error(fs, "DAMPF_BUDGET needs a number of CPU cycles");
+                    }
+                    if (!budgetAllowed) {
+                        throw error(fs, "DAMPF_BUDGET belongs in front of a function definition");
+                    }
+                    budget = Long.parseLong(m.group(1));
                 }
                 case CParser.FunctionSpecifierContext fs -> {
                     if (!fs.getText().equals("inline")) {
@@ -978,7 +994,16 @@ public final class AstBuilder {
         if (fd.declarationSpecifiers() == null) {
             throw error(fd, "missing return type (C99 has no implicit int)");
         }
-        Specs s = specs(fd.declarationSpecifiers().declarationSpecifier(), fd, isMain(fd.declarator()));
+        budgetAllowed = true;
+        budget = null;
+        Specs s;
+        try {
+            s = specs(fd.declarationSpecifiers().declarationSpecifier(), fd, isMain(fd.declarator()));
+        } finally {
+            budgetAllowed = false;
+        }
+        Long cycles = budget;
+        budget = null;
         if (s.storage() == Storage.TYPEDEF) {
             throw error(fd, "a function definition cannot be a typedef");
         }
@@ -992,6 +1017,9 @@ public final class AstBuilder {
         Function f = declareFunction(dec, s);
         if (f.isDefined()) {
             throw new CompileError(dec.pos(), "redefinition of '" + f.name() + "' (first defined at " + f.definitionPos() + ")");
+        }
+        if (cycles != null) {
+            f.setBudget(cycles);
         }
         current = f;
         currentLocals = f.locals();

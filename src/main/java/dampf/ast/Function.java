@@ -15,6 +15,7 @@ public final class Function {
     private final List<Variable> locals = new ArrayList<>();
     private Stmt.Block body;
     private SourcePos definitionPos;
+    private Long budget;
 
     public Function(String name, String label, Type returnType, List<Type> paramTypes, SourcePos pos) {
         this.name = name;
@@ -60,6 +61,15 @@ public final class Function {
 
     public SourcePos definitionPos() {
         return definitionPos;
+    }
+
+    /** The cycle budget from DAMPF_BUDGET (CPU cycles, calls included), or null. */
+    public Long budget() {
+        return budget;
+    }
+
+    public void setBudget(long cycles) {
+        this.budget = cycles;
     }
 
     public boolean isDefined() {

@@ -52,8 +52,10 @@ public final class Compiler {
     /**
      * What a compilation produced. {@code timing}: per function (by label) the best and worst case
      * in CPU cycles, worst -1 if unbounded (the code generator from MIR only; empty otherwise).
+     * {@code warnings}: messages that do not stop the build (a function close to its budget).
      */
-    public record Result(Program program, List<String> assembly, RomBuilder.Rom rom, Map<String, long[]> timing) {}
+    public record Result(Program program, List<String> assembly, RomBuilder.Rom rom, Map<String, long[]> timing,
+                         List<String> warnings) {}
 
     private Compiler() {}
 
@@ -91,6 +93,7 @@ public final class Compiler {
                 file -> outDir.relativize(Path.of(file).toAbsolutePath().normalize()).toString().replace('\\', '/');
         List<String> asm;
         Map<String, long[]> timing = Map.of();
+        List<String> warnings = new java.util.ArrayList<>();
         if (o.backend() == Backend.MIR) {
             if (!o.replacements().isEmpty()) {
                 throw new CompileError(entry.pos(), "--replace works with the naive code generator only");
@@ -101,7 +104,9 @@ public final class Compiler {
             MirCodeGen gen = new MirCodeGen(mir, entry.label(), debugName);
             asm = new java.util.ArrayList<>(gen.generate());
             timing = gen.timing();
-            writeTiming(timing, gen.unboundedWhy(), outDir.resolve(baseName + ".timing.txt"));
+            Map<String, String> why = gen.unboundedWhy();
+            writeTiming(timing, why, outDir.resolve(baseName + ".timing.txt"));
+            checkBudgets(program, timing, why, warnings);
         } else {
             asm = new java.util.ArrayList<>(new NaiveCodeGen(program, entry, o.replacements().keySet(), debugName).generate());
         }
@@ -109,7 +114,43 @@ public final class Compiler {
             asm.add(Files.readString(s));
         }
         RomBuilder.Rom rom = RomBuilder.build(asm, outDir, baseName);
-        return new Result(program, asm, rom, timing);
+        return new Result(program, asm, rom, timing, warnings);
+    }
+
+    /** Above this share of its budget, a function gets a warning. */
+    static final double BUDGET_WARNING = 0.9;
+
+    /**
+     * DAMPF_BUDGET: a function's worst case (CPU cycles, calls included) must not be above its
+     * budget, and must exist. Checked on the function as compiled on its own; a copy inlined
+     * into a caller is part of the caller's bound.
+     */
+    private static void checkBudgets(Program program, Map<String, long[]> timing, Map<String, String> why,
+                                     List<String> warnings) throws CompileError {
+        List<dampf.frontend.Diagnostic> errors = new java.util.ArrayList<>();
+        for (Function f : program.functions()) {
+            long[] t = f.budget() == null ? null : timing.get(f.label());
+            if (t == null) {
+                continue;
+            }
+            long budget = f.budget();
+            SourcePos at = f.definitionPos();
+            if (t[1] < 0) {
+                errors.add(new dampf.frontend.Diagnostic(dampf.frontend.Diagnostic.Severity.ERROR, at, "'" + f.name() + "' has no worst case ("
+                        + why.getOrDefault(f.label(), "a loop without a bound") + "), so its budget of " + budget
+                        + " cycles cannot be guaranteed (DAMPF_BUDGET)"));
+            } else if (t[1] > budget) {
+                errors.add(new dampf.frontend.Diagnostic(dampf.frontend.Diagnostic.Severity.ERROR, at, "'" + f.name() + "' takes up to " + t[1]
+                        + " CPU cycles, over its budget of " + budget + " (DAMPF_BUDGET); best case " + t[0]
+                        + ", see the .timing.txt file"));
+            } else if (t[1] > budget * BUDGET_WARNING) {
+                warnings.add(at + ": warning: '" + f.name() + "' takes up to " + t[1] + " CPU cycles, "
+                        + Math.round(100.0 * t[1] / budget) + " % of its budget of " + budget + " (DAMPF_BUDGET)");
+            }
+        }
+        if (!errors.isEmpty()) {
+            throw new CompileError(errors);
+        }
     }
 
     /** The timing report: every function's best and worst case, the most expensive first. */

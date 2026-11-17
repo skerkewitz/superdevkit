@@ -158,9 +158,26 @@ writes them to `<rom>.timing.txt`, most expensive first.
 - **Calls**: callee bounds first (no recursion); the runtime's multiplication and division have
   fixed bounds counted from `runtime.s`.
 
-Not yet: master cycles (memory speeds; the benchmark measures those), `DAMPF_TRIPS`,
-`DAMPF_BUDGET`, the costliest path per C line in the report, cycle ranges in the assembly
-comments, and interrupts at frame level.
+**Budgets.** `DAMPF_BUDGET(n)` from `<dampf.h>`, in front of a function definition
+(`DAMPF_BUDGET(6800) void vblank_handler(void) { ... }`), gives the function a budget in CPU
+cycles, calls included. It expands to `__attribute__((dampf_budget(n)))` for dampf and to nothing
+on the PC; `n` must be a number. After the timing, `dampf build` checks it on the function as
+compiled on its own:
+
+- worst case above the budget: a compile error at the function, with the worst and the best
+  case (`b.c:5:42: error: 'sum' takes up to 1201 CPU cycles, over its budget of 1000
+  (DAMPF_BUDGET); best case 17, see the .timing.txt file`, for a loop over 32 bytes);
+- no worst case: a compile error that names the loop or the call without a bound, since a budget
+  can only be guaranteed for bounded code;
+- worst case above 90 % of the budget: a warning, printed by `dampf build`.
+
+The budget is in CPU cycles, like the report; the frame-level numbers above are in master
+cycles, about 8 per CPU cycle. Not yet: the costliest path per C line in the error message, and
+checking the measured cycles of budgeted functions in the emulator tests.
+
+Not yet: master cycles (memory speeds; the benchmark measures those), `DAMPF_TRIPS`, the
+costliest path per C line in the report, cycle ranges in the assembly comments, and interrupts at
+frame level.
 
 **Checked against the emulator.** Every execution test and random program measures every call
 of every function and runtime routine (from its first instruction to the instruction after the

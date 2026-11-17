@@ -105,4 +105,13 @@ error (a global, bounds that are not constants or do not fit the type, `lo` abov
   10)` on an unsigned `n` gives no "always true" warning under `-Wextra`. `NDEBUG` switches it
   off.
 
-The naive code generator ignores the hint. Not built yet: `DAMPF_TRIPS` and the other hints.
+The naive code generator ignores the hint.
+
+**`DAMPF_BUDGET(n)`**, in front of a function definition: built, see [timing.md](timing.md),
+"Budgets". With the naive code generator there is no timing, and budgets are not checked.
+
+**`DAMPF_TRIPS` is postponed.** On the PC it would have to count the rounds per entry into the
+loop, and a macro in front of or inside a loop cannot see the entry (nor a `break` or `return`
+on the way out) without changing the loop. `DAMPF_RANGE` on a counter in the loop covers the
+loops of the game that need a bound (`while (s[n]) { DAMPF_RANGE(n, 0, 10); n++; }`, a queue
+index); a loop without any counter can be given one. Not built yet: the other hints.

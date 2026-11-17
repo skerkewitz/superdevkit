@@ -12,7 +12,7 @@ IR levels). It was revised on 2026-11-17 after M1, see *Changes* below.
 | M1 | End to end | A small function is compiled, assembled with ca65, linked with ld65, runs automatically in a test, and Mesen shows its C source while stepping | Done 2026-11-17 (stepping through C in Mesen checked by hand) |
 | M2 | Naive but complete | All of Blubber Blasen compiles with the naive code generator, the game's benchmark and replays give the same checksums as the PC, cycles are measured per tick and per function and compared with Calypsi, and the first reference assembly function gives the first dampf/reference ratio | Done 2026-11-17, see the steps below. Open: 816-tcc and Calypsi on the same game version (on the game's side) |
 | Checkpoint | Decide whether the plan reaches the budget | See below | Decided 2026-11-17: compiler and game in parallel (below) |
-| M3 | The big levers | Optimizations A–D ([optimizations.md](optimizations.md)), built on the three IR levels. Goal: faster than Calypsi. Also: static best/worst case per function and the timing report, `DAMPF_BUDGET` checked at build time ([timing.md](timing.md)), the remaining reference functions; inferred value ranges and pointer compression ([subrange-types.md](subrange-types.md)) | In progress: MIR, the code generator from MIR (the default), the MIR passes (B, I, H, value ranges, inlining, induction variables, pointer compression), values kept in A and X, and the static timing (best and worst case per function) are built, see below |
+| M3 | The big levers | Optimizations A–D ([optimizations.md](optimizations.md)), built on the three IR levels. Goal: faster than Calypsi. Also: static best/worst case per function and the timing report, `DAMPF_BUDGET` checked at build time ([timing.md](timing.md)), the remaining reference functions; inferred value ranges and pointer compression ([subrange-types.md](subrange-types.md)) | In progress: MIR, the code generator from MIR (the default), the MIR passes (B, I, H, value ranges, inlining, induction variables, pointer compression), values kept in A and X, the static timing (best and worst case per function) and `DAMPF_BUDGET` are built, see below |
 | M4 | Fine tuning | Optimizations E–N until the frame budget is met, page-aligned arrays with 8-bit index registers. Also: profile-guided optimization from the replays, superoptimization of short hot sequences, `DAMPF_TABLE`, `DAMPF_PIN_X` and the other transforming hints | Not started |
 | M5 | Publishing | dampf can go public: own examples replace Blubber Blasen as test case and benchmark, dampf has its own preprocessor, the repository is hosted | Not started; see below |
 | M6 | Standing alone | dampf has its own assembler and linker; using dampf needs nothing but Java | Not started. The very last step, taken only when everything else runs to our satisfaction |
@@ -134,8 +134,10 @@ the profile after each step can change the order of the later ones:
    constants): 38 of the game's functions are still unbounded, and the report names the loop
    or call that makes each of them so. The first hint, `DAMPF_RANGE` from `<dampf.h>`, bounds
    such loops by hand (`while (s[n]) { DAMPF_RANGE(n, 0, 10); n++; }`), checked on the PC and
-   in the MIR interpreter, at no cost on the SNES. Next: `DAMPF_TRIPS` for loops without a
-   counter, then `DAMPF_BUDGET`, master cycles and the report per C line.
+   in the MIR interpreter, at no cost on the SNES. `DAMPF_BUDGET` is checked at build
+   time (an error over the budget or without a worst case, a warning above 90 %).
+   `DAMPF_TRIPS` is postponed ([hints.md](hints.md)). Next: master cycles and the costliest
+   path per C line in the report and in the budget errors.
 
 **Subrange types** (`DAMPF_RANGED`, `DAMPF_AS` and their checker, sections 3–6 there) are not
 scheduled. They are built when a profile shows a hot value whose range dampf cannot infer and

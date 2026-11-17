@@ -20,6 +20,13 @@
  */
 #define DAMPF_RANGE(v, lo, hi) __dampf_range(v, lo, hi)
 
+/*
+ * DAMPF_BUDGET(cycles), in front of a function definition: the function must finish within this
+ * many CPU cycles, calls included (its worst case in the timing report). A worst case above it,
+ * or none at all, is a compile error; above 90 % of it, a warning. A number, not an expression.
+ */
+#define DAMPF_BUDGET(cycles) __attribute__((dampf_budget(cycles)))
+
 #else
 
 #include <assert.h>
@@ -27,6 +34,8 @@
 #define DAMPF_RANGE(v, lo, hi) \
     assert((unsigned long long)(v) - (unsigned long long)(lo) \
            <= (unsigned long long)(hi) - (unsigned long long)(lo) && "DAMPF_RANGE(" #v ", " #lo ", " #hi ")")
+/* checked by dampf at build time; the emulator tests measure it */
+#define DAMPF_BUDGET(cycles)
 
 #endif
 

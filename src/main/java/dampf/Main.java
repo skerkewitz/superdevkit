@@ -101,6 +101,7 @@ public final class Main {
             try {
                 Compiler.Result r = Compiler.compile(new Compiler.Options(files, includes, defines, entry, output, replacements,
                         backend != null ? backend : replacements.isEmpty() ? Compiler.Backend.MIR : Compiler.Backend.NAIVE));
+                r.warnings().forEach(System.err::println);
                 System.err.println("wrote " + r.rom().rom() + " and " + r.rom().dbg());
                 return;
             } catch (CompileError e) {

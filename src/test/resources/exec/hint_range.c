@@ -1,7 +1,8 @@
 /*
  * DAMPF_RANGE: the hint bounds loops the timing analysis cannot bound on its own (a string's
  * length, a count from memory) and gives the optimizer a range; on the PC it is an assertion,
- * and the MIR interpreter fails if it does not hold.
+ * and the MIR interpreter fails if it does not hold. DAMPF_BUDGET: only a bounded function can
+ * have a budget, so text_len's needs the hint (and on the PC the budget is nothing).
  */
 #include <stdint.h>
 #include <dampf.h>
@@ -12,7 +13,7 @@ uint8_t lens[4];
 uint16_t total;
 int16_t signed_sum;
 
-static uint8_t text_len(const char *s)
+DAMPF_BUDGET(2000) static uint8_t text_len(const char *s)
 {
     uint8_t n = 0;
     while (s[n]) {
