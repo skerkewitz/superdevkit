@@ -900,6 +900,8 @@ public final class MirCodeGen {
 
     /** The i8 results the code must mask: one of their readers needs a clean high byte, and they have none of their own. */
     private final Set<Instr> masked = new HashSet<>();
+    /** The i8 values whose high byte is 0 in their place: those masked, clean by themselves, and φs of such. */
+    private final Set<Value> clean = new HashSet<>();
 
     /**
      * Lazy byte masks. An i8 value in A or in its place may carry any high byte, unless one of its
@@ -913,7 +915,8 @@ public final class MirCodeGen {
      */
     private void findMasks(MFunction f) {
         masked.clear();
-        Set<Value> need = new HashSet<>();
+        Set<Value> need = clean;
+        need.clear();
         java.util.ArrayDeque<Value> work = new java.util.ArrayDeque<>();
         for (Block b : f.blocks()) {
             for (Instr u : b.instrs()) {
@@ -1102,13 +1105,13 @@ public final class MirCodeGen {
     /**
      * INC or DEC on the place itself, for x ± 1 whose result goes back to x's place (a counter's
      * step): 7 cycles instead of CLC, LDA, ADC, STA (13). The 16 bits are those ADC #1 gives (an
-     * i8 minus 1 differs in the high byte only, which an i8 that needs no mask may have any).
-     * Not when the result is handed on in A. Null if it does not apply.
+     * i8 minus 1 differs in the high byte only, which an i8 that needs no mask may have any). An
+     * i8 result that must be clean gets an 8-bit INC/DEC ("inc8", "dec8") if the old value's high
+     * byte is 0. Not when the result is handed on in A. Null if it does not apply.
      */
     private String incDec(Instr.Bin b) {
         if (b.type() != MType.I16 && b.type() != MType.I8 || m8 || forward.contains(b) || place.get(b) == null
                 || !(b.op(1) instanceof Value.Const k) || b.op(0) instanceof Value.Const
-                || b.type() == MType.I8 && masked.contains(b)
                 || b.op(0) instanceof Instr x && !stored(x) || !operand(b.op(0), 0).equals(dest(b, 0))) {
             return null;
         }
@@ -1116,7 +1119,13 @@ public final class MirCodeGen {
         if (b.op == Instr.BinOp.SUB) {
             c = -c;
         }
-        return c == 1 ? "inc" : c == -1 ? "dec" : null;
+        String m = c == 1 ? "inc" : c == -1 ? "dec" : null;
+        if (m != null && b.type() == MType.I8 && masked.contains(b)) {
+            // a clean result: an 8-bit INC/DEC keeps the high byte, which must be 0 already
+            Value x = b.op(0);
+            return x instanceof Value.Param || clean.contains(x) ? m + "8" : null;
+        }
+        return m;
     }
 
     /** Whether an instruction's result is written to its place (not only handed on in A, folded or in X). */
@@ -1133,6 +1142,12 @@ public final class MirCodeGen {
         switch (b.op) {
             case ADD, SUB -> {
                 String step = incDec(b);
+                if (step != null && step.endsWith("8")) {
+                    ins("sep", "#$20");
+                    ins(step.substring(0, 3), dest(b, 0));
+                    ins("rep", "#$20");
+                    return;
+                }
                 if (step != null) {
                     ins(step, dest(b, 0));
                     return;

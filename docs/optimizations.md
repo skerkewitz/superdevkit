@@ -501,6 +501,11 @@ no mask may have any). It needs `x` really in its place: a value handed on in A 
 that name but was never stored there, which the execution tests caught (`locals.c`). Play
 524,771 → 510,797 clocks per tick (1.43 frames), title 0.60 → 0.58.
 
+An i8 step whose result must be clean (a counter a comparison reads) still needed `AND #$00FF`.
+If the old value is clean too (a parameter, or a φ of clean values), an 8-bit `INC`/`DEC`
+between `SEP` and `REP` keeps the high byte 0: 11 cycles instead of 16. Play 496,395 → 494,619
+clocks per tick (1.38 frames).
+
 ### STZ for zeros, 2026-11-17
 
 A zero stored to a fixed address (direct page, absolute, X-indexed; not long or through a
@@ -522,14 +527,14 @@ Measured after the range analysis learned to narrow after widening: a loop of mo
 rounds (`for (i = 0; i < 768; i++)`) used to give its counter the type's whole range, which kept
 it from being narrowed and from indexed addressing as nonnegative. Narrowing again after the
 widened fixpoint gives it 0..768. Play 1.53 → 1.50, title 0.68 → 0.60. Then A's places and the
-byte loads, the short branches, INC/DEC, STZ and the bit selections (sections above): play 1.39.
+byte loads, the short branches, INC/DEC, STZ and the bit selections (sections above): play 1.38.
 
 | State | naive | from MIR, no passes | now |
 | --- | --- | --- | --- |
 | title | 1.94 | 12.21 | 0.56 |
 | story | 0.70 | 3.56 | 0.23 |
 | round intro | 5.76 | 12.13 | 1.82 |
-| play | 5.17 (worst 8.58) | 18.93 | 1.39 (worst 2.40) |
+| play | 5.17 (worst 8.58) | 18.93 | 1.38 (worst 2.39) |
 | play, CPU partner | 6.55 (worst 12.23) | 23.13 | 2.07 (worst 4.23) |
 | `level_solid_px`, per call | 3,849 | 6,648 | 1,208 clocks |
 
