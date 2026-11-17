@@ -506,6 +506,22 @@ If the old value is clean too (a parameter, or a φ of clean values), an 8-bit `
 between `SEP` and `REP` keeps the high byte 0: 11 cycles instead of 16. Play 496,395 → 494,619
 clocks per tick (1.38 frames).
 
+### Fewer copies: arguments in place, loop exits, 2026-11-17
+
+A third of the time goes to direct page loads and stores. In the game code (the benchmark's harness
+left out) about 14 % of the stores are pure copies (`LDA` of one place, `STA` to another), about
+14 % store a constant, the rest store computed values that are read again later: with one
+accumulator, a value that is not used right away has to go to memory. Two kinds of copy go:
+
+- An argument computed for a call was stored to its own place and copied to the callee's
+  parameter at the call. If the call is its only use, later in its block, with no other call
+  on the way, it is computed straight into the parameter's place (frames on a call path never
+  overlap). Play 494,619 → 492,510 clocks per tick.
+- A block's φ values are written before the branch of a predecessor that branches, which saves a
+  jump; on a loop's exit edge that meant writing them in every round for an edge taken once.
+  Such an edge now gets a block of its own just before code generation (`ExitEdges`), and the φ
+  values are written there. Play 492,510 → 488,759 clocks per tick (1.37 frames).
+
 ### Blocks laid out by a profile, 2026-11-17
 
 The jumps over large loop bodies (the section on short branches) need to know which blocks run
@@ -545,15 +561,15 @@ Measured after the range analysis learned to narrow after widening: a loop of mo
 rounds (`for (i = 0; i < 768; i++)`) used to give its counter the type's whole range, which kept
 it from being narrowed and from indexed addressing as nonnegative. Narrowing again after the
 widened fixpoint gives it 0..768. Play 1.53 → 1.50, title 0.68 → 0.60. Then A's places and the
-byte loads, the short branches, INC/DEC, STZ and the bit selections (sections above): play 1.38.
+byte loads, the short branches, INC/DEC, STZ, the bit selections and fewer copies (sections above): play 1.37.
 
 | State | naive | from MIR, no passes | now |
 | --- | --- | --- | --- |
 | title | 1.94 | 12.21 | 0.56 |
 | story | 0.70 | 3.56 | 0.23 |
-| round intro | 5.76 | 12.13 | 1.82 |
-| play | 5.17 (worst 8.58) | 18.93 | 1.38 (worst 2.39) |
-| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 2.07 (worst 4.23) |
+| round intro | 5.76 | 12.13 | 1.79 |
+| play | 5.17 (worst 8.58) | 18.93 | 1.37 (worst 2.37) |
+| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 2.04 (worst 4.19) |
 | `level_solid_px`, per call | 3,849 | 6,648 | 1,208 clocks |
 
 Calypsi's 2.72 frames per tick during play (on an older version of the game) is passed; a fair

@@ -364,6 +364,9 @@ public final class MirCodeGen {
     private Map<MFunction, Ranges> hintRanges;
 
     private void layout() {
+        for (MFunction f : module.functions()) {
+            dampf.mir.ExitEdges.split(f);
+        }
         hintRanges = dampf.mir.Hints.strip(module);
         for (MFunction f : module.functions()) {
             for (Block b : f.blocks()) {
@@ -391,8 +394,55 @@ public final class MirCodeGen {
             l.incoming.forEach((k, v) -> incoming.put(k, b + v));
             frameTotal = Math.max(frameTotal, b + l.size);
         }
+        argumentsInPlace();
         if (frameTotal > MAX_FRAME) {
             throw new IllegalStateException("the frames need " + frameTotal + " bytes, more than " + MAX_FRAME);
+        }
+    }
+
+    /**
+     * A value whose only use is an argument of a call later in its block, with no other call on
+     * the way, is computed straight into the callee's parameter place: the call need not copy it
+     * (about five copies per call in the game's player code). The callee's frame never overlaps
+     * the caller's (frames on a call path are disjoint), and nothing but this call writes the
+     * place before it. Its own place in the caller's frame stays unused.
+     */
+    private void argumentsInPlace() {
+        for (MFunction f : module.functions()) {
+            Map<Instr, Integer> uses = new HashMap<>();
+            for (Block b : f.blocks()) {
+                for (Instr i : b.instrs()) {
+                    for (Value v : i.operands()) {
+                        if (v instanceof Instr d) {
+                            uses.merge(d, 1, Integer::sum);
+                        }
+                    }
+                }
+            }
+            for (Block b : f.blocks()) {
+                List<Instr> is = b.instrs();
+                for (int n = 0; n < is.size(); n++) {
+                    if (!(is.get(n) instanceof Instr.Call c) || module.function(c.callee) == null) {
+                        continue;
+                    }
+                    MFunction callee = module.function(c.callee);
+                    for (int k = 0; k < c.operands().size(); k++) {
+                        if (!(c.op(k) instanceof Instr v) || v instanceof Instr.Phi || v.block() != b
+                                || uses.getOrDefault(v, 0) != 1 || !place.containsKey(v)
+                                || c.operands().indexOf(v) != k) {
+                            continue;
+                        }
+                        boolean callBetween = false;
+                        for (int j = is.indexOf(v) + 1; j < n; j++) {
+                            callBetween |= is.get(j) instanceof Instr.Call;
+                        }
+                        Value.Param p = callee.params().get(k);
+                        if (!callBetween && place.containsKey(p) && words(p.type()) == words(v.type())) {
+                            place.put(v, place.get(p));
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -1877,6 +1927,9 @@ public final class MirCodeGen {
         for (int k = 0; k < c.operands().size(); k++) {
             Value.Param p = callee.params().get(k);
             for (int w = 0; w < words(p.type()); w++) {
+                if (c.op(k) instanceof Instr v && stored(v) && operand(v, w).equals(at(place.get(p) + 2 * w))) {
+                    continue;   // computed in place (argumentsInPlace)
+                }
                 ins("lda", operand(c.op(k), w));
                 ins("sta", at(place.get(p) + 2 * w));
             }
