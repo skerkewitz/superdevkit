@@ -4,7 +4,8 @@ A compiler for a subset of C that makes fast 65816 code for the Super Nintendo. 
 Blubber Blasen, whose game code is C that also builds on the PC with gcc and
 clang. Why it exists and how it is meant to work is in [kickoff.md](kickoff.md).
 
-Status: milestone M2 (naive but complete) in progress. The naive code generator handles the C
+Status: milestone M1 (end to end) is done, including stepping through the C source in Mesen
+(checked 2026-11-17). Milestone M2 (naive but complete) is in progress. The naive code generator handles the C
 the game uses: all integer types and operators with gcc's exact semantics, control flow, enums,
 arrays, structs, pointers, strings, initializers and constant data in ROM. The execution tests run
 programs in Mesen and compare every result with gcc on the PC; random programs check the

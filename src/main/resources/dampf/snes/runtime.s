@@ -5,7 +5,7 @@
 ; copied from ROM to RAM. Then it calls the entry function
 ; (dampf_entry, set by the compiler) and, when that returns, writes 1 to
 ; $21FB (an unused B-bus port) so a test script knows the program is done,
-; and stops.
+; and loops forever.
 
         .p816
         .smart  off
@@ -76,8 +76,8 @@ dampf_done:
         sta     f:DONE_PORT     ; a long address: DBR points at RAM, not at the I/O registers
         rep     #$20
         .a16
-@halt:  stp
-        bra     @halt
+@halt:  bra     @halt           ; wait here; not STP, which would stop the CPU and leave
+                                ; a debugger nothing to step or continue
 
 nmi:
 irq:
