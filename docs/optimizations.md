@@ -316,6 +316,11 @@ masks 5 % each.
 | play | 5.17 (worst 8.58) | 2.07 | 2.05 | 1.98 | 1.95 (worst 3.31) |
 | play, CPU partner | 6.55 (worst 12.23) | 2.79 | 2.77 | 2.69 | 2.66 (worst 5.12) |
 
+Then short branches straight to blocks within reach (each function is generated twice, the first
+pass gives the distances) and two small peepholes (a mask right after a wider one, the bank word
+of a pointer that stays in place): play 1.93 frames per tick (worst 3.29), with the CPU partner
+2.64 (worst 5.09).
+
 ### Where the naive code spends its time (2026-11-17)
 
 `tools/profile_game.sh bench` profiles the benchmark's play ticks 900–1700 (as the game's own

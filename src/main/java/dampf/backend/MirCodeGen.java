@@ -732,11 +732,15 @@ public final class MirCodeGen {
                 ins("lda", operand(p.op(0), 0));
                 ins("adc", operand(p.op(1), 0));
                 result(p, 0);
-                ins("lda", operand(p.op(0), 1));
                 if (p.op(1).type() == MType.I32) {
+                    ins("lda", operand(p.op(0), 1));
                     ins("adc", operand(p.op(1), 1));
-                }   // an i16 offset stays within the bank (Instr.PtrAdd)
-                result(p, 1);
+                    result(p, 1);
+                } else if (!operand(p.op(0), 1).equals(dest(p, 1))) {
+                    // an i16 offset stays within the bank (Instr.PtrAdd): the bank word is copied
+                    ins("lda", operand(p.op(0), 1));
+                    result(p, 1);
+                }
             }
             case Instr.Load l -> load(l);
             case Instr.Store s -> store(s);
@@ -1513,6 +1517,10 @@ public final class MirCodeGen {
             heldAnd = true;
             track(mnemonic, operand);
             return;
+        }
+        if (mnemonic.equals("and") && heldAnd && !heldRep && operand != null && operand.startsWith("#$")
+                && Integer.parseInt(operand.substring(2), 16) <= 0xFF) {
+            heldAnd = false;   // a narrower mask right after: the held one adds nothing
         }
         if (mnemonic.equals("sep") && "#$20".equals(operand) && (heldRep || heldAnd)) {
             boolean both = heldRep;
