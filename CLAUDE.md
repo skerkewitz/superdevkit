@@ -3,8 +3,8 @@
 C-subset compiler for the 65816 / SNES, written in Java. Read kickoff.md first; docs/subset.md and
 docs/optimizations.md hold the current state of M0.
 
-- Build and test: `./gradlew build`. Everything, with the execution tests in Mesen and the game:
-  `./gradlew build -Pmesen=/mnt/d/Develop/AiProject/BlubberBlasen/build/mesen/Mesen.exe -Pblubberblasen=/mnt/d/Develop/AiProject/BlubberBlasen`.
+- Build and test: `./gradlew build`. This runs everything, including the execution tests in dampf's
+  own Mesen (`.mesen/`, not in git) and the parse test on the game snapshot.
 - A new language feature needs an execution test in `src/test/resources/exec/` (PC vs SNES).
 - dampf works on the snapshot `examples/blubberblasen` (never edit it; refresh with
   `tools/update_game_snapshot.sh /mnt/d/Develop/AiProject/BlubberBlasen`). Never run Mesen or write

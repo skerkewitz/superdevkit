@@ -40,7 +40,7 @@ Gradle comes with the wrapper; nothing to install.
 
 ```bash
 ./gradlew build                                              # compile and run the unit tests
-./gradlew test -Pmesen=/path/to/Mesen.exe                    # also run the execution tests in Mesen 2
+./gradlew test -Pmesen=/path/to/Mesen.exe                    # execution tests with another Mesen
 ./gradlew test -Pblubberblasen=/path/to/BlubberBlasen        # parse the live game instead of the snapshot
 ./gradlew installDist                                        # build/install/dampf/bin/dampf
 ```
@@ -49,6 +49,10 @@ The execution tests compile each program in `src/test/resources/exec/` twice: wi
 (with the undefined behaviour sanitizer, so a test with undefined behaviour fails) and with dampf
 into a ROM that runs headless in Mesen 2 (`--testrunner`). All globals must have the same values
 afterwards. From WSL, the Windows `Mesen.exe` works; paths are converted with `wslpath`.
+
+The tests use `.mesen/Mesen.exe` if it exists (not in git): unpack Mesen 2.1.1 there and allow
+Lua scripts I/O access (in `settings.json`: `"Debug": { "ScriptWindow": { "AllowIoOsAccess": true } }`).
+Without a Mesen the execution tests are skipped.
 
 The game parse test uses the snapshot in `examples/blubberblasen`. To refresh the snapshot, build
 the game once (so its `build/generated` is current) and run

@@ -39,8 +39,10 @@ tasks.test {
     useJUnitPlatform()
     // Tests that need the Blubber Blasen sources read their location from this property.
     providers.gradleProperty("blubberblasen").orNull?.let { systemProperty("dampf.blubberblasen", it) }
-    // Execution tests run ROMs in Mesen 2: -Pmesen=/path/to/Mesen.exe
-    providers.gradleProperty("mesen").orNull?.let { systemProperty("dampf.mesen", it) }
+    // Execution tests run ROMs in Mesen 2: -Pmesen=/path/to/Mesen.exe, or the one in .mesen/
+    val mesen = providers.gradleProperty("mesen").orNull
+        ?: layout.projectDirectory.file(".mesen/Mesen.exe").asFile.takeIf { it.exists() }?.path
+    mesen?.let { systemProperty("dampf.mesen", it) }
 }
 
 application {
