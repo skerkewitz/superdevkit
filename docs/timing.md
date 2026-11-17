@@ -131,13 +131,28 @@ writes them to `<rom>.timing.txt`, most expensive first.
   one node: worst case = (rounds - 1) × the longest way round + the longest way out, best case =
   the shortest way out (no round). The rest is free of cycles: shortest and longest path to the
   return.
-- **Loop bounds** come from the code, as long as there are no hints: a counter that the way back
-  always steps by the same constant, without wrapping, with a finite value range in the loop
-  head, runs the head at most (hi - lo) / step + 1 times; a counter stepped by ±1 towards the
-  constant the head tests for equality (`k != 0`) at most |start - constant| + 1 times. Other
-  loops make the worst case "unbounded" (`DAMPF_TRIPS` will help there). The value ranges now
-  also carry a loop head's entry condition into the loop when the head's other predecessors are
-  back edges (an outer `i < 5` reaches a body that starts with an inner loop).
+- **Loop bounds** come from the code, as long as there are no hints. A counter φ that every way
+  back steps by the same constant c bounds how often the head runs, by the first of these rules
+  that applies:
+  - a finite value range in the head and a step that cannot wrap: (hi - lo) / |c| + 1;
+  - an ordered test that every round passes (in the head, or further down where it dominates
+    every way back) and that keeps the loop going while the counter, or the counter
+    zero-extended, is on the near side of another value (`i < n`, `i > rank`, `v >= 100`,
+    signed or unsigned): the counter cannot pass that value's extreme, and if the step cannot
+    wrap there, the head runs at most (extreme - start) / |c| + 2 times. This needs no range of
+    the counter itself, which an 8-bit unsigned counter does not have in the signed view of the
+    value ranges; an unknown start counts as the type's end;
+  - an equality test of the same kind (`k != 0` keeps going) with c = ±1: the counter meets the
+    constant after at most the distance modulo 2^w, so at most 2^w head runs even from the other
+    side.
+
+  Other loops make the worst case "unbounded" (`DAMPF_TRIPS` will help there). Some of them are
+  right to: `for (y = t; y <= b; y++)` with an 8-bit `b` never ends when `b` is 255. The value
+  ranges carry a loop head's entry condition into the loop when the head's other predecessors
+  are back edges (an outer `i < 5` reaches a body that starts with an inner loop), take a
+  condition between two values (`r < n`) into account with the other value's range, narrow
+  again after widening (a counter of a loop of 768 rounds is 0..768, not the whole type), and
+  give a parameter the join of its arguments' ranges at every call (`ParamRanges`).
 - **Calls**: callee bounds first (no recursion); the runtime's multiplication and division have
   fixed bounds counted from `runtime.s`.
 
@@ -151,7 +166,10 @@ of every function and runtime routine (from its first instruction to the instruc
 for its 180,000 calls (`GameTimingTest`). A runtime bound set too low on purpose (`dampf_mul16`
 worst 300 instead of 367) failed 94 tests at once; the measured maximum was 362.
 
-In the game, 240 functions get a bound and 91 do not (mostly loops up to a parameter, such as
-`for (i = 0; i < count; i++)`, which need the parameter's range from its callers or a hint).
-Examples: `abs16` 25–37 cycles, `floating` 44–75, `level_solid_px` 21–209, `separate` 33–190,481.
-
+In the game, 292 functions get a bound and 38 do not. The report names, after each unbounded
+function, the first loop in it without a bound (`(loop at text.c:104)`) or else the first call of
+a function without one (`(calls _text_number)`). The loops left are those that run over memory
+(`while (s[n]) n++;`, a queue, `while (stage_next < stage_count)`), whose counter is not stepped
+by a constant, or that could really run forever in C; they need `DAMPF_TRIPS`. Examples:
+`abs16` 25–37 cycles, `floating` 44–75, `level_solid_px` 21–209, `text_number` 233–4,319,
+`bg_clear` 126–85,456, `separate` 33–190,481.

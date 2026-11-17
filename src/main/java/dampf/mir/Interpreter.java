@@ -54,6 +54,9 @@ public final class Interpreter {
     /** Sees every value an instruction produces (tests check the range analysis with it). */
     public interface Observer {
         void value(Instr i, long bits);
+
+        /** A parameter's value on entry to its function. */
+        default void param(Value.Param p, long bits) {}
     }
 
     private Observer observer;
@@ -147,6 +150,9 @@ public final class Interpreter {
         for (int i = 0; i < f.params().size(); i++) {
             Value.Param p = f.params().get(i);
             frame.values[p.index] = p.type().wrap(args.get(i));
+            if (observer != null) {
+                observer.param(p, frame.values[p.index]);
+            }
         }
         int frameStart = frameTop;
         frameTop += l.frameSize();

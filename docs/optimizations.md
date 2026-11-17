@@ -447,17 +447,18 @@ arrays with different values, and only one fits in X. Play 1.54 → 1.53 frames 
 
 ### Summary of the code from MIR so far (2026-11-17, the latest measurement)
 
-Measured after the static timing work, whose change to the value ranges (a loop head's entry
-condition reaches the loop) also helps the narrowing a little: the worst play tick is 2.65 here,
-2.67 in the section on loop counters in X just before it.
+Measured after the range analysis learned to narrow after widening: a loop of more than 24
+rounds (`for (i = 0; i < 768; i++)`) used to give its counter the type's whole range, which kept
+it from being narrowed and from indexed addressing as nonnegative. Narrowing again after the
+widened fixpoint gives it 0..768. Play 1.53 → 1.50, title 0.68 → 0.60.
 
 | State | naive | from MIR, no passes | now |
 | --- | --- | --- | --- |
-| title | 1.94 | 12.21 | 0.67 |
-| story | 0.70 | 3.56 | 0.27 |
-| round intro | 5.76 | 12.13 | 1.93 |
-| play | 5.17 (worst 8.58) | 18.93 | 1.53 (worst 2.65) |
-| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 2.22 (worst 4.46) |
+| title | 1.94 | 12.21 | 0.60 |
+| story | 0.70 | 3.56 | 0.25 |
+| round intro | 5.76 | 12.13 | 1.91 |
+| play | 5.17 (worst 8.58) | 18.93 | 1.50 (worst 2.59) |
+| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 2.20 (worst 4.40) |
 | `level_solid_px`, per call | 3,849 | 6,648 | 1,208 clocks |
 
 Calypsi's 2.72 frames per tick during play (on an older version of the game) is passed; a fair

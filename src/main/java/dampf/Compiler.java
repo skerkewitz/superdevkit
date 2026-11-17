@@ -101,7 +101,7 @@ public final class Compiler {
             MirCodeGen gen = new MirCodeGen(mir, entry.label(), debugName);
             asm = new java.util.ArrayList<>(gen.generate());
             timing = gen.timing();
-            writeTiming(timing, outDir.resolve(baseName + ".timing.txt"));
+            writeTiming(timing, gen.unboundedWhy(), outDir.resolve(baseName + ".timing.txt"));
         } else {
             asm = new java.util.ArrayList<>(new NaiveCodeGen(program, entry, o.replacements().keySet(), debugName).generate());
         }
@@ -113,18 +113,23 @@ public final class Compiler {
     }
 
     /** The timing report: every function's best and worst case, the most expensive first. */
-    private static void writeTiming(Map<String, long[]> timing, Path file) throws IOException {
+    private static void writeTiming(Map<String, long[]> timing, Map<String, String> why, Path file) throws IOException {
         StringBuilder out = new StringBuilder("""
                 # dampf timing: best and worst case per function in CPU cycles, from entry to return,
                 # calls included, interrupts and DMA not (docs/timing.md). "unbounded": a loop without
-                # a known bound on the way.
+                # a known bound on the way; the first such loop in the function, or the first call
+                # of a function without a bound, is named after it.
                 """);
         out.append(String.format("%12s %12s  %s%n", "best", "worst", "function"));
         timing.entrySet().stream()
                 .sorted((a, b) -> Long.compare(b.getValue()[1] < 0 ? Long.MAX_VALUE : b.getValue()[1],
                         a.getValue()[1] < 0 ? Long.MAX_VALUE : a.getValue()[1]))
-                .forEach(e -> out.append(String.format("%12d %12s  %s%n", e.getValue()[0],
-                        e.getValue()[1] < 0 ? "unbounded" : Long.toString(e.getValue()[1]), e.getKey())));
+                .forEach(e -> {
+                    String reason = why.get(e.getKey());
+                    out.append(String.format("%12d %12s  %s%s%n", e.getValue()[0],
+                            e.getValue()[1] < 0 ? "unbounded" : Long.toString(e.getValue()[1]), e.getKey(),
+                            reason == null ? "" : "   (" + reason + ")"));
+                });
         Files.writeString(file, out);
     }
 }

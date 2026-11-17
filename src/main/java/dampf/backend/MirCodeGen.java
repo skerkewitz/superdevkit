@@ -258,6 +258,39 @@ public final class MirCodeGen {
         return out;
     }
 
+    /**
+     * Why a function has no worst case (by label, only for those): the first loop in it without a
+     * bound ("loop at file:line"), else the first call of a function without one ("calls f").
+     */
+    public Map<String, String> unboundedWhy() {
+        Map<String, String> out = new java.util.TreeMap<>();
+        for (MFunction f : module.functions()) {
+            if (bound(f.name(), new HashSet<>()).bounded()) {
+                continue;
+            }
+            Ranges r = written.get(f).ranges();
+            SourcePos first = null;
+            for (dampf.mir.Loops.Loop loop : dampf.mir.Loops.find(f)) {
+                if (Timing.headRuns(loop, r) >= Timing.UNBOUNDED) {
+                    SourcePos at = loop.head().terminator().pos();
+                    if (at != null && (first == null || at.line() < first.line())) {
+                        first = at;
+                    }
+                }
+            }
+            String why = first == null ? null : "loop at " + first.file().substring(first.file().lastIndexOf('/') + 1) + ":" + first.line();
+            for (Block b : f.blocks()) {
+                for (Instr i : b.instrs()) {
+                    if (why == null && i instanceof Instr.Call c && !bound(c.callee, new HashSet<>()).bounded()) {
+                        why = "calls " + c.callee;
+                    }
+                }
+            }
+            out.put(f.name(), why == null ? "a loop without a bound" : why);
+        }
+        return out;
+    }
+
     private Timing.Bound bound(String name, Set<String> path) {
         Timing.Bound known = bounds.get(name);
         if (known != null) {

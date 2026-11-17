@@ -30,17 +30,17 @@ public final class Ranges {
             return lo >= a && hi <= b;
         }
 
-        Range join(Range o) {
+        public Range join(Range o) {
             return o == null ? this : new Range(Math.min(lo, o.lo), Math.max(hi, o.hi));
         }
 
-        Range meet(Range o) {
+        public Range meet(Range o) {
             long l = Math.max(lo, o.lo);
             long h = Math.min(hi, o.hi);
             return l > h ? null : new Range(l, h);
         }
 
-        boolean contains(long v) {
+        public boolean contains(long v) {
             return v >= lo && v <= hi;
         }
 
@@ -53,9 +53,25 @@ public final class Ranges {
     private final Map<Value, Range> range = new HashMap<>();
     private final Map<Block, Map<Value, Range>> refine = new HashMap<>();
 
+    /** Ranges of a first pass, for conditions between two values (null in the first pass). */
+    private Map<Value, Range> prior;
+    private boolean variableConditions;
+
     public Ranges(MFunction f) {
         Map<Block, Block> idom = Cfg.idoms(f);
         List<Block> rpo = Cfg.reversePostorder(f);
+        solve(f, idom, rpo);
+        if (variableConditions) {
+            // a second pass: a condition between two values (r < n) bounds each by the other's
+            // range from the first pass, which holds for every execution
+            prior = new HashMap<>(range);
+            range.clear();
+            refine.clear();
+            solve(f, idom, rpo);
+        }
+    }
+
+    private void solve(MFunction f, Map<Block, Block> idom, List<Block> rpo) {
         for (Block b : rpo) {
             Map<Value, Range> m = b == f.entry() ? new HashMap<>() : new HashMap<>(refine.get(idom.get(b)));
             // the edge from the one predecessor that is not a back edge: its condition holds in b
@@ -100,7 +116,35 @@ public final class Ranges {
                 }
             }
         }
+        // Narrowing: widening made a loop counter's range whole (for (i = 0; i < 768; i++)
+        // passes WIDEN_AFTER long before 768). The ranges now hold for every execution, and
+        // evaluating an instruction from ranges that hold gives a range that holds, so one more
+        // evaluation can only take back what widening added: the counter's φ gets 0 and what the
+        // step gives under the loop's condition, 1..768.
+        for (int round = 0; round < NARROW_ROUNDS; round++) {
+            boolean narrower = false;
+            for (Block b : rpo) {
+                for (Instr i : b.instrs()) {
+                    Range old = range.get(i);
+                    if (old == null) {
+                        continue;
+                    }
+                    Range r = eval(i, b);
+                    Range both = r == null ? null : r.meet(old);
+                    if (both != null && !both.equals(old)) {
+                        range.put(i, both);
+                        narrower = true;
+                    }
+                }
+            }
+            if (!narrower) {
+                break;
+            }
+        }
     }
+
+    /** Rounds of narrowing after the widened fixpoint. */
+    static final int NARROW_ROUNDS = 8;
 
     static boolean isInt(MType t) {
         return t == MType.I1 || t == MType.I8 || t == MType.I16 || t == MType.I32;
@@ -161,13 +205,27 @@ public final class Ranges {
                 }
             }
         }
-        return (i, bits) -> {
-            Range g = all.get(i);
-            if (g != null) {
-                long v = i.type() == MType.I1 ? bits : i.type().signed(bits);
-                if (!g.contains(v)) {
-                    throw new IllegalStateException("range analysis is wrong: " + Printer.instr(i) + " in "
-                            + i.block() + " gave " + v + ", outside " + g + (i.pos() != null ? " (" + i.pos() + ")" : ""));
+        return new Interpreter.Observer() {
+            @Override
+            public void value(Instr i, long bits) {
+                Range g = all.get(i);
+                if (g != null) {
+                    long v = i.type() == MType.I1 ? bits : i.type().signed(bits);
+                    if (!g.contains(v)) {
+                        throw new IllegalStateException("range analysis is wrong: " + Printer.instr(i) + " in "
+                                + i.block() + " gave " + v + ", outside " + g + (i.pos() != null ? " (" + i.pos() + ")" : ""));
+                    }
+                }
+            }
+
+            @Override
+            public void param(Value.Param p, long bits) {
+                if (p.known != null && isInt(p.type())) {
+                    long v = p.type() == MType.I1 ? bits : p.type().signed(bits);
+                    if (!p.known.contains(v)) {
+                        throw new IllegalStateException("range analysis is wrong: parameter " + p.name() + " is " + v
+                                + ", outside " + p.known);
+                    }
                 }
             }
         };
@@ -204,6 +262,40 @@ public final class Ranges {
             constrain(m, x, pred, k);
         } else if (x instanceof Value.Const k) {
             constrain(m, y, swap(pred), k);
+        } else if (isInt(x.type()) && x.type() != MType.I1) {
+            variableConditions = true;
+            if (prior != null) {
+                bound(m, x, pred, priorOf(y));
+                bound(m, y, swap(pred), priorOf(x));
+            }
+        }
+    }
+
+    private Range priorOf(Value v) {
+        return switch (v) {
+            case Value.Const k -> point(k);
+            case Instr i -> prior.get(i);
+            case Value.Param p when p.known != null -> p.known;
+            default -> full(v.type());
+        };
+    }
+
+    /** x pred y, where y lies in r: x is bounded by r's end on the far side. */
+    private static void bound(Map<Value, Range> m, Value x, Instr.Pred pred, Range r) {
+        if (r == null) {
+            return;
+        }
+        MType t = x.type();
+        Range u = unsigned(r, t);
+        Long end = switch (pred) {
+            case SLT, SLE -> r.hi;
+            case SGT, SGE -> r.lo;
+            case ULT, ULE -> u == null ? null : u.hi;
+            case UGT, UGE -> u == null ? null : u.lo;
+            default -> null;
+        };
+        if (end != null) {
+            constrain(m, x, pred, new Value.Const(t, end));
         }
     }
 

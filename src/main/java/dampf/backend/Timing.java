@@ -236,7 +236,10 @@ final class Timing {
             if (step.op == Instr.BinOp.SUB) {
                 c = -c;
             }
-            best = Math.min(best, untilEqual(loop, p, c, ranges));
+            for (Block test : everyRoundTests(loop)) {
+                best = Math.min(best, untilEqual(loop, test, p, c, ranges));
+                best = Math.min(best, untilBound(loop, test, p, c, ranges));
+            }
             Ranges.Range r = ranges.of(p);
             Ranges.Range at = ranges.at(p, step.block());
             Ranges.Range all = Ranges.full(p.type());
@@ -254,9 +257,9 @@ final class Timing {
      * ({@code k != 0} stays in the loop): from a start on the right side, the head runs at most
      * |start - constant| + 1 times. UNBOUNDED if that does not apply.
      */
-    private static long untilEqual(Loops.Loop loop, Instr.Phi p, long c, Ranges ranges) {
-        if (Math.abs(c) != 1 || !(loop.head().terminator() instanceof Instr.Branch br)
-                || !(br.op(0) instanceof Instr.Cmp cmp) || cmp.block() != loop.head() || cmp.op(0) != p
+    private static long untilEqual(Loops.Loop loop, Block test, Instr.Phi p, long c, Ranges ranges) {
+        if (Math.abs(c) != 1 || !(test.terminator() instanceof Instr.Branch br)
+                || !(br.op(0) instanceof Instr.Cmp cmp) || cmp.block() != test || cmp.op(0) != p
                 || !(cmp.op(1) instanceof Value.Const k)) {
             return UNBOUNDED;
         }
@@ -277,15 +280,177 @@ final class Timing {
             if (start == null) {
                 return UNBOUNDED;
             }
-            if (c < 0 && start.lo() >= target) {
-                most = Math.max(most, start.hi() - target);
-            } else if (c > 0 && start.hi() <= target) {
-                most = Math.max(most, target - start.lo());
+            // steps until equal, modulo 2^w: from the other side it goes round the type
+            long m = 1L << p.type().bits();
+            if (c < 0) {
+                most = Math.max(most, start.lo() < target && target <= start.hi() ? m - 1 : Math.floorMod(start.hi() - target, m));
             } else {
-                return UNBOUNDED;   // it could start on the other side and go round the whole type
+                most = Math.max(most, start.lo() <= target && target < start.hi() ? m - 1 : Math.floorMod(target - start.lo(), m));
             }
         }
         return most + 1;
+    }
+
+    /**
+     * A counter stepped by c towards the end of an ordered test in the head that keeps the loop
+     * going ({@code i < n}, {@code i > k}, signed or unsigned): while it stays, it is on the near
+     * side of the other operand's extreme, so with a step that cannot wrap there, the head runs
+     * at most (extreme - start) / |c| + 2 times. Needs no range of the counter itself (an 8-bit
+     * unsigned counter has none in the signed view): an unknown start is the type's end.
+     */
+    private static long untilBound(Loops.Loop loop, Block test, Instr.Phi p, long c, Ranges ranges) {
+        Block head = loop.head();
+        if (!(test.terminator() instanceof Instr.Branch br) || !(br.op(0) instanceof Instr.Cmp cmp)
+                || cmp.block() != test) {
+            return UNBOUNDED;
+        }
+        boolean staysIfTrue = loop.blocks().contains(br.ifTrue) && !loop.blocks().contains(br.ifFalse);
+        boolean staysIfFalse = loop.blocks().contains(br.ifFalse) && !loop.blocks().contains(br.ifTrue);
+        if (staysIfTrue == staysIfFalse) {
+            return UNBOUNDED;
+        }
+        Instr.Pred stay = staysIfTrue ? cmp.pred : negate(cmp.pred);
+        Value y;
+        Value q;   // the counter as compared: p, or p zero-extended
+        if (counted(cmp.op(0), p)) {
+            q = cmp.op(0);
+            y = cmp.op(1);
+        } else if (counted(cmp.op(1), p)) {
+            q = cmp.op(1);
+            y = cmp.op(0);
+            stay = swap(stay);
+        } else {
+            return UNBOUNDED;
+        }
+        if (stay == Instr.Pred.EQ || stay == Instr.Pred.NE) {
+            return UNBOUNDED;   // untilEqual
+        }
+        boolean unsigned = stay == Instr.Pred.ULT || stay == Instr.Pred.ULE || stay == Instr.Pred.UGT || stay == Instr.Pred.UGE;
+        boolean up = stay == Instr.Pred.ULT || stay == Instr.Pred.ULE || stay == Instr.Pred.SLT || stay == Instr.Pred.SLE;
+        boolean inclusive = stay == Instr.Pred.ULE || stay == Instr.Pred.SLE || stay == Instr.Pred.UGE || stay == Instr.Pred.SGE;
+        if (up != c > 0) {
+            return UNBOUNDED;   // stepping away from the end
+        }
+        // the counter's values: in its own type, as its unsigned value when compared zero-extended
+        MType t = p.type();
+        int w = t.bits();
+        boolean asUnsigned = unsigned || q != p;
+        long min = asUnsigned ? 0 : -(1L << (w - 1));
+        long max = asUnsigned ? (1L << w) - 1 : (1L << (w - 1)) - 1;
+        // the other operand in the comparison's type
+        MType ct = q.type();
+        int cw = ct.bits();
+        Ranges.Range yr = view(ranges.at(y, test), ct, unsigned,
+                unsigned ? 0 : -(1L << (cw - 1)), unsigned ? (1L << cw) - 1 : (1L << (cw - 1)) - 1);
+        Ranges.Range start = null;
+        for (int i = 0; i < p.from.size(); i++) {
+            Block from = p.from.get(i);
+            if (!loop.blocks().contains(from)) {
+                Ranges.Range r = view(ranges.at(p.op(i), from), t, asUnsigned, min, max);
+                start = r.join(start);
+            }
+        }
+        if (start == null) {
+            return UNBOUNDED;
+        }
+        long a = Math.abs(c);
+        if (up) {
+            long last = inclusive ? yr.hi() : yr.hi() - 1;   // the largest value that stays
+            if (last + a > max) {
+                return UNBOUNDED;   // the step could wrap around
+            }
+            return last < start.lo() ? 1 : (last - start.lo()) / a + 2;
+        }
+        long last = inclusive ? yr.lo() : yr.lo() + 1;   // the smallest value that stays
+        if (last - a < min) {
+            return UNBOUNDED;
+        }
+        return last > start.hi() ? 1 : (start.hi() - last) / a + 2;
+    }
+
+    /** Whether v is the counter p, or p zero-extended to a wider type (its unsigned value). */
+    private static boolean counted(Value v, Instr.Phi p) {
+        return v == p || v instanceof Instr.Cast k && k.kind == Instr.CastKind.ZEXT && k.op(0) == p
+                && k.type().bits() > p.type().bits();
+    }
+
+    /**
+     * The blocks of a loop that end in a test leaving the loop and that every round passes (they
+     * dominate every way back): the head, and tests further down such as {@code if (i == 0)
+     * return;}. Every head run but the last passes each of them with the loop going on, so any of
+     * them bounds the head runs as the head's own test would.
+     */
+    static List<Block> everyRoundTests(Loops.Loop loop) {
+        List<Block> out = new ArrayList<>();
+        for (Block b : loop.blocks()) {
+            if (b.terminator() instanceof Instr.Branch br && br.ifTrue != br.ifFalse
+                    && loop.blocks().contains(br.ifTrue) != loop.blocks().contains(br.ifFalse)
+                    && dominatesLatches(loop, b)) {
+                out.add(b);
+            }
+        }
+        return out;
+    }
+
+    /** Whether every way from the head to a latch passes b (inside the loop). */
+    private static boolean dominatesLatches(Loops.Loop loop, Block b) {
+        if (b == loop.head()) {
+            return true;
+        }
+        Set<Block> seen = new HashSet<>();
+        java.util.ArrayDeque<Block> work = new java.util.ArrayDeque<>();
+        work.add(loop.head());
+        seen.add(loop.head());
+        while (!work.isEmpty()) {
+            Block x = work.pop();
+            if (loop.latches().contains(x)) {
+                return false;   // a latch reached without passing b
+            }
+            if (x.terminator() == null) {
+                continue;
+            }
+            for (Block s : x.terminator().successors()) {
+                if (s != b && s != loop.head() && loop.blocks().contains(s) && seen.add(s)) {
+                    work.add(s);
+                }
+            }
+        }
+        return true;
+    }
+
+    /** r in the signed or unsigned view of type t; the whole type if unknown or not one interval. */
+    private static Ranges.Range view(Ranges.Range r, MType t, boolean unsigned, long min, long max) {
+        Ranges.Range v = r == null ? null : unsigned ? Ranges.unsigned(r, t) : r;
+        return v == null ? new Ranges.Range(min, max) : v;
+    }
+
+    private static Instr.Pred negate(Instr.Pred p) {
+        return switch (p) {
+            case EQ -> Instr.Pred.NE;
+            case NE -> Instr.Pred.EQ;
+            case ULT -> Instr.Pred.UGE;
+            case UGE -> Instr.Pred.ULT;
+            case ULE -> Instr.Pred.UGT;
+            case UGT -> Instr.Pred.ULE;
+            case SLT -> Instr.Pred.SGE;
+            case SGE -> Instr.Pred.SLT;
+            case SLE -> Instr.Pred.SGT;
+            case SGT -> Instr.Pred.SLE;
+        };
+    }
+
+    private static Instr.Pred swap(Instr.Pred p) {
+        return switch (p) {
+            case ULT -> Instr.Pred.UGT;
+            case UGT -> Instr.Pred.ULT;
+            case ULE -> Instr.Pred.UGE;
+            case UGE -> Instr.Pred.ULE;
+            case SLT -> Instr.Pred.SGT;
+            case SGT -> Instr.Pred.SLT;
+            case SLE -> Instr.Pred.SGE;
+            case SGE -> Instr.Pred.SLE;
+            default -> p;
+        };
     }
 
     /** The ways out of one block's code, items [from, to), with their cost intervals. */

@@ -23,6 +23,9 @@ public final class Optimizer {
         // stays true while they run
         java.util.Map<MFunction, Boolean> writes = Gvn.writesMemory(m);
         functions(m, writes, verifyEach);
+        if (ParamRanges.run(m)) {
+            functions(m, writes, verifyEach);
+        }
         // inlining copies a callee's calls and stores into its callers, which already call it:
         // what may write memory stays the same
         boolean again = inline && Inline.run(m);
@@ -37,6 +40,9 @@ public final class Optimizer {
                 if (verifyEach) {
                     Verifier.verify(m);
                 }
+                functions(m, writes, verifyEach);
+            }
+            if (ParamRanges.run(m)) {
                 functions(m, writes, verifyEach);
             }
         }

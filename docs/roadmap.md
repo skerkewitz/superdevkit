@@ -103,8 +103,10 @@ the profile after each step can change the order of the later ones:
    4.48 frames per tick, now 13 % faster than the naive generator.
 2. **Inferred value ranges in MIR** ([subrange-types.md](subrange-types.md), section 7). Done
    2026-11-17 for constants, operations, conditions on the path and loops (`Ranges`,
-   `RangeNarrow`): play 4.48 → 4.38, with the CPU partner 5.37 → 5.15. Still open: ranges from
-   array bounds and from call sites, and loop bounds for the timing analysis.
+   `RangeNarrow`): play 4.48 → 4.38, with the CPU partner 5.37 → 5.15. Since then also: loop
+   bounds for the timing analysis, parameter ranges from the call sites (`ParamRanges`),
+   conditions between two values, and narrowing after widening (play 1.53 → 1.50). Still open:
+   ranges from array bounds.
 3. **Pointer compression** (section 8 there): a points-to analysis over the whole program, and a
    pointer that only ever points into one array becomes an index (`b->x` as `lda bub_x,x` instead
    of a 4-byte pointer through `[dampf_ptr],y`). The game passes `Bubble *` everywhere. Needs the
@@ -114,7 +116,7 @@ the profile after each step can change the order of the later ones:
    A holds are left out, φs are written directly, and the frames lie in low RAM with the leaves in
    the direct page, values share places where their lifetimes allow, so all of the game's
    values are in the direct page; with inlining, indexed addressing and smaller changes play is
-   at 1.53 frames per tick.
+   at 1.53 frames per tick (1.50 after the range fixes in step 2).
 
    Where the time goes now (play, game code only): loads and stores of values in the direct page
    are 37 % of the cycles, `JMP` 5.5 %, comparisons 5.7 %, masks 4.5 %. Next, in this order:
@@ -127,9 +129,11 @@ the profile after each step can change the order of the later ones:
       and through parameters (`PointerOffsets`, `PointerParams`): play 1.56 → 1.54.
 
    **Static timing** (best and worst case per function, [timing.md](timing.md)): built
-   2026-11-17 in CPU cycles and checked against the emulator on every call. Next: `DAMPF_TRIPS`
-   and parameter ranges from call sites (91 game functions are still unbounded), then
-   `DAMPF_BUDGET`, master cycles and the report per C line.
+   2026-11-17 in CPU cycles and checked against the emulator on every call. The loop bounds
+   were extended after it (unsigned counters, tests further down the loop, limits that are not
+   constants): 38 of the game's functions are still unbounded, and the report names the loop
+   or call that makes each of them so. Next: `DAMPF_TRIPS`, then `DAMPF_BUDGET`, master cycles
+   and the report per C line.
 
 **Subrange types** (`DAMPF_RANGED`, `DAMPF_AS` and their checker, sections 3–6 there) are not
 scheduled. They are built when a profile shows a hot value whose range dampf cannot infer and
