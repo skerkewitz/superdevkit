@@ -229,6 +229,18 @@ a label or a call.
 Calypsi took 2.72 frames per tick during play, measured on an older version of the game; a fair
 comparison needs both on the same version (on the game's side).
 
+### Shared places within a function, 2026-11-17
+
+Values whose lifetimes do not overlap now share a place in the frame (`dampf.backend.FrameLayout`:
+liveness, an interference graph, greedy colouring by byte ranges). The frames of the whole game
+shrink to 214 bytes, so every value of every function is in the direct page.
+
+| State | naive | before | shared places |
+| --- | --- | --- | --- |
+| title | 1.94 | 1.03 | 0.98 |
+| play | 5.17 (worst 8.58) | 2.90 (worst 4.93) | 2.72 (worst 4.64) |
+| play, CPU partner | 6.55 (worst 12.23) | 3.68 (worst 6.92) | 3.45 (worst 6.38) |
+
 ### Where the naive code spends its time (2026-11-17)
 
 `tools/profile_game.sh bench` profiles the benchmark's play ticks 900–1700 (as the game's own
@@ -269,7 +281,7 @@ the catalogue come first. Compared with Calypsi, dampf promises nothing until it
 
 | # | Optimization | What it does | Expected gain | Prerequisite | Measured gain | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| A | Static frames in the direct page | Locals, parameters and temporaries get fixed direct page slots, shared between functions that are never active at the same time. Possible because the call graph is complete and has no recursion. No stack frames, no stack-relative access. | Very high; probably the largest single gain | complete call graph, no recursion (given, see [subset.md](subset.md)) | play 3.85 → 2.90 frames per tick (code from MIR) | in progress: shared frames (compiled stack), leaves in the direct page; open: reusing places within a function, choosing the direct page by profile |
+| A | Static frames in the direct page | Locals, parameters and temporaries get fixed direct page slots, shared between functions that are never active at the same time. Possible because the call graph is complete and has no recursion. No stack frames, no stack-relative access. | Very high; probably the largest single gain | complete call graph, no recursion (given, see [subset.md](subset.md)) | play 3.85 → 2.90 frames per tick (code from MIR) | in progress: shared frames (compiled stack) and shared places within a function; all of the game's values fit the direct page; open: values in registers |
 | B | Width analysis (8/16 bit) | Choose the smallest width per value, track `REP`/`SEP` as processor state, minimise switches | High, especially for `uint8_t`-heavy code | H | play 18.93 → 8.16 frames per tick (code from MIR) | in progress: narrowing from the types and 16-bit pointer offsets are built; value ranges, `REP`/`SEP` tracking open |
 | C | Inlining and calling convention | Inline small functions, pass parameters in A/X/Y or the direct page, `JMP` instead of `JSR`+`RTS` for tail calls | High with many small helpers | call graph | | open |
 | D | Data layout | Split arrays of structs into one array per field (index in X/Y), or point D at the current object | High in the loops over bubbles and enemies | | | open |

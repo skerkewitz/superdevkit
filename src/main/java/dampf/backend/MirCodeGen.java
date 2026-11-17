@@ -199,15 +199,9 @@ public final class MirCodeGen {
     }
 
     private final Set<Block> direct = new HashSet<>();
+    private final Map<MFunction, FrameLayout> layouts = new HashMap<>();
 
     private void layout() {
-        for (MFunction f : module.functions()) {
-            for (Block b : f.blocks()) {
-                if (directPhis(b)) {
-                    direct.add(b);
-                }
-            }
-        }
         for (MFunction f : module.functions()) {
             for (Block b : f.blocks()) {
                 for (Instr i : b.instrs()) {
@@ -222,34 +216,17 @@ public final class MirCodeGen {
             }
         }
         for (MFunction f : module.functions()) {
-            int size = 0;
-            Map<Object, Integer> local = new IdentityHashMap<>();
-            for (Value.Param p : f.params()) {
-                local.put(p, size);
-                size += bytes(p.type());
-            }
-            for (Value.Slot s : f.slots()) {
-                local.put(s, size);
-                size += Math.max(1, s.size());
-            }
-            Map<Instr.Phi, Integer> in = new IdentityHashMap<>();
-            for (Block b : f.blocks()) {
-                for (Instr i : b.instrs()) {
-                    if (i.type() != MType.VOID) {
-                        local.put(i, size);
-                        size += bytes(i.type());
-                    }
-                    if (i instanceof Instr.Phi p && !direct.contains(b)) {
-                        in.put(p, size);
-                        size += bytes(p.type());
-                    }
-                }
-            }
-            frameSize.put(f, size);
+            FrameLayout l = new FrameLayout(f);
+            layouts.put(f, l);
+            frameSize.put(f, l.size);
+            direct.addAll(l.direct);
+        }
+        for (MFunction f : module.functions()) {
+            FrameLayout l = layouts.get(f);
             int b = base(f, new LinkedHashSet<>());
-            local.forEach((k, v) -> place.put(k, b + v));
-            in.forEach((k, v) -> incoming.put(k, b + v));
-            frameTotal = Math.max(frameTotal, b + size);
+            l.offset.forEach((k, v) -> place.put(k, b + v));
+            l.incoming.forEach((k, v) -> incoming.put(k, b + v));
+            frameTotal = Math.max(frameTotal, b + l.size);
         }
         if (frameTotal > MAX_FRAME) {
             throw new IllegalStateException("the frames need " + frameTotal + " bytes, more than " + MAX_FRAME);
@@ -270,56 +247,11 @@ public final class MirCodeGen {
         }
         int b = 0;
         for (MFunction c : callees.getOrDefault(f.name(), List.of())) {
-            frameSize.computeIfAbsent(c, this::sizeOf);
             b = Math.max(b, base(c, path) + frameSize.get(c));
         }
         path.remove(f);
         base.put(f, b);
         return b;
-    }
-
-    private int sizeOf(MFunction f) {
-        int size = 0;
-        for (Value.Param p : f.params()) {
-            size += bytes(p.type());
-        }
-        for (Value.Slot s : f.slots()) {
-            size += Math.max(1, s.size());
-        }
-        for (Block b : f.blocks()) {
-            for (Instr i : b.instrs()) {
-                if (i.type() != MType.VOID) {
-                    size += bytes(i.type());
-                }
-                if (i instanceof Instr.Phi p && !direct.contains(b)) {
-                    size += bytes(p.type());
-                }
-            }
-        }
-        return size;
-    }
-
-    /**
-     * The blocks whose φs the predecessors set directly: every predecessor ends with a jump (so
-     * nothing after the copies needs the old value) and no φ reads another φ of the block (so
-     * the order of the copies does not matter).
-     */
-    private static boolean directPhis(Block s) {
-        for (Block p : s.preds()) {
-            if (!(p.terminator() instanceof Instr.Jump)) {
-                return false;
-            }
-        }
-        for (Instr i : s.instrs()) {
-            if (i instanceof Instr.Phi p) {
-                for (Value v : p.operands()) {
-                    if (v instanceof Instr.Phi q && q.block() == s) {
-                        return false;
-                    }
-                }
-            }
-        }
-        return true;
     }
 
     private static String at(int offset) {
@@ -413,46 +345,11 @@ public final class MirCodeGen {
         for (Value.Param p : f.params()) {
             out.note("parameter " + p.type() + " " + p + " at " + at(place.get(p)));
         }
-        // a comparison that only its block's branch uses is compared right at the branch
+        FrameLayout layout = layouts.get(f);
         fused.clear();
-        Map<Instr, Integer> uses = new HashMap<>();
-        for (Block b : f.blocks()) {
-            for (Instr i : b.instrs()) {
-                for (Value v : i.operands()) {
-                    if (v instanceof Instr d) {
-                        uses.merge(d, 1, Integer::sum);
-                    }
-                }
-            }
-        }
-        for (Block b : f.blocks()) {
-            if (b.terminator() instanceof Instr.Branch br && br.op(0) instanceof Instr.Cmp c && c.block() == b
-                    && uses.get(c) == 1) {
-                fused.add(c);
-            }
-        }
-        // a ptradd of a constant that only loads and stores use as their address is not computed
+        fused.addAll(layout.fused);
         folded.clear();
-        Set<Instr> otherUse = new HashSet<>();
-        for (Block b : f.blocks()) {
-            for (Instr i : b.instrs()) {
-                for (int k = 0; k < i.operands().size(); k++) {
-                    if (i.op(k) instanceof Instr.PtrAdd p) {
-                        boolean asAddress = k == 0 && (i instanceof Instr.Load || i instanceof Instr.Store);
-                        if (!asAddress) {
-                            otherUse.add(p);
-                        }
-                    }
-                }
-            }
-        }
-        for (Block b : f.blocks()) {
-            for (Instr i : b.instrs()) {
-                if (i instanceof Instr.PtrAdd p && foldable(p) && !otherUse.contains(p)) {
-                    folded.add(p);
-                }
-            }
-        }
+        folded.addAll(layout.folded);
         List<Block> blocks = f.blocks();
         for (int k = 0; k < blocks.size(); k++) {
             Block b = blocks.get(k);
@@ -1073,13 +970,8 @@ public final class MirCodeGen {
         return new Address(v, 0);
     }
 
-    /** A ptradd of a constant that a load or store can take over. */
     private static boolean foldable(Instr.PtrAdd p) {
-        if (!(p.op(1) instanceof Value.Const k)) {
-            return false;
-        }
-        long o = p.op(1).type().signed(k.bits());
-        return o >= 0 && o < 0x8000;   // negative: Y would carry into the bank
+        return FrameLayout.foldable(p);
     }
 
     /** The operand for a memory access at byte k of the object, or null if it goes through a pointer. */

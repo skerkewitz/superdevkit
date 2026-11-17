@@ -1,0 +1,340 @@
+package dampf.backend;
+
+import dampf.mir.Block;
+import dampf.mir.Instr;
+import dampf.mir.MFunction;
+import dampf.mir.MType;
+import dampf.mir.Value;
+import java.util.ArrayList;
+import java.util.BitSet;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * Where the values of one function live in its frame, and which instructions the code generator
+ * folds into others. Values whose lifetimes do not overlap share a place: liveness over the
+ * blocks, an interference graph, and greedy colouring by byte ranges.
+ *
+ * <p>What the code generator does that the analysis has to know:
+ * <ul>
+ * <li>A comparison only its block's branch uses is evaluated at the branch ("fused"), so its
+ *     operands are used there.</li>
+ * <li>A load or store at {@code ptradd p, c} (a constant 0..32767) reads p itself; such a ptradd
+ *     that only loads and stores use is not computed at all ("folded").</li>
+ * <li>A block whose predecessors all end with a jump, and whose φs do not read each other, gets
+ *     its φs written at the end of each predecessor ("direct"); else the predecessors write an
+ *     "incoming" place, which the block copies on entry.</li>
+ * <li>An instruction may write its result before it has read all its operands (word by word),
+ *     so a result never shares a place with an operand of the same instruction.</li>
+ * </ul>
+ * Parameters (written by the caller), memory slots (their address may be anywhere) and incoming
+ * places get places of their own.
+ */
+final class FrameLayout {
+    final Set<Instr> fused = new HashSet<>();
+    final Set<Instr> folded = new HashSet<>();
+    final Set<Block> direct = new HashSet<>();
+    /** Offsets in the frame: parameters, slots and values. */
+    final Map<Object, Integer> offset = new IdentityHashMap<>();
+    final Map<Instr.Phi, Integer> incoming = new IdentityHashMap<>();
+    int size;
+
+    private final MFunction f;
+    private final List<Value> values = new ArrayList<>();
+    private final Map<Value, Integer> index = new IdentityHashMap<>();
+
+    FrameLayout(MFunction f) {
+        this.f = f;
+        findFolds();
+        for (Block b : f.blocks()) {
+            if (directPhis(b)) {
+                direct.add(b);
+            }
+        }
+        for (Value.Param p : f.params()) {
+            offset.put(p, size);
+            size += bytes(p.type());
+        }
+        for (Value.Slot s : f.slots()) {
+            offset.put(s, size);
+            size += Math.max(1, s.size());
+        }
+        for (Block b : f.blocks()) {
+            for (Instr i : b.instrs()) {
+                if (i instanceof Instr.Phi p && !direct.contains(b)) {
+                    incoming.put(p, size);
+                    size += bytes(p.type());
+                }
+                if (needsPlace(i)) {
+                    index.put(i, values.size());
+                    values.add(i);
+                }
+            }
+        }
+        colour(interference());
+    }
+
+    static int bytes(MType t) {
+        return t.size <= 2 ? 2 : 4;
+    }
+
+    private boolean needsPlace(Instr i) {
+        return i.type() != MType.VOID && !fused.contains(i) && !folded.contains(i);
+    }
+
+    // ------------------------------------------------------------------ what the code generator folds
+
+    static boolean foldable(Instr.PtrAdd p) {
+        if (!(p.op(1) instanceof Value.Const k)) {
+            return false;
+        }
+        long o = p.op(1).type().signed(k.bits());
+        return o >= 0 && o < 0x8000;   // negative: Y would carry into the bank
+    }
+
+    private void findFolds() {
+        Map<Instr, Integer> uses = new HashMap<>();
+        Set<Instr> otherUse = new HashSet<>();
+        for (Block b : f.blocks()) {
+            for (Instr i : b.instrs()) {
+                for (int k = 0; k < i.operands().size(); k++) {
+                    if (i.op(k) instanceof Instr d) {
+                        uses.merge(d, 1, Integer::sum);
+                        boolean asAddress = k == 0 && (i instanceof Instr.Load || i instanceof Instr.Store);
+                        if (d instanceof Instr.PtrAdd && !asAddress) {
+                            otherUse.add(d);
+                        }
+                    }
+                }
+            }
+        }
+        for (Block b : f.blocks()) {
+            if (b.terminator() instanceof Instr.Branch br && br.op(0) instanceof Instr.Cmp c && c.block() == b
+                    && uses.get(c) == 1) {
+                fused.add(c);
+            }
+            for (Instr i : b.instrs()) {
+                if (i instanceof Instr.PtrAdd p && foldable(p) && !otherUse.contains(p)) {
+                    folded.add(p);
+                }
+            }
+        }
+    }
+
+    private static boolean directPhis(Block s) {
+        for (Block p : s.preds()) {
+            if (!(p.terminator() instanceof Instr.Jump)) {
+                return false;
+            }
+        }
+        for (Instr i : s.instrs()) {
+            if (i instanceof Instr.Phi p) {
+                for (Value v : p.operands()) {
+                    if (v instanceof Instr.Phi q && q.block() == s) {
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    // ------------------------------------------------------------------ liveness
+
+    /** The values the code for instruction i reads (where it reads them). */
+    private void reads(Instr i, BitSet out) {
+        if (fused.contains(i) || folded.contains(i) || i instanceof Instr.Phi) {
+            return;   // read where they are used, or at the end of the predecessors
+        }
+        for (int k = 0; k < i.operands().size(); k++) {
+            Value v = i.op(k);
+            if (k == 0 && (i instanceof Instr.Load || i instanceof Instr.Store) && v instanceof Instr.PtrAdd p && foldable(p)) {
+                v = p.op(0);   // the load or store reads the pointer and adds the constant itself
+            }
+            read(v, out);
+        }
+    }
+
+    private void read(Value v, BitSet out) {
+        if (v instanceof Instr d && (fused.contains(d) || folded.contains(d))) {
+            for (int k = 0; k < d.operands().size(); k++) {
+                read(d.op(k), out);
+            }
+            return;
+        }
+        Integer x = index.get(v);
+        if (x != null) {
+            out.set(x);
+        }
+    }
+
+    private Map<Block, BitSet> liveOut() {
+        Map<Block, BitSet> in = new HashMap<>();
+        Map<Block, BitSet> out = new HashMap<>();
+        for (Block b : f.blocks()) {
+            in.put(b, new BitSet());
+            out.put(b, new BitSet());
+        }
+        boolean changed = true;
+        while (changed) {
+            changed = false;
+            for (int k = f.blocks().size() - 1; k >= 0; k--) {
+                Block b = f.blocks().get(k);
+                BitSet live = exitLive(b, in);
+                out.put(b, (BitSet) live.clone());
+                List<Instr> is = b.instrs();
+                for (int j = is.size() - 1; j >= 0; j--) {
+                    Instr i = is.get(j);
+                    Integer d = index.get(i);
+                    if (d != null) {
+                        live.clear(d);
+                    }
+                    reads(i, live);
+                }
+                if (!live.equals(in.get(b))) {
+                    in.put(b, live);
+                    changed = true;
+                }
+            }
+        }
+        return out;
+    }
+
+    /** Live at the end of b: what the successors need, and the operands of their φs for this edge. */
+    private BitSet exitLive(Block b, Map<Block, BitSet> in) {
+        BitSet live = new BitSet();
+        Instr t = b.terminator();
+        if (t == null) {
+            return live;
+        }
+        for (Block s : new LinkedHashSet<>(t.successors())) {
+            BitSet si = (BitSet) in.get(s).clone();
+            for (Instr i : s.instrs()) {
+                if (i instanceof Instr.Phi p) {
+                    Integer d = index.get(p);
+                    if (d != null) {
+                        si.clear(d);
+                    }
+                    for (int k = 0; k < p.from.size(); k++) {
+                        if (p.from.get(k) == b) {
+                            read(p.op(k), live);
+                        }
+                    }
+                }
+            }
+            live.or(si);
+        }
+        return live;
+    }
+
+    // ------------------------------------------------------------------ interference and colouring
+
+    private BitSet[] interference() {
+        BitSet[] g = new BitSet[values.size()];
+        for (int k = 0; k < g.length; k++) {
+            g[k] = new BitSet();
+        }
+        Map<Block, BitSet> out = liveOut();
+        for (Block b : f.blocks()) {
+            BitSet live = (BitSet) out.get(b).clone();
+            // direct φs of the successors are written here, while everything live at the end still is
+            Instr t = b.terminator();
+            if (t != null) {
+                for (Block s : new LinkedHashSet<>(t.successors())) {
+                    if (direct.contains(s)) {
+                        List<Integer> phis = phis(s);
+                        for (int p : phis) {
+                            interfere(g, p, live);
+                            for (int q : phis) {
+                                if (p != q) {
+                                    g[p].set(q);
+                                    g[q].set(p);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            List<Instr> is = b.instrs();
+            for (int j = is.size() - 1; j >= 0; j--) {
+                Instr i = is.get(j);
+                if (i instanceof Instr.Phi) {
+                    break;
+                }
+                BitSet used = new BitSet();
+                reads(i, used);
+                Integer d = index.get(i);
+                if (d != null) {
+                    interfere(g, d, live);
+                    interfere(g, d, used);
+                    live.clear(d);
+                }
+                live.or(used);
+            }
+            if (!direct.contains(b)) {
+                // the φs are copied in from their incoming places on entry, one after the other
+                List<Integer> phis = phis(b);
+                for (int p : phis) {
+                    interfere(g, p, live);
+                    for (int q : phis) {
+                        if (p != q) {
+                            g[p].set(q);
+                            g[q].set(p);
+                        }
+                    }
+                }
+            }
+        }
+        return g;
+    }
+
+    private List<Integer> phis(Block b) {
+        List<Integer> l = new ArrayList<>();
+        for (Instr i : b.instrs()) {
+            if (i instanceof Instr.Phi p && index.containsKey(p)) {
+                l.add(index.get(p));
+            }
+        }
+        return l;
+    }
+
+    private static void interfere(BitSet[] g, int d, BitSet others) {
+        for (int x = others.nextSetBit(0); x >= 0; x = others.nextSetBit(x + 1)) {
+            if (x != d) {
+                g[d].set(x);
+                g[x].set(d);
+            }
+        }
+    }
+
+    /** Gives every value the lowest offset that no interfering value covers. */
+    private void colour(BitSet[] g) {
+        int base = size;
+        int[] at = new int[values.size()];
+        int top = 0;
+        for (int v = 0; v < values.size(); v++) {
+            int len = bytes(values.get(v).type());
+            int o = 0;
+            boolean moved = true;
+            while (moved) {
+                moved = false;
+                for (int x = g[v].nextSetBit(0); x >= 0 && x < v; x = g[v].nextSetBit(x + 1)) {
+                    int xl = bytes(values.get(x).type());
+                    if (at[x] < o + len && o < at[x] + xl) {
+                        o = at[x] + xl;
+                        moved = true;
+                    }
+                }
+            }
+            at[v] = o;
+            top = Math.max(top, o + len);
+            offset.put(values.get(v), base + o);
+        }
+        size = base + top;
+    }
+}
