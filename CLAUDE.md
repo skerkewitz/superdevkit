@@ -1,7 +1,8 @@
 # dampf
 
-C-subset compiler for the 65816 / SNES, written in Java. Read kickoff.md first; docs/subset.md and
-docs/optimizations.md hold the current state of M0.
+C-subset compiler for the 65816 / SNES, written in Java. Read README.md first (what and why), then
+docs/roadmap.md (milestones and their state) and docs/architecture.md; the other docs are linked
+from the README.
 
 - Build and test: `./gradlew build`. This runs everything, including the execution tests in dampf's
   own Mesen (`.mesen/`, not in git) and the parse test on the game snapshot.

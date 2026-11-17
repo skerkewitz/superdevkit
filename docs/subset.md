@@ -3,9 +3,13 @@
 Status: first draft from milestone M0, 2026-11-17. Based on Blubber Blasen's `src/game` as of that
 day: 14 `.c` files and 4 headers, about 8,000 lines, 291 functions.
 
+dampf is not a general C compiler: it compiles a subset of C that it defines itself, and a checker
+enforces it, so every assumption the optimizer makes is guaranteed. C is the contract that keeps
+the same source compiling on the PC with gcc or clang, which is what makes the code testable.
+
 The subset is what Blubber Blasen uses, plus a little room around it. Everything outside it is
-rejected by the subset checker with a message that names the construct and the place. Nothing
-outside the subset is ever compiled silently.
+rejected with a message that names the construct and the place. Nothing outside the subset is
+ever compiled silently.
 
 ## How the game was scanned
 
@@ -83,8 +87,9 @@ API in `src/snes/snes.h`: `bgInitTileSet`, `bgSetDisable`, `bgSetGfxPtr`, `bgSet
 `bgSetScroll`, `dmaCopyCGram`, `dmaCopyVram`, `oamInit`, `oamInitGfxAttr`, `setBrightness`,
 `setColorEffect`, `setColorIntensity`, `setMode`, `setPaletteColor`, `setScreenOff`,
 `snesDmaFits`, `snesHdmaEnable`, `snesHdmaSet`, `snesRegWrite`. On the PC these are the pseudo
-SNES; for dampf they become a small runtime library or intrinsics. The kickoff lists this mapping
-as an open question; this is the list it has to cover.
+SNES; for dampf they become a small runtime library or intrinsics (see *Intrinsics* below). How
+the platform API maps onto them is an open question ([roadmap.md](roadmap.md)); this is the list it
+has to cover.
 
 The platform calls into the game through `game_init`, `game_tick`, `game_vblank` and the getters
 in `game.h`. These are the roots of the call graph.
@@ -94,7 +99,10 @@ in `game.h`. These are the roots of the call graph.
 **Types.** `int8_t`, `uint8_t`, `int16_t`, `uint16_t`, `int32_t`, `uint32_t`, `char` (text
 only, see below), `void`, pointers, arrays (also multi-dimensional), structs, enums and
 `typedef`s of these. `const` and `static` as in C99. Plain `int`, `short`, `long`, `unsigned`,
-`signed`, `long long`, `float`, `double`, `_Bool`, unions and bit fields are rejected.
+`signed`, `long long`, `float`, `double`, `_Bool`, unions and bit fields are rejected. Plain
+integer types are rejected because their size differs between compilers: `int` is 32 bit on the
+PC and 16 bit with the other 65816 compilers (816-tcc, Calypsi). dampf itself gives `int` its PC
+meaning in the integer promotions, but game code says what width it means.
 
 **Semantics.** Exactly what gcc and clang do on the PC (x86-64): integer constants and the
 integer promotions use a 32-bit `int`, overflow of unsigned types wraps, conversions to narrower
@@ -107,11 +115,15 @@ PC (`int32_t` is `int`), so the types mean the same thing on both sides.
 `inline` requirement (inlining is the compiler's decision), structs only by pointer. At most
 6 parameters is what the game needs; there is no fixed limit.
 
-**Function pointers.** Not used by the game. The kickoff allows them in constant tables known
-at compile time; that stays allowed but is not built until something needs it.
+**Function pointers.** Not used by the game. Free function pointers are never allowed: the call
+graph must stay complete. Function pointers in constant tables known at compile time are allowed
+by design, but not built until something needs them.
+
+**Memory.** No `malloc` and no heap of any kind: all objects are static, and total memory use is
+known at compile time.
 
 **Statements.** Everything in C99 except `goto`, labels, `setjmp`/`longjmp` and variable-length
-arrays.
+arrays (`goto` is decision 4 below).
 
 **Expressions.** Everything in C99 except compound literals. Struct assignment is allowed (it is
 a copy of known size, a candidate for `MVN`), although the release build does not use it today.
@@ -121,8 +133,17 @@ wants them.
 **Preprocessor.** Anything `gcc -E` accepts. dampf preprocesses with `-nostdinc -undef
 -D__DAMPF__=1` and its own `include/`, so host headers and host macros never reach the code.
 
-**Whole program.** All `.c` files are compiled as one program. `static` names stay local to
-their file (`phase` exists as a static local in two functions, for example).
+**Whole program.** All `.c` files are compiled as one program; there is no separate compilation.
+`static` names stay local to their file (`phase` exists as a static local in two functions, for
+example).
+
+**Hints.** Macros that give dampf knowledge it cannot infer (value ranges, no aliasing, loop
+bounds, placement). In the dampf build they expand to built-ins, in the PC build to checked
+assertions or nothing. See [hints.md](hints.md).
+
+**Intrinsics.** For the SNES hardware: hardware multiply and divide, DMA, waiting for vertical
+blank, placing constant data in ROM banks. In the PC build they are plain functions. Not built
+yet.
 
 ## Decisions
 
@@ -133,7 +154,8 @@ decided, dampf implements the recommendations, which are easy to change:
 - decision 2: the naive code generator stores enum objects in 4 bytes, like the PC; narrowing
   them is an optimization;
 - decision 3: the naive code generator uses 4-byte pointers (address, bank, a zero byte) for all
-  pointers; 16-bit pointers into RAM are an optimization.
+  pointers; 16-bit pointers into RAM are an optimization;
+- decision 4: `goto` is rejected.
 
 1. **Plain `char` for text.** The game uses `char` only for strings and name buffers. Plain
    `char` is signed with gcc and clang on x86-64 and with MSVC, unsigned on ARM. Recommendation:
@@ -152,6 +174,11 @@ decided, dampf implements the recommendations, which are easy to change:
    So some pointers must be 24 bit. This is a compiler design decision, not a subset rule, but it
    comes from the game: whole-program analysis can tell which pointers only ever point into
    bank 0 RAM (the object pointers like `Bubble *b`) and keep those at 16 bit.
+
+4. **`goto`.** The game does not use it. Unrestricted `goto` would need a more general timing
+   analysis ([timing.md](timing.md)), which computes bounds on structured code. Options: forbid it
+   entirely, or allow a restricted form that keeps the code structured. Recommendation: forbid it
+   until a use appears. dampf rejects it today.
 
 ## What the game has to change
 

@@ -1,23 +1,77 @@
 # dampf
 
-A compiler for a subset of C that makes fast 65816 code for the Super Nintendo. Its first user is
-Blubber Blasen, whose game code is C that also builds on the PC with gcc and
-clang. Why it exists and how it is meant to work is in [kickoff.md](kickoff.md).
+A compiler for a subset of C that produces fast code for the WDC 65816, with exactly one target:
+the Super Nintendo. Its first user is Blubber Blasen (the game's stage 3, the SNES port), whose
+game logic is C that also builds and is tested on the PC with gcc and clang. dampf runs as a
+separate project in parallel with the game.
+
+The name: in German, *Dampf machen* ("make steam") means to get things moving fast. It also fits
+the steam factory of Blubber Blasen.
 
 Status: milestone M1 (end to end) is done, including stepping through the C source in Mesen
-(checked 2026-11-17). Milestone M2 (naive but complete) is in progress. The naive code generator handles the C
-the game uses: all integer types and operators with gcc's exact semantics, control flow, enums,
-arrays, structs, pointers, strings, initializers and constant data in ROM. The execution tests run
-programs in Mesen and compare every result with gcc on the PC; random programs check the
-arithmetic. 15 of the game's 16 files pass the front end (`dampf check`); the last one needs a
-small fix in the game. Not done yet: ROMs larger than 32 KB, the SNES platform layer, and building
-the whole game.
+(checked 2026-11-17). Milestone M2 (naive but complete) is in progress. The naive code generator
+handles the C the game uses: all integer types and operators with gcc's exact semantics, control
+flow, enums, arrays, structs, pointers, strings, initializers and constant data in ROM. The
+execution tests run programs in Mesen and compare every result with gcc on the PC; random
+programs check the arithmetic. 15 of the game's 16 files pass the front end (`dampf check`); the
+last one needs a small fix in the game. Not done yet: ROMs larger than 32 KB, the SNES platform
+layer, building the whole game, and the parts of the design that come with the optimizer (IR
+levels, cycle counting, hints). Details in [docs/roadmap.md](docs/roadmap.md).
+
+## Why
+
+The game's stage 3 needs a C compiler for the 65816, and the existing ones are not good enough:
+
+| Compiler | Result |
+| --- | --- |
+| PVSnesLib with 816-tcc | Very slow code. The data layout needed workarounds because the compiler throws errors on ordinary code. |
+| Calypsi | Works as intended, but the code is still too slow (2.72 frames per tick during play, see [docs/optimizations.md](docs/optimizations.md)). Why is being investigated; the results feed into this project. |
+| llvm-mos | Good 6502 code, but no native 16-bit 65816 code generation. LLVM is a poor fit: it assumes many uniform registers and fixed-width values, while on the 65816 the operand width (8 or 16 bit) is processor state set by `REP`/`SEP`. |
+| Hand-written assembly for the whole game | Tried years ago and failed. Hand-written assembly for a few hot functions stays possible later, but should not be the plan. |
+
+We do not need a general C compiler. We need a compiler that makes SNES games fast. That is a much
+smaller and more focused problem, and it lets dampf make assumptions no general compiler can:
+
+- One CPU, one target. No portability layers.
+- A subset of C we define ourselves, and a checker that enforces it, so every assumption the
+  optimizer makes is guaranteed.
+- The whole program is always compiled at once, so every optimization sees everything (call
+  graph, all uses of every variable).
+- Hints in the source (as macros) give the compiler knowledge it cannot infer.
+- C is only the contract that keeps the same source compiling on the PC with gcc or clang. That is
+  what makes the code testable.
+
+## Goals and non-goals
+
+Goals:
+
+1. Fast 65816 code for SNES game logic: the game logic of Blubber Blasen's busiest scene fits in
+   at most 60 % of a frame.
+2. The same source compiles on the PC with gcc/clang and behaves **bit-identically** on both sides.
+3. Source-level debugging of the C code in Mesen.
+4. Readable output: the generated assembly is commented so a human can follow what each part is
+   meant to do.
+5. Correctness first: every optimization is checked automatically against a reference.
+
+Non-goals:
+
+- Full C, or C standard conformance beyond the subset.
+- Other CPUs or targets. The code keeps the 65816 core and the SNES target apart, but nothing is
+  built for a second target.
+- An own assembler, linker or debugger. dampf uses ca65, ld65 and Mesen.
+- Floating point.
+- Fast compilation. A game this size compiles in seconds either way.
 
 ## Documents
 
-- [kickoff.md](kickoff.md): goals, design, milestones, risks.
-- [docs/subset.md](docs/subset.md): the C subset, derived from what the game uses.
-- [docs/optimizations.md](docs/optimizations.md): the baseline measurements and the optimization catalogue.
+- [docs/architecture.md](docs/architecture.md): the pipeline, the three IR levels, core and target, the assembly output.
+- [docs/subset.md](docs/subset.md): the C subset, derived from what the game uses, and the decisions about it.
+- [docs/hints.md](docs/hints.md): hints that tell dampf what a human assembly programmer would know.
+- [docs/optimizations.md](docs/optimizations.md): the baseline measurements, the optimization catalogue, the gap to hand-written assembly, and what knowing the machine allows.
+- [docs/timing.md](docs/timing.md): exact timing, worst-case bounds and cycle budgets.
+- [docs/memory-map.md](docs/memory-map.md): where code, data, variables and pointers live.
+- [docs/testing.md](docs/testing.md): the test layers and how they work.
+- [docs/roadmap.md](docs/roadmap.md): milestones and their state, risks, open questions, the relation to Blubber Blasen.
 - [docs/game-findings.md](docs/game-findings.md): things in Blubber Blasen's code worth changing, for whoever works on the game.
 - [examples/blubberblasen/SNAPSHOT.md](examples/blubberblasen/SNAPSHOT.md): the snapshot of the game dampf is developed against.
 
