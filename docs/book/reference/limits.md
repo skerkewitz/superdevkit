@@ -74,8 +74,8 @@ expect:
 - **Speed.** The fine tuning of M4 (more optimizations, page-aligned arrays with 8-bit index
   registers, profile-guided optimization from the replays) has only started with the layout of
   blocks by a profile, so the generated code is not yet as fast as the goal of 60 % of a
-  [frame](/glossary#frame) per [tick](/glossary#tick): during play, Blubber Blasen takes 1.31
-  frames per tick with dampf. On the console, during a minute of play of the playable ROM, it takes 2.28 frames per tick,
+  [frame](/glossary#frame) per [tick](/glossary#tick): during play, Blubber Blasen takes 1.10
+  frames per tick with dampf (with FastROM; 1.31 without). On the console, during a minute of play of the playable ROM, it takes 2.28 frames per tick,
   because a tick that needs more than one frame waits for the next vertical blank and the
   benchmark leaves out what `video.c` costs on the hardware.
 

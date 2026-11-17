@@ -126,8 +126,10 @@ Pointers that always point into RAM could be 16 bits wide; this is not built yet
 
 The ROM is LoROM, up to 4 MB: banks `$80` to `$FF`, each with 32 KB at `$8000`–`$FFFF`. dampf
 uses the banks from `$80` up rather than their mirrors from `$00`, because only accesses
-through `$80` and up can run at FastROM speed. The header still declares SlowROM; switching
-FastROM on is not built yet (see [Limits](/reference/limits)).
+through `$80` and up can run at FastROM speed. The start-up switches it on (`MEMSEL` at `$420D`):
+a ROM access then takes 6 master cycles instead of 8, and the header declares FastROM (map mode
+`$30`). Flash cartridges and emulators run FastROM; for a SlowROM cartridge, build with
+[`--slowrom`](/reference/command-line#slowrom), which keeps 2.68 MHz and map mode `$20`.
 
 **Bank `$80`** holds the parts with fixed places: the start-up code, the runtime's arithmetic
 routines, the initial values of variables (copied to RAM at start-up), the header at

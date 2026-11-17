@@ -8,7 +8,9 @@ it may use at most 60 % of an NTSC [frame](/glossary#frame), about 0.6 frames pe
 vertical blank and a safety margin come off that. The game's benchmark runs the same game code
 with a fixed input for 1,800 ticks and measures every tick in Mesen.
 
-During play, the code dampf now generates takes 1.31 frames per tick (worst tick 2.25). dampf's
+During play, the code dampf now generates takes 1.10 frames per tick (worst tick 1.88) with
+FastROM, which is the default, and 1.31 (worst 2.25) at SlowROM speed, as the earlier figures on
+this page were measured. dampf's
 own [naive code generator](/glossary#naive-code-generator) takes 5.17 frames per tick for the
 same code, and [Calypsi](/glossary#calypsi) took 2.72, measured on an older version of the game.
 dampf is past Calypsi and about 3.9 times as fast as its naive code, but still about 2.2 times
@@ -738,6 +740,7 @@ budget is hardest to meet; the worst tick is in parentheses where the source giv
 | what A, X and Y hold where a block starts | 1.34 (2.33) | 2.02 (4.15) |
 | loop-invariant code, loop-invariant indexes in Y | 1.33 | |
 | labels inside blocks, assumptions kept after a contradiction | 1.31 (2.25) | 1.98 (4.08) |
+| FastROM: the ROM in banks `$80` and up at 3.58 MHz (`MEMSEL`) | 1.10 (1.88) | 1.69 (3.51) |
 
 The steps are cumulative: each row includes everything above it. Loop rotation is not in the
 table; it brought about 0.5 %, measured on the benchmark's bare loop (801 to 783 clocks per

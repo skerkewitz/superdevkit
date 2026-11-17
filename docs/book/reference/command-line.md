@@ -6,7 +6,7 @@ exits with status 2:
 
 ```
 usage: dampf parse [-I dir] [-D name[=value]] file.c ...
-       dampf build [-I dir] [-D name[=value]] [--entry name] [--backend mir|naive] [--replace fn=file.s] [--block-counts file] -o out.sfc file.c ...
+       dampf build [-I dir] [-D name[=value]] [--entry name] [--backend mir|naive] [--replace fn=file.s] [--block-counts file] [--slowrom] -o out.sfc file.c ...
        dampf check [-I dir] [-D name[=value]] file.c ...
        dampf profile rom.sfc profile.txt [top] [--skip file.c ...] [--instructions] [--blocks file]
 ```
@@ -105,6 +105,13 @@ build stops with this message, at the position of the entry function:
 ```
 add.c:5:6: error: --replace works with the naive code generator only
 ```
+
+### --slowrom {#slowrom}
+
+Use `--slowrom` for a cartridge whose ROM is too slow for 3.58 MHz. Without it, the start-up
+switches the ROM in banks `$80` and up to FastROM speed (`MEMSEL` at `$420D`) and the header says
+FastROM; all of dampf's code and constant data are in those banks. With it, the ROM stays at
+2.68 MHz and the header says SlowROM. Flash cartridges and emulators run FastROM.
 
 ### --block-counts {#block-counts}
 
