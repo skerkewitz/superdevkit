@@ -810,6 +810,10 @@ public final class MirCodeGen {
                     if (operand(v, w).equals(at(to + 2 * w))) {
                         continue;   // the operand shares the φ's place
                     }
+                    if (operand(v, w).equals(imm(0)) && !aHolds.contains(imm(0))) {
+                        ins("stz", at(to + 2 * w));   // no load of the zero
+                        continue;
+                    }
                     ins("lda", operand(v, w));
                     ins("sta", at(to + 2 * w));
                 }
@@ -1729,6 +1733,23 @@ public final class MirCodeGen {
         MType t = v.type();
         boolean direct = isFixed(a);
         String via = direct ? null : via(a.base(), P);
+        if (direct && v instanceof Value.Const k && k.bits() == 0) {
+            // STZ: no load of the zero (direct page, absolute and X-indexed; not long or [dp],y)
+            String at0 = fixedAt(a, 0);
+            if (!at0.startsWith("f:")) {
+                if (t.size == 1) {
+                    ins("sep", "#$20");
+                    ins("stz", at0);
+                    ins("rep", "#$20");
+                    return;
+                }
+                ins("stz", at0);
+                for (int w = 1; w < words(t); w++) {
+                    ins("stz", fixedAt(a, 2 * w));
+                }
+                return;
+            }
+        }
         if (t.size == 1) {
             ins("lda", operand(v, 0));
             if (!direct) {
