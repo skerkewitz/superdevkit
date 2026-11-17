@@ -640,6 +640,7 @@ public final class MirCodeGen {
         folded.clear();
         folded.addAll(layout.folded);
         findXCounters(f);
+        findYIndexes(f);
         findForwards(f);
         forward.removeAll(xSteps.keySet());
         List<Block> blocks = layoutOrder(f, blockCounts == null ? null : blockName -> blockCounts.apply(f.name(), blockName));
@@ -1860,13 +1861,49 @@ public final class MirCodeGen {
         }
         String index = operand(a.index(), 0);
         boolean yForm = ABS_Y.contains(mnemonic) && !f.startsWith("z:") && !f.startsWith("f:");
+        boolean preferY = yIndexes.contains(throughCopies(a.index()));
         if (yForm && !index.equals(xHolds)
-                && (index.equals(yHolds) || xTaken != null || xHolds != null && !xHolds.startsWith("#"))) {
+                && (index.equals(yHolds) || preferY || xTaken != null || xHolds != null && !xHolds.startsWith("#"))) {
             ins("ldy", index);
             return f + ",y";
         }
         ins("ldx", index);
         return f + ",x";
+    }
+
+    /** Indexes that prefer Y (see findYIndexes). */
+    private final Set<Value> yIndexes = new HashSet<>();
+
+    /**
+     * Indexes that prefer Y: used in a loop where they do not change, while the loop also indexes
+     * with something else (the bubble a of the pairs (a, b), whose b changes in the inner loop).
+     * Kept in Y wherever they are used, they stay there across the inner loop's rounds (what Y
+     * holds is known across blocks), and X is left to the index that changes.
+     */
+    private void findYIndexes(MFunction f) {
+        yIndexes.clear();
+        for (dampf.mir.Loops.Loop loop : dampf.mir.Loops.find(f)) {
+            Set<Value> indexes = new HashSet<>();
+            for (Block b : loop.blocks()) {
+                for (Instr i : b.instrs()) {
+                    if (i instanceof Instr.Load || i instanceof Instr.Store) {
+                        FrameLayout.Address a = address(i.op(0));
+                        if (a.index() != null) {
+                            indexes.add(throughCopies(a.index()));
+                        }
+                    }
+                }
+            }
+            if (indexes.size() < 2) {
+                continue;
+            }
+            for (Value v : indexes) {
+                boolean outside = !(v instanceof Instr d) || !loop.blocks().contains(d.block());
+                if (outside && !xResident.containsKey(v)) {
+                    yIndexes.add(v);
+                }
+            }
+        }
     }
 
     /** The instructions dampf uses with an absolute,Y operand (the 65816 has it for these). */

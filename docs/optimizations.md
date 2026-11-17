@@ -552,6 +552,13 @@ runtime; casts; pointer additions; comparisons stay with their branches), and on
 every round passes, so no work moves out of a branch that rarely runs. Title 199,811 → 193,463
 clocks per tick, round intro 637,713 → 630,469, play 478,185 → 478,018.
 
+An index used in a loop where it does not change, while the loop also indexes with something
+else, now prefers Y wherever it is used: it stays in Y across the loop's rounds, and X is left
+to the index that changes. Play 478,018 → 474,124 clocks per tick (1.33 frames). In the pair loop
+of `separate` it does not help yet: the rare path for bubbles that touch uses Y for something
+else, so Y is not known at the loop's head; that path would have to reload Y before it goes
+back.
+
 ### Blocks laid out by a profile, 2026-11-17
 
 The jumps over large loop bodies (the section on short branches) need to know which blocks run
@@ -598,7 +605,7 @@ byte loads, the short branches, INC/DEC, STZ, the bit selections, fewer copies a
 | title | 1.94 | 12.21 | 0.54 |
 | story | 0.70 | 3.56 | 0.22 |
 | round intro | 5.76 | 12.13 | 1.76 |
-| play | 5.17 (worst 8.58) | 18.93 | 1.34 (worst 2.32) |
+| play | 5.17 (worst 8.58) | 18.93 | 1.33 (worst 2.29) |
 | play, CPU partner | 6.55 (worst 12.23) | 23.13 | 2.00 (worst 4.11) |
 | `level_solid_px`, per call | 3,849 | 6,648 | 1,208 clocks |
 
