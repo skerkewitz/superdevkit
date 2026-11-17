@@ -82,7 +82,7 @@ public final class Printer {
         return out.append("}\n").toString();
     }
 
-    static String instr(Instr i) {
+    public static String instr(Instr i) {
         String lhs = i.type() == MType.VOID ? "" : i + " = ";
         return lhs + switch (i) {
             case Instr.Bin b -> b.op + " " + b.type() + " " + b.op(0) + ", " + b.op(1);

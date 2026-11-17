@@ -79,7 +79,8 @@ and run by the MIR interpreter (`dampf.mir.Interpreter`), and compared with gcc.
 shows up there, independent of any 65816 code. The verifier (`dampf.mir.Verifier`) runs after the
 lowering. `MirTextTest` prints the MIR of every execution program and of the whole game,
 parses it back and checks that it verifies and prints to the same text; pass tests can therefore
-be written as MIR text. The game's benchmark runs in the MIR interpreter as well (`dampf mir --bench main ...`,
+be written as MIR text. The execution tests, the random programs and the replays also build every
+program with the code generator from MIR and run it in the emulator. The game's benchmark runs in the MIR interpreter as well (`dampf mir --bench main ...`,
 11 seconds) and gives the PC's checksums on all 3,610 ticks.
 
 ## What the IR levels bring for testing

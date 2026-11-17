@@ -64,6 +64,26 @@ than Calypsi during play. Calls are its weakest point (`level_solid_px`: 1.6 tim
 every argument goes through memory and every call is a `JSL`. With the CPU partner, the worst play
 tick takes 12.23 frames, which is where the 60 % budget is hardest to meet.
 
+### dampf's code generator from MIR, before any pass (2026-11-17)
+
+The code generator from MIR (`dampf.backend.MirCodeGen`, `BACKEND=mir tools/bench_game.sh`) keeps
+every value in RAM and translates one MIR instruction at a time. It is the starting point the MIR
+passes are measured from. All 3,610 ticks give the PC's checksums. Frames per tick:
+
+| State | dampf, naive | dampf from MIR, no passes |
+| --- | --- | --- |
+| title | 1.94 | 12.21 |
+| story | 0.70 | 3.56 |
+| round intro | 5.76 | 12.13 |
+| play | 5.17 (worst 8.58) | 18.93 (worst 33.76) |
+| play, CPU partner | 6.55 (worst 12.23) | 23.13 (worst 46.17) |
+| `level_solid_px`, per call | 3,849 clocks | 6,648 clocks |
+
+It is 3.7 times slower than the naive generator during play. That is expected, for two reasons. MIR
+computes in C's 32-bit `int` everywhere the C source does, and the naive generator already
+narrows to 16 bits from the operand types. Also, every value makes a round trip through RAM. The
+first pass, width narrowing (B), removes most of the first cause.
+
 ### Where the naive code spends its time (2026-11-17)
 
 `tools/profile_game.sh bench` profiles the benchmark's play ticks 900–1700 (as the game's own

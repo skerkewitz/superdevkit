@@ -77,7 +77,10 @@ Before the first optimization, M3 builds:
   MIR first (2026-11-17): lowering with SSA, text format, verifier and interpreter are built; the
   whole game runs on the MIR level with the PC's checksums. The text format parses back
   (`dampf.mir.MirParser`; printing, parsing and printing again gives the same text for every
-  test program and the whole game). Still to do for MIR: the code generator from MIR.
+  test program and the whole game). The simple code generator from MIR is built
+  (`--backend mir`): correct on the execution tests, the random programs, the replay and the
+  benchmark, and 3.7 times slower than the naive generator before any pass
+  ([optimizations.md](optimizations.md)).
   The optimizing pipeline is built next to the naive code generator, which keeps working on the
   AST: an independent reference catches more bugs than one that shares code with what it checks.
 - **The Java 65816 CPU emulator** with master-cycle counting and the exact memory speeds

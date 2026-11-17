@@ -119,11 +119,7 @@ public final class NaiveCodeGen {
      * modules share their labels through {@code .global}.
      */
     public List<String> generate() throws CompileError {
-        boolean intMain = entry.name().equals("main") && entry.returnType().equals(Type.I32);
-        if (!(entry.returnType() instanceof Type.Void || intMain) || !entry.paramTypes().isEmpty()) {
-            throw new CompileError(entry.pos(), "the entry function '" + entry.name() + "' must be 'void " + entry.name()
-                    + "(void)' (or 'int main(void)', whose result is ignored)");
-        }
+        checkEntry(entry);
         for (Function f : program.functions()) {
             if (f.isDefined() && !replaced.contains(f.name())) {
                 AsmWriter code = new AsmWriter();
@@ -162,6 +158,15 @@ public final class NaiveCodeGen {
             modules.add(w.toString());
         }
         return modules;
+    }
+
+    /** The entry function must be {@code void name(void)}, or {@code int main(void)}. */
+    public static void checkEntry(Function entry) throws CompileError {
+        boolean intMain = entry.name().equals("main") && entry.returnType().equals(Type.I32);
+        if (!(entry.returnType() instanceof Type.Void || intMain) || !entry.paramTypes().isEmpty()) {
+            throw new CompileError(entry.pos(), "the entry function '" + entry.name() + "' must be 'void " + entry.name()
+                    + "(void)' (or 'int main(void)', whose result is ignored)");
+        }
     }
 
     /** What every module starts with: CPU settings, imports, the labels all modules share, the source files. */

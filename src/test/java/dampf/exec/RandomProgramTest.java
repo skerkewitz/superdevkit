@@ -41,6 +41,9 @@ class RandomProgramTest {
             assertEquals(pc, MirRunner.run(r.program(), "test_main", globals), () -> "seed " + seed + " differs (PC vs MIR); the program:\n" + program);
             Map<String, Long> snes = runner.run(r.rom(), globals).values();
             assertEquals(pc, snes, () -> "seed " + seed + " differs (PC vs SNES); the program:\n" + program);
+            Compiler.Result m = Compiler.compile(new Compiler.Options(List.of(src), List.of(), List.of(), "test_main",
+                    work.resolve("random_mir.sfc")).withBackend(Compiler.Backend.MIR));
+            assertEquals(pc, runner.run(m.rom(), globals).values(), () -> "seed " + seed + " differs (PC vs SNES from MIR); the program:\n" + program);
         }));
     }
 }

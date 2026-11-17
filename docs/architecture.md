@@ -14,7 +14,11 @@ the reference for all optimized builds (see [testing.md](testing.md)).
 **MIR** exists (`dampf.mir`): the lowering from the AST (SSA built directly, Braun et al.), a text
 format (`dampf mir file.c`) that parses back (`MirParser`), a verifier and an interpreter. All of Blubber Blasen lowers to MIR,
 and the game's benchmark run in the MIR interpreter gives the PC's checksums on all 3,610 ticks.
-There is no code generator from MIR yet, and no MIR passes. HIR and LIR are still to be built;
+A simple code generator turns MIR into 65816 code (`dampf.backend.MirCodeGen`, `dampf build
+--backend mir`). Every value has a fixed place in RAM, the frames form a compiled stack (a
+function's frame starts after the frames of all its callers), and φs are copied through an
+"incoming" place. It is correct on all tests and the whole game, and slow; the MIR passes will
+make it fast. There are no MIR passes yet. HIR and LIR are still to be built;
 [roadmap.md](roadmap.md) says when. MIR currently goes straight from the AST; HIR will sit
 between them once inlining and struct splitting need it.
 

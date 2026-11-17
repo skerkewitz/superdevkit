@@ -2,7 +2,9 @@ package dampf;
 
 import dampf.ast.Function;
 import dampf.ast.Program;
+import dampf.backend.MirCodeGen;
 import dampf.backend.NaiveCodeGen;
+import dampf.mir.Lower;
 import dampf.check.CallGraph;
 import dampf.frontend.AstBuilder;
 import dampf.frontend.CompileError;
@@ -29,11 +31,23 @@ public final class Compiler {
      *                     (and X for 32 bits), JSL/RTL, A/X/Y 16 bit, DBR $7E.
      */
     public record Options(List<Path> sources, List<Path> includeDirs, List<String> defines, String entry, Path output,
-                          Map<String, Path> replacements) {
+                          Map<String, Path> replacements, Backend backend) {
         public Options(List<Path> sources, List<Path> includeDirs, List<String> defines, String entry, Path output) {
-            this(sources, includeDirs, defines, entry, output, Map.of());
+            this(sources, includeDirs, defines, entry, output, Map.of(), Backend.NAIVE);
+        }
+
+        public Options(List<Path> sources, List<Path> includeDirs, List<String> defines, String entry, Path output,
+                       Map<String, Path> replacements) {
+            this(sources, includeDirs, defines, entry, output, replacements, Backend.NAIVE);
+        }
+
+        public Options withBackend(Backend b) {
+            return new Options(sources, includeDirs, defines, entry, output, replacements, b);
         }
     }
+
+    /** Which code generator: the naive one straight from the AST, or the one from MIR. */
+    public enum Backend { NAIVE, MIR }
 
     /** What a compilation produced. */
     public record Result(Program program, List<String> assembly, RomBuilder.Rom rom) {}
@@ -69,9 +83,18 @@ public final class Compiler {
                         "--replace " + name + ": there is no function '" + name + "' to replace");
             }
         }
-        NaiveCodeGen gen = new NaiveCodeGen(program, entry, o.replacements().keySet(),
-                file -> outDir.relativize(Path.of(file).toAbsolutePath().normalize()).toString().replace('\\', '/'));
-        List<String> asm = new java.util.ArrayList<>(gen.generate());
+        java.util.function.Function<String, String> debugName =
+                file -> outDir.relativize(Path.of(file).toAbsolutePath().normalize()).toString().replace('\\', '/');
+        List<String> asm;
+        if (o.backend() == Backend.MIR) {
+            if (!o.replacements().isEmpty()) {
+                throw new CompileError(entry.pos(), "--replace works with the naive code generator only");
+            }
+            NaiveCodeGen.checkEntry(entry);
+            asm = new java.util.ArrayList<>(new MirCodeGen(Lower.lower(program), entry.label(), debugName).generate());
+        } else {
+            asm = new java.util.ArrayList<>(new NaiveCodeGen(program, entry, o.replacements().keySet(), debugName).generate());
+        }
         for (Path s : o.replacements().values()) {
             asm.add(Files.readString(s));
         }

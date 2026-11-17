@@ -19,7 +19,8 @@ import org.junit.jupiter.api.io.TempDir;
  * the SNES (dampf), and all its globals must have the same values afterwards. The SNES side runs
  * in dampf's emulator, and also in Mesen 2 when one is available (.mesen/ or -Pmesen=...), so the
  * emulator is checked against a complete SNES emulator too. Each program's entry function is
- * {@code test_main}.
+ * {@code test_main}. Each program is built twice, with the naive code generator and with the one
+ * from MIR; the emulator runs both.
  */
 class ExecutionTest {
     @TempDir
@@ -48,6 +49,9 @@ class ExecutionTest {
             if (mesenRunner != null) {
                 assertEquals(pc, mesenRunner.run(r.rom(), globals), "globals after test_main() (PC vs SNES in Mesen)");
             }
+            Compiler.Result m = Compiler.compile(new Compiler.Options(List.of(src), List.of(), List.of(), "test_main",
+                    work.resolve(name + "_mir.sfc")).withBackend(Compiler.Backend.MIR));
+            assertEquals(pc, emulator.run(m.rom(), globals).values(), "globals after test_main() (PC vs SNES, code generated from MIR)");
         }));
     }
 }
