@@ -91,6 +91,31 @@ public final class AstBuilder {
                 throw unsupported(ed, "inline assembly");
             }
         }
+        if (!sizeDiffers.isEmpty()) {
+            Map.Entry<Expr.Const, String> e = sizeDiffers.entrySet().iterator().next();
+            throw new CompileError(e.getKey().pos(), e.getValue());
+        }
+    }
+
+    /**
+     * sizeof values that differ from the PC's, not yet excused: the program would compute a
+     * different value than its PC build. The only excuse is a division of two of them with the
+     * same quotient on both (the element count {@code sizeof a / sizeof a[0]}), see binaryOp.
+     */
+    private final Map<Expr.Const, String> sizeDiffers = new java.util.IdentityHashMap<>();
+    private final Map<Expr.Const, Long> pcSizes = new java.util.IdentityHashMap<>();
+
+    /** sizeof a type: dampf's size; noted if gcc on x86-64 gives another. */
+    private Expr.Const sizeOf(Type t, SourcePos p) {
+        Expr.Const k = new Expr.Const(t.size(), Type.SIZE, p);
+        long pc = Type.pcSize(t);
+        if (pc != t.size()) {
+            sizeDiffers.put(k, "sizeof " + t + " is " + t.size() + " in dampf but " + pc + " on the PC (pointers are 4 bytes "
+                    + "there, 8 on x86-64; struct fields are not padded): the program would compute other values than its "
+                    + "PC build. Only the element count sizeof a / sizeof a[0] is allowed for such types");
+            pcSizes.put(k, pc);
+        }
+        return k;
     }
 
     /** Checks the program as a whole and returns it. */
@@ -1373,6 +1398,17 @@ public final class AstBuilder {
     private Expr binaryOp(String op, Expr left, Expr right, SourcePos pos) throws CompileError {
         left = rvalue(left);
         right = rvalue(right);
+        if (op.equals("/") && left instanceof Expr.Const a && right instanceof Expr.Const b
+                && (sizeDiffers.containsKey(a) || sizeDiffers.containsKey(b))) {
+            // sizeof a / sizeof a[0]: fine if the quotient is the same as on the PC
+            long pa = pcSizes.getOrDefault(a, a.value());
+            long pb = pcSizes.getOrDefault(b, b.value());
+            if (b.value() != 0 && pb != 0 && a.value() % b.value() == 0 && pa % pb == 0
+                    && a.value() / b.value() == pa / pb) {
+                sizeDiffers.remove(a);
+                sizeDiffers.remove(b);
+            }
+        }
         if (op.equals("&&") || op.equals("||")) {
             scalar(left, pos);
             scalar(right, pos);
@@ -1500,7 +1536,7 @@ public final class AstBuilder {
             if (!complete(t)) {
                 throw error(u, "sizeof of an incomplete type");
             }
-            e = new Expr.Const(t.size(), Type.SIZE, pos(u));
+            e = sizeOf(t, pos(u));
         } else if (u.postfixExpression() != null && first > 0 && u.getChild(first - 1).getText().equals("sizeof")
                 && sizeofTypedef(u.postfixExpression()) != null) {
             // sizeof (name) with a typedef name: the grammar's first alternative reads it as a
@@ -1509,7 +1545,7 @@ public final class AstBuilder {
             if (!complete(t)) {
                 throw error(u, "sizeof of an incomplete type");
             }
-            e = new Expr.Const(t.size(), Type.SIZE, pos(u));
+            e = sizeOf(t, pos(u));
             first--;
         } else if (u.postfixExpression() != null) {
             e = postfix(u.postfixExpression());
@@ -1527,7 +1563,7 @@ public final class AstBuilder {
                     if (!complete(e.type())) {
                         throw error(u, "sizeof of an incomplete type");
                     }
-                    e = new Expr.Const(e.type().size(), Type.SIZE, pos(op));
+                    e = sizeOf(e.type(), pos(op));
                 }
                 default -> {
                     checkAssignable(e, u);

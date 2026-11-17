@@ -77,7 +77,7 @@ Counts are from the scan. They are places in the source, not how often the code 
 | `?:` | 225 | Common; should become branches, not materialised values (optimization G). |
 | Loops | 198 `for`, 15 `while`, 1 `do` | |
 | Comma operator | 9 | In `for` headers. |
-| `sizeof` | 4 | Constant only. |
+| `sizeof` | 4 | Constant only. A `sizeof` whose value differs from gcc's on x86-64 (pointers, structs gcc pads) is an error, except in the element count `sizeof a / sizeof a[0]` (decision 5). The game's uses are all fine. |
 | Most parameters of one function | 6 | |
 
 ### Calls out of the game code
@@ -155,7 +155,9 @@ decided, dampf implements the recommendations, which are easy to change:
   them is an optimization;
 - decision 3: the naive code generator uses 4-byte pointers (address, bank, a zero byte) for all
   pointers; 16-bit pointers into RAM are an optimization;
-- decision 4: `goto` is rejected.
+- decision 4: `goto` is rejected;
+- decision 5 (decided 2026-11-17): a `sizeof` that differs from the PC is rejected, except the
+  element count.
 
 1. **Plain `char` for text.** The game uses `char` only for strings and name buffers. Plain
    `char` is signed with gcc and clang on x86-64 and with MSVC, unsigned on ARM. Recommendation:
@@ -179,6 +181,18 @@ decided, dampf implements the recommendations, which are easy to change:
    analysis ([timing.md](timing.md)), which computes bounds on structured code. Options: forbid it
    entirely, or allow a restricted form that keeps the code structured. Recommendation: forbid it
    until a use appears. dampf rejects it today.
+
+5. **`sizeof` of pointers and padded structs** (decided 2026-11-17). On the PC a pointer is 8
+   bytes and gcc pads struct fields to their alignment (`struct { uint8_t a; int16_t b; }` is 4
+   bytes); dampf uses 4-byte pointers and no padding (3 bytes). A program that uses such a
+   `sizeof` would compute other values than its PC build, against the rule that both behave the
+   same. Options were: report the PC's value but keep the compact layout (silently wrong as soon
+   as code depends on the layout), lay structs out like gcc (costs RAM, pointers still differ),
+   reject such a `sizeof`, or accept the difference as a documented exception. Decided: reject it,
+   with a message that gives both values, except in a division whose quotient is the same on both
+   (`sizeof a / sizeof a[0]`, the element count, also over an array of pointers). None of the
+   options would have made the code faster; the exception would only have helped code that needs
+   the SNES size, such as a DMA length taken from a padded struct, which the game does not have.
 
 ## What the game has to change
 

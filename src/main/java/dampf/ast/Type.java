@@ -13,6 +13,40 @@ import java.util.Objects;
  * difference.
  */
 public sealed interface Type {
+    /**
+     * The size gcc gives the type on x86-64 (the PC build): pointers are 8 bytes there, and
+     * struct fields are aligned to their own alignment, the struct to its largest. dampf itself
+     * uses 4-byte pointers and no padding ({@link #size()}).
+     */
+    static long pcSize(Type t) {
+        return switch (t) {
+            case Pointer p -> 8;
+            case Array a -> pcSize(a.element()) * Math.max(a.length(), 0);
+            case Struct s -> {
+                long offset = 0;
+                long align = 1;
+                for (Field f : s.def().fields()) {
+                    long fa = pcAlign(f.type());
+                    offset = (offset + fa - 1) / fa * fa + pcSize(f.type());
+                    align = Math.max(align, fa);
+                }
+                yield (offset + align - 1) / align * align;
+            }
+            default -> t.size();
+        };
+    }
+
+    /** The alignment gcc gives the type on x86-64. */
+    static long pcAlign(Type t) {
+        return switch (t) {
+            case Pointer p -> 8;
+            case Array a -> pcAlign(a.element());
+            case Struct s -> s.def().fields().stream().mapToLong(f -> pcAlign(f.type())).max().orElse(1);
+            case Int i -> Math.max(1, i.size());
+            default -> Math.max(1, t.size());
+        };
+    }
+
     /** Size in bytes on the SNES. */
     int size();
 

@@ -106,4 +106,62 @@ class AstBuilderTest {
         assertTrue(fails("#include <stdint.h>\nunion u { uint8_t a; };\n").getMessage().contains("unions are not supported"));
         assertTrue(fails("#include <stdint.h>\nvoid f(uint8_t x) { again: goto again; }\n").getMessage().contains("not supported yet: labels and goto"));
     }
+
+    // sizeof must give the PC's value (gcc on x86-64): pointers are 8 bytes there, structs padded
+
+    @Test
+    void sizeofOfAPointerIsRejected() {
+        CompileError e = fails("""
+                #include <stdint.h>
+                uint32_t s;
+                void test_main(void) { s = sizeof(uint8_t *); }
+                """);
+        String msg = e.diagnostics().getFirst().message();
+        assertTrue(msg.contains("is 4 in dampf but 8 on the PC"), msg);
+        assertEquals(3, e.diagnostics().getFirst().pos().line());
+    }
+
+    @Test
+    void sizeofOfAPaddedStructIsRejected() {
+        CompileError e = fails("""
+                #include <stdint.h>
+                typedef struct { uint8_t a; int16_t b; } Pair;
+                Pair p;
+                uint32_t s;
+                void test_main(void) { s = sizeof p; }
+                """);
+        assertTrue(e.diagnostics().getFirst().message().contains("is 3 in dampf but 4 on the PC"), e.toString());
+    }
+
+    @Test
+    void theElementCountOfPointersAndPaddedStructsIsAllowed() throws Exception {
+        Program p = build("""
+                #include <stdint.h>
+                typedef struct { uint8_t a; int16_t b; } Pair;
+                Pair pairs[5];
+                const char *names[3] = { "a", "b", "c" };
+                uint32_t n1;
+                uint32_t n2;
+                void test_main(void) { n1 = sizeof names / sizeof names[0]; n2 = sizeof(pairs) / sizeof(Pair); }
+                """);
+        assertTrue(p.function("test_main").isDefined());
+        // anything else with such a sizeof is still rejected
+        assertEquals(4, fails("""
+                #include <stdint.h>
+                const char *names[3] = { "a", "b", "c" };
+                uint32_t n;
+                void test_main(void) { n = sizeof names / 2; }
+                """).diagnostics().getFirst().pos().line());
+    }
+
+    @Test
+    void sizeofOfAStructWithoutPaddingIsAllowed() throws Exception {
+        build("""
+                #include <stdint.h>
+                typedef struct { uint8_t a; uint8_t b; int16_t c; } Quad;
+                uint32_t s;
+                void test_main(void) { s = sizeof(Quad); }
+                """);
+    }
 }
+
