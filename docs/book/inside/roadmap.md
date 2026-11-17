@@ -41,7 +41,8 @@ loops and call sites, values in the [direct page](/glossary#direct-page) instead
 register allocation in the form the 65816 allows, induction variables, and
 [pointer compression](/glossary#pointer-compression) for pointers into a single object. With
 them, play of Blubber Blasen takes 1.31 frames per tick, against 5.17 with the naive code, and
-1.10 with FastROM, which is switched on since.
+1.10 with FastROM, which is switched on since, and 1.08 without the comparisons with 0 that
+the flags already answer.
 That reaches M3's goal against Calypsi. On the same version of the game, with Calypsi's options,
 in the play ticks where both compilers play the same scene, Calypsi takes 1.67 frames per tick
 and dampf 1.14: dampf is 1.47 times as fast, and 1.3 to 1.8 times on the title, the story and
@@ -84,8 +85,8 @@ optimization guided by the profiles of the replays (the first part, laying out t
 a profile's counts, is built), superoptimization of short hot sequences,
 and the hints that transform code, such as `DAMPF_TABLE` and `DAMPF_PIN_X`.
 
-**What is left, and in which order.** Play takes 1.31 frames per tick (1.10 with FastROM, the
-first item, done since), and the goal is 0.6. A
+**What is left, and in which order.** Play takes 1.31 frames per tick (1.08 with FastROM, the
+first item, and the comparisons on the flags, done since), and the goal is 0.6. A
 profile of play shows where the cycles of the game code go: moving values to and from the
 direct page takes 30 % (`sta` 16.0 %, `lda` 14.2 %), comparisons with a constant 8.5 %, indexed
 reads 7 %, byte masks 5 % and jumps 3 to 4 %. The runtime's multiplication and division are no
@@ -100,7 +101,7 @@ good measured nothing.
 | 3 | 8-bit stretches: the [`M` flag](/glossary#m-and-x-flags) followed, `uint8_t` code in [8-bit mode](/glossary#8-bit-and-16-bit-mode) | 5–10 % | high |
 | 4 | Arrays of structs as one array per field | 5–10 % in the bubble loops | high |
 | 5 | 8-bit index registers, arrays aligned to pages | 2–4 % | high |
-| 6 | Comparisons on the flags: no `CMP` where the instruction before set them, `BIT` for bit tests | 2–4 % | low to medium |
+| 6 | Comparisons on the flags: no `CMP` where the instruction before set them, `BIT` for bit tests | 2–4 % (measured: 1.3 %, done for `CMP #0`) | low to medium |
 | 7 | Calling convention: the first argument in A, `JMP` for tail calls | 1–3 % | medium |
 | 8 | The block layout by a profile by default | about 1 % | low |
 | 9 | Value ranges from array bounds | 1–2 % | medium |

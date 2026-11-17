@@ -8,7 +8,7 @@ it may use at most 60 % of an NTSC [frame](/glossary#frame), about 0.6 frames pe
 vertical blank and a safety margin come off that. The game's benchmark runs the same game code
 with a fixed input for 1,800 ticks and measures every tick in Mesen.
 
-During play, the code dampf now generates takes 1.10 frames per tick (worst tick 1.88) with
+During play, the code dampf now generates takes 1.08 frames per tick (worst tick 1.86) with
 FastROM, which is the default, and 1.31 (worst 2.25) at SlowROM speed, as the earlier figures on
 this page were measured. dampf's
 own [naive code generator](/glossary#naive-code-generator) takes 5.17 frames per tick for the
@@ -581,7 +581,10 @@ each of these is:
   have changed its parameter. Together with the exit edges, play went from 1.38 to 1.37.
 - **Compare and branch.** A comparison that only its block's branch uses sets the flags and
   branches on them, without a truth value. A comparison with 0 needs no `CMP`, and a 16-bit test
-  for `< 0` or `>= 0` is the sign flag of the load (`bmi`/`bpl`). Play 5.17 to 4.48.
+  for `< 0` or `>= 0` is the sign flag of the load (`bmi`/`bpl`). Play 5.17 to 4.48. Later also
+  where the value is already in A: the code generator follows whether N and Z still describe
+  it (loads and arithmetic set that, stores and jumps keep it, `ldx`, `cmp`, a call or a label
+  clears it), and writes `cmp #0` only if not. Play 1.10 to 1.08.
 - **X for indices.** A load or store at a global plus a 16-bit index that the value ranges show
   to be non-negative is `ldx` and `lda symbol+constant,x`: no pointer is computed. A negative
   index would carry into the bank, because X adds as an unsigned number. Where X holds another
@@ -741,6 +744,7 @@ budget is hardest to meet; the worst tick is in parentheses where the source giv
 | loop-invariant code, loop-invariant indexes in Y | 1.33 | |
 | labels inside blocks, assumptions kept after a contradiction | 1.31 (2.25) | 1.98 (4.08) |
 | FastROM: the ROM in banks `$80` and up at 3.58 MHz (`MEMSEL`) | 1.10 (1.88) | 1.69 (3.51) |
+| no `cmp #0` where N and Z already describe A | 1.08 (1.86) | 1.68 (3.49) |
 
 The steps are cumulative: each row includes everything above it. Loop rotation is not in the
 table; it brought about 0.5 %, measured on the benchmark's bare loop (801 to 783 clocks per
