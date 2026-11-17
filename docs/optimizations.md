@@ -175,6 +175,26 @@ tricks it has been taught. The reference benchmarks are the loop that keeps teac
 
 ## Reference assembly benchmarks
 
+### Measured so far
+
+| Function | dampf, naive | 816-tcc | Calypsi | Hand-written | dampf / hand-written |
+| --- | --- | --- | --- | --- | --- |
+| `level_solid_px` (2026-11-17) | 3,849 | 2,449 | 931 | 856 | **4.5** |
+
+Master clocks per call, from the benchmark's micro part (1,000 calls per pass, the bare loop
+subtracted); the 816-tcc and Calypsi numbers are from older runs on the game's side. The
+hand-written version is `reference/level_solid_px.s`, linked with `--replace`; with it, all 3,610
+benchmark ticks still match the PC. Over the whole benchmark this one function makes play 5 %
+faster (5.17 → 4.92 frames per tick). On a small function like this one, Calypsi already comes
+close to hand-written code.
+
+The first version of the reference was wrong: it checked the rows below the field before the
+walls, the opposite order of the C, and returned "open" for a position both outside the walls and
+below the field. The game never asks for such a position, but the benchmark's micro part does, and
+its checksums caught it. Hand-written code needs the same oracle as compiled code.
+
+### The plan
+
 3–5 hot functions of Blubber Blasen are written by hand in 65816 assembly as **reference
 versions**. They are not the game's code; they are the yardstick. Candidates (to be confirmed by
 the Calypsi investigation and by profiling): bubble movement and bubble-to-bubble pushing, the

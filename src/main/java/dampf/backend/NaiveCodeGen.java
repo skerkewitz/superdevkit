@@ -93,10 +93,22 @@ public final class NaiveCodeGen {
      *                  (relative to where the .dbg file goes, so Mesen finds the source)
      */
     public NaiveCodeGen(Program program, Function entry, java.util.function.Function<String, String> debugName) {
+        this(program, entry, java.util.Set.of(), debugName);
+    }
+
+    /**
+     * @param replaced functions that hand-written assembly provides: their parameters and frames
+     *                 are generated, their code is not
+     */
+    public NaiveCodeGen(Program program, Function entry, java.util.Set<String> replaced,
+                        java.util.function.Function<String, String> debugName) {
         this.program = program;
         this.entry = entry;
+        this.replaced = java.util.Set.copyOf(replaced);
         this.debugName = debugName;
     }
+
+    private final java.util.Set<String> replaced;
 
     /** At most this many segments per assembly module: ca65 allows about 256 per object file. */
     private static final int SEGMENTS_PER_MODULE = 200;
@@ -113,7 +125,7 @@ public final class NaiveCodeGen {
                     + "(void)' (or 'int main(void)', whose result is ignored)");
         }
         for (Function f : program.functions()) {
-            if (f.isDefined()) {
+            if (f.isDefined() && !replaced.contains(f.name())) {
                 AsmWriter code = new AsmWriter();
                 function(f, code);
                 if (f == entry) {
@@ -159,7 +171,7 @@ public final class NaiveCodeGen {
         w.raw("        .i16");
         w.raw("        .importzp dampf_regs, dampf_ptr");
         w.raw("        .import dampf_mul16, dampf_mul32, dampf_udiv16, dampf_udiv32, dampf_sdiv32");
-        if (modules > 1) {
+        if (modules > 1 || !replaced.isEmpty()) {
             // exported by the module that defines a label, imported by the others
             List<String> all = new ArrayList<>();
             for (Function f : program.functions()) {
