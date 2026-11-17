@@ -8,7 +8,7 @@ it may use at most 60 % of an NTSC [frame](/glossary#frame), about 0.6 frames pe
 vertical blank and a safety margin come off that. The game's benchmark runs the same game code
 with a fixed input for 1,800 ticks and measures every tick in Mesen.
 
-During play, the code dampf now generates takes 1.04 frames per tick (worst tick 1.80) with
+During play, the code dampf now generates takes 1.02 frames per tick (worst tick 1.78) with
 FastROM, which is the default, and 1.31 (worst 2.25) at SlowROM speed, as the earlier figures on
 this page were measured. dampf's
 own [naive code generator](/glossary#naive-code-generator) takes 5.17 frames per tick for the
@@ -583,6 +583,11 @@ each of these is:
   On a loop's exit edge that would write them in every round for an edge taken once, so just
   before code generation such an edge gets a block of its own (`ExitEdges`), where they are
   written once, at the cost of one jump when the loop ends.
+- **Returns copied into each path.** A function that returns the value of an inlined function
+  that returns from several places ends in a block holding only φs and a `ret`. Just before
+  code generation (`Returns`), that block is copied into each predecessor: one that jumps there
+  returns itself, a branch or a switch gets a block of its own for the edge. Each path returns
+  its own value, without φ copies or a jump to the shared return. Play 1.04 to 1.02.
 - **Arguments in place.** An argument of a call later in its block, with no other call on the
   way and no other use except between its definition and the call, is computed straight into the
   callee's parameter place instead of its own place and then copied. This is safe because frames
@@ -756,6 +761,7 @@ budget is hardest to meet; the worst tick is in parentheses where the source giv
 | no `cmp #0` where N and Z already describe A | 1.08 (1.86) | 1.68 (3.49) |
 | values every use takes from A not stored | 1.06 (1.83) | 1.66 (3.48) |
 | a `switch` on a byte compares 16 bits | 1.04 (1.80) | 1.64 (3.45) |
+| returns copied into each path | 1.02 (1.78) | 1.62 (3.42) |
 
 The steps are cumulative: each row includes everything above it. Loop rotation is not in the
 table; it brought about 0.5 %, measured on the benchmark's bare loop (801 to 783 clocks per

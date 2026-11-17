@@ -97,7 +97,7 @@ optimizer, is in progress: dampf lowers the program to [MIR](/glossary#mir), its
 representation, optimizes it and generates 65816 code from it. The fine tuning of M4 has not
 started.
 
-During play, Blubber Blasen's game logic takes 1.04 frames per tick with dampf (1.31 without
+During play, Blubber Blasen's game logic takes 1.02 frames per tick with dampf (1.31 without
 FastROM), against 5.17 with the naive code generator. Calypsi's 2.72 came from an older version of the game. On the same
 version, in the play ticks where both compilers play the same scene, Calypsi takes 1.67 frames
 per tick and dampf 1.14: dampf is 1.47 times as fast, so M3's goal of beating Calypsi is
