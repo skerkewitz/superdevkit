@@ -39,6 +39,31 @@ naive generator has to be no slower than Calypsi, or the game has to get cheaper
 game's ROADMAP already lists a cheaper CPU partner as a candidate; see also
 [game-findings.md](game-findings.md)).
 
+### dampf's naive code generator (2026-11-17)
+
+The same benchmark built with dampf (`tools/bench_game.sh`): all 3,610 ticks give the same
+checksums as the PC reference. Frames per tick:
+
+| State | Ticks | dampf, naive | 816-tcc | Calypsi |
+| --- | --- | --- | --- | --- |
+| title | 61 | 1.94 | 1.90 | 0.91 |
+| story | 530 | 0.70 | 1.22 | 0.58 |
+| round intro | 120 | 5.76 | 6.47 | 4.11 |
+| play | 1,089 | 5.17 (worst tick 8.58) | 6.42 | 2.72 (worst 3.82) |
+| round intro, CPU partner | 120 | 6.15 | | |
+| play, CPU partner | 1,089 | 6.55 (worst tick 12.23) | | |
+| `level_solid_px`, per call | | 3,849 clocks | 2,449 | 931 |
+
+Caveats: the 816-tcc and Calypsi columns are the older runs above, made with an earlier version of
+the game and without the CPU partner section, which the benchmark has had only since 2026-11-17. A
+fair comparison needs all three compilers on the same version of the game; dampf cannot build the
+other two, so that run has to happen on the game's side.
+
+What it shows already: the naive generator is about as fast as 816-tcc and about 1.9 times slower
+than Calypsi during play. Calls are its weakest point (`level_solid_px`: 1.6 times 816-tcc), because
+every argument goes through memory and every call is a `JSL`. With the CPU partner, the worst play
+tick takes 12.23 frames, which is where the 60 % budget is hardest to meet.
+
 The round intro (4.11 frames with Calypsi) is not game play and may be allowed to take more than
 one frame; that is for the game to decide.
 

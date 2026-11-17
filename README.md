@@ -14,9 +14,12 @@ handles the C the game uses: all integer types and operators with gcc's exact se
 flow, enums, arrays, structs, pointers, strings, initializers and constant data in ROM. The
 execution tests run programs in Mesen and compare every result with gcc on the PC; random
 programs check the arithmetic. All 16 files of the game pass the front end (`dampf check`). ROMs can have up to 4 MB: code and data are packed into
-32 KB LoROM banks. Not done yet: building the whole game, the SNES platform layer, and the parts
-of the design that come with the optimizer (IR levels, cycle counting, hints). The next step is
-running the game's own benchmark on dampf; the plan is in [docs/roadmap.md](docs/roadmap.md).
+32 KB LoROM banks. The game's own benchmark (all of `src/game`) runs on dampf and gives the same
+checksums as the PC on every one of its 3,610 ticks; the naive code is about as fast as 816-tcc
+(`tools/bench_game.sh`, numbers in [docs/optimizations.md](docs/optimizations.md)). Not done yet:
+the replays, cycles per function, the SNES platform layer, and the parts of the design that come
+with the optimizer (IR levels, cycle counting, hints). The plan is in
+[docs/roadmap.md](docs/roadmap.md).
 
 ## Why
 
