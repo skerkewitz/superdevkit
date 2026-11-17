@@ -370,6 +370,10 @@ by a φ, 14 % values going into the next comparison, 14 % offsets going into the
 
 Play 1.67 → 1.61 frames per tick (worst 2.80), with the CPU partner 2.36 → 2.30 (worst 4.52).
 
+Loop rotation in the layout: a small loop head (φs, comparison, branch) is placed after the block
+that jumps back to it, so a round of the loop costs one branch instead of a jump and a branch.
+About 0.5 % (the benchmark's bare loop: 801 → 783 clocks per pass).
+
 ### Summary of the code from MIR so far (2026-11-17)
 
 | State | naive | from MIR, no passes | now |

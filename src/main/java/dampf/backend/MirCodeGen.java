@@ -603,7 +603,7 @@ public final class MirCodeGen {
             }
             b = next;
         }
-        //ROTATE rotateLoops(order);
+        rotateLoops(order);
         return order;
     }
 
