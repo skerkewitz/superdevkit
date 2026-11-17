@@ -64,6 +64,32 @@ than Calypsi during play. Calls are its weakest point (`level_solid_px`: 1.6 tim
 every argument goes through memory and every call is a `JSL`. With the CPU partner, the worst play
 tick takes 12.23 frames, which is where the 60 % budget is hardest to meet.
 
+### Where the naive code spends its time (2026-11-17)
+
+`tools/profile_game.sh bench` profiles the benchmark's play ticks 900–1700 (as the game's own
+profile does): Mesen counts how often each instruction runs, dampf's cycle table
+(`dampf.target.Cycles65816`) gives what each instruction costs, and `dampf profile` adds it up
+per function. The benchmark's own checksum code (`bench.c`) is left out. The model agrees with the
+measurement: 231,000 CPU cycles per tick in the game code, about 8 master clocks per CPU cycle,
+5.2 frames per tick (measured: 5.17).
+
+| Share | Function | Cycles per call | Note |
+| --- | --- | --- | --- |
+| 37.3 % | `dampf_mul16` (runtime) | 304 | 283 calls per tick |
+| 8.3 % | `separate` | 22,608 | bubble pairs, see game finding 2 |
+| 7.6 % | `build_sprites` | 17,624 | |
+| 3.7 % | `level_solid_px` | 384 | 22 calls per tick |
+| 3.3 % | `bubbles_update` | 8,918 | |
+| 2.9 % | `bubbles_draw` | 6,619 | |
+| 2.6 % | `floating` | 78 | 76 calls per tick |
+
+More than a third of the time goes into the runtime's general 16-bit multiplication, and nearly
+all of those calls index arrays of structs: `bubbles[i]` multiplies `i` by 23 (`sizeof(Bubble)`),
+items by 12, enemies by 21, vacuums by 53. The naive generator does that with a 16-step loop,
+about 300 cycles per access. A constant factor as shifts and adds (optimization I) costs about
+10–20 cycles; split struct arrays (optimization D) remove the multiplication altogether. Both
+move up in the order of the optimizations.
+
 The round intro (4.11 frames with Calypsi) is not game play and may be allowed to take more than
 one frame; that is for the game to decide.
 
@@ -86,7 +112,7 @@ the catalogue come first. Compared with Calypsi, dampf promises nothing until it
 | F | Loops | Counter in X/Y, count down to zero, hoist invariant code, unroll small loops (by hint) | Medium | H | | open |
 | G | Branches | Branch on flags instead of materialising 0/1, common path falls through, correct branch distances | Medium | | | open |
 | H | Standard optimizations | Constant folding and propagation, dead code removal, common subexpressions | Medium; mostly a prerequisite for A–G | IR in SSA form | | open |
-| I | Multiply and divide | Constants as shifts and adds, hardware multiplier with useful work during its latency, division by powers of two with correct signed rounding | Medium, depends on the code | range analysis for signed division | | open |
+| I | Multiply and divide | Constants as shifts and adds, hardware multiplier with useful work during its latency, division by powers of two with correct signed rounding | Medium, depends on the code; **measured: 37 % of the naive code's time is the runtime multiplication, mostly struct array indexing by a constant size** | range analysis for signed division | | open |
 | J | Banks and placement | Keep the data bank register right, 16-bit instead of 24-bit addresses, hot code in FastROM | Small to medium | pointer width analysis | | open |
 | K | Peephole | Remove redundant loads and stores, `STZ`, `INC`/`DEC` on memory | Small, but everywhere | | | open |
 | L | `switch` as jump table | `JMP (abs,X)` | Small overall, large locally | | | open |

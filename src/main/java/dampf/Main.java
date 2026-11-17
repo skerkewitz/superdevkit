@@ -18,12 +18,17 @@ import java.util.List;
  * dampf parse [-I dir] [-D name[=value]] file.c ...                   preprocess and parse
  * dampf build [-I dir] [-D name[=value]] [--entry name] -o out.sfc file.c ...   compile to a ROM
  * dampf check [-I dir] [-D name[=value]] file.c ...                   front end only: first problem per file
+ * dampf profile rom.sfc profile.txt [top]                              cycles per function (tools/profile.lua)
  * </pre>
  */
 public final class Main {
     private Main() {}
 
     public static void main(String[] args) throws IOException {
+        if (args.length > 0 && args[0].equals("profile")) {
+            dampf.tools.Profile.main(java.util.Arrays.copyOfRange(args, 1, args.length));
+            return;
+        }
         if (args.length == 0 || !List.of("parse", "build", "check").contains(args[0])) {
             usage();
             System.exit(2);
@@ -111,5 +116,6 @@ public final class Main {
         System.err.println("usage: dampf parse [-I dir] [-D name[=value]] file.c ...");
         System.err.println("       dampf build [-I dir] [-D name[=value]] [--entry name] -o out.sfc file.c ...");
         System.err.println("       dampf check [-I dir] [-D name[=value]] file.c ...");
+        System.err.println("       dampf profile rom.sfc profile.txt [top]");
     }
 }

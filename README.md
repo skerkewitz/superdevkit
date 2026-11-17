@@ -17,8 +17,8 @@ programs check the arithmetic. All 16 files of the game pass the front end (`dam
 32 KB LoROM banks. The game's own benchmark (all of `src/game`) runs on dampf and gives the same
 checksums as the PC on every one of its 3,610 ticks; the naive code is about as fast as 816-tcc
 (`tools/bench_game.sh`, numbers in [docs/optimizations.md](docs/optimizations.md)). The game's
-recorded replays also match the PC on the SNES (`./gradlew test -Preplays`). Not done yet:
-cycles per function, the SNES platform layer, and the parts of the design that come
+recorded replays also match the PC on the SNES (`./gradlew test -Preplays`), and
+`tools/profile_game.sh` shows the cycles per function. Not done yet: the SNES platform layer, and the parts of the design that come
 with the optimizer (IR levels, cycle counting, hints). The plan is in
 [docs/roadmap.md](docs/roadmap.md).
 
@@ -106,6 +106,7 @@ Gradle comes with the wrapper; nothing to install.
 ./gradlew test -Pblubberblasen=/path/to/BlubberBlasen        # parse the live game instead of the snapshot
 ./gradlew test -Preplays                                     # also play the game's replays (minutes)
 tools/bench_game.sh                                          # the game's benchmark: checksums and cycles (minutes)
+tools/profile_game.sh bench                                  # cycles per function in the game's play ticks (minutes)
 ./gradlew installDist                                        # build/install/dampf/bin/dampf
 ```
 
