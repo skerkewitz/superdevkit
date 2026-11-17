@@ -201,3 +201,5 @@ Supporting pieces:
 ## Relation to Blubber Blasen
 
 Blubber Blasen is dampf's first user and its main test case. Its deterministic replays are the oracle for correctness, and its busiest scene is the benchmark for speed. Both projects run in parallel: the game keeps going on the PC, and dampf catches up until it can build the SNES version.
+
+dampf works on a snapshot of the game's code in `examples/blubberblasen` (refreshed with `tools/update_game_snapshot.sh`), so the compiler is never broken by a change in the game that it cannot handle yet. What dampf finds worth changing in the game is collected in `docs/game-findings.md` and passed on to the game. When dampf is finished, a guide (`docs/game-guide.md`) explains how to write game code that dampf compiles well.
