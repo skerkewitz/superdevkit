@@ -872,36 +872,60 @@ public final class AstBuilder {
         return (CParser.PrimaryExpressionContext) x;
     }
 
-    private static String unescape(String literal) {
-        if (!literal.startsWith("\"")) {
-            throw new IllegalArgumentException("wide string literals are not supported: " + literal);
-        }
-        String body = literal.substring(1, literal.length() - 1);
+    /**
+     * The characters of a string literal token. The grammar's lexer joins adjacent literals
+     * ({@code "VERSION " "1.4.0"}, also across macros) into one token, so the token is a
+     * sequence of quoted pieces with white space between them; each piece is unescaped and the
+     * pieces are joined, as C's translation phase 6 does.
+     */
+    static String unescape(String literal) {
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < body.length(); i++) {
-            char c = body.charAt(i);
-            if (c != '\\') {
-                sb.append(c);
+        int i = 0;
+        int n = literal.length();
+        while (i < n) {
+            char c = literal.charAt(i);
+            if (Character.isWhitespace(c)) {
+                i++;
                 continue;
             }
-            char n = body.charAt(++i);
-            switch (n) {
-                case 'n' -> sb.append('\n');
-                case 't' -> sb.append('\t');
-                case 'r' -> sb.append('\r');
-                case '0' -> sb.append('\0');
-                case '\\' -> sb.append('\\');
-                case '\'' -> sb.append('\'');
-                case '"' -> sb.append('"');
-                case 'x' -> {
-                    int j = i + 1;
-                    while (j < body.length() && Character.digit(body.charAt(j), 16) >= 0) {
-                        j++;
-                    }
-                    sb.append((char) Integer.parseInt(body.substring(i + 1, j), 16));
-                    i = j - 1;
+            if (c != '"') {
+                throw new IllegalArgumentException("wide and unicode string literals are not supported: " + literal);
+            }
+            i++; // opening quote
+            while (true) {
+                if (i >= n) {
+                    throw new IllegalArgumentException("unterminated string literal: " + literal);
                 }
-                default -> throw new IllegalArgumentException("escape \\" + n + " is not supported");
+                char ch = literal.charAt(i);
+                if (ch == '"') {
+                    i++; // closing quote
+                    break;
+                }
+                if (ch != '\\') {
+                    sb.append(ch);
+                    i++;
+                    continue;
+                }
+                char e = literal.charAt(i + 1);
+                i += 2;
+                switch (e) {
+                    case 'n' -> sb.append('\n');
+                    case 't' -> sb.append('\t');
+                    case 'r' -> sb.append('\r');
+                    case '0' -> sb.append('\0');
+                    case '\\' -> sb.append('\\');
+                    case '\'' -> sb.append('\'');
+                    case '"' -> sb.append('"');
+                    case 'x' -> {
+                        int j = i;
+                        while (j < n && Character.digit(literal.charAt(j), 16) >= 0) {
+                            j++;
+                        }
+                        sb.append((char) Integer.parseInt(literal.substring(i, j), 16));
+                        i = j;
+                    }
+                    default -> throw new IllegalArgumentException("escape \\" + e + " is not supported");
+                }
             }
         }
         return sb.toString();

@@ -94,6 +94,14 @@ class AstBuilderTest {
     }
 
     @Test
+    void adjacentStringLiteralsAreJoined() {
+        // the lexer makes one token of adjacent literals; the pieces must be joined, not kept with quotes
+        assertEquals("VERSION 1.4.0", AstBuilder.unescape("\"VERSION \" \"1.4.0\""));
+        assertEquals("A\"B\n", AstBuilder.unescape("\"A\\\"\"\n   \"B\\n\""));
+        assertEquals("\u0041", AstBuilder.unescape("\"\\x41\""));
+    }
+
+    @Test
     void unsupportedConstructsSaySo() {
         assertTrue(fails("#include <stdint.h>\nunion u { uint8_t a; };\n").getMessage().contains("unions are not supported"));
         assertTrue(fails("#include <stdint.h>\nvoid f(uint8_t x) { again: goto again; }\n").getMessage().contains("not supported yet: labels and goto"));
