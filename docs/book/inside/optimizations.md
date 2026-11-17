@@ -8,7 +8,7 @@ it may use at most 60 % of an NTSC [frame](/glossary#frame), about 0.6 frames pe
 vertical blank and a safety margin come off that. The game's benchmark runs the same game code
 with a fixed input for 1,800 ticks and measures every tick in Mesen.
 
-During play, the code dampf now generates takes 1.34 frames per tick (worst tick 2.33). dampf's
+During play, the code dampf now generates takes 1.31 frames per tick (worst tick 2.25). dampf's
 own [naive code generator](/glossary#naive-code-generator) takes 5.17 frames per tick for the
 same code, and [Calypsi](/glossary#calypsi) took 2.72, measured on an older version of the game.
 dampf is past Calypsi and about 3.9 times as fast as its naive code, but still about 2.2 times
@@ -63,15 +63,15 @@ catalogue. The letters map to this page as follows:
 | C | Inlining and calling convention | `Inline`; parameters in registers not built |
 | D | Data layout (one array per field) | not built |
 | E | 8.8 fixed point as byte accesses | `ByteLoads`; `<<8` not built |
-| F | Loops | `Induction`, loop counters in X; the rest not built |
+| F | Loops | `Induction`, `Licm`, loop counters in X; the rest not built |
 | G | Branches | compare and branch, `BitSelect`, block layout (also by a profile), short branches, `BRA` |
-| H | Standard optimizations | `Simplify`, `Gvn`, `DeadCode`; loop-invariant code not built |
+| H | Standard optimizations | `Simplify`, `Gvn`, `DeadCode`; loop-invariant code under F |
 | I | Multiply and divide | `StrengthReduce`, multiplication in A; hardware multiplier not built |
 | J | Banks and placement | not built |
 | K | Peephole | in the code generator: `STZ`, `INC`/`DEC`, and a few more |
 | L | `switch` as jump table | not built |
 | M | Copy and fill with `MVN`/`MVP` or DMA | not built |
-| N | Values in X/Y | loop counters in X, a second index in Y |
+| N | Values in X/Y | loop counters in X, a second index in Y, loop-invariant indexes in Y |
 
 The optimizations not started yet are on the [Roadmap](/inside/roadmap).
 
@@ -246,6 +246,46 @@ This is the shape of `level_solid_px`, a hot function of the game: the value ran
 from 3,276 to 2,433 master clocks per call, and play from 4.48 to 4.38 frames per tick. The
 cheaper operations for values that are never negative took `level_solid_px` from 1,463 to
 1,230 clocks and play from 1.76 to 1.74.
+
+### Licm
+
+An instruction whose operands are all defined outside a loop gives the same value in every
+round, so `Licm` moves it to the block before the loop, which must jump straight to the loop's
+head and be its only way in from outside. Only cheap instructions without side effects move:
+arithmetic other than multiplication and division (which call the runtime), shifts by a
+constant, casts and pointer additions. Comparisons stay with their branches. And they move only
+from blocks that every round passes, so no work moves out of a branch that rarely runs.
+
+```c
+#include <stdint.h>
+
+uint8_t column[16];
+
+void fill_column(uint8_t tile) {
+    for (uint8_t i = 0; i < 16; i++) {
+        column[i] = tile + 8;
+    }
+}
+```
+
+After the passes, `tile + 8` is computed once, before the loop:
+
+```
+b0_entry:
+    %0 = add i8 %tile, 8                        ; column.c:7
+    jump b1_for                                 ; column.c:6
+b1_for:                    ; from b0_entry, b2_body
+    %1 = phi i8 [b0_entry, 0], [b2_body, %5]    ; column.c:6
+    %2 = cmp ult i8 %1, 16                      ; column.c:6
+    br %2, b2_body, b4_endfor                   ; column.c:6
+b2_body:                    ; from b1_for
+    %3 = zext i8 %1 to i16                      ; column.c:7
+    %4 = ptradd @_column, i16 %3                ; column.c:7
+    store i8 %4, %0                             ; column.c:7
+```
+
+Play hardly changed (478,185 to 478,018 master clocks per tick); the title screen went from 0.56
+to 0.54 frames per tick.
 
 ### Induction
 
@@ -515,8 +555,18 @@ each of these is:
   branches and jumps to it, and the code that falls through. The passes that find the short
   branches (below) learn this, each pass assuming what the pass before found. The code that is
   kept must be consistent, every assumption holding on every way in, and every short branch
-  must still reach; otherwise the function is written again without assumptions, as 8 of the
-  game's functions are. Play 1.36 to 1.34.
+  must still reach; if the passes do not end so, the function is written again without
+  assumptions. Play 1.36 to 1.34. A label inside a block, where a branch skips a `JMP` for
+  example, is reached only by branches written earlier in the same pass, so what holds there is
+  known exactly: what those branches and the code falling through bring. The code generator's
+  own small loops (shifts by a variable count, copies) are the exception: a branch comes back
+  to their label, so nothing is assumed there. A branch back to any other label already placed
+  must bring what was assumed there, or the pass counts as inconsistent; this is a safety net,
+  as the code generator writes no such branch. After a contradiction the next pass keeps only
+  what the assumption and what arrived agree on, instead of giving up at once; the assumptions
+  only shrink then, so the passes come to an end. Together these took play from 1.33 to 1.31.
+  Knowing the pointer in `dampf_ptr` across blocks as well changed nothing measurable, because
+  pointer compression left almost no pointer accesses in the hot code; it was not kept.
 - **φs written directly.** The predecessors of a block write its φs into their places, without a
   copy through a second place, where liveness shows that this is safe; also before a branch.
   On a loop's exit edge that would write them in every round for an edge taken once, so just
@@ -534,7 +584,9 @@ each of these is:
   index would carry into the bank, because X adds as an unsigned number. Where X holds another
   index, as for the two bubbles of a pair, the access uses Y instead, for the instructions
   that have an absolute,Y form (`LDA`, `STA` and the arithmetic, not `INC`, `STZ` or the
-  direct page). Play 1.37 to 1.36.
+  direct page). Play 1.37 to 1.36. An index that does not change in a loop that also indexes
+  with something else prefers Y wherever it is used: it stays in Y across the loop's rounds,
+  and X is left to the index that changes. Play 1.34 to 1.33.
 - **Loop counters in X.** A φ of a loop head can live in X for the whole loop when it is only
   compared with constants, indexes the loop's array accesses and is stepped by a constant
   (`INX`, `DEX`, or `TXA`/`ADC`/`TAX`). Loops with calls, the runtime's multiplication or
@@ -683,6 +735,8 @@ budget is hardest to meet; the worst tick is in parentheses where the source giv
 | arguments in place, a block for each loop exit | 1.37 | |
 | a second index in Y | 1.36 | |
 | what A, X and Y hold where a block starts | 1.34 (2.33) | 2.02 (4.15) |
+| loop-invariant code, loop-invariant indexes in Y | 1.33 | |
+| labels inside blocks, assumptions kept after a contradiction | 1.31 (2.25) | 1.98 (4.08) |
 
 The steps are cumulative: each row includes everything above it. Loop rotation is not in the
 table; it brought about 0.5 %, measured on the benchmark's bare loop (801 to 783 clocks per

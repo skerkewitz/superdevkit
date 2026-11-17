@@ -40,7 +40,7 @@ division, the standard optimizations, compare and branch in one,
 loops and call sites, values in the [direct page](/glossary#direct-page) instead of RAM,
 register allocation in the form the 65816 allows, induction variables, and
 [pointer compression](/glossary#pointer-compression) for pointers into a single object. With
-them, play of Blubber Blasen takes 1.34 frames per tick, against 5.17 with the naive code.
+them, play of Blubber Blasen takes 1.31 frames per tick, against 5.17 with the naive code.
 The static timing analysis is built as well: a best and a worst case in CPU cycles for every
 function, written to `<rom>.timing.txt` and checked against the emulator on every call. Of the
 game's functions, 38 still have no bound, and the report names the loop or call that makes each
