@@ -178,6 +178,11 @@ public abstract sealed class Instr implements Value
     /** Chooses a value by the block control came from; {@code from.get(i)} goes with operand i. */
     public static final class Phi extends Instr {
         public final List<Block> from = new ArrayList<>();
+        /**
+         * A range the φ's values are known to lie in, from how a pass built it (an induction
+         * variable that replaces {@code i * C} has the range of {@code i * C}); null if none.
+         */
+        public Ranges.Range known;
 
         public Phi(MType type, SourcePos pos) {
             super(type, pos);

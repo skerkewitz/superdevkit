@@ -54,6 +54,10 @@ public final class Optimizer {
                 if (verifyEach) {
                     Verifier.verify(m, f);
                 }
+                changed |= Induction.run(f);
+                if (verifyEach) {
+                    Verifier.verify(m, f);
+                }
                 changed |= StrengthReduce.run(f);
                 if (verifyEach) {
                     Verifier.verify(m, f);

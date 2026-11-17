@@ -112,7 +112,7 @@ the profile after each step can change the order of the later ones:
    A holds are left out, φs are written directly, and the frames lie in low RAM with the leaves in
    the direct page, values share places where their lifetimes allow, so all of the game's
    values are in the direct page; with inlining, indexed addressing and smaller changes play is
-   at 1.61 frames per tick.
+   at 1.57 frames per tick.
 
    Where the time goes now (play, game code only): loads and stores of values in the direct page
    are 37 % of the cycles, `JMP` 5.5 %, comparisons 5.7 %, masks 4.5 %. Next, in this order:
@@ -121,9 +121,7 @@ the profile after each step can change the order of the later ones:
       instructions use it, not only for the next one. This is the LIR level of
       [architecture.md](architecture.md); the code generator's "what does A hold" tracking and
       `FrameLayout`'s liveness are the start.
-   2. **Induction variables:** `&array[i]` in a loop as a pointer or offset that grows by the
-      element size, instead of a multiplication per iteration (needs the value ranges to follow
-      the new variable, or indexed addressing falls back to pointers).
+   2. **Induction variables:** done 2026-11-17 (`Induction`): play 1.61 → 1.57.
    3. **Pointer compression** (step 3 above), now that indexed addressing covers most arrays: what
       is left are pointers passed to functions that are not inlined.
 

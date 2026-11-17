@@ -374,6 +374,19 @@ Loop rotation in the layout: a small loop head (φs, comparison, branch) is plac
 that jumps back to it, so a round of the loop costs one branch instead of a jump and a branch.
 About 0.5 % (the benchmark's bare loop: 801 → 783 clocks per pass).
 
+### Induction variables, 2026-11-17
+
+`dampf.mir.Induction`: in a loop whose counter grows by a constant per round, a product of the
+counter and a constant (the offset of `array[i]` in an array of structs, `i * 23` for the
+bubbles) becomes a variable of its own that grows by the constant times the step: an addition per
+round instead of a multiplication. Exact modulo 2^16; an 8-bit counter must not wrap around on
+the way back into the loop, which the value ranges show. The new φ carries the range of the
+product in the loop head (the counter's value after the last round included), because indexed
+addressing needs to know it is never negative; the first version took the range inside the loop
+body, and the tests' range check caught it at once.
+
+Play 1.61 → 1.57 frames per tick (worst 2.74), with the CPU partner 2.29 → 2.26 (worst 4.50).
+
 ### Summary of the code from MIR so far (2026-11-17)
 
 | State | naive | from MIR, no passes | now |

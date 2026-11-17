@@ -1,0 +1,183 @@
+package dampf.mir;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Induction variables: in a loop whose counter i grows by a constant c per round, a product
+ * {@code i * C} (or {@code zext(i) * C}, typically the offset of {@code array[i]} for an array of
+ * structs) becomes a variable of its own that starts at {@code init * C} and grows by
+ * {@code c * C}: an addition per round instead of a multiplication.
+ *
+ * <p>Exact: for a 16-bit counter everything is modulo 2^16, and {@code (i + c) * C = i * C + c * C}
+ * there. For an 8-bit counter that is zero-extended first, the counter must not wrap around on the
+ * way back into the loop; the value ranges have to show that.
+ *
+ * <p>The new φ carries the range of the product in the loop head (where the counter also has the
+ * value after the last round) ({@link Instr.Phi#known}): the value
+ * ranges cannot see on their own that it stays within, and indexed addressing needs to know it
+ * is never negative.
+ */
+public final class Induction {
+    private Induction() {}
+
+    /** Returns whether anything changed. */
+    public static boolean run(MFunction f) {
+        Ranges ranges = new Ranges(f);
+        Map<Block, Block> idom = Cfg.idoms(f);
+        Map<Instr, List<Instr>> users = new HashMap<>();
+        for (Block b : f.blocks()) {
+            for (Instr i : b.instrs()) {
+                for (Value v : i.operands()) {
+                    if (v instanceof Instr d) {
+                        users.computeIfAbsent(d, k -> new ArrayList<>()).add(i);
+                    }
+                }
+            }
+        }
+        Map<Instr, Value> replaced = new HashMap<>();
+        for (Block h : List.copyOf(f.blocks())) {
+            for (Instr x : List.copyOf(h.instrs())) {
+                if (!(x instanceof Instr.Phi i)) {
+                    break;
+                }
+                if (i.type() != MType.I8 && i.type() != MType.I16) {
+                    continue;
+                }
+                Instr.Bin step = step(i, h, idom);
+                if (step == null) {
+                    continue;
+                }
+                long c = i.type().signed(((Value.Const) (step.op(0) == i ? step.op(1) : step.op(0))).bits());
+                Map<Long, Instr.Phi> made = new HashMap<>();
+                for (Instr e : products(i, users)) {
+                    long factor = ((Value.Const) (e.op(0) instanceof Value.Const ? e.op(0) : e.op(1))).bits();
+                    boolean widened = i.type() == MType.I8;
+                    if (widened && !staysInByte(i, step, c, ranges)) {
+                        continue;
+                    }
+                    // the range in the loop head: it holds the value after the last round too
+                    Ranges.Range ri = ranges.at(i, h);
+                    if (widened) {
+                        ri = Ranges.unsigned(ri, MType.I8);
+                    }
+                    if (ri == null) {
+                        continue;
+                    }
+                    long fs = MType.I16.signed(factor);
+                    Ranges.Range r = Ranges.bin(Instr.BinOp.MUL, MType.I16, ri, new Ranges.Range(fs, fs));
+                    Instr.Phi o = made.get(factor);
+                    if (o == null) {
+                        o = variable(i, h, step, c, factor, widened, e);
+                        o.known = r;
+                        made.put(factor, o);
+                    } else {
+                        o.known = o.known.join(r);
+                    }
+                    replaced.put(e, o);
+                }
+            }
+        }
+        DeadCode.replaceUses(f, replaced);
+        return !replaced.isEmpty();
+    }
+
+    /**
+     * The instruction every back edge into h gives the φ i: {@code add i, c} with a constant c
+     * (the same instruction on every back edge); null if i is no such counter.
+     */
+    private static Instr.Bin step(Instr.Phi i, Block h, Map<Block, Block> idom) {
+        Instr.Bin step = null;
+        boolean entry = false;
+        for (int k = 0; k < i.from.size(); k++) {
+            if (dominates(h, i.from.get(k), idom)) {
+                if (!(i.op(k) instanceof Instr.Bin b) || b.op != Instr.BinOp.ADD
+                        || !(b.op(0) == i && b.op(1) instanceof Value.Const || b.op(1) == i && b.op(0) instanceof Value.Const)
+                        || step != null && step != b) {
+                    return null;
+                }
+                step = b;
+            } else {
+                entry = true;
+            }
+        }
+        return entry ? step : null;
+    }
+
+    private static boolean dominates(Block a, Block b, Map<Block, Block> idom) {
+        for (Block x = b; x != null; x = idom.get(x) == x ? null : idom.get(x)) {
+            if (x == a) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** The multiplications of i (or of its zero extension to i16) by a constant, as i16. */
+    private static List<Instr> products(Instr.Phi i, Map<Instr, List<Instr>> users) {
+        List<Instr> out = new ArrayList<>();
+        List<Value> forms = new ArrayList<>(List.of(i));
+        for (Instr u : users.getOrDefault(i, List.of())) {
+            if (i.type() == MType.I8 && u instanceof Instr.Cast c && c.kind == Instr.CastKind.ZEXT && c.type() == MType.I16) {
+                forms.add(c);
+            }
+        }
+        for (Value form : forms) {
+            if (form.type() != MType.I16) {
+                continue;
+            }
+            for (Instr u : users.getOrDefault((Instr) form, List.of())) {
+                if (u instanceof Instr.Bin b && b.op == Instr.BinOp.MUL && b.type() == MType.I16
+                        && (b.op(0) == form && b.op(1) instanceof Value.Const || b.op(1) == form && b.op(0) instanceof Value.Const)) {
+                    out.add(b);
+                }
+            }
+        }
+        return out;
+    }
+
+    /** An 8-bit counter does not wrap when it steps (so its zero extension steps by c as well). */
+    private static boolean staysInByte(Instr.Phi i, Instr.Bin step, long c, Ranges ranges) {
+        Ranges.Range r = Ranges.unsigned(ranges.at(i, step.block()), MType.I8);
+        return r != null && r.lo() + c >= 0 && r.hi() + c <= 0xFF;
+    }
+
+    /** The new φ in h: init * factor on the way in, plus c * factor after each round. */
+    private static Instr.Phi variable(Instr.Phi i, Block h, Instr.Bin step, long c, long factor, boolean widened, Instr e) {
+        Instr.Phi o = h.add(new Instr.Phi(MType.I16, e.pos()));
+        Block sb = step.block();
+        Instr after = sb.instrs().get(sb.instrs().indexOf(step) + 1);
+        Instr next = new Instr.Bin(Instr.BinOp.ADD, o, new Value.Const(MType.I16, c * factor), e.pos());
+        sb.insertBefore(after, next);
+        for (int k = 0; k < i.from.size(); k++) {
+            Block pred = i.from.get(k);
+            Value v = i.op(k);
+            if (v == step) {
+                o.add(pred, next);
+                continue;
+            }
+            Value start;
+            if (v instanceof Value.Const k0) {
+                long n = widened ? k0.bits() : k0.type().signed(k0.bits());
+                start = new Value.Const(MType.I16, n * factor);
+            } else if (v instanceof Value.Undef) {
+                start = new Value.Undef(MType.I16);
+            } else {
+                Instr term = pred.terminator();
+                Value x = v;
+                if (widened) {
+                    Instr z = new Instr.Cast(Instr.CastKind.ZEXT, v, MType.I16, e.pos());
+                    pred.insertBefore(term, z);
+                    x = z;
+                }
+                Instr m = new Instr.Bin(Instr.BinOp.MUL, x, new Value.Const(MType.I16, factor), e.pos());
+                pred.insertBefore(term, m);
+                start = m;
+            }
+            o.add(pred, start);
+        }
+        return o;
+    }
+}

@@ -270,6 +270,10 @@ public final class Ranges {
                     r = o.join(r);
                 }
             }
+            if (p.known != null) {
+                Range both = r == null ? null : r.meet(p.known);
+                r = both != null ? both : p.known;
+            }
             return r;
         }
         return switch (i) {
