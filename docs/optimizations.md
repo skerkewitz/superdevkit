@@ -297,6 +297,25 @@ direct page.
 | play | 5.17 (worst 8.58) | 2.35 | 2.29 | 2.07 (worst 3.51) |
 | play, CPU partner | 6.55 (worst 12.23) | 3.12 | 3.05 | 2.79 (worst 5.33) |
 
+### Byte loads and more results in A, 2026-11-17
+
+- Between a byte load and a byte store the accumulator stays 8 bit (`REP`, `AND`, `SEP` that
+  would follow each other are left out).
+- A byte load that is not volatile reads 16 bits and masks the high byte: `lda; and #$00FF`
+  instead of `sep; lda; rep; and #$00FF`. The extra byte read is in the same bank, because the
+  last byte of every bank stays free; I/O registers (volatile) are read one byte exactly.
+- More results stay in A: for the second operand of a commutative operation (the operands swap),
+  through casts that need no code, and for the first φ copy at the end of a block.
+
+Where the game's time goes now (the measured play ticks, without the benchmark's own code):
+loads and stores of values in the direct page are 38 % of the cycles, `JMP` 5 %, comparisons and
+masks 5 % each.
+
+| State | naive | before | 8 bit between byte copies | 16-bit byte loads | more in A |
+| --- | --- | --- | --- | --- | --- |
+| play | 5.17 (worst 8.58) | 2.07 | 2.05 | 1.98 | 1.95 (worst 3.31) |
+| play, CPU partner | 6.55 (worst 12.23) | 2.79 | 2.77 | 2.69 | 2.66 (worst 5.12) |
+
 ### Where the naive code spends its time (2026-11-17)
 
 `tools/profile_game.sh bench` profiles the benchmark's play ticks 900–1700 (as the game's own

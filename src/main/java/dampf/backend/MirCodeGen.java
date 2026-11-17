@@ -404,11 +404,13 @@ public final class MirCodeGen {
      */
     private void findForwards(MFunction f) {
         Map<Instr, Integer> uses = new HashMap<>();
+        Map<Instr, Instr> user = new HashMap<>();
         for (Block b : f.blocks()) {
             for (Instr i : b.instrs()) {
                 for (Value v : i.operands()) {
                     if (v instanceof Instr d) {
                         uses.merge(d, 1, Integer::sum);
+                        user.put(d, i);
                     }
                 }
             }
@@ -423,7 +425,16 @@ public final class MirCodeGen {
             for (int k = 0; k + 1 < written.size(); k++) {
                 Instr i = written.get(k);
                 Instr u = written.get(k + 1);
-                if (producesInA(i) && uses.getOrDefault(i, 0) == 1 && readsFirst(u, i, b)) {
+                if (!producesInA(i) || uses.getOrDefault(i, 0) != 1) {
+                    continue;
+                }
+                // what u sees: i itself, or a cast without code of it (that only u reads)
+                Instr seen = i;
+                while (user.get(seen) != u && FrameLayout.transparent(user.get(seen))
+                        && uses.getOrDefault(user.get(seen), 0) == 1) {
+                    seen = user.get(seen);
+                }
+                if (words(seen.type()) == 1 && (user.get(seen) == u || u.isTerminator()) && readsFirst(u, seen, b)) {
                     forward.add(i);
                 }
             }
@@ -441,15 +452,19 @@ public final class MirCodeGen {
 
     /** u's code starts by loading v into A, and reads v nowhere else. */
     private boolean readsFirst(Instr u, Instr v, Block b) {
+        if (u.isTerminator() && firstPhiCopyReads(b, v)) {
+            return true;   // the first φ copy at the end of the block loads v
+        }
         long n = u.operands().stream().filter(o -> o == v).count();
         if (n != 1) {
             return u instanceof Instr.Branch br && br.op(0) instanceof Instr.Cmp c && fused.contains(c)
                     && n == 0 && fusedReadsFirst(c, v, b);
         }
         return switch (u) {
-            case Instr.Bin x -> words(x.type()) == 1 && x.op(0) == v && switch (x.op) {
-                case ADD, SUB, AND, OR, XOR -> true;
-                case SHL, LSHR, ASHR -> x.op(1) instanceof Value.Const k && k.bits() <= UNROLL_SHIFT
+            case Instr.Bin x -> words(x.type()) == 1 && switch (x.op) {
+                case ADD, AND, OR, XOR -> true;     // commutative: v is loaded first either way (bin swaps)
+                case SUB -> x.op(0) == v;
+                case SHL, LSHR, ASHR -> x.op(0) == v && x.op(1) instanceof Value.Const k && k.bits() <= UNROLL_SHIFT
                         && k.bits() < x.type().bits();
                 default -> false;
             };
@@ -459,6 +474,30 @@ public final class MirCodeGen {
             case Instr.Call c -> c.op(0) == v;
             default -> false;
         };
+    }
+
+    /**
+     * Whether the code at the end of b starts with a φ copy that loads v (and v is read nowhere
+     * else there): the first copy that is not left out because the operand shares the φ's place.
+     */
+    private boolean firstPhiCopyReads(Block b, Instr v) {
+        for (Block s : new LinkedHashSet<>(b.terminator().successors())) {
+            for (Instr i : s.instrs()) {
+                if (!(i instanceof Instr.Phi p)) {
+                    break;
+                }
+                Value op = p.op(p.from.indexOf(b));
+                int to = direct.contains(s) ? place.get(p) : incoming.get(p);
+                if (operand(op, 0).equals(at(to)) && (words(p.type()) == 1 || operand(op, 1).equals(at(to + 2)))) {
+                    if (op == v) {
+                        return false;   // v's place is the φ's: it must be stored
+                    }
+                    continue;           // no code
+                }
+                return op == v && words(p.type()) == 1;
+            }
+        }
+        return false;
     }
 
     /** A fused comparison at the end of b whose code starts with "lda v" (and no φ copies come first). */
@@ -723,6 +762,11 @@ public final class MirCodeGen {
         Value y = b.op(1);
         switch (b.op) {
             case ADD, SUB -> {
+                if (n == 1 && b.op == Instr.BinOp.ADD && operand(y, 0).equals(aHolds)) {
+                    Value s = x;   // A has the second operand already: add the first to it
+                    x = y;
+                    y = s;
+                }
                 ins(b.op == Instr.BinOp.ADD ? "clc" : "sec", null);
                 for (int w = 0; w < n; w++) {
                     ins("lda", operand(x, w));
@@ -734,6 +778,11 @@ public final class MirCodeGen {
                 }
             }
             case AND, OR, XOR -> {
+                if (n == 1 && operand(y, 0).equals(aHolds)) {
+                    Value s = x;   // A has the second operand already
+                    x = y;
+                    y = s;
+                }
                 String m = b.op == Instr.BinOp.AND ? "and" : b.op == Instr.BinOp.OR ? "ora" : "eor";
                 for (int w = 0; w < n; w++) {
                     ins("lda", operand(x, w));
@@ -1242,10 +1291,17 @@ public final class MirCodeGen {
             if (!direct) {
                 ins("ldy", imm(a.offset()));
             }
-            ins("sep", "#$20");
-            ins("lda", direct ? fixedAt(a, 0) : via);
-            ins("rep", "#$20");
-            ins("and", imm(t == MType.I1 ? 1 : 0xFF));   // B, the high byte of A, still has an old value
+            if (l.isVolatile) {
+                // exactly one byte: reading an I/O register can have an effect
+                ins("sep", "#$20");
+                ins("lda", direct ? fixedAt(a, 0) : via);
+                ins("rep", "#$20");
+            } else {
+                // a 16-bit read and a mask is cheaper than switching to 8 bits; the byte after the
+                // object is always in the same bank (the last byte of every bank stays free)
+                ins("lda", direct ? fixedAt(a, 0) : via);
+            }
+            ins("and", imm(t == MType.I1 ? 1 : 0xFF));   // (after an 8-bit read, B still has an old value)
             result(l, 0);
             return;
         }
