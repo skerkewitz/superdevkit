@@ -43,24 +43,10 @@ public final class Preprocessor {
 
     /** Preprocesses {@code source}; throws with gcc's messages if it fails. */
     public String run(Path source) throws IOException {
-        Process p = new ProcessBuilder(commandLine(source)).start();
-        CompletableFuture<byte[]> err = CompletableFuture.supplyAsync(() -> {
-            try {
-                return p.getErrorStream().readAllBytes();
-            } catch (IOException e) {
-                return e.toString().getBytes(StandardCharsets.UTF_8);
-            }
-        });
-        String out = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-        try {
-            int exit = p.waitFor();
-            if (exit != 0) {
-                throw new IOException("preprocessing " + source + " failed:\n" + new String(err.join(), StandardCharsets.UTF_8));
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IOException("interrupted while preprocessing " + source, e);
+        dampf.util.Processes.Result r = dampf.util.Processes.run(null, java.time.Duration.ofMinutes(2), commandLine(source));
+        if (r.exit() != 0) {
+            throw new IOException("preprocessing " + source + " failed:\n" + r.err());
         }
-        return out;
+        return r.out();
     }
 }

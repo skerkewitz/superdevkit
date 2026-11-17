@@ -1,6 +1,7 @@
 package dampf.mir;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dampf.Compiler;
@@ -25,10 +26,10 @@ class MirTextTest {
         try (Stream<Path> s = Files.list(dir)) {
             programs = s.filter(p -> p.toString().endsWith(".c")).sorted().toList();
         }
-        return programs.stream().map(src -> DynamicTest.dynamicTest(src.getFileName().toString(), () -> {
+        return programs.stream().map(src -> DynamicTest.dynamicTest(src.getFileName().toString(), () -> assertTimeoutPreemptively(java.time.Duration.ofMinutes(2), () -> {
             Program p = Compiler.frontEnd(new Compiler.Options(List.of(src), List.of(), List.of(), "test_main", Path.of("x.sfc")));
             roundTrip(Lower.lower(p));
-        }));
+        }, "took too long: hangs?")));
     }
 
     @Test

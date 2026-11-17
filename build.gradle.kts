@@ -1,3 +1,5 @@
+import java.time.Duration
+
 plugins {
     application
     antlr
@@ -39,6 +41,8 @@ tasks.withType<JavaCompile>().configureEach {
 tasks.test {
     useJUnitPlatform()
     maxHeapSize = "2g"
+    // a last resort: the program tests have their own limits (a hang fails the test, see ExecutionTest)
+    timeout.set(Duration.ofHours(2))
     // Tests that need the Blubber Blasen sources read their location from this property.
     providers.gradleProperty("blubberblasen").orNull?.let { systemProperty("dampf.blubberblasen", it) }
     // Execution tests run ROMs in Mesen 2: -Pmesen=/path/to/Mesen.exe, or the one in .mesen/

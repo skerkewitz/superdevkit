@@ -1,6 +1,7 @@
 package dampf.exec;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import dampf.Compiler;
 import java.nio.file.Files;
@@ -29,7 +30,7 @@ class RandomProgramTest {
         EmulatorRunner runner = new EmulatorRunner();
         int count = Integer.getInteger("dampf.random.count", 50);
         long first = Long.getLong("dampf.random.seed", 1);
-        return LongStream.range(first, first + count).mapToObj(seed -> DynamicTest.dynamicTest("seed " + seed, () -> {
+        return LongStream.range(first, first + count).mapToObj(seed -> DynamicTest.dynamicTest("seed " + seed, () -> assertTimeoutPreemptively(java.time.Duration.ofMinutes(2), () -> {
             Path work = Files.createDirectories(tmp.resolve("seed" + seed));
             Path src = work.resolve("random" + seed + ".c");
             String program = new RandomProgram(seed).generate(10, 30);
@@ -45,6 +46,6 @@ class RandomProgramTest {
             Compiler.Result m = Compiler.compile(new Compiler.Options(List.of(src), List.of(), List.of(), "test_main",
                     work.resolve("random_mir.sfc")).withBackend(Compiler.Backend.MIR));
             assertEquals(pc, runner.run(m.rom(), globals).values(), () -> "seed " + seed + " differs (PC vs SNES from MIR); the program:\n" + program);
-        }));
+        }, "took too long: hangs?")));
     }
 }

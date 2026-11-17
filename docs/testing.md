@@ -104,3 +104,15 @@ The three IR levels ([architecture.md](architecture.md)) are designed for testin
    not, the bug is in the lowering between them. This narrows bugs down much faster than a wrong
    result at the end of the chain. The HIR interpreter is also an independent definition of what
    the program means, next to gcc.
+
+## When something hangs
+
+A test must fail, not wait forever. Every program test (execution tests, random programs, replays,
+the MIR round trips) runs under a hard time limit (`assertTimeoutPreemptively`: 3, 2, 15 and 2
+minutes per program), because JUnit's default timeouts do not cover dynamic tests. External
+programs (gcc, the PC builds, ca65, ld65) run through `dampf.util.Processes` with a time limit
+and are killed when it runs out. The emulator stops after 600 frames in the program tests and
+200,000 frames in `dampf bench` and the replays; the MIR interpreter counts its steps. The Gradle
+test task has an overall limit of 2 hours as a last resort. A program that loops forever fails in
+about a minute with "did not finish within 60 s and was stopped (does it hang?)".
+

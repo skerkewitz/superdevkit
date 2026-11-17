@@ -1,6 +1,7 @@
 package dampf.exec;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import dampf.Compiler;
 import java.io.IOException;
@@ -36,7 +37,7 @@ class ExecutionTest {
         try (Stream<Path> s = Files.list(dir)) {
             programs = s.filter(p -> p.toString().endsWith(".c")).sorted().toList();
         }
-        return programs.stream().map(src -> DynamicTest.dynamicTest(src.getFileName().toString(), () -> {
+        return programs.stream().map(src -> DynamicTest.dynamicTest(src.getFileName().toString(), () -> assertTimeoutPreemptively(java.time.Duration.ofMinutes(3), () -> {
             String name = src.getFileName().toString().replace(".c", "");
             Path work = Files.createDirectories(tmp.resolve(name));
             Compiler.Result r = Compiler.compile(new Compiler.Options(List.of(src), List.of(), List.of(), "test_main",
@@ -53,6 +54,6 @@ class ExecutionTest {
             Compiler.Result m = Compiler.compile(new Compiler.Options(List.of(src), List.of(), List.of(), "test_main",
                     work.resolve(name + "_mir.sfc")).withBackend(Compiler.Backend.MIR));
             assertEquals(pc, emulator.run(m.rom(), globals).values(), "globals after test_main() (PC vs SNES, code generated from MIR)");
-        }));
+        }, "took too long: hangs?")));
     }
 }

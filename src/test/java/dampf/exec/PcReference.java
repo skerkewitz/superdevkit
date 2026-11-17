@@ -48,11 +48,6 @@ final class PcReference {
     }
 
     private static String exec(Path dir, String... cmd) throws IOException, InterruptedException {
-        Process p = new ProcessBuilder(cmd).directory(dir.toFile()).redirectErrorStream(true).start();
-        String out = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-        if (p.waitFor() != 0) {
-            throw new IOException(String.join(" ", cmd) + " failed:\n" + out);
-        }
-        return out;
+        return dampf.util.Processes.check(dir, java.time.Duration.ofMinutes(1), java.util.List.of(cmd));
     }
 }

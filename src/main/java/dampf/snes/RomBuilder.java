@@ -251,16 +251,6 @@ public final class RomBuilder {
     }
 
     private static void run(Path dir, String... command) throws IOException {
-        List<String> cmd = new ArrayList<>(List.of(command));
-        Process p = new ProcessBuilder(cmd).directory(dir.toFile()).redirectErrorStream(true).start();
-        String output = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-        try {
-            if (p.waitFor() != 0) {
-                throw new IOException(String.join(" ", cmd) + " failed:\n" + output);
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IOException("interrupted: " + String.join(" ", cmd), e);
-        }
+        dampf.util.Processes.check(dir, java.time.Duration.ofMinutes(5), List.of(command));
     }
 }
