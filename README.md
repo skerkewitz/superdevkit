@@ -14,6 +14,8 @@ tests run them in Mesen and compare every result with gcc on the PC. Everything 
 - [kickoff.md](kickoff.md): goals, design, milestones, risks.
 - [docs/subset.md](docs/subset.md): the C subset, derived from what the game uses.
 - [docs/optimizations.md](docs/optimizations.md): the baseline measurements and the optimization catalogue.
+- [docs/game-findings.md](docs/game-findings.md): things in Blubber Blasen's code worth changing, for whoever works on the game.
+- [examples/blubberblasen/SNAPSHOT.md](examples/blubberblasen/SNAPSHOT.md): the snapshot of the game dampf is developed against.
 
 ## Prerequisites
 
@@ -39,7 +41,7 @@ Gradle comes with the wrapper; nothing to install.
 ```bash
 ./gradlew build                                              # compile and run the unit tests
 ./gradlew test -Pmesen=/path/to/Mesen.exe                    # also run the execution tests in Mesen 2
-./gradlew test -Pblubberblasen=/path/to/BlubberBlasen        # also parse every file of the game
+./gradlew test -Pblubberblasen=/path/to/BlubberBlasen        # parse the live game instead of the snapshot
 ./gradlew installDist                                        # build/install/dampf/bin/dampf
 ```
 
@@ -48,8 +50,9 @@ The execution tests compile each program in `src/test/resources/exec/` twice: wi
 into a ROM that runs headless in Mesen 2 (`--testrunner`). All globals must have the same values
 afterwards. From WSL, the Windows `Mesen.exe` works; paths are converted with `wslpath`.
 
-The game test needs the game's generated sources (`build/generated/gfx_data.h`), so build the
-game once first.
+The game parse test uses the snapshot in `examples/blubberblasen`. To refresh the snapshot, build
+the game once (so its `build/generated` is current) and run
+`tools/update_game_snapshot.sh /path/to/BlubberBlasen`.
 
 ## Using it
 
@@ -84,6 +87,7 @@ src/main/resources/dampf/include/  dampf's own <stdint.h>
 src/main/resources/dampf/snes/     SNES runtime (start-up, header, vectors) and ld65 memory map
 src/test/resources/exec/       execution test programs
 examples/m1/                   example for stepping through C in Mesen
+examples/blubberblasen/        snapshot of the game's code (do not edit; refresh with tools/update_game_snapshot.sh)
 tools/subset_scan.py           M0 scanner: which C constructs a code base uses
 docs/                          subset and optimization documents
 ```
