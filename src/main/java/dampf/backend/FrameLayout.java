@@ -51,6 +51,11 @@ final class FrameLayout {
 
     private final MFunction f;
     private final List<Value> values = new ArrayList<>();
+    /**
+     * Pairs that may have exactly the same place but must not overlap otherwise (a direct φ and
+     * the operand it gets from a predecessor). If they also interfere, the graph says so.
+     */
+    private final Map<Integer, Set<Integer>> samePlaceOnly = new HashMap<>();
     private final Map<Value, Integer> index = new IdentityHashMap<>();
 
     FrameLayout(MFunction f) {
@@ -267,11 +272,16 @@ final class FrameLayout {
                     if (direct.contains(s)) {
                         List<Integer> phis = phis(s);
                         for (int p : phis) {
-                            // the φ gets its operand's value here, so the two may share a place
+                            // the φ gets its operand's value here, so this write lets the two share a
+                            // place, but only exactly the same one (any other overlap would mix
+                            // their words); they still conflict if they do anywhere else
                             BitSet others = (BitSet) live.clone();
                             Value own = ownOperand((Instr.Phi) values.get(p), b);
                             if (own != null) {
-                                others.clear(index.get(own));
+                                int o = index.get(own);
+                                others.clear(o);
+                                samePlaceOnly.computeIfAbsent(p, k -> new HashSet<>()).add(o);
+                                samePlaceOnly.computeIfAbsent(o, k -> new HashSet<>()).add(p);
                             }
                             interfere(g, p, others);
                             for (int q : phis) {
@@ -360,6 +370,12 @@ final class FrameLayout {
                 return false;
             }
         }
+        for (int x : samePlaceOnly.getOrDefault(v, Set.of())) {
+            int xl = bytes(values.get(x).type());
+            if (at[x] >= 0 && at[x] < o + len && o < at[x] + xl && !(at[x] == o && xl == len)) {
+                return false;
+            }
+        }
         return true;
     }
 
@@ -414,6 +430,13 @@ final class FrameLayout {
                 for (int x = g[v].nextSetBit(0); x >= 0; x = g[v].nextSetBit(x + 1)) {
                     int xl = bytes(values.get(x).type());
                     if (at[x] >= 0 && at[x] < o + len && o < at[x] + xl) {
+                        o = at[x] + xl;
+                        moved = true;
+                    }
+                }
+                for (int x : samePlaceOnly.getOrDefault(v, Set.of())) {
+                    int xl = bytes(values.get(x).type());
+                    if (at[x] >= 0 && at[x] < o + len && o < at[x] + xl && !(at[x] == o && xl == len)) {
                         o = at[x] + xl;
                         moved = true;
                     }

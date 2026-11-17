@@ -40,27 +40,27 @@ public final class Optimizer {
             for (int round = 0; changed && round < 20; round++) {
                 changed = Simplify.run(f);
                 if (verifyEach) {
-                    Verifier.verify(m);
+                    Verifier.verify(m, f);
                 }
                 changed |= Narrow.run(f);
                 if (verifyEach) {
-                    Verifier.verify(m);
+                    Verifier.verify(m, f);
                 }
                 changed |= RangeNarrow.run(f);
                 if (verifyEach) {
-                    Verifier.verify(m);
+                    Verifier.verify(m, f);
                 }
                 changed |= StrengthReduce.run(f);
                 if (verifyEach) {
-                    Verifier.verify(m);
+                    Verifier.verify(m, f);
                 }
                 changed |= Gvn.run(m, f, writes);
                 if (verifyEach) {
-                    Verifier.verify(m);
+                    Verifier.verify(m, f);
                 }
                 changed |= DeadCode.run(f);
                 if (verifyEach) {
-                    Verifier.verify(m);
+                    Verifier.verify(m, f);
                 }
             }
         }

@@ -40,7 +40,17 @@ public final class Verifier {
 
     /** Throws if the module breaks a rule. */
     public static void verify(MModule module) {
-        List<String> e = check(module);
+        throwIf(check(module));
+    }
+
+    /** Throws if one function of the module breaks a rule (after a pass changed only it). */
+    public static void verify(MModule module, MFunction f) {
+        Verifier v = new Verifier(module);
+        v.function(f);
+        throwIf(v.errors);
+    }
+
+    private static void throwIf(List<String> e) {
         if (!e.isEmpty()) {
             throw new IllegalStateException("MIR is broken:\n  " + String.join("\n  ", e.subList(0, Math.min(20, e.size()))));
         }

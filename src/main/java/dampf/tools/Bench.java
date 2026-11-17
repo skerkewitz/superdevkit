@@ -57,7 +57,8 @@ public final class Bench {
                 default -> { }
             }
         });
-        boolean done = snes.run(Long.MAX_VALUE, counts == null ? null : address -> {
+        // far more than the benchmark ever needs (about 15,000 frames), so a program that hangs fails
+        boolean done = snes.run(200_000L * 357_366, counts == null ? null : address -> {
             if (counting[0] && (address & 0xFFFF) >= 0x8000) {
                 counts[(address >> 16 & 0x7F) * 0x8000 + (address & 0x7FFF)]++;
             }
