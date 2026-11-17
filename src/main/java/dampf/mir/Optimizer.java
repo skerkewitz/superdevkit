@@ -27,6 +27,10 @@ public final class Optimizer {
                 if (verifyEach) {
                     Verifier.verify(m);
                 }
+                changed |= RangeNarrow.run(f);
+                if (verifyEach) {
+                    Verifier.verify(m);
+                }
                 changed |= StrengthReduce.run(f);
                 if (verifyEach) {
                     Verifier.verify(m);

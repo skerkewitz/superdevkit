@@ -99,10 +99,10 @@ the profile after each step can change the order of the later ones:
 
 1. **Compare and branch in one** in the code generator from MIR. Done 2026-11-17: play 5.17 →
    4.48 frames per tick, now 13 % faster than the naive generator.
-2. **Inferred value ranges in MIR** ([subrange-types.md](subrange-types.md), section 7): from
-   conditions on the path, loops, masks and array bounds. They complete B (for example
-   `(sy - 16) >> 3` in `level_solid_px`, which only fits 16 bits because of the branch before it)
-   and give loop bounds for the timing analysis. No change to the language.
+2. **Inferred value ranges in MIR** ([subrange-types.md](subrange-types.md), section 7). Done
+   2026-11-17 for constants, operations, conditions on the path and loops (`Ranges`,
+   `RangeNarrow`): play 4.48 → 4.38, with the CPU partner 5.37 → 5.15. Still open: ranges from
+   array bounds and from call sites, and loop bounds for the timing analysis.
 3. **Pointer compression** (section 8 there): a points-to analysis over the whole program, and a
    pointer that only ever points into one array becomes an index (`b->x` as `lda bub_x,x` instead
    of a 4-byte pointer through `[dampf_ptr],y`). The game passes `Bubble *` everywhere. Needs the

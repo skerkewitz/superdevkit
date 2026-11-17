@@ -51,6 +51,17 @@ public final class Interpreter {
         }
     }
 
+    /** Sees every value an instruction produces (tests check the range analysis with it). */
+    public interface Observer {
+        void value(Instr i, long bits);
+    }
+
+    private Observer observer;
+
+    public void observe(Observer o) {
+        this.observer = o;
+    }
+
     public void onPortWrite(PortListener listener) {
         this.ports = listener;
     }
@@ -162,6 +173,9 @@ public final class Interpreter {
                 }
                 for (int k = 0; k < nPhi; k++) {
                     frame.values[is.get(k).index] = phiValues[k];
+                    if (observer != null) {
+                        observer.value(is.get(k), phiValues[k]);
+                    }
                 }
                 Block next = null;
                 for (int k = nPhi; k < is.size(); k++) {
@@ -186,7 +200,13 @@ public final class Interpreter {
                         case Instr.Ret r -> {
                             return r.operands().isEmpty() ? 0 : eval(r.op(0), frame);
                         }
-                        default -> frame.values[i.index] = execute(i, frame);
+                        default -> {
+                            long v = execute(i, frame);
+                            frame.values[i.index] = v;
+                            if (observer != null && i.type() != MType.VOID) {
+                                observer.value(i, v);
+                            }
+                        }
                     }
                 }
                 prev = b;

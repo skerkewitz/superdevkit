@@ -178,6 +178,22 @@ blocks can be far apart; a comparison with 0 needs no `CMP`). Frames per tick:
 | play, CPU partner | 6.55 (worst 12.23) | 6.10 (worst 11.22) | 5.37 (worst 10.12) |
 | `level_solid_px`, per call | 3,849 | 3,806 | 3,276 clocks |
 
+### Value ranges (the rest of B), 2026-11-17
+
+`dampf.mir.Ranges` infers an interval for every value: from constants, from the operations, and
+from the conditions of branches (in a block reached only when `sy >= 16`, sy is 16..32767). Loops
+are iterated to a fixed point, with widening. `RangeNarrow` uses the intervals: it decides
+comparisons and does i32 operations and comparisons in 16 bits when operands and result fit. In
+`level_solid_px`, `(sy - 16) >> 3` is now 16-bit. The tests check the analysis itself: the
+interpreter reports every value it computes, and each must lie in its inferred interval (all
+execution tests, the random programs, the replay, and `dampf mir -O --check-ranges --bench`).
+
+| State | naive | before | with value ranges |
+| --- | --- | --- | --- |
+| play | 5.17 (worst 8.58) | 4.48 (worst 7.58) | 4.38 (worst 7.50) |
+| play, CPU partner | 6.55 (worst 12.23) | 5.37 (worst 10.12) | 5.15 (worst 9.13) |
+| `level_solid_px`, per call | 3,849 | 3,276 | 2,433 clocks (816-tcc: 2,449; Calypsi: 931) |
+
 ### Where the naive code spends its time (2026-11-17)
 
 `tools/profile_game.sh bench` profiles the benchmark's play ticks 900–1700 (as the game's own

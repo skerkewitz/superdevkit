@@ -17,6 +17,7 @@ import java.util.List;
  *
  * <pre>
  * dampf mir [-O] [-I dir] [-D def] file.c ...            print the MIR (-O: after the MIR passes)
+ * dampf mir -O --check-ranges --bench main file.c ...   also check every value against its inferred range
  * dampf mir [-I dir] [-D def] --bench main file.c ...    run the game's benchmark (bench.c) in the
  *                                                        interpreter: one line per tick, as bench.lua
  *                                                        writes them (clocks 0), for report.py
@@ -40,10 +41,13 @@ public final class Mir {
         List<Path> files = new ArrayList<>();
         String bench = null;
         boolean optimize = false;
+        boolean checkRanges = false;
         for (int i = 0; i < args.length; i++) {
             String a = args[i];
             if (a.equals("-O")) {
                 optimize = true;
+            } else if (a.equals("--check-ranges")) {
+                checkRanges = true;
             } else if (a.equals("-I")) {
                 includes.add(Path.of(args[++i]));
             } else if (a.startsWith("-I")) {
@@ -75,6 +79,9 @@ public final class Mir {
             return;
         }
         Interpreter in = new Interpreter(m, Long.MAX_VALUE);
+        if (checkRanges) {
+            in.observe(dampf.mir.Ranges.checker(m));
+        }
         StringBuilder out = new StringBuilder();
         StringBuilder hashes = new StringBuilder();
         int[] state = new int[1];

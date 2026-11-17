@@ -173,4 +173,69 @@ class NarrowTest {
                 }
                 """));
     }
+
+    @Test
+    void aConditionOnThePathLetsASumBeNarrow() {
+        // if (sy < 16) return 0; return (int16_t)((sy - 16) >> 3);
+        assertEquals("""
+                %0 = cmp slt i16 %sy, 16
+                br %0, b1, b2
+                ret i16 0
+                %1 = sub i16 %sy, 16
+                %2 = ashr i16 %1, 3
+                ret i16 %2
+                """, optimize("""
+                func @_f(i16 %sy) -> i16 {
+                b0_entry:
+                    %0 = sext i16 %sy to i32
+                    %1 = cmp slt i32 %0, 16
+                    br %1, b1, b2
+                b1:
+                    ret i16 0
+                b2:
+                    %2 = sext i16 %sy to i32
+                    %3 = sub i32 %2, 16
+                    %4 = ashr i32 %3, 3
+                    %5 = trunc i32 %4 to i16
+                    ret i16 %5
+                }
+                """));
+    }
+
+    @Test
+    void aComparisonTheRangesDecideIsAConstant() {
+        // for (i = 0; i < 16; i++) { if (i < 20) ... }: the inner test is always true
+        assertEquals("""
+                jump b1
+                %0 = phi i8 [b0_entry, 0], [b2, %2]
+                %1 = cmp ult i8 %0, 16
+                br %1, b2, b3
+                store i8 @_g, %0
+                %2 = add i8 %0, 1
+                jump b1
+                ret
+                """, optimize("""
+                global @_g : 1
+
+                func @_f() -> void {
+                b0_entry:
+                    jump b1
+                b1:
+                    %0 = phi i8 [b0_entry, 0], [b5, %3]
+                    %1 = cmp ult i8 %0, 16
+                    br %1, b2, b3
+                b2:
+                    %2 = cmp ult i8 %0, 20
+                    br %2, b4, b5
+                b4:
+                    store i8 @_g, %0
+                    jump b5
+                b5:
+                    %3 = add i8 %0, 1
+                    jump b1
+                b3:
+                    ret
+                }
+                """));
+    }
 }
