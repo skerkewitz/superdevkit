@@ -13,8 +13,7 @@ Status: milestone M1 (end to end) is done, including stepping through the C sour
 handles the C the game uses: all integer types and operators with gcc's exact semantics, control
 flow, enums, arrays, structs, pointers, strings, initializers and constant data in ROM. The
 execution tests run programs in Mesen and compare every result with gcc on the PC; random
-programs check the arithmetic. 15 of the game's 16 files pass the front end (`dampf check`); the
-last one needs a small fix in the game. ROMs can have up to 4 MB: code and data are packed into
+programs check the arithmetic. All 16 files of the game pass the front end (`dampf check`). ROMs can have up to 4 MB: code and data are packed into
 32 KB LoROM banks. Not done yet: building the whole game, the SNES platform layer, and the parts
 of the design that come with the optimizer (IR levels, cycle counting, hints). The next step is
 running the game's own benchmark on dampf; the plan is in [docs/roadmap.md](docs/roadmap.md).

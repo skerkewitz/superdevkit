@@ -29,7 +29,7 @@ is it from the budget?) is answered as early as possible.
 | 5 | First reference function | One hot function written by hand in assembly; its cycles against dampf's version give the first ratio ([optimizations.md](optimizations.md)) | Open |
 
 The game's change from finding 5 (`(unsigned)` casts in `video.c`, [game-findings.md](game-findings.md))
-is needed before step 2.
+is in the snapshot since 2026-11-17: all 16 files of the game pass dampf's front end.
 
 ### Checkpoint after M2
 
