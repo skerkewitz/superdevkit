@@ -145,7 +145,7 @@ class NarrowTest {
     void aConditionalExpressionTruncatedTo16BitsIsNarrow() {
         // (uint16_t)(d > 0 ? x - 64 : x + 64)
         assertEquals("""
-                %0 = cmp sgt i16 %d, 0
+                %0 = cmp sge i16 %d, 1
                 br %0, b1, b2
                 %1 = sub i16 %x, 64
                 jump b3

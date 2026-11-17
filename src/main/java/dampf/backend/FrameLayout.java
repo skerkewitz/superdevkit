@@ -66,11 +66,6 @@ final class FrameLayout {
         this.f = f;
         this.ranges = new Ranges(f);
         findFolds();
-        for (Block b : f.blocks()) {
-            if (directPhis(b)) {
-                direct.add(b);
-            }
-        }
         for (Value.Param p : f.params()) {
             offset.put(p, size);
             size += bytes(p.type());
@@ -81,18 +76,31 @@ final class FrameLayout {
         }
         for (Block b : f.blocks()) {
             for (Instr i : b.instrs()) {
-                if (i instanceof Instr.Phi p && !direct.contains(b)) {
-                    incoming.put(p, size);
-                    size += bytes(p.type());
-                }
                 if (needsPlace(i)) {
                     index.put(i, values.size());
                     values.add(i);
                 }
             }
         }
+        liveOut = liveOut();
+        for (Block b : f.blocks()) {
+            if (directPhis(b)) {
+                direct.add(b);
+            }
+        }
+        for (Block b : f.blocks()) {
+            for (Instr i : b.instrs()) {
+                if (i instanceof Instr.Phi p && !direct.contains(b)) {
+                    incoming.put(p, size);
+                    size += bytes(p.type());
+                }
+            }
+        }
         colour(interference());
     }
+
+    private Map<Block, BitSet> liveOut;
+    private final Map<Block, BitSet> liveIn = new HashMap<>();
 
     static int bytes(MType t) {
         return t.size <= 2 ? 2 : 4;
@@ -206,10 +214,31 @@ final class FrameLayout {
         };
     }
 
-    private static boolean directPhis(Block s) {
+    /**
+     * Whether the predecessors of s can write its φs directly: the write happens before the
+     * predecessor's branch, so on the way to another target the φ must not be live there (its
+     * place may then hold anything; the interference graph keeps it from what is live there).
+     */
+    private boolean directPhis(Block s) {
         for (Block p : s.preds()) {
-            if (!(p.terminator() instanceof Instr.Jump)) {
-                return false;
+            Instr t = p.terminator();
+            if (t instanceof Instr.Jump) {
+                continue;
+            }
+            for (Block other : t.successors()) {
+                if (other == s) {
+                    continue;
+                }
+                BitSet in = liveIn.get(other);
+                for (Instr i : s.instrs()) {
+                    if (!(i instanceof Instr.Phi phi)) {
+                        break;
+                    }
+                    Integer x = index.get(phi);
+                    if (x != null && in.get(x)) {
+                        return false;
+                    }
+                }
             }
         }
         for (Instr i : s.instrs()) {
@@ -288,6 +317,7 @@ final class FrameLayout {
                 }
             }
         }
+        liveIn.putAll(in);
         return out;
     }
 
@@ -325,11 +355,16 @@ final class FrameLayout {
         for (int k = 0; k < g.length; k++) {
             g[k] = new BitSet();
         }
-        Map<Block, BitSet> out = liveOut();
+        Map<Block, BitSet> out = liveOut;
         for (Block b : f.blocks()) {
             BitSet live = (BitSet) out.get(b).clone();
-            // direct φs of the successors are written here, while everything live at the end still is
+            // direct φs of the successors are written here, while everything live at the end still
+            // is, and before the terminator reads its condition
             Instr t = b.terminator();
+            BitSet atEnd = (BitSet) live.clone();
+            if (t != null) {
+                reads(t, atEnd);
+            }
             if (t != null) {
                 for (Block s : new LinkedHashSet<>(t.successors())) {
                     if (direct.contains(s)) {
@@ -338,7 +373,7 @@ final class FrameLayout {
                             // the φ gets its operand's value here, so this write lets the two share a
                             // place, but only exactly the same one (any other overlap would mix
                             // their words); they still conflict if they do anywhere else
-                            BitSet others = (BitSet) live.clone();
+                            BitSet others = (BitSet) atEnd.clone();
                             Value own = ownOperand((Instr.Phi) values.get(p), b);
                             if (own != null) {
                                 int o = index.get(own);

@@ -321,6 +321,25 @@ pass gives the distances) and two small peepholes (a mask right after a wider on
 of a pointer that stays in place): play 1.93 frames per tick (worst 3.29), with the CPU partner
 2.64 (worst 5.09).
 
+### φs written before a branch, comparisons in canonical form, 2026-11-17
+
+- A φ after an `if` without `else` (or any join reached by a branch) used to go through its
+  "incoming" place, because one predecessor ends with a branch rather than a jump. Writing the φ
+  directly before that branch is correct when the φ is not live into the branch's other target
+  (`FrameLayout` now computes liveness first and decides then); the write also must not clobber
+  what the branch itself reads, so it interferes with that too.
+- `Simplify` writes a comparison with a constant as `x < c` or `x >= c`, constant on the right:
+  `c < x` becomes `x > c`, `x > c` becomes `x >= c + 1`, `x <= c` becomes `x < c + 1`. The code
+  generator compares with an immediate operand directly instead of preparing the constant.
+
+| State | naive | before | both |
+| --- | --- | --- | --- |
+| title | 1.94 | 0.77 | 0.70 |
+| play | 5.17 (worst 8.58) | 1.93 (worst 3.29) | 1.76 (worst 3.00) |
+| play, CPU partner | 6.55 (worst 12.23) | 2.64 (worst 5.09) | 2.45 (worst 4.71) |
+| `level_solid_px`, per call | 3,849 | 1,525 | 1,463 clocks |
+| benchmark loop alone, per pass | 1,068 | 1,252 | 801 clocks |
+
 ### Where the naive code spends its time (2026-11-17)
 
 `tools/profile_game.sh bench` profiles the benchmark's play ticks 900–1700 (as the game's own

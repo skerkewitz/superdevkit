@@ -274,7 +274,59 @@ public final class Simplify {
                 return truth(true);
             }
         }
-        return null;
+        return canonical(c);
+    }
+
+    /**
+     * A comparison with a constant, written as {@code x < c} or {@code x >= c} with the constant
+     * on the right (the code generator compares a value with a constant immediate most cheaply):
+     * {@code c < x} is {@code x > c}, {@code x > c} is {@code x >= c + 1}, {@code x <= c} is
+     * {@code x < c + 1}, as long as c + 1 does not overflow.
+     */
+    private static Value canonical(Instr.Cmp c) {
+        Value x = c.op(0);
+        Value y = c.op(1);
+        Instr.Pred p = c.pred;
+        if (x instanceof Value.Const && !(y instanceof Value.Const)) {
+            Value s = x;
+            x = y;
+            y = s;
+            p = Ranges.swap(p);
+        }
+        if (!(y instanceof Value.Const k) || x.type() == MType.PTR) {
+            return x == c.op(0) ? null : insert(c, new Instr.Cmp(p, x, y, c.pos()));
+        }
+        MType t = x.type();
+        long s = t.signed(k.bits());
+        long u = k.bits();
+        long smax = (1L << (t.bits() - 1)) - 1;
+        long umax = (1L << t.bits()) - 1;
+        Instr.Pred q = null;
+        long next = 0;
+        switch (p) {
+            case SGT, SLE -> {
+                if (s < smax) {
+                    q = p == Instr.Pred.SGT ? Instr.Pred.SGE : Instr.Pred.SLT;
+                    next = s + 1;
+                }
+            }
+            case UGT, ULE -> {
+                if (u < umax) {
+                    q = p == Instr.Pred.UGT ? Instr.Pred.UGE : Instr.Pred.ULT;
+                    next = u + 1;
+                }
+            }
+            default -> { }
+        }
+        if (q != null) {
+            return insert(c, new Instr.Cmp(q, x, new Value.Const(t, next), c.pos()));
+        }
+        return x == c.op(0) ? null : insert(c, new Instr.Cmp(p, x, y, c.pos()));
+    }
+
+    private static Instr insert(Instr at, Instr i) {
+        at.block().insertBefore(at, i);
+        return i;
     }
 
     private static Value.Const truth(boolean b) {
