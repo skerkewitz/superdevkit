@@ -8,7 +8,7 @@ it may use at most 60 % of an NTSC [frame](/glossary#frame), about 0.6 frames pe
 vertical blank and a safety margin come off that. The game's benchmark runs the same game code
 with a fixed input for 1,800 ticks and measures every tick in Mesen.
 
-During play, the code dampf now generates takes 1.06 frames per tick (worst tick 1.83) with
+During play, the code dampf now generates takes 1.04 frames per tick (worst tick 1.80) with
 FastROM, which is the default, and 1.31 (worst 2.25) at SlowROM speed, as the earlier figures on
 this page were measured. dampf's
 own [naive code generator](/glossary#naive-code-generator) takes 5.17 frames per tick for the
@@ -86,6 +86,11 @@ a block that only one block jumps to is merged into it. Jump threading sends a b
 that only jumps straight to the final target, and skips a block that only branches on a φ for
 every predecessor that gives the φ a constant: the shape that `a || b` and an inlined function
 returning a truth value leave behind.
+
+A `switch` on a `uint8_t`, `int8_t` or `uint16_t` compares 16 bits when every case lies in the
+value's range: C widens the value to `int`, and the 32-bit switch compared a high word that is
+known to be 0 for every case. A case outside the range keeps the 32 bits, since it could equal
+an in-range case in 16 bits (65,545 is 9). Play 1.06 to 1.04.
 
 `Simplify` also writes a comparison with a constant in a canonical form, `x < c` or `x >= c`
 with the constant on the right: `x > c` becomes `x >= c + 1`, `x <= c` becomes `x < c + 1`. The
@@ -750,6 +755,7 @@ budget is hardest to meet; the worst tick is in parentheses where the source giv
 | FastROM: the ROM in banks `$80` and up at 3.58 MHz (`MEMSEL`) | 1.10 (1.88) | 1.69 (3.51) |
 | no `cmp #0` where N and Z already describe A | 1.08 (1.86) | 1.68 (3.49) |
 | values every use takes from A not stored | 1.06 (1.83) | 1.66 (3.48) |
+| a `switch` on a byte compares 16 bits | 1.04 (1.80) | 1.64 (3.45) |
 
 The steps are cumulative: each row includes everything above it. Loop rotation is not in the
 table; it brought about 0.5 %, measured on the benchmark's bare loop (801 to 783 clocks per
