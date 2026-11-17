@@ -68,12 +68,11 @@ path; a line that calls a function gets the sum of its own instructions marked `
 This is line 30 of `calls.c` as the default build writes it:
 
 ```asm
-; calls.c:30   small_result = inc8(-1);                                         [ 13 cyc ]
+; calls.c:30   small_result = inc8(-1);                                         [ 10 cyc ]
         .dbg    line, "../../../examples/m1/calls.c", 30
                                     ; store i8 @_small_result, 0
-        lda     #$0000              ;                                                           3
         sep     #$20                ;                                                           3
-        sta     _small_result       ;                                                           4
+        stz     _small_result       ;                                                           4
         rep     #$20                ;                                                           3
 ```
 

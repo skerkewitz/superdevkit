@@ -8,10 +8,10 @@ it may use at most 60 % of an NTSC [frame](/glossary#frame), about 0.6 frames pe
 vertical blank and a safety margin come off that. The game's benchmark runs the same game code
 with a fixed input for 1,800 ticks and measures every tick in Mesen.
 
-During play, the code dampf now generates takes 1.53 frames per tick (worst tick 2.65). dampf's
+During play, the code dampf now generates takes 1.41 frames per tick (worst tick 2.43). dampf's
 own [naive code generator](/glossary#naive-code-generator) takes 5.17 frames per tick for the
 same code, and [Calypsi](/glossary#calypsi) took 2.72, measured on an older version of the game.
-dampf is past Calypsi and about 3.4 times as fast as its naive code, but still about 2.5 times
+dampf is past Calypsi and about 3.7 times as fast as its naive code, but still about 2.4 times
 away from the budget. This page explains, pass by pass, where that speed comes from.
 
 ## Why the 65816 needs a different optimizer
@@ -43,9 +43,11 @@ promotions and to keep values out of RAM.
 
 Each [pass](/glossary#pass) reads MIR, dampf's intermediate form in [SSA](/glossary#ssa) form,
 and writes better MIR. `dampf.mir.Optimizer` runs them on every function in a fixed order,
-round after round, until a round changes nothing (at most 20 rounds). Then it inlines small
-functions and compresses pointer parameters, and if either changed anything, it runs the rounds
-again. Scheduling comes last. Every pass is exact: it changes how a value is computed, never
+round after round, until a round changes nothing (at most 20 rounds). It then gives parameters
+the ranges their arguments have at every call and, if that narrowed any, runs the rounds again.
+Then it inlines small functions and compresses pointer parameters, and if either changed
+anything, it runs the rounds again, followed by both parameter passes once more. Scheduling
+comes last. Every pass is exact: it changes how a value is computed, never
 the value.
 
 `dampf mir file.c` prints the MIR as it comes from the lowering, `dampf mir -O file.c` after
@@ -60,13 +62,13 @@ catalogue. The letters map to this page as follows:
 | B | Width analysis (8/16 bit) | `Narrow`, `RangeNarrow`; `REP`/`SEP` tracking not built |
 | C | Inlining and calling convention | `Inline`; parameters in registers not built |
 | D | Data layout (one array per field) | not built |
-| E | 8.8 fixed point as byte accesses | not built |
+| E | 8.8 fixed point as byte accesses | `ByteLoads`; `<<8` not built |
 | F | Loops | `Induction`, loop counters in X; the rest not built |
-| G | Branches | compare and branch, block layout, short branches |
+| G | Branches | compare and branch, block layout, short branches, `BRA` |
 | H | Standard optimizations | `Simplify`, `Gvn`, `DeadCode`; loop-invariant code not built |
 | I | Multiply and divide | `StrengthReduce`, multiplication in A; hardware multiplier not built |
 | J | Banks and placement | not built |
-| K | Peephole | a few, in the code generator |
+| K | Peephole | in the code generator: `STZ`, `INC`/`DEC`, and a few more |
 | L | `switch` as jump table | not built |
 | M | Copy and fill with `MVN`/`MVP` or DMA | not built |
 | N | Values in X/Y | loop counters in X |
@@ -91,6 +93,35 @@ code generator then compares with an immediate operand directly. In the example 
 Together with `Gvn` and an extension of `Narrow` through φs, it took play from 6.12 to 5.17
 frames per tick. The canonical comparisons, together with a change in the code generator, took
 it from 1.93 to 1.76, and jump threading over constant φs from 1.74 to 1.67.
+
+### ByteLoads
+
+Blubber Blasen keeps positions as 8.8 fixed-point values and takes their integer part with
+`>> 8` everywhere. A 16-bit load whose only use shifts it right by 8 or more becomes a byte load
+of its high byte, the address plus one, widened again; on the 65816 that saves the `XBA` and the
+mask the shift costs. Volatile loads stay as they are, because a hardware register may care how
+it is read.
+
+```c
+#include <stdint.h>
+
+int16_t player_x;
+
+int16_t player_px(void) {
+    return player_x >> 8;
+}
+```
+
+After the passes:
+
+```
+    %0 = ptradd @_player_x, i16 1               ; fixed.c:6
+    %1 = load i8 %0                             ; fixed.c:6
+    %2 = sext i8 %1 to i16                      ; fixed.c:6
+    ret i16 %2                                  ; fixed.c:6
+```
+
+Play went from 1.49 to 1.48 frames per tick.
 
 ### Narrow
 
@@ -265,7 +296,7 @@ b1_for:                    ; from b0_entry, b2_body
     %5 = add i16 %1, 4                          ; sprites.c:10
 ```
 
-The code generator writes the two stores as `sta _oam,x` and `sta _oam+1,x`. Together with
+The code generator writes the two stores as `stz _oam,x` and `sta _oam+1,x`. Together with
 `PointerParams`, this took play from 1.56 to 1.54 frames per tick; the indirect accesses in the
 game's `build_sprites` fell from 148,000 to 53,000 in the measured play ticks.
 
@@ -312,6 +343,15 @@ the 6.12 to 5.17 under [Simplify](#simplify).
 Instructions whose result nobody needs go. Live are the instructions with an effect (stores,
 copies, calls, volatile loads, the ends of blocks) and everything they use, so φs that only feed
 each other go too. The sources give no separate measurement for it.
+
+### ParamRanges
+
+An integer parameter lies in the join of the ranges its argument has at every call. dampf sees
+the whole program, and C functions are only called directly, so the calls in the program are
+all there are. Callers are handled before callees, so a caller's own parameter ranges are known
+when its arguments are evaluated; a function nobody calls, such as the entry function, keeps
+the whole range of each type. The [value ranges](#value-ranges) then start from these ranges.
+The sources give no separate measurement for it.
 
 ### Inline
 
@@ -395,10 +435,7 @@ b2_body:
         clc                         ;                                                           2
         adc     #$0001              ;                                                           3
         sta     _bubbles,x          ;                                                           6
-        clc                         ;                                                           2
-        lda     z:dampf_frame+0     ;                                                           4
-        adc     #$0001              ;                                                           3
-        sta     z:dampf_frame+0     ;                                                           4
+        inc     z:dampf_frame+0     ;                                                           7
         txa                         ;                                                           2
         clc                         ;                                                           2
         adc     #$0006              ;                                                           3
@@ -409,8 +446,9 @@ b1_for:
         bcc     b2_body             ;                                                         2/3
 ```
 
-The offset lives in X for the whole loop, the counter `i` in the direct page, the comparison
-branches on the flags, and the loop test sits after the body. What each of these is:
+The offset lives in X for the whole loop, the counter `i` in the direct page, where `INC`
+steps it, the comparison branches on the flags, and the loop test sits after the body. What
+each of these is:
 
 - **Frames in the direct page.** dampf has no recursion, so the frames form a compiled stack: a
   function's frame starts after the frames of all the functions it calls. The leaves of the call
@@ -421,8 +459,10 @@ branches on the flags, and the loop test sits after the body. What each of these
   shares its operands' places where the lifetimes allow, so the copy at the end of a loop body
   disappears. Play 2.90 to 2.72 for the shared places.
 - **Results in A.** A 1-word result whose only reader is the next instruction, which starts by
-  loading it, is never stored. The code generator also remembers what A, X and Y hold and leaves
-  out a load of the same thing.
+  loading it, is never stored. The code generator also remembers what X and Y hold, and every
+  place A equals (after `LDA x` and `STA y`, both), and leaves out a load of the same thing. A
+  write to a place drops it and its byte neighbours. Remembering every place instead of one
+  took play from 1.50 to 1.49.
 - **φs written directly.** The predecessors of a block write its φs into their places, without a
   copy through a second place, where liveness shows that this is safe; also before a branch.
 - **Compare and branch.** A comparison that only its block's branch uses sets the flags and
@@ -452,8 +492,21 @@ branches on the flags, and the loop test sits after the body. What each of these
 - **Block layout.** Blocks are written in chains, each followed by a successor not yet written,
   so most branches skip one jump instead of choosing between two. A small loop head is placed
   after the block that jumps back to it, so a round costs one branch instead of a jump and a
-  branch. Each function is generated twice; the first pass gives the distances, so that branches
-  within reach go straight to their block.
+  branch.
+- **Short branches and `BRA`.** A conditional branch to a block that is not the next one either
+  reaches it or skips a `JMP` to it. Each function is generated up to six times: each pass
+  measures the distances, and in the next a branch within reach goes straight to its block. A
+  pass is never longer than the one before, so a branch that reached keeps reaching, and the
+  passes stop when no further branch reaches. A jump that reaches its block is `BRA`, as fast as
+  `JMP` and one byte shorter, so more branches reach. Play 1.48 to 1.47.
+- **`INC` and `DEC`.** A step `x + 1` or `x - 1` whose result goes back to the place of `x`,
+  such as a loop counter, is `INC` or `DEC` on the place: 7 cycles instead of 13 for `CLC`,
+  `LDA`, `ADC`, `STA`. It needs `x` really stored there, not only handed on in A. Play 1.47
+  to 1.43.
+- **`STZ`.** A zero stored to a fixed address (direct page, absolute or indexed with X, not
+  long or through a pointer) is `STZ` instead of `LDA #0` and `STA`, and so is a zero a φ gets,
+  unless A holds 0 already. In the [PointerOffsets](#pointeroffsets) example, `o[0] = 0` is
+  `stz _oam,x`. Play 1.43 to 1.41.
 
 ## Value ranges
 
@@ -466,6 +519,22 @@ loop, because a value tested before the loop does not change inside it. A φ joi
 values. Loops are iterated until nothing changes, and a value whose interval keeps growing is
 widened to its type's whole range after 24 changes, so the iteration ends.
 
+Widening overshoots: the counter of `for (i = 0; i < 768; i++)` passes 24 changes long before
+768 and got its type's whole range, which kept it from being narrowed and from indexing with X.
+After the widened result, up to eight rounds of narrowing evaluate every instruction again from
+ranges that now hold. That can only take back what widening added, and the counter gets 0..768.
+Play went from 1.53 to 1.50 frames per tick.
+
+A condition between two values, such as `r < n`, bounds each by the other's range: the analysis
+runs a second time and takes the other value's range from the first run. A parameter starts
+with the range its callers pass ([ParamRanges](#paramranges)).
+
+A [hint](/glossary#hint) `DAMPF_RANGE(i, 0, 15)` states the range of a variable at one point.
+dampf lowers it to comparisons that branch to a block ending in `unreachable` when the hint is
+wrong: the analysis learns the range from the branches, and the MIR interpreter fails if the
+hint does not hold. The code generator computes the ranges with these checks in place and then
+takes them out (`dampf.mir.Hints`), so the SNES code does not pay for them.
+
 Several parts of dampf use the ranges:
 
 - **`RangeNarrow`** decides comparisons, does i32 work in 16 bits and chooses unsigned
@@ -476,9 +545,9 @@ Several parts of dampf use the ranges:
   wrap.
 
 A wrong range would give wrong code without any sign. The tests therefore check the analysis
-itself: the interpreter reports every value it computes, and each must lie in its inferred
-interval, in all execution tests, the random programs, the replay of the game, and
-`dampf mir -O --check-ranges --bench`.
+itself: the interpreter reports every value it computes and every parameter it receives, and
+each must lie in its inferred interval, in all execution tests, the random programs, the replay
+of the game, and `dampf mir -O --check-ranges --bench`.
 
 [Pointer compression](/glossary#pointer-compression) is the other use of C's rules about
 ranges. A pointer must stay within its object or point one past its end, so an offset into
@@ -529,6 +598,12 @@ budget is hardest to meet; the worst tick is in parentheses where the source giv
 | lazy byte masks | 1.56 | |
 | pointer compression | 1.54 (2.68) | 2.24 (4.47) |
 | loop counters in X | 1.53 (2.65) | 2.22 (4.46) |
+| narrowing after widening | 1.50 | |
+| A remembers every place it equals | 1.49 | |
+| byte loads for 8.8 values | 1.48 | |
+| short branches wherever they reach, `BRA` | 1.47 | |
+| `INC` and `DEC` for steps | 1.43 | |
+| `STZ` for zeros | 1.41 (2.43) | 2.09 (4.25) |
 
 The steps are cumulative: each row includes everything above it. Loop rotation is not in the
 table; it brought about 0.5 %, measured on the benchmark's bare loop (801 to 783 clocks per
@@ -536,9 +611,12 @@ pass). The early steps brought the most, because they removed whole classes of w
 arithmetic, the runtime multiplication, RAM accesses outside the direct page. The later ones
 each take a few percent.
 
-Where the time went at 1.95 frames per tick, the last time the sources broke it down: in the
-measured play ticks, loads and stores of values in the direct page were 38 % of the cycles, `JMP`
-5 %, comparisons and masks 5 % each. The full account of every step is in
+Where the time went at 1.50 frames per tick, the last time the sources broke it down by
+instruction: in the measured play ticks, `sta dp` took 18.8 % of the cycles in the game code,
+`lda dp` 16.5 %, `cmp #imm` 7.4 %, `lda abs,x` 7.2 % and `jmp abs` 5.6 %. Values going to and
+from the direct page are still a third of the time. Most `JMP`s left are where a branch cannot
+reach its target because a large loop body lies between them; placing the rarely run blocks at
+the end of the function needs to know which are rare. The full account of every step is in
 `docs/optimizations.md`.
 
 ## How far it can go

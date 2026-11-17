@@ -129,7 +129,8 @@ result is the same.
 dampf ships its own `<stdint.h>` with the same underlying types as the PC: `int8_t` is
 `signed char`, `int16_t` is `short`, `int32_t` is `int`, and the unsigned types alike. The
 header also defines the limits (`INT8_MIN` to `UINT32_MAX`) and the macros `INT8_C` to
-`UINT32_C`. It is the only header dampf provides.
+`UINT32_C`. The only other header dampf provides is `<dampf.h>`, which holds the hints (see
+[Whole program](#whole-program)).
 
 | Rejected | Message |
 |---|---|
@@ -252,10 +253,11 @@ or struct with an initializer is accepted too; it is copied from a constant copy
 ## Preprocessor
 
 dampf preprocesses every file with `gcc -E -nostdinc -undef -D__DAMPF__=1` and its own include
-directory, which holds only `<stdint.h>`. Anything `gcc -E` accepts is allowed. Host headers and
-host macros never reach the code: `__GNUC__` and `__x86_64__` are not defined, and
-`#include <stdio.h>` fails. A failure of the preprocessor is an ordinary error at the place gcc
-names, with gcc's message. For a file `stdio.c` whose second line is `#include <stdio.h>`:
+directory, which holds only `<stdint.h>` and `<dampf.h>`. Anything `gcc -E` accepts is
+allowed. Host headers and host macros never reach the code: `__GNUC__` and `__x86_64__` are not
+defined, and `#include <stdio.h>` fails. A failure of the preprocessor is an ordinary error at
+the place gcc names, with gcc's message. For a file `stdio.c` whose second line is
+`#include <stdio.h>`:
 
 ```
 stdio.c:2:10: error: stdio.h: No such file or directory
@@ -298,8 +300,10 @@ b.c:2:9: error: redefinition of 'phase' (first defined at a.c:2:9); declare it e
 These checks, like the check for recursion, run when `dampf check` checks the files together,
 and at `dampf build`.
 
-Hints, which tell dampf what it cannot infer, and intrinsics for the SNES hardware are not built
-yet; see [Limits](/reference/limits).
+The header `<dampf.h>` defines two [hints](/glossary#hint), which tell dampf what it cannot
+infer: `DAMPF_RANGE(v, lo, hi)`, a statement of its own for a local variable or parameter, and
+`DAMPF_BUDGET(n)`, which stands only in front of a function definition. Intrinsics for the SNES
+hardware are not built yet; see [Limits](/reference/limits).
 
 ## Open decisions
 

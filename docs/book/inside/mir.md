@@ -17,12 +17,12 @@ the code generator from MIR writes assembly from it. HIR and LIR are on the
 [roadmap](/inside/roadmap).
 
 A function in MIR is a graph of basic blocks: straight runs of instructions that end in exactly
-one jump, branch, switch or return. The instructions are in [SSA](/glossary#ssa) form (static
-single assignment): every value is assigned exactly once, and an instruction that produces a
-value *is* that value, so other instructions name it directly. Where control flow joins and a C
-variable can have come from more than one place, a φ (phi) at the top of the block picks the
-value of the edge that was taken. A pass that wants to know where a value comes from looks at
-one instruction instead of searching for every assignment.
+one jump, branch, switch, return or `unreachable`. The instructions are in
+[SSA](/glossary#ssa) form (static single assignment): every value is assigned exactly once, and
+an instruction that produces a value *is* that value, so other instructions name it directly.
+Where control flow joins and a C variable can have come from more than one place, a φ (phi) at
+the top of the block picks the value of the edge that was taken. A pass that wants to know
+where a value comes from looks at one instruction instead of searching for every assignment.
 
 MIR keeps what decides the result bit for bit, because that result must match gcc on the PC.
 Every value has an explicit width: `i8`, `i16` and `i32` for C's 8-, 16- and 32-bit integers,
@@ -177,7 +177,7 @@ are numbered afresh each time the text is printed. Which pass does what is on
 
 ## Instructions
 
-`Instr.java` defines thirteen kinds of instruction. In the text, each starts with the name in
+`Instr.java` defines fourteen kinds of instruction. In the text, each starts with the name in
 the first column:
 
 | Group | Instruction | What it does |
@@ -196,11 +196,49 @@ the first column:
 | | `br` | goes to one of two blocks, by an `i1` |
 | | `switch` | goes to the block of the matching case, else to a default block |
 | | `ret` | returns a value, or nothing |
+| | `unreachable` | never reached; ends the block a wrong hint leads to |
 
 There is no negation and no `not`: the lowering writes `-x` as `sub 0, x` and `~x` as
 `xor x, -1`. A comparison used as a value in C, `a < b` as an `int`, is a `cmp` followed by a
 `zext` to `i32`. Pointer subtraction converts both pointers with `ptrtoint`, subtracts and
 divides by the element size with `sdiv`.
+
+A [hint](/glossary#hint) such as `DAMPF_RANGE` becomes ordinary comparisons and branches. Each
+bound the type does not already guarantee is a `cmp` and a `br`; when the hint is wrong, the
+branch goes to a block that holds only `unreachable`. In this function the parameter is a
+`uint8_t`, so the lower bound 0 needs no check:
+
+```c [hint.c]
+#include <stdint.h>
+#include <dampf.h>
+
+uint8_t tiles[16];
+uint8_t picked;
+
+void pick_tile(uint8_t index)
+{
+    DAMPF_RANGE(index, 0, 15);
+    picked = tiles[index];
+}
+```
+
+`dampf mir hint.c` prints, cut to the start of the function:
+
+```
+func @_pick_tile(i8 %index) -> void {
+b0_entry:
+    %0 = cmp ule i8 %index, 15                  ; hint.c:9
+    br %0, b2_range, b1_hint                    ; hint.c:9
+b1_hint:                    ; from b0_entry
+    unreachable                                 ; hint.c:9
+b2_range:                    ; from b0_entry
+    %1 = zext i8 %index to i32                  ; hint.c:10
+    ; ...
+```
+
+The range analysis learns the range of `index` from the branch, and the code generator leaves
+the check out of the 65816 code once the ranges are computed. The interpreter keeps it, as the
+next section shows.
 
 A `ptradd` result is only used while it points into the same object or just past its end. Since
 no object is larger than 32 KB or crosses a [bank](/glossary#bank), the code generator adds
@@ -236,14 +274,17 @@ the passes. A wrong lowering shows up there before any 65816 code exists for it.
 flat array: the globals lie one after another from `$10000`, and every call gets fresh frame
 slots from `$400000`. Stores to addresses below `$10000` go to a listener, as I/O does on the
 SNES; the [runtime](/glossary#runtime) and the game's benchmark mark events there, such as the
-write to `$21FB` when the entry function returns. Loads from there read 0. A division by zero
-stops the interpreter with an error, and so does a run longer than its step limit, so a program
-that loops forever fails instead of hanging the tests.
+write to `$21FB` when the entry function returns. Loads from there read 0. Reaching an
+`unreachable` stops the interpreter with an error that starts with `a hint does not hold`,
+naming the hint, its source position and the function. A division by zero stops it with an
+error too, and so does a run longer than its step limit, so a program that loops forever fails
+instead of hanging the tests.
 
-The interpreter also checks the range analysis: every value it computes must lie in the
-[value range](/glossary#value-range) dampf inferred for it. The execution tests, the random
-programs and the replay run with that check. The game's benchmark runs in the interpreter too,
-and gives the checksums of the PC build on all 3,610 [ticks](/glossary#tick).
+The interpreter also checks the range analysis: every value it computes, and every parameter on
+entry to its function, must lie in the [value range](/glossary#value-range) dampf inferred for
+it. The execution tests, the random programs and the replay run with that check. The game's
+benchmark runs in the interpreter too, and gives the checksums of the PC build on all 3,610
+[ticks](/glossary#tick).
 
 The text format parses back. `MirTextTest` prints the MIR of every execution test and of the
 whole of [Blubber Blasen](/glossary#blubber-blasen), parses the text, verifies the result and

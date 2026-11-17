@@ -12,7 +12,7 @@ import java.util.Set;
  * Parameter ranges from the call sites: an integer parameter lies in the join of the ranges its
  * argument has at every call ({@link Value.Param#known}). dampf sees the whole program and C
  * functions are only called directly, so the calls in the module are all there are. A function
- * without calls (the entry function) keeps whole ranges.
+ * without calls (the entry function) is left as it is.
  *
  * <p>Callers are handled before callees (the subset has no recursion, so the call graph has no
  * cycles): a caller's own parameter ranges are known when its arguments are evaluated. A range

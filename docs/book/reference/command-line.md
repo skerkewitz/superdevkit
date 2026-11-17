@@ -31,8 +31,8 @@ At least one C file and `-o` are required; without them dampf prints the usage a
 status 2. So it does, for `build`, `check` and `parse`, when `-I`, `-D`, `--entry` or `-o` is
 the last argument and has no value.
 
-On success it prints one line naming the ROM and the debug file, both as absolute paths, and
-exits with status 0:
+On success it prints one line naming the ROM and the debug file, both as absolute paths, after
+any [warnings about budgets](#budgets), and exits with status 0:
 
 ```
 wrote /…/build/examples/m1/calls.sfc and /…/build/examples/m1/calls.dbg
@@ -112,6 +112,49 @@ Use `-o out.sfc` to name the ROM; it is required. All files of the build go into
 of the ROM, which dampf creates if it does not exist, and take its name without `.sfc` as their
 base name.
 
+### Cycle budgets {#budgets}
+
+With the code generator from MIR, dampf checks the cycle budgets that functions declare with the
+[hint](/glossary#hint) `DAMPF_BUDGET` from `<dampf.h>`, against the worst case in the
+`.timing.txt` file, calls included. A function whose worst case is above 90 % of its budget gets
+a warning, printed before the `wrote` line; the build still succeeds. For this file:
+
+```c [budget.c]
+#include <stdint.h>
+#include <dampf.h>
+
+uint16_t score;
+
+DAMPF_BUDGET(24)
+void add_points(uint16_t points)
+{
+    score += points;
+}
+
+void main(void)
+{
+    add_points(10);
+}
+```
+
+`dampf build -o build/budget.sfc budget.c` prints:
+
+```
+budget.c:7:6: warning: 'add_points' takes up to 22 CPU cycles, 92 % of its budget of 24 (DAMPF_BUDGET)
+wrote /…/build/budget.sfc and /…/build/budget.dbg
+```
+
+A function whose worst case is above its budget stops the build with an error at its definition,
+and dampf exits with status 1. With `DAMPF_BUDGET(20)` in the file above:
+
+```
+budget.c:7:6: error: 'add_points' takes up to 22 CPU cycles, over its budget of 20 (DAMPF_BUDGET); best case 22, see the .timing.txt file
+```
+
+So does a function with a budget but no worst case, such as one with a loop that has no known
+bound: the message says it `has no worst case` and names the loop, as the `.timing.txt` file
+does. The naive code generator computes no timing, so it checks no budgets.
+
 ## check
 
 Use `check` to find out which files of a code base dampf accepts, before you try to build all
@@ -180,7 +223,7 @@ Use `profile` to see how many CPU cycles each function of a ROM took while it ra
 arguments:
 
 ```
-usage: dampf profile <rom.sfc> <profile.txt> [top N] [--skip file.c ...]
+usage: dampf profile <rom.sfc> <profile.txt> [top N] [--skip file.c ...] [--instructions]
 ```
 
 - **`rom.sfc`** is a ROM built by dampf. The label file (`.lbl`) and the assembly (`.s`) that
@@ -193,10 +236,13 @@ usage: dampf profile <rom.sfc> <profile.txt> [top N] [--skip file.c ...]
   script `tools/profile.lua`; [`dampf bench --profile`](#bench-profile) writes the same format
   from dampf's own emulator.
 - **`top`** is a number: how many functions the table shows, the most expensive first. The
-  default is 40.
+  default is 40. It also limits the rows of the table that `--instructions` adds.
 - **`--skip file.c`** leaves the functions defined in that C file out of the table and the
   shares, such as a test harness that calls the game code. It may be given more than once; a
   line above the table says how much of all cycles was left out.
+- **`--instructions`** adds a second table: the CPU cycles per instruction and addressing mode,
+  such as `lda dp` or `sbc long,x`, with how often each ran, the most expensive first. It shows
+  which kinds of instruction the time goes to, and leaves out the files given with `--skip`.
 
 dampf knows what each instruction costs and multiplies it by the count. Calls are counted at the
 callers: every `JSL` adds its count to the function it calls. The runtime's routines appear as
@@ -312,7 +358,7 @@ column 1 of the file, and its text starts with `preprocessing failed:` and gcc's
 
 | Command | 0 | 1 | 2 |
 |---|---|---|---|
-| `build` | ROM written | error in the program | usage error |
+| `build` | ROM written | error in the program, or a budget not kept | usage error |
 | `check` | every file passes, also together | a file or the files together fail | usage error |
 | `parse` | no errors | at least one error | usage error |
 | `profile` | table printed | — | fewer than two arguments |

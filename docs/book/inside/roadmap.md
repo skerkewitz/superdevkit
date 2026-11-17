@@ -13,7 +13,7 @@ also describes plans. What is not built yet, listed for users, is on
 
 | Milestone | Goal | State |
 | --- | --- | --- |
-| M0 | Define the [subset](/glossary#subset) of C from what the game uses | Done; `goto` and the hint macros still open |
+| M0 | Define the [subset](/glossary#subset) of C from what the game uses | Done; `goto` still open |
 | M1 | End to end: compile, assemble with ca65, link with ld65, run in a test, step through C in [Mesen](/glossary#mesen) | Done |
 | M2 | Naive but complete: all of Blubber Blasen compiles, matches the PC, and is measured | Done |
 | Checkpoint | Decide whether the plan reaches the budget | Decided: compiler and game in parallel |
@@ -36,22 +36,26 @@ game's benchmark and runs it in 30 seconds instead of 6 minutes; and cycle count
 assembly comments. On top of it, the [code generator from MIR](/glossary#code-generator-from-mir)
 and its [passes](/glossary#pass) are built: width narrowing, constant multiplication and
 division, the standard optimizations, compare and branch in one,
-[value ranges](/glossary#value-range) inferred from constants, operations, conditions and
-loops, values in the [direct page](/glossary#direct-page) instead of RAM, register allocation
-in the form the 65816 allows, induction variables, and
+[value ranges](/glossary#value-range) inferred from constants, operations, conditions,
+loops and call sites, values in the [direct page](/glossary#direct-page) instead of RAM,
+register allocation in the form the 65816 allows, induction variables, and
 [pointer compression](/glossary#pointer-compression) for pointers into a single object. With
-them, play of Blubber Blasen takes 1.53 frames per tick, against 5.17 with the naive code.
+them, play of Blubber Blasen takes 1.41 frames per tick, against 5.17 with the naive code.
 The static timing analysis is built as well: a best and a worst case in CPU cycles for every
-function, written to `<rom>.timing.txt` and checked against the emulator on every call. Still
-to come in M3: `DAMPF_TRIPS` and parameter ranges from call sites, since 91 of the game's
-functions still have no bound, then a cycle budget (`DAMPF_BUDGET`) checked at build time,
-timing in master cycles and a report per C line; more hand-written reference functions, and
-value ranges from array bounds.
+function, written to `<rom>.timing.txt` and checked against the emulator on every call. Of the
+game's functions, 38 still have no bound, and the report names the loop or call that makes each
+of them so. The first [hint](/glossary#hint), `DAMPF_RANGE` from `<dampf.h>`, bounds such a
+loop by hand; it is checked on the PC and costs nothing on the SNES. A cycle budget
+(`DAMPF_BUDGET`) is checked at build time: a function over its budget, or without a worst
+case, fails the build, and one above 90 % of it gets a warning. `DAMPF_TRIPS` is postponed.
+Still to come in M3: timing in master cycles and the costliest path per C line in the report
+and in the budget errors; more hand-written reference functions, and value ranges from array
+bounds.
 
 **M4, next.** M4 is fine tuning until the frame budget is met: the remaining optimizations of
 the catalogue, arrays aligned to a page so that 8-bit index registers reach them,
 optimization guided by the profiles of the replays, superoptimization of short hot sequences,
-and the [hints](/glossary#hint) that transform code, such as `DAMPF_TABLE` and `DAMPF_PIN_X`.
+and the hints that transform code, such as `DAMPF_TABLE` and `DAMPF_PIN_X`.
 
 ## The checkpoint after M2
 
@@ -92,8 +96,8 @@ The main risks and how they are met:
   follows C's promotion rules exactly, and the tests compare every program with gcc.
 - **Gains smaller than hoped.** Each optimization is measured, and the order of the remaining
   ones follows the profile.
-- **A wrong hint silently produces wrong code.** Once hints exist, every hint that states a fact
-  is checked as an assertion in the PC build, with the replays running against it.
+- **A wrong hint silently produces wrong code.** Every hint that states a fact is checked as an
+  assertion in the PC build, with the replays running against it.
 - **Scope creep.** The compiler could become the project and stall the game. The two run in
   parallel, and every milestone is measured against the game.
 
@@ -105,9 +109,8 @@ Open questions a user may run into:
   [intrinsics](/glossary#intrinsic) is open; the layer is planned for when the game's SNES port
   needs it.
 - **`goto`.** Forbid it entirely, or allow a restricted form that keeps the code structured.
-- **Hints.** The names and the set of the hint macros and their assertions on the PC; whether a
-  no-alias hint of dampf's own is clearer than `restrict`, and how `restrict` is checked on the
-  PC.
+- **`restrict`.** Whether a no-alias hint of dampf's own is clearer than `restrict`, and how
+  `restrict` is checked on the PC.
 - **Locals in Mesen.** How Mesen shows locals that live in fixed direct page slots.
 - **Hand-written assembly.** How a linked-in assembly function declares its calling convention,
   its use of the direct page and its cycle cost, so that the timing analysis can include it.

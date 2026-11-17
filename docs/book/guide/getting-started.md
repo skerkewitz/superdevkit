@@ -43,6 +43,10 @@ in the repository (it is not in git), or you name one with `-Pmesen=/path/to/Mes
 execution tests run each program in Mesen too. [Testing](/inside/testing) says how to set that
 up.
 
+Next to `bin/`, `build/install/dampf/include` holds dampf's headers, `<dampf.h>` among them.
+They are there for the PC build of a game, which finds them with
+`gcc -idirafter build/install/dampf/include`.
+
 ## Compile a first program
 
 The first program has three small functions and one that calls them and stores the results in

@@ -54,9 +54,14 @@ file for [Mesen](/glossary#mesen) (cut here):
 wrote .../build/bench/dampf.sfc and .../build/bench/dampf.dbg
 ```
 
+A function can be given a budget in CPU cycles with `DAMPF_BUDGET` from `<dampf.h>`. When its
+worst case comes above 90% of the budget, a warning line comes before this one; when it is
+over the budget, or has no worst case, the build fails.
+
 Next to the ROM, dampf writes the generated assembly (one `.s` file per module, plus the
 runtime's), the label and map files, and `dampf.timing.txt` with the best and worst case of
-each function in CPU cycles. Every option of `build` is on
+each function in CPU cycles. A function without a worst case is marked `unbounded`, with the
+loop or call that has no bound, such as `(loop at game.c:1217)`. Every option of `build` is on
 [Command line](/reference/command-line).
 
 ## Find what does not fit first
@@ -166,21 +171,21 @@ build/install/dampf/bin/dampf profile build/profile/bench.sfc \
 The report starts like this (cut after twelve rows):
 
 ```
-15,578,131 instructions, 53,678,397 CPU cycles (measured stretch: 9,207,852,586 master clocks, 25765.9 frames)
+14,019,260 instructions, 49,634,475 CPU cycles (measured stretch: 8,625,552,964 master clocks, 24136.5 frames)
 left out (bench.c): 95.5% of all CPU cycles
   share      calls  instructions      CPU cycles   cyc/call  function
-  16.4%        680     2,628,836       8,822,817     12,974  separate
-  12.9%        800     1,975,611       6,914,291      8,642  build_sprites
-   7.7%        680     1,204,224       4,143,064      6,092  bubbles_update
-   6.2%        800       930,656       3,342,660      4,178  bubbles_draw
-   5.3%     12,008       874,133       2,853,002        237  ground_px
-   4.8%      1,600       699,796       2,558,812      1,599  player_update
-   4.5%        680       708,652       2,427,266      3,569  items_update
-   4.2%        800       650,832       2,257,168      2,821  update_play
-   3.6%        800       548,493       1,914,054      2,392  enemies_draw
-   3.4%        800       555,129       1,838,131      2,297  items_draw
-   2.6%      1,501       384,256       1,399,321        932  think_walker
-   2.4%      2,892       409,272       1,307,292        452  level_wall_ahead
+  16.5%        680     2,367,304       8,190,812     12,045  separate
+  13.1%        800     1,845,637       6,513,836      8,142  build_sprites
+   7.8%        680     1,084,816       3,863,100      5,681  bubbles_update
+   6.3%        800       840,939       3,112,274      3,890  bubbles_draw
+   5.0%      1,600       653,216       2,457,312      1,535  player_update
+   4.9%     12,008       730,037       2,408,706        200  ground_px
+   4.2%        680       592,389       2,105,064      3,095  items_update
+   4.2%        800       576,197       2,079,998      2,599  update_play
+   3.6%        800       494,829       1,775,069      2,218  enemies_draw
+   3.5%        800       511,111       1,744,477      2,180  items_draw
+   2.7%      1,501       366,039       1,348,469        898  think_walker
+   2.6%      2,892       400,596       1,281,264        443  level_wall_ahead
 ```
 
 The first line sums up all functions that are not left out. The measured stretch in brackets
@@ -191,6 +196,29 @@ call, the most expensive function first.
 The cycles per call tell a function that is cheap but called often, such as `ground_px`, from
 one that is expensive each time, such as `separate`. The runtime's routines, such as the
 multiplication, appear as `(runtime) dampf_mul16`.
+
+To see which kinds of instruction the cycles go to, add `--instructions` to `dampf profile`,
+or set `INSTRUCTIONS=1` for the script:
+
+```sh
+INSTRUCTIONS=1 tools/profile_game.sh bench
+```
+
+A second table then follows, with the cycles per instruction and addressing mode in the
+functions that are not left out (cut after six rows):
+
+```
+  share      executed      CPU cycles  instruction
+  15.7%     1,948,670       7,793,978  sta dp
+  15.5%     1,923,627       7,694,508  lda dp
+   7.9%     1,311,144       3,933,432  cmp #imm
+   7.6%       631,966       3,791,796  lda abs,x
+   5.0%       624,343       2,497,372  ldx dp
+   4.8%       792,631       2,377,893  and #imm
+```
+
+Here almost a third of the time goes to loading and storing variables in the
+[direct page](/glossary#direct-page).
 
 ## Replacing a function with assembly
 

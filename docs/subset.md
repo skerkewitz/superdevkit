@@ -36,7 +36,7 @@ None of these appear in the release build of `src/game`, so the subset leaves th
 | Construct | Found |
 | --- | --- |
 | `float`, `double`, `long long` | none |
-| `malloc`, any heap, any library function | none; the only system header is `<stdint.h>` |
+| `malloc`, any heap, any library function | none; the only system headers are `<stdint.h>` and `<dampf.h>` (the hints) |
 | Recursion | none: the call graph has no cycle |
 | Function pointers, indirect calls | none |
 | Plain `int`, `short`, `long`, `unsigned` in declarations | none |

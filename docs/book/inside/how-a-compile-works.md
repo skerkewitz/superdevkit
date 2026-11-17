@@ -71,6 +71,12 @@ PC, and dampf does not pad struct fields, so for such types dampf rejects `sizeo
 message. The one use it allows is the element count `sizeof a / sizeof a[0]`, whose quotient is
 the same on both.
 
+The class `AstBuilder` also reads the hints of `<dampf.h>`, macros that tell dampf what it
+cannot infer. A `DAMPF_RANGE` statement gives the lowest and highest value of a local variable
+or parameter of an integer type, with constant bounds, and becomes a statement of its own in the
+AST. `DAMPF_BUDGET` in front of a function definition gives the most CPU cycles the function
+may take.
+
 The subset is enforced here, not in the grammar. A construct outside the subset parses, and
 then gets a message that says what is not supported, with the position of the C source. Once
 the AST is complete, `Compiler` looks up the [entry function](/glossary#entry-function) and
@@ -103,20 +109,27 @@ the [Roadmap](/inside/roadmap)).
 
 The class `Lower` translates the AST into MIR directly: each function becomes a graph of basic
 blocks in [SSA](/glossary#ssa) form, with explicit widths and the signedness in the operations.
+A `DAMPF_RANGE` becomes comparisons that branch to a block ending in `unreachable` when the hint
+is wrong: the range analysis learns the [value range](/glossary#value-range) from them, and the
+code generator takes them out once it has computed the ranges.
+
 Then `Optimizer` runs the [passes](/glossary#pass). On each function it repeats, until nothing
 changes:
 
 1. simplification (`Simplify`),
-2. width narrowing (`Narrow`), and narrowing with value ranges (`RangeNarrow`),
-3. induction variables (`Induction`),
-4. pointer compression (`PointerOffsets`),
-5. multiplication and division by constants (`StrengthReduce`),
-6. common subexpressions and redundant loads (`Gvn`),
-7. dead code removal (`DeadCode`).
+2. byte loads (`ByteLoads`),
+3. width narrowing (`Narrow`), and narrowing with value ranges (`RangeNarrow`),
+4. induction variables (`Induction`),
+5. pointer compression (`PointerOffsets`),
+6. multiplication and division by constants (`StrengthReduce`),
+7. common subexpressions and redundant loads (`Gvn`),
+8. dead code removal (`DeadCode`).
 
-After that round, small functions are inlined (`Inline`), pointer parameters are compressed
-(`PointerParams`), and if either changed something, the passes run again. Last, `Schedule`
-sets the order of the instructions for the code generator, and the verifier checks the result.
+After that round, `ParamRanges` narrows the ranges of parameters across the whole program, and
+if it did, the round runs again. Then small functions are inlined (`Inline`), pointer
+parameters are compressed (`PointerParams`), and if either changed something, the passes run
+again, followed by `ParamRanges` once more. Last, `Schedule` sets the order of the
+instructions for the code generator, and the verifier checks the result.
 What MIR looks like is on [MIR](/inside/mir); what each pass does is on
 [Optimizations](/inside/optimizations).
 
@@ -125,6 +138,9 @@ What MIR looks like is on [MIR](/inside/mir); what each pass does is on
 The [code generator from MIR](/glossary#code-generator-from-mir), `MirCodeGen`, is dampf's
 main code generator. Besides the assembly, it computes the best and worst case of every
 function in CPU cycles, which `dampf build` writes to a `.timing.txt` file next to the ROM.
+`Compiler` then checks every function with a `DAMPF_BUDGET` against its worst case: a function
+above its budget, or one without a worst case, stops the build with an error, and one above
+90 % of its budget gets a warning that does not.
 
 The [naive code generator](/glossary#naive-code-generator), `NaiveCodeGen`, translates the AST
 directly, almost everything in 32-bit `int` as C's promotions say. It stays as an independent

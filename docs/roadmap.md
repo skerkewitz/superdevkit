@@ -8,7 +8,7 @@ IR levels). It was revised on 2026-11-17 after M1, see *Changes* below.
 
 | Milestone | Goal | Done when | State |
 | --- | --- | --- | --- |
-| M0 | Define the subset | Blubber Blasen's `src/game` is scanned; [subset.md](subset.md) lists what is allowed, what is not, and what the game code has to change | Done 2026-11-17. The decisions in subset.md are implemented as recommended until decided. Still open: `goto` (decision 4). The hint macros: decided 2026-11-17 that the working names are the names, from `<dampf.h>`; `DAMPF_RANGE` is built ([hints.md](hints.md)). |
+| M0 | Define the subset | Blubber Blasen's `src/game` is scanned; [subset.md](subset.md) lists what is allowed, what is not, and what the game code has to change | Done 2026-11-17. The decisions in subset.md are implemented as recommended until decided. Still open: `goto` (decision 4). The hint macros: decided 2026-11-17 that the working names are the names, from `<dampf.h>`; `DAMPF_RANGE` and `DAMPF_BUDGET` are built ([hints.md](hints.md)). |
 | M1 | End to end | A small function is compiled, assembled with ca65, linked with ld65, runs automatically in a test, and Mesen shows its C source while stepping | Done 2026-11-17 (stepping through C in Mesen checked by hand) |
 | M2 | Naive but complete | All of Blubber Blasen compiles with the naive code generator, the game's benchmark and replays give the same checksums as the PC, cycles are measured per tick and per function and compared with Calypsi, and the first reference assembly function gives the first dampf/reference ratio | Done 2026-11-17, see the steps below. Open: 816-tcc and Calypsi on the same game version (on the game's side) |
 | Checkpoint | Decide whether the plan reaches the budget | See below | Decided 2026-11-17: compiler and game in parallel (below) |
@@ -116,7 +116,8 @@ the profile after each step can change the order of the later ones:
    A holds are left out, φs are written directly, and the frames lie in low RAM with the leaves in
    the direct page, values share places where their lifetimes allow, so all of the game's
    values are in the direct page; with inlining, indexed addressing and smaller changes play is
-   at 1.53 frames per tick (1.50 after the range fixes in step 2).
+   at 1.53 frames per tick (1.50 after the range fixes in step 2, 1.41 after byte loads, short
+   branches, `INC`/`DEC` and `STZ` in the code generator, [optimizations.md](optimizations.md)).
 
    Where the time goes now (play, game code only): loads and stores of values in the direct page
    are 37 % of the cycles, `JMP` 5.5 %, comparisons 5.7 %, masks 4.5 %. Next, in this order:

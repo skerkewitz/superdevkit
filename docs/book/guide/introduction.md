@@ -46,7 +46,8 @@ A compiler with that one job can assume things no general compiler can:
   so every optimization sees the complete call graph and every use of every variable
   ([whole program](/glossary#whole-program)).
 - **Hints in the source.** Macros in the C source are meant to give dampf knowledge it cannot
-  infer, such as a value range ([hint](/glossary#hint)). Hints are designed but not built yet.
+  infer, such as a value range ([hint](/glossary#hint)). Two of them are built so far:
+  `DAMPF_RANGE` and `DAMPF_BUDGET` from `<dampf.h>`.
 - **C as the contract with the PC build.** C is what keeps the same source compiling on the PC
   with gcc or clang, and that is what makes the code testable.
 
@@ -96,7 +97,7 @@ optimizer, is in progress: dampf lowers the program to [MIR](/glossary#mir), its
 representation, optimizes it and generates 65816 code from it. The fine tuning of M4 has not
 started.
 
-During play, Blubber Blasen's game logic takes 1.53 frames per tick with dampf, against 5.17 with
+During play, Blubber Blasen's game logic takes 1.41 frames per tick with dampf, against 5.17 with
 the naive code generator and 2.72 with Calypsi. The Calypsi figure comes from an older version of
 the game, so a fair comparison still needs both compilers on the same version. The goal of
 0.6 frames is not reached yet, and the compiler alone is not expected to reach it: the game is
@@ -104,9 +105,9 @@ being made to do less work at the same time.
 
 dampf does not yet produce a playable game ROM on its own. The SNES platform layer it would need
 (start-up, joypad input, the vertical blank handler with DMA, and the PVSnesLib-shaped calls the
-game makes) is not built; the benchmark stubs those calls out. The hints are not built either.
-The timing analysis has a first part: dampf computes a best and a worst case in CPU cycles for
-every function, but cycle budgets checked at build time are still to come. The
+game makes) is not built; the benchmark stubs those calls out. Most of the hints are not built
+either. dampf computes a best and a worst case in CPU cycles for every function, and a function
+marked with `DAMPF_BUDGET` that goes over its cycle budget fails the build. The
 [Roadmap](/inside/roadmap) has the plan, and [Limits](/reference/limits) lists what dampf does
 not do yet.
 

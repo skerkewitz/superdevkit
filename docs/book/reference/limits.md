@@ -21,12 +21,15 @@ PVSnesLib call.
 **Hints.** A [hint](/glossary#hint) is a macro that tells dampf something it cannot infer, such
 as `DAMPF_RANGE(i, 0, 15)` for "`i` is always between 0 and 15", or `DAMPF_TRIPS(16)` for a loop
 that runs at most 16 times. In the PC build a hint that states a fact becomes a checked
-assertion, so a wrong hint is caught on the PC before it does damage on the SNES. The design is
-agreed, but no hint is built, and the names and the set of macros are not decided yet; this
-decision was left open in M0 and is needed by M3. The hints that request a transformation
-(`DAMPF_TABLE`, `DAMPF_PIN_X` and the others) belong to M4. Meanwhile dampf infers
+assertion, so a wrong hint is caught on the PC before it does damage on the SNES. Two hints
+from `<dampf.h>` are built, `DAMPF_RANGE` and `DAMPF_BUDGET` (see the timing report below); the
+names of the others are decided, but none of them is built. `DAMPF_TRIPS` is postponed: on the
+PC it would have to count the rounds per entry into the loop, and a macro cannot see that entry
+without changing the loop. Meanwhile a `DAMPF_RANGE` on a counter in the loop gives the loop its
+bound, and a loop without a counter can be given one. The hints that request a transformation
+(`DAMPF_TABLE`, `DAMPF_PIN_X` and the others) belong to M4. dampf also infers
 [value ranges](/glossary#value-range) itself from constants, operations, conditions and loops,
-so much of what `DAMPF_RANGE` would say it already knows. Declared subrange types
+so a range hint is needed only where it cannot. Declared subrange types
 (`DAMPF_RANGED`, `DAMPF_AS`) are not scheduled at all: they are built only when a profile shows
 a hot value whose range dampf cannot infer.
 
@@ -38,12 +41,16 @@ to the playable ROM rather than to a milestone.
 **The timing report and cycle budgets.** dampf already computes a best and a worst case in CPU
 cycles for every function, from its entry to its return with calls included, and `dampf build`
 writes them to `<rom>.timing.txt`, most expensive first. A loop whose bound dampf cannot find in
-the code makes the worst case "unbounded"; in Blubber Blasen that is so for 91 functions, mostly
-loops up to a parameter such as `for (i = 0; i < count; i++)`. The rest of the timing work of M3
-is not built: `DAMPF_TRIPS(n)` to give such a loop its bound, the costliest path line by line in
-the report, cycle counts in master cycles that include the speed of each memory region, and
-failing the build when a function marked with `DAMPF_BUDGET(n)` can take more than `n` cycles.
-Budgets for a whole frame, which add the cost of interrupt handlers, are not built either. The
+the code makes the worst case "unbounded"; in Blubber Blasen that is so for 38 functions, and
+the report names, after each of them, the first loop without a bound or else the call that makes
+it so. The loops left run over memory (`while (s[n]) n++;`), have a counter that is not stepped
+by a constant, or could really run forever in C; they need a hint, as described above. A
+function marked with `DAMPF_BUDGET(n)` fails the build when it can take more than `n` CPU cycles
+or has no worst case, and `dampf build` warns when its worst case is above 90 % of the budget.
+The rest of the timing work of M3 is not built: the costliest path line by line in the report
+and in the budget errors, and cycle counts in master cycles that include the speed of each
+memory region. Budgets for a whole frame, which add the cost of interrupt handlers, are not
+built either, nor a check of the measured cycles of budgeted functions in the emulator. The
 comments of the generated assembly carry the CPU cycles of each instruction, and each
 straight-line C line their sum; a line with branches does not show its best and worst case yet.
 For measured cycles per function, use `dampf profile` ([Command line](/reference/command-line)).
@@ -63,7 +70,7 @@ expect:
 - **Speed.** The fine tuning of M4 (more optimizations, page-aligned arrays with 8-bit index
   registers, profile-guided optimization from the replays) has not started, so the generated
   code is not yet as fast as the goal of 60 % of a [frame](/glossary#frame) per
-  [tick](/glossary#tick): during play, Blubber Blasen takes 1.53 frames per tick with dampf.
+  [tick](/glossary#tick): during play, Blubber Blasen takes 1.41 frames per tick with dampf.
 
 ## Never planned
 

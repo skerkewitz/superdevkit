@@ -74,7 +74,7 @@ The constructs the subset rejects most often:
 | Structs passed or returned by value | not used by the game; pass a pointer instead |
 | `goto` and labels | would need a more general timing analysis |
 | `malloc`, any heap | all objects are static, so memory use is known at compile time |
-| Library functions | the only system header is `<stdint.h>` |
+| Library functions | the only system headers are dampf's `<stdint.h>` and `<dampf.h>` |
 
 Recursion is reported with the cycle of calls, for example
 `recursion is not supported: count_down → count_down`. Struct assignment is allowed: it is a
@@ -89,8 +89,10 @@ value is the same on both sides.
 The complete list, with every construct and the counts from the scan of the game, is in
 [The C subset](/reference/c-subset).
 
-Hints and intrinsics, macros that tell dampf a value range or give the code access to the SNES
-hardware, are not built yet; see [Limits](/reference/limits).
+[Hints](/glossary#hint), macros such as `DAMPF_RANGE` that tell dampf something it cannot
+infer, come from dampf's second system header, `<dampf.h>`; in the PC build they become checked
+assertions or nothing. Intrinsics, which give the code access to the SNES hardware, are not
+built yet; see [Limits](/reference/limits).
 
 ## One program, not separate files
 

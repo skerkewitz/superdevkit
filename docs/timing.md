@@ -1,6 +1,6 @@
 # Exact timing and cycle budgets
 
-dampf computes how long code runs; refusing builds that break a cycle budget is still to come.
+dampf computes how long code runs and refuses builds that break a cycle budget.
 What is built (2026-11-17) is in the section "As built" at the end; the rest is the agreed design
 (design discussion, 2026-11-17). The cost model it rests
 on (memory speeds, multipliers) is in [optimizations.md](optimizations.md), section "Knowing the
@@ -37,7 +37,8 @@ case. dampf computes both exactly:
   call graph has no cycles. The cost of a call is the callee's already computed bound plus the
   call overhead.
 - **Loops need a bound.** Loops with a constant trip count are bounded automatically. Other loops
-  need `DAMPF_TRIPS(n)`, which is checked as an assertion on the PC ([hints.md](hints.md)). A
+  need a hint, which is checked as an assertion on the PC ([hints.md](hints.md)): built is
+  `DAMPF_RANGE` on the loop's counter; `DAMPF_TRIPS(n)` was planned and is postponed. A
   function with an unbounded loop gets the worst case "unbounded".
 - **Structured code.** Bounds are computed on the structure of the code (sequence, branch, loop),
   which keeps the analysis simple and exact. Unrestricted `goto` would need a more general

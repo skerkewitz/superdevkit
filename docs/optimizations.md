@@ -194,6 +194,11 @@ execution tests, the random programs, the replay, and `dampf mir -O --check-rang
 | play, CPU partner | 6.55 (worst 12.23) | 5.37 (worst 10.12) | 5.15 (worst 9.13) |
 | `level_solid_px`, per call | 3,849 | 3,276 | 2,433 clocks (816-tcc: 2,449; Calypsi: 931) |
 
+Later additions to the analysis (2026-11-17): narrowing after the widened fixpoint, conditions
+between two values (`r < n`, from a first run's ranges), parameter ranges from all call sites
+(`ParamRanges`) and `DAMPF_RANGE` hints; see the summary section below and
+[timing.md](timing.md).
+
 ### Fewer loads and copies in the code generator, 2026-11-17
 
 Two small changes to the code generator from MIR. It remembers what A holds (a frame place or a

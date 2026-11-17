@@ -1,8 +1,9 @@
 package dampf.mir;
 
 /**
- * The MIR passes, in order. Each runs on every function until nothing changes; then small
- * functions are inlined ({@link Inline}) and the passes run again. The verifier checks the module
+ * The MIR passes, in order. Each runs on every function until nothing changes; then parameters
+ * get the ranges of their arguments ({@link ParamRanges}), small functions are inlined
+ * ({@link Inline}) and the passes run again. The verifier checks the module
  * after the passes (the tests also check after every single pass).
  */
 public final class Optimizer {

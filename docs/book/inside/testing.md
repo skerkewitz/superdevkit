@@ -24,8 +24,10 @@ The program also runs on the level of [MIR](/glossary#mir) in between: dampf's M
 (`dampf.mir.Interpreter`) executes it once straight after the lowering from the AST and once
 after all the optimizer's [passes](/glossary#pass). A wrong lowering or a wrong pass shows up
 there, before any 65816 code exists. In the optimized run the verifier (`dampf.mir.Verifier`)
-checks the MIR after every pass, and every value the interpreter computes must lie within the
-[value range](/glossary#value-range) dampf inferred for it (`Ranges.checker`).
+checks the MIR after every pass, and every value the interpreter computes, and every
+parameter's value on entry to its function, must lie within the
+[value range](/glossary#value-range) dampf inferred for it (`Ranges.checker`). A `DAMPF_RANGE`
+[hint](/glossary#hint) that does not hold stops the interpreter with "a hint does not hold".
 
 On the PC side, gcc builds the program with [UBSan](/glossary#ubsan), its undefined behaviour
 sanitizer: extra checks in the code that stop the program when it overflows a signed `int`,
@@ -166,7 +168,9 @@ void test_main(void)
 
 `ExecutionTest` picks up every `.c` file in the folder by itself. For the PC side it writes a
 small harness that includes the file, calls `test_main` and prints every global, and compiles it
-with `gcc -std=c99 -O1 -Wall` and UBSan. Here the PC prints `lives 4` and `score 1275`, and the
+with `gcc -std=c99 -O1 -Wall` and UBSan. It adds dampf's header directory with `-idirafter`, so
+a test can include `<dampf.h>`; gcc searches that directory after its own, so `<stdint.h>`
+still comes from the PC. Here the PC prints `lives 4` and `score 1275`, and the
 test passes when the MIR interpreter, both ROMs in dampf's emulator and, if present, Mesen all
 end with these values, and every call in the ROM from MIR stays within its static timing.
 

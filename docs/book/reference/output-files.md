@@ -97,17 +97,17 @@ with `; A/X/Y are 16 bit throughout, DBR = $7E`, and where a line switches the a
 The counts follow the switch: the `sta` in 8-bit mode costs 4 cycles, in 16-bit mode 5.
 
 ```asm
-; calls.c:30   small_result = inc8(-1);                                         [ 13 cyc ]
-        .dbg    line, "../../../examples/m1/calls.c", 30
-                                    ; store i8 @_small_result, 0
-        lda     #$0000              ;                                                           3
+; calls.c:31   signed_result = neg8(inc8(126));                                 [ 13 cyc ]
+        .dbg    line, "../../../examples/m1/calls.c", 31
+                                    ; store i8 @_signed_result, -127
+        lda     #$0081              ;                                                           3
         sep     #$20                ;                                                           3
-        sta     _small_result       ;                                                           4
+        sta     _signed_result      ;                                                           4
         rep     #$20                ;                                                           3
 ```
 
 The calls in this line are gone: the program is compiled as a [whole](/glossary#whole-program),
-so dampf inlined `inc8` and computed the result at compile time.
+so dampf inlined `neg8` and `inc8` and computed the result at compile time.
 
 The [naive code generator](/glossary#naive-code-generator) (`--backend naive`) writes the
 processor state under every header (`; M=16 X=16`, the
@@ -178,14 +178,15 @@ writes them to `calls.timing.txt`, the most expensive function first:
 ```
 # dampf timing: best and worst case per function in CPU cycles, from entry to return,
 # calls included, interrupts and DMA not (docs/timing.md). "unbounded": a loop without
-# a known bound on the way.
+# a known bound on the way; the first such loop in the function, or the first call
+# of a function without a bound, is named after it.
         best        worst  function
         1940         2594  dampf_sdiv32
         1888         2432  dampf_udiv32
         1168         1968  dampf_mul32
          564          772  dampf_udiv16
          287          367  dampf_mul16
-          48           48  _test_main
+          45           45  _test_main
           22           22  _add3
           18           18  _inc8
           18           18  _neg8
@@ -194,7 +195,14 @@ writes them to `calls.timing.txt`, the most expensive function first:
 The first five lines are the multiplication and division routines of the runtime, which the
 file lists with the functions of the program. Unlike the sums in the line headers, these numbers
 include the calls a function makes. A function with a loop whose number of rounds dampf cannot
-bound gets `unbounded` as its worst case and comes first in the file.
+bound gets `unbounded` as its worst case and comes first in the file. After its name stands
+the reason: the first such loop in it (`loop at` and the C file and line), or else the first
+call of a function without a bound (`calls` and that function). A function that waits for bit 7
+of the register `$4212` in a `while` loop on line 5 of `wait.c` gets:
+
+```
+          43    unbounded  _wait_ready   (loop at wait.c:5)
+```
 
 ## The debug file
 
