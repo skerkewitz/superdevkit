@@ -54,6 +54,7 @@ class ExecutionTest {
             Compiler.Result m = Compiler.compile(new Compiler.Options(List.of(src), List.of(), List.of(), "test_main",
                     work.resolve(name + "_mir.sfc")).withBackend(Compiler.Backend.MIR));
             assertEquals(pc, emulator.run(m.rom(), globals).values(), "globals after test_main() (PC vs SNES, code generated from MIR)");
+            Timing.check(m, emulator, src.getFileName().toString());
         }, "took too long: hangs?")));
     }
 }

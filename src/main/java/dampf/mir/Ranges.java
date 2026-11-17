@@ -58,8 +58,18 @@ public final class Ranges {
         List<Block> rpo = Cfg.reversePostorder(f);
         for (Block b : rpo) {
             Map<Value, Range> m = b == f.entry() ? new HashMap<>() : new HashMap<>(refine.get(idom.get(b)));
-            if (b.preds().size() == 1 && b.preds().getFirst() != b) {
-                conditions(b.preds().getFirst(), b, m);
+            // the edge from the one predecessor that is not a back edge: its condition holds in b
+            // (a value it tests is defined before b's loop, so the loop does not change it)
+            Block entry = null;
+            int entries = 0;
+            for (Block p : b.preds()) {
+                if (p == b || !Loops.dominates(b, p, idom)) {
+                    entry = p;
+                    entries++;
+                }
+            }
+            if (entries == 1 && entry != b) {
+                conditions(entry, b, m);
             }
             refine.put(b, m);
         }

@@ -124,6 +124,11 @@ the profile after each step can change the order of the later ones:
    3. **Pointer compression:** done 2026-11-17 for pointers into a single object, within functions
       and through parameters (`PointerOffsets`, `PointerParams`): play 1.56 → 1.54.
 
+   **Static timing** (best and worst case per function, [timing.md](timing.md)): built
+   2026-11-17 in CPU cycles and checked against the emulator on every call. Next: `DAMPF_TRIPS`
+   and parameter ranges from call sites (91 game functions are still unbounded), then
+   `DAMPF_BUDGET`, master cycles and the report per C line.
+
 **Subrange types** (`DAMPF_RANGED`, `DAMPF_AS` and their checker, sections 3–6 there) are not
 scheduled. They are built when a profile shows a hot value whose range dampf cannot infer and
 that costs real cycles. Until then the design stays as it is.

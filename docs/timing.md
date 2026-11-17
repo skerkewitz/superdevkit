@@ -1,7 +1,8 @@
 # Exact timing and cycle budgets
 
-dampf will compute how long code runs, and refuse builds that break a cycle budget. None of this
-is built yet; this is the agreed design (design discussion, 2026-11-17). The cost model it rests
+dampf computes how long code runs; refusing builds that break a cycle budget is still to come.
+What is built (2026-11-17) is in the section "As built" at the end; the rest is the agreed design
+(design discussion, 2026-11-17). The cost model it rests
 on (memory speeds, multipliers) is in [optimizations.md](optimizations.md), section "Knowing the
 machine".
 
@@ -114,3 +115,43 @@ slows down; with it, the build refuses the change that causes it.
 - How to express impossible path combinations, should the worst-case bounds turn out too
   pessimistic in practice.
 - How much HDMA the game uses in the end, since it changes the frame-level budget.
+
+## As built (2026-11-17)
+
+`dampf.backend.Timing` computes, for every function the code generator from MIR writes, a best
+and a worst case in **CPU cycles** from its entry to its return, calls included. `dampf build`
+writes them to `<rom>.timing.txt`, most expensive first.
+
+- **Per block** (level 1): the code as written, instruction by instruction, with the cycle table
+  (accumulator width followed through the code; index registers 16 bit). Inside a block there
+  are only forward branches over a few instructions and the code generator's small loops (shifts,
+  copies), which it marks with their bound. A conditional branch costs 2 when not taken, 3 when
+  taken.
+- **Across blocks** (level 2): the loops of the function, innermost first, each collapsed into
+  one node: worst case = (rounds - 1) × the longest way round + the longest way out, best case =
+  the shortest way out (no round). The rest is free of cycles: shortest and longest path to the
+  return.
+- **Loop bounds** come from the code, as long as there are no hints: a counter that the way back
+  always steps by the same constant, without wrapping, with a finite value range in the loop
+  head, runs the head at most (hi - lo) / step + 1 times; a counter stepped by ±1 towards the
+  constant the head tests for equality (`k != 0`) at most |start - constant| + 1 times. Other
+  loops make the worst case "unbounded" (`DAMPF_TRIPS` will help there). The value ranges now
+  also carry a loop head's entry condition into the loop when the head's other predecessors are
+  back edges (an outer `i < 5` reaches a body that starts with an inner loop).
+- **Calls**: callee bounds first (no recursion); the runtime's multiplication and division have
+  fixed bounds counted from `runtime.s`.
+
+Not yet: master cycles (memory speeds; the benchmark measures those), `DAMPF_TRIPS`,
+`DAMPF_BUDGET`, the costliest path per C line in the report, cycle ranges in the assembly
+comments, and interrupts at frame level.
+
+**Checked against the emulator.** Every execution test and random program measures every call
+of every function and runtime routine (from its first instruction to the instruction after the
+`JSL`) and checks best ≤ measured ≤ worst; with `-Preplays` the game's benchmark does the same
+for its 180,000 calls (`GameTimingTest`). A runtime bound set too low on purpose (`dampf_mul16`
+worst 300 instead of 367) failed 94 tests at once; the measured maximum was 362.
+
+In the game, 240 functions get a bound and 91 do not (mostly loops up to a parameter, such as
+`for (i = 0; i < count; i++)`, which need the parameter's range from its callers or a hint).
+Examples: `abs16` 25–37 cycles, `floating` 44–75, `level_solid_px` 21–209, `separate` 33–190,481.
+

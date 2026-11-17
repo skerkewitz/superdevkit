@@ -52,6 +52,81 @@ final class EmulatorRunner {
         return new Result(values, snes.masterClock());
     }
 
+    /**
+     * The CPU cycles the entry function takes, from its first instruction until control is back
+     * in the runtime (at dampf_done, right after the JSL that called it): what the static timing
+     * bounds.
+     */
+    long cyclesOf(RomBuilder.Rom rom, String function) throws IOException {
+        Map<String, Long> addresses = labels(rom.labels());
+        long start = addresses.get(function);
+        long stop = addresses.get("dampf_done");
+        Snes snes = Snes.load(rom.rom());
+        long[] at = {-1, -1};
+        snes.run(limitMasterCycles, address -> {
+            if (address == start && at[0] < 0) {
+                at[0] = snes.cpu().cycles;
+            } else if (address == stop && at[0] >= 0 && at[1] < 0) {
+                at[1] = snes.cpu().cycles;
+            }
+        });
+        if (at[0] < 0 || at[1] < 0) {
+            throw new IOException(function + " did not run to its end");
+        }
+        return at[1] - at[0];
+    }
+
+    /** How many calls were measured, and the first that broke their static bounds. */
+    record CallCheck(long calls, List<String> wrong) {}
+
+    /**
+     * Runs the ROM and measures every call of every function (and runtime routine) with static
+     * bounds: from its first instruction to the instruction after the JSL that called it. Each
+     * must lie within the bounds (best, worst; worst -1: unbounded).
+     */
+    CallCheck checkCalls(RomBuilder.Rom rom, Map<String, long[]> timing) throws IOException {
+        Map<Long, String> starts = new HashMap<>();
+        for (Map.Entry<String, Long> e : labels(rom.labels()).entrySet()) {
+            if (timing.containsKey(e.getKey())) {
+                starts.put(e.getValue(), e.getKey());
+            }
+        }
+        byte[] image = Files.readAllBytes(rom.rom());
+        Snes snes = Snes.load(rom.rom());
+        record Call(String function, long start, long returnTo) {}
+        java.util.Deque<Call> stack = new java.util.ArrayDeque<>();
+        long[] previous = {-1};
+        long[] calls = {0};
+        List<String> wrong = new java.util.ArrayList<>();
+        snes.run(limitMasterCycles, address -> {
+            long cycles = snes.cpu().cycles;
+            while (!stack.isEmpty() && stack.peek().returnTo() == address) {
+                Call c = stack.pop();
+                long took = cycles - c.start();
+                long[] b = timing.get(c.function());
+                if ((took < b[0] || b[1] >= 0 && took > b[1]) && wrong.size() < 10) {
+                    wrong.add(c.function() + " took " + took + " CPU cycles, bounds " + b[0] + ".." + (b[1] < 0 ? "unbounded" : b[1]));
+                }
+                calls[0]++;
+            }
+            String f = starts.get((long) address);
+            if (f != null && previous[0] >= 0 && byteAt(image, previous[0]) == 0x22) {   // after a JSL
+                stack.push(new Call(f, cycles, previous[0] + 4));
+            }
+            previous[0] = address;
+        });
+        return new CallCheck(calls[0], wrong);
+    }
+
+    /** The byte at a CPU address in a LoROM image (banks $80 and up, $8000-$FFFF). */
+    private static int byteAt(byte[] rom, long address) {
+        if ((address & 0xFFFF) < 0x8000) {
+            return -1;
+        }
+        int offset = (int) (((address >> 16) & 0x7F) * 0x8000 + (address & 0x7FFF));
+        return offset < rom.length ? rom[offset] & 0xFF : -1;
+    }
+
     private static Map<String, Long> labels(Path file) throws IOException {
         Map<String, Long> m = new HashMap<>();
         for (String line : Files.readAllLines(file)) {

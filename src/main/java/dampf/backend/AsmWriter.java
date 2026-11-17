@@ -39,6 +39,33 @@ final class AsmWriter {
         return position;
     }
 
+    /**
+     * What was written, for the timing analysis: instructions with their CPU cycles (a
+     * conditional branch: not taken, taken) and labels; and the bound of the small loops the code
+     * generator writes (label to the most rounds).
+     */
+    record Item(String mnemonic, String operand, int cycles, int taken, boolean conditional, String label) {
+        boolean isLabel() {
+            return label != null;
+        }
+    }
+
+    private final List<Item> items = new ArrayList<>();
+    private final java.util.Map<String, Integer> loopBounds = new java.util.HashMap<>();
+
+    List<Item> items() {
+        return items;
+    }
+
+    java.util.Map<String, Integer> loopBounds() {
+        return loopBounds;
+    }
+
+    /** The loop that starts at this label runs at most {@code rounds} times. */
+    void loopBound(String label, int rounds) {
+        loopBounds.put(label, rounds);
+    }
+
     Integer labelAt(String name) {
         return labelAt.get(name);
     }
@@ -62,11 +89,15 @@ final class AsmWriter {
         if (op < 0) {
             unknown++;
             cycles = "?";
+            items.add(new Item(mnemonic, operand, 0, 0, false, null));
         } else if (Cycles65816.isConditionalBranch(op)) {
             cycles = Cycles65816.cycles(op, m16, true, false) + "/" + Cycles65816.cycles(op, m16, true, true);
             lineBranches = true;
+            items.add(new Item(mnemonic, operand, Cycles65816.cycles(op, m16, true, false),
+                    Cycles65816.cycles(op, m16, true, true), true, null));
         } else {
             int c = Cycles65816.cycles(op, m16, true, false);
+            items.add(new Item(mnemonic, operand, c, c, false, null));
             cycles = Integer.toString(c);
             lineCycles += c;
             if (mnemonic.equals("jmp") || mnemonic.equals("bra") || mnemonic.equals("jml")) {
@@ -97,6 +128,7 @@ final class AsmWriter {
 
     void label(String name) {
         labelAt.put(name, position);
+        items.add(new Item(null, null, 0, 0, false, name));
         lines.add(name + ":");
         lineBranches = true; // a label inside a line: something jumps here
     }

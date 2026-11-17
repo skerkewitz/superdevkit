@@ -46,6 +46,7 @@ class RandomProgramTest {
             Compiler.Result m = Compiler.compile(new Compiler.Options(List.of(src), List.of(), List.of(), "test_main",
                     work.resolve("random_mir.sfc")).withBackend(Compiler.Backend.MIR));
             assertEquals(pc, runner.run(m.rom(), globals).values(), () -> "seed " + seed + " differs (PC vs SNES from MIR); the program:\n" + program);
+            Timing.check(m, runner, "seed " + seed);
         }, "took too long: hangs?")));
     }
 }

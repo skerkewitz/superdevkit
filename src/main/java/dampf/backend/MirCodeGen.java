@@ -134,6 +134,7 @@ public final class MirCodeGen {
             jumpSites = 0;
             AsmWriter code = new AsmWriter();
             function(f, code);
+            written.put(f, new Written(code.items(), code.loopBounds(), lastOrder, layout.ranges));
             if (code.unknownInstructions() > 0) {
                 throw new IllegalStateException("the cycle table does not know an instruction in " + f.name());
             }
@@ -236,6 +237,46 @@ public final class MirCodeGen {
     }
 
     private final Set<Block> direct = new HashSet<>();
+
+    // ---------------------------------------------------------------- timing
+
+    /** A function's code as written (second pass), for the timing analysis. */
+    private record Written(List<AsmWriter.Item> items, Map<String, Integer> loopBounds, List<Block> order, Ranges ranges) {}
+
+    private final Map<MFunction, Written> written = new HashMap<>();
+    private List<Block> lastOrder;
+    private final Map<String, Timing.Bound> bounds = new HashMap<>();
+
+    /** Best and worst case in CPU cycles per function (by label), after generate(); see {@link Timing}. */
+    public Map<String, long[]> timing() {
+        Map<String, long[]> out = new java.util.TreeMap<>();
+        for (MFunction f : module.functions()) {
+            Timing.Bound b = bound(f.name(), new HashSet<>());
+            out.put(f.name(), new long[] {b.best(), b.bounded() ? b.worst() : -1});
+        }
+        Timing.RUNTIME.forEach((name, b) -> out.put(name, new long[] {b.best(), b.worst()}));
+        return out;
+    }
+
+    private Timing.Bound bound(String name, Set<String> path) {
+        Timing.Bound known = bounds.get(name);
+        if (known != null) {
+            return known;
+        }
+        Timing.Bound runtime = Timing.RUNTIME.get(name);
+        if (runtime != null) {
+            return runtime;
+        }
+        MFunction f = module.function(name);
+        if (f == null || !path.add(name)) {
+            return new Timing.Bound(0, Timing.UNBOUNDED);
+        }
+        Written w = written.get(f);
+        Timing.Bound b = Timing.of(f, w.items(), w.loopBounds(), w.order(), w.ranges(), callee -> bound(callee, path));
+        path.remove(name);
+        bounds.put(name, b);
+        return b;
+    }
     private final Map<MFunction, FrameLayout> layouts = new HashMap<>();
 
     private void layout() {
@@ -396,6 +437,7 @@ public final class MirCodeGen {
         findForwards(f);
         forward.removeAll(xSteps.keySet());
         List<Block> blocks = layoutOrder(f);
+        lastOrder = blocks;
         for (int k = 0; k < blocks.size(); k++) {
             Block b = blocks.get(k);
             Block next = k + 1 < blocks.size() ? blocks.get(k + 1) : null;
@@ -739,7 +781,6 @@ public final class MirCodeGen {
         return at(place.get(i) + 2 * w);
     }
 
-    /** The bits above an i1 or i8 are zero in its place. */
     /**
      * Whether an 8-bit add, subtract, multiply or left shift, done in 16 bits on zero-extended
      * operands, provably gives a result below 256, so it needs no mask (from the value ranges,
@@ -1192,6 +1233,7 @@ public final class MirCodeGen {
             ins("cpx", imm(0));
             ins("beq", done);
             place(loop);
+            out.loopBound(loop, bits);   // X counts down from at most the width
             switch (b.op) {
                 case SHL -> ins("asl", "a");
                 case LSHR -> ins("lsr", "a");
@@ -1212,6 +1254,7 @@ public final class MirCodeGen {
             ins("cpx", imm(0));
             ins("beq", done);
             place(loop);
+            out.loopBound(loop, bits);   // X counts down from at most the width
             switch (b.op) {
                 case SHL -> {
                     ins("asl", lo);
@@ -1639,6 +1682,7 @@ public final class MirCodeGen {
             String loop = label();
             ins("ldy", imm((size & ~1) - 2));
             place(loop);
+            out.loopBound(loop, size / 2);   // Y counts down two bytes a round
             ins("lda", VIA_P);
             ins("sta", VIA_Q);
             ins("dey", null);

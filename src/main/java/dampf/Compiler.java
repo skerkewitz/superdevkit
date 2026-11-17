@@ -49,8 +49,11 @@ public final class Compiler {
     /** Which code generator: the naive one straight from the AST, or the one from MIR. */
     public enum Backend { NAIVE, MIR }
 
-    /** What a compilation produced. */
-    public record Result(Program program, List<String> assembly, RomBuilder.Rom rom) {}
+    /**
+     * What a compilation produced. {@code timing}: per function (by label) the best and worst case
+     * in CPU cycles, worst -1 if unbounded (the code generator from MIR only; empty otherwise).
+     */
+    public record Result(Program program, List<String> assembly, RomBuilder.Rom rom, Map<String, long[]> timing) {}
 
     private Compiler() {}
 
@@ -86,6 +89,7 @@ public final class Compiler {
         java.util.function.Function<String, String> debugName =
                 file -> outDir.relativize(Path.of(file).toAbsolutePath().normalize()).toString().replace('\\', '/');
         List<String> asm;
+        Map<String, long[]> timing = Map.of();
         if (o.backend() == Backend.MIR) {
             if (!o.replacements().isEmpty()) {
                 throw new CompileError(entry.pos(), "--replace works with the naive code generator only");
@@ -93,7 +97,10 @@ public final class Compiler {
             NaiveCodeGen.checkEntry(entry);
             dampf.mir.MModule mir = Lower.lower(program);
             dampf.mir.Optimizer.run(mir);
-            asm = new java.util.ArrayList<>(new MirCodeGen(mir, entry.label(), debugName).generate());
+            MirCodeGen gen = new MirCodeGen(mir, entry.label(), debugName);
+            asm = new java.util.ArrayList<>(gen.generate());
+            timing = gen.timing();
+            writeTiming(timing, outDir.resolve(baseName + ".timing.txt"));
         } else {
             asm = new java.util.ArrayList<>(new NaiveCodeGen(program, entry, o.replacements().keySet(), debugName).generate());
         }
@@ -101,6 +108,22 @@ public final class Compiler {
             asm.add(Files.readString(s));
         }
         RomBuilder.Rom rom = RomBuilder.build(asm, outDir, baseName);
-        return new Result(program, asm, rom);
+        return new Result(program, asm, rom, timing);
+    }
+
+    /** The timing report: every function's best and worst case, the most expensive first. */
+    private static void writeTiming(Map<String, long[]> timing, Path file) throws IOException {
+        StringBuilder out = new StringBuilder("""
+                # dampf timing: best and worst case per function in CPU cycles, from entry to return,
+                # calls included, interrupts and DMA not (docs/timing.md). "unbounded": a loop without
+                # a known bound on the way.
+                """);
+        out.append(String.format("%12s %12s  %s%n", "best", "worst", "function"));
+        timing.entrySet().stream()
+                .sorted((a, b) -> Long.compare(b.getValue()[1] < 0 ? Long.MAX_VALUE : b.getValue()[1],
+                        a.getValue()[1] < 0 ? Long.MAX_VALUE : a.getValue()[1]))
+                .forEach(e -> out.append(String.format("%12d %12s  %s%n", e.getValue()[0],
+                        e.getValue()[1] < 0 ? "unbounded" : Long.toString(e.getValue()[1]), e.getKey())));
+        Files.writeString(file, out);
     }
 }

@@ -116,3 +116,10 @@ and are killed when it runs out. The emulator stops after 600 frames in the prog
 test task has an overall limit of 2 hours as a last resort. A program that loops forever fails in
 about a minute with "did not finish within 60 s and was stopped (does it hang?)".
 
+## Static timing in the tests
+
+The execution tests and the random programs compare the static timing with the emulator:
+`test_main` as a whole, and every call of every function and runtime routine on the way, must
+take between the best and the worst case (`Timing.check`). `GameTimingTest` (with `-Preplays`)
+does the same for every call in the game's benchmark.
+
