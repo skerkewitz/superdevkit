@@ -78,6 +78,10 @@ public final class Optimizer {
                 if (verifyEach) {
                     Verifier.verify(m, f);
                 }
+                changed |= Licm.run(f);
+                if (verifyEach) {
+                    Verifier.verify(m, f);
+                }
                 changed |= Induction.run(f);
                 if (verifyEach) {
                     Verifier.verify(m, f);

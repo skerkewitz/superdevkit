@@ -539,6 +539,19 @@ Before that, an indexed access uses Y when X holds another index (two bubbles of
 X, one in Y), for the instructions that have an absolute,Y form (`LDA`, `STA` and the
 arithmetic, not `INC`, `STZ` or direct page): play 488,759 → 487,041.
 
+Keeping the pointer in `dampf_ptr` across blocks as well (forgotten where its definition runs
+again) changed nothing measurable: pointer compression left almost no pointer accesses in the
+hot code. It was not kept.
+
+### Loop-invariant code, 2026-11-17
+
+An instruction whose operands are all defined outside a loop gives the same value in every
+round; `Licm` moves it to the block before the loop (catalogue F). Only cheap instructions
+without side effects move (arithmetic without multiplication and division, which call the
+runtime; casts; pointer additions; comparisons stay with their branches), and only from blocks
+every round passes, so no work moves out of a branch that rarely runs. Title 199,811 → 193,463
+clocks per tick, round intro 637,713 → 630,469, play 478,185 → 478,018.
+
 ### Blocks laid out by a profile, 2026-11-17
 
 The jumps over large loop bodies (the section on short branches) need to know which blocks run
@@ -582,11 +595,11 @@ byte loads, the short branches, INC/DEC, STZ, the bit selections, fewer copies a
 
 | State | naive | from MIR, no passes | now |
 | --- | --- | --- | --- |
-| title | 1.94 | 12.21 | 0.56 |
+| title | 1.94 | 12.21 | 0.54 |
 | story | 0.70 | 3.56 | 0.22 |
-| round intro | 5.76 | 12.13 | 1.78 |
-| play | 5.17 (worst 8.58) | 18.93 | 1.34 (worst 2.33) |
-| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 2.02 (worst 4.15) |
+| round intro | 5.76 | 12.13 | 1.76 |
+| play | 5.17 (worst 8.58) | 18.93 | 1.34 (worst 2.32) |
+| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 2.00 (worst 4.11) |
 | `level_solid_px`, per call | 3,849 | 6,648 | 1,208 clocks |
 
 Calypsi's 2.72 frames per tick during play (on an older version of the game) is passed; a fair
@@ -638,7 +651,7 @@ the catalogue come first. Compared with Calypsi, dampf promises nothing until it
 | C | Inlining and calling convention | Inline small functions, pass parameters in A/X/Y or the direct page, `JMP` instead of `JSR`+`RTS` for tail calls | High with many small helpers | call graph | | open |
 | D | Data layout | Split arrays of structs into one array per field (index in X/Y), or point D at the current object | High in the loops over bubbles and enemies | | | open |
 | E | 8.8 fixed point | `>>8`, `<<8` and comparisons of the integer part as byte accesses instead of shifts | Medium to high; the game uses 8.8 everywhere | B | play 1.49 → 1.48 frames per tick | in progress: a load shifted right by 8 or more is a byte load (`ByteLoads`); `<<8` open |
-| F | Loops | Counter in X/Y, count down to zero, hoist invariant code, unroll small loops (by hint) | Medium | H | play 1.61 → 1.57 (induction variables), 1.54 → 1.53 (counters in X) | in progress: loop counters in X, induction variables, `INC`/`DEC` steps; counting down, hoisting and unrolling open |
+| F | Loops | Counter in X/Y, count down to zero, hoist invariant code, unroll small loops (by hint) | Medium | H | play 1.61 → 1.57 (induction variables), 1.54 → 1.53 (counters in X); title 0.56 → 0.54 (invariant code) | in progress: loop counters in X, induction variables, `INC`/`DEC` steps, loop-invariant code (`Licm`); counting down and unrolling open |
 | G | Branches | Branch on flags instead of materialising 0/1, common path falls through, correct branch distances | Medium | | play 1.48 → 1.47 frames per tick; 1.38 → 1.37 with a profile | in progress: compare and branch in one, short branches wherever they reach, `BRA` for near jumps, the layout of rare blocks by a profile (`--block-counts`), bit selections without a branch |
 | H | Standard optimizations | Constant folding and propagation, dead code removal, common subexpressions | Medium; mostly a prerequisite for A–G | IR in SSA form | play 6.12 → 5.17 frames per tick (code from MIR) | built: folding, identities, branch folding, block merging, value numbering, redundant loads, dead code; loop-invariant code open |
 | I | Multiply and divide | Constants as shifts and adds, hardware multiplier with useful work during its latency, division by powers of two with correct signed rounding | Medium, depends on the code; **measured: 37 % of the naive code's time is the runtime multiplication, mostly struct array indexing by a constant size** | range analysis for signed division | play 8.16 → 6.12 frames per tick (code from MIR) | constants built (shifts and adds, powers of two); hardware multiplier open |
