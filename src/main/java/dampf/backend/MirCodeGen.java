@@ -665,11 +665,18 @@ public final class MirCodeGen {
         storeWithSign(lo, hi);
     }
 
+    /** Shifts by a constant up to this are written out; longer ones and variable ones loop. */
+    private static final int UNROLL_SHIFT = 8;
+
     private void shift(Instr.Bin b) {
         MType t = b.type();
         int bits = t.bits();
         Value x = b.op(0);
         Value y = b.op(1);
+        if (y instanceof Value.Const k && k.bits() <= UNROLL_SHIFT && k.bits() < bits) {
+            unrolledShift(b, (int) k.bits());
+            return;
+        }
         // X = the shift count, at most the width (shifting further changes nothing: all 0, or all sign)
         if (y instanceof Value.Const k) {
             ins("ldx", imm(Math.min(k.bits(), bits)));
@@ -738,6 +745,52 @@ public final class MirCodeGen {
             ins("dex", null);
             ins("bne", loop);
             out.label(done);
+        }
+    }
+
+    private void unrolledShift(Instr.Bin b, int count) {
+        MType t = b.type();
+        Value x = b.op(0);
+        if (words(t) == 1) {
+            if (b.op == Instr.BinOp.ASHR) {
+                loadSigned16(x, t);
+            } else {
+                ins("lda", operand(x, 0));
+            }
+            for (int k = 0; k < count; k++) {
+                switch (b.op) {
+                    case SHL -> ins("asl", "a");
+                    case LSHR -> ins("lsr", "a");
+                    default -> {
+                        ins("cmp", imm(0x8000));    // C = the sign
+                        ins("ror", "a");
+                    }
+                }
+            }
+            mask(t);
+            ins("sta", dest(b, 0));
+            return;
+        }
+        String lo = dest(b, 0);
+        String hi = dest(b, 1);
+        to32(x, lo, hi);
+        for (int k = 0; k < count; k++) {
+            switch (b.op) {
+                case SHL -> {
+                    ins("asl", lo);
+                    ins("rol", hi);
+                }
+                case LSHR -> {
+                    ins("lsr", hi);
+                    ins("ror", lo);
+                }
+                default -> {
+                    ins("lda", hi);
+                    ins("cmp", imm(0x8000));
+                    ins("ror", hi);
+                    ins("ror", lo);
+                }
+            }
         }
     }
 

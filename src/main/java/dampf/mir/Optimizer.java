@@ -20,6 +20,10 @@ public final class Optimizer {
                 if (verifyEach) {
                     Verifier.verify(m);
                 }
+                changed |= StrengthReduce.run(f);
+                if (verifyEach) {
+                    Verifier.verify(m);
+                }
                 changed |= DeadCode.run(f);
                 if (verifyEach) {
                     Verifier.verify(m);

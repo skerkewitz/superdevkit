@@ -109,6 +109,27 @@ What the types cannot show stays wide. In `level_solid_px`, `(sy - 16) >> 3` nee
 an arbitrary `int16_t sy`; only the branch before it (`sy < 16` returns) shows that `sy - 16`
 cannot overflow. That needs value ranges with the conditions of branches (later, as part of B).
 
+### After constant multiplication and division (I), 2026-11-17
+
+Pass I (`dampf.mir.StrengthReduce`) writes a multiplication by a constant as shifts and adds (the
+constant in non-adjacent form, at most four nonzero digits: 12 = 8 + 4, 7 = 8 − 1), unsigned
+division and remainder by 2^k as a shift and a mask, and signed ones with C's rounding towards
+zero. The code generator writes shifts by up to 8 out instead of looping. Frames per tick:
+
+| State | naive | MIR after B | after B and I |
+| --- | --- | --- | --- |
+| title | 1.94 | 4.03 | 1.91 |
+| story | 0.70 | 1.41 | 0.95 |
+| round intro | 5.76 | 7.00 | 6.12 |
+| play | 5.17 (worst 8.58) | 8.16 | 6.12 (worst 10.65) |
+| play, CPU partner | 6.55 (worst 12.23) | 9.92 | 7.11 (worst 13.54) |
+| `level_solid_px`, per call | 3,849 | 4,214 | 3,781 clocks |
+
+The runtime multiplication falls from 61 % of the time (as `dampf_mul32`) to 4.5 % (`dampf_mul16`,
+by variables and by constants with more digits). The code from MIR is now within 18 % of the naive
+generator during play and faster in the title. What is left is mostly the code generator: every
+value goes through RAM, with a load and a store per instruction.
+
 ### Where the naive code spends its time (2026-11-17)
 
 `tools/profile_game.sh bench` profiles the benchmark's play ticks 900–1700 (as the game's own
@@ -157,7 +178,7 @@ the catalogue come first. Compared with Calypsi, dampf promises nothing until it
 | F | Loops | Counter in X/Y, count down to zero, hoist invariant code, unroll small loops (by hint) | Medium | H | | open |
 | G | Branches | Branch on flags instead of materialising 0/1, common path falls through, correct branch distances | Medium | | | open |
 | H | Standard optimizations | Constant folding and propagation, dead code removal, common subexpressions | Medium; mostly a prerequisite for A–G | IR in SSA form | | open (dead code removal is built) |
-| I | Multiply and divide | Constants as shifts and adds, hardware multiplier with useful work during its latency, division by powers of two with correct signed rounding | Medium, depends on the code; **measured: 37 % of the naive code's time is the runtime multiplication, mostly struct array indexing by a constant size** | range analysis for signed division | | open |
+| I | Multiply and divide | Constants as shifts and adds, hardware multiplier with useful work during its latency, division by powers of two with correct signed rounding | Medium, depends on the code; **measured: 37 % of the naive code's time is the runtime multiplication, mostly struct array indexing by a constant size** | range analysis for signed division | play 8.16 → 6.12 frames per tick (code from MIR) | constants built (shifts and adds, powers of two); hardware multiplier open |
 | J | Banks and placement | Keep the data bank register right, 16-bit instead of 24-bit addresses, hot code in FastROM | Small to medium | pointer width analysis | | open |
 | K | Peephole | Remove redundant loads and stores, `STZ`, `INC`/`DEC` on memory | Small, but everywhere | | | open |
 | L | `switch` as jump table | `JMP (abs,X)` | Small overall, large locally | | | open |
