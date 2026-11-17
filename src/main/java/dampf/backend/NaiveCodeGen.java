@@ -33,6 +33,11 @@ import java.util.TreeMap;
  * no recursion. Parameters are stored into the callee's frame; a result comes back in A (in A
  * and X, low and high word, for 32 bits and pointers).
  *
+ * <p><b>ROM banks.</b> Every function and every constant object gets its own segment
+ * ({@code C<label>}, {@code R<label>}), which the ROM builder packs into 32 KB LoROM banks, so
+ * no function and no object crosses a bank boundary. Calls are {@code JSL}/{@code RTL}, because
+ * caller and callee may be in different banks.
+ *
  * <p><b>Values.</b> An expression is evaluated in one of two ways:
  * <ul>
  * <li>{@link #genA}: A holds the low 16 bits of the value. For an 8-bit type A holds the value
@@ -124,8 +129,6 @@ public final class NaiveCodeGen {
         asm.raw("R14 = dampf_regs+14");
         globals();
         frames();
-        asm.blank();
-        asm.raw("        .segment \"CODE\"");
         return asm + code.toString();
     }
 
@@ -147,7 +150,7 @@ public final class NaiveCodeGen {
         for (Variable v : program.globals()) {
             Init init = program.initialValues().get(v);
             boolean zero = init == null || init.items().stream().allMatch(i -> i.address() == null && i.value() == 0);
-            String segment = v.inRom() ? "RODATA" : zero ? "BSS" : "DATA";
+            String segment = v.inRom() ? romSegment(v.label()) : zero ? "BSS" : "DATA";
             asm.blank();
             asm.raw("        .segment \"" + segment + "\"");
             String what = (v.kind() == Variable.Kind.STATIC_LOCAL ? "static " : "") + v.type() + " " + v.name();
@@ -236,6 +239,7 @@ public final class NaiveCodeGen {
         out = code;
         out.blank();
         out.raw("; ---- " + signature(f) + "    (" + f.definitionPos() + ")");
+        out.raw("        .segment \"" + codeSegment(f.label()) + "\"");
         out.raw(".proc " + f.label());
         out.raw("        .dbg    func, \"" + f.name() + "\", \"00\", extern, \"" + f.label() + "\"");
         for (Variable p : f.params()) {
@@ -249,7 +253,7 @@ public final class NaiveCodeGen {
         List<Stmt> sts = body.statements();
         if (sts.isEmpty() || !(sts.getLast() instanceof Stmt.Return)) {
             sourceLine(body.end());
-            out.ins("rts", null, "end of " + f.name() + "()");
+            out.ins("rtl", null, "end of " + f.name() + "()");
         }
         out.raw(".endproc");
     }
@@ -291,7 +295,7 @@ public final class NaiveCodeGen {
                         genA(r.value());
                     }
                 }
-                out.ins("rts", null, r.value() == null ? "return" : "return " + ExprPrinter.print(r.value()));
+                out.ins("rtl", null, r.value() == null ? "return" : "return " + ExprPrinter.print(r.value()));
             }
             case Stmt.If i -> {
                 sourceLine(s.pos());
@@ -542,7 +546,7 @@ public final class NaiveCodeGen {
         }
         out.ins("ldx", imm(size), null);
         out.ins("stx", "z:R0", null);
-        out.ins("jsr", "dampf_mul16", "* " + size + " (element size)");
+        out.ins("jsl", "dampf_mul16", "* " + size + " (element size)");
     }
 
     /** Sets up X or Y for an access; returns the operand for the word at {@code extra}. */
@@ -830,7 +834,7 @@ public final class NaiveCodeGen {
                 genA(b.left());
                 out.ins("ldx", right, null);
                 out.ins("stx", "z:R0", null);
-                out.ins("jsr", "dampf_mul16", result + " (low 16 bits)");
+                out.ins("jsl", "dampf_mul16", result + " (low 16 bits)");
             }
             case SHL -> shift16(b, "asl", result);
             case SHR, DIV, MOD -> {
@@ -847,7 +851,7 @@ public final class NaiveCodeGen {
                         genA(b.left());
                         out.ins("ldx", right, null);
                         out.ins("stx", "z:R0", null);
-                        out.ins("jsr", "dampf_udiv16", "A = quotient, R2 = remainder (both fit in 16 bits)");
+                        out.ins("jsl", "dampf_udiv16", "A = quotient, R2 = remainder (both fit in 16 bits)");
                         if (b.op() == Expr.BinOp.MOD) {
                             out.ins("lda", "z:R2", result);
                         }
@@ -1035,7 +1039,7 @@ public final class NaiveCodeGen {
                 out.ins("lda", imm(p.scale()), null);
                 out.ins("sta", "z:R4", null);
                 out.ins("stz", "z:R6", null);
-                out.ins("jsr", "dampf_sdiv32", "/ " + p.scale() + " (element size)");
+                out.ins("jsl", "dampf_sdiv32", "/ " + p.scale() + " (element size)");
                 String t = temp();
                 copy32("z:R8", t, ExprPrinter.print(p));
                 return t;
@@ -1084,11 +1088,11 @@ public final class NaiveCodeGen {
                 String t = temp();
                 String result;
                 if (b.op() == Expr.BinOp.MUL) {
-                    out.ins("jsr", "dampf_mul32", "R8 = R0 * R4");
+                    out.ins("jsl", "dampf_mul32", "R8 = R0 * R4");
                     result = "z:R8";
                 } else {
                     boolean signed = b.type().signed();
-                    out.ins("jsr", signed ? "dampf_sdiv32" : "dampf_udiv32", "R8 = R0 / R4, R12 = R0 % R4" + (signed ? " (signed)" : ""));
+                    out.ins("jsl", signed ? "dampf_sdiv32" : "dampf_udiv32", "R8 = R0 / R4, R12 = R0 % R4" + (signed ? " (signed)" : ""));
                     result = b.op() == Expr.BinOp.DIV ? "z:R8" : "z:R12";
                 }
                 copy32(result, t, comment);
@@ -1394,7 +1398,7 @@ public final class NaiveCodeGen {
                 }
             }
         }
-        out.ins("jsr", f.label(), ExprPrinter.print(c) + (f.returnType() instanceof Type.Void ? "" : ", result in A"
+        out.ins("jsl", f.label(), ExprPrinter.print(c) + (f.returnType() instanceof Type.Void ? "" : ", result in A"
                 + (f.returnType().size() == 4 ? " (low) and X (high)" : "")));
     }
 
@@ -1460,6 +1464,16 @@ public final class NaiveCodeGen {
 
     private void place(String label) {
         out.label(label);
+    }
+
+    /** The segment of a function's code: packed into a ROM bank by the ROM builder. */
+    public static String codeSegment(String label) {
+        return "C" + label;
+    }
+
+    /** The segment of a constant object in ROM. */
+    public static String romSegment(String label) {
+        return "R" + label;
     }
 
     private static String imm(long v) {

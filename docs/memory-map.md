@@ -41,9 +41,26 @@ hardware intrinsics touch them.
 
 ## ROM
 
-For now a 32 KB LoROM: code and constant data in bank 0, `$8000-$FFFF`. Generated code reads ROM
-data with 24-bit long addresses, because DBR points to RAM. Larger ROMs (more banks, code that
-calls across banks) come with the rest of milestone M2.
+LoROM, up to 4 MB: banks `$80` to `$FF`, each with 32 KB at `$8000-$FFFF`. dampf uses the banks
+from `$80` up, not their mirrors from `$00`, because only accesses through `$80` and up can run at
+FastROM speed. Switching FastROM on is optimization J; the reset code already jumps from bank
+`$00`, where the CPU starts, to bank `$80`.
+
+- **Bank `$80`** holds the parts with fixed places: the start-up code, the runtime's arithmetic
+  routines, the initial values of variables (copied to RAM at start-up), the header at `$FFC0` and
+  the vectors at `$FFE0`. The rest of the bank is filled like the others.
+- **Every function and every constant object** gets its own segment, and no segment crosses a bank
+  boundary. ld65 cannot split a segment over banks, so dampf links twice: once to measure every
+  segment, then with a configuration that packs them into banks (largest first, into the first
+  bank with room). The configuration it used is written next to the ROM (`<name>.cfg`).
+- **Calls** are `JSL`/`RTL`, because caller and callee may be in different banks; jumps inside a
+  function stay in its bank.
+- **ROM data** is read with 24-bit long addresses, because DBR points to RAM.
+- The image is padded to a power of two, and the header gets its size and checksum.
+
+Limits: a single function or constant object can be at most 32 KB (the game's own asset rule,
+ADR-0006, already keeps graphics within that), and the start-up code, runtime and initial values
+of variables together must fit into bank `$80`.
 
 ## Alternatives considered
 

@@ -24,6 +24,8 @@ reset:
         sei
         clc
         xce                     ; native mode
+        jml     @bank80         ; continue in bank $80, the mirror FastROM speeds up later
+@bank80:
         rep     #$38            ; A/X/Y 16 bit, binary mode
         .a16
         .i16
@@ -67,7 +69,7 @@ reset:
         mvn     #^__DATA_LOAD__, #$7E   ; leaves DBR = $7E, the destination bank
 @data_done:
 
-        jsr     dampf_entry
+        jsl     dampf_entry
 
 dampf_done:
         sep     #$20
@@ -84,8 +86,9 @@ irq:
         rti
 
 ; ---------------------------------------------------------------------------
-; Arithmetic routines for generated code. All are entered and left with
-; A/X/Y 16 bit, D = 0. They work in dampf_regs (R0..R17 below), which is
+; Arithmetic routines for generated code, called with JSL (they may be in
+; another bank than the caller) and left with RTL. All are entered and left
+; with A/X/Y 16 bit, D = 0. They work in dampf_regs (R0..R17 below), which is
 ; scratch space: an interrupt handler that calls C code must save it.
 ;
 ; Simple shift-and-add / shift-and-subtract loops: this is the reference
@@ -107,7 +110,7 @@ R12 = dampf_regs+12
 R14 = dampf_regs+14
 R16 = dampf_regs+16
 
-        .segment "CODE"
+        .segment "DAMPF_CODE"
         .a16
         .i16
 
@@ -123,7 +126,7 @@ dampf_mul16:
         adc     z:R2
 @skip:  dex
         bne     @loop
-        rts
+        rtl
 
 ; R8:R10 = R0:R2 * R4:R6, low 32 bits of the product. Destroys R4, R6, X.
 dampf_mul32:
@@ -144,7 +147,7 @@ dampf_mul32:
         sta     z:R10
 @skip:  dex
         bne     @loop
-        rts
+        rtl
 
 ; Unsigned A / R0: quotient in A, remainder in R2. Destroys R4, X.
 ; Division by zero gives quotient $FFFF (C leaves it undefined).
@@ -170,7 +173,7 @@ dampf_udiv16:
 @next:  dex
         bne     @loop
         lda     z:R4
-        rts
+        rtl
 
 ; Unsigned R0:R2 / R4:R6: quotient in R8:R10, remainder in R12:R14. Destroys X, Y.
 dampf_udiv32:
@@ -205,7 +208,7 @@ dampf_udiv32:
         inc     z:R8            ; quotient bit
 @next:  dex
         bne     @loop
-        rts
+        rtl
 
 ; Signed R0:R2 / R4:R6 as in C: the quotient rounds towards zero (R8:R10),
 ; the remainder has the sign of the dividend (R12:R14). Destroys R0..R6, R16, X, Y.
@@ -236,7 +239,7 @@ dampf_sdiv32:
         eor     #1
         sta     z:R16
 @divide:
-        jsr     dampf_udiv32
+        jsl     dampf_udiv32
         lda     z:R16
         and     #1
         beq     @rem
@@ -257,10 +260,11 @@ dampf_sdiv32:
         lda     #0
         sbc     z:R14
         sta     z:R14
-@done:  rts
+@done:  rtl
 
         .segment "HEADER"
-        ; $FFC0: internal header (LoROM, 32 KB, no RAM). Checksum filled in after linking.
+        ; $FFC0: internal header (LoROM, no RAM). The ROM size and the checksum
+        ; are filled in after linking (dampf.snes.RomBuilder).
         .byte   "DAMPF TEST           "     ; title, 21 bytes
         .byte   $20                         ; LoROM, SlowROM
         .byte   $00                         ; ROM only
