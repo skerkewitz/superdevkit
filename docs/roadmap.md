@@ -10,9 +10,9 @@ IR levels). It was revised on 2026-11-17 after M1, see *Changes* below.
 | --- | --- | --- | --- |
 | M0 | Define the subset | Blubber Blasen's `src/game` is scanned; [subset.md](subset.md) lists what is allowed, what is not, and what the game code has to change | Done 2026-11-17. The decisions in subset.md are implemented as recommended until decided. Still open: `goto` (decision 4). The hint macros: decided 2026-11-17 that the working names are the names, from `<dampf.h>`; `DAMPF_RANGE` and `DAMPF_BUDGET` are built ([hints.md](hints.md)). |
 | M1 | End to end | A small function is compiled, assembled with ca65, linked with ld65, runs automatically in a test, and Mesen shows its C source while stepping | Done 2026-11-17 (stepping through C in Mesen checked by hand) |
-| M2 | Naive but complete | All of Blubber Blasen compiles with the naive code generator, the game's benchmark and replays give the same checksums as the PC, cycles are measured per tick and per function and compared with Calypsi, and the first reference assembly function gives the first dampf/reference ratio | Done 2026-11-17, see the steps below. Open: 816-tcc and Calypsi on the same game version (on the game's side) |
+| M2 | Naive but complete | All of Blubber Blasen compiles with the naive code generator, the game's benchmark and replays give the same checksums as the PC, cycles are measured per tick and per function and compared with Calypsi, and the first reference assembly function gives the first dampf/reference ratio | Done 2026-11-17, see the steps below. Calypsi on the same game version: done 2026-11-17 in dampf (`tools/bench_compilers.sh`, see *The plan from here*) |
 | Checkpoint | Decide whether the plan reaches the budget | See below | Decided 2026-11-17: compiler and game in parallel (below) |
-| M3 | The big levers | Optimizations A–D ([optimizations.md](optimizations.md)), built on the three IR levels. Goal: faster than Calypsi. Also: static best/worst case per function and the timing report, `DAMPF_BUDGET` checked at build time ([timing.md](timing.md)), the remaining reference functions; inferred value ranges and pointer compression ([subrange-types.md](subrange-types.md)) | In progress: MIR, the code generator from MIR (the default), the MIR passes (B, I, H, value ranges, inlining, induction variables, pointer compression), values kept in A and X, the static timing (best and worst case per function) and `DAMPF_BUDGET` are built, see below |
+| M3 | The big levers | Optimizations A–D ([optimizations.md](optimizations.md)), built on the three IR levels. Goal: faster than Calypsi (reached 2026-11-17: 1.47 times as fast on the same scene). Also: static best/worst case per function and the timing report, `DAMPF_BUDGET` checked at build time ([timing.md](timing.md)), the remaining reference functions; inferred value ranges and pointer compression ([subrange-types.md](subrange-types.md)) | In progress: MIR, the code generator from MIR (the default), the MIR passes (B, I, H, value ranges, inlining, induction variables, pointer compression), values kept in A and X, the static timing (best and worst case per function) and `DAMPF_BUDGET` are built, see below |
 | M4 | Fine tuning | Optimizations E–N until the frame budget is met, page-aligned arrays with 8-bit index registers. Also: profile-guided optimization from the replays, superoptimization of short hot sequences, `DAMPF_TABLE`, `DAMPF_PIN_X` and the other transforming hints | Started early: the block layout by a profile (`dampf profile --blocks`, `dampf build --block-counts`) |
 | M5 | Publishing | dampf can go public: own examples replace Blubber Blasen as test case and benchmark, dampf has its own preprocessor, the repository is hosted | Not started; see below |
 | M6 | Standing alone | dampf has its own assembler and linker; using dampf needs nothing but Java | Not started. The very last step, taken only when everything else runs to our satisfaction |
@@ -25,7 +25,7 @@ is it from the budget?) is answered as early as possible.
 | Step | What | Done when | State |
 | --- | --- | --- | --- |
 | 1 | ROMs larger than 32 KB | Code and constant data spread over several ROM banks; calls across banks; no object crosses a bank boundary; a test program larger than one bank runs in Mesen | Done 2026-11-17 (`exec/banks.c` spans four banks) |
-| 2 | The game's benchmark on dampf | `bench.c` from the game (in the snapshot) and all of `src/game` compile with dampf. `bench.c` stubs out every PVSnesLib call, so no platform layer is needed. Its per-tick checksums match the PC reference (`tools/snesbench/pc`), and its cycles per tick are compared with 816-tcc and Calypsi in [optimizations.md](optimizations.md) | Done 2026-11-17: all 3,610 ticks match the PC (`tools/bench_game.sh`). Open: 816-tcc and Calypsi on the same game version, run on the game's side. |
+| 2 | The game's benchmark on dampf | `bench.c` from the game (in the snapshot) and all of `src/game` compile with dampf. `bench.c` stubs out every PVSnesLib call, so no platform layer is needed. Its per-tick checksums match the PC reference (`tools/snesbench/pc`), and its cycles per tick are compared with 816-tcc and Calypsi in [optimizations.md](optimizations.md) | Done 2026-11-17: all 3,610 ticks match the PC (`tools/bench_game.sh`). 816-tcc and Calypsi on the same game version: measured 2026-11-17 (see *The plan from here*). |
 | 3 | The replays | A converter turns a replay (`tests/replays/*.bbr`: joypad words per tick, a checksum every 60 ticks) into an input table in ROM; the run on the SNES gives the recorded checksums. Replays need the game's debug code (`BB_DEBUG`) | Done 2026-11-17: `plus_bot_seed42.bbr` (3,000 ticks, 50 checksums) matches on the PC and on the SNES (`./gradlew test -Preplays`) |
 | 4 | Cycles per function | A Mesen profile script (as in the game's `tools/snesbench/profile.lua`) gives cycles per function for the benchmark and the replays | Done 2026-11-17: `tools/profile_game.sh bench|replay` and `dampf profile`; results in [optimizations.md](optimizations.md) |
 | 5 | First reference function | One hot function written by hand in assembly; its cycles against dampf's version give the first ratio ([optimizations.md](optimizations.md)) | Done 2026-11-17: `level_solid_px`, dampf's naive code is 4.5 times slower than hand-written (`reference/`, `dampf build --replace`) |
@@ -144,6 +144,48 @@ the profile after each step can change the order of the later ones:
 scheduled. They are built when a profile shows a hot value whose range dampf cannot infer and
 that costs real cycles. Until then the design stays as it is.
 
+### The plan from here (2026-11-17)
+
+**Where dampf stands.** During play the game takes 1.31 frames per tick with dampf; the goal is
+0.6. On the same game version (the snapshot, the game's own benchmark and Calypsi's options), in
+the play ticks where both play the same scene (711-812), Calypsi takes 1.67 frames per tick and
+dampf 1.14: dampf is 1.47 times as fast, and 1.3 to 1.8 times on the title, the story and the
+round intro. 816-tcc is about 3.6 times slower than dampf and no longer of interest. Calypsi's
+results drift away from the PC's from tick 596 on, its play average over the whole run (3.82)
+therefore compares other scenes; no Calypsi option does better (smaller memory models do not
+link, more inlining changes nothing). `tools/bench_compilers.sh` repeats the comparison in about
+30 seconds; dampf's emulator now runs HiROM and matches Mesen on Calypsi's ROM. The claim rests
+on one game and on dampf's C subset; WDC's commercial compiler was not measured.
+
+**Where the time goes** (play, game code, `INSTRUCTIONS=1 tools/profile_game.sh bench`): values to
+and from the direct page 30 % (`sta dp` 16.0 %, `lda dp` 14.2 %), comparisons 8.5 % (`cmp #imm`),
+indexed reads 7 % (`lda abs,x`), byte masks 5 % (`and #imm`), jumps 3-4 % (without block counts).
+The runtime's multiplication and division are no longer among the most expensive.
+
+**What is left**, by likely gain on play (estimates from those shares, not measurements; several
+ideas that looked good measured zero, see [optimizations.md](optimizations.md)) and effort:
+
+| # | Idea | Likely gain | Effort | Notes |
+| --- | --- | --- | --- | --- |
+| 1 | FastROM: banks $80+ at 3.58 MHz (`MEMSEL`), the header says so | 10-15 % | tiny | A platform choice: the cartridge must be FastROM (flash carts are). Calypsi can do the same, so it changes the frames, not the comparison. |
+| 2 | Register allocation: values in A, X and Y over several instructions instead of a direct page place each | 10-20 % | high | The 30 %. With one accumulator, choosing what lives where is the hard part. |
+| 3 | 8-bit stretches: the M flag followed (`REP`/`SEP`), `uint8_t` code in 8-bit mode | 5-10 % | high | Fewer `AND #$00FF`, and 8-bit accesses are a cycle cheaper. Needs the processor state across blocks. |
+| 4 | Arrays of structs as one array per field (catalogue D, `DAMPF_SPLIT`) | 5-10 % in the bubble loops | high | `separate`, `bubbles_update` and `bubbles_draw` are 30 %. Needs a subset decision or a hint, since the layout then differs from the PC. |
+| 5 | 8-bit index registers, arrays aligned to pages | 2-4 % | high | `LDA abs,X` a cycle cheaper; needs the X flag followed and the alignment in the memory map. |
+| 6 | Comparisons on the flags: no `CMP` where the instruction before set them, `BIT` for bit tests | 2-4 % | low to medium | `CMP #imm` is 8.5 %; first count how much of it can go. |
+| 7 | Calling convention (catalogue C): the first argument in A, `JMP` for tail calls | 1-3 % | medium | `ground_px` is called 12,000 times in 800 ticks. |
+| 8 | The block layout by a profile by default (from the replays) | ~1 % | low | Built (`--block-counts`), opt-in; needs a profile in the game's build. |
+| 9 | Value ranges from array bounds | 1-2 % | medium | More 8-bit narrowing, fewer masks. |
+| 10 | Superoptimizer for short hot sequences | 1-3 % | high | Gains spread thin. |
+| 11 | `<<8` as a byte store, `switch` as a jump table, `MVN` for copies, unrolling by hint | <1 % each | low to medium | Large locally, small on the whole game. |
+
+**The order:** FastROM first (almost free, if a FastROM cartridge is acceptable for the game), then
+the comparisons (6) as a quick check, then register allocation (2), or the split of struct arrays
+(4) once its subset question is decided; then 3, 5 and 7. FastROM and 2 to 6 together might bring
+play to about 0.85-1.0 frames per tick. The rest has to come from the game doing less work: the
+pair loop of `separate` (16 %) and the CPU partner ([game-findings.md](game-findings.md),
+finding 7), as the checkpoint after M2 concluded.
+
 ### After M2: a playable ROM
 
 Built 2026-11-17, ahead of the game's own SNES port: with every iteration of dampf, the real
@@ -222,6 +264,9 @@ in the code dampf generates, so it waits until everything else runs to our satis
 - **2026-11-17, during M3.** The playable ROM was built before the game's own SNES port needs it,
   so that every iteration of dampf can be played and the whole toolchain is tested on the real
   console (see *After M2: a playable ROM*).
+- **2026-11-17, during M3.** dampf was measured against Calypsi on the same game version and
+  is faster (M3's goal). What is left was estimated and ordered (*The plan from here*); FastROM
+  was added as a platform step, and 816-tcc dropped from the comparisons.
 - **2026-11-17, during M3.** The design for value ranges ([subrange-types.md](subrange-types.md))
   was added. Inferred ranges and pointer compression (planned for M4 in that design) go into
   M3, because they need no language change and the profile points at them. Declared subrange
@@ -263,9 +308,11 @@ Open:
 
 - How Mesen shows locals that live in fixed direct page slots (with the naive generator they are
   in RAM; the `.dbg` file declares them as static C symbols).
-- What the Calypsi investigation finds, and what that means for the order of the optimizations.
-  First numbers are in [optimizations.md](optimizations.md): Calypsi needs 2.72 frames per tick
-  during play, so the 0.6-frame goal is about 4.5 times faster than Calypsi.
+- ~~What the Calypsi investigation finds~~: measured on the same game version 2026-11-17, dampf
+  is 1.47 times as fast as Calypsi on the same scene; the order of the optimizations follows
+  *The plan from here*. Open: why Calypsi's results drift from the PC's from tick 596 on (a
+  miscompile, RAM its start-up leaves uncleared, or a step of the game's own Calypsi build that
+  `tools/bench_compilers.sh` lacks).
 - `goto`: forbid it entirely, or allow a restricted form that keeps the code structured?
   ([subset.md](subset.md), decision 4)
 - How to express impossible path combinations, should the worst-case bounds turn out too

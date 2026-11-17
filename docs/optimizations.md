@@ -643,8 +643,12 @@ byte loads, the short branches, INC/DEC, STZ, the bit selections, fewer copies a
 | play, CPU partner | 6.55 (worst 12.23) | 23.13 | 1.98 (worst 4.08) |
 | `level_solid_px`, per call | 3,849 | 6,648 | 1,208 clocks |
 
-Calypsi's 2.72 frames per tick during play (on an older version of the game) is passed; a fair
-comparison still needs both compilers on the same version. The hand-written `level_solid_px` takes
+Calypsi's 2.72 frames per tick during play (on an older version of the game) is passed. On the
+same version (the snapshot, `tools/bench_compilers.sh`, measured in dampf's emulator, which
+matches Mesen on Calypsi's ROM), in the play ticks where both play the same scene (711-812),
+Calypsi takes 1.67 frames per tick and dampf 1.14, 1.47 times as fast; Calypsi's results drift
+from the PC's from tick 596 on, so later ticks compare other scenes ([roadmap.md](roadmap.md),
+*The plan from here*). The hand-written `level_solid_px` takes
 856 clocks, so for that function dampf is now 1.4 times hand-written assembly.
 
 ### Where the naive code spends its time (2026-11-17)
