@@ -17,8 +17,9 @@ from the AST, stays as an independent reference (`--backend naive`). Every progr
 is built with both and compared with gcc on the PC: the execution tests (also in Mesen), random
 programs, the game's replays, and the game's own benchmark, where every one of its 3,610 ticks
 gives the PC's checksums. During play the game takes 1.31 frames per tick with dampf (the naive
-code: 5.17; Calypsi took 2.72 on an older version of the game), numbers in
-[docs/optimizations.md](docs/optimizations.md). dampf also computes a best and a worst case in CPU
+code: 5.17), numbers in [docs/optimizations.md](docs/optimizations.md). On the same game version
+and the same scene, dampf's code is 1.47 times as fast as Calypsi's (`tools/bench_compilers.sh`,
+[docs/roadmap.md](docs/roadmap.md), *The plan from here*). dampf also computes a best and a worst case in CPU
 cycles for every function (`<rom>.timing.txt`, [docs/timing.md](docs/timing.md)). dampf builds a
 playable ROM of the game: the SNES platform layer in [platform/snes](platform/snes/README.md)
 implements the game's console API in C. On the console the game runs at 2.28 frames per tick for
@@ -32,7 +33,7 @@ The game's stage 3 needs a C compiler for the 65816, and the existing ones are n
 | Compiler | Result |
 | --- | --- |
 | PVSnesLib with 816-tcc | Very slow code. The data layout needed workarounds because the compiler throws errors on ordinary code. |
-| Calypsi | Works as intended, but the code is still too slow (2.72 frames per tick during play, see [docs/optimizations.md](docs/optimizations.md)). Why is being investigated; the results feed into this project. |
+| Calypsi | Works as intended, but the code is still too slow (2.72 frames per tick during play on an older version of the game; on today's version dampf's code is 1.47 times as fast on the same scene, see [docs/roadmap.md](docs/roadmap.md)). |
 | llvm-mos | Good 6502 code, but no native 16-bit 65816 code generation. LLVM is a poor fit: it assumes many uniform registers and fixed-width values, while on the 65816 the operand width (8 or 16 bit) is processor state set by `REP`/`SEP`. |
 | Hand-written assembly for the whole game | Tried years ago and failed. Hand-written assembly for a few hot functions stays possible later, but should not be the plan. |
 

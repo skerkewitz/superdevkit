@@ -18,7 +18,7 @@ enough for it:
 | Option | Result |
 | --- | --- |
 | [PVSnesLib](/glossary#pvsneslib) with 816-tcc | Very slow code; the data layout needed workarounds because the compiler rejects ordinary code. |
-| [Calypsi](/glossary#calypsi) | Works as intended, but the code is still too slow: 2.72 frames per tick during play. |
+| [Calypsi](/glossary#calypsi) | Works as intended, but the code is still too slow: 2.72 frames per tick during play, on an older version of the game. |
 | llvm-mos | Good 6502 code, but no native 16-bit 65816 code generation. |
 | Hand-written assembly for the whole game | Tried years ago, and it failed. |
 
@@ -98,19 +98,20 @@ representation, optimizes it and generates 65816 code from it. The fine tuning o
 started.
 
 During play, Blubber Blasen's game logic takes 1.31 frames per tick with dampf, against 5.17 with
-the naive code generator and 2.72 with Calypsi. The Calypsi figure comes from an older version of
-the game, so a fair comparison still needs both compilers on the same version. The goal of
-0.6 frames is not reached yet, and the compiler alone is not expected to reach it: the game is
-being made to do less work at the same time.
+the naive code generator. Calypsi's 2.72 came from an older version of the game. On the same
+version, in the play ticks where both compilers play the same scene, Calypsi takes 1.67 frames
+per tick and dampf 1.14: dampf is 1.47 times as fast, so M3's goal of beating Calypsi is
+reached. The goal of 0.6 frames is not reached yet, and the compiler alone is not expected to
+reach it: the game is being made to do less work at the same time.
 
 dampf builds a playable ROM of the game. The SNES platform layer, written in C, implements the
 game's console API: the PVSnesLib-shaped calls the game makes, and the main loop. On the console
 the game runs at 2.28 frames per tick for now: a tick that needs more than one frame waits for
 the next vertical blank, and the benchmark leaves out what the game's video code costs on the
-hardware. Sound and save RAM are not built. Most of the hints are not built either. dampf computes a best and a worst case in CPU cycles for every function, and a function
-marked with `DAMPF_BUDGET` that goes over its cycle budget fails the build. The
-[Roadmap](/inside/roadmap) has the plan, and [Limits](/reference/limits) lists what dampf does
-not do yet.
+hardware. Sound and save RAM are not built. Most of the hints are not built either. dampf
+computes a best and a worst case in CPU cycles for every function, and a function marked with
+`DAMPF_BUDGET` that goes over its cycle budget fails the build. The [Roadmap](/inside/roadmap)
+has the plan, and [Limits](/reference/limits) lists what dampf does not do yet.
 
 ## Where to go next
 

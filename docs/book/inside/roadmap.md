@@ -17,7 +17,7 @@ also describes plans. What is not built yet, listed for users, is on
 | M1 | End to end: compile, assemble with ca65, link with ld65, run in a test, step through C in [Mesen](/glossary#mesen) | Done |
 | M2 | Naive but complete: all of Blubber Blasen compiles, matches the PC, and is measured | Done |
 | Checkpoint | Decide whether the plan reaches the budget | Decided: compiler and game in parallel |
-| M3 | The big levers: the optimizer on [MIR](/glossary#mir), timing report, inferred value ranges, pointer compression; faster than [Calypsi](/glossary#calypsi) | In progress |
+| M3 | The big levers: the optimizer on [MIR](/glossary#mir), timing report, inferred value ranges, pointer compression; faster than [Calypsi](/glossary#calypsi) | In progress; faster than Calypsi since 2026-11-17 |
 | M4 | Fine tuning until the frame budget is met | Started early: the block layout by a profile |
 | M5 | Publishing: own examples instead of Blubber Blasen, an own preprocessor, a hosted repository | Not started |
 | M6 | Standing alone: an own assembler and linker, so that using dampf needs nothing but Java | Not started; the very last step |
@@ -41,6 +41,13 @@ loops and call sites, values in the [direct page](/glossary#direct-page) instead
 register allocation in the form the 65816 allows, induction variables, and
 [pointer compression](/glossary#pointer-compression) for pointers into a single object. With
 them, play of Blubber Blasen takes 1.31 frames per tick, against 5.17 with the naive code.
+That reaches M3's goal against Calypsi. On the same version of the game, with Calypsi's options,
+in the play ticks where both compilers play the same scene, Calypsi takes 1.67 frames per tick
+and dampf 1.14: dampf is 1.47 times as fast, and 1.3 to 1.8 times on the title, the story and
+the round intro. Only those ticks are compared because Calypsi's results drift away from the
+PC's from tick 596 on. The claim rests on one game and on dampf's subset; WDC's commercial
+compiler was not measured, and 816-tcc, about 3.6 times slower than dampf, is no longer
+compared.
 The static timing analysis is built as well: a best and a worst case in CPU cycles for every
 function, written to `<rom>.timing.txt` and checked against the emulator on every call. Of the
 game's functions, 38 still have no bound, and the report names the loop or call that makes each
@@ -75,6 +82,41 @@ the catalogue, arrays aligned to a page so that 8-bit index registers reach them
 optimization guided by the profiles of the replays (the first part, laying out the blocks by
 a profile's counts, is built), superoptimization of short hot sequences,
 and the hints that transform code, such as `DAMPF_TABLE` and `DAMPF_PIN_X`.
+
+**What is left, and in which order.** Play takes 1.31 frames per tick, and the goal is 0.6. A
+profile of play shows where the cycles of the game code go: moving values to and from the
+direct page takes 30 % (`sta` 16.0 %, `lda` 14.2 %), comparisons with a constant 8.5 %, indexed
+reads 7 %, byte masks 5 % and jumps 3 to 4 %. The runtime's multiplication and division are no
+longer among the most expensive. The table orders what is left by its likely gain on play.
+The gains are estimates from those shares, not measurements, and several ideas that looked
+good measured nothing.
+
+| # | Idea | Likely gain | Effort |
+| --- | --- | --- | --- |
+| 1 | FastROM: code in banks `$80` and up runs at 3.58 MHz | 10–15 % | tiny |
+| 2 | Register allocation: values in A, X and Y over several instructions instead of a direct page place each | 10–20 % | high |
+| 3 | 8-bit stretches: the [`M` flag](/glossary#m-and-x-flags) followed, `uint8_t` code in [8-bit mode](/glossary#8-bit-and-16-bit-mode) | 5–10 % | high |
+| 4 | Arrays of structs as one array per field | 5–10 % in the bubble loops | high |
+| 5 | 8-bit index registers, arrays aligned to pages | 2–4 % | high |
+| 6 | Comparisons on the flags: no `CMP` where the instruction before set them, `BIT` for bit tests | 2–4 % | low to medium |
+| 7 | Calling convention: the first argument in A, `JMP` for tail calls | 1–3 % | medium |
+| 8 | The block layout by a profile by default | about 1 % | low |
+| 9 | Value ranges from array bounds | 1–2 % | medium |
+| 10 | Superoptimization of short hot sequences | 1–3 % | high |
+| 11 | `<<8` as a byte store, `switch` as a jump table, `MVN` for copies, unrolling by a hint | under 1 % each | low to medium |
+
+FastROM is a platform choice: the cartridge must support it, as flash cartridges do. Calypsi
+can use it as well, so it changes the frames, not the comparison. Register allocation is the
+largest lever and the hardest, because with one accumulator the hard part is choosing what
+lives where. Splitting arrays of structs needs a decision on the subset or a hint, since the
+layout in memory then differs from the PC's.
+
+The order: FastROM first, if a FastROM cartridge is acceptable for the game, then the
+comparisons (6) as a quick check, then register allocation (2), or the split of struct arrays
+(4) once its subset question is decided; then 3, 5 and 7. FastROM and 2 to 6 together might
+bring play to about 0.85 to 1.0 frames per tick. The rest has to come from the game doing less
+work, in the pair loop of `separate` (16 % of play) and the CPU partner, as the checkpoint after
+M2 concluded.
 
 ## The checkpoint after M2
 
