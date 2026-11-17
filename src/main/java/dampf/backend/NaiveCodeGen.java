@@ -1,5 +1,6 @@
 package dampf.backend;
 
+import dampf.ast.Children;
 import dampf.ast.Expr;
 import dampf.ast.Function;
 import dampf.ast.Program;
@@ -11,7 +12,9 @@ import dampf.frontend.SourcePos;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -19,19 +22,32 @@ import java.util.Map;
 
 /**
  * The naive code generator: the reference that every optimized build is compared against.
+ * It is meant to be obviously correct, not fast.
  *
- * <p>Rules it keeps, chosen to be obviously correct rather than fast:
+ * <p><b>Machine state.</b> A, X and Y are always 16 bit (M=16 X=16); 8-bit stores switch M for
+ * one instruction. Every variable has a fixed address in RAM: globals, and also parameters,
+ * locals and temporaries ("static frames"), which is correct because there is no recursion.
+ * Parameters are stored into the callee's frame; a result comes back in A (in A and X, low and
+ * high word, for 32 bits).
+ *
+ * <p><b>Values.</b> An expression is evaluated in one of two ways:
  * <ul>
- * <li>A, X and Y are always 16 bit (M=16 X=16); 8-bit stores switch M for one instruction.</li>
- * <li>Every expression leaves its value in A. A value of an 8-bit type is held zero- or
- *     sign-extended to 16 bits; a value of a 32-bit type is held as its low 16 bits.</li>
- * <li>Every variable has a fixed address in RAM: globals, and also parameters, locals and
- *     temporaries ("static frames"), which is correct because there is no recursion.</li>
- * <li>Parameters are stored into the callee's frame, the result comes back in A.</li>
+ * <li>{@link #genA}: A holds the low 16 bits of the value. For an 8-bit type A holds the value
+ *     zero- or sign-extended to 16 bits. This is only used where the low 16 bits are all that
+ *     matters, or where the value has no more than 16 bits anyway.</li>
+ * <li>{@link #gen32}: the full 32-bit value in a 4-byte slot in memory.</li>
  * </ul>
- * Holding only the low 16 bits of a 32-bit value is exact because every operator it supports so
- * far (+ - &amp; | ^ ~ and unary -) computes the low 16 bits of its result from the low 16 bits of
- * its operands, and the front end allows no 32-bit variables yet.
+ * C computes in 32-bit {@code int} after the integer promotions. The low 16 bits of the result
+ * of {@code + - * & | ^ ~ <<} and unary minus depend only on the low 16 bits of the operands, so
+ * these are computed in 16 bits whenever only the low 16 bits are wanted (an assignment to a
+ * 16-bit variable, a 16-bit parameter, and so on). Everything else ({@code / % >>},
+ * comparisons, truth tests of 32-bit values) is computed on the full 32 bits, with one exception
+ * that is obviously safe: when both operands are known to fit into the same 16-bit range (from
+ * their types, e.g. two {@code uint8_t}), the operation is done in 16 bits, because it then
+ * gives the same result.
+ *
+ * <p><b>Temporaries</b> are 4-byte slots in the function's frame. They live for one
+ * statement-level expression; the next one reuses them.
  */
 public final class NaiveCodeGen {
     private final Program program;
@@ -40,12 +56,17 @@ public final class NaiveCodeGen {
     private final AsmWriter asm = new AsmWriter();
     private final Map<String, List<String>> sourceLines = new HashMap<>();
     private final Map<String, Path> sourceFiles = new LinkedHashMap<>();
+    private final Map<Function, Integer> tempCount = new HashMap<>();
 
-    private final Map<Function, List<Variable>> tempsOf = new HashMap<>();
     private AsmWriter out;
     private Function current;
-    private List<Variable> temps;
-    private int tempDepth;
+    private int tempsUsed;
+    private int labels;
+
+    /** break and continue targets of the enclosing loops and switches. */
+    private record Jumps(String breakLabel, String continueLabel) {}
+
+    private final Deque<Jumps> jumps = new ArrayDeque<>();
 
     /**
      * @param debugName maps a source file path to the name written into the debug information
@@ -76,11 +97,21 @@ public final class NaiveCodeGen {
         asm.raw("        .a16");
         asm.raw("        .i16");
         asm.raw("        .export dampf_entry");
+        asm.raw("        .importzp dampf_regs");
+        asm.raw("        .import dampf_mul16, dampf_mul32, dampf_udiv16, dampf_udiv32, dampf_sdiv32");
         for (Map.Entry<String, Path> e : sourceFiles.entrySet()) {
             asm.raw(fileDirective(e.getKey(), e.getValue()));
         }
         asm.blank();
         asm.raw("dampf_entry = " + entry.label());
+        asm.raw("R0  = dampf_regs+0                  ; runtime routine registers (dampf_runtime.s)");
+        asm.raw("R2  = dampf_regs+2");
+        asm.raw("R4  = dampf_regs+4");
+        asm.raw("R6  = dampf_regs+6");
+        asm.raw("R8  = dampf_regs+8");
+        asm.raw("R10 = dampf_regs+10");
+        asm.raw("R12 = dampf_regs+12");
+        asm.raw("R14 = dampf_regs+14");
         globals();
         frames();
         asm.blank();
@@ -121,17 +152,21 @@ public final class NaiveCodeGen {
             asm.note("initialised globals, copied from ROM at start-up");
             for (Variable v : init) {
                 long value = program.initialValues().get(v);
-                String dir = v.type().size() == 1 ? ".byte" : ".word";
-                long bits = value & (v.type().size() == 1 ? 0xFF : 0xFFFF);
-                asm.raw(pad(v.label() + ":", 28) + pad(dir, 8) + "$" + hex(bits, v.type().size() * 2) + "  ; " + v.type() + " " + v.name() + " = " + value);
+                int size = v.type().size();
+                String data = switch (size) {
+                    case 1 -> ".byte   $" + hex(value & 0xFF, 2);
+                    case 2 -> ".word   $" + hex(value & 0xFFFF, 4);
+                    default -> ".dword  $" + hex(value & 0xFFFFFFFFL, 8);
+                };
+                asm.raw(pad(v.label() + ":", 28) + pad(data, 18) + "; " + v.type() + " " + v.name() + " = " + value);
             }
         }
     }
 
     private void frames() {
         for (Function f : program.functions()) {
-            List<Variable> fTemps = tempsOf.getOrDefault(f, List.of());
-            if (!f.isDefined() || f.params().isEmpty() && f.locals().isEmpty() && fTemps.isEmpty()) {
+            int temps = tempCount.getOrDefault(f, 0);
+            if (!f.isDefined() || f.params().isEmpty() && f.locals().isEmpty() && temps == 0) {
                 continue;
             }
             asm.blank();
@@ -143,8 +178,8 @@ public final class NaiveCodeGen {
             for (Variable v : f.locals()) {
                 asm.raw(pad(v.label() + ":", 28) + ".res    " + v.type().size() + pad("", 4) + "; local " + v.type() + " " + v.name());
             }
-            for (Variable v : fTemps) {
-                asm.raw(pad(v.label() + ":", 28) + ".res    " + v.type().size() + pad("", 4) + "; temporary");
+            for (int i = 0; i < temps; i++) {
+                asm.raw(pad(tempLabel(f, i) + ":", 28) + ".res    4    ; temporary");
             }
         }
     }
@@ -153,9 +188,7 @@ public final class NaiveCodeGen {
 
     private void function(Function f, AsmWriter code) throws CompileError {
         current = f;
-        temps = new ArrayList<>();
-        tempsOf.put(f, temps);
-        tempDepth = 0;
+        tempCount.put(f, 0);
         out = code;
         out.blank();
         out.raw("; ---- " + signature(f) + "    (" + f.definitionPos() + ")");
@@ -199,16 +232,162 @@ public final class NaiveCodeGen {
             case Stmt.Block b -> block(b);
             case Stmt.ExprStmt e -> {
                 sourceLine(s.pos());
-                expr(e.expr());
+                effect(e.expr());
             }
             case Stmt.Return r -> {
                 sourceLine(s.pos());
                 if (r.value() != null) {
-                    expr(r.value());
+                    beginExpr();
+                    if (r.value().type().size() == 4) {
+                        String v = gen32(r.value());
+                        out.ins("lda", v, "result, low word ...");
+                        out.ins("ldx", v + "+2", "... and high word");
+                    } else {
+                        genA(r.value());
+                    }
                 }
-                out.ins("rts", null, r.value() == null ? "return" : "return A");
+                out.ins("rts", null, r.value() == null ? "return" : "return " + ExprPrinter.print(r.value()));
+            }
+            case Stmt.If i -> {
+                sourceLine(s.pos());
+                String otherwise = label();
+                beginExpr();
+                branch(i.cond(), otherwise, false);
+                statement(i.then());
+                if (i.otherwise() == null) {
+                    place(otherwise);
+                } else {
+                    String end = label();
+                    out.ins("jmp", end, "skip the else branch");
+                    place(otherwise);
+                    statement(i.otherwise());
+                    place(end);
+                }
+            }
+            case Stmt.While w -> {
+                String top = label();
+                String end = label();
+                place(top);
+                sourceLine(s.pos());
+                beginExpr();
+                branch(w.cond(), end, false);
+                loopBody(w.body(), end, top);
+                out.ins("jmp", top, "loop");
+                place(end);
+            }
+            case Stmt.DoWhile d -> {
+                String top = label();
+                String cont = label();
+                String end = label();
+                place(top);
+                loopBody(d.body(), end, cont);
+                place(cont);
+                sourceLine(d.cond().pos());
+                beginExpr();
+                branch(d.cond(), top, true);
+                place(end);
+            }
+            case Stmt.For f -> {
+                if (f.init() != null) {
+                    statement(f.init());
+                }
+                String top = label();
+                String cont = label();
+                String end = label();
+                place(top);
+                if (f.cond() != null) {
+                    sourceLine(f.cond().pos());
+                    beginExpr();
+                    branch(f.cond(), end, false);
+                }
+                loopBody(f.body(), end, cont);
+                place(cont);
+                if (!f.step().isEmpty()) {
+                    sourceLine(f.step().getFirst().pos());
+                    for (Expr e : f.step()) {
+                        effect(e);
+                    }
+                }
+                out.ins("jmp", top, "loop");
+                place(end);
+            }
+            case Stmt.Break b -> {
+                sourceLine(s.pos());
+                out.ins("jmp", jumps.peek().breakLabel(), "break");
+            }
+            case Stmt.Continue c -> {
+                sourceLine(s.pos());
+                String target = jumps.stream().map(Jumps::continueLabel).filter(x -> x != null).findFirst().orElseThrow();
+                out.ins("jmp", target, "continue");
+            }
+            case Stmt.Switch sw -> switchStatement(sw);
+            case Stmt.Case c -> throw new IllegalStateException("case label outside a switch body");
+        }
+    }
+
+    private void loopBody(Stmt body, String breakLabel, String continueLabel) throws CompileError {
+        jumps.push(new Jumps(breakLabel, continueLabel));
+        statement(body);
+        jumps.pop();
+    }
+
+    /** Compares the value with each case label in turn, then runs the body from the matching label. */
+    private void switchStatement(Stmt.Switch sw) throws CompileError {
+        sourceLine(sw.pos());
+        beginExpr();
+        String end = label();
+        Map<Stmt.Case, String> caseLabels = new LinkedHashMap<>();
+        String defaultLabel = end;
+        for (Stmt s : sw.body()) {
+            if (s instanceof Stmt.Case c) {
+                String l = label();
+                caseLabels.put(c, l);
+                if (c.value() == null) {
+                    defaultLabel = l;
+                }
             }
         }
+        Range r = range(sw.value());
+        boolean u16 = r.fitsUnsigned16();
+        boolean s16 = r.fitsSigned16();
+        if (u16 || s16) {
+            genA(sw.value());
+            for (Map.Entry<Stmt.Case, String> e : caseLabels.entrySet()) {
+                Long v = e.getKey().value();
+                if (v == null || v < r.min() || v > r.max()) {
+                    continue; // default, or a value the switch value can never have
+                }
+                out.ins("cmp", imm(v), "case " + v + "?");
+                jumpIf(Flag.EQ, e.getValue());
+            }
+        } else {
+            String v = gen32(sw.value());
+            for (Map.Entry<Stmt.Case, String> e : caseLabels.entrySet()) {
+                Long c = e.getKey().value();
+                if (c == null) {
+                    continue;
+                }
+                String next = label();
+                out.ins("lda", v, "case " + c + "?");
+                out.ins("cmp", imm(c & 0xFFFF), null);
+                jumpIf(Flag.NE, next);
+                out.ins("lda", v + "+2", null);
+                out.ins("cmp", imm((c >> 16) & 0xFFFF), null);
+                jumpIf(Flag.EQ, e.getValue());
+                place(next);
+            }
+        }
+        out.ins("jmp", defaultLabel, defaultLabel.equals(end) ? "no case matches" : "default");
+        jumps.push(new Jumps(end, null));
+        for (Stmt s : sw.body()) {
+            if (s instanceof Stmt.Case c) {
+                place(caseLabels.get(c));
+            } else {
+                statement(s);
+            }
+        }
+        jumps.pop();
+        place(end);
     }
 
     /** The source line as a comment, the debug line directive and the processor state. */
@@ -234,75 +413,565 @@ public final class NaiveCodeGen {
 
     // ---------------------------------------------------------------- expressions
 
-    /** Evaluates {@code e} into A. */
-    private void expr(Expr e) throws CompileError {
+    /** Evaluates an expression for its side effects only. */
+    private void effect(Expr e) throws CompileError {
+        beginExpr();
+        if (e.type().size() == 4) {
+            gen32(e);
+        } else {
+            genA(e);
+        }
+    }
+
+    /** A = the low 16 bits of {@code e} (for an 8-bit type: the value, extended to 16 bits). */
+    private void genA(Expr e) throws CompileError {
         switch (e) {
-            case Expr.Const k -> out.ins("lda", "#$" + hex(k.value() & 0xFFFF, 4), "A = " + k.value());
+            case Expr.Const k -> out.ins("lda", imm(k.value()), "A = " + k.value());
             case Expr.Var v -> load(v.variable());
             case Expr.Convert c -> {
-                expr(c.operand());
-                convert((Type.Int) c.operand().type(), c.type());
+                genA(c.operand());
+                if (c.type().bits() == 8) {
+                    extend8(c.type(), "A = (" + c.type() + ")A");
+                }
             }
             case Expr.Unary u -> {
-                expr(u.operand());
-                if (u.op() == Expr.UnOp.NOT) {
-                    out.ins("eor", "#$FFFF", "A = " + ExprPrinter.print(u));
-                } else {
-                    out.ins("eor", "#$FFFF", "negate: invert ...");
+                genA(u.operand());
+                out.ins("eor", "#$FFFF", u.op() == Expr.UnOp.NOT ? "A = " + ExprPrinter.print(u) : "negate: invert ...");
+                if (u.op() == Expr.UnOp.NEG) {
                     out.ins("inc", "a", "... and add 1: A = " + ExprPrinter.print(u));
                 }
             }
-            case Expr.Binary b -> binary(b);
+            case Expr.Binary b -> binaryA(b);
+            case Expr.LogicalNot n -> boolValue(n);
+            case Expr.Logical l -> boolValue(l);
+            case Expr.Conditional c -> {
+                String otherwise = label();
+                String end = label();
+                branch(c.cond(), otherwise, false);
+                genA(c.then());
+                out.ins("jmp", end, null);
+                place(otherwise);
+                genA(c.otherwise());
+                place(end);
+            }
             case Expr.Assign a -> {
-                expr(a.value());
-                store(a.target());
+                if (a.target().type().size() == 4) {
+                    copy32(gen32(a.value()), a.target().label(), a.target().name() + " = " + ExprPrinter.print(a.value()));
+                    out.ins("lda", a.target().label(), "A = " + a.target().name() + " (low word)");
+                } else {
+                    genA(a.value());
+                    store(a.target());
+                }
+            }
+            case Expr.PostIncDec p -> {
+                Variable v = p.target();
+                if (v.type().size() == 4) {
+                    out.ins("lda", gen32(p), "A = old " + v.name() + " (low word)");
+                } else {
+                    String old = temp();
+                    load(v);
+                    out.ins("sta", old, "keep the old value");
+                    addOne(p.increment());
+                    store(v);
+                    out.ins("lda", old, "A = old " + v.name());
+                }
             }
             case Expr.Call c -> call(c);
         }
     }
 
-    private void binary(Expr.Binary b) throws CompileError {
-        String operand = directOperand(b.right());
-        Variable temp = null;
-        if (operand == null) {
-            expr(b.right());
-            temp = pushTemp();
-            out.ins("sta", temp.label(), "save the right operand");
-            operand = temp.label();
-        }
-        expr(b.left());
+    private void binaryA(Expr.Binary b) throws CompileError {
         String result = "A = " + ExprPrinter.print(b);
         switch (b.op()) {
-            case ADD -> {
-                out.ins("clc", null, null);
-                out.ins("adc", operand, result);
+            case ADD, SUB, AND, OR, XOR -> {
+                String operand = operand16(b.right());
+                if (operand == null) {
+                    genA(b.right());
+                    operand = temp();
+                    out.ins("sta", operand, "save the right operand");
+                }
+                genA(b.left());
+                switch (b.op()) {
+                    case ADD -> {
+                        out.ins("clc", null, null);
+                        out.ins("adc", operand, result);
+                    }
+                    case SUB -> {
+                        out.ins("sec", null, null);
+                        out.ins("sbc", operand, result);
+                    }
+                    case AND -> out.ins("and", operand, result);
+                    case OR -> out.ins("ora", operand, result);
+                    default -> out.ins("eor", operand, result);
+                }
             }
-            case SUB -> {
-                out.ins("sec", null, null);
-                out.ins("sbc", operand, result);
+            case MUL -> {
+                String right = operand16(b.right());
+                if (right == null) {
+                    genA(b.right());
+                    right = temp();
+                    out.ins("sta", right, "save the right operand");
+                }
+                genA(b.left());
+                out.ins("ldx", right, null);
+                out.ins("stx", "z:R0", null);
+                out.ins("jsr", "dampf_mul16", result + " (low 16 bits)");
             }
-            case AND -> out.ins("and", operand, result);
-            case OR -> out.ins("ora", operand, result);
-            case XOR -> out.ins("eor", operand, result);
+            case SHL -> shift16(b, "asl", result);
+            case SHR, DIV, MOD -> {
+                if (unsigned16(b)) {
+                    if (b.op() == Expr.BinOp.SHR) {
+                        shift16(b, "lsr", result + " (both fit in 16 bits)");
+                    } else {
+                        String right = operand16(b.right());
+                        if (right == null) {
+                            genA(b.right());
+                            right = temp();
+                            out.ins("sta", right, "save the divisor");
+                        }
+                        genA(b.left());
+                        out.ins("ldx", right, null);
+                        out.ins("stx", "z:R0", null);
+                        out.ins("jsr", "dampf_udiv16", "A = quotient, R2 = remainder (both fit in 16 bits)");
+                        if (b.op() == Expr.BinOp.MOD) {
+                            out.ins("lda", "z:R2", result);
+                        }
+                    }
+                } else {
+                    out.ins("lda", gen32(b), result + " (low word)");
+                }
+            }
+            default -> boolValue(b); // comparisons
         }
-        if (temp != null) {
-            tempDepth--;
+    }
+
+    /** {@code left << n} or {@code left >> n} on 16 bits. */
+    private void shift16(Expr.Binary b, String op, String comment) throws CompileError {
+        if (b.right() instanceof Expr.Const k) {
+            if (k.value() >= 16) {
+                out.ins("lda", "#$0000", comment + ": all bits shifted out");
+                return;
+            }
+            genA(b.left());
+            for (int i = 0; i < k.value(); i++) {
+                out.ins(op, "a", i == k.value() - 1 ? comment : null);
+            }
+            return;
+        }
+        genA(b.right());
+        String count = temp();
+        out.ins("sta", count, "shift count");
+        genA(b.left());
+        String done = label();
+        String loop = label();
+        out.ins("ldx", count, null);
+        jumpIf(Flag.EQ, done);
+        place(loop);
+        out.ins(op, "a", null);
+        out.ins("dex", null, null);
+        jumpIf(Flag.NE, loop);
+        place(done);
+        out.note(comment);
+    }
+
+    /** The full 32-bit value of {@code e}, in a 4-byte slot. Returns the slot's label. */
+    private String gen32(Expr e) throws CompileError {
+        if (e.type().size() < 4) {
+            genA(e);
+            return extendTo32((Type.Int) e.type());
+        }
+        switch (e) {
+            case Expr.Var v -> {
+                return v.variable().label();
+            }
+            case Expr.Const k -> {
+                String t = temp();
+                out.ins("lda", imm(k.value() & 0xFFFF), k.value() + ", low word ...");
+                out.ins("sta", t, null);
+                out.ins("lda", imm((k.value() >> 16) & 0xFFFF), "... high word");
+                out.ins("sta", t + "+2", null);
+                return t;
+            }
+            case Expr.Convert c -> {
+                if (c.operand().type().size() == 4) {
+                    return gen32(c.operand()); // int <-> unsigned int: the same bits
+                }
+                genA(c.operand());
+                return extendTo32((Type.Int) c.operand().type());
+            }
+            case Expr.Unary u -> {
+                String v = gen32(u.operand());
+                String t = temp();
+                if (u.op() == Expr.UnOp.NOT) {
+                    out.ins("lda", v, null);
+                    out.ins("eor", "#$FFFF", null);
+                    out.ins("sta", t, null);
+                    out.ins("lda", v + "+2", null);
+                    out.ins("eor", "#$FFFF", null);
+                    out.ins("sta", t + "+2", ExprPrinter.print(u));
+                } else {
+                    out.ins("lda", "#$0000", null);
+                    out.ins("sec", null, null);
+                    out.ins("sbc", v, null);
+                    out.ins("sta", t, null);
+                    out.ins("lda", "#$0000", null);
+                    out.ins("sbc", v + "+2", null);
+                    out.ins("sta", t + "+2", ExprPrinter.print(u));
+                }
+                return t;
+            }
+            case Expr.Binary b -> {
+                return binary32(b);
+            }
+            case Expr.Conditional c -> {
+                String t = temp();
+                String otherwise = label();
+                String end = label();
+                branch(c.cond(), otherwise, false);
+                copy32(gen32(c.then()), t, null);
+                out.ins("jmp", end, null);
+                place(otherwise);
+                copy32(gen32(c.otherwise()), t, null);
+                place(end);
+                return t;
+            }
+            case Expr.Assign a -> {
+                copy32(gen32(a.value()), a.target().label(), a.target().name() + " = " + ExprPrinter.print(a.value()));
+                return a.target().label();
+            }
+            case Expr.PostIncDec p -> {
+                String t = temp();
+                String v = p.target().label();
+                copy32(v, t, "keep the old value of " + p.target().name());
+                out.ins("lda", v, null);
+                out.ins(p.increment() ? "clc" : "sec", null, null);
+                out.ins(p.increment() ? "adc" : "sbc", "#$0001", null);
+                out.ins("sta", v, null);
+                out.ins("lda", v + "+2", null);
+                out.ins(p.increment() ? "adc" : "sbc", "#$0000", null);
+                out.ins("sta", v + "+2", p.target().name() + (p.increment() ? "++" : "--"));
+                return t;
+            }
+            case Expr.Call c -> {
+                call(c);
+                String t = temp();
+                out.ins("sta", t, "result, low word ...");
+                out.ins("stx", t + "+2", "... and high word");
+                return t;
+            }
+            case Expr.LogicalNot n -> {
+                boolValue(n);
+                return extendTo32(Type.U16); // 0 or 1
+            }
+            case Expr.Logical l -> {
+                boolValue(l);
+                return extendTo32(Type.U16); // 0 or 1
+            }
+        }
+    }
+
+    private String binary32(Expr.Binary b) throws CompileError {
+        String comment = ExprPrinter.print(b);
+        if (b.op().isComparison()) {
+            boolValue(b);
+            return extendTo32(Type.U16); // 0 or 1
+        }
+        if ((b.op() == Expr.BinOp.DIV || b.op() == Expr.BinOp.MOD || b.op() == Expr.BinOp.SHR) && unsigned16(b)) {
+            binaryA(b);
+            return extendTo32(Type.U16);
+        }
+        String l = gen32(b.left());
+        switch (b.op()) {
+            case ADD, SUB, AND, OR, XOR -> {
+                String r = gen32(b.right());
+                String t = temp();
+                String[] ops = switch (b.op()) {
+                    case ADD -> new String[] {"clc", "adc", "adc"};
+                    case SUB -> new String[] {"sec", "sbc", "sbc"};
+                    case AND -> new String[] {null, "and", "and"};
+                    case OR -> new String[] {null, "ora", "ora"};
+                    default -> new String[] {null, "eor", "eor"};
+                };
+                if (ops[0] != null) {
+                    out.ins(ops[0], null, null);
+                }
+                out.ins("lda", l, null);
+                out.ins(ops[1], r, null);
+                out.ins("sta", t, null);
+                out.ins("lda", l + "+2", null);
+                out.ins(ops[2], r + "+2", null);
+                out.ins("sta", t + "+2", comment);
+                return t;
+            }
+            case MUL, DIV, MOD -> {
+                String r = gen32(b.right());
+                copy32(l, "z:R0", null);
+                copy32(r, "z:R4", null);
+                String t = temp();
+                String result;
+                if (b.op() == Expr.BinOp.MUL) {
+                    out.ins("jsr", "dampf_mul32", "R8 = R0 * R4");
+                    result = "z:R8";
+                } else {
+                    boolean signed = b.type().signed();
+                    out.ins("jsr", signed ? "dampf_sdiv32" : "dampf_udiv32", "R8 = R0 / R4, R12 = R0 % R4" + (signed ? " (signed)" : ""));
+                    result = b.op() == Expr.BinOp.DIV ? "z:R8" : "z:R12";
+                }
+                copy32(result, t, comment);
+                return t;
+            }
+            case SHL, SHR -> {
+                String t = temp();
+                copy32(l, t, null);
+                genA(b.right());
+                String done = label();
+                String loop = label();
+                out.ins("tax", null, "shift count");
+                jumpIf(Flag.EQ, done);
+                place(loop);
+                if (b.op() == Expr.BinOp.SHL) {
+                    out.ins("asl", t, null);
+                    out.ins("rol", t + "+2", null);
+                } else if (b.type().signed()) {
+                    out.ins("lda", t + "+2", "arithmetic shift: keep the sign bit");
+                    out.ins("cmp", "#$8000", null);
+                    out.ins("ror", "a", null);
+                    out.ins("sta", t + "+2", null);
+                    out.ins("ror", t, null);
+                } else {
+                    out.ins("lsr", t + "+2", null);
+                    out.ins("ror", t, null);
+                }
+                out.ins("dex", null, null);
+                jumpIf(Flag.NE, loop);
+                place(done);
+                out.note(comment);
+                return t;
+            }
+            default -> throw new IllegalStateException(b.op().toString());
+        }
+    }
+
+    /** Stores A, extended to 32 bits as {@code from} says, into a new slot. */
+    private String extendTo32(Type.Int from) {
+        String t = temp();
+        out.ins("sta", t, "low word");
+        if (from.signed() && from.bits() < 32) {
+            String positive = label();
+            out.ins("ldx", "#$0000", "high word: sign extension");
+            out.ins("cmp", "#$8000", null);
+            jumpIf(Flag.CC, positive);
+            out.ins("dex", null, null);
+            place(positive);
+            out.ins("stx", t + "+2", null);
+        } else if (from.bits() < 32) {
+            out.ins("stz", t + "+2", "high word: 0");
+        } else {
+            // A holds only the low word of a 32-bit value: callers never get here
+            throw new IllegalStateException("extendTo32 of a 32-bit value");
+        }
+        return t;
+    }
+
+    // ---------------------------------------------------------------- conditions
+
+    /** Flag tests after a compare, with the opposite test for branching around a jump. */
+    private enum Flag {
+        EQ("beq", "bne"), NE("bne", "beq"), CS("bcs", "bcc"), CC("bcc", "bcs"), MI("bmi", "bpl"), PL("bpl", "bmi");
+
+        final String branch;
+        final String inverse;
+
+        Flag(String branch, String inverse) {
+            this.branch = branch;
+            this.inverse = inverse;
+        }
+
+        Flag not() {
+            return switch (this) {
+                case EQ -> NE;
+                case NE -> EQ;
+                case CS -> CC;
+                case CC -> CS;
+                case MI -> PL;
+                case PL -> MI;
+            };
         }
     }
 
     /**
-     * An operand an instruction can use directly, without going through A first, or null:
-     * a constant, or a 16-bit variable (also when converted to a wider type, which does not
-     * change the low 16 bits).
+     * Jumps to {@code target} if the flag test holds. Branches reach only 128 bytes, so this
+     * branches around a JMP (branch distances are optimization G).
      */
-    private static String directOperand(Expr e) {
+    private void jumpIf(Flag f, String target) {
+        out.ins(f.inverse, ":+", null);
+        out.ins("jmp", target, null);
+        out.raw(":");
+    }
+
+    /** Jumps to {@code target} if the truth of {@code e} is {@code when}; falls through otherwise. */
+    private void branch(Expr e, String target, boolean when) throws CompileError {
+        switch (e) {
+            case Expr.Const k -> {
+                if ((k.value() != 0) == when) {
+                    out.ins("jmp", target, "always");
+                }
+            }
+            case Expr.LogicalNot n -> branch(n.operand(), target, !when);
+            case Expr.Logical l -> {
+                if (l.and() != when) {
+                    // && jumping when false, || jumping when true: either operand decides alone
+                    branch(l.left(), target, when);
+                    branch(l.right(), target, when);
+                } else {
+                    String skip = label();
+                    branch(l.left(), skip, !when);
+                    branch(l.right(), target, when);
+                    place(skip);
+                }
+            }
+            case Expr.Binary b when b.op().isComparison() -> {
+                Flag f = compare(b);
+                jumpIf(when ? f : f.not(), target);
+            }
+            default -> {
+                if (e.type().size() == 4) {
+                    String v = gen32(e);
+                    out.ins("lda", v, null);
+                    out.ins("ora", v + "+2", "zero?");
+                } else {
+                    genA(e);
+                    out.ins("cmp", "#$0000", "zero?");
+                }
+                jumpIf(when ? Flag.NE : Flag.EQ, target);
+            }
+        }
+    }
+
+    /** Sets the flags for a comparison; returns the flag test that means "true". */
+    private Flag compare(Expr.Binary b) throws CompileError {
+        Expr l = b.left();
+        Expr r = b.right();
+        Expr.BinOp op = b.op();
+        if (op == Expr.BinOp.GT || op == Expr.BinOp.LE) { // a > b is b < a, a <= b is b >= a
+            Expr x = l;
+            l = r;
+            r = x;
+            op = op == Expr.BinOp.GT ? Expr.BinOp.LT : Expr.BinOp.GE;
+        }
+        String what = ExprPrinter.print(b);
+        Range rl = range(l);
+        Range rr = range(r);
+        boolean u16 = rl.fitsUnsigned16() && rr.fitsUnsigned16();
+        boolean s16 = !u16 && rl.fitsSigned16() && rr.fitsSigned16();
+        if (u16 || s16) {
+            String operand = operand16(r);
+            if (operand == null) {
+                genA(r);
+                operand = temp();
+                out.ins("sta", operand, null);
+            }
+            genA(l);
+            if (op == Expr.BinOp.EQ || op == Expr.BinOp.NE || u16) {
+                out.ins("cmp", operand, what + (u16 ? " (unsigned, 16 bits)" : ""));
+                return switch (op) {
+                    case EQ -> Flag.EQ;
+                    case NE -> Flag.NE;
+                    case LT -> Flag.CC;
+                    default -> Flag.CS;
+                };
+            }
+            out.ins("sec", null, null);
+            out.ins("sbc", operand, what + " (signed, 16 bits)");
+            out.ins("bvc", ":+", "N xor V is the sign of the true difference");
+            out.ins("eor", "#$8000", null);
+            out.raw(":");
+            return op == Expr.BinOp.LT ? Flag.MI : Flag.PL;
+        }
+        String lv = gen32(l);
+        String rv = gen32(r);
+        if (op == Expr.BinOp.EQ || op == Expr.BinOp.NE) {
+            String t = temp();
+            out.ins("lda", lv, null);
+            out.ins("eor", rv, null);
+            out.ins("sta", t, null);
+            out.ins("lda", lv + "+2", null);
+            out.ins("eor", rv + "+2", null);
+            out.ins("ora", t, what + " (32 bits)");
+            return op == Expr.BinOp.EQ ? Flag.EQ : Flag.NE;
+        }
+        out.ins("lda", lv, null);
+        out.ins("cmp", rv, null);
+        out.ins("lda", lv + "+2", null);
+        out.ins("sbc", rv + "+2", what + " (32 bits)");
+        if (((Type.Int) l.type()).signed()) {
+            out.ins("bvc", ":+", "N xor V is the sign of the true difference");
+            out.ins("eor", "#$8000", null);
+            out.raw(":");
+            return op == Expr.BinOp.LT ? Flag.MI : Flag.PL;
+        }
+        return op == Expr.BinOp.LT ? Flag.CC : Flag.CS;
+    }
+
+    /** A = 1 if {@code e} is true, else 0. */
+    private void boolValue(Expr e) throws CompileError {
+        String no = label();
+        String end = label();
+        branch(e, no, false);
+        out.ins("lda", "#$0001", "A = " + ExprPrinter.print(e) + " (true)");
+        out.ins("bra", end, null);
+        place(no);
+        out.ins("lda", "#$0000", "(false)");
+        place(end);
+    }
+
+    // ---------------------------------------------------------------- value ranges
+
+    /** The range a value can have, as far as its types show. */
+    private record Range(long min, long max) {
+        boolean fitsUnsigned16() {
+            return min >= 0 && max <= 0xFFFF;
+        }
+
+        boolean fitsSigned16() {
+            return min >= -0x8000 && max <= 0x7FFF;
+        }
+    }
+
+    private static Range range(Expr e) {
         return switch (e) {
-            case Expr.Const k -> "#$" + hex(k.value() & 0xFFFF, 4);
-            case Expr.Var v -> v.type().size() == 2 ? v.variable().label() : null;
-            case Expr.Convert c when c.operand().type().size() >= 2 && c.type().size() >= 2 -> directOperand(c.operand());
-            default -> null;
+            case Expr.Const k -> new Range(k.value(), k.value());
+            case Expr.Convert c -> {
+                Range r = range(c.operand());
+                yield r.min() >= c.type().min() && r.max() <= c.type().max() ? r : typeRange(c.type());
+            }
+            case Expr.Binary b when b.op().isComparison() -> new Range(0, 1);
+            case Expr.LogicalNot n -> new Range(0, 1);
+            case Expr.Logical l -> new Range(0, 1);
+            case Expr.Binary b when b.op() == Expr.BinOp.AND -> {
+                // x & y with y >= 0 lies in 0..y
+                Range l = range(b.left());
+                Range r = range(b.right());
+                if (r.min() >= 0 || l.min() >= 0) {
+                    yield new Range(0, Math.min(r.min() >= 0 ? r.max() : Long.MAX_VALUE, l.min() >= 0 ? l.max() : Long.MAX_VALUE));
+                }
+                yield typeRange(b.type());
+            }
+            case Expr.Binary b when b.op() == Expr.BinOp.SHR && range(b.left()).min() >= 0 -> new Range(0, range(b.left()).max());
+            default -> e.type() instanceof Type.Int t ? typeRange(t) : new Range(0, 0);
         };
     }
+
+    private static Range typeRange(Type.Int t) {
+        return new Range(t.min(), t.max());
+    }
+
+    /** Both operands of / % >> lie in 0..65535: the unsigned 16-bit operation gives C's result. */
+    private static boolean unsigned16(Expr.Binary b) {
+        return range(b.left()).fitsUnsigned16() && range(b.right()).fitsUnsigned16();
+    }
+
+    // ---------------------------------------------------------------- calls, loads, stores
 
     private void call(Expr.Call c) throws CompileError {
         Function f = c.function();
@@ -313,46 +982,71 @@ public final class NaiveCodeGen {
         boolean nested = c.args().stream().anyMatch(NaiveCodeGen::containsCall);
         if (nested) {
             // a call inside an argument could overwrite parameters already stored: collect all first
-            List<Variable> saved = new ArrayList<>();
-            for (Expr a : c.args()) {
-                expr(a);
-                Variable t = pushTemp();
-                out.ins("sta", t.label(), "argument " + (saved.size() + 1) + " of " + f.name() + "()");
-                saved.add(t);
+            List<String> saved = new ArrayList<>();
+            for (int i = 0; i < params.size(); i++) {
+                Expr a = c.args().get(i);
+                if (a.type().size() == 4) {
+                    String v = gen32(a);
+                    String t = temp();
+                    copy32(v, t, "argument " + (i + 1) + " of " + f.name() + "()");
+                    saved.add(t);
+                } else {
+                    genA(a);
+                    String t = temp();
+                    out.ins("sta", t, "argument " + (i + 1) + " of " + f.name() + "()");
+                    saved.add(t);
+                }
             }
             for (int i = 0; i < params.size(); i++) {
-                out.ins("lda", saved.get(i).label(), null);
-                store(params.get(i));
+                Variable p = params.get(i);
+                if (p.type().size() == 4) {
+                    copy32(saved.get(i), p.label(), p.name() + " = argument " + (i + 1));
+                } else {
+                    out.ins("lda", saved.get(i), null);
+                    store(p);
+                }
             }
-            tempDepth -= saved.size();
         } else {
             for (int i = 0; i < params.size(); i++) {
-                expr(c.args().get(i));
-                store(params.get(i));
+                Variable p = params.get(i);
+                Expr a = c.args().get(i);
+                if (p.type().size() == 4) {
+                    copy32(gen32(a), p.label(), p.name() + " = " + ExprPrinter.print(a));
+                } else {
+                    genA(a);
+                    store(p);
+                }
             }
         }
-        out.ins("jsr", f.label(), ExprPrinter.print(c) + (f.returnType() instanceof Type.Void ? "" : ", result in A"));
+        out.ins("jsr", f.label(), ExprPrinter.print(c) + (f.returnType() instanceof Type.Void ? "" : ", result in A"
+                + (f.returnType().size() == 4 ? " (low) and X (high)" : "")));
     }
 
     private static boolean containsCall(Expr e) {
+        return e instanceof Expr.Call || Children.of(e).stream().anyMatch(NaiveCodeGen::containsCall);
+    }
+
+    /**
+     * An operand a 16-bit instruction can use directly, or null: a constant, or a 16-bit or
+     * 32-bit variable (its low word), also through conversions that keep the low 16 bits.
+     */
+    private static String operand16(Expr e) {
         return switch (e) {
-            case Expr.Call c -> true;
-            case Expr.Const k -> false;
-            case Expr.Var v -> false;
-            case Expr.Convert c -> containsCall(c.operand());
-            case Expr.Unary u -> containsCall(u.operand());
-            case Expr.Binary b -> containsCall(b.left()) || containsCall(b.right());
-            case Expr.Assign a -> containsCall(a.value());
+            case Expr.Const k -> imm(k.value());
+            case Expr.Var v -> v.type().size() >= 2 ? v.variable().label() : null;
+            case Expr.Convert c when c.operand().type().size() >= 2 && c.type().size() >= 2 -> operand16(c.operand());
+            default -> null;
         };
     }
 
     private void load(Variable v) {
-        out.ins("lda", v.label(), "A = " + v.name());
+        out.ins("lda", v.label(), "A = " + v.name() + (v.type().size() == 4 ? " (low word)" : ""));
         if (v.type().size() == 1) {
             extend8((Type.Int) v.type(), "A = " + v.name());
         }
     }
 
+    /** Stores A into a variable of 8 or 16 bits. */
     private void store(Variable v) {
         if (v.type().size() == 1) {
             out.ins("sep", "#$20", "M=8");
@@ -360,16 +1054,26 @@ public final class NaiveCodeGen {
             out.ins("sta", v.label(), v.name() + " = A (low byte)");
             out.ins("rep", "#$20", "M=16");
             out.raw("        .a16");
-        } else {
+        } else if (v.type().size() == 2) {
             out.ins("sta", v.label(), v.name() + " = A");
+        } else {
+            throw new IllegalStateException("16-bit store into 32-bit " + v.name());
         }
     }
 
-    /** Converts the value in A. Widening needs nothing: A already holds 8-bit values extended. */
-    private void convert(Type.Int from, Type.Int to) {
-        if (to.bits() == 8) {
-            extend8(to, "A = (" + to + ")A");
+    private void addOne(boolean increment) {
+        out.ins(increment ? "clc" : "sec", null, null);
+        out.ins(increment ? "adc" : "sbc", "#$0001", increment ? "+ 1" : "- 1");
+    }
+
+    private void copy32(String from, String to, String comment) {
+        if (from.equals(to)) {
+            return;
         }
+        out.ins("lda", from, null);
+        out.ins("sta", to, null);
+        out.ins("lda", from + "+2", null);
+        out.ins("sta", to + "+2", comment);
     }
 
     /** Keeps the low byte of A and extends it to 16 bits as {@code t} says. */
@@ -384,15 +1088,33 @@ public final class NaiveCodeGen {
         }
     }
 
-    private Variable pushTemp() {
-        if (tempDepth == temps.size()) {
-            String label = current.label() + "__t" + temps.size();
-            temps.add(new Variable("t" + temps.size(), label, Type.U16, Variable.Kind.TEMP, current.definitionPos()));
-        }
-        return temps.get(tempDepth++);
+    // ---------------------------------------------------------------- labels and temporaries
+
+    private void beginExpr() {
+        tempsUsed = 0;
     }
 
-    // ---------------------------------------------------------------- helpers
+    private String temp() {
+        String t = tempLabel(current, tempsUsed++);
+        tempCount.merge(current, tempsUsed, Math::max);
+        return t;
+    }
+
+    private static String tempLabel(Function f, int i) {
+        return f.label() + "__t" + i;
+    }
+
+    private String label() {
+        return "@L" + (labels++);
+    }
+
+    private void place(String label) {
+        out.label(label);
+    }
+
+    private static String imm(long v) {
+        return "#$" + hex(v & 0xFFFF, 4);
+    }
 
     private static String hex(long v, int digits) {
         return String.format("%0" + digits + "X", v);

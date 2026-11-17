@@ -1,5 +1,6 @@
 package dampf.check;
 
+import dampf.ast.Children;
 import dampf.ast.Expr;
 import dampf.ast.Function;
 import dampf.ast.Program;
@@ -79,32 +80,14 @@ public final class CallGraph {
     }
 
     private static void collect(Stmt s, List<Edge> out) {
-        switch (s) {
-            case Stmt.Block b -> b.statements().forEach(x -> collect(x, out));
-            case Stmt.ExprStmt e -> collect(e.expr(), out);
-            case Stmt.Return r -> {
-                if (r.value() != null) {
-                    collect(r.value(), out);
-                }
-            }
-        }
+        Children.exprsOf(s).forEach(e -> collect(e, out));
+        Children.stmtsOf(s).forEach(x -> collect(x, out));
     }
 
     private static void collect(Expr e, List<Edge> out) {
-        switch (e) {
-            case Expr.Call c -> {
-                c.args().forEach(a -> collect(a, out));
-                out.add(new Edge(c.function(), c.pos()));
-            }
-            case Expr.Convert c -> collect(c.operand(), out);
-            case Expr.Unary u -> collect(u.operand(), out);
-            case Expr.Binary b -> {
-                collect(b.left(), out);
-                collect(b.right(), out);
-            }
-            case Expr.Assign a -> collect(a.value(), out);
-            case Expr.Const k -> { }
-            case Expr.Var v -> { }
+        Children.of(e).forEach(x -> collect(x, out));
+        if (e instanceof Expr.Call c) {
+            out.add(new Edge(c.function(), c.pos()));
         }
     }
 }

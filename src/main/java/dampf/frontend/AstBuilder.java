@@ -55,6 +55,8 @@ public final class AstBuilder {
     private Function current;
     private List<Variable> currentLocals;
     private final Deque<Map<String, Variable>> blockScopes = new ArrayDeque<>();
+    private int loopDepth;
+    private int breakDepth;
 
     public AstBuilder(Path systemHeaders) {
         this.systemHeaders = systemHeaders.toAbsolutePath().normalize();
@@ -301,9 +303,6 @@ public final class AstBuilder {
     }
 
     private Function declareFunction(Declarator dec, Specs s) throws CompileError {
-        if (s.type().size() > 2 || dec.params().stream().anyMatch(p -> p.type().size() > 2)) {
-            throw new CompileError(dec.pos(), "32-bit parameters and return values are not supported yet");
-        }
         List<Type> paramTypes = dec.params().stream().map(Param::type).toList();
         Object existing = fileScope.get(dec.name());
         if (existing == null && s.storage() != Storage.STATIC) {
@@ -331,9 +330,6 @@ public final class AstBuilder {
     private void globalVariable(Declarator dec, Specs s, CParser.InitializerContext init) throws CompileError {
         if (!(s.type() instanceof Type.Int t)) {
             throw new CompileError(dec.pos(), "variable '" + dec.name() + "' has type void");
-        }
-        if (t.size() > 2) {
-            throw new CompileError(dec.pos(), "32-bit variables are not supported yet");
         }
         Object existing = fileScope.get(dec.name());
         if (existing == null && s.storage() != Storage.STATIC) {
@@ -443,14 +439,19 @@ public final class AstBuilder {
         if (d.declarationSpecifiers() == null) {
             throw unsupported(d, "this kind of declaration");
         }
-        Specs s = specs(d.declarationSpecifiers().declarationSpecifier(), d);
-        if (s.storage() != Storage.NONE) {
+        localDeclaration(d.declarationSpecifiers(), d.initDeclaratorList(), d, out);
+    }
+
+    private void localDeclaration(CParser.DeclarationSpecifiersContext specs, CParser.InitDeclaratorListContext list,
+                                  ParserRuleContext d, List<Stmt> out) throws CompileError {
+        Specs s = specs(specs.declarationSpecifier(), d);
+        if (s.storage() == Storage.EXTERN || s.storage() == Storage.TYPEDEF) {
             throw unsupported(d, "'" + s.storage().name().toLowerCase() + "' inside a function");
         }
-        if (d.initDeclaratorList() == null) {
+        if (list == null) {
             return;
         }
-        for (CParser.InitDeclaratorContext id : d.initDeclaratorList().initDeclarator()) {
+        for (CParser.InitDeclaratorContext id : list.initDeclarator()) {
             Declarator dec = declarator(id.declarator());
             if (dec.isFunction()) {
                 throw unsupported(id, "function declarations inside a function");
@@ -458,12 +459,27 @@ public final class AstBuilder {
             if (!(s.type() instanceof Type.Int t)) {
                 throw new CompileError(dec.pos(), "variable '" + dec.name() + "' has type void");
             }
-            if (t.size() > 2) {
-                throw new CompileError(dec.pos(), "32-bit variables are not supported yet");
-            }
             Map<String, Variable> scope = blockScopes.peek();
             if (scope.containsKey(dec.name())) {
                 throw new CompileError(dec.pos(), "redeclaration of '" + dec.name() + "'");
+            }
+            if (s.storage() == Storage.STATIC) {
+                // a static local is a global with a name only this block sees
+                Variable v = new Variable(dec.name(), uniqueLabel(current.label() + "__" + dec.name()), t, Variable.Kind.STATIC_LOCAL, dec.pos());
+                globals.add(v);
+                definedGlobals.add(v);
+                scope.put(dec.name(), v);
+                if (id.initializer() != null) {
+                    if (id.initializer().assignmentExpression() == null) {
+                        throw unsupported(id.initializer(), "brace initializers");
+                    }
+                    Long value = fold(convert(assignment(id.initializer().assignmentExpression()), t, pos(id.initializer())));
+                    if (value == null) {
+                        throw error(id.initializer(), "the initializer of a static variable must be a constant");
+                    }
+                    initialValues.put(v, value);
+                }
+                continue;
             }
             Variable v = new Variable(dec.name(), uniqueLabel(current.label() + "__" + dec.name()), t, Variable.Kind.LOCAL, dec.pos());
             currentLocals.add(v);
@@ -486,12 +502,25 @@ public final class AstBuilder {
         }
         if (st.expressionStatement() != null) {
             CParser.ExpressionStatementContext es = st.expressionStatement();
-            return es.expression() == null ? null : new Stmt.ExprStmt(expression(es.expression()), pos(st));
+            return es.expression() == null ? null : new Stmt.ExprStmt(discarded(expression(es.expression())), pos(st));
         }
         if (st.jumpStatement() != null) {
             CParser.JumpStatementContext js = st.jumpStatement();
-            if (!js.getStart().getText().equals("return")) {
-                throw unsupported(js, "'" + js.getStart().getText() + "'");
+            switch (js.getStart().getText()) {
+                case "break" -> {
+                    if (breakDepth == 0) {
+                        throw error(js, "'break' outside a loop or switch");
+                    }
+                    return new Stmt.Break(pos(st));
+                }
+                case "continue" -> {
+                    if (loopDepth == 0) {
+                        throw error(js, "'continue' outside a loop");
+                    }
+                    return new Stmt.Continue(pos(st));
+                }
+                case "return" -> { }
+                default -> throw unsupported(js, "'" + js.getStart().getText() + "'");
             }
             Type rt = current.returnType();
             if (js.expression() == null) {
@@ -506,15 +535,176 @@ public final class AstBuilder {
             return new Stmt.Return(convert(expression(js.expression()), t, pos(js.expression())), pos(st));
         }
         if (st.selectionStatement() != null) {
-            throw unsupported(st, "'" + st.getStart().getText() + "' statements");
+            CParser.SelectionStatementContext sel = st.selectionStatement();
+            if (sel.getStart().getText().equals("switch")) {
+                return switchStatement(sel);
+            }
+            Expr cond = condition(sel.expression());
+            Stmt then = substatement(sel.statement(0));
+            Stmt otherwise = sel.statement().size() > 1 ? substatement(sel.statement(1)) : null;
+            return new Stmt.If(cond, then, otherwise, pos(st));
         }
         if (st.iterationStatement() != null) {
-            throw unsupported(st, "loops");
+            return loop(st.iterationStatement());
         }
         if (st.labeledStatement() != null) {
-            throw unsupported(st, "labels");
+            String first = st.getStart().getText();
+            if (first.equals("case") || first.equals("default")) {
+                throw unsupported(st, "'" + first + "' labels that are not directly in the switch body");
+            }
+            throw unsupported(st, "labels and goto");
         }
         throw unsupported(st, "this statement");
+    }
+
+    /** A statement that is a branch or loop body: an empty statement becomes an empty block. */
+    private Stmt substatement(CParser.StatementContext st) throws CompileError {
+        Stmt s = statement(st);
+        return s != null ? s : new Stmt.Block(List.of(), pos(st), pos(st));
+    }
+
+    private Expr condition(CParser.ExpressionContext e) throws CompileError {
+        Expr c = expression(e);
+        intType(c, e);
+        return c;
+    }
+
+    /** An expression whose value is not used: x++ becomes ++x, which is simpler to compile. */
+    private static Expr discarded(Expr e) {
+        if (e instanceof Expr.PostIncDec p) {
+            Type.Int t = (Type.Int) p.target().type();
+            Type.Int pt = Type.common(t, Type.I32);
+            Expr old = new Expr.Var(p.target(), p.pos());
+            Expr widened = t.equals(pt) ? old : new Expr.Convert(old, pt, false, p.pos());
+            Expr sum = new Expr.Binary(p.increment() ? Expr.BinOp.ADD : Expr.BinOp.SUB, widened, new Expr.Const(1, pt, p.pos()), pt, p.pos());
+            Expr value = t.equals(pt) ? sum : new Expr.Convert(sum, t, false, p.pos());
+            return new Expr.Assign(p.target(), value, p.pos());
+        }
+        return e;
+    }
+
+    private Stmt loop(CParser.IterationStatementContext it) throws CompileError {
+        String kind = it.getStart().getText();
+        SourcePos p = pos(it);
+        switch (kind) {
+            case "while" -> {
+                Expr cond = condition(it.expression());
+                return new Stmt.While(cond, loopBody(it.statement()), p);
+            }
+            case "do" -> {
+                Stmt body = loopBody(it.statement());
+                return new Stmt.DoWhile(body, condition(it.expression()), p);
+            }
+            default -> {
+                CParser.ForConditionContext fc = it.forCondition();
+                blockScopes.push(new HashMap<>());
+                Stmt init = null;
+                if (fc.forDeclaration() != null) {
+                    List<Stmt> decl = new ArrayList<>();
+                    CParser.ForDeclarationContext d = fc.forDeclaration();
+                    localDeclaration(d.declarationSpecifiers(), d.initDeclaratorList(), d, decl);
+                    init = new Stmt.Block(decl, pos(d), pos(d));
+                } else if (fc.expression() != null) {
+                    init = new Stmt.ExprStmt(discarded(expression(fc.expression())), pos(fc.expression()));
+                }
+                // forCondition: (decl | expr?) ';' forExpression? ';' forExpression?
+                CParser.ForExpressionContext condCtx = null;
+                CParser.ForExpressionContext stepCtx = null;
+                int semis = 0;
+                for (ParseTree c : fc.children) {
+                    if (c instanceof TerminalNode t && t.getText().equals(";")) {
+                        semis++;
+                    } else if (c instanceof CParser.ForExpressionContext fe) {
+                        if (semis == 1) {
+                            condCtx = fe;
+                        } else {
+                            stepCtx = fe;
+                        }
+                    }
+                }
+                Expr cond = null;
+                if (condCtx != null) {
+                    if (condCtx.assignmentExpression().size() > 1) {
+                        throw unsupported(condCtx, "the comma operator");
+                    }
+                    cond = assignment(condCtx.assignmentExpression(0));
+                    intType(cond, condCtx);
+                }
+                List<Expr> step = new ArrayList<>();
+                if (stepCtx != null) {
+                    for (CParser.AssignmentExpressionContext a : stepCtx.assignmentExpression()) {
+                        step.add(discarded(assignment(a)));
+                    }
+                }
+                Stmt body = loopBody(it.statement());
+                blockScopes.pop();
+                return new Stmt.For(init, cond, step, body, p);
+            }
+        }
+    }
+
+    private Stmt loopBody(CParser.StatementContext st) throws CompileError {
+        loopDepth++;
+        breakDepth++;
+        try {
+            return substatement(st);
+        } finally {
+            loopDepth--;
+            breakDepth--;
+        }
+    }
+
+    private Stmt switchStatement(CParser.SelectionStatementContext sel) throws CompileError {
+        Expr value = expression(sel.expression());
+        Type.Int t = Type.promote(intType(value, sel));
+        value = convert(value, t, pos(sel.expression()));
+        CParser.StatementContext bodyCtx = sel.statement(0);
+        if (bodyCtx.compoundStatement() == null) {
+            throw unsupported(bodyCtx, "a switch body that is not a block");
+        }
+        CParser.CompoundStatementContext cs = bodyCtx.compoundStatement();
+        List<Stmt> body = new ArrayList<>();
+        Set<Long> seen = new HashSet<>();
+        breakDepth++;
+        blockScopes.push(new HashMap<>());
+        if (cs.blockItemList() != null) {
+            for (CParser.BlockItemContext item : cs.blockItemList().blockItem()) {
+                if (item.declaration() != null) {
+                    localDeclaration(item.declaration(), body);
+                } else {
+                    switchItem(item.statement(), t, seen, body);
+                }
+            }
+        }
+        blockScopes.pop();
+        breakDepth--;
+        return new Stmt.Switch(value, body, pos(sel));
+    }
+
+    /** A statement of a switch body; case labels become markers, followed by their statement. */
+    private void switchItem(CParser.StatementContext st, Type.Int t, Set<Long> seen, List<Stmt> body) throws CompileError {
+        CParser.LabeledStatementContext ls = st.labeledStatement();
+        if (ls != null && (ls.getStart().getText().equals("case") || ls.getStart().getText().equals("default"))) {
+            Long v = null;
+            if (ls.getStart().getText().equals("case")) {
+                v = fold(convert(chain(ls.constantExpression().conditionalExpression().logicalOrExpression()), t, pos(ls)));
+                if (ls.constantExpression().conditionalExpression().expression() != null || v == null) {
+                    throw error(ls, "a case label must be an integer constant");
+                }
+            }
+            if (!seen.add(v)) {
+                throw error(ls, v == null ? "more than one default label" : "duplicate case value " + v);
+            }
+            body.add(new Stmt.Case(v, pos(ls)));
+            if (ls.statement() != null) {
+                switchItem(ls.statement(), t, seen, body);
+            }
+            return;
+        }
+        Stmt s = statement(st);
+        if (s != null) {
+            body.add(s);
+        }
     }
 
     // ---------------------------------------------------------------- expressions
@@ -528,11 +718,7 @@ public final class AstBuilder {
 
     private Expr assignment(CParser.AssignmentExpressionContext a) throws CompileError {
         if (a.conditionalExpression() != null) {
-            CParser.ConditionalExpressionContext c = a.conditionalExpression();
-            if (c.expression() != null) {
-                throw unsupported(c, "the ?: operator");
-            }
-            return chain(c.logicalOrExpression());
+            return conditional(a.conditionalExpression());
         }
         if (a.DigitSequence() != null) {
             return integerConstant(a.DigitSequence().getSymbol());
@@ -554,6 +740,23 @@ public final class AstBuilder {
         return new Expr.Assign(var.variable(), value, pos(op));
     }
 
+    private Expr conditional(CParser.ConditionalExpressionContext c) throws CompileError {
+        Expr cond = chain(c.logicalOrExpression());
+        if (c.expression() == null) {
+            return cond;
+        }
+        intType(cond, c);
+        Expr then = expression(c.expression());
+        Expr otherwise = conditional(c.conditionalExpression());
+        Type.Int t = Type.common(intType(then, c), intType(otherwise, c));
+        SourcePos p = pos(c);
+        Long k = fold(cond);
+        if (k != null) {
+            return convert(k != 0 ? then : otherwise, t, p);
+        }
+        return new Expr.Conditional(cond, convert(then, t, p), convert(otherwise, t, p), t, p);
+    }
+
     /** The binary operator rules, from logical-or down to multiplicative: a left-to-right chain. */
     private Expr chain(ParserRuleContext ctx) throws CompileError {
         if (ctx instanceof CParser.CastExpressionContext c) {
@@ -569,16 +772,27 @@ public final class AstBuilder {
     }
 
     private Expr binary(String op, Expr left, Expr right, SourcePos pos, ParserRuleContext where) throws CompileError {
-        Expr.BinOp bop = switch (op) {
-            case "+" -> Expr.BinOp.ADD;
-            case "-" -> Expr.BinOp.SUB;
-            case "&" -> Expr.BinOp.AND;
-            case "|" -> Expr.BinOp.OR;
-            case "^" -> Expr.BinOp.XOR;
-            default -> throw new CompileError(pos, "operator '" + op + "' is not supported yet");
-        };
-        Type.Int t = Type.common(intType(left, where), intType(right, where));
-        return new Expr.Binary(bop, convert(left, t, pos), convert(right, t, pos), t, pos);
+        Type.Int lt = intType(left, where);
+        Type.Int rt = intType(right, where);
+        Expr result;
+        if (op.equals("&&") || op.equals("||")) {
+            result = new Expr.Logical(op.equals("&&"), left, right, pos);
+        } else {
+            Expr.BinOp bop = Expr.BinOp.of(op);
+            if (bop == null) {
+                throw new CompileError(pos, "operator '" + op + "' is not supported yet");
+            }
+            if (bop.isShift()) {
+                Type.Int t = Type.promote(lt);
+                result = new Expr.Binary(bop, convert(left, t, pos), convert(right, Type.promote(rt), pos), t, pos);
+            } else {
+                Type.Int t = Type.common(lt, rt);
+                Type.Int resultType = bop.isComparison() ? Type.I32 : t;
+                result = new Expr.Binary(bop, convert(left, t, pos), convert(right, t, pos), resultType, pos);
+            }
+        }
+        Long k = fold(result);
+        return k != null ? new Expr.Const(k, (Type.Int) result.type(), pos) : result;
     }
 
     private Expr cast(CParser.CastExpressionContext c) throws CompileError {
@@ -642,6 +856,11 @@ public final class AstBuilder {
                     }
                     yield new Expr.Unary(uop, conv, t, p);
                 }
+                case "!" -> {
+                    intType(operand, u);
+                    Long k = fold(operand);
+                    yield k != null ? new Expr.Const(k == 0 ? 1 : 0, Type.I32, p) : new Expr.LogicalNot(operand, p);
+                }
                 default -> throw new CompileError(p, "operator '" + op + "' is not supported yet");
             };
         }
@@ -661,6 +880,13 @@ public final class AstBuilder {
             return primary(prim);
         }
         String suffix = p.getChild(1).getText();
+        if ((suffix.equals("++") || suffix.equals("--")) && n == 2) {
+            Expr target = primary(prim);
+            if (!(target instanceof Expr.Var var)) {
+                throw error(p, "'" + suffix + "' needs a variable");
+            }
+            return new Expr.PostIncDec(var.variable(), suffix.equals("++"), pos(p));
+        }
         if (suffix.equals("(")) {
             if (prim.Identifier() == null) {
                 throw unsupported(p, "calls through expressions");
@@ -857,13 +1083,45 @@ public final class AstBuilder {
                 if (l == null || r == null) {
                     yield null;
                 }
-                yield b.type().wrap(switch (b.op()) {
-                    case ADD -> l + r;
-                    case SUB -> l - r;
-                    case AND -> l & r;
-                    case OR -> l | r;
-                    case XOR -> l ^ r;
-                });
+                // l and r are already wrapped into their types, so Java's long arithmetic gives
+                // C's result before the final wrap (division truncates towards zero in both)
+                yield switch (b.op()) {
+                    case ADD -> b.type().wrap(l + r);
+                    case SUB -> b.type().wrap(l - r);
+                    case MUL -> b.type().wrap(l * r);
+                    case DIV -> r == 0 ? null : b.type().wrap(l / r);
+                    case MOD -> r == 0 ? null : b.type().wrap(l % r);
+                    case SHL -> r < 0 || r >= 32 ? null : b.type().wrap(l << r);
+                    case SHR -> r < 0 || r >= 32 ? null : b.type().wrap(l >> r);
+                    case AND -> b.type().wrap(l & r);
+                    case OR -> b.type().wrap(l | r);
+                    case XOR -> b.type().wrap(l ^ r);
+                    case LT -> l < r ? 1L : 0L;
+                    case LE -> l <= r ? 1L : 0L;
+                    case GT -> l > r ? 1L : 0L;
+                    case GE -> l >= r ? 1L : 0L;
+                    case EQ -> l.equals(r) ? 1L : 0L;
+                    case NE -> l.equals(r) ? 0L : 1L;
+                };
+            }
+            case Expr.LogicalNot n -> {
+                Long v = fold(n.operand());
+                yield v == null ? null : (v == 0 ? 1L : 0L);
+            }
+            case Expr.Logical lg -> {
+                Long l = fold(lg.left());
+                if (l == null) {
+                    yield null;
+                }
+                if (lg.and() ? l == 0 : l != 0) {
+                    yield lg.and() ? 0L : 1L;
+                }
+                Long r = fold(lg.right());
+                yield r == null ? null : (r != 0 ? 1L : 0L);
+            }
+            case Expr.Conditional c -> {
+                Long k = fold(c.cond());
+                yield k == null ? null : fold(k != 0 ? c.then() : c.otherwise());
             }
             default -> null;
         };

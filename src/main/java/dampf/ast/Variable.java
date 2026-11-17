@@ -10,5 +10,6 @@ import dampf.frontend.SourcePos;
  * @param label the unique assembly label
  */
 public record Variable(String name, String label, Type type, Kind kind, SourcePos pos) {
-    public enum Kind { GLOBAL, PARAM, LOCAL, TEMP }
+    /** STATIC_LOCAL: a {@code static} variable inside a function, stored like a global. */
+    public enum Kind { GLOBAL, STATIC_LOCAL, PARAM, LOCAL, TEMP }
 }

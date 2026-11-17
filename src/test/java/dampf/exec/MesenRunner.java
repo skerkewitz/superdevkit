@@ -57,9 +57,11 @@ final class MesenRunner {
             if (addr == null) {
                 throw new IOException("no address for " + v.label() + " in " + rom.labels());
             }
-            String expr = v.type().size() == 1
-                    ? String.format("rd(0x%06X)", addr)
-                    : String.format("rd(0x%06X) + 256 * rd(0x%06X)", addr, addr + 1);
+            // little endian: rd(a) + rd(a+1) * 256 + ... (Lua 5.4 integers are 64 bit)
+            StringBuilder expr = new StringBuilder();
+            for (int i = 0; i < v.type().size(); i++) {
+                expr.append(i == 0 ? "" : " + ").append(String.format("rd(0x%06X)", addr + i)).append(i == 0 ? "" : " * " + (1L << (8 * i)));
+            }
             lua.append("    s = s .. \"").append(v.name()).append(" \" .. (").append(expr).append(") .. \"\\n\"\n");
         }
         lua.append("""

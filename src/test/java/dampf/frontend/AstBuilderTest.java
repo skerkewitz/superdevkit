@@ -96,6 +96,6 @@ class AstBuilderTest {
     @Test
     void unsupportedConstructsSaySo() {
         assertTrue(fails("#include <stdint.h>\nuint8_t a[4];\n").getMessage().contains("not supported yet: arrays"));
-        assertTrue(fails("#include <stdint.h>\nvoid f(uint8_t x) { if (x) { } }\n").getMessage().contains("not supported yet"));
+        assertTrue(fails("#include <stdint.h>\nvoid f(uint8_t x) { again: goto again; }\n").getMessage().contains("not supported yet: labels and goto"));
     }
 }

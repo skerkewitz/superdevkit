@@ -43,6 +43,9 @@ tasks.test {
     val mesen = providers.gradleProperty("mesen").orNull
         ?: layout.projectDirectory.file(".mesen/Mesen.exe").asFile.takeIf { it.exists() }?.path
     mesen?.let { systemProperty("dampf.mesen", it) }
+    // Random programs: -Prandom=<count> (default 10), -PrandomSeed=<first seed>
+    providers.gradleProperty("random").orNull?.let { systemProperty("dampf.random.count", it) }
+    providers.gradleProperty("randomSeed").orNull?.let { systemProperty("dampf.random.seed", it) }
 }
 
 application {

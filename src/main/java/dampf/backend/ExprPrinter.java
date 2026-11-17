@@ -15,6 +15,10 @@ final class ExprPrinter {
             case Expr.Unary u -> u.op().symbol + operand(u.operand());
             case Expr.Binary b -> operand(b.left()) + " " + b.op().symbol + " " + operand(b.right());
             case Expr.Assign a -> a.target().name() + " = " + print(a.value());
+            case Expr.PostIncDec p -> p.target().name() + (p.increment() ? "++" : "--");
+            case Expr.LogicalNot n -> "!" + operand(n.operand());
+            case Expr.Logical l -> operand(l.left()) + (l.and() ? " && " : " || ") + operand(l.right());
+            case Expr.Conditional c -> operand(c.cond()) + " ? " + operand(c.then()) + " : " + operand(c.otherwise());
             case Expr.Call c -> c.function().name() + "(" + c.args().stream().map(ExprPrinter::print).collect(Collectors.joining(", ")) + ")";
         };
     }
