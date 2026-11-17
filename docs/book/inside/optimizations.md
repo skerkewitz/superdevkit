@@ -572,10 +572,11 @@ each of these is:
   On a loop's exit edge that would write them in every round for an edge taken once, so just
   before code generation such an edge gets a block of its own (`ExitEdges`), where they are
   written once, at the cost of one jump when the loop ends.
-- **Arguments in place.** An argument whose only use is the call, later in its block with no
-  other call on the way, is computed straight into the callee's parameter place instead of its
-  own place and then copied. This is safe because frames on a call path never overlap. Together
-  with the exit edges, play went from 1.38 to 1.37.
+- **Arguments in place.** An argument of a call later in its block, with no other call on the
+  way and no other use except between its definition and the call, is computed straight into the
+  callee's parameter place instead of its own place and then copied. This is safe because frames
+  on a call path never overlap, and nothing reads the place after the call, where the callee may
+  have changed its parameter. Together with the exit edges, play went from 1.38 to 1.37.
 - **Compare and branch.** A comparison that only its block's branch uses sets the flags and
   branches on them, without a truth value. A comparison with 0 needs no `CMP`, and a 16-bit test
   for `< 0` or `>= 0` is the sign flag of the load (`bmi`/`bpl`). Play 5.17 to 4.48.

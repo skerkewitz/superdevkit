@@ -21,7 +21,7 @@ guide/getting-started src/main/java/dampf/Main.java aed78c904337
 guide/getting-started src/main/resources/dampf/snes/runtime.s 26755a6f5b23
 guide/introduction README.md 8d63a2c004ef
 guide/introduction doc-specs/guide/introduction.spec.md 486420b04713
-guide/introduction docs/optimizations.md 206caccdceaa
+guide/introduction docs/optimizations.md 081f7df629b8
 guide/introduction docs/roadmap.md 4bdcb905b63d
 guide/writing-c doc-specs/guide/writing-c.spec.md b9e5f3ee0bc2
 guide/writing-c docs/subset.md 20b76e3ff271
@@ -52,11 +52,11 @@ inside/mir src/main/java/dampf/mir/Verifier.java aee9edab008c
 inside/mir src/test/java/dampf/mir/MirTextTest.java 7e8cf05bb301
 inside/optimizations doc-specs/inside/optimizations.spec.md b17a5762bb73
 inside/optimizations docs/architecture.md 96d4ac3c8574
-inside/optimizations docs/optimizations.md 206caccdceaa
+inside/optimizations docs/optimizations.md 081f7df629b8
 inside/optimizations docs/subrange-types.md 05df68a0becb
 inside/optimizations src/main/java/dampf/Compiler.java 0afe62bc79b0
 inside/optimizations src/main/java/dampf/backend/FrameLayout.java 1c695e113ead
-inside/optimizations src/main/java/dampf/backend/MirCodeGen.java 2d8c20e3ae8f
+inside/optimizations src/main/java/dampf/backend/MirCodeGen.java ba474bf4f115
 inside/optimizations src/main/java/dampf/mir/BitSelect.java 85708b98a53b
 inside/optimizations src/main/java/dampf/mir/Block.java c816fdeecc49
 inside/optimizations src/main/java/dampf/mir/ByteLoads.java a0efbf1634e8
@@ -152,7 +152,7 @@ reference/output-files src/main/java/dampf/target/Cycles65816.java 8698afa0f4ad
 reference/runtime-and-memory README.md 8d63a2c004ef
 reference/runtime-and-memory doc-specs/reference/runtime-and-memory.spec.md 6db8f7d20997
 reference/runtime-and-memory docs/memory-map.md fc0e3319bdf7
-reference/runtime-and-memory docs/optimizations.md 206caccdceaa
+reference/runtime-and-memory docs/optimizations.md 081f7df629b8
 reference/runtime-and-memory src/main/java/dampf/backend/FrameLayout.java 1c695e113ead
 reference/runtime-and-memory src/main/java/dampf/mir/PointerOffsets.java 045a8e78c659
 reference/runtime-and-memory src/main/java/dampf/mir/PointerParams.java 93a0c69472be
