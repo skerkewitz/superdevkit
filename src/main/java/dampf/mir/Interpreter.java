@@ -1,6 +1,5 @@
 package dampf.mir;
 
-import dampf.ast.Init;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,13 +43,10 @@ public final class Interpreter {
             }
         }
         for (MModule.Global g : module.globals()) {
-            if (g.init() == null) {
-                continue;
-            }
             int base = globalAddress.get(g.symbol());
-            for (Init.Item item : g.init().items()) {
-                long v = item.address() == null ? item.value() : globalAddress.get(item.address().label()) + item.addressOffset();
-                store(base + item.offset(), item.size(), v);
+            for (MModule.Datum d : g.init()) {
+                long v = d.symbol() == null ? d.value() : globalAddress.get(d.symbol()) + d.value();
+                store(base + d.offset(), d.size(), v);
             }
         }
     }

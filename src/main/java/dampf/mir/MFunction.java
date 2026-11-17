@@ -48,6 +48,14 @@ public final class MFunction {
         return blocks.getFirst();
     }
 
+    /** A block with a given name (for the parser). */
+    Block addBlock(String name) {
+        Block b = new Block(name);
+        blocks.add(b);
+        blockCounter++;
+        return b;
+    }
+
     public Block newBlock(String hint) {
         Block b = new Block("b" + (blockCounter++) + (hint == null ? "" : "_" + hint));
         blocks.add(b);

@@ -77,7 +77,9 @@ three checksums per tick against a PC build of the same program, plus the cycles
 Every execution test and every random program also runs on the MIR level: lowered from the AST
 and run by the MIR interpreter (`dampf.mir.Interpreter`), and compared with gcc. A wrong lowering
 shows up there, independent of any 65816 code. The verifier (`dampf.mir.Verifier`) runs after the
-lowering. The game's benchmark runs in the MIR interpreter as well (`dampf mir --bench main ...`,
+lowering. `MirTextTest` prints the MIR of every execution program and of the whole game,
+parses it back and checks that it verifies and prints to the same text; pass tests can therefore
+be written as MIR text. The game's benchmark runs in the MIR interpreter as well (`dampf mir --bench main ...`,
 11 seconds) and gives the PC's checksums on all 3,610 ticks.
 
 ## What the IR levels bring for testing

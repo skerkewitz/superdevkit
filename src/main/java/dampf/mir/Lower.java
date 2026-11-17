@@ -55,7 +55,15 @@ public final class Lower {
     public static MModule lower(Program program) {
         Lower l = new Lower(program);
         for (Variable v : program.globals()) {
-            l.module.globals().add(new MModule.Global(v.label(), v.type().size(), program.initialValues().get(v), v.inRom()));
+            List<MModule.Datum> init = new ArrayList<>();
+            dampf.ast.Init astInit = program.initialValues().get(v);
+            if (astInit != null) {
+                for (dampf.ast.Init.Item i : astInit.items()) {
+                    init.add(i.address() == null ? new MModule.Datum(i.offset(), i.size(), i.value(), null)
+                            : new MModule.Datum(i.offset(), 4, i.addressOffset(), i.address().label()));
+                }
+            }
+            l.module.globals().add(new MModule.Global(v.label(), v.type().size(), init, v.inRom()));
         }
         for (Function f : program.functions()) {
             if (f.isDefined()) {

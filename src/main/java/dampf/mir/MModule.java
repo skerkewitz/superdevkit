@@ -1,6 +1,5 @@
 package dampf.mir;
 
-import dampf.ast.Init;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,8 +9,15 @@ import java.util.List;
  * offsets mean the same here.
  */
 public final class MModule {
-    /** A global object: {@code size} bytes; {@code init} null for all zeros. */
-    public record Global(String symbol, int size, Init init, boolean readOnly) {}
+    /**
+     * Part of a global's initial contents: {@code size} bytes at {@code offset}, either the number
+     * {@code value} or (if {@code symbol} is not null) the address of {@code symbol} plus
+     * {@code value}. Bytes no datum covers are zero.
+     */
+    public record Datum(int offset, int size, long value, String symbol) {}
+
+    /** A global object: {@code size} bytes; {@code init} empty for all zeros. */
+    public record Global(String symbol, int size, List<Datum> init, boolean readOnly) {}
 
     private final List<Global> globals = new ArrayList<>();
     private final List<MFunction> functions = new ArrayList<>();

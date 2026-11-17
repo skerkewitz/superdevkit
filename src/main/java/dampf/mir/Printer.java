@@ -8,6 +8,8 @@ import java.util.stream.Collectors;
  *
  * <pre>
  * global @_result : 2
+ * global @_table : 4 const = [0: i16 1234, 2: i16 -1]
+ * global @_names : 4 const = [0: ptr @__str3+2]
  * func @_add3(i16 %a, i16 %b) -&gt; i16 {
  *     slot $buf : 8
  * b0_entry:
@@ -27,8 +29,22 @@ public final class Printer {
     public static String print(MModule m) {
         StringBuilder out = new StringBuilder();
         for (MModule.Global g : m.globals()) {
-            out.append("global @").append(g.symbol()).append(" : ").append(g.size())
-                    .append(g.readOnly() ? " const" : "").append(g.init() != null ? " init" : "").append('\n');
+            out.append("global @").append(g.symbol()).append(" : ").append(g.size()).append(g.readOnly() ? " const" : "");
+            if (!g.init().isEmpty()) {
+                out.append(" = [");
+                for (int k = 0; k < g.init().size(); k++) {
+                    MModule.Datum d = g.init().get(k);
+                    out.append(k == 0 ? "" : ", ").append(d.offset()).append(": ");
+                    if (d.symbol() != null) {
+                        out.append("ptr @").append(d.symbol()).append(d.value() == 0 ? "" : (d.value() > 0 ? "+" : "") + d.value());
+                    } else {
+                        MType t = d.size() == 1 ? MType.I8 : d.size() == 2 ? MType.I16 : MType.I32;
+                        out.append(t).append(' ').append(t.signed(d.value()));
+                    }
+                }
+                out.append(']');
+            }
+            out.append('\n');
         }
         for (MFunction f : m.functions()) {
             out.append('\n').append(print(f));
@@ -48,7 +64,9 @@ public final class Printer {
         for (Block b : f.blocks()) {
             out.append(b.name()).append(':');
             if (!b.preds().isEmpty()) {
-                out.append("                    ; from ").append(b.preds().stream().map(Block::name).collect(Collectors.joining(", ")));
+                // in block order, so the text does not depend on the order the edges were made in
+                out.append("                    ; from ").append(b.preds().stream().distinct()
+                        .sorted(java.util.Comparator.comparingInt(f.blocks()::indexOf)).map(Block::name).collect(Collectors.joining(", ")));
             }
             out.append('\n');
             for (Instr i : b.instrs()) {

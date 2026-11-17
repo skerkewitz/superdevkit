@@ -12,7 +12,7 @@ generator**, which works directly on the AST and produces ca65 assembly. That ge
 the reference for all optimized builds (see [testing.md](testing.md)).
 
 **MIR** exists (`dampf.mir`): the lowering from the AST (SSA built directly, Braun et al.), a text
-format (`dampf mir file.c`), a verifier and an interpreter. All of Blubber Blasen lowers to MIR,
+format (`dampf mir file.c`) that parses back (`MirParser`), a verifier and an interpreter. All of Blubber Blasen lowers to MIR,
 and the game's benchmark run in the MIR interpreter gives the PC's checksums on all 3,610 ticks.
 There is no code generator from MIR yet, and no MIR passes. HIR and LIR are still to be built;
 [roadmap.md](roadmap.md) says when. MIR currently goes straight from the AST; HIR will sit
