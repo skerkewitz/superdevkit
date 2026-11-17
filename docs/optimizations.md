@@ -559,6 +559,18 @@ of `separate` it does not help yet: the rare path for bubbles that touch uses Y 
 else, so Y is not known at the loop's head; that path would have to reload Y before it goes
 back.
 
+That was not the cause after all: Y only ever holds bubble a there. The labels inside a block
+(where a branch skips a `JMP`, for example) still forgot everything. They are reached by
+branches written earlier in the same pass, so what holds there is known exactly: what those
+branches and the code falling through bring. The code generator's own small loops (shifts by a
+variable count, copies) are the exception, a branch comes back to their label, so nothing is
+assumed there; and a branch back to any other label already placed must bring what was assumed
+there, or the pass counts as inconsistent (a safety net: the code generator writes no such
+branch today). After a contradiction the passes now keep only what the assumption and what
+arrived agree on and go on, instead of writing the function without assumptions at once; the
+assumptions only shrink then, so the passes end. Play 474,124 → 468,441 clocks per tick (1.31
+frames), title 193,463 → 192,815.
+
 ### Blocks laid out by a profile, 2026-11-17
 
 The jumps over large loop bodies (the section on short branches) need to know which blocks run
@@ -605,8 +617,8 @@ byte loads, the short branches, INC/DEC, STZ, the bit selections, fewer copies a
 | title | 1.94 | 12.21 | 0.54 |
 | story | 0.70 | 3.56 | 0.22 |
 | round intro | 5.76 | 12.13 | 1.76 |
-| play | 5.17 (worst 8.58) | 18.93 | 1.33 (worst 2.29) |
-| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 2.00 (worst 4.11) |
+| play | 5.17 (worst 8.58) | 18.93 | 1.31 (worst 2.25) |
+| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 1.98 (worst 4.08) |
 | `level_solid_px`, per call | 3,849 | 6,648 | 1,208 clocks |
 
 Calypsi's 2.72 frames per tick during play (on an older version of the game) is passed; a fair

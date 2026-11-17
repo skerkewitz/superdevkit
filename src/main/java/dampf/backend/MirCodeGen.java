@@ -141,7 +141,7 @@ public final class MirCodeGen {
                 near = null;
                 entryIn = Map.of();
                 boolean ok = false;
-                for (int pass = 0; pass < BRANCH_PASSES + 4; pass++) {
+                for (int pass = 0; pass < BRANCH_PASSES + 8; pass++) {
                     jumpSites = 0;
                     sitePos.clear();
                     siteTargets.clear();
@@ -157,17 +157,22 @@ public final class MirCodeGen {
                         more |= now[0] != was[0] || now[1] != was[1];
                         next.put(k, now);
                     }
-                    boolean consistent = true;
+                    boolean consistent = !internalBroken;
                     for (Map.Entry<String, RegState> e : entryIn.entrySet()) {
                         consistent &= e.getValue().within(arriving.getOrDefault(e.getKey(), RegState.NONE));
                     }
                     ok = consistent && code.branchesReach();
-                    if (!consistent) {
-                        break;
+                    Map<String, RegState> learnt = new HashMap<>();
+                    if (trackEntries) {
+                        for (Block b : f.blocks()) {
+                            RegState got = arriving.getOrDefault(b.name(), RegState.NONE);
+                            // after a contradiction, keep only what both agree on: the assumptions
+                            // shrink then, so the passes come to an end
+                            learnt.put(b.name(), consistent ? got : got.meet(entryIn.getOrDefault(b.name(), RegState.NONE)));
+                        }
                     }
-                    Map<String, RegState> learnt = trackEntries ? Map.copyOf(arriving) : Map.of();
-                    boolean grow = !learnt.equals(entryIn);
-                    if (!more && !grow || pass >= BRANCH_PASSES + 3) {
+                    boolean changes = !learnt.equals(entryIn);
+                    if (ok && !more && !changes || pass >= BRANCH_PASSES + 7) {
                         break;
                     }
                     near = next;
@@ -250,6 +255,11 @@ public final class MirCodeGen {
     private String entryLabel;
     /** The last instruction written goes elsewhere for sure (JMP, BRA, RTL): nothing falls through. */
     private boolean lastTransfer;
+    private boolean lastFallsThrough;
+    /** The states assumed at the labels inside blocks placed so far (this pass). */
+    private final Map<String, RegState> assumedAt = new HashMap<>();
+    /** A branch back to such a label brought less than was assumed there. */
+    private boolean internalBroken;
 
     private void arrive(String label) {
         RegState st = new RegState(Set.copyOf(aHolds), xHolds, yHolds);
@@ -610,6 +620,8 @@ public final class MirCodeGen {
         out = code;
         lastPos = null;
         arriving.clear();
+        assumedAt.clear();
+        internalBroken = false;
         lastTransfer = false;
         blockLabels = new HashSet<>();
         for (Block b : f.blocks()) {
@@ -1514,7 +1526,7 @@ public final class MirCodeGen {
             }
             ins("cpx", imm(0));
             ins("beq", done);
-            place(loop);
+            placeLoopHead(loop);
             out.loopBound(loop, bits);   // X counts down from at most the width
             switch (b.op) {
                 case SHL -> ins("asl", "a");
@@ -1535,7 +1547,7 @@ public final class MirCodeGen {
             to32(x, lo, hi);
             ins("cpx", imm(0));
             ins("beq", done);
-            place(loop);
+            placeLoopHead(loop);
             out.loopBound(loop, bits);   // X counts down from at most the width
             switch (b.op) {
                 case SHL -> {
@@ -2030,7 +2042,7 @@ public final class MirCodeGen {
         if (size >= 2) {
             String loop = label();
             ins("ldy", imm((size & ~1) - 2));
-            place(loop);
+            placeLoopHead(loop);
             out.loopBound(loop, size / 2);   // Y counts down two bytes a round
             ins("lda", VIA_P);
             ins("sta", VIA_Q);
@@ -2146,9 +2158,19 @@ public final class MirCodeGen {
         if (mnemonic.equals("ldx") && operand != null && operand.equals(xHolds)) {
             return;
         }
-        if (operand != null && blockLabels.contains(operand) && (mnemonic.startsWith("b") && !mnemonic.equals("bit")
-                || mnemonic.equals("jmp") || mnemonic.equals("brl"))) {
-            arrive(operand);
+        if (operand != null && (mnemonic.startsWith("b") && !mnemonic.equals("bit") || mnemonic.equals("jmp")
+                || mnemonic.equals("brl"))) {
+            if (blockLabels.contains(operand)) {
+                arrive(operand);
+            } else if (operand.startsWith("@L") && trackEntries) {
+                RegState assumed = assumedAt.get(operand);
+                if (assumed != null) {
+                    // back to a label placed already: it must bring what was assumed there
+                    internalBroken |= !assumed.within(new RegState(Set.copyOf(aHolds), xHolds, yHolds));
+                } else {
+                    arrive(operand);
+                }
+            }
         }
         out.ins(mnemonic, operand, null);
         track(mnemonic, operand);
@@ -2476,13 +2498,26 @@ public final class MirCodeGen {
     private void place(String label) {
         flushHeld();
         boolean block = blockLabels.contains(label);
+        lastFallsThrough = !lastTransfer;
         if (block && !lastTransfer) {
             arrive(label);   // the code before falls through
         }
         out.label(label);
         // something may jump here: what holds is what every way in brings (for a block, as the
         // pass before found it; for a label inside a block, nothing)
-        RegState in = block && trackEntries && !label.equals(entryLabel) ? entryIn.getOrDefault(label, RegState.NONE) : RegState.NONE;
+        RegState in;
+        if (block) {
+            in = trackEntries && !label.equals(entryLabel) ? entryIn.getOrDefault(label, RegState.NONE) : RegState.NONE;
+        } else if (trackEntries && !loopHeads.contains(label)) {
+            // a label inside a block: what the branches to it written so far and the code that
+            // falls through bring (a branch back to it later is checked against this)
+            RegState here = new RegState(Set.copyOf(aHolds), xHolds, yHolds);
+            RegState branches = arriving.get(label);
+            in = branches == null ? (lastFallsThrough ? here : RegState.NONE) : lastFallsThrough ? branches.meet(here) : branches;
+            assumedAt.put(label, in);
+        } else {
+            in = RegState.NONE;
+        }
         aHolds.clear();
         aHolds.addAll(in.a());
         xHolds = in.x();
@@ -2492,6 +2527,14 @@ public final class MirCodeGen {
         m8 = false;
         lastTransfer = false;
     }
+
+    /** The label of one of the code generator's small loops: a branch comes back to it, so nothing is assumed there. */
+    private void placeLoopHead(String label) {
+        loopHeads.add(label);
+        place(label);
+    }
+
+    private final Set<String> loopHeads = new HashSet<>();
 
     private String label() {
         return "@L" + (labels++);
