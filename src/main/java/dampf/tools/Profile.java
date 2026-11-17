@@ -29,7 +29,8 @@ import java.util.regex.Pattern;
  * <p>The cycles are CPU cycles. If the profile holds the master clocks of the measured stretch
  * ({@code clocks N} line), they are shown too. Functions from files given with
  * {@code --skip file.c} (a test harness, such as the benchmark's bench.c) are left out of the
- * table and the shares.
+ * table and the shares. {@code --instructions} adds a table of the cycles per instruction and
+ * addressing mode (outside those files): which kinds of instruction the time goes to.
  */
 public final class Profile {
     private static final double FRAME = 357_366; // master clocks per NTSC frame
@@ -45,22 +46,27 @@ public final class Profile {
     public static void main(String[] args) throws IOException {
         List<String> positional = new ArrayList<>();
         List<String> skip = new ArrayList<>();
+        boolean byInstruction = false;
         for (int i = 0; i < args.length; i++) {
             if (args[i].equals("--skip") && i + 1 < args.length) {
                 skip.add(args[++i]);
+            } else if (args[i].equals("--instructions")) {
+                byInstruction = true;
             } else {
                 positional.add(args[i]);
             }
         }
         if (positional.size() < 2) {
-            System.err.println("usage: dampf profile <rom.sfc> <profile.txt> [top N] [--skip file.c ...]");
+            System.err.println("usage: dampf profile <rom.sfc> <profile.txt> [top N] [--skip file.c ...] [--instructions]");
             System.exit(2);
         }
         int top = positional.size() > 2 ? Integer.parseInt(positional.get(2)) : 40;
         Path rom = Path.of(positional.get(0));
         Path counts = Path.of(positional.get(1));
         long clocks = readClocks(counts);
-        List<Entry> all = analyse(rom, counts);
+        Map<Integer, long[]> perOpcode = new java.util.TreeMap<>();
+        List<Entry> all = analyse(rom, counts, perOpcode,
+                file -> file == null || skip.stream().noneMatch(file::endsWith));
         List<Entry> entries = all.stream().filter(e -> e.file() == null || skip.stream().noneMatch(f -> e.file().endsWith(f))).toList();
         long allCycles = all.stream().mapToLong(Entry::cycles).sum();
         long totalCycles = entries.stream().mapToLong(Entry::cycles).sum();
@@ -79,6 +85,15 @@ public final class Profile {
             System.out.printf("%6.1f%% %,10d %,13d %,15d %,10d  %s%n", 100.0 * e.cycles() / totalCycles, e.calls(),
                     e.instructions(), e.cycles(), e.calls() > 0 ? e.cycles() / e.calls() : 0, e.name());
         }
+        if (byInstruction) {
+            System.out.println();
+            System.out.printf("%7s %13s %15s  %s%n", "share", "executed", "CPU cycles", "instruction");
+            perOpcode.entrySet().stream()
+                    .sorted((x, y) -> Long.compare(y.getValue()[1], x.getValue()[1]))
+                    .limit(top)
+                    .forEach(e -> System.out.printf("%6.1f%% %,13d %,15d  %s%n", 100.0 * e.getValue()[1] / totalCycles,
+                            e.getValue()[0], e.getValue()[1], Cycles65816.name(e.getKey())));
+        }
     }
 
     private static long readClocks(Path counts) throws IOException {
@@ -92,6 +107,15 @@ public final class Profile {
 
     /** Functions sorted by cycles, most expensive first. */
     public static List<Entry> analyse(Path romFile, Path countsFile) throws IOException {
+        return analyse(romFile, countsFile, new HashMap<>(), file -> true);
+    }
+
+    /**
+     * Also adds up, per opcode, how often it ran and its cycles ({@code perOpcode}), in the
+     * functions whose C file {@code counted} accepts (null: the runtime).
+     */
+    public static List<Entry> analyse(Path romFile, Path countsFile, Map<Integer, long[]> perOpcode,
+                                      java.util.function.Predicate<String> counted) throws IOException {
         byte[] rom = Files.readAllBytes(romFile);
         String base = romFile.getFileName().toString().replaceAll("\\.sfc$", "");
         Path dir = romFile.toAbsolutePath().getParent();
@@ -119,6 +143,7 @@ public final class Profile {
             Start fn = functions.get(from);
             files.put(fn.name(), fn.file());
             long[] a = acc.computeIfAbsent(fn.name(), k -> new long[3]);
+            boolean count = counted.test(fn.file());
             boolean m16 = true; // every function starts with a 16-bit accumulator
             int off = from;
             while (off < to) {
@@ -127,12 +152,19 @@ public final class Profile {
                 long n = counts.getOrDefault(off, 0L);
                 if (n > 0) {
                     a[1] += n;
+                    long c;
                     if (Cycles65816.isConditionalBranch(op)) {
                         long next = counts.getOrDefault(off + 2, 0L);
                         long taken = Math.max(0, n - next);
-                        a[2] += taken * Cycles65816.cycles(op, m16, true, true) + (n - taken) * Cycles65816.cycles(op, m16, true, false);
+                        c = taken * Cycles65816.cycles(op, m16, true, true) + (n - taken) * Cycles65816.cycles(op, m16, true, false);
                     } else {
-                        a[2] += n * Cycles65816.cycles(op, m16, true, false);
+                        c = n * Cycles65816.cycles(op, m16, true, false);
+                    }
+                    a[2] += c;
+                    if (count) {
+                        long[] o = perOpcode.computeIfAbsent(op, k -> new long[2]);
+                        o[0] += n;
+                        o[1] += c;
                     }
                     if (op == 0x22 && off + 3 < rom.length) {
                         // JSL: one call of the function it targets

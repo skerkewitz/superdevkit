@@ -445,20 +445,42 @@ The gain is small, as expected: the game's hot loops (`separate`, `build_sprites
 arrays with different values, and only one fits in X. Play 1.54 → 1.53 frames per tick (worst
 2.67), with the CPU partner 2.24 → 2.22 (worst 4.46).
 
+### Where the time goes, by instruction (2026-11-17)
+
+`dampf profile ... --instructions` (for the benchmark's play ticks: `INSTRUCTIONS=1
+tools/profile_game.sh bench`) adds up the cycles per instruction and addressing mode. In the game code at 1.50 frames per tick: `sta dp` 18.8 %, `lda dp` 16.5 %,
+`cmp #imm` 7.4 %, `lda abs,x` 7.2 %, `jmp abs` 5.6 %, `ldx dp` 4.8 %, `and #imm` 4.7 %,
+`lda #imm` 3.8 %, `adc #imm` 3.5 %, `bne` 3.2 %, `clc` 3.1 %. Values going to and from the direct
+page are still a third of the time; a `jmp` runs almost a million times in the 800 ticks, mostly
+where a branch cannot reach its target because a large loop body lies between them.
+
+### A remembers every place it equals, byte loads for 8.8 values, 2026-11-17
+
+The code generator knew one place A held. After `LDA x` / `STA y` it knew only `y` and loaded
+`x` again; now it keeps every place A equals (a store adds its place, a write to a place drops it
+and its byte neighbours): 409 such reloads in the game's code. Play 537,567 → 533,388 clocks
+per tick.
+
+The integer part of an 8.8 value (`PX(b->x)`, `b->x >> 8`) was a 16-bit load, `XBA` and a mask.
+`ByteLoads` (catalogue E) makes a 16-bit load whose only use shifts it right by 8 or more a byte
+load of the high byte, widened again: `LDA _g_bubbles+20,X` and the mask. Volatile loads stay as
+they are. Play 533,388 → 529,880 clocks per tick (1.48 frames).
+
 ### Summary of the code from MIR so far (2026-11-17, the latest measurement)
 
 Measured after the range analysis learned to narrow after widening: a loop of more than 24
 rounds (`for (i = 0; i < 768; i++)`) used to give its counter the type's whole range, which kept
 it from being narrowed and from indexed addressing as nonnegative. Narrowing again after the
-widened fixpoint gives it 0..768. Play 1.53 → 1.50, title 0.68 → 0.60.
+widened fixpoint gives it 0..768. Play 1.53 → 1.50, title 0.68 → 0.60. Then A's places and the
+byte loads (sections above): play 1.48.
 
 | State | naive | from MIR, no passes | now |
 | --- | --- | --- | --- |
 | title | 1.94 | 12.21 | 0.60 |
 | story | 0.70 | 3.56 | 0.25 |
 | round intro | 5.76 | 12.13 | 1.91 |
-| play | 5.17 (worst 8.58) | 18.93 | 1.50 (worst 2.59) |
-| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 2.20 (worst 4.40) |
+| play | 5.17 (worst 8.58) | 18.93 | 1.48 (worst 2.55) |
+| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 2.18 (worst 4.36) |
 | `level_solid_px`, per call | 3,849 | 6,648 | 1,208 clocks |
 
 Calypsi's 2.72 frames per tick during play (on an older version of the game) is passed; a fair
@@ -509,7 +531,7 @@ the catalogue come first. Compared with Calypsi, dampf promises nothing until it
 | B | Width analysis (8/16 bit) | Choose the smallest width per value, track `REP`/`SEP` as processor state, minimise switches | High, especially for `uint8_t`-heavy code | H | play 18.93 → 8.16 frames per tick (code from MIR) | in progress: narrowing from the types and 16-bit pointer offsets are built; value ranges, `REP`/`SEP` tracking open |
 | C | Inlining and calling convention | Inline small functions, pass parameters in A/X/Y or the direct page, `JMP` instead of `JSR`+`RTS` for tail calls | High with many small helpers | call graph | | open |
 | D | Data layout | Split arrays of structs into one array per field (index in X/Y), or point D at the current object | High in the loops over bubbles and enemies | | | open |
-| E | 8.8 fixed point | `>>8`, `<<8` and comparisons of the integer part as byte accesses instead of shifts | Medium to high; the game uses 8.8 everywhere | B | | open |
+| E | 8.8 fixed point | `>>8`, `<<8` and comparisons of the integer part as byte accesses instead of shifts | Medium to high; the game uses 8.8 everywhere | B | play 1.49 → 1.48 frames per tick | in progress: a load shifted right by 8 or more is a byte load (`ByteLoads`); `<<8` open |
 | F | Loops | Counter in X/Y, count down to zero, hoist invariant code, unroll small loops (by hint) | Medium | H | | open |
 | G | Branches | Branch on flags instead of materialising 0/1, common path falls through, correct branch distances | Medium | | | open |
 | H | Standard optimizations | Constant folding and propagation, dead code removal, common subexpressions | Medium; mostly a prerequisite for A–G | IR in SSA form | play 6.12 → 5.17 frames per tick (code from MIR) | built: folding, identities, branch folding, block merging, value numbering, redundant loads, dead code; loop-invariant code open |

@@ -447,7 +447,7 @@ public final class MirCodeGen {
     private void function(MFunction f, AsmWriter code) {
         out = code;
         lastPos = null;
-        aHolds = null;
+        aHolds.clear();
         yHolds = null;
         xHolds = null;
         ptrP = null;
@@ -808,7 +808,8 @@ public final class MirCodeGen {
      */
     private void result(Instr i, int w) {
         if (w == 0 && forward.contains(i)) {
-            aHolds = dest(i, 0);
+            aHolds.clear();
+            aHolds.add(dest(i, 0));
             return;
         }
         ins("sta", dest(i, w));
@@ -989,7 +990,7 @@ public final class MirCodeGen {
             case Instr.Cast c -> cast(c);
             case Instr.PtrAdd p -> {
                 ins("clc", null);
-                if (p.op(1).type() == MType.I16 && operand(p.op(1), 0).equals(aHolds)) {
+                if (p.op(1).type() == MType.I16 && aHolds.contains(operand(p.op(1), 0))) {
                     ins("adc", operand(p.op(0), 0));   // A has the offset already
                 } else {
                     ins("lda", operand(p.op(0), 0));
@@ -1063,7 +1064,7 @@ public final class MirCodeGen {
         Value y = b.op(1);
         switch (b.op) {
             case ADD, SUB -> {
-                if (n == 1 && b.op == Instr.BinOp.ADD && operand(y, 0).equals(aHolds)) {
+                if (n == 1 && b.op == Instr.BinOp.ADD && aHolds.contains(operand(y, 0))) {
                     Value s = x;   // A has the second operand already: add the first to it
                     x = y;
                     y = s;
@@ -1077,7 +1078,7 @@ public final class MirCodeGen {
                 }
             }
             case AND, OR, XOR -> {
-                if (n == 1 && operand(y, 0).equals(aHolds)) {
+                if (n == 1 && aHolds.contains(operand(y, 0))) {
                     Value s = x;   // A has the second operand already
                     x = y;
                     y = s;
@@ -1753,11 +1754,12 @@ public final class MirCodeGen {
     // ---------------------------------------------------------------- helpers
 
     /**
-     * What A holds for sure (an operand string: a frame place or an immediate), so a load of the
-     * same thing can be left out; null if unknown. Forgotten at labels, calls and stores through
-     * pointers, and when an instruction changes A or the place.
+     * What A holds for sure: the operand strings (frame places and an immediate) equal to it, so
+     * a load of any of them can be left out (after LDA x / STA y both are). Forgotten at labels,
+     * calls and stores through pointers, and when an instruction changes A; a place is dropped
+     * when something else writes it or a neighbouring byte.
      */
-    private String aHolds;
+    private final java.util.Set<String> aHolds = new java.util.HashSet<>();
     /** The pointers in dampf_ptr and dampf_ptr+4 (forgotten like aHolds), and what Y holds. */
     private Value ptrP;
     private Value ptrQ;
@@ -1816,7 +1818,7 @@ public final class MirCodeGen {
             track(mnemonic, operand);
             return;
         }
-        if (mnemonic.equals("lda") && !m8 && operand != null && operand.equals(aHolds)) {
+        if (mnemonic.equals("lda") && !m8 && operand != null && aHolds.contains(operand)) {
             return;   // A has it already (the flags are not set again: see load())
         }
         if (!mnemonic.equals("ldy")) {
@@ -1837,7 +1839,7 @@ public final class MirCodeGen {
      * a load (which sets them).
      */
     private void flagsOf(String operand) {
-        if (!m8 && operand.equals(aHolds)) {
+        if (!m8 && aHolds.contains(operand)) {
             flushHeld();
             out.ins("cmp", imm(0), null);
             track("cmp", imm(0));
@@ -2067,7 +2069,7 @@ public final class MirCodeGen {
             case "inx", "dex", "tax", "tsx", "plx" -> xHolds = null;
             case "iny", "dey", "tay", "ply" -> yHolds = null;
             case "jsl" -> {
-                aHolds = null;
+                aHolds.clear();
                 yHolds = null;
                 xHolds = null;
                 ptrP = null;   // the called function uses dampf_ptr too
@@ -2075,11 +2077,14 @@ public final class MirCodeGen {
             }
             default -> { }
         }
+        if (writesMemory) {
+            forgetPlace(operand);
+        }
         switch (mnemonic) {
             case "sep" -> {
                 if ("#$20".equals(operand)) {
                     m8 = true;
-                    aHolds = null;
+                    aHolds.clear();
                 }
             }
             case "rep" -> {
@@ -2087,35 +2092,64 @@ public final class MirCodeGen {
                     m8 = false;
                 }
             }
-            case "lda" -> aHolds = !m8 && trackable(operand) ? operand : null;
+            case "lda" -> {
+                aHolds.clear();
+                if (!m8 && trackable(operand)) {
+                    aHolds.add(operand);
+                }
+            }
             case "sta" -> {
                 if (operand != null && operand.startsWith("[")) {
-                    aHolds = null;   // may write any frame place
+                    aHolds.clear();   // may write any frame place
                 } else if (!m8 && trackable(operand)) {
-                    aHolds = operand;
-                } else if (operand != null && operand.equals(aHolds)) {
-                    aHolds = null;
+                    aHolds.add(operand);   // (forgetPlace dropped it and its neighbours first)
                 }
             }
             case "stx", "sty", "stz", "cmp", "cpx", "cpy", "ldx", "ldy", "inx", "dex", "iny", "dey",
-                 "bcc", "bcs", "beq", "bne", "bmi", "bpl", "bvc", "bvs", "bra", "jmp", "clc", "sec" -> {
-                if (operand != null && operand.equals(aHolds) && mnemonic.startsWith("st")) {
-                    aHolds = null;
-                }
-            }
+                 "bcc", "bcs", "beq", "bne", "bmi", "bpl", "bvc", "bvs", "bra", "jmp", "clc", "sec" -> { }
             case "asl", "lsr", "rol", "ror", "inc", "dec" -> {
-                if ("a".equals(operand) || operand != null && operand.equals(aHolds)) {
-                    aHolds = null;
+                if ("a".equals(operand) || operand == null) {
+                    aHolds.clear();
                 }
             }
-            default -> aHolds = null;   // adc, and, jsl, tax, rtl, ...: A (or everything) changes
+            default -> aHolds.clear();   // adc, and, jsl, tax, rtl, ...: A (or everything) changes
+        }
+    }
+
+    /** A write to a place: A no longer equals it, nor a place that shares a byte with it. */
+    private void forgetPlace(String operand) {
+        if (operand.startsWith("[")) {
+            aHolds.removeIf(h -> !h.startsWith("#"));
+            return;
+        }
+        int at = frameOffset(operand);
+        aHolds.removeIf(h -> h.equals(operand) || at >= 0 && frameOffset(h) >= 0 && Math.abs(frameOffset(h) - at) <= 1);
+    }
+
+    /** The offset of a direct frame place ("z:dampf_frame+6"), -1 for anything else. */
+    private static int frameOffset(String operand) {
+        int k = operand.indexOf(FRAME);
+        if (k < 0 || operand.indexOf(',') >= 0) {
+            return -1;
+        }
+        String rest = operand.substring(k + FRAME.length());
+        if (rest.isEmpty()) {
+            return 0;
+        }
+        if (!rest.startsWith("+")) {
+            return -1;
+        }
+        try {
+            return Integer.parseInt(rest.substring(1));
+        } catch (NumberFormatException e) {
+            return -1;
         }
     }
 
     private void place(String label) {
         flushHeld();
         out.label(label);
-        aHolds = null;   // something may jump here
+        aHolds.clear();   // something may jump here
         yHolds = null;
         xHolds = null;
         ptrP = null;
