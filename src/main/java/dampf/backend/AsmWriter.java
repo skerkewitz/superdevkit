@@ -31,6 +31,18 @@ final class AsmWriter {
     /** Instructions whose cycles could not be determined (should never happen; tests check it). */
     private int unknown;
 
+    /** Bytes of code written so far, and where each label is (for choosing short branches). */
+    private int position;
+    private final java.util.Map<String, Integer> labelAt = new java.util.HashMap<>();
+
+    int position() {
+        return position;
+    }
+
+    Integer labelAt(String name) {
+        return labelAt.get(name);
+    }
+
     /** An instruction; {@code operand} and {@code comment} may be null. */
     void ins(String mnemonic, String operand, String comment) {
         StringBuilder line = new StringBuilder("        ").append(mnemonic);
@@ -43,6 +55,9 @@ final class AsmWriter {
             line.append("; ").append(comment);
         }
         int op = Cycles65816.opcode(mnemonic, Cycles65816.mode(mnemonic, operand));
+        if (op >= 0) {
+            position += Cycles65816.length(op, m16, true);
+        }
         String cycles;
         if (op < 0) {
             unknown++;
@@ -81,6 +96,7 @@ final class AsmWriter {
     }
 
     void label(String name) {
+        labelAt.put(name, position);
         lines.add(name + ":");
         lineBranches = true; // a label inside a line: something jumps here
     }

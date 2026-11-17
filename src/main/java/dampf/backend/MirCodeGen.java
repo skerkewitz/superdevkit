@@ -119,6 +119,19 @@ public final class MirCodeGen {
         }
         layout();
         for (MFunction f : module.functions()) {
+            // twice: the first pass finds out which branches reach their block directly
+            near = null;
+            jumpSites = 0;
+            sitePos.clear();
+            siteTargets.clear();
+            AsmWriter dry = new AsmWriter();
+            function(f, dry);
+            near = new ArrayList<>();
+            for (int k = 0; k < sitePos.size(); k++) {
+                near.add(new boolean[] {reaches(dry, sitePos.get(k), siteTargets.get(k)[0]),
+                        reaches(dry, sitePos.get(k), siteTargets.get(k)[1])});
+            }
+            jumpSites = 0;
             AsmWriter code = new AsmWriter();
             function(f, code);
             if (code.unknownInstructions() > 0) {
@@ -151,6 +164,25 @@ public final class MirCodeGen {
             modules.add(w.toString());
         }
         return modules;
+    }
+
+    /**
+     * Conditional branches: per jumpOn call of a function, where the branch was in the first pass
+     * and its targets; in the second pass, which targets a short branch reaches. The second pass
+     * only gets shorter, so a distance that fitted in the first still fits.
+     */
+    private final List<Integer> sitePos = new ArrayList<>();
+    private final List<Block[]> siteTargets = new ArrayList<>();
+    private List<boolean[]> near;
+    private int jumpSites;
+
+    private static boolean reaches(AsmWriter w, int branchAt, Block target) {
+        Integer to = w.labelAt(target.name());
+        if (to == null) {
+            return false;
+        }
+        int d = to - (branchAt + 2);
+        return d >= -128 && d <= 127;
     }
 
     private void prelude(AsmWriter w, int module, int modules) {
@@ -1201,6 +1233,28 @@ public final class MirCodeGen {
      * label earlier code branches to; it means true if {@code differMeansTrue}, else false.
      */
     private void jumpOn(String taken, String differ, boolean differMeansTrue, Block ifTrue, Block ifFalse, Block next) {
+        int site = jumpSites++;
+        if (near == null) {
+            sitePos.add(out.position());   // the first pass: where the branch is
+            siteTargets.add(new Block[] {ifTrue, ifFalse});
+        } else if (differ == null) {
+            boolean t = near.get(site)[0];
+            boolean f = near.get(site)[1];
+            // a short branch straight to the block where it reaches
+            if (ifFalse == next && t) {
+                ins(taken, ifTrue.name());
+                return;
+            }
+            if (ifTrue == next && f) {
+                ins(inverse(taken), ifFalse.name());
+                return;
+            }
+            if (ifTrue != next && ifFalse != next && t) {
+                ins(taken, ifTrue.name());
+                ins("jmp", ifFalse.name());
+                return;
+            }
+        }
         String skip = label();
         if (ifFalse == next) {
             ins(inverse(taken), skip);
