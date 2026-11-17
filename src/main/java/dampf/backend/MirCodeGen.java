@@ -477,6 +477,7 @@ public final class MirCodeGen {
     private void layout() {
         for (MFunction f : module.functions()) {
             dampf.mir.ExitEdges.split(f);
+            dampf.mir.Returns.duplicate(f);
         }
         hintRanges = dampf.mir.Hints.strip(module);
         for (MFunction f : module.functions()) {

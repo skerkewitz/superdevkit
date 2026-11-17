@@ -708,6 +708,20 @@ instead (or on a `uint16_t` itself) when every case lies in the range of the nar
 bits, since a case such as 65,545 would equal 9 in 16 bits (`exec/switch_narrow.c`; narrowing
 without the check fails it). Play 379,855 → 370,620 clocks per tick (1.04 frames).
 
+### Returns copied into each path, 2026-11-17
+
+Inlining leaves a shape behind that `ground_px` shows well: it returns the value of the inlined
+`level_solid_px`, which returns the value of the inlined `level_solid_tile`, and each returns
+from several places. In MIR that is a chain of φs ending in a block that only returns: every
+constant was written to the φ's place before a branch, copied from one φ to the next, and loaded
+again before `RTL`. Just before code generation (after `ExitEdges`), `Returns` copies a block
+that holds nothing but φs and a `ret` into each predecessor: a predecessor that jumps there
+returns itself, a branch or a switch gets a block of its own for the edge. Each path then
+returns its own value (`LDA #1`, `RTL`), and the φs are gone. Earlier, the passes would lose the
+φs they work on (`BitSelect` chooses between the constants of such a φ). Play 370,620 → 364,829
+clocks per tick (1.02 frames). `ReturnsTest` covers a jump, a branch and a switch with two cases
+to the same return; `exec/returns.c` fails if a path returns another path's value.
+
 ### Summary of the code from MIR so far (2026-11-17, the latest measurement)
 
 Measured after the range analysis learned to narrow after widening: a loop of more than 24
@@ -716,15 +730,15 @@ it from being narrowed and from indexed addressing as nonnegative. Narrowing aga
 widened fixpoint gives it 0..768. Play 1.53 → 1.50, title 0.68 → 0.60. Then A's places and the
 byte loads, the short branches, INC/DEC, STZ, the bit selections, fewer copies and the registers
 across blocks (sections above): play 1.31. The last column adds FastROM, the CMP #0 that went, the
-values not stored and the narrow switches (see their sections); the column before it is SlowROM speed, as the earlier columns were measured.
+values not stored, the narrow switches and the copied returns (see their sections); the column before it is SlowROM speed, as the earlier columns were measured.
 
 | State | naive | from MIR, no passes | SlowROM | now (FastROM) |
 | --- | --- | --- | --- | --- |
 | title | 1.94 | 12.21 | 0.54 | 0.45 |
 | story | 0.70 | 3.56 | 0.22 | 0.18 |
-| round intro | 5.76 | 12.13 | 1.76 | 1.46 |
-| play | 5.17 (worst 8.58) | 18.93 | 1.31 (worst 2.25) | 1.04 (worst 1.80) |
-| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 1.98 (worst 4.08) | 1.64 (worst 3.45) |
+| round intro | 5.76 | 12.13 | 1.76 | 1.45 |
+| play | 5.17 (worst 8.58) | 18.93 | 1.31 (worst 2.25) | 1.02 (worst 1.78) |
+| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 1.98 (worst 4.08) | 1.62 (worst 3.42) |
 | `level_solid_px`, per call | 3,849 | 6,648 | 1,149 | 951 clocks |
 
 Calypsi's 2.72 frames per tick during play (on an older version of the game) is passed. On the
