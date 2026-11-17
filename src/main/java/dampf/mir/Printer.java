@@ -105,6 +105,7 @@ public final class Printer {
             case Instr.Jump j -> "jump " + j.target.name();
             case Instr.Branch b -> "br " + b.op(0) + ", " + b.ifTrue.name() + ", " + b.ifFalse.name();
             case Instr.Ret r -> r.operands().isEmpty() ? "ret" : "ret " + r.op(0).type() + " " + r.op(0);
+            case Instr.Unreachable u -> "unreachable";
             case Instr.Switch s -> {
                 StringBuilder t = new StringBuilder("switch " + s.op(0).type() + " " + s.op(0) + ", " + s.otherwise.name() + " [");
                 for (int k = 0; k < s.cases.size(); k++) {

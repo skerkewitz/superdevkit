@@ -219,6 +219,7 @@ public final class Inline {
                 yield s;
             }
             case Instr.Ret x -> new Instr.Jump(cont, x.pos());
+            case Instr.Unreachable x -> new Instr.Unreachable(x.pos());
         };
         return n;
     }

@@ -1,0 +1,33 @@
+/*
+ * dampf's hints (docs/hints.md): what the programmer knows and the C code does not say.
+ *
+ * The same source builds with dampf and on the PC. dampf defines __DAMPF__, and the hints become
+ * built-ins it understands. On the PC a hint that states a fact is a checked assertion (assert,
+ * so NDEBUG switches it off), so a wrong hint is caught there before it makes wrong SNES code.
+ *
+ * On the PC, make this header reachable without dampf's <stdint.h> taking the place of the
+ * host's: gcc -idirafter <dampf>/include (searched after the system directories).
+ */
+#ifndef DAMPF_H
+#define DAMPF_H
+
+#ifdef __DAMPF__
+
+/*
+ * DAMPF_RANGE(v, lo, hi): the local variable or parameter v lies in lo..hi here (both constant,
+ * both included). dampf uses it from here on wherever this point is passed on the way: for
+ * narrower code and for loop bounds in the timing analysis. A statement of its own.
+ */
+#define DAMPF_RANGE(v, lo, hi) __dampf_range(v, lo, hi)
+
+#else
+
+#include <assert.h>
+/* one unsigned comparison: no "always true" warning for an unsigned v and lo 0 (-Wextra) */
+#define DAMPF_RANGE(v, lo, hi) \
+    assert((unsigned long long)(v) - (unsigned long long)(lo) \
+           <= (unsigned long long)(hi) - (unsigned long long)(lo) && "DAMPF_RANGE(" #v ", " #lo ", " #hi ")")
+
+#endif
+
+#endif

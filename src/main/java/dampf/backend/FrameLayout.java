@@ -62,9 +62,9 @@ final class FrameLayout {
     /** The value ranges of the function (indexed addressing needs a non-negative index). */
     final Ranges ranges;
 
-    FrameLayout(MFunction f) {
+    FrameLayout(MFunction f, Ranges ranges) {
         this.f = f;
-        this.ranges = new Ranges(f);
+        this.ranges = ranges;
         findFolds();
         for (Value.Param p : f.params()) {
             offset.put(p, size);

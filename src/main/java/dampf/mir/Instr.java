@@ -11,7 +11,7 @@ import java.util.List;
  */
 public abstract sealed class Instr implements Value
         permits Instr.Bin, Instr.Cmp, Instr.Cast, Instr.PtrAdd, Instr.Load, Instr.Store, Instr.Copy, Instr.Call,
-        Instr.Phi, Instr.Jump, Instr.Branch, Instr.Ret, Instr.Switch {
+        Instr.Phi, Instr.Jump, Instr.Branch, Instr.Ret, Instr.Switch, Instr.Unreachable {
 
     protected final List<Value> ops = new ArrayList<>();
     private final MType type;
@@ -53,7 +53,8 @@ public abstract sealed class Instr implements Value
     }
 
     public boolean isTerminator() {
-        return this instanceof Jump || this instanceof Branch || this instanceof Ret || this instanceof Switch;
+        return this instanceof Jump || this instanceof Branch || this instanceof Ret || this instanceof Switch
+                || this instanceof Unreachable;
     }
 
     /** The name in the text format; "%id" for value-producing instructions. */
@@ -224,6 +225,17 @@ public abstract sealed class Instr implements Value
             if (value != null) {
                 ops.add(value);
             }
+        }
+    }
+
+    /**
+     * Never reached: the end of the check of a hint ({@code DAMPF_RANGE}), where the hint would be
+     * wrong. The branches to it tell the range analysis what the hint says; the interpreter fails
+     * here, and the code generator leaves the checks out ({@link Hints}).
+     */
+    public static final class Unreachable extends Instr {
+        public Unreachable(SourcePos pos) {
+            super(MType.VOID, pos);
         }
     }
 

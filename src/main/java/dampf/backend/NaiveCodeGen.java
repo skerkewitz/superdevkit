@@ -459,6 +459,9 @@ public final class NaiveCodeGen {
             }
             case Stmt.Switch sw -> switchStatement(sw);
             case Stmt.Case c -> throw new IllegalStateException("case label outside a switch body");
+            case Stmt.Range r -> {
+                // a hint: no code (the naive code generator does not use it)
+            }
         }
     }
 

@@ -248,6 +248,8 @@ public final class Verifier {
                     error(f, b, i, "switch on a non-integer");
                 }
             }
+            case Instr.Unreachable u -> {
+            }
             case Instr.Jump j -> { }
         }
     }

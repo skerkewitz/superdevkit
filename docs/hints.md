@@ -1,8 +1,9 @@
 # Hints
 
 Hints tell dampf what a human assembly programmer would know about the program but the C code
-does not say. None of them is built yet; this is the agreed design (kickoff and design discussion,
-2026-11-17). Where they fit into the milestones is in [roadmap.md](roadmap.md).
+does not say. This is the agreed design (kickoff and design discussion, 2026-11-17); the first
+hint, `DAMPF_RANGE`, is built (see "As built" at the end). Where the others fit into the
+milestones is in [roadmap.md](roadmap.md).
 
 ## The idea
 
@@ -76,5 +77,32 @@ do damage on the SNES.
 
 - How `restrict` is checked on the PC in practice, and whether a dampf-specific no-alias hint is
   clearer than `restrict`.
-- The exact names and the set of hint macros are decided in M0's follow-up (see
-  [roadmap.md](roadmap.md)).
+- The set of hint macros beyond `DAMPF_RANGE`. Decided (2026-11-17): the working names in the
+  catalogue are the names, and they come from `<dampf.h>`.
+
+## As built (2026-11-17)
+
+`<dampf.h>` comes with dampf (in its own include directory, and as `include/dampf.h` next to the
+launcher in the distribution). With dampf (`__DAMPF__` defined) its macros expand to built-ins
+the front end reads; on the PC to `assert`. For the PC build, `gcc -idirafter <dampf>/include`
+makes `<dampf.h>` reachable while the host's own `<stdint.h>` still comes first. The execution
+tests compile the PC side that way.
+
+**`DAMPF_RANGE(v, lo, hi)`**, a statement: the local variable or parameter `v` (an integer type)
+lies in `lo..hi` at this point; both bounds are constants of `v`'s type. Misuse is a compile
+error (a global, bounds that are not constants or do not fit the type, `lo` above `hi`).
+
+- **In MIR** the hint becomes comparisons that branch to a block ending in `unreachable` when
+  `v` is outside the range. The range analysis treats them like any condition: `v` has the
+  range in every block the hint dominates, so `while (s[n]) { DAMPF_RANGE(n, 0, 10); n++; }`
+  gives the loop a bound for the timing analysis and the counter a range for the narrowing.
+- **The MIR interpreter** fails at `unreachable` ("a hint does not hold"), so the tests check
+  every hint on the MIR level as well.
+- **The code generator** computes the ranges first and then takes the checks out
+  (`dampf.mir.Hints`): every branch to such a block becomes a jump to its other side. The hint
+  costs no cycles.
+- **On the PC** it is `assert`, written as one unsigned comparison so that `DAMPF_RANGE(n, 0,
+  10)` on an unsigned `n` gives no "always true" warning under `-Wextra`. `NDEBUG` switches it
+  off.
+
+The naive code generator ignores the hint. Not built yet: `DAMPF_TRIPS` and the other hints.

@@ -287,6 +287,7 @@ public final class MirParser {
                 instr = phi;
             }
             case "jump" -> instr = new Instr.Jump(block(t.next()), pos);
+            case "unreachable" -> instr = new Instr.Unreachable(pos);
             case "br" -> {
                 Value c = value(t.next(), MType.I1, pending, 0);
                 t.expect(",");

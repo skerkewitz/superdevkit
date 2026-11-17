@@ -20,7 +20,8 @@ gives the PC's checksums. During play the game takes 1.50 frames per tick with d
 code: 5.17; Calypsi took 2.72 on an older version of the game), numbers in
 [docs/optimizations.md](docs/optimizations.md). dampf also computes a best and a worst case in CPU
 cycles for every function (`<rom>.timing.txt`, [docs/timing.md](docs/timing.md)). Not done yet:
-the SNES platform layer for a playable ROM, cycle budgets checked at build time, and the hints. The plan is in [docs/roadmap.md](docs/roadmap.md).
+the SNES platform layer for a playable ROM, cycle budgets checked at build time, and most of the
+hints (the first, `DAMPF_RANGE` from `<dampf.h>`, is built). The plan is in [docs/roadmap.md](docs/roadmap.md).
 
 ## Why
 

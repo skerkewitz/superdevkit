@@ -39,6 +39,19 @@ class AstBuilderTest {
     }
 
     @Test
+    void rangeHintsAreCheckedWhenTheyAreRead() {
+        String head = "#include <stdint.h>\n#include <dampf.h>\nuint8_t g;\n";
+        assertTrue(fails(head + "void f(void) { DAMPF_RANGE(g, 0, 3); }\n").diagnostics().getFirst().message()
+                .contains("DAMPF_RANGE needs a local variable or parameter of an integer type"));
+        assertTrue(fails(head + "void f(uint8_t a) { DAMPF_RANGE(a, 0, g); }\n").diagnostics().getFirst().message()
+                .contains("the bounds of DAMPF_RANGE must be constants"));
+        assertTrue(fails(head + "void f(uint8_t a) { DAMPF_RANGE(a, 5, 3); }\n").diagnostics().getFirst().message()
+                .contains("the lowest value is above the highest"));
+        assertTrue(fails(head + "void f(uint8_t a) { DAMPF_RANGE(a, 0, 300); }\n").diagnostics().getFirst().message()
+                .contains("300 is outside the range of uint8_t"));
+    }
+
+    @Test
     void typedefMayHaveTheNameOfItsStructTag() throws Exception {
         Program p = build("""
                 #include <stdint.h>

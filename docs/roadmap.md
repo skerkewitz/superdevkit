@@ -8,7 +8,7 @@ IR levels). It was revised on 2026-11-17 after M1, see *Changes* below.
 
 | Milestone | Goal | Done when | State |
 | --- | --- | --- | --- |
-| M0 | Define the subset | Blubber Blasen's `src/game` is scanned; [subset.md](subset.md) lists what is allowed, what is not, and what the game code has to change | Done 2026-11-17. The decisions in subset.md are implemented as recommended until decided. Still open: `goto` (decision 4) and the names and set of the hint macros with their PC assertions ([hints.md](hints.md)); both are needed by M3. |
+| M0 | Define the subset | Blubber Blasen's `src/game` is scanned; [subset.md](subset.md) lists what is allowed, what is not, and what the game code has to change | Done 2026-11-17. The decisions in subset.md are implemented as recommended until decided. Still open: `goto` (decision 4). The hint macros: decided 2026-11-17 that the working names are the names, from `<dampf.h>`; `DAMPF_RANGE` is built ([hints.md](hints.md)). |
 | M1 | End to end | A small function is compiled, assembled with ca65, linked with ld65, runs automatically in a test, and Mesen shows its C source while stepping | Done 2026-11-17 (stepping through C in Mesen checked by hand) |
 | M2 | Naive but complete | All of Blubber Blasen compiles with the naive code generator, the game's benchmark and replays give the same checksums as the PC, cycles are measured per tick and per function and compared with Calypsi, and the first reference assembly function gives the first dampf/reference ratio | Done 2026-11-17, see the steps below. Open: 816-tcc and Calypsi on the same game version (on the game's side) |
 | Checkpoint | Decide whether the plan reaches the budget | See below | Decided 2026-11-17: compiler and game in parallel (below) |
@@ -132,8 +132,10 @@ the profile after each step can change the order of the later ones:
    2026-11-17 in CPU cycles and checked against the emulator on every call. The loop bounds
    were extended after it (unsigned counters, tests further down the loop, limits that are not
    constants): 38 of the game's functions are still unbounded, and the report names the loop
-   or call that makes each of them so. Next: `DAMPF_TRIPS`, then `DAMPF_BUDGET`, master cycles
-   and the report per C line.
+   or call that makes each of them so. The first hint, `DAMPF_RANGE` from `<dampf.h>`, bounds
+   such loops by hand (`while (s[n]) { DAMPF_RANGE(n, 0, 10); n++; }`), checked on the PC and
+   in the MIR interpreter, at no cost on the SNES. Next: `DAMPF_TRIPS` for loops without a
+   counter, then `DAMPF_BUDGET`, master cycles and the report per C line.
 
 **Subrange types** (`DAMPF_RANGED`, `DAMPF_AS` and their checker, sections 3–6 there) are not
 scheduled. They are built when a profile shows a hot value whose range dampf cannot infer and

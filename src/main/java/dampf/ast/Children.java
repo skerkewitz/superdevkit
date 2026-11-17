@@ -52,6 +52,7 @@ public final class Children {
             case Stmt.Break b -> List.of();
             case Stmt.Continue c -> List.of();
             case Stmt.Case c -> List.of();
+            case Stmt.Range r -> List.of();
         };
     }
 
@@ -69,6 +70,7 @@ public final class Children {
             case Stmt.Break b -> List.of();
             case Stmt.Continue c -> List.of();
             case Stmt.Case c -> List.of();
+            case Stmt.Range r -> List.of();
         };
     }
 }

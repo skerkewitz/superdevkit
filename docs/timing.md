@@ -146,7 +146,9 @@ writes them to `<rom>.timing.txt`, most expensive first.
     constant after at most the distance modulo 2^w, so at most 2^w head runs even from the other
     side.
 
-  Other loops make the worst case "unbounded" (`DAMPF_TRIPS` will help there). Some of them are
+  Other loops make the worst case "unbounded". A `DAMPF_RANGE` hint on the counter in the loop
+  ([hints.md](hints.md)) gives such a loop a bound through the value ranges; `DAMPF_TRIPS`, for
+  loops without a counter, is not built yet. Some of them are
   right to: `for (y = t; y <= b; y++)` with an 8-bit `b` never ends when `b` is 255. The value
   ranges carry a loop head's entry condition into the loop when the head's other predecessors
   are back edges (an outer `i < 5` reaches a body that starts with an inner loop), take a
@@ -170,6 +172,6 @@ In the game, 292 functions get a bound and 38 do not. The report names, after ea
 function, the first loop in it without a bound (`(loop at text.c:104)`) or else the first call of
 a function without one (`(calls _text_number)`). The loops left are those that run over memory
 (`while (s[n]) n++;`, a queue, `while (stage_next < stage_count)`), whose counter is not stepped
-by a constant, or that could really run forever in C; they need `DAMPF_TRIPS`. Examples:
+by a constant, or that could really run forever in C; they need a hint. Examples:
 `abs16` 25–37 cycles, `floating` 44–75, `level_solid_px` 21–209, `text_number` 233–4,319,
 `bg_clear` 126–85,456, `separate` 33–190,481.

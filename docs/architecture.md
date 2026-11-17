@@ -73,9 +73,11 @@ not LLVM's machine IR; dampf's LIR plays the role of LLVM's machine IR.
 
 ### What runs through all levels
 
-- **Hints as assumptions.** `DAMPF_RANGE(i, 0, 15)` becomes an `assume` operation (similar to
-  LLVM's `llvm.assume`) that the range analysis in MIR uses. In the PC build the same condition
-  is a checked assertion ([hints.md](hints.md)).
+- **Hints as assumptions.** `DAMPF_RANGE(i, 0, 15)` becomes comparisons in MIR that branch to a
+  block ending in `unreachable` when the hint is wrong (the role of LLVM's `llvm.assume`): the
+  range analysis learns the range from them, the MIR interpreter fails if it does not hold, and
+  the code generator takes them out after computing the ranges. In the PC build the same
+  condition is a checked assertion ([hints.md](hints.md)).
 - **A source position on every operation.** Every operation carries its file and line, and every
   pass must preserve them. When two operations are merged, the result keeps one of the
   positions. Only this makes the assembly comments and the C source view in Mesen possible.

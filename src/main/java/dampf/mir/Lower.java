@@ -406,7 +406,44 @@ public final class Lower {
             }
             case Stmt.Switch sw -> switchStatement(sw);
             case Stmt.Case c -> throw new IllegalStateException("case label outside a switch body");
+            case Stmt.Range r -> rangeHint(r);
         }
+    }
+
+    /**
+     * DAMPF_RANGE(v, lo, hi): comparisons that branch to an unreachable block when v is outside
+     * lo..hi. The range analysis takes the range from them; the code generator leaves them out
+     * ({@link Hints}).
+     */
+    private void rangeHint(Stmt.Range r) {
+        Type.Int t = (Type.Int) r.variable().type();
+        boolean low = r.lo() > t.min();
+        boolean high = r.hi() < t.max();
+        if (!low && !high) {
+            return;
+        }
+        Value v = value(new Expr.Var(r.variable(), r.pos()));
+        MType mt = mtype(t);
+        Block bad = mf.newBlock("hint");
+        if (low) {
+            check(new Instr.Cmp(t.signed() ? Instr.Pred.SGE : Instr.Pred.UGE, v, new Value.Const(mt, r.lo()), r.pos()), bad);
+        }
+        if (high) {
+            check(new Instr.Cmp(t.signed() ? Instr.Pred.SLE : Instr.Pred.ULE, v, new Value.Const(mt, r.hi()), r.pos()), bad);
+        }
+        Block back = cur;
+        cur = bad;
+        emit(new Instr.Unreachable(r.pos()));
+        seal(bad);
+        cur = back;
+    }
+
+    private void check(Instr.Cmp holds, Block bad) {
+        Instr c = emit(holds);
+        Block ok = mf.newBlock("range");
+        emit(new Instr.Branch(c, ok, bad, holds.pos()));
+        seal(ok);
+        cur = ok;
     }
 
     private void loop(Stmt body, Block breakTo, Block continueTo) {

@@ -37,4 +37,10 @@ public sealed interface Stmt {
 
     /** A case label inside a switch body; {@code value} null for {@code default}. */
     record Case(Long value, SourcePos pos) implements Stmt {}
+
+    /**
+     * The hint {@code DAMPF_RANGE(v, lo, hi)}: the local variable or parameter {@code v} lies in
+     * lo..hi here ({@code <dampf.h>}). It makes no code; the bounds are values of v's type.
+     */
+    record Range(Variable variable, long lo, long hi, SourcePos pos) implements Stmt {}
 }

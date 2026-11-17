@@ -29,6 +29,7 @@ final class PcReference {
         Path exe = workDir.resolve("pc_harness");
         Files.writeString(c, harness);
         exec(workDir, "gcc", "-std=c99", "-O1", "-Wall", "-fsanitize=undefined", "-fno-sanitize-recover=all",
+                "-idirafter", dampf.frontend.SystemHeaders.directory().toString(),
                 "-o", exe.toString(), c.toString());
         String out = exec(workDir, exe.toString());
         Map<String, Long> values = new LinkedHashMap<>();

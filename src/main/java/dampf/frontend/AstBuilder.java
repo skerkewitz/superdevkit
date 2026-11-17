@@ -1116,7 +1116,11 @@ public final class AstBuilder {
         }
         if (st.expressionStatement() != null) {
             CParser.ExpressionStatementContext es = st.expressionStatement();
-            return es.expression() == null ? null : new Stmt.ExprStmt(discarded(expression(es.expression())), pos(st));
+            if (es.expression() == null) {
+                return null;
+            }
+            Stmt hint = hint(es.expression());
+            return hint != null ? hint : new Stmt.ExprStmt(discarded(expression(es.expression())), pos(st));
         }
         if (st.jumpStatement() != null) {
             CParser.JumpStatementContext js = st.jumpStatement();
@@ -1626,6 +1630,64 @@ public final class AstBuilder {
             }
             default -> throw new CompileError(p, "operator '" + op + "' is not supported yet");
         };
+    }
+
+    /** A hint from {@code <dampf.h>} as a statement ({@code __dampf_range(v, lo, hi)}), else null. */
+    private Stmt hint(CParser.ExpressionContext e) throws CompileError {
+        if (e.assignmentExpression().size() != 1 || !e.getText().startsWith("__dampf_")) {
+            return null;
+        }
+        CParser.PostfixExpressionContext p = postfixOf(e.assignmentExpression().getFirst());
+        if (p == null || p.primaryExpression() == null || p.primaryExpression().Identifier() == null
+                || p.getChildCount() < 3 || !p.getChild(1).getText().equals("(")
+                || p.getChildCount() != (p.getChild(2) instanceof CParser.ArgumentExpressionListContext ? 4 : 3)) {
+            return null;
+        }
+        String name = p.primaryExpression().Identifier().getText();
+        SourcePos at = pos(p.primaryExpression().Identifier().getSymbol());
+        List<CParser.AssignmentExpressionContext> args = p.getChild(2) instanceof CParser.ArgumentExpressionListContext al
+                ? al.assignmentExpression() : List.of();
+        if (!name.equals("__dampf_range")) {
+            throw new CompileError(at, "unknown hint '" + name + "'");
+        }
+        if (args.size() != 3) {
+            throw new CompileError(at, "DAMPF_RANGE needs three arguments: a variable, the lowest and the highest value");
+        }
+        Expr v = assignment(args.get(0));
+        if (!(v instanceof Expr.Var var) || var.variable().kind() == Variable.Kind.GLOBAL
+                || var.variable().kind() == Variable.Kind.STATIC_LOCAL
+                || !(var.type() instanceof Type.Int t)) {
+            throw new CompileError(at, "DAMPF_RANGE needs a local variable or parameter of an integer type");
+        }
+        long[] bounds = new long[2];
+        for (int k = 0; k < 2; k++) {
+            Long c = fold(rvalue(assignment(args.get(k + 1))));
+            if (c == null) {
+                throw new CompileError(pos(args.get(k + 1)), "the bounds of DAMPF_RANGE must be constants");
+            }
+            if (c < t.min() || c > t.max()) {
+                throw new CompileError(pos(args.get(k + 1)), "DAMPF_RANGE: " + c + " is outside the range of " + t);
+            }
+            bounds[k] = c;
+        }
+        if (bounds[0] > bounds[1]) {
+            throw new CompileError(at, "DAMPF_RANGE: the lowest value is above the highest");
+        }
+        return new Stmt.Range(var.variable(), bounds[0], bounds[1], at);
+    }
+
+    /** The postfix expression an assignment expression consists of, if that is all it is. */
+    private static CParser.PostfixExpressionContext postfixOf(ParserRuleContext c) {
+        while (c != null) {
+            if (c instanceof CParser.PostfixExpressionContext p) {
+                return p;
+            }
+            if (c.getChildCount() != 1 || !(c.getChild(0) instanceof ParserRuleContext inner)) {
+                return null;
+            }
+            c = inner;
+        }
+        return null;
     }
 
     private Expr postfix(CParser.PostfixExpressionContext p) throws CompileError {

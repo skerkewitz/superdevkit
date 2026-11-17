@@ -63,6 +63,18 @@ application {
     applicationName = "dampf"
 }
 
+// dampf's headers next to the launcher (include/dampf.h), for the PC build of a game:
+// gcc -idirafter <dampf>/include
+distributions {
+    main {
+        contents {
+            from("src/main/resources/dampf/include") {
+                into("include")
+            }
+        }
+    }
+}
+
 // Records the sources of generated book pages in doc-specs/_sources.lock, read by BookSourcesTest:
 // ./gradlew stampBook -Pspecs=doc-specs/guide/introduction.spec.md (several separated by commas, or all)
 tasks.register<JavaExec>("stampBook") {

@@ -312,7 +312,11 @@ public final class MirCodeGen {
     }
     private final Map<MFunction, FrameLayout> layouts = new HashMap<>();
 
+    /** Every function's value ranges, computed with the checks of the hints (see {@link dampf.mir.Hints}). */
+    private Map<MFunction, Ranges> hintRanges;
+
     private void layout() {
+        hintRanges = dampf.mir.Hints.strip(module);
         for (MFunction f : module.functions()) {
             for (Block b : f.blocks()) {
                 for (Instr i : b.instrs()) {
@@ -327,7 +331,7 @@ public final class MirCodeGen {
             }
         }
         for (MFunction f : module.functions()) {
-            FrameLayout l = new FrameLayout(f);
+            FrameLayout l = new FrameLayout(f, hintRanges.get(f));
             layouts.put(f, l);
             frameSize.put(f, l.size);
             direct.addAll(l.direct);
@@ -1037,6 +1041,7 @@ public final class MirCodeGen {
                     ins("jmp", s.otherwise.name());
                 }
             }
+            case Instr.Unreachable u -> throw new IllegalStateException("the checks of hints are taken out before code generation");
             case Instr.Ret r -> {
                 if (!r.operands().isEmpty()) {
                     Value v = r.op(0);

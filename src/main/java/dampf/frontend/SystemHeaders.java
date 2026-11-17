@@ -8,9 +8,9 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
 
-/** dampf's own system headers ({@code <stdint.h>}), copied from the classpath into a directory gcc can read. */
+/** dampf's own system headers ({@code <stdint.h>}, {@code <dampf.h>}), copied from the classpath into a directory gcc can read. */
 public final class SystemHeaders {
-    private static final List<String> HEADERS = List.of("stdint.h");
+    private static final List<String> HEADERS = List.of("stdint.h", "dampf.h");
     private static Path dir;
 
     private SystemHeaders() {}

@@ -206,6 +206,8 @@ public final class Interpreter {
                         case Instr.Ret r -> {
                             return r.operands().isEmpty() ? 0 : eval(r.op(0), frame);
                         }
+                        case Instr.Unreachable u -> throw new IllegalStateException("a hint does not hold: "
+                                + "DAMPF_RANGE" + (u.pos() != null ? " at " + u.pos() : "") + " in " + f.name());
                         default -> {
                             long v = execute(i, frame);
                             frame.values[i.index] = v;
