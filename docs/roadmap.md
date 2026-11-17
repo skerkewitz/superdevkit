@@ -114,6 +114,19 @@ the profile after each step can change the order of the later ones:
    values are in the direct page; with inlining, indexed addressing and smaller changes play is
    at 1.67 frames per tick.
 
+   Where the time goes now (play, game code only): loads and stores of values in the direct page
+   are 37 % of the cycles, `JMP` 5.5 %, comparisons 5.7 %, masks 4.5 %. Next, in this order:
+
+   1. **Register allocation across instructions:** keep a value in A, X or Y while several
+      instructions use it, not only for the next one. This is the LIR level of
+      [architecture.md](architecture.md); the code generator's "what does A hold" tracking and
+      `FrameLayout`'s liveness are the start.
+   2. **Induction variables:** `&array[i]` in a loop as a pointer or offset that grows by the
+      element size, instead of a multiplication per iteration (needs the value ranges to follow
+      the new variable, or indexed addressing falls back to pointers).
+   3. **Pointer compression** (step 3 above), now that indexed addressing covers most arrays: what
+      is left are pointers passed to functions that are not inlined.
+
 **Subrange types** (`DAMPF_RANGED`, `DAMPF_AS` and their checker, sections 3–6 there) are not
 scheduled. They are built when a profile shows a hot value whose range dampf cannot infer and
 that costs real cycles. Until then the design stays as it is.

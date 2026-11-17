@@ -352,6 +352,21 @@ constant, because that predecessor already knows the way. This is the shape `a |
 inlined function returning a truth value leave behind. Play 1.67 frames per tick (worst 2.87),
 with the CPU partner 2.36 (worst 4.62).
 
+### Summary of the code from MIR so far (2026-11-17)
+
+| State | naive | from MIR, no passes | now |
+| --- | --- | --- | --- |
+| title | 1.94 | 12.21 | 0.70 |
+| story | 0.70 | 3.56 | (see the benchmark) |
+| round intro | 5.76 | 12.13 | (see the benchmark) |
+| play | 5.17 (worst 8.58) | 18.93 | 1.67 (worst 2.87) |
+| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 2.36 (worst 4.62) |
+| `level_solid_px`, per call | 3,849 | 6,648 | 1,230 clocks |
+
+Calypsi's 2.72 frames per tick during play (on an older version of the game) is passed; a fair
+comparison still needs both compilers on the same version. The hand-written `level_solid_px` takes
+856 clocks, so for that function dampf is now 1.4 times hand-written assembly.
+
 ### Where the naive code spends its time (2026-11-17)
 
 `tools/profile_game.sh bench` profiles the benchmark's play ticks 900–1700 (as the game's own
