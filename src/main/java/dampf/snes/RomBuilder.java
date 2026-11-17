@@ -43,29 +43,33 @@ public final class RomBuilder {
     private RomBuilder() {}
 
     /**
-     * @param asm      the generated assembly
+     * @param modules  the generated assembly, one or more modules
      * @param outDir   where all files go
      * @param baseName name of the ROM without extension
      */
-    public static Rom build(String asm, Path outDir, String baseName) throws IOException {
+    public static Rom build(List<String> modules, Path outDir, String baseName) throws IOException {
         Files.createDirectories(outDir);
-        Path source = outDir.resolve(baseName + ".s");
-        Files.writeString(source, asm, StandardCharsets.UTF_8);
         Path runtime = copyResource("runtime.s", outDir.resolve("dampf_runtime.s"));
 
         // All tools run in outDir with plain file names, so the debug file holds relative paths.
-        String obj = baseName + ".o";
+        List<String> objects = new ArrayList<>();
         String runtimeObj = "dampf_runtime.o";
-        run(outDir, "ca65", "-g", "-o", obj, source.getFileName().toString());
         run(outDir, "ca65", "-g", "-o", runtimeObj, runtime.getFileName().toString());
-
-        List<String> banked = bankedSegments(asm);
+        objects.add(runtimeObj);
+        List<String> banked = new ArrayList<>();
+        for (int i = 0; i < modules.size(); i++) {
+            String name = modules.size() == 1 ? baseName : baseName + "_" + (i + 1);
+            Files.writeString(outDir.resolve(name + ".s"), modules.get(i), StandardCharsets.UTF_8);
+            run(outDir, "ca65", "-g", "-o", name + ".o", name + ".s");
+            objects.add(name + ".o");
+            banked.addAll(bankedSegments(modules.get(i)));
+        }
 
         // pass 1: everything in one large area, only to learn the segment sizes
         String measureCfg = baseName + "_measure.cfg";
         Files.writeString(outDir.resolve(measureCfg), measureConfig(banked));
         String measureMap = baseName + "_measure.map";
-        run(outDir, "ld65", "-C", measureCfg, "-m", measureMap, "-o", baseName + "_measure.bin", runtimeObj, obj);
+        run(outDir, concat(List.of("ld65", "-C", measureCfg, "-m", measureMap, "-o", baseName + "_measure.bin"), objects));
         Map<String, Integer> sizes = segmentSizes(outDir.resolve(measureMap));
         Files.deleteIfExists(outDir.resolve(baseName + "_measure.bin"));
 
@@ -75,8 +79,8 @@ public final class RomBuilder {
         Files.writeString(outDir.resolve(cfg), finalConfig(banks));
         Rom rom = new Rom(outDir.resolve(baseName + ".sfc"), outDir.resolve(baseName + ".dbg"),
                 outDir.resolve(baseName + ".lbl"), outDir.resolve(baseName + ".map"));
-        run(outDir, "ld65", "-C", cfg, "--dbgfile", baseName + ".dbg", "-Ln", baseName + ".lbl",
-                "-m", baseName + ".map", "-o", baseName + ".sfc", runtimeObj, obj);
+        run(outDir, concat(List.of("ld65", "-C", cfg, "--dbgfile", baseName + ".dbg", "-Ln", baseName + ".lbl",
+                "-m", baseName + ".map", "-o", baseName + ".sfc"), objects));
         fixHeader(rom.rom());
         return rom;
     }
@@ -226,6 +230,12 @@ public final class RomBuilder {
         data[header + 0x1E] = (byte) sum;
         data[header + 0x1F] = (byte) (sum >> 8);
         Files.write(rom, data);
+    }
+
+    private static String[] concat(List<String> a, List<String> b) {
+        List<String> all = new ArrayList<>(a);
+        all.addAll(b);
+        return all.toArray(String[]::new);
     }
 
     private static Path copyResource(String name, Path target) throws IOException {

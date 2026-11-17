@@ -115,8 +115,12 @@ public final class AstBuilder {
 
     private enum Storage { NONE, STATIC, EXTERN, TYPEDEF }
 
-    /** Declaration specifiers: storage class, base type, and whether {@code const} was given. */
-    private record Specs(Storage storage, Type type, boolean isConst) {}
+    /** Declaration specifiers: storage class, base type, and whether {@code const} or {@code volatile} was given. */
+    private record Specs(Storage storage, Type type, boolean isConst, boolean isVolatile) {
+        Specs(Storage storage, Type type, boolean isConst) {
+            this(storage, type, isConst, false);
+        }
+    }
 
     private record Param(String name, Type type, SourcePos pos) {}
 
@@ -131,10 +135,24 @@ public final class AstBuilder {
     }
 
     private Specs specs(List<? extends ParserRuleContext> specifiers, ParserRuleContext where) throws CompileError {
+        return specs(specifiers, where, false);
+    }
+
+    /**
+     * {@code mainReturn}: these are the specifiers of {@code int main(void)}. C requires
+     * {@code int} there for the PC build, so it is the one place plain {@code int} is allowed;
+     * on the SNES the return value is ignored.
+     */
+    private Specs specs(List<? extends ParserRuleContext> specifiers, ParserRuleContext where, boolean mainReturn)
+            throws CompileError {
+        if (mainReturn && specifiers.size() == 1 && specifiers.getFirst().getText().equals("int")) {
+            return new Specs(Storage.NONE, Type.I32, false);
+        }
         Storage storage = Storage.NONE;
         List<String> keywords = new ArrayList<>();
         Type named = null;
         boolean isConst = false;
+        boolean isVolatile = false;
         for (ParserRuleContext s : specifiers) {
             ParserRuleContext inner = (ParserRuleContext) s.getChild(0);
             switch (inner) {
@@ -151,10 +169,11 @@ public final class AstBuilder {
                     storage = st;
                 }
                 case CParser.TypeQualifierContext tq -> {
-                    if (!tq.getText().equals("const")) {
-                        throw unsupported(tq, "'" + tq.getText() + "'");
+                    switch (tq.getText()) {
+                        case "const" -> isConst = true;
+                        case "volatile" -> isVolatile = true;
+                        default -> throw unsupported(tq, "'" + tq.getText() + "'");
                     }
-                    isConst = true;
                 }
                 case CParser.TypeSpecifierContext ts -> {
                     if (ts.typedefName() != null) {
@@ -183,9 +202,9 @@ public final class AstBuilder {
             if (!keywords.isEmpty()) {
                 throw error(where, "'" + keywords.getFirst() + "' cannot be combined with a type name");
             }
-            return new Specs(storage, named, isConst);
+            return new Specs(storage, named, isConst, isVolatile);
         }
-        return new Specs(storage, typeFromKeywords(keywords, where), isConst);
+        return new Specs(storage, typeFromKeywords(keywords, where), isConst, isVolatile);
     }
 
     private Type typeFromKeywords(List<String> kw, ParserRuleContext where) throws CompileError {
@@ -230,6 +249,13 @@ public final class AstBuilder {
         } catch (RuntimeException e) {
             return false;
         }
+    }
+
+    /** Is this the declarator of a function called main? */
+    private static boolean isMain(CParser.DeclaratorContext d) {
+        CParser.DirectDeclaratorContext dd = d.directDeclarator();
+        return d.pointer().isEmpty() && dd.Identifier() != null && dd.Identifier().getText().equals("main")
+                && dd.getText().startsWith("main(");
     }
 
     /** An enumeration constant: in C it has type int. */
@@ -292,7 +318,7 @@ public final class AstBuilder {
             // a reference, possibly before the definition (struct Node *next;)
             return new Type.Struct(structTags.computeIfAbsent(tag, Type.StructDef::new));
         }
-        Type.StructDef def = tag != null ? structTags.computeIfAbsent(tag, Type.StructDef::new) : new Type.StructDef("<anonymous " + (anonymous++) + ">");
+        Type.StructDef def = tag != null ? structTags.computeIfAbsent(tag, Type.StructDef::new) : new Type.StructDef("<anonymous at " + pos(ss) + ">") /* the same header gives the same name in every file */;
         if (def.complete()) {
             throw error(ss, "redefinition of struct " + tag);
         }
@@ -311,7 +337,7 @@ public final class AstBuilder {
                     if (m.declarator() == null || m.constantExpression() != null) {
                         throw new CompileError(pos(m), "bit fields are not supported");
                     }
-                    Declared d = declare(s.type(), s.isConst(), m.declarator());
+                    Declared d = declare(s, m.declarator());
                     if (d.isFunction() || d.type() instanceof Type.Void || !complete(d.type())) {
                         throw new CompileError(d.pos(), "field '" + d.name() + "' has an incomplete type");
                     }
@@ -340,18 +366,34 @@ public final class AstBuilder {
 
     /** Applies a declarator to a base type. C reads declarators inside out: {@code T *a[3]} is an array of pointers. */
     private Declared declare(Type base, boolean baseConst, CParser.DeclaratorContext d) throws CompileError {
+        return declare(base, baseConst, false, d);
+    }
+
+    private Declared declare(Specs s, CParser.DeclaratorContext d) throws CompileError {
+        return declare(s.type(), s.isConst(), s.isVolatile(), d);
+    }
+
+    /**
+     * {@code baseVolatile}: the specifiers said {@code volatile}. That is supported for what a
+     * pointer points to (I/O registers); a volatile variable itself is rejected for now.
+     */
+    private Declared declare(Type base, boolean baseConst, boolean baseVolatile, CParser.DeclaratorContext d) throws CompileError {
         Type t = base;
         boolean objectConst = baseConst;
+        boolean firstPointer = true;
+        boolean pointers = false;
         for (ParseTree c : d.children) {
             if (c instanceof CParser.PointerContext p) {
                 for (ParseTree pc : p.children) {
                     if (pc instanceof TerminalNode tn && tn.getText().equals("*")) {
-                        t = new Type.Pointer(t);
+                        t = new Type.Pointer(t, firstPointer && baseVolatile);
+                        firstPointer = false;
+                        pointers = true;
                         objectConst = false; // a pointer is const only if its own qualifier says so
                     } else if (pc instanceof CParser.TypeQualifierListContext ql) {
                         for (CParser.TypeQualifierContext q : ql.typeQualifier()) {
                             if (!q.getText().equals("const")) {
-                                throw unsupported(q, "'" + q.getText() + "'");
+                                throw unsupported(q, "'" + q.getText() + "' on a pointer itself");
                             }
                             objectConst = true;
                         }
@@ -363,6 +405,9 @@ public final class AstBuilder {
                     || c instanceof CParser.GccDeclaratorExtensionContext) {
                 throw unsupported(d, "attributes and extensions in declarators");
             }
+        }
+        if (baseVolatile && !pointers) {
+            throw unsupported(d, "volatile variables (only pointers to volatile memory)");
         }
         CParser.DirectDeclaratorContext dd = d.directDeclarator();
         if (dd.Identifier() == null || dd.getChildCount() > 1 && dd.getChild(1) instanceof TerminalNode tn && tn.getText().equals(":")) {
@@ -431,11 +476,15 @@ public final class AstBuilder {
             if (ad.directAbstractDeclarator() != null || ad.pointer() == null) {
                 throw unsupported(ad, "this kind of type name");
             }
+            boolean first = true;
             for (ParseTree c : ad.pointer().children) {
                 if (c instanceof TerminalNode tnode && tnode.getText().equals("*")) {
-                    t = new Type.Pointer(t);
+                    t = new Type.Pointer(t, first && s.isVolatile());
+                    first = false;
                 }
             }
+        } else if (s.isVolatile()) {
+            throw unsupported(tn, "volatile values (only pointers to volatile memory)");
         }
         return t;
     }
@@ -479,7 +528,7 @@ public final class AstBuilder {
             String name = null;
             SourcePos p = pos(pd);
             if (pd.declarator() != null) {
-                Declared d = declare(s.type(), s.isConst(), pd.declarator());
+                Declared d = declare(s, pd.declarator());
                 if (d.isFunction()) {
                     throw unsupported(pd, "function pointers");
                 }
@@ -508,12 +557,14 @@ public final class AstBuilder {
             }
             throw unsupported(d, "this kind of declaration");
         }
-        Specs s = specs(d.declarationSpecifiers().declarationSpecifier(), d);
+        CParser.InitDeclaratorListContext idl = d.initDeclaratorList();
+        boolean main = idl != null && idl.initDeclarator().size() == 1 && isMain(idl.initDeclarator(0).declarator());
+        Specs s = specs(d.declarationSpecifiers().declarationSpecifier(), d, main);
         if (d.initDeclaratorList() == null) {
             return; // only a struct or enum definition
         }
         for (CParser.InitDeclaratorContext id : d.initDeclaratorList().initDeclarator()) {
-            Declared dec = declare(s.type(), s.isConst(), id.declarator());
+            Declared dec = declare(s, id.declarator());
             if (s.storage() == Storage.TYPEDEF) {
                 if (dec.isFunction() || id.initializer() != null) {
                     throw unsupported(id, "this kind of typedef");
@@ -865,11 +916,11 @@ public final class AstBuilder {
         if (fd.declarationSpecifiers() == null) {
             throw error(fd, "missing return type (C99 has no implicit int)");
         }
-        Specs s = specs(fd.declarationSpecifiers().declarationSpecifier(), fd);
+        Specs s = specs(fd.declarationSpecifiers().declarationSpecifier(), fd, isMain(fd.declarator()));
         if (s.storage() == Storage.TYPEDEF) {
             throw error(fd, "a function definition cannot be a typedef");
         }
-        Declared dec = declare(s.type(), s.isConst(), fd.declarator());
+        Declared dec = declare(s, fd.declarator());
         if (!dec.isFunction()) {
             throw error(fd, "expected a function");
         }
@@ -938,7 +989,7 @@ public final class AstBuilder {
             return;
         }
         for (CParser.InitDeclaratorContext id : list.initDeclarator()) {
-            Declared dec = declare(s.type(), s.isConst(), id.declarator());
+            Declared dec = declare(s, id.declarator());
             if (dec.isFunction()) {
                 throw unsupported(id, "function declarations inside a function");
             }

@@ -55,8 +55,16 @@ public sealed interface Type {
         }
     }
 
-    /** A pointer: 4 bytes, the address in the low word, the bank in the third byte. */
-    record Pointer(Type target) implements Type {
+    /**
+     * A pointer: 4 bytes, the address in the low word, the bank in the third byte.
+     * {@code volatileTarget}: it points to {@code volatile} memory (an I/O register), which an
+     * optimizer must neither cache nor remove accesses to.
+     */
+    record Pointer(Type target, boolean volatileTarget) implements Type {
+        public Pointer(Type target) {
+            this(target, false);
+        }
+
         @Override
         public int size() {
             return 4;
@@ -64,7 +72,7 @@ public sealed interface Type {
 
         @Override
         public String toString() {
-            return target + " *";
+            return (volatileTarget ? "volatile " : "") + target + " *";
         }
     }
 

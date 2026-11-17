@@ -24,7 +24,7 @@ public final class Compiler {
     public record Options(List<Path> sources, List<Path> includeDirs, List<String> defines, String entry, Path output) {}
 
     /** What a compilation produced. */
-    public record Result(Program program, String assembly, RomBuilder.Rom rom) {}
+    public record Result(Program program, List<String> assembly, RomBuilder.Rom rom) {}
 
     private Compiler() {}
 
@@ -52,7 +52,7 @@ public final class Compiler {
         // Debug file names are relative to the .dbg file, so Mesen finds the sources wherever the ROM is opened.
         NaiveCodeGen gen = new NaiveCodeGen(program, entry,
                 file -> outDir.relativize(Path.of(file).toAbsolutePath().normalize()).toString().replace('\\', '/'));
-        String asm = gen.generate();
+        List<String> asm = gen.generate();
         RomBuilder.Rom rom = RomBuilder.build(asm, outDir, baseName);
         return new Result(program, asm, rom);
     }
