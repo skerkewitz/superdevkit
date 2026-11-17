@@ -14,11 +14,12 @@ the reference for all optimized builds (see [testing.md](testing.md)).
 **MIR** exists (`dampf.mir`): the lowering from the AST (SSA built directly, Braun et al.), a text
 format (`dampf mir file.c`) that parses back (`MirParser`), a verifier and an interpreter. All of Blubber Blasen lowers to MIR,
 and the game's benchmark run in the MIR interpreter gives the PC's checksums on all 3,610 ticks.
-A simple code generator turns MIR into 65816 code (`dampf.backend.MirCodeGen`, `dampf build
---backend mir`). Every value has a fixed place in RAM, the frames form a compiled stack (a
-function's frame starts after the frames of all its callers), and φs are copied through an
-"incoming" place. It is correct on all tests and the whole game, and slow; the MIR passes will
-make it fast. The MIR passes (`dampf.mir.Optimizer`) so far: simplification (`Simplify`),
+A code generator turns MIR into 65816 code (`dampf.backend.MirCodeGen`); it is the default of
+`dampf build` (`--backend naive` picks the naive one). Every value has a place in a compiled stack
+in low RAM (a function's frame starts after the frames of the functions it calls, so the leaves
+lie in the direct page), values share places where their lifetimes allow, and the generator keeps
+values in A and loop counters in X where it can ([optimizations.md](optimizations.md)). It also
+computes each function's best and worst case in CPU cycles ([timing.md](timing.md)). The MIR passes (`dampf.mir.Optimizer`) so far: simplification (`Simplify`),
 width narrowing (`Narrow`, and `RangeNarrow` with the value ranges of `Ranges`), multiplication and division by constants (`StrengthReduce`), induction variables
 (`Induction`), pointer compression (`PointerOffsets`, `PointerParams`), common
 subexpressions and redundant loads (`Gvn`) and dead code removal (`DeadCode`), repeated until

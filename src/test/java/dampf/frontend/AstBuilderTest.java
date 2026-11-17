@@ -28,6 +28,42 @@ class AstBuilderTest {
         return assertThrows(CompileError.class, () -> build(code));
     }
 
+    private Program buildFiles(String... codes) throws IOException, CompileError {
+        List<Path> files = new java.util.ArrayList<>();
+        for (int i = 0; i < codes.length; i++) {
+            Path f = tmp.resolve("f" + i + ".c");
+            Files.writeString(f, codes[i]);
+            files.add(f);
+        }
+        return Compiler.frontEnd(new Compiler.Options(files, List.of(tmp), List.of(), "test_main", tmp.resolve("t.sfc")));
+    }
+
+    @Test
+    void typedefMayHaveTheNameOfItsStructTag() throws Exception {
+        Program p = build("""
+                #include <stdint.h>
+                typedef struct Bubble { int16_t x; } Bubble;
+                typedef struct Pair Pair;
+                struct Pair { Bubble a, b; };
+                Bubble one; Pair two; struct Bubble three;
+                """);
+        assertEquals(3, p.globals().size());
+    }
+
+    @Test
+    void aGlobalDefinedInTwoFilesIsAnError() throws Exception {
+        CompileError e = assertThrows(CompileError.class, () -> buildFiles(
+                "#include <stdint.h>\nuint8_t phase;\n", "#include <stdint.h>\nuint8_t phase;\n"));
+        String msg = e.diagnostics().getFirst().message();
+        assertTrue(msg.contains("redefinition of 'phase' (first defined at"), msg);
+        // the same through a header both files include
+        Files.writeString(tmp.resolve("g.h"), "#include <stdint.h>\nuint8_t shared;\n");
+        assertThrows(CompileError.class, () -> buildFiles("#include \"g.h\"\n", "#include \"g.h\"\n"));
+        // fine: repeated in one file, extern in the other, static in both
+        buildFiles("#include <stdint.h>\nuint8_t a; uint8_t a = 1; static uint8_t s;\n",
+                "#include <stdint.h>\nextern uint8_t a; static uint8_t s;\n");
+    }
+
     @Test
     void stdintTypesMeanWhatTheyMeanOnThePc() throws Exception {
         Program p = build("""

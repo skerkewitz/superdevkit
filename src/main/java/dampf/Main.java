@@ -17,7 +17,9 @@ import java.util.List;
  * <pre>
  * dampf parse [-I dir] [-D name[=value]] file.c ...                   preprocess and parse
  * dampf build [-I dir] [-D name[=value]] [--entry name] [--backend mir|naive] [--replace fn=file.s] -o out.sfc file.c ...   compile to a ROM
- * dampf check [-I dir] [-D name[=value]] file.c ...                   front end only: first problem per file
+ * dampf check [-I dir] [-D name[=value]] file.c ...                   front end: first problem per file, then the
+ *                                                                      files that pass together (recursion, calls of
+ *                                                                      functions defined nowhere, double definitions)
  * dampf profile rom.sfc profile.txt [top]                              cycles per function (tools/profile.lua)
  * </pre>
  */

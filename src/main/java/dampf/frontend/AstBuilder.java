@@ -45,7 +45,11 @@ public final class AstBuilder {
     private final List<Variable> globals = new ArrayList<>();
     private final Map<Variable, Init> initialValues = new HashMap<>();
     private final Set<String> definedGlobals = new HashSet<>();
-    private final Map<Function, SourcePos> firstCall = new HashMap<>();
+    /** Where a global with external linkage is first defined, and in which translation unit. */
+    private final Map<String, SourcePos> definedAt = new HashMap<>();
+    private final Map<String, Integer> definedInUnit = new HashMap<>();
+    private int unit;
+    private final Map<Function, SourcePos> firstCall = new LinkedHashMap<>();
     private final Set<String> labels = new HashSet<>();
     private int anonymous;
 
@@ -74,6 +78,7 @@ public final class AstBuilder {
             throw new CompileError(parsed.diagnostics());
         }
         sourceMap = parsed.sourceMap();
+        unit++;
         typedefs = new HashMap<>();
         fileScope = new HashMap<>();
         enumTags = new HashMap<>();
@@ -110,9 +115,9 @@ public final class AstBuilder {
         Expr.Const k = new Expr.Const(t.size(), Type.SIZE, p);
         long pc = Type.pcSize(t);
         if (pc != t.size()) {
-            sizeDiffers.put(k, "sizeof " + t + " is " + t.size() + " in dampf but " + pc + " on the PC (pointers are 4 bytes "
-                    + "there, 8 on x86-64; struct fields are not padded): the program would compute other values than its "
-                    + "PC build. Only the element count sizeof a / sizeof a[0] is allowed for such types");
+            sizeDiffers.put(k, "sizeof " + t + " is " + t.size() + " in dampf but " + pc + " on the PC (dampf's pointers are 4 bytes, "
+                    + "8 on x86-64, and dampf does not pad struct fields): the program would compute other values than "
+                    + "its PC build. Only the element count sizeof a / sizeof a[0] is allowed for such types");
             pcSizes.put(k, pc);
         }
         return k;
@@ -654,6 +659,14 @@ public final class AstBuilder {
         }
         fileScope.put(dec.name(), v);
         if (s.storage() != Storage.EXTERN) {
+            // Repeated (tentative) definitions are fine within one file; in two files they are
+            // a link error with gcc (-fno-common, the default since gcc 10).
+            Integer first = definedInUnit.putIfAbsent(v.label(), unit);
+            if (first != null && first != unit) {
+                throw new CompileError(dec.pos(), "redefinition of '" + dec.name() + "' (first defined at "
+                        + definedAt.get(v.label()) + "); declare it extern in all files but one");
+            }
+            definedAt.putIfAbsent(v.label(), dec.pos());
             definedGlobals.add(v.label());
         }
         if (init != null) {

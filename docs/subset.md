@@ -147,8 +147,8 @@ yet.
 
 ## Decisions
 
-These need a decision before the checker is written. Each has a recommendation. Until they are
-decided, dampf implements the recommendations, which are easy to change:
+Each open decision has a recommendation; until it is decided, dampf implements the
+recommendation, which is easy to change. Decision 5 is decided. Today:
 
 - decision 1: plain `char` is a signed 8-bit type; the restriction to text is not enforced yet;
 - decision 2: the naive code generator stores enum objects in 4 bytes, like the PC; narrowing

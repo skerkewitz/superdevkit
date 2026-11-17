@@ -11,7 +11,7 @@ is checked automatically against a reference.
 | Unit tests | Each compiler pass on its own, at IR level | Milliseconds | Front-end tests exist (`ParserTest`, `AstBuilderTest`); IR-level tests come with the IRs |
 | Execution tests | Small C programs compiled with gcc on the PC and with dampf; the results must match | Seconds | Built: `src/test/resources/exec/*.c`, run in dampf's emulator and in Mesen |
 | Random programs | A generator produces thousands of random programs within the subset; each is compared against gcc | Minutes, e.g. nightly | Built: `RandomProgramTest`, 50 per build, `-Prandom=N` for more |
-| Replays | The whole of Blubber Blasen with its deterministic replays and a checksum of the game state per frame; also cycles per frame as the benchmark | Minutes | Built: `ReplayTest` (`-Preplays`) and `tools/bench_game.sh` |
+| Replays | The whole of Blubber Blasen with its deterministic replays and a checksum of the game state every 60 ticks; also cycles per frame as the benchmark | Minutes | Built: `ReplayTest` (`-Preplays`) and `tools/bench_game.sh` |
 
 ### How the execution and random tests work today
 
@@ -37,8 +37,8 @@ ticks. `tools/replay_to_c.py` turns a recording into C tables in ROM, and `tools
 plays them exactly like the game's own `replay_run()` (the game's `replay.c` is host code with
 stdio and `malloc`, so the driver is written in dampf's subset instead). `ReplayTest` builds the
 driver with the game in its debug configuration (`BB_DEBUG`) twice, with gcc and with dampf, and
-requires both to match every recorded checksum and each other. One recording takes about two
-minutes in Mesen, so the test runs only with `-Preplays`.
+requires both to match every recorded checksum and each other. The replays run in dampf's
+emulator and take minutes, so the test runs only with `-Preplays`.
 
 The game's compiler benchmark (`tools/bench_game.sh`) is the second whole-game check: 3,610 ticks,
 three checksums per tick against a PC build of the same program, plus the cycles per tick.
@@ -109,7 +109,7 @@ The three IR levels ([architecture.md](architecture.md)) are designed for testin
 
 A test must fail, not wait forever. Every program test (execution tests, random programs, replays,
 the MIR round trips) runs under a hard time limit (`assertTimeoutPreemptively`: 3, 2, 15 and 2
-minutes per program), because JUnit's default timeouts do not cover dynamic tests. External
+minutes per program, 10 minutes for `GameTimingTest`), because JUnit's default timeouts do not cover dynamic tests. External
 programs (gcc, the PC builds, ca65, ld65) run through `dampf.util.Processes` with a time limit
 and are killed when it runs out. The emulator stops after 600 frames in the program tests and
 200,000 frames in `dampf bench` and the replays; the MIR interpreter counts its steps. The Gradle

@@ -49,10 +49,10 @@ tasks.test {
     val mesen = providers.gradleProperty("mesen").orNull
         ?: layout.projectDirectory.file(".mesen/Mesen.exe").asFile.takeIf { it.exists() }?.path
     mesen?.let { systemProperty("dampf.mesen", it) }
-    // Random programs: -Prandom=<count> (default 10), -PrandomSeed=<first seed>
+    // Random programs: -Prandom=<count> (default 50), -PrandomSeed=<first seed>
     providers.gradleProperty("random").orNull?.let { systemProperty("dampf.random.count", it) }
     providers.gradleProperty("randomSeed").orNull?.let { systemProperty("dampf.random.seed", it) }
-    // Replays of the game (minutes in Mesen): -Preplays
+    // Replays of the game and its timing check (minutes, in dampf's emulator): -Preplays
     providers.gradleProperty("replays").orNull?.let { systemProperty("dampf.replays", "true") }
     // The 65816 emulator against the SingleStepTests suite (downloads ~50 MB once): -PcpuTests
     providers.gradleProperty("cpuTests").orNull?.let { systemProperty("dampf.cpuTests", it.ifEmpty { "300" }) }

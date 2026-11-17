@@ -445,16 +445,20 @@ The gain is small, as expected: the game's hot loops (`separate`, `build_sprites
 arrays with different values, and only one fits in X. Play 1.54 → 1.53 frames per tick (worst
 2.67), with the CPU partner 2.24 → 2.22 (worst 4.46).
 
-### Summary of the code from MIR so far (2026-11-17)
+### Summary of the code from MIR so far (2026-11-17, the latest measurement)
+
+Measured after the static timing work, whose change to the value ranges (a loop head's entry
+condition reaches the loop) also helps the narrowing a little: the worst play tick is 2.65 here,
+2.67 in the section on loop counters in X just before it.
 
 | State | naive | from MIR, no passes | now |
 | --- | --- | --- | --- |
-| title | 1.94 | 12.21 | 0.70 |
-| story | 0.70 | 3.56 | 0.29 |
-| round intro | 5.76 | 12.13 | 2.35 |
-| play | 5.17 (worst 8.58) | 18.93 | 1.67 (worst 2.87) |
-| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 2.36 (worst 4.62) |
-| `level_solid_px`, per call | 3,849 | 6,648 | 1,230 clocks |
+| title | 1.94 | 12.21 | 0.67 |
+| story | 0.70 | 3.56 | 0.27 |
+| round intro | 5.76 | 12.13 | 1.93 |
+| play | 5.17 (worst 8.58) | 18.93 | 1.53 (worst 2.65) |
+| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 2.22 (worst 4.46) |
+| `level_solid_px`, per call | 3,849 | 6,648 | 1,208 clocks |
 
 Calypsi's 2.72 frames per tick during play (on an older version of the game) is passed; a fair
 comparison still needs both compilers on the same version. The hand-written `level_solid_px` takes
