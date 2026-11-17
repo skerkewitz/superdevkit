@@ -129,6 +129,7 @@ public final class Simplify {
         return switch (i) {
             case Instr.Bin b -> bin(b);
             case Instr.Cmp c -> cmp(c);
+            case Instr.PtrAdd p -> ptrAdd(p);
             default -> null;
         };
     }
@@ -189,6 +190,23 @@ public final class Simplify {
                     return x;
                 }
                 default -> { }
+            }
+        }
+        return null;
+    }
+
+    /** ptradd p, 0 is p; ptradd (ptradd p, a), b with constants is ptradd p, a + b. */
+    private static Value ptrAdd(Instr.PtrAdd p) {
+        if (p.op(1) instanceof Value.Const k && k.bits() == 0) {
+            return p.op(0);
+        }
+        if (p.op(1) instanceof Value.Const k && p.op(0) instanceof Instr.PtrAdd inner
+                && inner.op(1) instanceof Value.Const j && k.type() == j.type()) {
+            long sum = k.type().signed(k.bits()) + j.type().signed(j.bits());
+            if (k.type() == MType.I32 || sum >= -0x8000 && sum < 0x8000) {
+                Instr r = new Instr.PtrAdd(inner.op(0), new Value.Const(k.type(), sum), p.pos());
+                p.block().insertBefore(p, r);
+                return r;
             }
         }
         return null;

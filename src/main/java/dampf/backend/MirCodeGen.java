@@ -37,9 +37,12 @@ import java.util.TreeMap;
  * and stores its result there; nothing stays in a register from one instruction to the next.
  *
  * <p><b>Frames</b> form a compiled stack. dampf has no recursion, so the call graph is acyclic,
- * and a function's frame can start where the frames of all its callers end: frames that may be
- * live at the same time never overlap, and the others share memory. All frames lie in one block,
- * {@code dampf_frame}. A caller stores the arguments straight into the callee's parameters.
+ * and a function's frame can start where the frames of all the functions it calls end: frames
+ * that may be live at the same time never overlap, and the others share memory. All frames lie
+ * in low RAM from $0020 ({@code dampf_frame}); the leaves of the call graph, which are small and
+ * often hot, start there, in the direct page, where an access is a cycle cheaper and a pointer can
+ * be used as {@code [place],y} without copying it. A caller stores the arguments straight into
+ * the callee's parameters.
  *
  * <p><b>φs</b> get a second place, "incoming": every predecessor stores its operand there right
  * before its jump, and the block copies it into the φ's own place on entry. That is correct for
@@ -52,7 +55,9 @@ public final class MirCodeGen {
     private static final String VIA_Q = "[dampf_ptr+4],y";
     private static final String FRAME = "dampf_frame";
     /** RAM between $2000 and $FFFF (bank $7E) minus room for the globals: the frames must fit. */
-    private static final int MAX_FRAME = 0xC000;
+    private static final int MAX_FRAME = 0x1E00 - 0x20;
+    /** Where the frames start: the low RAM after the runtime's direct page registers (docs/memory-map.md). */
+    private static final int FRAME_START = 0x20;
 
     private final MModule module;
     private final String entry;
@@ -64,7 +69,7 @@ public final class MirCodeGen {
     private final Map<Instr.Phi, Integer> incoming = new IdentityHashMap<>();
     private final Map<MFunction, Integer> base = new HashMap<>();
     private final Map<MFunction, Integer> frameSize = new HashMap<>();
-    private final Map<String, List<MFunction>> callers = new HashMap<>();
+    private final Map<String, List<MFunction>> callees = new HashMap<>();
     private int frameTotal;
 
     private final List<String> banked = new ArrayList<>();
@@ -74,6 +79,7 @@ public final class MirCodeGen {
 
     private AsmWriter out;
     private final Set<Instr> fused = new HashSet<>();
+    private final Set<Instr> folded = new HashSet<>();
     private int labels;
     private SourcePos lastPos;
 
@@ -120,10 +126,6 @@ public final class MirCodeGen {
         }
         AsmWriter ram = new AsmWriter();
         globals(ram);
-        ram.blank();
-        ram.raw("        .segment \"BSS\"");
-        ram.raw(FRAME + ":" + " ".repeat(Math.max(1, 28 - FRAME.length() - 1)) + ".res    " + Math.max(1, frameTotal)
-                + "    ; all frames: every function's values (compiled stack)");
 
         List<String> modules = new ArrayList<>();
         int chunks = Math.max(1, (banked.size() + SEGMENTS_PER_MODULE - 1) / SEGMENTS_PER_MODULE);
@@ -158,7 +160,6 @@ public final class MirCodeGen {
         w.raw("        .import dampf_mul16, dampf_mul32, dampf_udiv16, dampf_udiv32, dampf_sdiv32");
         if (modules > 1) {
             List<String> all = new ArrayList<>();
-            all.add(FRAME);
             this.module.functions().forEach(f -> all.add(f.name()));
             this.module.globals().forEach(g -> all.add(g.symbol()));
             for (int i = 0; i < all.size(); i += 8) {
@@ -172,6 +173,7 @@ public final class MirCodeGen {
         for (int r = 0; r <= 14; r += 2) {
             w.raw("R" + r + (r < 10 ? "  " : " ") + "= dampf_regs+" + r);
         }
+        w.raw(FRAME + " = $" + hex(FRAME_START, 4) + "            ; the frames (compiled stack), $0020-$1DFF; below $0100 in the direct page");
     }
 
     private String fileDirective(String file, Path path) {
@@ -210,9 +212,10 @@ public final class MirCodeGen {
             for (Block b : f.blocks()) {
                 for (Instr i : b.instrs()) {
                     if (i instanceof Instr.Call c) {
-                        List<MFunction> l = callers.computeIfAbsent(c.callee, k -> new ArrayList<>());
-                        if (!l.contains(f)) {
-                            l.add(f);
+                        List<MFunction> l = callees.computeIfAbsent(f.name(), k -> new ArrayList<>());
+                        MFunction callee = module.function(c.callee);
+                        if (callee != null && !l.contains(callee)) {
+                            l.add(callee);
                         }
                     }
                 }
@@ -253,7 +256,10 @@ public final class MirCodeGen {
         }
     }
 
-    /** Where f's frame starts: after the frames of all its callers. */
+    /**
+     * Where f's frame starts: after the frames of all the functions it calls (and so after
+     * everything they call). Leaves start at 0, where the direct page is.
+     */
     private int base(MFunction f, Set<MFunction> path) {
         Integer known = base.get(f);
         if (known != null) {
@@ -263,7 +269,7 @@ public final class MirCodeGen {
             throw new IllegalStateException("recursion through " + f.name());
         }
         int b = 0;
-        for (MFunction c : callers.getOrDefault(f.name(), List.of())) {
+        for (MFunction c : callees.getOrDefault(f.name(), List.of())) {
             frameSize.computeIfAbsent(c, this::sizeOf);
             b = Math.max(b, base(c, path) + frameSize.get(c));
         }
@@ -317,7 +323,9 @@ public final class MirCodeGen {
     }
 
     private static String at(int offset) {
-        return FRAME + "+" + offset;
+        // a word that lies in the direct page is reached with direct page addressing (D = 0)
+        // (ca65 takes dampf_frame for a zero page symbol, so the others need "a:")
+        return (FRAME_START + offset + 1 < 0x100 ? "z:" : "a:") + FRAME + "+" + offset;
     }
 
     // ---------------------------------------------------------------- data
@@ -393,6 +401,9 @@ public final class MirCodeGen {
         out = code;
         lastPos = null;
         aHolds = null;
+        yHolds = null;
+        ptrP = null;
+        ptrQ = null;
         m8 = false;
         f.number();
         out.blank();
@@ -420,6 +431,28 @@ public final class MirCodeGen {
                 fused.add(c);
             }
         }
+        // a ptradd of a constant that only loads and stores use as their address is not computed
+        folded.clear();
+        Set<Instr> otherUse = new HashSet<>();
+        for (Block b : f.blocks()) {
+            for (Instr i : b.instrs()) {
+                for (int k = 0; k < i.operands().size(); k++) {
+                    if (i.op(k) instanceof Instr.PtrAdd p) {
+                        boolean asAddress = k == 0 && (i instanceof Instr.Load || i instanceof Instr.Store);
+                        if (!asAddress) {
+                            otherUse.add(p);
+                        }
+                    }
+                }
+            }
+        }
+        for (Block b : f.blocks()) {
+            for (Instr i : b.instrs()) {
+                if (i instanceof Instr.PtrAdd p && foldable(p) && !otherUse.contains(p)) {
+                    folded.add(p);
+                }
+            }
+        }
         List<Block> blocks = f.blocks();
         for (int k = 0; k < blocks.size(); k++) {
             Block b = blocks.get(k);
@@ -444,6 +477,9 @@ public final class MirCodeGen {
                 out.note(Printer.instr(i));
                 if (fused.contains(i)) {
                     continue;   // compared at the branch
+                }
+                if (folded.contains(i)) {
+                    continue;   // the loads and stores add the offset themselves
                 }
                 if (i.isTerminator()) {
                     phiCopies(b, i);
@@ -500,7 +536,7 @@ public final class MirCodeGen {
             case Value.GlobalAddr g -> rom.contains(g.symbol())
                     ? (w == 0 ? "#.loword(" + g.symbol() + ")" : "#^" + g.symbol())
                     : (w == 0 ? "#.loword(" + g.symbol() + ")" : imm(0x7E));
-            case Value.SlotAddr s -> w == 0 ? "#.loword(" + at(place.get(s.slot())) + ")" : imm(0x7E);
+            case Value.SlotAddr s -> w == 0 ? "#.loword(" + FRAME + "+" + place.get(s.slot()) + ")" : imm(0x7E);
             case Value.Param p -> w >= words(p.type()) ? imm(0) : at(place.get(p) + 2 * w);
             case Instr i -> w >= words(i.type()) ? imm(0) : at(place.get(i) + 2 * w);
         };
@@ -1027,19 +1063,41 @@ public final class MirCodeGen {
         }
     }
 
+    /** An address as a base plus a constant, non-negative offset (folded into Y or the operand). */
+    private record Address(Value base, int offset) {}
+
+    private static Address address(Value v) {
+        if (v instanceof Instr.PtrAdd p && foldable(p)) {
+            return new Address(p.op(0), (int) p.op(1).type().signed(((Value.Const) p.op(1)).bits()));
+        }
+        return new Address(v, 0);
+    }
+
+    /** A ptradd of a constant that a load or store can take over. */
+    private static boolean foldable(Instr.PtrAdd p) {
+        if (!(p.op(1) instanceof Value.Const k)) {
+            return false;
+        }
+        long o = p.op(1).type().signed(k.bits());
+        return o >= 0 && o < 0x8000;   // negative: Y would carry into the bank
+    }
+
+    /** The operand for a memory access at byte k of the object, or null if it goes through a pointer. */
+    private String fixedAt(Address a, int k) {
+        return fixed(a.base(), a.offset() + k);
+    }
+
     private void load(Instr.Load l) {
         MType t = l.type();
-        Value address = l.op(0);
-        boolean direct = fixed(address, 0) != null;
-        if (!direct) {
-            pointer(address, P);
-        }
+        Address a = address(l.op(0));
+        boolean direct = fixedAt(a, 0) != null;
+        String via = direct ? null : via(a.base(), P);
         if (t.size == 1) {
             if (!direct) {
-                ins("ldy", imm(0));
+                ins("ldy", imm(a.offset()));
             }
             ins("sep", "#$20");
-            ins("lda", direct ? fixed(address, 0) : VIA_P);
+            ins("lda", direct ? fixedAt(a, 0) : via);
             ins("rep", "#$20");
             ins("and", imm(t == MType.I1 ? 1 : 0xFF));   // B, the high byte of A, still has an old value
             ins("sta", dest(l, 0));
@@ -1047,43 +1105,66 @@ public final class MirCodeGen {
         }
         for (int w = 0; w < words(t); w++) {
             if (!direct) {
-                ins("ldy", imm(2 * w));
+                ins("ldy", imm(a.offset() + 2 * w));
             }
-            ins("lda", direct ? fixed(address, 2 * w) : VIA_P);
+            ins("lda", direct ? fixedAt(a, 2 * w) : via);
             ins("sta", dest(l, w));
         }
     }
 
     private void store(Instr.Store s) {
-        Value address = s.op(0);
+        Address a = address(s.op(0));
         Value v = s.op(1);
         MType t = v.type();
-        boolean direct = fixed(address, 0) != null;
-        if (!direct) {
-            pointer(address, P);
-        }
+        boolean direct = fixedAt(a, 0) != null;
+        String via = direct ? null : via(a.base(), P);
         if (t.size == 1) {
             ins("lda", operand(v, 0));
             if (!direct) {
-                ins("ldy", imm(0));
+                ins("ldy", imm(a.offset()));
             }
             ins("sep", "#$20");
-            ins("sta", direct ? fixed(address, 0) : VIA_P);
+            ins("sta", direct ? fixedAt(a, 0) : via);
             ins("rep", "#$20");
             return;
         }
         for (int w = 0; w < words(t); w++) {
             ins("lda", operand(v, w));
             if (!direct) {
-                ins("ldy", imm(2 * w));
+                ins("ldy", imm(a.offset() + 2 * w));
             }
-            ins("sta", direct ? fixed(address, 2 * w) : VIA_P);
+            ins("sta", direct ? fixedAt(a, 2 * w) : via);
         }
+    }
+
+    /**
+     * The [dp],y operand for a pointer: its own place if that is in the direct page, else
+     * dampf_ptr (or dampf_ptr+4) after copying it there, unless it is there already.
+     */
+    private String via(Value pointer, String dp) {
+        if (pointer instanceof Value.Param || pointer instanceof Instr) {
+            int p = place.get(pointer);
+            if (FRAME_START + p + 3 < 0x100) {
+                return "[" + FRAME + "+" + p + "],y";
+            }
+        }
+        boolean first = dp.equals(P);
+        if ((first ? ptrP : ptrQ) != pointer || pointer instanceof Value.Undef) {
+            pointer(pointer, dp);
+            if (first) {
+                ptrP = pointer;
+            } else {
+                ptrQ = pointer;
+            }
+        }
+        return first ? VIA_P : VIA_Q;
     }
 
     private void copy(Instr.Copy c) {
         pointer(c.op(1), P);
         pointer(c.op(0), Q);
+        ptrP = c.op(1);
+        ptrQ = c.op(0);
         int size = c.size;
         if (size % 2 == 1) {
             ins("ldy", imm(size - 1));
@@ -1133,12 +1214,19 @@ public final class MirCodeGen {
      * pointers, and when an instruction changes A or the place.
      */
     private String aHolds;
+    /** The pointers in dampf_ptr and dampf_ptr+4 (forgotten like aHolds), and what Y holds. */
+    private Value ptrP;
+    private Value ptrQ;
+    private String yHolds;
     /** The accumulator is 8 bit (between SEP #$20 and REP #$20). */
     private boolean m8;
 
     private void ins(String mnemonic, String operand) {
         if (mnemonic.equals("lda") && !m8 && operand != null && operand.equals(aHolds)) {
             return;   // A has it already (the flags are not set again: see load())
+        }
+        if (mnemonic.equals("ldy") && operand != null && operand.equals(yHolds)) {
+            return;
         }
         out.ins(mnemonic, operand, null);
         track(mnemonic, operand);
@@ -1151,10 +1239,21 @@ public final class MirCodeGen {
     }
 
     private static boolean trackable(String operand) {
-        return operand != null && (operand.startsWith(FRAME) || operand.startsWith("#"));
+        return operand != null && (operand.contains(FRAME) && !operand.startsWith("[") || operand.startsWith("#"));
     }
 
     private void track(String mnemonic, String operand) {
+        switch (mnemonic) {
+            case "ldy" -> yHolds = operand != null && operand.startsWith("#") ? operand : null;
+            case "iny", "dey", "tay", "ply" -> yHolds = null;
+            case "jsl" -> {
+                aHolds = null;
+                yHolds = null;
+                ptrP = null;   // the called function uses dampf_ptr too
+                ptrQ = null;
+            }
+            default -> { }
+        }
         switch (mnemonic) {
             case "sep" -> {
                 if ("#$20".equals(operand)) {
@@ -1195,6 +1294,9 @@ public final class MirCodeGen {
     private void place(String label) {
         out.label(label);
         aHolds = null;   // something may jump here
+        yHolds = null;
+        ptrP = null;
+        ptrQ = null;
         m8 = false;
     }
 

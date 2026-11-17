@@ -15,8 +15,8 @@ The first 8 KB of bank `$7E` are the same memory as `$0000-$1FFF` in bank 0. The
 
 | Address (bank $7E) | Use |
 | --- | --- |
-| `$0000-$00FF` | direct page: the runtime's scratch registers (`dampf_regs`) |
-| `$0100-$1DFF` | free; meant for static frames in the direct page and other hot data later |
+| `$0000-$001F` | direct page: the runtime's scratch registers (`dampf_regs`, `dampf_ptr`) |
+| `$0020-$1DFF` | the frames of the code generated from MIR (`dampf_frame`, a compiled stack; the part below `$0100` is in the direct page). Unused by the naive generator. |
 | `$1E00-$1FFF` | stack |
 | `$2000-$FFFF` | variables: globals, static locals, the static frames of functions |
 

@@ -108,7 +108,9 @@ the profile after each step can change the order of the later ones:
    of a 4-byte pointer through `[dampf_ptr],y`). The game passes `Bubble *` everywhere. Needs the
    subset rules on integer/pointer casts and pointer arithmetic, which the game already keeps.
 4. **Values in registers and the direct page** (A, C, D in [optimizations.md](optimizations.md)):
-   the code generator stops sending every value through RAM.
+   the code generator stops sending every value through RAM. Started 2026-11-17: reloads of what
+   A holds are left out, φs are written directly, and the frames lie in low RAM with the leaves in
+   the direct page; play is at 2.90 frames per tick.
 
 **Subrange types** (`DAMPF_RANGED`, `DAMPF_AS` and their checker, sections 3–6 there) are not
 scheduled. They are built when a profile shows a hot value whose range dampf cannot infer and
