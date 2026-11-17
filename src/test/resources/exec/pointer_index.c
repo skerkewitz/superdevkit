@@ -31,6 +31,9 @@ uint16_t word_sum;
 uint32_t long_sum;
 uint16_t signed_sum;
 uint16_t pair_sum;
+uint8_t rows[4][32];
+uint8_t row_pick = 2;
+uint16_t row_sum;
 
 static uint16_t sum_bytes(const uint8_t *p, uint8_t n)
 {
@@ -80,6 +83,18 @@ static uint16_t around(const uint8_t *mid)
     return s;
 }
 
+/* a row of a 2D array: the pointer is itself a sum (the array plus row * 32) */
+static uint16_t sum_row(uint8_t r)
+{
+    const uint8_t *row = rows[r];
+    uint16_t s = 0;
+    uint8_t i;
+    for (i = 0; i < 12; i++) {
+        s = (uint16_t)(s * 3u + row[order[i % 7] * 4u]);
+    }
+    return s;
+}
+
 static uint16_t sum_pairs(const struct pair *p, uint8_t n)
 {
     uint16_t s = 0;
@@ -125,4 +140,9 @@ void test_main(void)
     long_sum += pick_longs(lp, order, 7);
     signed_sum = around(mp);
     pair_sum = sum_pairs(pp, 5);
+    for (i = 0; i < 128; i++) {
+        rows[i >> 5][i & 31] = (uint8_t)(i * 7u + 1u);
+    }
+    row_sum = sum_row(row_pick);
+    row_sum = (uint16_t)(row_sum + sum_row((uint8_t)(row_pick + 1u)));
 }

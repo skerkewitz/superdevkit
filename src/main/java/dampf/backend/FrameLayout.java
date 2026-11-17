@@ -190,12 +190,13 @@ final class FrameLayout {
      * A pointer plus a 16-bit value that is never negative: {@code [dp],y} with the value in Y,
      * the sum never computed. Y adds as an unsigned number and carries into the bank, so a
      * negative offset would leave the object's bank; a nonnegative one stays in the object, which
-     * never crosses a bank. The pointer is a value with a place of its own (not a sum folded
-     * into its accesses itself).
+     * never crosses a bank. The pointer is a value with a place of its own: a sum used as the
+     * base of another sum is never folded (findFolds counts that as another use), and a pointer
+     * made from a number is excluded.
      */
     boolean pointerIndexable(Instr.PtrAdd q) {
         Value p = q.op(0);
-        if (!(p instanceof Instr || p instanceof Value.Param) || p instanceof Instr.PtrAdd || constAddress(p) != null
+        if (!(p instanceof Instr || p instanceof Value.Param) || constAddress(p) != null
                 || p instanceof Instr i && transparent(i)
                 || q.op(1) instanceof Value.Const || q.op(1).type() != MType.I16) {
             return false;
@@ -285,12 +286,15 @@ final class FrameLayout {
                 }
             }
         }
-        // each link of such a chain may have no other use than the next link, or (the cast) addresses
+        // each link of such a chain may have no other use than the next link, or (the cast) addresses.
+        // The next link is always a cast: a sum that takes d as its index (REG8(h + 1) next to
+        // REG8(h)) needs d's value in X, so d is computed
         for (Block b : f.blocks()) {
             for (Instr i : b.instrs()) {
                 for (int k = 0; k < i.operands().size(); k++) {
                     if (i.op(k) instanceof Instr d && sums.containsKey(d)) {
-                        boolean link = sums.containsKey(i) && !(d instanceof Instr.Cast c && c.kind == Instr.CastKind.INTTOPTR);
+                        boolean link = sums.containsKey(i) && i instanceof Instr.Cast
+                                && !(d instanceof Instr.Cast c && c.kind == Instr.CastKind.INTTOPTR);
                         boolean address = k == 0 && (i instanceof Instr.Load || i instanceof Instr.Store)
                                 || i instanceof Instr.PtrAdd p && k == 0 && folded.contains(p);
                         if (!link && !address) {

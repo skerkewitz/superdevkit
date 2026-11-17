@@ -736,6 +736,11 @@ constant. Play 364,829 → 359,710 clocks per tick (1.01 frames); `level_solid_p
 clocks per call. `exec/pointer_index.c`: allowing a negative index fails it, and so does
 stepping Y by one for the second word.
 
+The pointer may itself be a sum, such as a row of a 2D array (`gfx_sheet_slot[sheet]` in
+`build_sprites`): a sum used as the base of another sum is never folded into its accesses, so it
+has a place of its own for `[dp],y`. That took play 329,834 → 326,596 clocks per tick and the
+title 158,966 → 139,475.
+
 An index that is an induction variable (an offset that grows by the element size every round)
 is not folded yet: the range analysis gives it the type's whole range, since it cannot see that
 the loop ends before the offset wraps.
@@ -784,18 +789,18 @@ the offset (see their sections); the column before it is SlowROM speed, as the e
 
 | State | naive | from MIR, no passes | SlowROM | now (FastROM) |
 | --- | --- | --- | --- | --- |
-| title | 1.94 | 12.21 | 0.54 | 0.44 |
-| story | 0.70 | 3.56 | 0.22 | 0.18 |
-| round intro | 5.76 | 12.13 | 1.76 | 1.43 |
-| play | 5.17 (worst 8.58) | 18.93 | 1.31 (worst 2.25) | 0.92 (worst 1.64) |
-| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 1.98 (worst 4.08) | 1.51 (worst 3.31) |
+| title | 1.94 | 12.21 | 0.54 | 0.39 |
+| story | 0.70 | 3.56 | 0.22 | 0.17 |
+| round intro | 5.76 | 12.13 | 1.76 | 1.39 |
+| play | 5.17 (worst 8.58) | 18.93 | 1.31 (worst 2.25) | 0.91 (worst 1.60) |
+| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 1.98 (worst 4.08) | 1.48 (worst 3.18) |
 | `level_solid_px`, per call | 3,849 | 6,648 | 1,149 | 871 clocks |
 
 Calypsi's 2.72 frames per tick during play (on an older version of the game) is passed. On the
 same version (the snapshot, `tools/bench_compilers.sh`, measured in dampf's emulator, which
 matches Mesen on Calypsi's ROM), in the play ticks where both play the same scene (711-812),
 Calypsi took 1.67 frames per tick and dampf 1.14 (both at SlowROM speed), 1.47 times as fast;
-with FastROM for both and the steps since, Calypsi takes 1.42 and dampf 0.79, 1.79 times as fast.
+with FastROM for both and the steps since, Calypsi takes 1.42 and dampf 0.79, 1.81 times as fast.
 Calypsi's results drift
 from the PC's from tick 596 on, so later ticks compare other scenes ([roadmap.md](roadmap.md),
 *The plan from here*). The hand-written `level_solid_px` takes

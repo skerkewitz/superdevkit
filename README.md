@@ -18,9 +18,9 @@ translated to 65816 code with its frames in the direct page. The naive code gene
 from the AST, stays as an independent reference (`--backend naive`). Every program in the tests
 is built with both and compared with gcc on the PC: the execution tests (also in Mesen), random
 programs, the game's replays, and the game's own benchmark, where every one of its 3,610 ticks
-gives the PC's checksums. During play the game takes 0.92 frames per tick with dampf (with FastROM; the
+gives the PC's checksums. During play the game takes 0.91 frames per tick with dampf (with FastROM; the
 naive code: 5.17), numbers in [docs/optimizations.md](docs/optimizations.md). On the same game version
-and the same scene, dampf's code is 1.79 times as fast as Calypsi's (both with FastROM) (`tools/bench_compilers.sh`,
+and the same scene, dampf's code is 1.81 times as fast as Calypsi's (both with FastROM) (`tools/bench_compilers.sh`,
 [docs/roadmap.md](docs/roadmap.md), *The plan from here*). dampf also computes a best and a worst case in CPU
 cycles for every function (`<rom>.timing.txt`, [docs/timing.md](docs/timing.md)). dampf builds a
 playable ROM of the game: the SNES platform layer in [platform/snes](platform/snes/README.md)
@@ -35,7 +35,7 @@ The game's stage 3 needs a C compiler for the 65816, and the existing ones are n
 | Compiler | Result |
 | --- | --- |
 | PVSnesLib with 816-tcc | Very slow code. The data layout needed workarounds because the compiler throws errors on ordinary code. |
-| Calypsi | Works as intended, but the code is still too slow (2.72 frames per tick during play on an older version of the game; on today's version dampf's code is 1.79 times as fast on the same scene, both with FastROM, see [docs/roadmap.md](docs/roadmap.md)). |
+| Calypsi | Works as intended, but the code is still too slow (2.72 frames per tick during play on an older version of the game; on today's version dampf's code is 1.81 times as fast on the same scene, both with FastROM, see [docs/roadmap.md](docs/roadmap.md)). |
 | llvm-mos | Good 6502 code, but no native 16-bit 65816 code generation. LLVM is a poor fit: it assumes many uniform registers and fixed-width values, while on the 65816 the operand width (8 or 16 bit) is processor state set by `REP`/`SEP`. |
 | Hand-written assembly for the whole game | Tried years ago and failed. Hand-written assembly for a few hot functions stays possible later, but should not be the plan. |
 
