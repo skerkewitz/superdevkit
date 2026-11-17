@@ -42,6 +42,7 @@ class ExecutionTest {
                     work.resolve(name + ".sfc")));
             List<Observed> globals = Observed.of(r.program().globals());
             Map<String, Long> pc = PcReference.wrap(PcReference.run(src, "test_main", globals, work), globals);
+            assertEquals(pc, MirRunner.run(r.program(), "test_main", globals), "globals after test_main() (PC vs MIR interpreter)");
             Map<String, Long> snes = emulator.run(r.rom(), globals).values();
             assertEquals(pc, snes, "globals after test_main() (PC vs SNES in dampf's emulator)");
             if (mesenRunner != null) {

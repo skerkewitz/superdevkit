@@ -38,6 +38,7 @@ class RandomProgramTest {
                     work.resolve("random.sfc")));
             List<Observed> globals = Observed.of(r.program().globals());
             Map<String, Long> pc = PcReference.wrap(PcReference.run(src, "test_main", globals, work), globals);
+            assertEquals(pc, MirRunner.run(r.program(), "test_main", globals), () -> "seed " + seed + " differs (PC vs MIR); the program:\n" + program);
             Map<String, Long> snes = runner.run(r.rom(), globals).values();
             assertEquals(pc, snes, () -> "seed " + seed + " differs (PC vs SNES); the program:\n" + program);
         }));

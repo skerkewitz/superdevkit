@@ -72,6 +72,14 @@ three checksums per tick against a PC build of the same program, plus the cycles
 - **Hints are checked on the PC:** every hint that states a fact is an assertion in the PC and
   test builds, and the replays run with the assertions enabled ([hints.md](hints.md)).
 
+## The MIR level in the tests (built)
+
+Every execution test and every random program also runs on the MIR level: lowered from the AST
+and run by the MIR interpreter (`dampf.mir.Interpreter`), and compared with gcc. A wrong lowering
+shows up there, independent of any 65816 code. The verifier (`dampf.mir.Verifier`) runs after the
+lowering. The game's benchmark runs in the MIR interpreter as well (`dampf mir --bench main ...`,
+11 seconds) and gives the PC's checksums on all 3,610 ticks.
+
 ## What the IR levels bring for testing
 
 The three IR levels ([architecture.md](architecture.md)) are designed for testing:

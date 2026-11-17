@@ -25,6 +25,10 @@ public final class Main {
     private Main() {}
 
     public static void main(String[] args) throws IOException {
+        if (args.length > 0 && args[0].equals("mir")) {
+            dampf.tools.Mir.main(java.util.Arrays.copyOfRange(args, 1, args.length));
+            return;
+        }
         if (args.length > 0 && args[0].equals("bench")) {
             dampf.tools.Bench.main(java.util.Arrays.copyOfRange(args, 1, args.length));
             return;

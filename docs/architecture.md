@@ -9,8 +9,14 @@ Decided at the kickoff (2026-11-17) and extended by the design discussion the sa
 The target pipeline below is not built in full yet. Today dampf has the front end (preprocessor,
 parser, typed AST with C's conversions made explicit), the call graph check, and the **naive code
 generator**, which works directly on the AST and produces ca65 assembly. That generator stays as
-the reference for all optimized builds (see [testing.md](testing.md)). HIR, MIR and LIR, and the
-optimizing back end on top of them, are still to be built; [roadmap.md](roadmap.md) says when.
+the reference for all optimized builds (see [testing.md](testing.md)).
+
+**MIR** exists (`dampf.mir`): the lowering from the AST (SSA built directly, Braun et al.), a text
+format (`dampf mir file.c`), a verifier and an interpreter. All of Blubber Blasen lowers to MIR,
+and the game's benchmark run in the MIR interpreter gives the PC's checksums on all 3,610 ticks.
+There is no code generator from MIR yet, and no MIR passes. HIR and LIR are still to be built;
+[roadmap.md](roadmap.md) says when. MIR currently goes straight from the AST; HIR will sit
+between them once inlining and struct splitting need it.
 
 ## Pipeline
 
@@ -53,7 +59,7 @@ not LLVM's machine IR; dampf's LIR plays the role of LLVM's machine IR.
 | Level | Comparable to | What it represents | What happens there |
 | --- | --- | --- | --- |
 | **HIR** (high-level) | Rust MIR, Swift SIL | A control flow graph that still has struct fields, array indexing, calls and intrinsics. C's integer promotions are made explicit here, so the meaning of every operation is unambiguous. | Call graph and recursion check; inlining; recognising loops; `DAMPF_SPLIT` (arrays of structs into one array per field); `DAMPF_TABLE` (evaluating functions at compile time) |
-| **MIR** (mid-level) | LLVM IR | SSA form (every value is assigned exactly once). Types `i8`, `i16`, `i24`; pointers as `ptr16` (within the current data bank) or `ptr24` (any bank). Memory as symbol plus offset. | Constant propagation, dead code removal, common subexpressions, hoisting invariant code out of loops, **narrowing widths** using value ranges (16 → 8 bit where provably identical), recognising 8.8 fixed-point patterns as byte accesses |
+| **MIR** (mid-level) | LLVM IR | SSA form (every value is assigned exactly once). Types `i8`, `i16`, `i24`; pointers as `ptr16` (within the current data bank) or `ptr24` (any bank). Memory as symbol plus offset. *As built: `i1`, `i8`, `i16`, `i32` (C's int) and one `ptr` type; signedness in the operations (sdiv/udiv, ashr/lshr, slt/ult, sext/zext); memory through `load`/`store`/`copy` on addresses from `ptradd`; locals whose address is taken, and arrays and structs, in frame slots.* | Constant propagation, dead code removal, common subexpressions, hoisting invariant code out of loops, **narrowing widths** using value ranges (16 → 8 bit where provably identical), recognising 8.8 fixed-point patterns as byte accesses |
 | **LIR** (low-level) | LLVM machine IR | Real 65816 instructions on virtual locations, with the processor state (M, X, D, DB) as part of the representation | Instruction selection; placing `REP`/`SEP` optimally; direct page slot allocation; assigning A, X and Y; peephole optimization; branch distances; **counting cycles and computing bounds** ([timing.md](timing.md)) |
 
 ### What runs through all levels

@@ -74,6 +74,9 @@ Before the first optimization, M3 builds:
 
 - **The three IR levels** (HIR, MIR, LIR; [architecture.md](architecture.md)), each with a text
   format that can be parsed back and a verifier, and interpreters for HIR and MIR in the tests.
+  MIR first (2026-11-17): lowering with SSA, text format, verifier and interpreter are built; the
+  whole game runs on the MIR level with the PC's checksums. Still to do for MIR: parsing the text
+  format back (needed for pass tests), and the code generator from MIR.
   The optimizing pipeline is built next to the naive code generator, which keeps working on the
   AST: an independent reference catches more bugs than one that shares code with what it checks.
 - **The Java 65816 CPU emulator** with master-cycle counting and the exact memory speeds
