@@ -70,7 +70,7 @@ expect:
 - **Speed.** The fine tuning of M4 (more optimizations, page-aligned arrays with 8-bit index
   registers, profile-guided optimization from the replays) has not started, so the generated
   code is not yet as fast as the goal of 60 % of a [frame](/glossary#frame) per
-  [tick](/glossary#tick): during play, Blubber Blasen takes 1.38 frames per tick with dampf.
+  [tick](/glossary#tick): during play, Blubber Blasen takes 1.34 frames per tick with dampf.
 
 ## Never planned
 

@@ -8,10 +8,10 @@ it may use at most 60 % of an NTSC [frame](/glossary#frame), about 0.6 frames pe
 vertical blank and a safety margin come off that. The game's benchmark runs the same game code
 with a fixed input for 1,800 ticks and measures every tick in Mesen.
 
-During play, the code dampf now generates takes 1.38 frames per tick (worst tick 2.39). dampf's
+During play, the code dampf now generates takes 1.34 frames per tick (worst tick 2.33). dampf's
 own [naive code generator](/glossary#naive-code-generator) takes 5.17 frames per tick for the
 same code, and [Calypsi](/glossary#calypsi) took 2.72, measured on an older version of the game.
-dampf is past Calypsi and about 3.7 times as fast as its naive code, but still about 2.3 times
+dampf is past Calypsi and about 3.9 times as fast as its naive code, but still about 2.2 times
 away from the budget. This page explains, pass by pass, where that speed comes from.
 
 ## Why the 65816 needs a different optimizer
@@ -71,7 +71,7 @@ catalogue. The letters map to this page as follows:
 | K | Peephole | in the code generator: `STZ`, `INC`/`DEC`, and a few more |
 | L | `switch` as jump table | not built |
 | M | Copy and fill with `MVN`/`MVP` or DMA | not built |
-| N | Values in X/Y | loop counters in X |
+| N | Values in X/Y | loop counters in X, a second index in Y |
 
 The optimizations not started yet are on the [Roadmap](/inside/roadmap).
 
@@ -509,14 +509,32 @@ each of these is:
   place A equals (after `LDA x` and `STA y`, both), and leaves out a load of the same thing. A
   write to a place drops it and its byte neighbours. Remembering every place instead of one
   took play from 1.50 to 1.49.
+- **What A, X and Y hold where a block starts.** Counted over the whole benchmark, 41 % of the
+  `LDX dp` loaded the value X held already, and 28 % of the `LDA dp` the value A held (counted
+  by value, so some are coincidences). A block starts with what every way into it brings: the
+  branches and jumps to it, and the code that falls through. The passes that find the short
+  branches (below) learn this, each pass assuming what the pass before found. The code that is
+  kept must be consistent, every assumption holding on every way in, and every short branch
+  must still reach; otherwise the function is written again without assumptions, as 8 of the
+  game's functions are. Play 1.36 to 1.34.
 - **φs written directly.** The predecessors of a block write its φs into their places, without a
   copy through a second place, where liveness shows that this is safe; also before a branch.
+  On a loop's exit edge that would write them in every round for an edge taken once, so just
+  before code generation such an edge gets a block of its own (`ExitEdges`), where they are
+  written once, at the cost of one jump when the loop ends.
+- **Arguments in place.** An argument whose only use is the call, later in its block with no
+  other call on the way, is computed straight into the callee's parameter place instead of its
+  own place and then copied. This is safe because frames on a call path never overlap. Together
+  with the exit edges, play went from 1.38 to 1.37.
 - **Compare and branch.** A comparison that only its block's branch uses sets the flags and
   branches on them, without a truth value. A comparison with 0 needs no `CMP`, and a 16-bit test
   for `< 0` or `>= 0` is the sign flag of the load (`bmi`/`bpl`). Play 5.17 to 4.48.
 - **X for indices.** A load or store at a global plus a 16-bit index that the value ranges show
   to be non-negative is `ldx` and `lda symbol+constant,x`: no pointer is computed. A negative
-  index would carry into the bank, because X adds as an unsigned number.
+  index would carry into the bank, because X adds as an unsigned number. Where X holds another
+  index, as for the two bubbles of a pair, the access uses Y instead, for the instructions
+  that have an absolute,Y form (`LDA`, `STA` and the arithmetic, not `INC`, `STZ` or the
+  direct page). Play 1.37 to 1.36.
 - **Loop counters in X.** A φ of a loop head can live in X for the whole loop when it is only
   compared with constants, indexes the loop's array accesses and is stepped by a constant
   (`INX`, `DEX`, or `TXA`/`ADC`/`TAX`). Loops with calls, the runtime's multiplication or
@@ -545,11 +563,12 @@ each of these is:
   make the code slower, never wrong; without counts nothing changes. Play 1.38 to 1.37 with
   counts from the measured ticks, and nearly as much with counts from other ticks.
 - **Short branches and `BRA`.** A conditional branch to a block that is not the next one either
-  reaches it or skips a `JMP` to it. Each function is generated up to six times: each pass
+  reaches it or skips a `JMP` to it. Each function is generated several times: each pass
   measures the distances, and in the next a branch within reach goes straight to its block. A
   pass is never longer than the one before, so a branch that reached keeps reaching, and the
-  passes stop when no further branch reaches. A jump that reaches its block is `BRA`, as fast as
-  `JMP` and one byte shorter, so more branches reach. Play 1.48 to 1.47.
+  passes stop when no further branch reaches; the code that is kept is checked once more. A
+  jump that reaches its block is `BRA`, as fast as `JMP` and one byte shorter, so more branches
+  reach. Play 1.48 to 1.47.
 - **`INC` and `DEC`.** A step `x + 1` or `x - 1` whose result goes back to the place of `x`,
   such as a loop counter, is `INC` or `DEC` on the place: 7 cycles instead of 13 for `CLC`,
   `LDA`, `ADC`, `STA`. It needs `x` really stored there, not only handed on in A. Play 1.47
@@ -660,14 +679,17 @@ budget is hardest to meet; the worst tick is in parentheses where the source giv
 | `INC` and `DEC` for steps | 1.43 | |
 | `STZ` for zeros | 1.41 | |
 | a bit chosen by a bit (`BitSelect`) | 1.39 | |
-| 8-bit `INC` and `DEC` for clean steps | 1.38 (2.39) | 2.07 (4.23) |
+| 8-bit `INC` and `DEC` for clean steps | 1.38 | |
+| arguments in place, a block for each loop exit | 1.37 | |
+| a second index in Y | 1.36 | |
+| what A, X and Y hold where a block starts | 1.34 (2.33) | 2.02 (4.15) |
 
 The steps are cumulative: each row includes everything above it. Loop rotation is not in the
 table; it brought about 0.5 %, measured on the benchmark's bare loop (801 to 783 clocks per
 pass). Neither is the block layout by a profile: all figures are measured without block counts,
-and with them play takes 1.37. The early steps brought the most, because they removed whole
-classes of waste: 32-bit arithmetic, the runtime multiplication, RAM accesses outside the
-direct page. The later ones each take a few percent.
+and with them play took 1.37 where it took 1.38 without. The early steps brought the most,
+because they removed whole classes of waste: 32-bit arithmetic, the runtime multiplication, RAM
+accesses outside the direct page. The later ones each take a few percent.
 
 Where the time went at 1.50 frames per tick, the last time the sources broke it down by
 instruction: in the measured play ticks, `sta dp` took 18.8 % of the cycles in the game code,

@@ -126,9 +126,10 @@ public final class MirCodeGen {
         }
         layout();
         for (MFunction f : module.functions()) {
-            // several passes: each finds out which branches reach their block directly. Every
-            // pass is at most as long as the one before everywhere (branches only get shorter),
-            // so a distance that fitted still fits, and the passes stop when nothing new does.
+            // several passes: each finds out which branches reach their block directly, and
+            // later passes use the short form where an earlier one found it reaches. Branches
+            // only get shorter, but what the passes learn about the registers can make other code
+            // longer (CMP #0 instead of LDA dp), so the code that is kept is checked once more.
             // The passes also learn what A, X and Y hold where each block starts (entryIn: what
             // every way into it brings, from the pass before). The code that is kept must be
             // consistent: every assumption it made holds on every way in, and every short branch
@@ -213,9 +214,9 @@ public final class MirCodeGen {
     }
 
     /**
-     * Conditional branches: per jumpOn call of a function, where the branch was in the first pass
-     * and its targets; in the second pass, which targets a short branch reaches. The second pass
-     * only gets shorter, so a distance that fitted in the first still fits.
+     * Branch sites: per jumpOn and jumpTo of a function, where the branch was in this pass and its
+     * targets; from the passes before, which targets a short branch reaches (near). The passes
+     * stop when nothing new reaches; the code kept is checked with AsmWriter.branchesReach.
      */
     private static final int BRANCH_PASSES = 6;
 

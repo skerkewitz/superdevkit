@@ -638,7 +638,7 @@ the catalogue come first. Compared with Calypsi, dampf promises nothing until it
 | C | Inlining and calling convention | Inline small functions, pass parameters in A/X/Y or the direct page, `JMP` instead of `JSR`+`RTS` for tail calls | High with many small helpers | call graph | | open |
 | D | Data layout | Split arrays of structs into one array per field (index in X/Y), or point D at the current object | High in the loops over bubbles and enemies | | | open |
 | E | 8.8 fixed point | `>>8`, `<<8` and comparisons of the integer part as byte accesses instead of shifts | Medium to high; the game uses 8.8 everywhere | B | play 1.49 → 1.48 frames per tick | in progress: a load shifted right by 8 or more is a byte load (`ByteLoads`); `<<8` open |
-| F | Loops | Counter in X/Y, count down to zero, hoist invariant code, unroll small loops (by hint) | Medium | H | | open |
+| F | Loops | Counter in X/Y, count down to zero, hoist invariant code, unroll small loops (by hint) | Medium | H | play 1.61 → 1.57 (induction variables), 1.54 → 1.53 (counters in X) | in progress: loop counters in X, induction variables, `INC`/`DEC` steps; counting down, hoisting and unrolling open |
 | G | Branches | Branch on flags instead of materialising 0/1, common path falls through, correct branch distances | Medium | | play 1.48 → 1.47 frames per tick; 1.38 → 1.37 with a profile | in progress: compare and branch in one, short branches wherever they reach, `BRA` for near jumps, the layout of rare blocks by a profile (`--block-counts`), bit selections without a branch |
 | H | Standard optimizations | Constant folding and propagation, dead code removal, common subexpressions | Medium; mostly a prerequisite for A–G | IR in SSA form | play 6.12 → 5.17 frames per tick (code from MIR) | built: folding, identities, branch folding, block merging, value numbering, redundant loads, dead code; loop-invariant code open |
 | I | Multiply and divide | Constants as shifts and adds, hardware multiplier with useful work during its latency, division by powers of two with correct signed rounding | Medium, depends on the code; **measured: 37 % of the naive code's time is the runtime multiplication, mostly struct array indexing by a constant size** | range analysis for signed division | play 8.16 → 6.12 frames per tick (code from MIR) | constants built (shifts and adds, powers of two); hardware multiplier open |
@@ -646,7 +646,7 @@ the catalogue come first. Compared with Calypsi, dampf promises nothing until it
 | K | Peephole | Remove redundant loads and stores, `STZ`, `INC`/`DEC` on memory | Small, but everywhere | | play 1.47 → 1.41 frames per tick (`INC`/`DEC`, `STZ`) | in progress: A remembers every place it equals, `INC`/`DEC` for steps in place, `STZ` |
 | L | `switch` as jump table | `JMP (abs,X)` | Small overall, large locally | | | open |
 | M | Copy and fill | `MVN`/`MVP` or DMA instead of loops | Large locally | | | open |
-| N | Values in X/Y | Keep values in the index registers within a block | Small to medium | | | open |
+| N | Values in X/Y | Keep values in the index registers within a block | Small to medium | | play 1.37 → 1.34 frames per tick | in progress: loop counters in X, a second index in Y, what A, X and Y hold known across blocks |
 
 **Overall expectation:** roughly a factor of 3–6 over dampf's own naive code generator.
 
