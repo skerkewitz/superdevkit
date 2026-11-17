@@ -568,6 +568,7 @@ public final class Lower {
                 Value d = emit(new Instr.Bin(Instr.BinOp.SUB, l, r, pos));
                 yield p.scale() == 1 ? d : emit(new Instr.Bin(Instr.BinOp.SDIV, d, new Value.Const(MType.I32, p.scale()), pos));
             }
+            case Expr.PointerToInt c -> emit(new Instr.Cast(Instr.CastKind.PTRTOINT, value(c.operand()), MType.I32, pos));
             case Expr.PointerCast c -> {
                 Value x = value(c.operand());
                 if (x.type() == MType.PTR) {

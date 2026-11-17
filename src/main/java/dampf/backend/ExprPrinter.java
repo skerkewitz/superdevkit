@@ -25,6 +25,7 @@ final class ExprPrinter {
             case Expr.PointerAdd p -> operand(p.pointer()) + (p.subtract() ? " - " : " + ") + operand(p.offset());
             case Expr.PointerDiff p -> operand(p.left()) + " - " + operand(p.right());
             case Expr.PointerCast c -> print(c.operand());
+            case Expr.PointerToInt c -> "(uint32_t)" + print(c.operand());
             case Expr.LogicalNot n -> "!" + operand(n.operand());
             case Expr.Logical l -> operand(l.left()) + (l.and() ? " && " : " || ") + operand(l.right());
             case Expr.Conditional c -> operand(c.cond()) + " ? " + operand(c.then()) + " : " + operand(c.otherwise());

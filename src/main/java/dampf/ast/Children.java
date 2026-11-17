@@ -20,6 +20,7 @@ public final class Children {
             case Expr.PointerAdd p -> List.of(p.pointer(), p.offset());
             case Expr.PointerDiff p -> List.of(p.left(), p.right());
             case Expr.PointerCast p -> List.of(p.operand());
+            case Expr.PointerToInt p -> List.of(p.operand());
             case Expr.Binary b -> List.of(b.left(), b.right());
             case Expr.Unary u -> List.of(u.operand());
             case Expr.LogicalNot n -> List.of(n.operand());

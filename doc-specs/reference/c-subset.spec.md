@@ -5,6 +5,7 @@ sources:
   - src/main/resources/dampf/include/stdint.h
   - src/main/resources/dampf/include/dampf.h
   - src/main/java/dampf/frontend/AstBuilder.java
+  - src/test/resources/exec/pointer_to_int.c
   - src/main/java/dampf/check/CallGraph.java
   - src/test/java/dampf/frontend/*.java
 audience: Users who need to know whether a construct is accepted, and what it means
@@ -31,9 +32,14 @@ compiled silently. Link [Writing C for dampf](/guide/writing-c) for the introduc
 6. **Statements** – what is accepted and what is not (`goto`, labels, VLAs).
 7. **Expressions** – compound literals and designated initializers not accepted; struct
    assignment accepted.
-8. **Preprocessor** – what `gcc -E` is called with, the predefined `__DAMPF__`.
-9. **Whole program** – one program from all files, `static` names local to their file.
-10. **Open decisions** – the decisions of `docs/subset.md` that are not settled, each with what
+8. **Hardware access** – for platform code, not game code: pointers to `volatile` memory (one
+   access each, in order, exact width; a `volatile` variable itself is rejected), and the cast
+   from a pointer to an integer (the SNES address `bank << 16 | address`; on the PC another
+   number, so only distances within one object agree). One short example writing a PPU
+   register; point to `platform/snes` as the code that uses both.
+9. **Preprocessor** – what `gcc -E` is called with, the predefined `__DAMPF__`.
+10. **Whole program** – one program from all files, `static` names local to their file.
+11. **Open decisions** – the decisions of `docs/subset.md` that are not settled, each with what
     dampf does today.
 
 ## Pay attention to

@@ -87,9 +87,8 @@ API in `src/snes/snes.h`: `bgInitTileSet`, `bgSetDisable`, `bgSetGfxPtr`, `bgSet
 `bgSetScroll`, `dmaCopyCGram`, `dmaCopyVram`, `oamInit`, `oamInitGfxAttr`, `setBrightness`,
 `setColorEffect`, `setColorIntensity`, `setMode`, `setPaletteColor`, `setScreenOff`,
 `snesDmaFits`, `snesHdmaEnable`, `snesHdmaSet`, `snesRegWrite`. On the PC these are the pseudo
-SNES; for dampf they become a small runtime library or intrinsics (see *Intrinsics* below). How
-the platform API maps onto them is an open question ([roadmap.md](roadmap.md)); this is the list it
-has to cover.
+SNES; for dampf they are a platform layer in C (`platform/snes/snes.c`, built 2026-11-17), which
+reaches the hardware through volatile pointers (*Hardware access* below) and needs no intrinsics.
 
 The platform calls into the game through `game_init`, `game_tick`, `game_vblank` and the getters
 in `game.h`. These are the roots of the call graph.
@@ -129,6 +128,15 @@ arrays (`goto` is decision 4 below).
 a copy of known size, a candidate for `MVN`), although the release build does not use it today.
 Designated initializers are not used and stay out for now; they are easy to add if the game
 wants them.
+
+**Hardware access.** For platform code, not game code. A pointer to `volatile` memory reads and
+writes I/O registers one access at a time, in order, with exactly the width of its type:
+`*(volatile uint8_t *)0x2100 = 0x80` writes `INIDISP` in bank 0 (a variable declared `volatile`
+itself is rejected). A cast from a pointer to an integer gives the SNES address of the pointer,
+`bank << 16 | address`, which a DMA channel needs as its source; a cast to a narrower type
+truncates that number. On the PC the number is something else, so only distances within one
+object agree between both sides (`exec/pointer_to_int.c`). The SNES platform layer in
+`platform/snes` is written this way.
 
 **Preprocessor.** Anything `gcc -E` accepts. dampf preprocesses with `-nostdinc -undef
 -D__DAMPF__=1` and its own `include/`, so host headers and host macros never reach the code.

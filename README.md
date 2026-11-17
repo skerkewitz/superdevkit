@@ -19,8 +19,10 @@ programs, the game's replays, and the game's own benchmark, where every one of i
 gives the PC's checksums. During play the game takes 1.31 frames per tick with dampf (the naive
 code: 5.17; Calypsi took 2.72 on an older version of the game), numbers in
 [docs/optimizations.md](docs/optimizations.md). dampf also computes a best and a worst case in CPU
-cycles for every function (`<rom>.timing.txt`, [docs/timing.md](docs/timing.md)). Not done yet:
-the SNES platform layer for a playable ROM, and most of the hints (`DAMPF_RANGE` and
+cycles for every function (`<rom>.timing.txt`, [docs/timing.md](docs/timing.md)). dampf builds a
+playable ROM of the game: the SNES platform layer in [platform/snes](platform/snes/README.md)
+implements the game's console API in C. On the console the game runs at 2.28 frames per tick for
+now (sound and save RAM are not built). Not done yet: most of the hints (`DAMPF_RANGE` and
 `DAMPF_BUDGET` from `<dampf.h>` are built; a function over its cycle budget fails the build). The plan is in [docs/roadmap.md](docs/roadmap.md).
 
 ## Why
@@ -118,6 +120,8 @@ INSTRUCTIONS=1 tools/profile_game.sh bench                   # the same, and cyc
 BLOCKS=build/profile/bench.blocks.txt tools/bench_game.sh    # the benchmark with the blocks laid out by that profile
 BACKEND=naive tools/bench_game.sh                            # the same with the naive code generator (the reference)
 tools/game_mir.sh -O                                         # the game's MIR after the passes
+tools/build_game_rom.sh                                      # the playable ROM: build/game/blubberblasen.sfc
+tools/check_game_rom.sh                                      # play it in Mesen for a minute: lost bytes, frames per tick, screenshots
 ./gradlew installDist                                        # build/install/dampf/bin/dampf
 ```
 

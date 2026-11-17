@@ -1551,7 +1551,10 @@ public final class AstBuilder {
             throw error(c, "cannot cast to " + t);
         }
         if (operand.type() instanceof Type.Pointer) {
-            throw unsupported(c, "casts from pointers to integers");
+            // the SNES address (bank << 16 | address); the PC gives another number, so only
+            // platform code that talks to the hardware (DMA source addresses) relies on it
+            Expr a = new Expr.PointerToInt(operand, p);
+            return it.equals(Type.U32) ? a : new Expr.Convert(a, it, true, p);
         }
         intType(operand, p);
         if (operand instanceof Expr.Const k) {

@@ -143,6 +143,17 @@ public sealed interface Expr {
     /** A conversion to a pointer type, from a pointer or from an integer; the bits stay the same. */
     record PointerCast(Expr operand, Type.Pointer type, SourcePos pos) implements Expr {}
 
+    /**
+     * A pointer as a 32-bit integer: its SNES address, {@code bank << 16 | address} (the pointer's
+     * bits; docs/memory-map.md). A cast to another integer type converts this value further.
+     */
+    record PointerToInt(Expr operand, SourcePos pos) implements Expr {
+        @Override
+        public Type type() {
+            return Type.U32;
+        }
+    }
+
     /** True for expressions that designate an object (can be assigned to, or have their address taken). */
     static boolean isLvalue(Expr e) {
         return e instanceof Var || e instanceof Index || e instanceof Member || e instanceof Deref;
