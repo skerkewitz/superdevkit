@@ -8,10 +8,10 @@ it may use at most 60 % of an NTSC [frame](/glossary#frame), about 0.6 frames pe
 vertical blank and a safety margin come off that. The game's benchmark runs the same game code
 with a fixed input for 1,800 ticks and measures every tick in Mesen.
 
-During play, the code dampf now generates takes 1.41 frames per tick (worst tick 2.43). dampf's
+During play, the code dampf now generates takes 1.38 frames per tick (worst tick 2.39). dampf's
 own [naive code generator](/glossary#naive-code-generator) takes 5.17 frames per tick for the
 same code, and [Calypsi](/glossary#calypsi) took 2.72, measured on an older version of the game.
-dampf is past Calypsi and about 3.7 times as fast as its naive code, but still about 2.4 times
+dampf is past Calypsi and about 3.7 times as fast as its naive code, but still about 2.3 times
 away from the budget. This page explains, pass by pass, where that speed comes from.
 
 ## Why the 65816 needs a different optimizer
@@ -64,7 +64,7 @@ catalogue. The letters map to this page as follows:
 | D | Data layout (one array per field) | not built |
 | E | 8.8 fixed point as byte accesses | `ByteLoads`; `<<8` not built |
 | F | Loops | `Induction`, loop counters in X; the rest not built |
-| G | Branches | compare and branch, block layout, short branches, `BRA` |
+| G | Branches | compare and branch, `BitSelect`, block layout (also by a profile), short branches, `BRA` |
 | H | Standard optimizations | `Simplify`, `Gvn`, `DeadCode`; loop-invariant code not built |
 | I | Multiply and divide | `StrengthReduce`, multiplication in A; hardware multiplier not built |
 | J | Banks and placement | not built |
@@ -93,6 +93,52 @@ code generator then compares with an immediate operand directly. In the example 
 Together with `Gvn` and an extension of `Narrow` through φs, it took play from 6.12 to 5.17
 frames per tick. The canonical comparisons, together with a change in the code generator, took
 it from 1.93 to 1.76, and jump threading over constant φs from 1.74 to 1.67.
+
+### BitSelect
+
+Game code builds bytes of flags bit by bit: Blubber Blasen's sprite code writes
+`((attr & SPR_ATTR_FLIP_Y) ? 0x80u : 0u) | ...` for the attribute byte of a sprite. Each such
+choice is a branch and a φ of two constants. When the test is a single bit (`x & M`, with `M` a
+power of two) and the φ chooses between one bit `K` and 0, the φ is the masked bit itself,
+shifted from the place of `M` to the place of `K`. `(x & M) ? 0 : K` is the same with the bit
+inverted. The branch then has nothing left to decide, and `Simplify` removes it.
+
+```c
+#include <stdint.h>
+
+#define FLIP_Y 0x04
+
+uint8_t attr_flip_y(uint8_t attr) {
+    return (attr & FLIP_Y) ? 0x80u : 0u;
+}
+```
+
+Before the passes, a branch and a φ:
+
+```
+b0_entry:
+    %0 = zext i8 %attr to i32                   ; flip.c:6
+    %1 = and i32 %0, 4                          ; flip.c:6
+    %2 = cmp ne i32 %1, 0                       ; flip.c:6
+    br %2, b1_then, b2_else                     ; flip.c:6
+b1_then:                    ; from b0_entry
+    jump b3_cond                                ; flip.c:6
+b2_else:                    ; from b0_entry
+    jump b3_cond                                ; flip.c:6
+b3_cond:                    ; from b1_then, b2_else
+    %3 = phi i32 [b1_then, 128], [b2_else, 0]   ; flip.c:6
+```
+
+After them, a mask and a shift:
+
+```
+b0_entry:
+    %0 = and i8 %attr, 4                        ; flip.c:6
+    %1 = shl i8 %0, 5                           ; flip.c:6
+    ret i8 %1                                   ; flip.c:6
+```
+
+Play went from 1.41 to 1.39 frames per tick.
 
 ### ByteLoads
 
@@ -492,7 +538,12 @@ each of these is:
 - **Block layout.** Blocks are written in chains, each followed by a successor not yet written,
   so most branches skip one jump instead of choosing between two. A small loop head is placed
   after the block that jumps back to it, so a round costs one branch instead of a jump and a
-  branch.
+  branch. With block counts from a profile
+  ([`--block-counts`](/reference/command-line#block-counts)), the successor that ran more often
+  follows, and blocks that never ran go to the end of the function, so the code that runs stays
+  together and its branches reach. Only the order follows the counts, so counts of other code
+  make the code slower, never wrong; without counts nothing changes. Play 1.38 to 1.37 with
+  counts from the measured ticks, and nearly as much with counts from other ticks.
 - **Short branches and `BRA`.** A conditional branch to a block that is not the next one either
   reaches it or skips a `JMP` to it. Each function is generated up to six times: each pass
   measures the distances, and in the next a branch within reach goes straight to its block. A
@@ -502,7 +553,11 @@ each of these is:
 - **`INC` and `DEC`.** A step `x + 1` or `x - 1` whose result goes back to the place of `x`,
   such as a loop counter, is `INC` or `DEC` on the place: 7 cycles instead of 13 for `CLC`,
   `LDA`, `ADC`, `STA`. It needs `x` really stored there, not only handed on in A. Play 1.47
-  to 1.43.
+  to 1.43. An 8-bit step whose result must have a clean high byte, such as a counter a
+  comparison reads, would still need an `and #$00FF`. If the old value is clean too (a
+  parameter, or a φ of clean values), dampf writes `sep #$20`, an 8-bit `inc` or `dec` and
+  `rep #$20` instead, which keeps the high byte 0: 11 cycles instead of 16. Play 1.39 to
+  1.38.
 - **`STZ`.** A zero stored to a fixed address (direct page, absolute or indexed with X, not
   long or through a pointer) is `STZ` instead of `LDA #0` and `STA`, and so is a zero a φ gets,
   unless A holds 0 already. In the [PointerOffsets](#pointeroffsets) example, `o[0] = 0` is
@@ -603,20 +658,24 @@ budget is hardest to meet; the worst tick is in parentheses where the source giv
 | byte loads for 8.8 values | 1.48 | |
 | short branches wherever they reach, `BRA` | 1.47 | |
 | `INC` and `DEC` for steps | 1.43 | |
-| `STZ` for zeros | 1.41 (2.43) | 2.09 (4.25) |
+| `STZ` for zeros | 1.41 | |
+| a bit chosen by a bit (`BitSelect`) | 1.39 | |
+| 8-bit `INC` and `DEC` for clean steps | 1.38 (2.39) | 2.07 (4.23) |
 
 The steps are cumulative: each row includes everything above it. Loop rotation is not in the
 table; it brought about 0.5 %, measured on the benchmark's bare loop (801 to 783 clocks per
-pass). The early steps brought the most, because they removed whole classes of waste: 32-bit
-arithmetic, the runtime multiplication, RAM accesses outside the direct page. The later ones
-each take a few percent.
+pass). Neither is the block layout by a profile: all figures are measured without block counts,
+and with them play takes 1.37. The early steps brought the most, because they removed whole
+classes of waste: 32-bit arithmetic, the runtime multiplication, RAM accesses outside the
+direct page. The later ones each take a few percent.
 
 Where the time went at 1.50 frames per tick, the last time the sources broke it down by
 instruction: in the measured play ticks, `sta dp` took 18.8 % of the cycles in the game code,
 `lda dp` 16.5 %, `cmp #imm` 7.4 %, `lda abs,x` 7.2 % and `jmp abs` 5.6 %. Values going to and
 from the direct page are still a third of the time. Most `JMP`s left are where a branch cannot
 reach its target because a large loop body lies between them; placing the rarely run blocks at
-the end of the function needs to know which are rare. The full account of every step is in
+the end of the function needs to know which are rare, which block counts from a profile tell
+(see *Block layout* above). The full account of every step is in
 `docs/optimizations.md`.
 
 ## How far it can go

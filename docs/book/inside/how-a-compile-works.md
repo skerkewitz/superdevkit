@@ -117,13 +117,14 @@ Then `Optimizer` runs the [passes](/glossary#pass). On each function it repeats,
 changes:
 
 1. simplification (`Simplify`),
-2. byte loads (`ByteLoads`),
-3. width narrowing (`Narrow`), and narrowing with value ranges (`RangeNarrow`),
-4. induction variables (`Induction`),
-5. pointer compression (`PointerOffsets`),
-6. multiplication and division by constants (`StrengthReduce`),
-7. common subexpressions and redundant loads (`Gvn`),
-8. dead code removal (`DeadCode`).
+2. a bit chosen by a bit without a branch (`BitSelect`),
+3. byte loads (`ByteLoads`),
+4. width narrowing (`Narrow`), and narrowing with value ranges (`RangeNarrow`),
+5. induction variables (`Induction`),
+6. pointer compression (`PointerOffsets`),
+7. multiplication and division by constants (`StrengthReduce`),
+8. common subexpressions and redundant loads (`Gvn`),
+9. dead code removal (`DeadCode`).
 
 After that round, `ParamRanges` narrows the ranges of parameters across the whole program, and
 if it did, the round runs again. Then small functions are inlined (`Inline`), pointer

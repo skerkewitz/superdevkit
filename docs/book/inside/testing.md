@@ -54,7 +54,10 @@ The ROM of the code generator from MIR also checks dampf's static timing. dampf 
 and a worst case in CPU cycles for every function, and in the emulator `test_main` as a whole,
 and every call of every function and runtime routine on the way, must take between the two
 (`Timing.check`). A call is measured from its first instruction to the instruction after the
-`JSL` that called it.
+`JSL` that called it. A third ROM from MIR lays the blocks out by arbitrary block counts (a
+third of the blocks "never ran", as [`--block-counts`](/reference/command-line#block-counts)
+would take them from a profile); it must give the same globals and keep the timing too, since
+a profile may change only the order of the blocks.
 
 **Random programs** come from a generator, `RandomProgram`, that writes programs within the
 [subset](/glossary#subset): ten global variables of the six integer types from `int8_t` to

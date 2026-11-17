@@ -171,20 +171,20 @@ build/install/dampf/bin/dampf profile build/profile/bench.sfc \
 The report starts like this (cut after twelve rows):
 
 ```
-14,019,260 instructions, 49,634,475 CPU cycles (measured stretch: 8,625,552,964 master clocks, 24136.5 frames)
-left out (bench.c): 95.5% of all CPU cycles
+13,763,091 instructions, 48,754,882 CPU cycles (measured stretch: 8,618,199,382 master clocks, 24115.9 frames)
+left out (bench.c): 95.6% of all CPU cycles
   share      calls  instructions      CPU cycles   cyc/call  function
-  16.5%        680     2,367,304       8,190,812     12,045  separate
-  13.1%        800     1,845,637       6,513,836      8,142  build_sprites
-   7.8%        680     1,084,816       3,863,100      5,681  bubbles_update
-   6.3%        800       840,939       3,112,274      3,890  bubbles_draw
+  16.8%        680     2,367,304       8,190,812     12,045  separate
+  11.6%        800     1,594,555       5,662,956      7,078  build_sprites
+   7.9%        680     1,084,816       3,863,100      5,681  bubbles_update
+   6.4%        800       840,939       3,112,274      3,890  bubbles_draw
    5.0%      1,600       653,216       2,457,312      1,535  player_update
    4.9%     12,008       730,037       2,408,706        200  ground_px
-   4.2%        680       592,389       2,105,064      3,095  items_update
-   4.2%        800       576,197       2,079,998      2,599  update_play
+   4.3%        680       592,389       2,105,064      3,095  items_update
+   4.3%        800       576,197       2,079,998      2,599  update_play
    3.6%        800       494,829       1,775,069      2,218  enemies_draw
-   3.5%        800       511,111       1,744,477      2,180  items_draw
-   2.7%      1,501       366,039       1,348,469        898  think_walker
+   3.6%        800       511,111       1,744,477      2,180  items_draw
+   2.8%      1,501       366,039       1,348,469        898  think_walker
    2.6%      2,892       400,596       1,281,264        443  level_wall_ahead
 ```
 
@@ -209,16 +209,28 @@ functions that are not left out (cut after six rows):
 
 ```
   share      executed      CPU cycles  instruction
-  15.7%     1,948,670       7,793,978  sta dp
-  15.5%     1,923,627       7,694,508  lda dp
-   7.9%     1,311,144       3,933,432  cmp #imm
-   7.6%       631,966       3,791,796  lda abs,x
-   5.0%       624,343       2,497,372  ldx dp
-   4.8%       792,631       2,377,893  and #imm
+  15.5%     1,892,217       7,568,166  sta dp
+  15.4%     1,878,581       7,514,324  lda dp
+   8.1%     1,311,144       3,933,432  cmp #imm
+   7.5%       610,758       3,664,548  lda abs,x
+   4.9%       592,531       2,370,124  ldx dp
+   4.7%       759,786       2,279,358  and #imm
 ```
 
 Here almost a third of the time goes to loading and storing variables in the
 [direct page](/glossary#direct-page).
+
+The profile also says how often each block of the generated code ran. The script writes that to
+`build/profile/bench.blocks.txt` (`dampf profile --blocks`), and a build with it lays the code
+out so that what runs often stays together
+([`--block-counts`](/reference/command-line#block-counts)):
+
+```sh
+BLOCKS=build/profile/bench.blocks.txt tools/bench_game.sh
+```
+
+Only the order of the blocks changes, so the program gives the same results with or without
+it.
 
 ## Replacing a function with assembly
 

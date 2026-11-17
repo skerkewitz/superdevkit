@@ -18,7 +18,7 @@ also describes plans. What is not built yet, listed for users, is on
 | M2 | Naive but complete: all of Blubber Blasen compiles, matches the PC, and is measured | Done |
 | Checkpoint | Decide whether the plan reaches the budget | Decided: compiler and game in parallel |
 | M3 | The big levers: the optimizer on [MIR](/glossary#mir), timing report, inferred value ranges, pointer compression; faster than [Calypsi](/glossary#calypsi) | In progress |
-| M4 | Fine tuning until the frame budget is met | Not started |
+| M4 | Fine tuning until the frame budget is met | Started early: the block layout by a profile |
 | M5 | Publishing: own examples instead of Blubber Blasen, an own preprocessor, a hosted repository | Not started |
 | M6 | Standing alone: an own assembler and linker, so that using dampf needs nothing but Java | Not started; the very last step |
 
@@ -40,7 +40,7 @@ division, the standard optimizations, compare and branch in one,
 loops and call sites, values in the [direct page](/glossary#direct-page) instead of RAM,
 register allocation in the form the 65816 allows, induction variables, and
 [pointer compression](/glossary#pointer-compression) for pointers into a single object. With
-them, play of Blubber Blasen takes 1.41 frames per tick, against 5.17 with the naive code.
+them, play of Blubber Blasen takes 1.38 frames per tick, against 5.17 with the naive code.
 The static timing analysis is built as well: a best and a worst case in CPU cycles for every
 function, written to `<rom>.timing.txt` and checked against the emulator on every call. Of the
 game's functions, 38 still have no bound, and the report names the loop or call that makes each
@@ -54,7 +54,8 @@ bounds.
 
 **M4, next.** M4 is fine tuning until the frame budget is met: the remaining optimizations of
 the catalogue, arrays aligned to a page so that 8-bit index registers reach them,
-optimization guided by the profiles of the replays, superoptimization of short hot sequences,
+optimization guided by the profiles of the replays (the first part, laying out the blocks by
+a profile's counts, is built), superoptimization of short hot sequences,
 and the hints that transform code, such as `DAMPF_TABLE` and `DAMPF_PIN_X`.
 
 ## The checkpoint after M2

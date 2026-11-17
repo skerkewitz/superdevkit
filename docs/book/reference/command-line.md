@@ -6,9 +6,9 @@ exits with status 2:
 
 ```
 usage: dampf parse [-I dir] [-D name[=value]] file.c ...
-       dampf build [-I dir] [-D name[=value]] [--entry name] [--backend mir|naive] [--replace fn=file.s] -o out.sfc file.c ...
+       dampf build [-I dir] [-D name[=value]] [--entry name] [--backend mir|naive] [--replace fn=file.s] [--block-counts file] -o out.sfc file.c ...
        dampf check [-I dir] [-D name[=value]] file.c ...
-       dampf profile rom.sfc profile.txt [top]
+       dampf profile rom.sfc profile.txt [top] [--skip file.c ...] [--instructions] [--blocks file]
 ```
 
 Two more commands, `mir` and `bench`, are not in this list; they are described below. After
@@ -105,6 +105,17 @@ build stops with this message, at the position of the entry function:
 ```
 add.c:5:6: error: --replace works with the naive code generator only
 ```
+
+### --block-counts {#block-counts}
+
+Use `--block-counts file` to lay the code out by a profile: the file says how often each block
+of the generated code ran, as [`profile --blocks`](#profile) writes it, one line per block with
+the function, the block and the count. Where a block ends in a branch, the side that ran more
+often follows it, and blocks that never ran go to the end of their function, so the code that
+runs stays together and its branches are short. Only the order of the blocks changes: counts
+from an older build or from other code make the program slower at most, never wrong. Without
+the option the order does not depend on any profile. Only the
+[code generator from MIR](/glossary#code-generator-from-mir) uses it.
 
 ### -o {#output}
 
@@ -223,7 +234,7 @@ Use `profile` to see how many CPU cycles each function of a ROM took while it ra
 arguments:
 
 ```
-usage: dampf profile <rom.sfc> <profile.txt> [top N] [--skip file.c ...] [--instructions]
+usage: dampf profile <rom.sfc> <profile.txt> [top N] [--skip file.c ...] [--instructions] [--blocks file]
 ```
 
 - **`rom.sfc`** is a ROM built by dampf. The label file (`.lbl`) and the assembly (`.s`) that
@@ -243,6 +254,8 @@ usage: dampf profile <rom.sfc> <profile.txt> [top N] [--skip file.c ...] [--inst
 - **`--instructions`** adds a second table: the CPU cycles per instruction and addressing mode,
   such as `lda dp` or `sbc long,x`, with how often each ran, the most expensive first. It shows
   which kinds of instruction the time goes to, and leaves out the files given with `--skip`.
+- **`--blocks file`** also writes how often each block of the generated code ran, for
+  [`build --block-counts`](#block-counts). dampf takes the blocks from the label file.
 
 dampf knows what each instruction costs and multiplies it by the count. Calls are counted at the
 callers: every `JSL` adds its count to the function it calls. The runtime's routines appear as
