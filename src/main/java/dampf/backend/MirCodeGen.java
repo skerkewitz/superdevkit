@@ -196,7 +196,16 @@ public final class MirCodeGen {
         return t.size <= 2 ? 1 : 2;
     }
 
+    private final Set<Block> direct = new HashSet<>();
+
     private void layout() {
+        for (MFunction f : module.functions()) {
+            for (Block b : f.blocks()) {
+                if (directPhis(b)) {
+                    direct.add(b);
+                }
+            }
+        }
         for (MFunction f : module.functions()) {
             for (Block b : f.blocks()) {
                 for (Instr i : b.instrs()) {
@@ -227,7 +236,7 @@ public final class MirCodeGen {
                         local.put(i, size);
                         size += bytes(i.type());
                     }
-                    if (i instanceof Instr.Phi p) {
+                    if (i instanceof Instr.Phi p && !direct.contains(b)) {
                         in.put(p, size);
                         size += bytes(p.type());
                     }
@@ -276,12 +285,35 @@ public final class MirCodeGen {
                 if (i.type() != MType.VOID) {
                     size += bytes(i.type());
                 }
-                if (i instanceof Instr.Phi p) {
+                if (i instanceof Instr.Phi p && !direct.contains(b)) {
                     size += bytes(p.type());
                 }
             }
         }
         return size;
+    }
+
+    /**
+     * The blocks whose φs the predecessors set directly: every predecessor ends with a jump (so
+     * nothing after the copies needs the old value) and no φ reads another φ of the block (so
+     * the order of the copies does not matter).
+     */
+    private static boolean directPhis(Block s) {
+        for (Block p : s.preds()) {
+            if (!(p.terminator() instanceof Instr.Jump)) {
+                return false;
+            }
+        }
+        for (Instr i : s.instrs()) {
+            if (i instanceof Instr.Phi p) {
+                for (Value v : p.operands()) {
+                    if (v instanceof Instr.Phi q && q.block() == s) {
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
     }
 
     private static String at(int offset) {
@@ -360,6 +392,8 @@ public final class MirCodeGen {
     private void function(MFunction f, AsmWriter code) {
         out = code;
         lastPos = null;
+        aHolds = null;
+        m8 = false;
         f.number();
         out.blank();
         out.raw("; ---- " + f.name() + "    (" + f.pos() + ")");
@@ -390,10 +424,13 @@ public final class MirCodeGen {
         for (int k = 0; k < blocks.size(); k++) {
             Block b = blocks.get(k);
             Block next = k + 1 < blocks.size() ? blocks.get(k + 1) : null;
-            out.label(b.name());
+            place(b.name());
             for (Instr i : b.instrs()) {
                 if (i instanceof Instr.Phi p) {
                     out.note(Printer.instr(p));
+                    if (direct.contains(b)) {
+                        continue;   // set by the predecessors
+                    }
                     for (int w = 0; w < words(p.type()); w++) {
                         ins("lda", at(incoming.get(p) + 2 * w));
                         ins("sta", at(place.get(p) + 2 * w));
@@ -444,9 +481,10 @@ public final class MirCodeGen {
                     break;
                 }
                 Value v = p.op(p.from.indexOf(b));
+                int to = direct.contains(s) ? place.get(p) : incoming.get(p);
                 for (int w = 0; w < words(p.type()); w++) {
                     ins("lda", operand(v, w));
-                    ins("sta", at(incoming.get(p) + 2 * w));
+                    ins("sta", at(to + 2 * w));
                 }
             }
         }
@@ -530,7 +568,7 @@ public final class MirCodeGen {
                 if (br.op(0) instanceof Instr.Cmp c && fused.contains(c)) {
                     compareAndBranch(c, br.ifTrue, br.ifFalse, next);
                 } else {
-                    ins("lda", operand(br.op(0), 0));
+                    load(operand(br.op(0), 0));
                     jumpOn("bne", null, false, br.ifTrue, br.ifFalse, next);
                 }
             }
@@ -545,7 +583,7 @@ public final class MirCodeGen {
                         ins("bne", nextCase);
                     }
                     ins("jmp", s.targets.get(k).name());
-                    out.label(nextCase);
+                    place(nextCase);
                 }
                 if (s.otherwise != next) {
                     ins("jmp", s.otherwise.name());
@@ -676,7 +714,7 @@ public final class MirCodeGen {
         ins("cmp", imm(0x8000));
         ins("bcc", positive);
         ins("dex", null);
-        out.label(positive);
+        place(positive);
         ins("stx", hi);
     }
 
@@ -704,15 +742,15 @@ public final class MirCodeGen {
             String have = label();
             String big = label();
             if (words(y.type()) == 2) {
-                ins("lda", operand(y, 1));
+                load(operand(y, 1));
                 ins("bne", big);
             }
             ins("lda", operand(y, 0));
             ins("cmp", imm(bits));
             ins("bcc", have);
-            out.label(big);
+            place(big);
             ins("lda", imm(bits));
-            out.label(have);
+            place(have);
             ins("tax", null);
         }
         String loop = label();
@@ -725,7 +763,7 @@ public final class MirCodeGen {
             }
             ins("cpx", imm(0));
             ins("beq", done);
-            out.label(loop);
+            place(loop);
             switch (b.op) {
                 case SHL -> ins("asl", "a");
                 case LSHR -> ins("lsr", "a");
@@ -736,7 +774,7 @@ public final class MirCodeGen {
             }
             ins("dex", null);
             ins("bne", loop);
-            out.label(done);
+            place(done);
             mask(t);
             ins("sta", dest(b, 0));
         } else {
@@ -745,7 +783,7 @@ public final class MirCodeGen {
             to32(x, lo, hi);
             ins("cpx", imm(0));
             ins("beq", done);
-            out.label(loop);
+            place(loop);
             switch (b.op) {
                 case SHL -> {
                     ins("asl", lo);
@@ -764,7 +802,7 @@ public final class MirCodeGen {
             }
             ins("dex", null);
             ins("bne", loop);
-            out.label(done);
+            place(done);
         }
     }
 
@@ -823,9 +861,9 @@ public final class MirCodeGen {
                 ins("bne", differ);
                 ins("lda", imm(c.pred == Instr.Pred.EQ ? 1 : 0));
                 ins("bra", done);
-                out.label(differ);
+                place(differ);
                 ins("lda", imm(c.pred == Instr.Pred.EQ ? 0 : 1));
-                out.label(done);
+                place(done);
                 ins("sta", dest(c, 0));
             }
             default -> {
@@ -847,9 +885,11 @@ public final class MirCodeGen {
     private void eqFlags(Instr.Cmp c, String differ) {
         int n = words(c.op(0).type());
         for (int w = 0; w < n; w++) {
-            ins("lda", operand(c.op(0), w));
             if (!(c.op(1) instanceof Value.Const k && (k.bits() >> (16 * w) & 0xFFFF) == 0)) {
-                ins("cmp", operand(c.op(1), w));     // (a load sets Z already for a comparison with 0)
+                ins("lda", operand(c.op(0), w));
+                ins("cmp", operand(c.op(1), w));
+            } else {
+                load(operand(c.op(0), w));     // the load sets Z for a comparison with 0
             }
             if (w < n - 1) {
                 ins("bne", differ);
@@ -937,23 +977,23 @@ public final class MirCodeGen {
         if (ifFalse == next) {
             ins(inverse(taken), skip);
             if (differ != null && differMeansTrue) {
-                out.label(differ);
+                place(differ);
             }
             ins("jmp", ifTrue.name());
-            out.label(skip);
+            place(skip);
             if (differ != null && !differMeansTrue) {
-                out.label(differ);
+                place(differ);
             }
             return;
         }
         ins(taken, skip);
         if (differ != null && !differMeansTrue) {
-            out.label(differ);
+            place(differ);
         }
         ins("jmp", ifFalse.name());
-        out.label(skip);
+        place(skip);
         if (differ != null && differMeansTrue) {
-            out.label(differ);
+            place(differ);
         }
         if (ifTrue != next) {
             ins("jmp", ifTrue.name());
@@ -1001,8 +1041,7 @@ public final class MirCodeGen {
             ins("sep", "#$20");
             ins("lda", direct ? fixed(address, 0) : VIA_P);
             ins("rep", "#$20");
-            ins("and", imm(0xFF));   // B, the high byte of A, still has an old value
-            mask(t);
+            ins("and", imm(t == MType.I1 ? 1 : 0xFF));   // B, the high byte of A, still has an old value
             ins("sta", dest(l, 0));
             return;
         }
@@ -1056,7 +1095,7 @@ public final class MirCodeGen {
         if (size >= 2) {
             String loop = label();
             ins("ldy", imm((size & ~1) - 2));
-            out.label(loop);
+            place(loop);
             ins("lda", VIA_P);
             ins("sta", VIA_Q);
             ins("dey", null);
@@ -1088,8 +1127,75 @@ public final class MirCodeGen {
 
     // ---------------------------------------------------------------- helpers
 
+    /**
+     * What A holds for sure (an operand string: a frame place or an immediate), so a load of the
+     * same thing can be left out; null if unknown. Forgotten at labels, calls and stores through
+     * pointers, and when an instruction changes A or the place.
+     */
+    private String aHolds;
+    /** The accumulator is 8 bit (between SEP #$20 and REP #$20). */
+    private boolean m8;
+
     private void ins(String mnemonic, String operand) {
+        if (mnemonic.equals("lda") && !m8 && operand != null && operand.equals(aHolds)) {
+            return;   // A has it already (the flags are not set again: see load())
+        }
         out.ins(mnemonic, operand, null);
+        track(mnemonic, operand);
+    }
+
+    /** A load that always happens, for code that branches on the flags it sets. */
+    private void load(String operand) {
+        out.ins("lda", operand, null);
+        track("lda", operand);
+    }
+
+    private static boolean trackable(String operand) {
+        return operand != null && (operand.startsWith(FRAME) || operand.startsWith("#"));
+    }
+
+    private void track(String mnemonic, String operand) {
+        switch (mnemonic) {
+            case "sep" -> {
+                if ("#$20".equals(operand)) {
+                    m8 = true;
+                    aHolds = null;
+                }
+            }
+            case "rep" -> {
+                if ("#$20".equals(operand)) {
+                    m8 = false;
+                }
+            }
+            case "lda" -> aHolds = !m8 && trackable(operand) ? operand : null;
+            case "sta" -> {
+                if (operand != null && operand.startsWith("[")) {
+                    aHolds = null;   // may write any frame place
+                } else if (!m8 && trackable(operand)) {
+                    aHolds = operand;
+                } else if (operand != null && operand.equals(aHolds)) {
+                    aHolds = null;
+                }
+            }
+            case "stx", "sty", "stz", "cmp", "cpx", "cpy", "ldx", "ldy", "inx", "dex", "iny", "dey",
+                 "bcc", "bcs", "beq", "bne", "bmi", "bpl", "bvc", "bvs", "bra", "jmp", "clc", "sec" -> {
+                if (operand != null && operand.equals(aHolds) && mnemonic.startsWith("st")) {
+                    aHolds = null;
+                }
+            }
+            case "asl", "lsr", "rol", "ror", "inc", "dec" -> {
+                if ("a".equals(operand) || operand != null && operand.equals(aHolds)) {
+                    aHolds = null;
+                }
+            }
+            default -> aHolds = null;   // adc, and, jsl, tax, rtl, ...: A (or everything) changes
+        }
+    }
+
+    private void place(String label) {
+        out.label(label);
+        aHolds = null;   // something may jump here
+        m8 = false;
     }
 
     private String label() {

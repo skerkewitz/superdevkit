@@ -194,6 +194,20 @@ execution tests, the random programs, the replay, and `dampf mir -O --check-rang
 | play, CPU partner | 6.55 (worst 12.23) | 5.37 (worst 10.12) | 5.15 (worst 9.13) |
 | `level_solid_px`, per call | 3,849 | 3,276 | 2,433 clocks (816-tcc: 2,449; Calypsi: 931) |
 
+### Fewer loads and copies in the code generator, 2026-11-17
+
+Two small changes to the code generator from MIR. It remembers what A holds (a frame place or a
+constant) and leaves out a load of the same thing; labels, calls, stores through pointers and
+anything that changes A make it forget, and loads whose flags a branch needs always happen.
+And the predecessors of a block write its φs directly, without the second copy through an
+"incoming" place, when every predecessor ends with a jump and no φ reads another φ of the block.
+
+| State | naive | before | fewer loads | and direct φs |
+| --- | --- | --- | --- | --- |
+| play | 5.17 (worst 8.58) | 4.38 | 4.04 | 3.85 (worst 6.59) |
+| play, CPU partner | 6.55 (worst 12.23) | 5.15 | 4.81 | 4.61 (worst 8.22) |
+| `level_solid_px`, per call | 3,849 | 2,433 | 2,217 | 2,217 clocks |
+
 ### Where the naive code spends its time (2026-11-17)
 
 `tools/profile_game.sh bench` profiles the benchmark's play ticks 900–1700 (as the game's own
