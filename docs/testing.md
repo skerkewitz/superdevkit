@@ -11,7 +11,7 @@ is checked automatically against a reference.
 | Unit tests | Each compiler pass on its own, at IR level | Milliseconds | Front-end tests exist (`ParserTest`, `AstBuilderTest`); IR-level tests come with the IRs |
 | Execution tests | Small C programs compiled with gcc on the PC and with dampf; the results must match | Seconds | Built: `src/test/resources/exec/*.c`, run in Mesen |
 | Random programs | A generator produces thousands of random programs within the subset; each is compared against gcc | Minutes, e.g. nightly | Built: `RandomProgramTest`, 10 per build, `-Prandom=N` for more |
-| Replays | The whole of Blubber Blasen with its deterministic replays and a checksum of the game state per frame; also cycles per frame as the benchmark | Minutes | Not yet (M2, step 3) |
+| Replays | The whole of Blubber Blasen with its deterministic replays and a checksum of the game state per frame; also cycles per frame as the benchmark | Minutes | Built: `ReplayTest` (`-Preplays`) and `tools/bench_game.sh` |
 
 ### How the execution and random tests work today
 
@@ -28,6 +28,20 @@ values like −32768, where sign and overflow handling go wrong.
 
 Mutation checks keep the tests honest: deliberately broken code generation must make tests fail.
 When one did not (a 32-bit arithmetic shift whose high bits no test observed), a test was added.
+
+### How the replays work
+
+The game records a play session as a `.bbr` file: the start (seed, save RAM, round, options),
+the joypad words whenever they change, and a checksum of everything the game shows every 60
+ticks. `tools/replay_to_c.py` turns a recording into C tables in ROM, and `tools/replay/driver.c`
+plays them exactly like the game's own `replay_run()` (the game's `replay.c` is host code with
+stdio and `malloc`, so the driver is written in dampf's subset instead). `ReplayTest` builds the
+driver with the game in its debug configuration (`BB_DEBUG`) twice, with gcc and with dampf, and
+requires both to match every recorded checksum and each other. One recording takes about two
+minutes in Mesen, so the test runs only with `-Preplays`.
+
+The game's compiler benchmark (`tools/bench_game.sh`) is the second whole-game check: 3,610 ticks,
+three checksums per tick against a PC build of the same program, plus the cycles per tick.
 
 ## Supporting pieces
 

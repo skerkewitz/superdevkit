@@ -16,8 +16,9 @@ execution tests run programs in Mesen and compare every result with gcc on the P
 programs check the arithmetic. All 16 files of the game pass the front end (`dampf check`). ROMs can have up to 4 MB: code and data are packed into
 32 KB LoROM banks. The game's own benchmark (all of `src/game`) runs on dampf and gives the same
 checksums as the PC on every one of its 3,610 ticks; the naive code is about as fast as 816-tcc
-(`tools/bench_game.sh`, numbers in [docs/optimizations.md](docs/optimizations.md)). Not done yet:
-the replays, cycles per function, the SNES platform layer, and the parts of the design that come
+(`tools/bench_game.sh`, numbers in [docs/optimizations.md](docs/optimizations.md)). The game's
+recorded replays also match the PC on the SNES (`./gradlew test -Preplays`). Not done yet:
+cycles per function, the SNES platform layer, and the parts of the design that come
 with the optimizer (IR levels, cycle counting, hints). The plan is in
 [docs/roadmap.md](docs/roadmap.md).
 
@@ -103,6 +104,8 @@ Gradle comes with the wrapper; nothing to install.
 ./gradlew build                                              # compile and run the unit tests
 ./gradlew test -Pmesen=/path/to/Mesen.exe                    # execution tests with another Mesen
 ./gradlew test -Pblubberblasen=/path/to/BlubberBlasen        # parse the live game instead of the snapshot
+./gradlew test -Preplays                                     # also play the game's replays (minutes)
+tools/bench_game.sh                                          # the game's benchmark: checksums and cycles (minutes)
 ./gradlew installDist                                        # build/install/dampf/bin/dampf
 ```
 

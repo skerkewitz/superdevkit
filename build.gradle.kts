@@ -46,6 +46,8 @@ tasks.test {
     // Random programs: -Prandom=<count> (default 10), -PrandomSeed=<first seed>
     providers.gradleProperty("random").orNull?.let { systemProperty("dampf.random.count", it) }
     providers.gradleProperty("randomSeed").orNull?.let { systemProperty("dampf.random.seed", it) }
+    // Replays of the game (minutes in Mesen): -Preplays
+    providers.gradleProperty("replays").orNull?.let { systemProperty("dampf.replays", "true") }
 }
 
 application {

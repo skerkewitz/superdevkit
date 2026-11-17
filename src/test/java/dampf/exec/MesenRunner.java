@@ -17,12 +17,19 @@ import java.util.concurrent.TimeUnit;
  * writes them to a file. Works with the Windows Mesen from WSL: paths are converted with wslpath.
  */
 final class MesenRunner {
-    private static final int TIMEOUT_FRAMES = 600;
-
     private final Path mesen;
+    private final int timeoutFrames;
+    private final int timeoutSeconds;
 
+    /** For short test programs: at most 600 frames, one minute. */
     MesenRunner(Path mesen) {
+        this(mesen, 600, 60);
+    }
+
+    MesenRunner(Path mesen, int timeoutFrames, int timeoutSeconds) {
         this.mesen = mesen;
+        this.timeoutFrames = timeoutFrames;
+        this.timeoutSeconds = timeoutSeconds;
     }
 
     Map<String, Long> run(RomBuilder.Rom rom, List<Observed> globals) throws IOException, InterruptedException {
@@ -44,7 +51,7 @@ final class MesenRunner {
                   emu.addEventCallback(function()
                     frames = frames + 1
                 """);
-        lua.append("    if frames > ").append(TIMEOUT_FRAMES).append(" then finish(\"timeout\\n\", 3) end\n");
+        lua.append("    if frames > ").append(timeoutFrames).append(" then finish(\"timeout\\n\", 3) end\n");
         lua.append("""
                   end, emu.eventType.endFrame)
                   emu.addMemoryCallback(function(addr, value)
@@ -72,10 +79,10 @@ final class MesenRunner {
         Path script = dir.resolve("mesen_run.lua");
         Files.writeString(script, lua);
 
-        Process p = new ProcessBuilder(mesen.toString(), "--testrunner", "--timeout=20", hostPath(rom.rom()), hostPath(script))
+        Process p = new ProcessBuilder(mesen.toString(), "--testrunner", "--timeout=" + timeoutSeconds, hostPath(rom.rom()), hostPath(script))
                 .directory(mesen.getParent().toFile()).redirectErrorStream(true).start();
         p.getInputStream().transferTo(java.io.OutputStream.nullOutputStream());
-        if (!p.waitFor(60, TimeUnit.SECONDS)) {
+        if (!p.waitFor(timeoutSeconds + 30L, TimeUnit.SECONDS)) {
             p.destroyForcibly();
             throw new IOException("Mesen did not finish");
         }
