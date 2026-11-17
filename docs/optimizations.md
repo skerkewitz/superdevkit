@@ -516,7 +516,10 @@ accumulator, a value that is not used right away has to go to memory. Two kinds 
 - An argument computed for a call was stored to its own place and copied to the callee's
   parameter at the call. If the call is its only use, later in its block, with no other call
   on the way, it is computed straight into the parameter's place (frames on a call path never
-  overlap). Play 494,619 → 492,510 clocks per tick.
+  overlap). Play 494,619 → 492,510 clocks per tick. Later also when its other uses all lie
+  between its definition and the call (the callee may change its parameter, so nothing may read
+  the place after the call): the whole benchmark 431,343 → 431,280, almost nothing, since the
+  hot copies left are φs or values needed after the call.
 - A block's φ values are written before the branch of a predecessor that branches, which saves a
   jump; on a loop's exit edge that meant writing them in every round for an edge taken once.
   Such an edge now gets a block of its own just before code generation (`ExitEdges`), and the φ

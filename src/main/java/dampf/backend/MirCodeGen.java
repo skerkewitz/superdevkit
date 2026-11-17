@@ -475,8 +475,9 @@ public final class MirCodeGen {
     }
 
     /**
-     * A value whose only use is an argument of a call later in its block, with no other call on
-     * the way, is computed straight into the callee's parameter place: the call need not copy it
+     * A value used as an argument of a call later in its block, and otherwise only between its
+     * definition and the call, with no other call on the way, is computed straight into the
+     * callee's parameter place: the call need not copy it
      * (about five copies per call in the game's player code). The callee's frame never overlaps
      * the caller's (frames on a call path are disjoint), and nothing but this call writes the
      * place before it. Its own place in the caller's frame stays unused.
@@ -502,13 +503,22 @@ public final class MirCodeGen {
                     MFunction callee = module.function(c.callee);
                     for (int k = 0; k < c.operands().size(); k++) {
                         if (!(c.op(k) instanceof Instr v) || v instanceof Instr.Phi || v.block() != b
-                                || uses.getOrDefault(v, 0) != 1 || !place.containsKey(v)
-                                || c.operands().indexOf(v) != k) {
+                                || !place.containsKey(v) || c.operands().indexOf(v) != k
+                                || c.operands().lastIndexOf(v) != k) {
                             continue;
                         }
+                        // its other uses, if any, lie between it and the call: the callee may
+                        // change its parameter, so nothing may read the place after the call
+                        int before = 0;
                         boolean callBetween = false;
                         for (int j = is.indexOf(v) + 1; j < n; j++) {
                             callBetween |= is.get(j) instanceof Instr.Call;
+                            if (is.get(j).operands().contains(v)) {
+                                before++;
+                            }
+                        }
+                        if (uses.getOrDefault(v, 0) != 1 + before) {
+                            continue;   // used after the call, or in another block
                         }
                         Value.Param p = callee.params().get(k);
                         if (!callBetween && place.containsKey(p) && words(p.type()) == words(v.type())) {
