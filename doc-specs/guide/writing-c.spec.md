@@ -3,6 +3,7 @@ title: Writing C for dampf
 sources:
   - docs/subset.md
   - src/main/resources/dampf/include/stdint.h
+  - src/main/resources/dampf/include/dampf.h
   - src/main/java/dampf/frontend/Preprocessor.java
   - src/main/java/dampf/frontend/SystemHeaders.java
   - src/main/java/dampf/check/CallGraph.java
@@ -46,7 +47,8 @@ everything outside it is rejected with a message, and that the subset is what a 
   on the page.
 - The decisions of `docs/subset.md` that are still open (plain `char`, `goto`): say what dampf
   does today, not what may be decided.
-- Hints and intrinsics are not built: one sentence, link [Limits](/reference/limits).
+- Hints: one sentence that `<dampf.h>` provides them, link [Hints](/reference/hints).
+  Intrinsics are not built: link [Limits](/reference/limits).
 
 ## Out of scope
 

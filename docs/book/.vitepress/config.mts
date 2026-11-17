@@ -21,6 +21,7 @@ const reference = [
     items: [
       { text: 'Command line', link: '/reference/command-line' },
       { text: 'The C subset', link: '/reference/c-subset' },
+      { text: 'Hints', link: '/reference/hints' },
       { text: 'Runtime and memory', link: '/reference/runtime-and-memory' },
       { text: 'The generated files', link: '/reference/output-files' },
       { text: 'Limits', link: '/reference/limits' },

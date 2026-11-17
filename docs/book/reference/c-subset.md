@@ -302,8 +302,9 @@ and at `dampf build`.
 
 The header `<dampf.h>` defines two [hints](/glossary#hint), which tell dampf what it cannot
 infer: `DAMPF_RANGE(v, lo, hi)`, a statement of its own for a local variable or parameter, and
-`DAMPF_BUDGET(n)`, which stands only in front of a function definition. Intrinsics for the SNES
-hardware are not built yet; see [Limits](/reference/limits).
+`DAMPF_BUDGET(n)`, which stands only in front of a function definition. What they do, and the
+messages for their misuse, are on [Hints](/reference/hints). Intrinsics for the SNES hardware
+are not built yet; see [Limits](/reference/limits).
 
 ## Open decisions
 

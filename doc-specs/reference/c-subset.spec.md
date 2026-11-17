@@ -3,6 +3,7 @@ title: The C subset
 sources:
   - docs/subset.md
   - src/main/resources/dampf/include/stdint.h
+  - src/main/resources/dampf/include/dampf.h
   - src/main/java/dampf/frontend/AstBuilder.java
   - src/main/java/dampf/check/CallGraph.java
   - src/test/java/dampf/frontend/*.java
@@ -45,4 +46,5 @@ compiled silently. Link [Writing C for dampf](/guide/writing-c) for the introduc
 
 ## Out of scope
 
-- Hints and intrinsics: they are not built; one line linking [Limits](/reference/limits).
+- Hints: only that `<dampf.h>` provides them and where they may stand; the rest is on
+  [Hints](/reference/hints). Intrinsics are not built: link [Limits](/reference/limits).

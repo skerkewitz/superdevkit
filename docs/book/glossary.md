@@ -65,8 +65,9 @@ occupy; the book says *frame of a function* for that.
 
 ## Hint
 
-A macro in the C source that tells dampf something it cannot infer, such as a value range. In
-the PC build a hint is a checked assertion or nothing. Hints are designed but not built yet.
+A macro from dampf's header `<dampf.h>` that tells dampf something it cannot infer, such as a
+value range (`DAMPF_RANGE`) or a cycle budget (`DAMPF_BUDGET`). In the PC build a hint is a
+checked assertion or nothing. Two hints are built; see [Hints](/reference/hints).
 
 ## Intrinsic
 
