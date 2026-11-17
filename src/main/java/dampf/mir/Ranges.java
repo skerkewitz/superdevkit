@@ -109,6 +109,7 @@ public final class Ranges {
         return switch (v) {
             case Value.Const k -> isInt(k.type()) ? point(k) : null;
             case Instr i -> range.get(i);
+            case Value.Param p when p.known != null -> p.known;
             default -> isInt(v.type()) ? full(v.type()) : null;
         };
     }

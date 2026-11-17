@@ -22,6 +22,8 @@ public sealed interface Value permits Value.Const, Value.Param, Value.GlobalAddr
         private final MType type;
         /** The interpreter's slot for this parameter's value. */
         int index = -1;
+        /** A range every caller's argument is known to lie in (set by PointerParams); null if none. */
+        public Ranges.Range known;
 
         public Param(String name, MType type) {
             this.name = name;

@@ -20,7 +20,7 @@ function's frame starts after the frames of all its callers), and φs are copied
 "incoming" place. It is correct on all tests and the whole game, and slow; the MIR passes will
 make it fast. The MIR passes (`dampf.mir.Optimizer`) so far: simplification (`Simplify`),
 width narrowing (`Narrow`, and `RangeNarrow` with the value ranges of `Ranges`), multiplication and division by constants (`StrengthReduce`), induction variables
-(`Induction`), common
+(`Induction`), pointer compression (`PointerOffsets`, `PointerParams`), common
 subexpressions and redundant loads (`Gvn`) and dead code removal (`DeadCode`), repeated until
 nothing changes; then inlining (`Inline`) and the passes once more. HIR and LIR are still to be built;
 [roadmap.md](roadmap.md) says when. MIR currently goes straight from the AST; HIR will sit

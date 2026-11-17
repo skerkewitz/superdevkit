@@ -25,11 +25,20 @@ public final class Optimizer {
         functions(m, writes, verifyEach);
         // inlining copies a callee's calls and stores into its callers, which already call it:
         // what may write memory stays the same
-        if (inline && Inline.run(m)) {
+        boolean again = inline && Inline.run(m);
+        again |= PointerParams.run(m);
+        if (again) {
             if (verifyEach) {
                 Verifier.verify(m);
             }
             functions(m, writes, verifyEach);
+            // pointers that became offsets in callers may now reach more callees
+            if (PointerParams.run(m)) {
+                if (verifyEach) {
+                    Verifier.verify(m);
+                }
+                functions(m, writes, verifyEach);
+            }
         }
         // last: the order of the instructions for the code generator
         for (MFunction f : m.functions()) {
@@ -55,6 +64,10 @@ public final class Optimizer {
                     Verifier.verify(m, f);
                 }
                 changed |= Induction.run(f);
+                if (verifyEach) {
+                    Verifier.verify(m, f);
+                }
+                changed |= PointerOffsets.run(m, f);
                 if (verifyEach) {
                     Verifier.verify(m, f);
                 }

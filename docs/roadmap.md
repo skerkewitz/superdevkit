@@ -112,7 +112,7 @@ the profile after each step can change the order of the later ones:
    A holds are left out, φs are written directly, and the frames lie in low RAM with the leaves in
    the direct page, values share places where their lifetimes allow, so all of the game's
    values are in the direct page; with inlining, indexed addressing and smaller changes play is
-   at 1.56 frames per tick.
+   at 1.54 frames per tick.
 
    Where the time goes now (play, game code only): loads and stores of values in the direct page
    are 37 % of the cycles, `JMP` 5.5 %, comparisons 5.7 %, masks 4.5 %. Next, in this order:
@@ -122,8 +122,8 @@ the profile after each step can change the order of the later ones:
       [architecture.md](architecture.md); the code generator's "what does A hold" tracking and
       `FrameLayout`'s liveness are the start.
    2. **Induction variables:** done 2026-11-17 (`Induction`): play 1.61 → 1.57.
-   3. **Pointer compression** (step 3 above), now that indexed addressing covers most arrays: what
-      is left are pointers passed to functions that are not inlined.
+   3. **Pointer compression:** done 2026-11-17 for pointers into a single object, within functions
+      and through parameters (`PointerOffsets`, `PointerParams`): play 1.56 → 1.54.
 
 **Subrange types** (`DAMPF_RANGED`, `DAMPF_AS` and their checker, sections 3–6 there) are not
 scheduled. They are built when a profile shows a hot value whose range dampf cannot infer and

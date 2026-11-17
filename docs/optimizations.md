@@ -403,6 +403,30 @@ times in the measured play ticks (883,000 before, some of them real ANDs of the 
 tests found one hole at once: AND, OR and XOR never masked, because clean operands used to give a
 clean result.
 
+### Pointer compression, 2026-11-17
+
+Two passes turn pointers into 16-bit offsets into one global object (or frame slot), so loads
+and stores through them index the object with X, and the 4-byte pointers, their copies and
+additions go:
+
+- `PointerOffsets`, within a function: a pointer φ whose values all point into the same object
+  (`o = oamMemory; ... o += 4` in `build_sprites`) becomes the object plus an offset φ.
+- `PointerParams`, across calls: a pointer parameter that every call fills with a pointer into the
+  same global becomes an offset; the callee adds the object back at its start.
+
+Both rely on C's rule that a pointer stays within its object or just past its end, which dampf
+already relies on for 16-bit pointer offsets: the offset is then 0 to the object's size, and the
+new φs and parameters carry that range for indexed addressing. The tests' range check doubles as a
+check of the rule: in the first version of `exec/pointer_offsets.c`, a loop of mine stepped a
+pointer two bytes past the end of its array, and the check reported it.
+
+Indirect accesses (`[dp],y`) in the measured play ticks: `build_sprites` 148,000 → 53,000,
+`player_update` 56,000 → 21,000. Play 1.56 → 1.54 frames per tick (worst 2.68), with the CPU
+partner 2.26 → 2.24 (worst 4.47). What is left are pointers into several objects (a `Bubble *`
+that may point into either of two arrays) and pointers loaded from memory; those would need a
+points-to analysis over the whole program, and the remaining indirect accesses do not justify it
+now.
+
 ### Summary of the code from MIR so far (2026-11-17)
 
 | State | naive | from MIR, no passes | now |
