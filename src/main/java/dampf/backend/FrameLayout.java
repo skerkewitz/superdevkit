@@ -31,8 +31,11 @@ import java.util.Set;
  *     "incoming" place, which the block copies on entry.</li>
  * <li>A cast that only copies bytes ({@link #transparent}) has no place; its users read its
  *     source.</li>
- * <li>An instruction may write its result before it has read all its operands (word by word),
- *     so a result never shares a place with an operand of the same instruction.</li>
+ * <li>An instruction with a 2-word result may write its first word before it has read all its
+ *     operands, so such a result never shares a place with an operand of the same instruction.
+ *     A 1-word result is stored once, after every read.</li>
+ * <li>A φ and its operands prefer the same place (then the copy at the end of the predecessor
+ *     is no copy at all).</li>
  * </ul>
  * Parameters (written by the caller), memory slots (their address may be anywhere) and incoming
  * places get places of their own.
@@ -264,7 +267,13 @@ final class FrameLayout {
                     if (direct.contains(s)) {
                         List<Integer> phis = phis(s);
                         for (int p : phis) {
-                            interfere(g, p, live);
+                            // the φ gets its operand's value here, so the two may share a place
+                            BitSet others = (BitSet) live.clone();
+                            Value own = ownOperand((Instr.Phi) values.get(p), b);
+                            if (own != null) {
+                                others.clear(index.get(own));
+                            }
+                            interfere(g, p, others);
                             for (int q : phis) {
                                 if (p != q) {
                                     g[p].set(q);
@@ -286,7 +295,9 @@ final class FrameLayout {
                 Integer d = index.get(i);
                 if (d != null) {
                     interfere(g, d, live);
-                    interfere(g, d, used);
+                    if (bytes(i.type()) == 4) {
+                        interfere(g, d, used);   // written word by word, maybe before the last read
+                    }
                     live.clear(d);
                 }
                 live.or(used);
@@ -308,6 +319,20 @@ final class FrameLayout {
         return g;
     }
 
+    /** The operand φ p gets from b, if it has a place of its own of the φ's size (else null). */
+    private Value ownOperand(Instr.Phi p, Block b) {
+        Value v = null;
+        for (int k = 0; k < p.from.size(); k++) {
+            if (p.from.get(k) == b) {
+                if (v != null && v != p.op(k)) {
+                    return null;
+                }
+                v = p.op(k);
+            }
+        }
+        return v != null && v != p && index.containsKey(v) && bytes(v.type()) == bytes(p.type()) ? v : null;
+    }
+
     private List<Integer> phis(Block b) {
         List<Integer> l = new ArrayList<>();
         for (Instr i : b.instrs()) {
@@ -327,20 +352,68 @@ final class FrameLayout {
         }
     }
 
-    /** Gives every value the lowest offset that no interfering value covers. */
+    /** Whether [o, o + len) is free of every coloured value that interferes with v. */
+    private boolean fits(BitSet[] g, int[] at, int v, int o, int len) {
+        for (int x = g[v].nextSetBit(0); x >= 0; x = g[v].nextSetBit(x + 1)) {
+            int xl = bytes(values.get(x).type());
+            if (at[x] >= 0 && at[x] < o + len && o < at[x] + xl) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** The values that would like the same place: a direct φ and its operands. */
+    private Map<Integer, List<Integer>> affinities() {
+        Map<Integer, List<Integer>> a = new HashMap<>();
+        for (Block b : f.blocks()) {
+            if (!direct.contains(b)) {
+                continue;
+            }
+            for (Instr i : b.instrs()) {
+                if (i instanceof Instr.Phi p && index.containsKey(p)) {
+                    for (Value v : p.operands()) {
+                        Integer x = index.get(v);
+                        if (x != null && bytes(v.type()) == bytes(p.type())) {
+                            a.computeIfAbsent(index.get(p), k -> new ArrayList<>()).add(x);
+                            a.computeIfAbsent(x, k -> new ArrayList<>()).add(index.get(p));
+                        }
+                    }
+                }
+            }
+        }
+        return a;
+    }
+
+    /** Gives every value the lowest offset that no interfering value covers (a partner's, if free). */
     private void colour(BitSet[] g) {
         int base = size;
         int[] at = new int[values.size()];
+        java.util.Arrays.fill(at, -1);
+        Map<Integer, List<Integer>> partners = affinities();
         int top = 0;
         for (int v = 0; v < values.size(); v++) {
             int len = bytes(values.get(v).type());
+            Integer preferred = null;
+            for (int x : partners.getOrDefault(v, List.of())) {
+                if (at[x] >= 0 && fits(g, at, v, at[x], len)) {
+                    preferred = at[x];
+                    break;
+                }
+            }
+            if (preferred != null) {
+                at[v] = preferred;
+                top = Math.max(top, preferred + len);
+                offset.put(values.get(v), base + preferred);
+                continue;
+            }
             int o = 0;
             boolean moved = true;
             while (moved) {
                 moved = false;
-                for (int x = g[v].nextSetBit(0); x >= 0 && x < v; x = g[v].nextSetBit(x + 1)) {
+                for (int x = g[v].nextSetBit(0); x >= 0; x = g[v].nextSetBit(x + 1)) {
                     int xl = bytes(values.get(x).type());
-                    if (at[x] < o + len && o < at[x] + xl) {
+                    if (at[x] >= 0 && at[x] < o + len && o < at[x] + xl) {
                         o = at[x] + xl;
                         moved = true;
                     }

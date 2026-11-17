@@ -80,6 +80,8 @@ public final class MirCodeGen {
 
     private AsmWriter out;
     private final Set<Instr> fused = new HashSet<>();
+    /** Results that stay in A for the next instruction, their only reader, and are never stored. */
+    private final Set<Instr> forward = new HashSet<>();
     private Ranges ranges;
     private final Set<Instr> folded = new HashSet<>();
     private int labels;
@@ -349,11 +351,13 @@ public final class MirCodeGen {
         }
         FrameLayout layout = layouts.get(f);
         ranges = new Ranges(f);
+        forward.clear();
         fused.clear();
         fused.addAll(layout.fused);
         folded.clear();
         folded.addAll(layout.folded);
-        List<Block> blocks = f.blocks();
+        findForwards(f);
+        List<Block> blocks = layoutOrder(f);
         for (int k = 0; k < blocks.size(); k++) {
             Block b = blocks.get(k);
             Block next = k + 1 < blocks.size() ? blocks.get(k + 1) : null;
@@ -390,6 +394,136 @@ public final class MirCodeGen {
         out.raw(".endproc");
     }
 
+    /**
+     * Finds the results that need not be stored: a 1-word result whose only use is the next
+     * instruction written in the same block, where that instruction starts by loading it into A
+     * and reads it nowhere else. Only instructions whose code is known to begin that way qualify.
+     */
+    private void findForwards(MFunction f) {
+        Map<Instr, Integer> uses = new HashMap<>();
+        for (Block b : f.blocks()) {
+            for (Instr i : b.instrs()) {
+                for (Value v : i.operands()) {
+                    if (v instanceof Instr d) {
+                        uses.merge(d, 1, Integer::sum);
+                    }
+                }
+            }
+        }
+        for (Block b : f.blocks()) {
+            List<Instr> written = new ArrayList<>();
+            for (Instr i : b.instrs()) {
+                if (!(i instanceof Instr.Phi) && !fused.contains(i) && !folded.contains(i)) {
+                    written.add(i);
+                }
+            }
+            for (int k = 0; k + 1 < written.size(); k++) {
+                Instr i = written.get(k);
+                Instr u = written.get(k + 1);
+                if (producesInA(i) && uses.getOrDefault(i, 0) == 1 && readsFirst(u, i, b)) {
+                    forward.add(i);
+                }
+            }
+        }
+    }
+
+    /** i's code ends with A holding its 1-word result, stored with result(). */
+    private static boolean producesInA(Instr i) {
+        if (i.type() == MType.VOID || words(i.type()) != 1 || FrameLayout.transparent(i)) {
+            return false;
+        }
+        return i instanceof Instr.Bin || i instanceof Instr.Load || i instanceof Instr.Cast
+                || i instanceof Instr.Call || i instanceof Instr.Cmp;
+    }
+
+    /** u's code starts by loading v into A, and reads v nowhere else. */
+    private boolean readsFirst(Instr u, Instr v, Block b) {
+        long n = u.operands().stream().filter(o -> o == v).count();
+        if (n != 1) {
+            return u instanceof Instr.Branch br && br.op(0) instanceof Instr.Cmp c && fused.contains(c)
+                    && n == 0 && fusedReadsFirst(c, v, b);
+        }
+        return switch (u) {
+            case Instr.Bin x -> words(x.type()) == 1 && x.op(0) == v && switch (x.op) {
+                case ADD, SUB, AND, OR, XOR -> true;
+                case SHL, LSHR, ASHR -> x.op(1) instanceof Value.Const k && k.bits() <= UNROLL_SHIFT
+                        && k.bits() < x.type().bits();
+                default -> false;
+            };
+            case Instr.Store s -> s.op(1) == v && words(v.type()) == 1 && addressNeedsNoA(s.op(0));
+            case Instr.Ret r -> true;
+            case Instr.Cast c -> c.kind == Instr.CastKind.SEXT || c.kind == Instr.CastKind.TRUNC && words(c.type()) == 1;
+            case Instr.Call c -> c.op(0) == v;
+            default -> false;
+        };
+    }
+
+    /** A fused comparison at the end of b whose code starts with "lda v" (and no φ copies come first). */
+    private boolean fusedReadsFirst(Instr.Cmp c, Value v, Block b) {
+        for (Block s : b.terminator().successors()) {
+            if (!s.instrs().isEmpty() && s.instrs().getFirst() instanceof Instr.Phi) {
+                return false;
+            }
+        }
+        if (words(c.op(0).type()) != 1 || c.op(0) == c.op(1)) {
+            return false;
+        }
+        return switch (c.pred) {
+            case EQ, NE -> c.op(0) == v && !(c.op(1) instanceof Value.Const k && k.bits() == 0);
+            case ULT, UGE -> c.op(0) == v;
+            case SLT, SGE -> c.op(0) == v && c.op(1) instanceof Value.Const;
+            case UGT, ULE -> c.op(1) == v;
+            case SGT, SLE -> c.op(1) == v && c.op(0) instanceof Value.Const;
+        };
+    }
+
+    /** A load or store at this address needs A for nothing before the access itself. */
+    private boolean addressNeedsNoA(Value address) {
+        Address a = address(address);
+        if (fixedAt(a, 0) != null) {
+            return true;
+        }
+        Value p = a.base();
+        while (p instanceof Instr i && FrameLayout.transparent(i)) {
+            p = i.op(0);
+        }
+        return (p instanceof Value.Param || p instanceof Instr) && place.containsKey(p) && FRAME_START + place.get(p) + 3 < 0x100;
+    }
+
+    /**
+     * The order the blocks are written in: chains in which a block is followed by a successor
+     * not written yet (for a branch the true side, so a loop body or the then-part falls through
+     * and the branch skips only one jump), the entry block first.
+     */
+    static List<Block> layoutOrder(MFunction f) {
+        List<Block> order = new ArrayList<>();
+        Set<Block> placed = new HashSet<>();
+        int scan = 0;
+        Block b = f.entry();
+        while (order.size() < f.blocks().size()) {
+            if (b == null || placed.contains(b)) {
+                while (placed.contains(f.blocks().get(scan))) {
+                    scan++;
+                }
+                b = f.blocks().get(scan);
+            }
+            order.add(b);
+            placed.add(b);
+            Block next = null;
+            Instr t = b.terminator();
+            if (t != null) {
+                for (Block s : t.successors()) {
+                    if (!placed.contains(s)) {
+                        next = s;
+                        break;
+                    }
+                }
+            }
+            b = next;
+        }
+        return order;
+    }
+
     private void sourceLine(SourcePos pos) {
         out.blank();
         String file = pos.file();
@@ -419,6 +553,9 @@ public final class MirCodeGen {
                 Value v = p.op(p.from.indexOf(b));
                 int to = direct.contains(s) ? place.get(p) : incoming.get(p);
                 for (int w = 0; w < words(p.type()); w++) {
+                    if (operand(v, w).equals(at(to + 2 * w))) {
+                        continue;   // the operand shares the φ's place
+                    }
                     ins("lda", operand(v, w));
                     ins("sta", at(to + 2 * w));
                 }
@@ -441,6 +578,18 @@ public final class MirCodeGen {
             case Instr i when FrameLayout.transparent(i) -> w >= words(i.type()) ? imm(0) : operand(i.op(0), w);
             case Instr i -> w >= words(i.type()) ? imm(0) : at(place.get(i) + 2 * w);
         };
+    }
+
+    /**
+     * Stores word w of i's result from A into its place, unless the next instruction is the only
+     * one that reads it and takes it from A ({@link #forward}): then A is noted as holding it.
+     */
+    private void result(Instr i, int w) {
+        if (w == 0 && forward.contains(i)) {
+            aHolds = dest(i, 0);
+            return;
+        }
+        ins("sta", dest(i, w));
     }
 
     private String dest(Instr i, int w) {
@@ -507,12 +656,12 @@ public final class MirCodeGen {
                 ins("clc", null);
                 ins("lda", operand(p.op(0), 0));
                 ins("adc", operand(p.op(1), 0));
-                ins("sta", dest(p, 0));
+                result(p, 0);
                 ins("lda", operand(p.op(0), 1));
                 if (p.op(1).type() == MType.I32) {
                     ins("adc", operand(p.op(1), 1));
                 }   // an i16 offset stays within the bank (Instr.PtrAdd)
-                ins("sta", dest(p, 1));
+                result(p, 1);
             }
             case Instr.Load l -> load(l);
             case Instr.Store s -> store(s);
@@ -577,7 +726,7 @@ public final class MirCodeGen {
                     if (!staysByte(b)) {
                         mask(t);
                     }
-                    ins("sta", dest(b, w));
+                    result(b, w);
                 }
             }
             case AND, OR, XOR -> {
@@ -585,7 +734,7 @@ public final class MirCodeGen {
                 for (int w = 0; w < n; w++) {
                     ins("lda", operand(x, w));
                     ins(m, operand(y, w));
-                    ins("sta", dest(b, w));
+                    result(b, w);
                 }
             }
             case MUL -> {
@@ -597,7 +746,7 @@ public final class MirCodeGen {
                     if (!staysByte(b)) {
                         mask(t);
                     }
-                    ins("sta", dest(b, 0));
+                    result(b, 0);
                 } else {
                     to32(x, "z:R0", "z:R2");
                     to32(y, "z:R4", "z:R6");
@@ -615,7 +764,7 @@ public final class MirCodeGen {
                     if (rem) {
                         ins("lda", "z:R2");
                     }
-                    ins("sta", dest(b, 0));
+                    result(b, 0);
                 } else {
                     to32(x, "z:R0", "z:R2");
                     to32(y, "z:R4", "z:R6");
@@ -636,7 +785,7 @@ public final class MirCodeGen {
                 if (n == 1) {
                     ins("lda", rem ? "z:R12" : "z:R8");
                     mask(t);
-                    ins("sta", dest(b, 0));
+                    result(b, 0);
                 } else {
                     from32(b, rem ? "z:R12" : "z:R8", rem ? "z:R14" : "z:R10");
                 }
@@ -654,9 +803,9 @@ public final class MirCodeGen {
 
     private void from32(Instr d, String lo, String hi) {
         ins("lda", lo);
-        ins("sta", dest(d, 0));
+        result(d, 0);
         ins("lda", hi);
-        ins("sta", dest(d, 1));
+        result(d, 1);
     }
 
     /** A = the value of an i1/i8/i16 as a signed 16-bit number. */
@@ -742,7 +891,7 @@ public final class MirCodeGen {
             if (b.op != Instr.BinOp.LSHR && !staysByte(b)) {
                 mask(t);   // (a right shift of a zero-extended value stays zero-extended)
             }
-            ins("sta", dest(b, 0));
+            result(b, 0);
         } else {
             String lo = dest(b, 0);
             String hi = dest(b, 1);
@@ -781,6 +930,21 @@ public final class MirCodeGen {
             } else {
                 ins("lda", operand(x, 0));
             }
+            if (t == MType.I16 && count >= 8) {
+                // the bytes swap places: a shift by 8 in two instructions
+                ins("xba", null);
+                switch (b.op) {
+                    case SHL -> ins("and", imm(0xFF00));
+                    case LSHR -> ins("and", imm(0x00FF));
+                    default -> {
+                        ins("and", imm(0x00FF));
+                        ins("eor", imm(0x0080));   // sign-extend the byte
+                        ins("sec", null);
+                        ins("sbc", imm(0x0080));
+                    }
+                }
+                count -= 8;
+            }
             for (int k = 0; k < count; k++) {
                 switch (b.op) {
                     case SHL -> ins("asl", "a");
@@ -794,7 +958,7 @@ public final class MirCodeGen {
             if (b.op != Instr.BinOp.LSHR && !staysByte(b)) {
                 mask(t);
             }
-            ins("sta", dest(b, 0));
+            result(b, 0);
             return;
         }
         String lo = dest(b, 0);
@@ -832,7 +996,7 @@ public final class MirCodeGen {
                 place(differ);
                 ins("lda", imm(c.pred == Instr.Pred.EQ ? 0 : 1));
                 place(done);
-                ins("sta", dest(c, 0));
+                result(c, 0);
             }
             default -> {
                 boolean less = orderedFlags(c).equals("bcc");
@@ -841,7 +1005,7 @@ public final class MirCodeGen {
                 if (less) {
                     ins("eor", imm(1));
                 }
-                ins("sta", dest(c, 0));
+                result(c, 0);
             }
         }
     }
@@ -975,7 +1139,7 @@ public final class MirCodeGen {
             loadSigned16(c.op(0), from);
             if (words(to) == 1) {
                 mask(to);
-                ins("sta", dest(c, 0));
+                result(c, 0);
             } else {
                 storeWithSign(dest(c, 0), dest(c, 1));
             }
@@ -984,11 +1148,11 @@ public final class MirCodeGen {
         // zext, trunc, ptrtoint, inttoptr: the low bits, zero-extended
         ins("lda", operand(c.op(0), 0));
         mask(to);
-        ins("sta", dest(c, 0));
+        result(c, 0);
         if (words(to) == 2) {
             if (words(from) == 2) {
                 ins("lda", operand(c.op(0), 1));
-                ins("sta", dest(c, 1));
+                result(c, 1);
             } else {
                 ins("stz", dest(c, 1));
             }
@@ -1027,7 +1191,7 @@ public final class MirCodeGen {
             ins("lda", direct ? fixedAt(a, 0) : via);
             ins("rep", "#$20");
             ins("and", imm(t == MType.I1 ? 1 : 0xFF));   // B, the high byte of A, still has an old value
-            ins("sta", dest(l, 0));
+            result(l, 0);
             return;
         }
         for (int w = 0; w < words(t); w++) {
@@ -1035,7 +1199,7 @@ public final class MirCodeGen {
                 ins("ldy", imm(a.offset() + 2 * w));
             }
             ins("lda", direct ? fixedAt(a, 2 * w) : via);
-            ins("sta", dest(l, w));
+            result(l, w);
         }
     }
 
@@ -1129,7 +1293,7 @@ public final class MirCodeGen {
         }
         ins("jsl", c.callee);
         if (c.type() != MType.VOID) {
-            ins("sta", dest(c, 0));
+            result(c, 0);
             if (words(c.type()) == 2) {
                 ins("stx", dest(c, 1));
             }

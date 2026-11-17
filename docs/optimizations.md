@@ -262,6 +262,23 @@ shrink to 214 bytes, so every value of every function is in the direct page.
 With inlining the frames grow to 410 bytes; 91 % of the frame accesses in the code still use the
 direct page.
 
+### Layout, results in A, shared places for φs, 2026-11-17
+
+- **Block layout:** blocks are written in chains, each followed by a successor not yet written
+  (for a branch the true side), so most branches skip one jump instead of choosing between two.
+- **Shifts by 8 or more** of a 16-bit value start with `XBA` (swap the bytes) and a mask.
+- **Results kept in A:** a 1-word result whose only reader is the next instruction, which starts
+  by loading it, is not stored at all. The cases are listed one by one in
+  `MirCodeGen.readsFirst`.
+- **φs share their operands' places** where the lifetimes allow it, so the copy at the end of a
+  loop body disappears.
+
+| State | naive | before | layout and XBA | results in A | φ places |
+| --- | --- | --- | --- | --- | --- |
+| play | 5.17 (worst 8.58) | 2.55 | 2.50 | 2.40 | 2.35 (worst 3.88) |
+| play, CPU partner | 6.55 (worst 12.23) | 3.31 | 3.27 | 3.18 | 3.12 (worst 5.69) |
+| `level_solid_px`, per call | 3,849 | 1,774 | 1,700 | 1,636 | 1,636 clocks |
+
 ### Where the naive code spends its time (2026-11-17)
 
 `tools/profile_game.sh bench` profiles the benchmark's play ticks 900–1700 (as the game's own
