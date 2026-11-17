@@ -8,13 +8,12 @@ it may use at most 60 % of an NTSC [frame](/glossary#frame), about 0.6 frames pe
 vertical blank and a safety margin come off that. The game's benchmark runs the same game code
 with a fixed input for 1,800 ticks and measures every tick in Mesen.
 
-During play, the code dampf now generates takes 1.01 frames per tick (worst tick 1.76) with
-FastROM, which is the default, and 1.31 (worst 2.25) at SlowROM speed, as the earlier figures on
-this page were measured. dampf's
+During play, the code dampf now generates takes 0.92 frames per tick (worst tick 1.64) with
+FastROM, which is the default. The figures on this page before FastROM were measured at SlowROM
+speed, where dampf's code took 1.31 (worst 2.25) when FastROM came. dampf's
 own [naive code generator](/glossary#naive-code-generator) takes 5.17 frames per tick for the
-same code, and [Calypsi](/glossary#calypsi) took 2.72, measured on an older version of the game.
-dampf is past Calypsi and about 3.9 times as fast as its naive code, but still about 2.2 times
-away from the budget. This page explains, pass by pass, where that speed comes from.
+same code at SlowROM speed, and [Calypsi](/glossary#calypsi) took 2.72, measured on an older
+version of the game. dampf is past Calypsi, but still about 1.5 times away from the budget. This page explains, pass by pass, where that speed comes from.
 
 ## Why the 65816 needs a different optimizer
 
@@ -335,27 +334,30 @@ b2_body:                    ; from b1_for
 ; ...
 ```
 
-After the passes, the offset is a φ `%1` of its own that starts at 0 and grows by 6; `Gvn` has
-merged the two address computations, and `Simplify` the step block into the body:
+After the passes, the offset is a φ `%0` of its own that starts at 0 and grows by 6; `Gvn` has
+merged the two address computations, and `Simplify` the step block into the body. The counter
+`i` was only compared with 16 and stepped, so the test moved to the offset (`i < 16` became
+`offset < 96`) and `i` is gone:
 
 ```
 b1_for:                    ; from b0_entry, b2_body
-    %0 = phi i8 [b0_entry, 0], [b2_body, %6]    ; bubbles.c:13
-    %1 = phi i16 [b0_entry, 0], [b2_body, %7]   ; bubbles.c:14
-    %2 = cmp ult i8 %0, 16                      ; bubbles.c:13
-    br %2, b2_body, b4_endfor                   ; bubbles.c:13
+    %0 = phi i16 [b0_entry, 0], [b2_body, %5]   ; bubbles.c:14
+    %1 = cmp ult i16 %0, 96                     ; bubbles.c:13
+    br %1, b2_body, b4_endfor                   ; bubbles.c:13
 b2_body:                    ; from b1_for
-    %3 = ptradd @_bubbles, i16 %1               ; bubbles.c:14
-    %4 = load i16 %3                            ; bubbles.c:14
-    %5 = add i16 %4, 1                          ; bubbles.c:14
-    store i16 %3, %5                            ; bubbles.c:14
-    %6 = add i8 %0, 1                           ; bubbles.c:13
-    %7 = add i16 %1, 6                          ; bubbles.c:14
+    %2 = ptradd @_bubbles, i16 %0               ; bubbles.c:14
+    %3 = load i16 %2                            ; bubbles.c:14
+    %4 = add i16 %3, 1                          ; bubbles.c:14
+    store i16 %2, %4                            ; bubbles.c:14
+    %5 = add i16 %0, 6                          ; bubbles.c:14
     jump b1_for                                 ; bubbles.c:13
 ```
 
 The new φ carries the range of the product, because indexed addressing in the code generator
-needs to know that it is never negative. Play went from 1.61 to 1.57 frames per tick.
+needs to know that it is never negative. Play went from 1.61 to 1.57 frames per tick. The test
+moves only for an 8-bit counter that stays in its byte, with an element size of at most 257, so
+that the offset never wraps (unsigned comparisons and equality); with it, play went from 1.00
+to 0.92.
 
 ### PointerOffsets
 
@@ -528,19 +530,17 @@ b2_body:
         clc                         ;                                                           2
         adc     #$0001              ;                                                           3
         sta     _bubbles,x          ;                                                           6
-        inc     z:dampf_frame+0     ;                                                           7
         txa                         ;                                                           2
         clc                         ;                                                           2
         adc     #$0006              ;                                                           3
         tax                         ;                                                           2
 b1_for:
-        lda     z:dampf_frame+0     ;                                                           4
-        cmp     #$0010              ;                                                           3
+        cpx     #$0060              ;                                                           3
         bcc     b2_body             ;                                                         2/3
 ```
 
-The offset lives in X for the whole loop, the counter `i` in the direct page, where `INC`
-steps it, the comparison branches on the flags, and the loop test sits after the body. What
+The offset lives in X for the whole loop and is all that is left of the counter, the comparison
+branches on the flags, and the loop test sits after the body. What
 each of these is:
 
 - **Frames in the direct page.** dampf has no recursion, so the frames form a compiled stack: a
@@ -614,7 +614,9 @@ each of these is:
   compared with constants, indexes the loop's array accesses and is stepped by a constant
   (`INX`, `DEX`, or `TXA`/`ADC`/`TAX`). Loops with calls, the runtime's multiplication or
   division, or an array access with another index are left out, and the innermost loop gets X.
-  The gain was small: play 1.54 to 1.53.
+  The gain was small: play 1.54 to 1.53. An access with another index that can use Y instead
+  (`lda` and `sta` at an absolute address, not `stz`) no longer keeps X out: in the game's pair
+  loop, one bubble's offset lives in X and the other's in Y. Play 1.01 to 1.00.
 - **Byte loads.** A byte load that is not volatile reads 16 bits and masks the high byte:
   `lda` and `and #$00FF` instead of switching to 8 bits and back. The byte after the object is in
   the same bank, because the last byte of every bank stays free; I/O registers are read one byte
@@ -766,6 +768,8 @@ budget is hardest to meet; the worst tick is in parentheses where the source giv
 | a `switch` on a byte compares 16 bits | 1.04 (1.80) | 1.64 (3.45) |
 | returns copied into each path | 1.02 (1.78) | 1.62 (3.42) |
 | an index through a pointer in Y | 1.01 (1.76) | 1.60 (3.40) |
+| loop counters in X next to an index in Y | 1.00 (1.74) | 1.60 (3.40) |
+| the loop test on the offset | 0.92 (1.64) | 1.51 (3.31) |
 
 The steps are cumulative: each row includes everything above it. Loop rotation is not in the
 table; it brought about 0.5 %, measured on the benchmark's bare loop (801 to 783 clocks per
