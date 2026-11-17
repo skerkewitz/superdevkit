@@ -62,6 +62,10 @@ public final class Optimizer {
                 if (verifyEach) {
                     Verifier.verify(m, f);
                 }
+                changed |= BitSelect.run(f);
+                if (verifyEach) {
+                    Verifier.verify(m, f);
+                }
                 changed |= ByteLoads.run(f);
                 if (verifyEach) {
                     Verifier.verify(m, f);

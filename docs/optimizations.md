@@ -508,21 +508,29 @@ pointer) is `STZ` instead of `LDA #0` and `STA`, and so is a zero a φ gets (a c
 unless A holds 0 already). Play 510,797 → 510,007 for the stores, → 503,373 clocks per tick with
 the φs (1.41 frames).
 
+### A bit chosen by a bit, 2026-11-17
+
+The sprite code builds attribute bytes as `((attr & SPR_ATTR_FLIP_Y) ? 0x80u : 0u) | ...`: per
+bit a branch and a φ of two constants. When the test is one bit (`x & M`, M a power of two) and
+the φ chooses between one bit K and 0, the φ is the masked bit itself, shifted from M's place to
+K's (`BitSelect`; `(x & M) ? 0 : K` is the same with the bit inverted). The branch then has no
+reason left and goes. Play 503,373 → 496,395 clocks per tick (1.39 frames).
+
 ### Summary of the code from MIR so far (2026-11-17, the latest measurement)
 
 Measured after the range analysis learned to narrow after widening: a loop of more than 24
 rounds (`for (i = 0; i < 768; i++)`) used to give its counter the type's whole range, which kept
 it from being narrowed and from indexed addressing as nonnegative. Narrowing again after the
 widened fixpoint gives it 0..768. Play 1.53 → 1.50, title 0.68 → 0.60. Then A's places and the
-byte loads, the short branches, INC/DEC and STZ (sections above): play 1.41.
+byte loads, the short branches, INC/DEC, STZ and the bit selections (sections above): play 1.39.
 
 | State | naive | from MIR, no passes | now |
 | --- | --- | --- | --- |
 | title | 1.94 | 12.21 | 0.56 |
-| story | 0.70 | 3.56 | 0.24 |
-| round intro | 5.76 | 12.13 | 1.83 |
-| play | 5.17 (worst 8.58) | 18.93 | 1.41 (worst 2.43) |
-| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 2.09 (worst 4.25) |
+| story | 0.70 | 3.56 | 0.23 |
+| round intro | 5.76 | 12.13 | 1.82 |
+| play | 5.17 (worst 8.58) | 18.93 | 1.39 (worst 2.40) |
+| play, CPU partner | 6.55 (worst 12.23) | 23.13 | 2.07 (worst 4.23) |
 | `level_solid_px`, per call | 3,849 | 6,648 | 1,208 clocks |
 
 Calypsi's 2.72 frames per tick during play (on an older version of the game) is passed; a fair

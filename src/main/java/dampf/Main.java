@@ -20,7 +20,9 @@ import java.util.List;
  * dampf check [-I dir] [-D name[=value]] file.c ...                   front end: first problem per file, then the
  *                                                                      files that pass together (recursion, calls of
  *                                                                      functions defined nowhere, double definitions)
- * dampf profile rom.sfc profile.txt [top]                              cycles per function (tools/profile.lua)
+ * dampf profile rom.sfc profile.txt [top] [--skip file.c ...] [--instructions]
+ *                                                                      cycles per function (tools/profile.lua), and
+ *                                                                      per kind of instruction
  * </pre>
  */
 public final class Main {
@@ -168,6 +170,6 @@ public final class Main {
         System.err.println("usage: dampf parse [-I dir] [-D name[=value]] file.c ...");
         System.err.println("       dampf build [-I dir] [-D name[=value]] [--entry name] [--backend mir|naive] [--replace fn=file.s] -o out.sfc file.c ...");
         System.err.println("       dampf check [-I dir] [-D name[=value]] file.c ...");
-        System.err.println("       dampf profile rom.sfc profile.txt [top]");
+        System.err.println("       dampf profile rom.sfc profile.txt [top] [--skip file.c ...] [--instructions]");
     }
 }
