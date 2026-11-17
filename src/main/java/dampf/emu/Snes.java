@@ -45,7 +45,19 @@ public final class Snes implements Bus {
 
     public Snes(byte[] rom) {
         this.rom = rom;
+        this.hiRom = isHiRom(rom);
     }
+
+    /**
+     * HiROM (64 KB banks: banks $C0-$FF and $40-$7D all ROM, the upper halves of $00-$3F and
+     * $80-$BF too) if the cartridge header at $FFC0 says so (map mode $21 or $31), as for the
+     * Calypsi benchmark ROM; else LoROM, as dampf builds.
+     */
+    static boolean isHiRom(byte[] rom) {
+        return rom.length > 0xFFD5 && ((rom[0xFFD5] & 0xEF) == 0x21);
+    }
+
+    private final boolean hiRom;
 
     public static Snes load(Path sfc) throws IOException {
         return new Snes(Files.readAllBytes(sfc));
@@ -138,6 +150,9 @@ public final class Snes implements Bus {
         int offset = address & 0xFFFF;
         if (bank == 0x7E || bank == 0x7F) {
             return wram[(bank - 0x7E) << 16 | offset] & 0xFF;
+        }
+        if (hiRom && ((bank & 0x40) != 0 || offset >= 0x8000)) {
+            return rom[(((bank & 0x3F) << 16) | offset) % rom.length] & 0xFF; // HiROM
         }
         if (offset >= 0x8000) {
             return rom[(((bank & 0x7F) << 15) | (offset & 0x7FFF)) % rom.length] & 0xFF; // LoROM
