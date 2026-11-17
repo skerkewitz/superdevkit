@@ -392,17 +392,20 @@ public final class MirCodeGen {
         fused.addAll(layout.fused);
         folded.clear();
         folded.addAll(layout.folded);
+        findXCounters(f);
         findForwards(f);
+        forward.removeAll(xSteps.keySet());
         List<Block> blocks = layoutOrder(f);
         for (int k = 0; k < blocks.size(); k++) {
             Block b = blocks.get(k);
             Block next = k + 1 < blocks.size() ? blocks.get(k + 1) : null;
             place(b.name());
+            xTaken = xBlocks.get(b);
             for (Instr i : b.instrs()) {
                 if (i instanceof Instr.Phi p) {
                     out.note(Printer.instr(p));
-                    if (direct.contains(b)) {
-                        continue;   // set by the predecessors
+                    if (direct.contains(b) || xResident.containsKey(p)) {
+                        continue;   // set by the predecessors (or kept in X)
                     }
                     for (int w = 0; w < words(p.type()); w++) {
                         ins("lda", at(incoming.get(p) + 2 * w));
@@ -523,6 +526,9 @@ public final class MirCodeGen {
             for (Instr i : s.instrs()) {
                 if (!(i instanceof Instr.Phi p)) {
                     break;
+                }
+                if (xResident.containsKey(p)) {
+                    return false;   // the copies end with LDX for it: keep it simple
                 }
                 Value op = p.op(p.from.indexOf(b));
                 int to = direct.contains(s) ? place.get(p) : incoming.get(p);
@@ -669,12 +675,19 @@ public final class MirCodeGen {
 
     /** Before a block's jump: every φ of every successor gets this block's operand. */
     private void phiCopies(Block b, Instr terminator) {
+        Value xInit = null;
         for (Block s : new LinkedHashSet<>(terminator.successors())) {
             for (Instr i : s.instrs()) {
                 if (!(i instanceof Instr.Phi p)) {
                     break;
                 }
                 Value v = p.op(p.from.indexOf(b));
+                if (xResident.containsKey(p)) {
+                    if (v != xResident.get(p)) {
+                        xInit = v;   // entering the loop: X gets the start value (after the other copies)
+                    }
+                    continue;        // (along the back edge the step has updated X already)
+                }
                 int to = direct.contains(s) ? place.get(p) : incoming.get(p);
                 for (int w = 0; w < words(p.type()); w++) {
                     if (operand(v, w).equals(at(to + 2 * w))) {
@@ -685,12 +698,18 @@ public final class MirCodeGen {
                 }
             }
         }
+        if (xInit != null) {
+            ins("ldx", operand(xInit, 0));   // (not where X belongs to another loop: the guard checks)
+        }
     }
 
     // ---------------------------------------------------------------- operands
 
     /** Word w (0 low, 1 high) of a value, as an operand of lda, adc, cmp, ... */
     private String operand(Value v, int w) {
+        if (v instanceof Instr i && (xResident.containsKey(i) || xSteps.containsKey(i))) {
+            throw new IllegalStateException(Printer.instr(i) + " lives in X, it has no place to read");
+        }
         return switch (v) {
             case Value.Const k -> imm(k.bits() >> (16 * w));
             case Value.Undef u -> imm(0);
@@ -874,6 +893,19 @@ public final class MirCodeGen {
 
     private void instr(Instr i, Block next) {
         switch (i) {
+            case Instr.Bin b when xSteps.containsKey(b) -> {
+                long c = xSteps.get(b);
+                if (c >= -3 && c <= 3) {
+                    for (long n = 0; n < Math.abs(c); n++) {
+                        xOp(c > 0 ? "inx" : "dex", null);
+                    }
+                } else {
+                    xOp("txa", null);
+                    xOp("clc", null);
+                    xOp("adc", imm(c));
+                    xOp("tax", null);
+                }
+            }
             case Instr.Bin b -> bin(b);
             case Instr.Cmp c -> cmp(c);
             case Instr.Cast c -> cast(c);
@@ -1371,6 +1403,16 @@ public final class MirCodeGen {
 
     /** A branch on the comparison c without its truth value: flags, then the jump. */
     private void compareAndBranch(Instr.Cmp c, Block ifTrue, Block ifFalse, Block next) {
+        if (xResident.containsKey(throughCopies(c.op(0)))) {
+            xOp("cpx", operand(c.op(1), 0));
+            jumpOn(switch (c.pred) {
+                case EQ -> "beq";
+                case NE -> "bne";
+                case ULT -> "bcc";
+                default -> "bcs";   // UGE (findXCounters admits no other)
+            }, null, false, ifTrue, ifFalse, next);
+            return;
+        }
         if ((c.pred == Instr.Pred.SLT || c.pred == Instr.Pred.SGE) && c.op(0).type() == MType.I16
                 && c.op(1) instanceof Value.Const k && k.bits() == 0) {
             flagsOf(operand(c.op(0), 0));   // N is the sign
@@ -1486,7 +1528,9 @@ public final class MirCodeGen {
         if (f == null || a.index() == null) {
             return f;
         }
-        ins("ldx", operand(a.index(), 0));
+        if (!xResident.containsKey(throughCopies(a.index()))) {
+            ins("ldx", operand(a.index(), 0));
+        }   // (else X holds the loop's index already)
         return f + ",x";
     }
 
@@ -1662,6 +1706,9 @@ public final class MirCodeGen {
     }
 
     private void ins(String mnemonic, String operand) {
+        if (xTaken != null && changesX(mnemonic)) {
+            throw new IllegalStateException(mnemonic + " in a loop whose " + Printer.instr(xTaken) + " lives in X");
+        }
         if (mnemonic.equals("rep") && "#$20".equals(operand)) {
             flushHeld();
             heldRep = true;
@@ -1715,6 +1762,202 @@ public final class MirCodeGen {
         } else {
             load(operand);
         }
+    }
+
+    private static boolean changesX(String mnemonic) {
+        return switch (mnemonic) {
+            case "ldx", "inx", "dex", "tax", "tsx", "plx", "jsl" -> true;
+            default -> false;
+        };
+    }
+
+    /** An instruction on the loop value in X (allowed where X is taken). */
+    private void xOp(String mnemonic, String operand) {
+        Instr taken = xTaken;
+        xTaken = null;
+        ins(mnemonic, operand);
+        xTaken = taken;
+    }
+
+    // ---------------------------------------------------------------- loop values in X
+
+    /** Loop φs kept in X (to their step instruction), the steps (to their constant), and per block the φ that has X. */
+    private final Map<Instr, Instr> xResident = new HashMap<>();
+    private final Map<Instr, Long> xSteps = new HashMap<>();
+    private final Map<Block, Instr> xBlocks = new HashMap<>();
+    private Instr xTaken;
+
+    private static Value throughCopies(Value v) {
+        while (v instanceof Instr i && FrameLayout.transparent(i)) {
+            v = i.op(0);
+        }
+        return v;
+    }
+
+    /**
+     * Chooses loop values to keep in X for the whole loop: a φ of the loop head that is only
+     * compared with constants (EQ, NE, ULT, UGE: CPX), used as the index of the loop's array
+     * accesses (no LDX), and stepped by a constant on the way back (INX, DEX, or TXA/ADC/TAX).
+     * Nothing in the loop may need X otherwise (calls, the runtime's multiplication and
+     * division, variable shifts, 32-bit sign extension, another index), the value is not used after
+     * the loop, and an 8-bit counter must not wrap past 255. Loops are looked at innermost first;
+     * a loop around one that has X cannot have it too.
+     */
+    private void findXCounters(MFunction f) {
+        xResident.clear();
+        xSteps.clear();
+        xBlocks.clear();
+        Map<Value, List<Instr>> users = new HashMap<>();
+        for (Block b : f.blocks()) {
+            for (Instr i : b.instrs()) {
+                for (Value v : i.operands()) {
+                    users.computeIfAbsent(v, k -> new ArrayList<>()).add(i);
+                }
+            }
+        }
+        Set<Block> entries = new HashSet<>();   // where loops that have X load their start value
+        for (dampf.mir.Loops.Loop loop : dampf.mir.Loops.find(f)) {
+            if (loop.blocks().stream().anyMatch(b -> xBlocks.containsKey(b) || entries.contains(b)) || clobbersX(loop)) {
+                continue;
+            }
+            // the start value goes into X at the end of the blocks that enter the loop: X must be
+            // free there (two loops in a row: the first one's test block enters the second)
+            List<Block> enters = loop.head().preds().stream().filter(p -> !loop.blocks().contains(p)).toList();
+            if (enters.stream().anyMatch(xBlocks::containsKey)) {
+                continue;
+            }
+            Instr best = null;
+            Instr bestStep = null;
+            long bestC = 0;
+            int bestUses = 0;
+            for (Instr i : loop.head().instrs()) {
+                if (!(i instanceof Instr.Phi p)) {
+                    break;
+                }
+                if (p.type() != MType.I8 && p.type() != MType.I16) {
+                    continue;
+                }
+                Instr step = null;
+                boolean ok = true;
+                for (int k = 0; k < p.from.size() && ok; k++) {
+                    if (loop.blocks().contains(p.from.get(k))) {
+                        if (!(p.op(k) instanceof Instr.Bin s) || s.op != Instr.BinOp.ADD || s.op(0) != p
+                                || !(s.op(1) instanceof Value.Const) || step != null && step != s) {
+                            ok = false;
+                        } else {
+                            step = s;
+                        }
+                    } else if (p.op(k) instanceof Instr d && (xResident.containsKey(d) || xSteps.containsKey(d))) {
+                        ok = false;
+                    }
+                }
+                // the step must be the last thing before the jump back (else later code in the
+                // loop would see the next value in X already)
+                if (!ok || step == null || !loop.latches().contains(step.block())
+                        || !(step.block().terminator() instanceof Instr.Jump)
+                        || users.getOrDefault(step, List.of()).size() != 1) {
+                    continue;
+                }
+                long c = MType.I16.signed(((Value.Const) step.op(1)).bits());
+                if (p.type() == MType.I8) {
+                    c = MType.I8.signed(((Value.Const) step.op(1)).bits());
+                    Ranges.Range r = Ranges.unsigned(ranges.at(p, step.block()), MType.I8);
+                    if (r == null || r.lo() + c < 0 || r.hi() + c > 0xFF) {
+                        continue;   // it would wrap, and X would not
+                    }
+                }
+                int indexUses = otherIndex(loop, p) ? -1 : usesFitX(p, step, loop, users);
+                if (indexUses < 0 || indexUses <= bestUses && best != null) {
+                    continue;
+                }
+                best = p;
+                bestStep = step;
+                bestC = c;
+                bestUses = indexUses;
+            }
+            if (best != null && bestUses > 0) {
+                entries.addAll(enters);
+                xResident.put(best, bestStep);
+                xSteps.put(bestStep, bestC);
+                for (Block b : loop.blocks()) {
+                    xBlocks.put(b, best);
+                }
+            }
+        }
+    }
+
+    /**
+     * How often v (or a copy of it) indexes an array access in the loop, or -1 if v has a use
+     * that needs it somewhere other than X (or after the loop, or after the step).
+     */
+    private int usesFitX(Instr.Phi v, Instr step, dampf.mir.Loops.Loop loop, Map<Value, List<Instr>> users) {
+        int indexes = 0;
+        List<Instr> work = new ArrayList<>(users.getOrDefault(v, List.of()));
+        for (int n = 0; n < work.size(); n++) {
+            Instr u = work.get(n);
+            if (!loop.blocks().contains(u.block())) {
+                return -1;
+            }
+            if (u == step) {
+                continue;
+            }
+            if (u.block() == step.block() && u.block().instrs().indexOf(u) > u.block().instrs().indexOf(step)) {
+                return -1;   // read after the step: X has the next value by then
+            }
+            switch (u) {
+                case Instr.Cast c when FrameLayout.transparent(c) && c.kind == Instr.CastKind.ZEXT && c.type() == MType.I16 ->
+                        work.addAll(users.getOrDefault(c, List.of()));
+                case Instr.Cmp c when fused.contains(c) && throughCopies(c.op(0)) == v && c.op(1) instanceof Value.Const
+                        && (c.pred == Instr.Pred.EQ || c.pred == Instr.Pred.NE || c.pred == Instr.Pred.ULT
+                        || c.pred == Instr.Pred.UGE) -> { }
+                case Instr.PtrAdd q when folded.contains(q) && layout.indexable(q) && throughCopies(q.op(1)) == v
+                        && q.op(0) != v -> indexes++;
+                default -> {
+                    return -1;
+                }
+            }
+        }
+        return indexes;
+    }
+
+    /** Whether an array access in the loop is indexed by something other than v (it would load X). */
+    private boolean otherIndex(dampf.mir.Loops.Loop loop, Instr v) {
+        for (Block b : loop.blocks()) {
+            for (Instr i : b.instrs()) {
+                if (i instanceof Instr.Load || i instanceof Instr.Store) {
+                    FrameLayout.Address a = layout.address(i.op(0));
+                    if (a.index() != null && fixed(a.base(), a.offset()) != null && throughCopies(a.index()) != v) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    /** Whether code in the loop needs X for something else. */
+    private boolean clobbersX(dampf.mir.Loops.Loop loop) {
+        for (Block b : loop.blocks()) {
+            for (Instr i : b.instrs()) {
+                boolean bad = switch (i) {
+                    case Instr.Call c -> true;
+                    case Instr.Bin x -> switch (x.op) {
+                        case MUL -> words(x.type()) == 2 || !(x.op(0) instanceof Value.Const || x.op(1) instanceof Value.Const);
+                        case UDIV, UREM, SDIV, SREM -> true;
+                        case SHL, LSHR, ASHR -> words(x.type()) == 2 || !(x.op(1) instanceof Value.Const k)
+                                || k.bits() > UNROLL_SHIFT || k.bits() >= x.type().bits();
+                        default -> false;
+                    };
+                    case Instr.Cast c -> c.kind == Instr.CastKind.SEXT && words(c.type()) == 2;
+                    case Instr.Ret r -> !r.operands().isEmpty() && words(r.op(0).type()) == 2;
+                    default -> false;
+                };
+                if (bad) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /** A load that always happens, for code that branches on the flags it sets. */

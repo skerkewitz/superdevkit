@@ -427,6 +427,24 @@ that may point into either of two arrays) and pointers loaded from memory; those
 points-to analysis over the whole program, and the remaining indirect accesses do not justify it
 now.
 
+### Loop counters in X, 2026-11-17
+
+A φ of a loop head can live in X for the whole loop when X serves it well and nothing else needs
+X there: it is compared only with constants (`CPX`), indexes the loop's array accesses (no `LDX`),
+and is stepped by a constant on the way back (`INX`, `DEX`, or `TXA`/`ADC`/`TAX`). Excluded are
+loops with calls, the runtime's multiplication or division, variable shifts, 32-bit sign
+extension, or an array access with another index; the value must not be used after the loop or
+after the step, and an 8-bit counter must not wrap. Nested loops: the innermost gets X. A loop is
+also skipped if it is entered from a block where X belongs to another loop: with two loops in a
+row, the first loop's test block enters the second, and loading the second loop's start value
+there broke the first loop's test (the benchmark hung and ran into its frame limit;
+`exec/x_counters.c` now covers it). As a guard, the code generator stops with an error if any
+code tries to read the value's place or to change X inside such a loop.
+
+The gain is small, as expected: the game's hot loops (`separate`, `build_sprites`) index two
+arrays with different values, and only one fits in X. Play 1.54 → 1.53 frames per tick (worst
+2.67), with the CPU partner 2.24 → 2.22 (worst 4.46).
+
 ### Summary of the code from MIR so far (2026-11-17)
 
 | State | naive | from MIR, no passes | now |

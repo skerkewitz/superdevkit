@@ -112,15 +112,14 @@ the profile after each step can change the order of the later ones:
    A holds are left out, φs are written directly, and the frames lie in low RAM with the leaves in
    the direct page, values share places where their lifetimes allow, so all of the game's
    values are in the direct page; with inlining, indexed addressing and smaller changes play is
-   at 1.54 frames per tick.
+   at 1.53 frames per tick.
 
    Where the time goes now (play, game code only): loads and stores of values in the direct page
    are 37 % of the cycles, `JMP` 5.5 %, comparisons 5.7 %, masks 4.5 %. Next, in this order:
 
-   1. **Register allocation across instructions:** keep a value in A, X or Y while several
-      instructions use it, not only for the next one. This is the LIR level of
-      [architecture.md](architecture.md); the code generator's "what does A hold" tracking and
-      `FrameLayout`'s liveness are the start.
+   1. **Register allocation across instructions:** done 2026-11-17 in the form the 65816 allows
+      (the direct page is its register file): scheduling for hand-overs in A, comparisons and
+      offsets taken from A, loop counters in X. Play 1.67 → 1.53 together with 2 and 3.
    2. **Induction variables:** done 2026-11-17 (`Induction`): play 1.61 → 1.57.
    3. **Pointer compression:** done 2026-11-17 for pointers into a single object, within functions
       and through parameters (`PointerOffsets`, `PointerParams`): play 1.56 → 1.54.
