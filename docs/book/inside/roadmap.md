@@ -52,6 +52,24 @@ Still to come in M3: timing in master cycles and the costliest path per C line i
 and in the budget errors; more hand-written reference functions, and value ranges from array
 bounds.
 
+**A playable ROM, built during M3.** The playable ROM was planned for when the game's own SNES
+port needs it, but it was built ahead of that, so that every version of dampf can build the real
+game and the whole toolchain is tested on what only the console shows. Its platform layer,
+`platform/snes`, is written in C: the 19 PVSnesLib-shaped calls the game makes, the rest of its
+console API, and the main loop. It reaches the hardware through pointers to `volatile` memory,
+so it needs no [intrinsics](/glossary#intrinsic). There is no interrupt handler: the loop waits
+for the vertical blank itself, because C code called from an interrupt in the middle of a tick
+would overwrite the frames of the functions it interrupted, which dampf keeps at fixed places.
+Sound and save RAM are not built. A check plays the ROM in Mesen for a minute and fails if any
+byte reaches video memory outside the vertical blank, and the replay test plays the recording
+through the platform layer with the checksums of the PC. On the console the game runs at 2.28
+frames per tick during that minute of play, more than the benchmark shows: a tick that needs
+more than one frame waits for the start of the next vertical blank, and the benchmark leaves out
+what the game's video code costs on the hardware. Most of the vertical blank goes to C code, so
+two improvements come next: a `volatile` access at a constant address as one long `sta` or
+`lda` instead of an access through a pointer, and a 32-bit shift by a multiple of 8 that moves
+bytes instead of looping.
+
 **M4, next.** M4 is fine tuning until the frame budget is met: the remaining optimizations of
 the catalogue, arrays aligned to a page so that 8-bit index registers reach them,
 optimization guided by the profiles of the replays (the first part, laying out the blocks by
@@ -104,11 +122,6 @@ The main risks and how they are met:
 
 Open questions a user may run into:
 
-- **A playable ROM.** Playing the game on real hardware needs a platform layer: start-up,
-  joypad input, the vertical blank handler with DMA for sprites, tile maps and palettes, and the
-  19 calls that the game's `video.c` makes. How these calls map onto dampf's
-  [intrinsics](/glossary#intrinsic) is open; the layer is planned for when the game's SNES port
-  needs it.
 - **`goto`.** Forbid it entirely, or allow a restricted form that keeps the code structured.
 - **`restrict`.** Whether a no-alias hint of dampf's own is clearer than `restrict`, and how
   `restrict` is checked on the PC.
@@ -120,9 +133,9 @@ Open questions a user may run into:
 - **Publishing.** The licence is decided: dampf is under the Apache License 2.0 with LLVM
   Exceptions, the same as LLVM, so code dampf puts into a ROM carries no licence conditions and
   games built with dampf can use any licence. Before dampf can go public (M5), the snapshot of
-  Blubber Blasen and the hand-written reference function leave the repository and dampf's own
-  examples take over their jobs as test case and benchmark. They are also in the git history, so
-  either the history is cleaned or the public repository starts without it. dampf also gets its
-  own C preprocessor, so that using it no longer needs gcc, which users on Windows would
-  otherwise install only for that. Hosting the repository and putting the book online are part
-  of M5 as well.
+  Blubber Blasen, its platform layer and the hand-written reference function leave the
+  repository and dampf's own examples take over their jobs as test case and benchmark. They are
+  also in the git history, so either the history is cleaned or the public repository starts
+  without it. dampf also gets its own C preprocessor, so that using it no longer needs gcc,
+  which users on Windows would otherwise install only for that. Hosting the repository and
+  putting the book online are part of M5 as well.

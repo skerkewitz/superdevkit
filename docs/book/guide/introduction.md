@@ -103,10 +103,11 @@ the game, so a fair comparison still needs both compilers on the same version. T
 0.6 frames is not reached yet, and the compiler alone is not expected to reach it: the game is
 being made to do less work at the same time.
 
-dampf does not yet produce a playable game ROM on its own. The SNES platform layer it would need
-(start-up, joypad input, the vertical blank handler with DMA, and the PVSnesLib-shaped calls the
-game makes) is not built; the benchmark stubs those calls out. Most of the hints are not built
-either. dampf computes a best and a worst case in CPU cycles for every function, and a function
+dampf builds a playable ROM of the game. The SNES platform layer, written in C, implements the
+game's console API: the PVSnesLib-shaped calls the game makes, and the main loop. On the console
+the game runs at 2.28 frames per tick for now: a tick that needs more than one frame waits for
+the next vertical blank, and the benchmark leaves out what the game's video code costs on the
+hardware. Sound and save RAM are not built. Most of the hints are not built either. dampf computes a best and a worst case in CPU cycles for every function, and a function
 marked with `DAMPF_BUDGET` that goes over its cycle budget fails the build. The
 [Roadmap](/inside/roadmap) has the plan, and [Limits](/reference/limits) lists what dampf does
 not do yet.

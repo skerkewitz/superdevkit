@@ -91,8 +91,9 @@ The complete list, with every construct and the counts from the scan of the game
 
 [Hints](/glossary#hint), macros such as `DAMPF_RANGE` that tell dampf something it cannot
 infer, come from dampf's second system header, `<dampf.h>`; in the PC build they become checked
-assertions or nothing. [Hints](/reference/hints) describes them. Intrinsics, which give the code access to the SNES hardware, are not
-built yet; see [Limits](/reference/limits).
+assertions or nothing. [Hints](/reference/hints) describes them. Intrinsics, functions for
+SNES hardware such as the hardware multiplier and divider or DMA, are not built yet; see
+[Limits](/reference/limits).
 
 ## One program, not separate files
 

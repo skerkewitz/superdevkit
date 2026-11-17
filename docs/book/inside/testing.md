@@ -81,6 +81,23 @@ interpreter. The PC build must hit every checksum of the recording, and every da
 end with the same results as the PC build. A recording is about 15,000
 [frames](/glossary#frame) long, so the test runs only when you ask for it.
 
+The driver normally plays the game on stubs of its console functions. With a Mesen,
+`ReplayTest` also plays each recording through the SNES platform layer (`platform/snes`), the C
+code that makes the playable ROM: the driver, built with `REPLAY_PLATFORM` by the code generator
+from MIR, starts the console before `game_init` and after every tick waits for the vertical
+blank, the pause between two pictures, then copies the sprite table (OAM) and runs the game's
+uploads in `game_vblank`. This needs Mesen, because dampf's emulator has no PPU, the SNES's
+graphics chip. The checksums must match the PC build, and `MesenRunner` (with its PPU check)
+counts every byte written to VRAM, CGRAM or OAM outside a vertical blank with the screen on.
+The PPU drops such a byte, so the count must be 0. Lua runs for every one of those writes, so
+this test takes about nine minutes.
+
+The playable ROM has a quicker check of its own, `tools/check_game_rom.sh`: it builds the ROM
+and plays it headless in Mesen for a minute of game time, counts the same lost bytes, reports
+how many frames the game needs per tick and saves screenshots to `build/game/`. It fails when a
+byte was lost. It found the first bug of the platform layer, a row of the map copied after the
+vertical blank had ended.
+
 **The game's benchmark** (`tools/bench_game.sh`) is the second check of the whole game. It plays
 3,610 ticks, compares three checksums per tick with a PC build of the same program, and counts
 the cycles of every tick, which is how dampf's speed is measured. It runs in dampf's emulator
@@ -115,11 +132,12 @@ ways:
 - **The whole machine against Mesen** on the game's benchmark: the same checksums on all 3,610
   ticks, and the same master cycles per tick within a few cycles out of millions.
 
-Mesen itself runs only for the execution tests, and only when it is there: when
-`.mesen/Mesen.exe` exists in the repository (it is not in git) or `-Pmesen` names one.
-`MesenRunner` starts it headless (`--testrunner`) with a Lua script that waits for the write to
-`$21FB`, reads the globals and writes them to a file. The random programs, the replays and
-the benchmark run in dampf's emulator only.
+Mesen itself runs only for the execution tests and the replay through the platform layer, and
+only when it is there: when `.mesen/Mesen.exe` exists in the repository (it is not in git) or
+`-Pmesen` names one. `MesenRunner` starts it headless (`--testrunner`) with a Lua script that
+waits for the write to `$21FB`, reads the globals and writes them to a file. The random
+programs, the other replays and the benchmark run in dampf's emulator only.
+`tools/check_game_rom.sh` starts Mesen on its own, outside the Gradle tests.
 
 ## Running the tests
 
@@ -135,11 +153,12 @@ switched on with Gradle properties:
 | `./gradlew test -Pmesen=<path to Mesen.exe>` | execution tests also in this Mesen instead of `.mesen/Mesen.exe` |
 | `./gradlew test -Prandom=<N>` | N random programs instead of 50 |
 | `./gradlew test -PrandomSeed=<S>` | random programs from seed S on (default 1) |
-| `./gradlew test -Preplays` | also the game's replays and `GameTimingTest` |
+| `./gradlew test -Preplays` | also the game's replays and `GameTimingTest`; with a Mesen also the replays through the platform layer |
 | `./gradlew test -PcpuTests` | also the emulator against SingleStepTests, 300 tests per opcode |
 | `./gradlew test -PcpuTests=<N>` | the same with N tests per opcode |
 | `./gradlew test -Pblubberblasen=<path>` | tests that need the game's sources read them from there |
 | `tools/bench_game.sh` | the game's benchmark: checksums and cycles |
+| `tools/check_game_rom.sh` | the playable ROM for a minute in Mesen: lost bytes, frames per tick, screenshots |
 
 The first run with `-PcpuTests` downloads the start of each opcode's file of the suite, about
 50 MB, into `~/.cache/dampf/65816-tests`; later runs use the copy. Without a property, the tests
@@ -186,8 +205,8 @@ a test was added for them.
 
 A test must fail, not wait forever. Every program test runs under a hard time limit
 (`assertTimeoutPreemptively`): 3 minutes per execution test, 2 per random program, 15 per
-replay and 2 per MIR round trip, because JUnit's default timeouts do not cover the dynamic tests
-these are built from; `GameTimingTest` has 10 minutes. External programs (gcc, the PC builds,
+replay (20 through the platform layer) and 2 per MIR round trip, because JUnit's default
+timeouts do not cover the dynamic tests these are built from; `GameTimingTest` has 10 minutes. External programs (gcc, the PC builds,
 ca65, ld65) run through `dampf.util.Processes` with a time limit and are killed when it runs
 out. The emulator stops after 600 frames in the program tests and after 200,000 frames in
 `dampf bench` and the replays; the MIR interpreter counts its steps. The Gradle test task has an
@@ -204,9 +223,9 @@ cost is a second code generator to maintain and every test program built twice
 
 **An emulator of its own.** Mesen is a complete SNES emulator and runs the execution tests where
 it is installed, but it is an external program and much slower to run a ROM in. dampf's emulator
-runs inside the JVM, so the random programs run on every build, the replays and the benchmark
-run without Mesen, and every run counts master cycles at the same time. The cost is a second
-emulator that has to be proved right, against the SingleStepTests suite and against Mesen
+runs inside the JVM, so the random programs run on every build, the replays on the stubs and the
+benchmark run without Mesen, and every run counts master cycles at the same time. The cost is a
+second emulator that has to be proved right, against the SingleStepTests suite and against Mesen
 (`docs/testing.md`, *Supporting pieces*).
 
 **UBSan on the PC side.** Without the sanitizer, a test program with undefined behaviour could

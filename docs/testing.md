@@ -123,7 +123,7 @@ The three IR levels ([architecture.md](architecture.md)) are designed for testin
 ## When something hangs
 
 A test must fail, not wait forever. Every program test (execution tests, random programs, replays,
-the MIR round trips) runs under a hard time limit (`assertTimeoutPreemptively`: 3, 2, 15 and 2
+the MIR round trips) runs under a hard time limit (`assertTimeoutPreemptively`: 3, 2, 15 (20 through the platform layer) and 2
 minutes per program, 10 minutes for `GameTimingTest`), because JUnit's default timeouts do not cover dynamic tests. External
 programs (gcc, the PC builds, ca65, ld65) run through `dampf.util.Processes` with a time limit
 and are killed when it runs out. The emulator stops after 600 frames in the program tests and

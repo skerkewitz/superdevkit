@@ -186,8 +186,7 @@ The name in the second and third message is the segment name without its first l
 ## I/O registers
 
 The PPU and CPU registers (`$2100`–`$21FF`, `$4200`–`$43FF`) are in bank 0, which `DBR` does not
-point to, so code writes them with 24-bit long addresses, as the runtime does with
-`sta f:$002100`.
+point to, so the runtime writes them with 24-bit long addresses, such as `sta f:$002100`.
 
 C code reaches them through a `volatile` pointer made from an integer. The integer becomes the
 low 16 bits of the pointer and the bank is 0, so `0x2100` is `$00:2100`:
@@ -220,6 +219,10 @@ accumulator in 8-bit mode:
 A `volatile` byte is read as exactly one byte. A byte that is not `volatile` may be read as 16
 bits and masked, which reads the byte after it as well.
 
+Every such access builds the pointer in `dampf_ptr` first and goes through `[dampf_ptr],y`,
+which costs about 30 cycles a register. In a playable game only the SNES platform layer in
+`platform/snes` does this: it implements the game's console API in C, and the game logic does
+not touch the registers itself.
+
 The hardware intrinsics that will give C code access to the hardware are not built yet (see
-[intrinsic](/glossary#intrinsic) and [Limits](/reference/limits)), and so is the SNES platform
-layer a playable game needs.
+[intrinsic](/glossary#intrinsic) and [Limits](/reference/limits)).

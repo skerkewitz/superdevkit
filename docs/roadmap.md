@@ -166,7 +166,8 @@ game can be built and played, and the whole toolchain is tested on what only the
 
 What the console showed that the benchmark could not:
 
-- **The game runs at 2.28 frames per tick** during a minute of play (26 ticks a second), not 1.34:
+- **The game runs at 2.28 frames per tick** during a minute of play (26 ticks a second), while the
+  benchmark gave 1.34 for play at the time:
   a tick that needs more than one frame waits for the start of the next vertical blank, and the
   benchmark leaves out what `video.c` costs on the hardware.
 - **The vertical blank is mostly spent on C code.** `video_vblank` reaches its first upload about

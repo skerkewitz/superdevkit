@@ -30,7 +30,8 @@ The subset has these types:
 - **`void`**, **pointers**, **arrays** (also multi-dimensional), **structs**, **enums**, and
   `typedef`s of these.
 - **`const`** and **`static`** as in C99. `volatile` is accepted on what a pointer points to,
-  such as a hardware register: `*(volatile uint8_t *)0x2100 = 0x0F;`.
+  such as a hardware register: `*(volatile uint8_t *)0x2100 = 0x0F;` (see
+  [Hardware access](#hardware-access)).
 
 Plain integer types are rejected, because their size differs between compilers: `int` is 32 bit
 with gcc on the PC and 16 bit with the other 65816 compilers (816-tcc,
@@ -241,7 +242,6 @@ Every expression of C99 is accepted except these:
 | compound literals | `not supported yet: compound literals` |
 | designated initializers | `not supported yet: designated initializers` |
 | the comma operator outside the first and third part of a `for` | `not supported yet: the comma operator` |
-| casts from pointers to integers | `not supported yet: casts from pointers to integers` |
 | `+=`, `++` and the like on an lvalue with side effects, such as `buf[i++] += 1` | `not supported yet: compound assignment to an lvalue with side effects` |
 
 The comma operator is accepted where loops use it, as in
@@ -249,6 +249,43 @@ The comma operator is accepted where loops use it, as in
 
 Struct assignment is accepted: `bubbles[1] = bubbles[0];` copies the whole struct. A local array
 or struct with an initializer is accepted too; it is copied from a constant copy in ROM.
+
+A cast from a pointer to an integer is accepted, but its value differs from the PC's; it belongs
+to [Hardware access](#hardware-access).
+
+## Hardware access
+
+Two constructs exist for platform code, the layer that talks to the SNES hardware, and not for
+game code. The SNES platform layer in `platform/snes` is written with both of them.
+
+**Pointers to `volatile` memory** reach the I/O registers. Every access through such a pointer
+is one access of exactly the width of its type, in the order the program gives. This writes to
+`INIDISP` at `$2100` in bank 0, a register of the PPU, the SNES's picture chip:
+
+```c [screen.c]
+#include <stdint.h>
+
+#define INIDISP (*(volatile uint8_t *)0x2100)
+
+void screen_on(uint8_t brightness) {
+    INIDISP = brightness;
+}
+```
+
+Only what a pointer points to can be `volatile`:
+
+| Rejected | Message |
+|---|---|
+| a `volatile` variable, `volatile uint8_t frame_done;` | `not supported yet: volatile variables (only pointers to volatile memory)` |
+| a `volatile` pointer, `uint8_t *volatile cursor;` | `not supported yet: 'volatile' on a pointer itself` |
+| a cast to a `volatile` value, `(volatile uint8_t)level` | `not supported yet: volatile values (only pointers to volatile memory)` |
+
+**A cast from a pointer to an integer** gives the SNES address of what the pointer points to,
+`bank << 16 | address`, which a DMA channel needs as its source address. A cast to a narrower
+type truncates that number: for an array `static const uint8_t tiles[64]`,
+`(uint16_t)(uint32_t)tiles` is its 16-bit address within its [bank](/glossary#bank). On the PC the number is something else, and gcc warns
+`cast from pointer to integer of different size`. The two builds agree only on distances
+within one object: `(uint32_t)&tiles[64] - (uint32_t)tiles` is 64 on both.
 
 ## Preprocessor
 

@@ -39,8 +39,8 @@ source compiles and behaves bit for bit the same with gcc on the PC.
 - The name: say in one sentence what *Dampf machen* means, as the README does.
 - Blubber Blasen is the first user; name it, and say it is a game whose logic is C that also
   builds on the PC. Do not describe the game beyond that.
-- dampf does not yet produce a playable game ROM on its own (the SNES platform layer is not
-  built). Say so plainly in *Where it stands*.
+- dampf builds a playable ROM of the game (the SNES platform layer); say so in *Where it
+  stands*, with what is not built there (sound, save RAM).
 
 ## Out of scope
 

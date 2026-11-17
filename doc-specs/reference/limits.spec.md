@@ -16,8 +16,8 @@ repeating plans: what is not built yet, and what will never be.
 
 ## Sections
 
-1. **Not built yet** – the SNES platform layer for a playable ROM, hints, intrinsics, the timing
-   report and cycle budgets, other planned items of the roadmap that a user would notice. For
+1. **Not built yet** – what the SNES platform layer of the playable ROM leaves out (sound, save
+   RAM), hints, intrinsics, the timing report and cycle budgets, other planned items of the roadmap that a user would notice. For
    each, a sentence on what it will do and what to do meanwhile, if the sources say.
 2. **Never planned** – the README's non-goals that limit a user: full C, other targets, an own
    assembler or linker, floating point.

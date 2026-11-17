@@ -8,15 +8,16 @@ The milestones named here (M3 for the optimizer, M4 for fine tuning) are on the
 
 ## Not built yet
 
-**The SNES platform layer for a playable ROM.** A ROM that plays a game on real hardware needs
-start-up code for the game, joypad input, a vertical blank handler with DMA for sprites, tile
-maps and palettes, and the 19 [PVSnesLib](/glossary#pvsneslib)-shaped calls that Blubber
-Blasen's `video.c` makes. None of it exists. It belongs to no milestone: it was split off from
-M2 and is planned for when the game's SNES port needs it. How the game's platform API maps onto
-dampf's intrinsics is still an open question. Meanwhile dampf builds ROMs whose
-[runtime](/glossary#runtime) calls one [entry function](/glossary#entry-function) and writes to
-`$21FB` when it returns; the game's benchmark runs that way because it stubs out every
-PVSnesLib call.
+**Sound and save RAM in the SNES platform layer.** dampf builds a playable ROM of Blubber
+Blasen with `tools/build_game_rom.sh`. The platform layer in `platform/snes`, written in C,
+implements the 19 [PVSnesLib](/glossary#pvsneslib)-shaped calls that the game's `video.c` makes,
+the rest of the game's console API and the main loop. Two parts are missing: sound, which the
+game does not have yet, and save RAM, so the high scores start empty at every power-on. The
+playable ROM belongs to no milestone: it was split off from M2 and built ahead of the game's own
+SNES port. The layer also has no interrupt handler. Its loop waits for the vertical blank and
+does the work there, because C code called from an interrupt in the middle of a tick would
+overwrite the [frames](/glossary#frame) of the functions it interrupted: dampf keeps them at
+fixed places.
 
 **Hints.** A [hint](/glossary#hint) is a macro that tells dampf something it cannot infer, such
 as `DAMPF_RANGE(i, 0, 15)` for "`i` is always between 0 and 15", or `DAMPF_TRIPS(16)` for a loop
@@ -35,8 +36,11 @@ a hot value whose range dampf cannot infer.
 
 **Intrinsics.** An [intrinsic](/glossary#intrinsic) gives C code access to the SNES hardware:
 the hardware multiplier and divider, DMA, waiting for vertical blank, placing constant data in
-ROM banks. In the PC build each is a plain function. None is built, and the roadmap ties them
-to the playable ROM rather than to a milestone.
+ROM banks. In the PC build each is a plain function. None is built, and the roadmap places
+them in no milestone. The platform layer of the playable ROM needed none: it reaches the I/O
+registers through pointers to `volatile` memory, and casts a pointer to an integer to get the
+SNES address a DMA channel copies from ([The C subset](/reference/c-subset)). Meanwhile,
+platform code reaches the hardware the same way.
 
 **The timing report and cycle budgets.** dampf already computes a best and a worst case in CPU
 cycles for every function, from its entry to its return with calls included, and `dampf build`
@@ -68,9 +72,12 @@ expect:
 - **Locals in [Mesen](/glossary#mesen):** how Mesen shows locals that live in fixed
   [direct page](/glossary#direct-page) slots is an open question of the roadmap.
 - **Speed.** The fine tuning of M4 (more optimizations, page-aligned arrays with 8-bit index
-  registers, profile-guided optimization from the replays) has not started, so the generated
-  code is not yet as fast as the goal of 60 % of a [frame](/glossary#frame) per
-  [tick](/glossary#tick): during play, Blubber Blasen takes 1.31 frames per tick with dampf.
+  registers, profile-guided optimization from the replays) has only started with the layout of
+  blocks by a profile, so the generated code is not yet as fast as the goal of 60 % of a
+  [frame](/glossary#frame) per [tick](/glossary#tick): during play, Blubber Blasen takes 1.31
+  frames per tick with dampf. On the console, during a minute of play of the playable ROM, it takes 2.28 frames per tick,
+  because a tick that needs more than one frame waits for the next vertical blank and the
+  benchmark leaves out what `video.c` costs on the hardware.
 
 ## Never planned
 
