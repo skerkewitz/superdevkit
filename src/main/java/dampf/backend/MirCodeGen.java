@@ -2457,14 +2457,24 @@ public final class MirCodeGen {
         return indexes;
     }
 
-    /** Whether an array access in the loop is indexed by something other than v (it would load X). */
+    /**
+     * Whether an array access in the loop is indexed by something other than v and would load X
+     * for it. With v in X, another index goes into Y (fixedAt), which works for LDA and STA at
+     * an absolute address; STZ (a store of 0) and accesses in the direct page or at a long
+     * address have no absolute,Y form.
+     */
     private boolean otherIndex(dampf.mir.Loops.Loop loop, Instr v) {
         for (Block b : loop.blocks()) {
             for (Instr i : b.instrs()) {
                 if (i instanceof Instr.Load || i instanceof Instr.Store) {
                     FrameLayout.Address a = layout.address(i.op(0));
-                    if (a.index() != null && fixed(a.base(), a.offset()) != null && throughCopies(a.index()) != v) {
-                        return true;
+                    String f = fixed(a.base(), a.offset());
+                    if (a.index() != null && f != null && throughCopies(a.index()) != v) {
+                        boolean viaY = !f.startsWith("z:") && !f.startsWith("f:")
+                                && !(i instanceof Instr.Store s && s.op(1) instanceof Value.Const k && k.bits() == 0);
+                        if (!viaY) {
+                            return true;
+                        }
                     }
                 }
             }
