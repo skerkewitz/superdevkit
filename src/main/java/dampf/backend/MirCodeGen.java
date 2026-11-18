@@ -3,6 +3,7 @@ package dampf.backend;
 import dampf.frontend.CompileError;
 import dampf.frontend.SourcePos;
 import dampf.lir.BranchRelax;
+import dampf.lir.DeadStores;
 import dampf.lir.LBlock;
 import dampf.lir.LFunction;
 import dampf.lir.RegContents;
@@ -194,6 +195,10 @@ public final class MirCodeGen {
             if (trackEntries) {
                 checkEntries(code.function());
             }
+            // stores no path reads; then the code is shorter, so more branches may reach
+            if (new DeadStores(FRAME, ownValueBytes(f)).run(code.function()) > 0) {
+                BranchRelax.run(code.function());
+            }
             Map<String, String> renamed = dampf.lir.LocalLabels.renumber(code.function(), "@L");
             Map<String, Integer> bounds = new HashMap<>();
             code.loopBounds().forEach((label, rounds) -> bounds.put(renamed.getOrDefault(label, label), rounds));
@@ -331,6 +336,23 @@ public final class MirCodeGen {
                         + ", the analysis of the code finds " + in.get(b));
             }
         }
+    }
+
+    /**
+     * The frame offsets of the bytes of f's value places: its parameters, values and φ incoming
+     * places (not its slots, whose address may be taken). Only f reads them, while it runs.
+     */
+    private java.util.BitSet ownValueBytes(MFunction f) {
+        FrameLayout l = layouts.get(f);
+        int b = base.get(f);
+        java.util.BitSet own = new java.util.BitSet();
+        l.offset.forEach((k, v) -> {
+            if (k instanceof Value.Param || k instanceof Instr) {
+                own.set(b + v, b + v + 2 * words(((Value) k).type()));
+            }
+        });
+        l.incoming.forEach((p, v) -> own.set(b + v, b + v + 2 * words(p.type())));
+        return own;
     }
 
     private void prelude(AsmWriter w, int module, int modules) {

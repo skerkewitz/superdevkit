@@ -864,3 +864,4 @@ them: play 326,596 (0.91 frames), play with the CPU partner 528,446, all ticks 3
 | Step | Play | Play, CPU partner | All | What changed |
 | --- | --- | --- | --- | --- |
 | B2: branch relaxation on LIR | 326,592 | 528,440 | 316,983 | A few long branches that reach now get the short form; the passes before stopped early in those places. |
+| B4: dead stores as a LIR pass | 325,572 | 527,421 | 316,359 | Stores to a function's own value places that no path reads afterwards go (byte-wise liveness over the blocks), on top of the stores the passes already left out. No function of the game or the tests got slower. |
