@@ -117,6 +117,12 @@ allowed (the platform layer uses them); this form does not need the rule against
   instructions to 200 made play slower (290,433 → 294,651 master clocks per tick), to 400 slower
   still (297,979), although no call is copied. Why is not clear: every frame access of the play
   ticks still goes to the direct page. The limit stays at 150.
+- `PointerRemat` for φ uses (2026-11-18): `best = v` in a loop keeps `v` computed in every round.
+  Copying the chain to the end of the predecessor instead, with the condition that the chain
+  then folds away completely (else the copy comes on top), made play slower (286,947 → 288,149
+  master clocks per tick). The condition alone, without φ uses, gave the same: copies that leave
+  part of the chain behind still pay off in the game, and the condition prevented them. Left as
+  it was.
 - Jump tables for `switch` (considered, 2026-11-18): a table dispatch (subtract, range check,
   `ASL`, `TAX`, `JMP (table,X)`) costs about 24 cycles, as much as the chain of compares over three
   to four cases, needs X, and gives the timing analysis an indirect jump. The game's switches are
