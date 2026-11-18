@@ -10,8 +10,9 @@ separate project in parallel with the game.
 The name: in German, *Dampf machen* ("make steam") means to get things moving fast. It also fits
 the steam factory of Blubber Blasen.
 
-Status: version 0.4.0. Milestones M0 to M4 and M6 (dampf's own assembler and linker) are done;
-next is M5, in which Blubber Blasen builds its ROM with dampf from its own repository (0.5.0).
+Status: version 0.5.0, in work. Milestones M0 to M4 and M6 (dampf's own assembler and linker)
+are done; M5, in which Blubber Blasen builds its ROM with dampf from its own repository, is in
+work.
 dampf is the compiler of a development kit for SNES games, superdevkit, which this repository
 holds until it is published ([ADR record 29](docs/adr/0029-superdevkit-is-the-project-and-dampf-is-its.md)).
 The milestones and versions are in [docs/roadmap.md](docs/roadmap.md). dampf compiles all of Blubber Blasen and

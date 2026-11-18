@@ -1,6 +1,6 @@
 # The files each generated page of the book was last written from, with a hash of each.
 # Written by ./gradlew stampBook, read by BookSourcesTest. Do not edit by hand.
-guide/compiling-a-game README.md ef3b0626174d
+guide/compiling-a-game README.md 7590cb6be2bf
 guide/compiling-a-game doc-specs/guide/compiling-a-game.spec.md 5eddcbf255b9
 guide/compiling-a-game examples/blubberblasen/SNAPSHOT.md 4e880576d195
 guide/compiling-a-game platform/snes/README.md c4d96ec2ce72
@@ -9,18 +9,18 @@ guide/compiling-a-game src/main/java/dampf/Main.java e9e3e68397d8
 guide/compiling-a-game src/main/java/dampf/tools/Profile.java 8ce08c0cbd84
 guide/compiling-a-game tools/bench_game.sh f76f0c05f36b
 guide/compiling-a-game tools/profile_game.sh ba00fb6c5963
-guide/debugging README.md ef3b0626174d
+guide/debugging README.md 7590cb6be2bf
 guide/debugging doc-specs/guide/debugging.spec.md 0b9ad97b84c6
 guide/debugging docs/architecture.md 09ce4c89900a
 guide/debugging examples/m1/calls.c 00878c7fd711
 guide/debugging src/main/java/dampf/backend/AsmWriter.java db8459c802e8
-guide/getting-started README.md ef3b0626174d
-guide/getting-started build.gradle.kts 6891722c1e3c
+guide/getting-started README.md 7590cb6be2bf
+guide/getting-started build.gradle.kts 2b406652df6a
 guide/getting-started doc-specs/guide/getting-started.spec.md d634915593c7
 guide/getting-started examples/m1/calls.c 00878c7fd711
 guide/getting-started src/main/java/dampf/Main.java e9e3e68397d8
 guide/getting-started src/main/resources/dampf/snes/runtime.s e19e32708511
-guide/introduction README.md ef3b0626174d
+guide/introduction README.md 7590cb6be2bf
 guide/introduction doc-specs/guide/introduction.spec.md 02510d4b2aba
 guide/introduction docs/ADR.md 25a54b2c8997
 guide/introduction docs/adr/0001-dampf-is-a-compiler-of-its-own-for-one-target-the.md 411bd59d1e0c
@@ -54,7 +54,7 @@ guide/introduction docs/adr/0028-options-can-be-kept-in-an-argument-file-given-b
 guide/introduction docs/adr/0029-superdevkit-is-the-project-and-dampf-is-its.md be4018363a43
 guide/introduction docs/adr/0030-one-book-for-superdevkit-with-dampf-as-a-part-of.md 37ad45f88b47
 guide/introduction docs/optimizations.md f226a9133ade
-guide/introduction docs/roadmap.md 268307042342
+guide/introduction docs/roadmap.md 68a3499f6394
 guide/introduction platform/snes/README.md c4d96ec2ce72
 guide/writing-c doc-specs/guide/writing-c.spec.md a3f3c5355905
 guide/writing-c docs/ADR.md 25a54b2c8997
@@ -280,7 +280,7 @@ inside/optimizations src/main/java/dampf/mir/Simplify.java b0a070c095c5
 inside/optimizations src/main/java/dampf/mir/StrengthReduce.java e242262af89f
 inside/optimizations src/main/java/dampf/mir/Value.java b6879c997a90
 inside/optimizations src/main/java/dampf/mir/Verifier.java aee9edab008c
-inside/roadmap README.md ef3b0626174d
+inside/roadmap README.md 7590cb6be2bf
 inside/roadmap doc-specs/inside/roadmap.spec.md 796d44cb66a8
 inside/roadmap docs/ADR.md 25a54b2c8997
 inside/roadmap docs/adr/0001-dampf-is-a-compiler-of-its-own-for-one-target-the.md 411bd59d1e0c
@@ -313,9 +313,9 @@ inside/roadmap docs/adr/0027-goto-and-labels-stay-rejected-and-a-forward-and.md 
 inside/roadmap docs/adr/0028-options-can-be-kept-in-an-argument-file-given-by.md 2982dcd866e7
 inside/roadmap docs/adr/0029-superdevkit-is-the-project-and-dampf-is-its.md be4018363a43
 inside/roadmap docs/adr/0030-one-book-for-superdevkit-with-dampf-as-a-part-of.md 37ad45f88b47
-inside/roadmap docs/roadmap.md 268307042342
-inside/testing README.md ef3b0626174d
-inside/testing build.gradle.kts 6891722c1e3c
+inside/roadmap docs/roadmap.md 68a3499f6394
+inside/testing README.md 7590cb6be2bf
+inside/testing build.gradle.kts 2b406652df6a
 inside/testing doc-specs/inside/testing.spec.md c7f660cc0897
 inside/testing docs/testing.md e960fc814a0a
 inside/testing docs/timing.md ce5dfbe3b13c
@@ -387,7 +387,7 @@ reference/c-subset src/test/java/dampf/frontend/AstBuilderTest.java 4c6ba5a533fa
 reference/c-subset src/test/java/dampf/frontend/ParserTest.java fa832dca2964
 reference/c-subset src/test/java/dampf/frontend/PreprocessorTest.java 00438f80d4d1
 reference/c-subset src/test/resources/exec/pointer_to_int.c e065e4f0b195
-reference/command-line README.md ef3b0626174d
+reference/command-line README.md 7590cb6be2bf
 reference/command-line doc-specs/reference/command-line.spec.md a0d30dd074aa
 reference/command-line src/main/java/dampf/Compiler.java af2797845833
 reference/command-line src/main/java/dampf/Main.java e9e3e68397d8
@@ -436,7 +436,7 @@ reference/hints src/main/java/dampf/frontend/AstBuilder.java 8deba47efb6f
 reference/hints src/main/resources/dampf/include/dampf.h ef60b85b2ab7
 reference/hints src/test/java/dampf/BudgetTest.java 7ab99f5df2b0
 reference/hints src/test/resources/exec/hint_range.c 6d1dcc6be9e1
-reference/limits README.md ef3b0626174d
+reference/limits README.md 7590cb6be2bf
 reference/limits doc-specs/reference/limits.spec.md 3484344f12a2
 reference/limits docs/ADR.md 25a54b2c8997
 reference/limits docs/adr/0001-dampf-is-a-compiler-of-its-own-for-one-target-the.md 411bd59d1e0c
@@ -471,11 +471,11 @@ reference/limits docs/adr/0029-superdevkit-is-the-project-and-dampf-is-its.md be
 reference/limits docs/adr/0030-one-book-for-superdevkit-with-dampf-as-a-part-of.md 37ad45f88b47
 reference/limits docs/hints.md 385e5701f6b1
 reference/limits docs/optimizations.md f226a9133ade
-reference/limits docs/roadmap.md 268307042342
+reference/limits docs/roadmap.md 68a3499f6394
 reference/limits docs/subset.md 6f18122f3f28
 reference/limits docs/timing.md ce5dfbe3b13c
 reference/limits platform/snes/README.md c4d96ec2ce72
-reference/output-files README.md ef3b0626174d
+reference/output-files README.md 7590cb6be2bf
 reference/output-files doc-specs/reference/output-files.spec.md a0a6a169b3b0
 reference/output-files docs/architecture.md 09ce4c89900a
 reference/output-files src/main/java/dampf/Compiler.java af2797845833
@@ -483,7 +483,7 @@ reference/output-files src/main/java/dampf/asm/DbgWriter.java a2950d25e94b
 reference/output-files src/main/java/dampf/backend/AsmWriter.java db8459c802e8
 reference/output-files src/main/java/dampf/snes/RomBuilder.java bfb4c0b92aee
 reference/output-files src/main/java/dampf/target/Cycles65816.java 8698afa0f4ad
-reference/runtime-and-memory README.md ef3b0626174d
+reference/runtime-and-memory README.md 7590cb6be2bf
 reference/runtime-and-memory doc-specs/reference/runtime-and-memory.spec.md 36d7c62c1041
 reference/runtime-and-memory docs/ADR.md 25a54b2c8997
 reference/runtime-and-memory docs/adr/0001-dampf-is-a-compiler-of-its-own-for-one-target-the.md 411bd59d1e0c

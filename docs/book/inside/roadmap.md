@@ -11,15 +11,16 @@ also describes plans. What is not built yet, listed for users, is on
 
 ## Where dampf stands
 
-dampf is at version 0.4.0, from 2026-11-18. It compiles all of Blubber Blasen, gives the
-results of the [PC build](/glossary#pc-build) in the game's benchmark and replays, on the SNES
-and in a playable ROM, and assembles and links the ROM itself. While the game is played it
-takes 0.79 frames per [tick](/glossary#tick) against a goal of 0.6, and on the same scene
-dampf's code is 2.14 times as fast as [Calypsi](/glossary#calypsi)'s.
+dampf is at version 0.5.0, in work; M0 to M4 and M6 were concluded with 0.4.0 on 2026-11-18. It
+compiles all of Blubber Blasen, gives the results of the [PC build](/glossary#pc-build) in the
+game's benchmark and replays, on the SNES and in a playable ROM, and assembles and links the ROM
+itself. While the game is played it takes 0.79 frames per [tick](/glossary#tick) against a goal
+of 0.6, and on the same scene dampf's code is 2.14 times as fast as
+[Calypsi](/glossary#calypsi)'s.
 
 dampf is the compiler of superdevkit, a development kit for SNES games that this repository
-holds until it is published. Next is M5, version 0.5.0: Blubber Blasen builds its ROM with the
-dev kit, from its own repository.
+holds until it is published. M5 is in work, as version 0.5.0: Blubber Blasen builds its ROM
+with the dev kit, from its own repository.
 
 ## Versions
 
@@ -48,7 +49,7 @@ released stay.
 | M3 | The big levers: [MIR](/glossary#mir), [LIR](/glossary#lir) and the [code generator from MIR](/glossary#code-generator-from-mir), static timing and budgets, [value ranges](/glossary#value-range) and [pointer compression](/glossary#pointer-compression); faster than Calypsi | 0.4.0 | Done 2026-11-18 |
 | M4 | Fine tuning, started early: the block layout by a profile, peephole rules, loop and branch optimizations | 0.4.0 | Done 2026-11-18 |
 | M6 | Standing alone: dampf's own assembler and linker | 0.4.0 | Done 2026-11-18 |
-| M5 | Blubber Blasen builds its ROM with the dev kit, from its own repository | 0.5.0 | Next |
+| M5 | Blubber Blasen builds its ROM with the dev kit, from its own repository | 0.5.0 | In work |
 | M7 | The optimizer: what was left of M3, register allocation first | 0.7.0 | Planned |
 | M8 | Language, platform and usability: C in interrupts, [intrinsics](/glossary#intrinsic), the open subset decisions, dampf's own preprocessor | 0.8.0 | Planned |
 | M9 | Timing and debugging: [master clocks](/glossary#master-clock), bounds for more loops, locals and types in Mesen | 0.9.0 | Planned |

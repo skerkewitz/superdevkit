@@ -6,17 +6,17 @@ what was left of them moved to the milestones after M5 (see [History](#history))
 
 ## Where dampf stands
 
-Version 0.4.0 (2026-11-18). M0 to M4 and M6 are concluded: all of Blubber Blasen compiles, the
-benchmark and the replays give the PC's checksums, on the SNES and in a playable ROM, dampf's
-code is faster than Calypsi's, and dampf assembles and links itself. During play the game takes
-0.79 frames per tick against a goal of 0.6, so the compiler work goes on while the game reduces
-its own work in parallel; the current numbers are in
+M0 to M4 and M6 were concluded with version 0.4.0 (2026-11-18): all of Blubber Blasen compiles,
+the benchmark and the replays give the PC's checksums, on the SNES and in a playable ROM,
+dampf's code is faster than Calypsi's, and dampf assembles and links itself. During play the
+game takes 0.79 frames per tick against a goal of 0.6, so the compiler work goes on while the
+game reduces its own work in parallel; the current numbers are in
 [optimizations.md](optimizations.md#where-things-stand).
 
 dampf is the compiler of a development kit for SNES games, superdevkit, which this repository
 holds until it is published (ADR
-[record 29](adr/0029-superdevkit-is-the-project-and-dampf-is-its.md)). Next is M5: Blubber
-Blasen builds its ROM with the dev kit, from its own repository. That is version 0.5.0.
+[record 29](adr/0029-superdevkit-is-the-project-and-dampf-is-its.md)). M5 is in work, as
+version 0.5.0: Blubber Blasen builds its ROM with the dev kit, from its own repository.
 
 ## Versions
 
@@ -39,7 +39,7 @@ needs is an open question. The rule is ADR
 | M3 | The big levers: MIR, LIR and the code generator from MIR, static timing and budgets, value ranges and pointer compression; faster than Calypsi | 0.4.0 | Done 2026-11-18 |
 | M4 | Fine tuning, started early: block layout by a profile, peephole rules, loop and branch optimizations | 0.4.0 | Done 2026-11-18 |
 | M6 | Standing alone: dampf's own assembler and linker | 0.4.0 | Done 2026-11-18 |
-| M5 | Blubber Blasen builds its ROM with the dev kit, from its own repository | 0.5.0 | Next |
+| M5 | Blubber Blasen builds its ROM with the dev kit, from its own repository | 0.5.0 | In work |
 | M7 | The optimizer: what was left of M3, register allocation first | 0.7.0 | Planned |
 | M8 | Language, platform and usability: C in interrupts, intrinsics, the open subset decisions, dampf's own preprocessor | 0.8.0 | Planned |
 | M9 | Timing and debugging: master cycles, bounds for more loops, locals and types in Mesen | 0.9.0 | Planned |

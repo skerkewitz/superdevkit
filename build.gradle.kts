@@ -9,7 +9,7 @@ plugins {
 
 group = "dampf"
 // The version (ADR record 26): milestone N is 0.N.0. dampf --version prints it.
-version = "0.4.0"
+version = "0.5.0"
 
 repositories {
     mavenCentral()
