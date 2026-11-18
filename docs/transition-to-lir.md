@@ -257,3 +257,11 @@ matches ld65 in that one point.
 Better C debugging (variables shown with their C type, struct fields, locals per function in
 their direct page slots) needs more than ld65 writes and Mesen reads. That is a separate step
 after M5, in [roadmap.md](roadmap.md), not part of this plan.
+
+**A step may cost some speed if the code gets much cleaner** (2026-11-18). A step that changes
+the generated code tries first not to make the game slower. If a step makes the back end much
+cleaner (for example, B3, which writes each function once instead of up to 14 times) and costs
+about 1 % of cycles per tick that no reasonable effort wins back, it is taken anyway. A bigger
+loss is taken too, since a step can be reverted, but every loss gets an entry in
+[optimizations-log.md](optimizations-log.md): how much slower, where, and why it could not be
+avoided. The work happens on the branch `lir`, one commit per step, and is merged after review.

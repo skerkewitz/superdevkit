@@ -58,6 +58,8 @@ tasks.test {
     providers.gradleProperty("randomSeed").orNull?.let { systemProperty("dampf.random.seed", it) }
     // Replays of the game and its timing check (minutes, in dampf's emulator): -Preplays
     providers.gradleProperty("replays").orNull?.let { systemProperty("dampf.replays", "true") }
+    // Records new hashes of the back end's output (BackendOutputTest): -PbackendOutput=update
+    providers.gradleProperty("backendOutput").orNull?.let { systemProperty("dampf.backendOutput", it) }
     // The 65816 emulator against the SingleStepTests suite (downloads ~50 MB once): -PcpuTests
     providers.gradleProperty("cpuTests").orNull?.let { systemProperty("dampf.cpuTests", it.ifEmpty { "300" }) }
     // Code coverage (JaCoCo): -Pcoverage, report in build/reports/jacoco/test/html/index.html.
