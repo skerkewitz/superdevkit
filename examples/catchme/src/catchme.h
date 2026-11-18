@@ -40,7 +40,7 @@ typedef struct {
     uint8_t dir;               /* DIR_* it moves in */
     uint8_t sub;               /* sixteenths of a pixel carried to the next frame */
     uint8_t mode;              /* CAT_* (cats only) */
-    uint8_t wait;              /* frames until a cat leaves the house */
+    uint16_t wait;             /* frames until a cat leaves the house */
 } Actor;
 
 #define CATS 4

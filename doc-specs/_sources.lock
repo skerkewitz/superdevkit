@@ -61,7 +61,7 @@ guide/introduction docs/adr/0032-desktop-and-web-are-for-prototyping-with-sound.
 guide/introduction docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md 5ad51480af48
 guide/introduction docs/adr/0034-every-name-of-the-console-api-starts-with.md e719f3a2fb26
 guide/introduction docs/optimizations.md 647f94a894cd
-guide/introduction docs/roadmap.md 60dccbe5a64c
+guide/introduction docs/roadmap.md b24c106cd5a4
 guide/introduction lib/README.md 05423ccb1200
 guide/introduction lib/snes/README.md 986a2679dcb9
 guide/writing-c doc-specs/guide/writing-c.spec.md 487df1ba795b
@@ -342,7 +342,7 @@ inside/roadmap docs/adr/0031-the-superdevkit-command-builds-a-project-from-its.m
 inside/roadmap docs/adr/0032-desktop-and-web-are-for-prototyping-with-sound.md 7e9782d49c63
 inside/roadmap docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md 5ad51480af48
 inside/roadmap docs/adr/0034-every-name-of-the-console-api-starts-with.md e719f3a2fb26
-inside/roadmap docs/roadmap.md 60dccbe5a64c
+inside/roadmap docs/roadmap.md b24c106cd5a4
 inside/roadmap lib/README.md 05423ccb1200
 inside/testing README.md 7a2f2177bf74
 inside/testing build.gradle.kts 88f5fb2832a4
@@ -517,7 +517,7 @@ reference/limits docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md
 reference/limits docs/adr/0034-every-name-of-the-console-api-starts-with.md e719f3a2fb26
 reference/limits docs/hints.md 385e5701f6b1
 reference/limits docs/optimizations.md 647f94a894cd
-reference/limits docs/roadmap.md 60dccbe5a64c
+reference/limits docs/roadmap.md b24c106cd5a4
 reference/limits docs/subset.md 91c2e2a5019a
 reference/limits docs/timing.md ce5dfbe3b13c
 reference/limits lib/README.md 05423ccb1200

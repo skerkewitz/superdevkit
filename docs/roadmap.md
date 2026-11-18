@@ -151,6 +151,10 @@ the checkpoint after M2 concluded.
   arithmetic in `intmax_t`, line markers for the debug information. `gcc -E` stays in the tests
   as the oracle, on every test program, every example and generated macro cases. Today users on
   Windows install MinGW or MSYS only for `gcc -E`.
+- **Warnings where gcc warns by default**, first a constant that does not fit the type it
+  initialises or is assigned to (`uint8_t w[] = { 420 }`): dampf truncates it as gcc does, but
+  silently. It hid a bug in CatchMe (a cat's wait of 420 became 164) that only the desktop
+  build's `-Woverflow` showed.
 - **Less memory for a compile:** the game takes 1.8 GB.
 - **The SNES facts out of the code generators** (DBR `$7E`, the frame addresses, long I/O
   addresses) into the target ([architecture.md](architecture.md#core-and-target)).

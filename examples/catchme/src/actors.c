@@ -26,7 +26,7 @@ static const int8_t DY[4] = { 0, -1, 0, 1 };
 /* Where each cat starts, its first wait in the house, and the corner it goes to. */
 static const uint8_t START_X[CATS] = { 7, 7, 8, 8 };
 static const uint8_t START_Y[CATS] = { 4, 6, 6, 6 };
-static const uint8_t START_WAIT[CATS] = { 0, 60, 240, 420 };
+static const uint16_t START_WAIT[CATS] = { 0, 60, 240, 420 };
 static const uint8_t CORNER_X[CATS] = { 15, 0, 15, 0 };
 static const uint8_t CORNER_Y[CATS] = { 0, 0, 12, 12 };
 
