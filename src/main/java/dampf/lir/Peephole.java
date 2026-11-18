@@ -20,6 +20,8 @@ import java.util.regex.Pattern;
  *     its low k bits cleared, shifted by m - k: {@code AND #mask} and m - k × {@code ASL A}. N, Z
  *     and the carry (from the last shift) are the same.</li>
  * <li>{@code REP #$20 / SEP #$20} where A was 8 bit before: both go (they change only M).</li>
+ * <li>{@code CMP #0} where the instruction before set N and Z from A already, and the carry it
+ *     sets is not read.</li>
  * <li>{@code LDA x / XBA / AND #$00FF}, the high byte of the word at x, is the byte at x + 1:
  *     {@code LDA x+1 / AND #$00FF}. For a plain or X- or Y-indexed operand; a place in the
  *     direct page stays there only if x + 1 is still a whole word of it.</li>
@@ -51,7 +53,68 @@ public final class Peephole {
         if (changed > 0) {
             f.rebuild(f.items());
         }
+        changed += compareWithZero(f);
         return changed;
+    }
+
+    /**
+     * {@code CMP #$0000} right after an instruction that set N and Z from A (in the same width;
+     * stores between them change neither): the flags are those already, only the carry differs
+     * ({@code CMP #0} sets it), so it goes where the carry is not read afterwards.
+     */
+    private static int compareWithZero(LFunction f) {
+        java.util.Map<LBlock, Integer> out = RedundantLoads.flagsLiveOut(f);
+        int removed = 0;
+        for (LBlock b : f.blocks()) {
+            List<LItem> items = b.items();
+            // the flags live after each instruction
+            java.util.Map<LInstr, Integer> liveAfter = new java.util.IdentityHashMap<>();
+            int live = out.getOrDefault(b, RedundantLoads.N | RedundantLoads.Z | RedundantLoads.C | RedundantLoads.V);
+            for (int k = items.size() - 1; k >= 0; k--) {
+                if (items.get(k) instanceof LInstr in) {
+                    liveAfter.put(in, live);
+                    live = (live & ~RedundantLoads.writes(in)) | RedundantLoads.reads(in);
+                }
+            }
+            for (int k = 0; k < items.size(); k++) {
+                if (!(items.get(k) instanceof LInstr in) || !in.mnemonic().equals("cmp")
+                        || !(in.m16() ? "#$0000" : "#$00").equals(in.operand()) || (liveAfter.get(in) & RedundantLoads.C) != 0) {
+                    continue;
+                }
+                LInstr before = null;
+                for (int j = k - 1; j >= 0; j--) {
+                    if (items.get(j) instanceof LLabel) {
+                        break;
+                    }
+                    if (items.get(j) instanceof LInstr p) {
+                        if (p.mnemonic().equals("sta") || p.mnemonic().equals("stx") || p.mnemonic().equals("sty")
+                                || p.mnemonic().equals("stz")) {
+                            continue;   // changes neither A nor the flags
+                        }
+                        before = p;
+                        break;
+                    }
+                }
+                if (before != null && before.m16() == in.m16() && setsNzFromA(before)) {
+                    items.remove(k--);
+                    removed++;
+                }
+            }
+        }
+        if (removed > 0) {
+            f.rebuild(f.items());
+        }
+        return removed;
+    }
+
+    /** Whether i leaves N and Z describing A (as a CMP #0 would). */
+    private static boolean setsNzFromA(LInstr i) {
+        return switch (i.mnemonic()) {
+            case "lda", "and", "ora", "eor", "adc", "sbc", "txa", "tya", "pla" -> true;
+            case "asl", "lsr", "rol", "ror", "inc", "dec" -> "a".equals(i.operand());
+            case "tax", "tay" -> i.m16() && i.x16();   // N and Z of the 16 bits copied, which are A's
+            default -> false;
+        };
     }
 
     /** The rules at the instruction at k; returns 1 if one applied. */

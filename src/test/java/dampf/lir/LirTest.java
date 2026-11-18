@@ -277,4 +277,17 @@ class LirTest {
                 ins8("sta", "_o"), ins8("rep", "#$20"), ins("sta", "_w"), ins("rtl", null));
         assertTrue(high.stream().filter(x -> x.equals("rep #$20")).count() == 2, high.toString());
     }
+
+    @Test
+    void aCompareWithZeroGoesWhereTheFlagsAreSetAlready() {
+        assertEquals(List.of("lda z:dampf_frame+4", "sta z:dampf_frame+6", "beq done", "rtl", "rtl"),
+                peephole(ins("lda", "z:dampf_frame+4"), ins("sta", "z:dampf_frame+6"), ins("cmp", "#$0000"),
+                        ins("beq", "done"), ins("rtl", null), "done:"));
+        // after a call the flags are the callee's: stays
+        assertTrue(peephole(ins("jsl", "_f"), ins("cmp", "#$0000"), ins("beq", "done"), ins("rtl", null), "done:")
+                .contains("cmp #$0000"));
+        // the carry CMP sets is read: stays
+        assertTrue(peephole(ins("lda", "z:dampf_frame+4"), ins("cmp", "#$0000"), ins("adc", "#$0001"), ins("rtl", null))
+                .contains("cmp #$0000"));
+    }
 }
