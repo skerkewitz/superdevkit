@@ -19,7 +19,7 @@ import java.util.Map;
  * leaves first, then the functions that called them.
  */
 public final class Inline {
-    static final int SMALL = 30;
+    static final int SMALL = 60;
     static final int SINGLE = 150;
     static final int CALLER_LIMIT = 1500;
 
@@ -27,6 +27,15 @@ public final class Inline {
 
     /** Returns whether anything was inlined. */
     public static boolean run(MModule m) {
+        return run(m, f -> { });
+    }
+
+    /**
+     * {@code simplify} runs on a function after something was inlined into it, before it is
+     * considered for inlining into its callers: its size is then that of the simplified body (as
+     * LLVM's inliner simplifies a function before its callers see it).
+     */
+    public static boolean run(MModule m, java.util.function.Consumer<MFunction> simplify) {
         counter = 0;
         Map<String, Integer> sites = new HashMap<>();
         for (MFunction f : m.functions()) {
@@ -40,6 +49,7 @@ public final class Inline {
         }
         boolean changed = false;
         for (MFunction f : order(m)) {
+            boolean into = false;
             boolean again = true;
             while (again) {
                 again = false;
@@ -52,6 +62,7 @@ public final class Inline {
                             if (callee != f && small && size(f) + n <= CALLER_LIMIT) {
                                 inline(f, c, callee);
                                 changed = true;
+                                into = true;
                                 again = true;
                                 break;
                             }
@@ -61,6 +72,9 @@ public final class Inline {
                         break;
                     }
                 }
+            }
+            if (into) {
+                simplify.accept(f);
             }
         }
         return changed;

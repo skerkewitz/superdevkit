@@ -70,4 +70,39 @@ class RangesTest {
         in.observe(Ranges.checker(m));
         in.call("_main", List.of(5L));
     }
+
+    private static final String ABS = """
+            func @_abs(i8 %a, i8 %b) -> i16 {
+            b0_entry:
+                %0 = zext i8 %a to i16
+                %1 = zext i8 %b to i16
+                %2 = sub i16 %0, %1
+                %3 = cmp slt i16 %2, 0
+                br %3, b1_neg, b2_join
+            b1_neg:
+                %4 = sub i16 0, %2
+                jump b2_join
+            b2_join:
+                %5 = phi i16 [b1_neg, %4], [b0_entry, %2]
+                ret i16 %5
+            }
+            """;
+
+    @Test
+    void aPhiOperandHasTheRangeOfItsEdge() {
+        // abs of a difference of two bytes: on the edge where x < 0 is false, x is not negative
+        MModule m = MirParser.parse(ABS);
+        MFunction f = m.function("_abs");
+        Ranges r = new Ranges(f);
+        Instr.Phi abs = (Instr.Phi) f.blocks().stream().filter(b -> b.name().startsWith("b2")).findFirst().orElseThrow()
+                .instrs().getFirst();
+        assertEquals(new Ranges.Range(0, 255), r.of(abs));
+        Interpreter in = new Interpreter(m, 10_000);
+        in.observe(Ranges.checker(m));
+        for (long a : new long[] {0, 1, 200, 255}) {
+            for (long b : new long[] {0, 1, 200, 255}) {
+                in.call("_abs", List.of(a, b));
+            }
+        }
+    }
 }

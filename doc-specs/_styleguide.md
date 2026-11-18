@@ -69,6 +69,11 @@ Write the way an experienced colleague explains something at a whiteboard:
 - Large counts take a comma: *3,610 ticks*. Hexadecimal addresses are written as on the 65816,
   with a dollar sign: `$7E`, `$21FB`.
 - Messages of dampf are quoted exactly as it prints them.
+- Every figure carries its unit (frames per tick, master clocks per tick, CPU cycles), and a
+  speed says whether it is FastROM or SlowROM where the sources give both. A page that quotes
+  figures from different times or units says where one kind ends.
+- A page never mentions *the sources*, the specs or how it was written: "the sources give no
+  measurement" becomes "no separate measurement exists", or the sentence goes.
 
 ## Depth
 
@@ -141,6 +146,9 @@ Use the terms of the [glossary](../docs/book/glossary.md) and spell them as it d
   one picture on the screen (60 per second).
 - *gcc on the PC* or *the PC build* for the reference dampf is compared with.
 - *Mesen* (Mesen 2), *ca65*, *ld65*, *Blubber Blasen*, *Calypsi*, *PVSnesLib* as written here.
+- The game's own words (*play*, *the CPU partner*, a function name such as `separate`, the
+  pair loop) are explained at first use or linked to the glossary; a page that needs no more
+  of them than a figure uses the figure without them.
 
 ## Never include
 

@@ -17,7 +17,7 @@ import java.util.Set;
  * <p>The forms, with {@code @s} a local label only the branch refers to:
  * <ul>
  * <li>{@code JMP T} becomes {@code BRA T};
- * <li>{@code Bc @s / JMP T / @s:} at the end of a block (a label follows) becomes {@code B!c T};
+ * <li>{@code Bc @s / JMP T / @s:} becomes {@code B!c T};
  * <li>{@code Bc @s / ... / @s: JMP T}, where nothing falls into {@code @s}, becomes
  *     {@code Bc T / ...}, and the jump after {@code @s} goes.
  * </ul>
@@ -60,21 +60,8 @@ public final class BranchRelax {
                 if (!skip.startsWith("@") || refs.getOrDefault(skip, 0) != 1 || !labelIndex.containsKey(skip)) {
                     continue;
                 }
-                // branch over a jump at the end of a block
-                int j = nextCode(items, k);
-                if (j >= 0 && items.get(j) instanceof LInstr jump && isRelaxableJump(jump)
-                        && nextCode(items, j) == labelIndex.get(skip)) {
-                    int after = nextCode(items, labelIndex.get(skip));
-                    Integer to = labelPos.get(jump.operand());
-                    // the jump goes: a target after it comes that much closer
-                    if ((after < 0 || items.get(after) instanceof LLabel) && to != null
-                            && LLayout.reaches(pos[k], to > pos[j] ? to - jump.length() : to)) {
-                        replace.put(k, new LInstr(inverse(in.mnemonic()), jump.operand(), in.comment(), in.m16(), in.x16(), true));
-                        remove.add(j);
-                        remove.add(labelIndex.get(skip));
-                        continue;
-                    }
-                }
+                // (the branch to a jump first: where both apply, it keeps the jump on the way
+                // that does not branch, as the code generator's own short forms did)
                 // branch to a jump that nothing falls into
                 int s = labelIndex.get(skip);
                 int m = nextCode(items, s);
@@ -86,6 +73,19 @@ public final class BranchRelax {
                         replace.put(k, in.withOperand(jump.operand()));
                         remove.add(s);
                         remove.add(m);
+                        continue;
+                    }
+                }
+                // branch over a jump
+                int j = nextCode(items, k);
+                if (j >= 0 && items.get(j) instanceof LInstr jump && isRelaxableJump(jump)
+                        && nextCode(items, j) == labelIndex.get(skip)) {
+                    Integer to = labelPos.get(jump.operand());
+                    // the jump goes: a target after it comes that much closer
+                    if (to != null && LLayout.reaches(pos[k], to > pos[j] ? to - jump.length() : to)) {
+                        replace.put(k, new LInstr(inverse(in.mnemonic()), jump.operand(), in.comment(), in.m16(), in.x16(), true));
+                        remove.add(j);
+                        remove.add(labelIndex.get(skip));
                     }
                 }
             } else if (in.mnemonic().equals("jmp") && isRelaxableJump(in)) {

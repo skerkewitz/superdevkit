@@ -33,68 +33,62 @@ gave the first comparison: the naive code was 4.5 times slower than the hand-wri
 [SSA](/glossary#ssa) representation with a text format that parses back, a verifier and an
 interpreter; dampf's own 65816 emulator with exact cycle counts, which matches Mesen on the
 game's benchmark; and cycle counts in the assembly comments. On top of it, the
-[code generator from MIR](/glossary#code-generator-from-mir)
-and its [passes](/glossary#pass) are built: width narrowing, constant multiplication and
-division, the standard optimizations, compare and branch in one,
-[value ranges](/glossary#value-range) inferred from constants, operations, conditions,
-loops and call sites, values in the [direct page](/glossary#direct-page) instead of RAM,
-register allocation in the form the 65816 allows, induction variables, and
-[pointer compression](/glossary#pointer-compression) for pointers into a single object. With
-them, play of Blubber Blasen takes 0.91 frames per tick, against a goal of 0.6.
-That reaches M3's goal against Calypsi: on the same scene, dampf's code is 1.81 times as fast
-as Calypsi's. Why Calypsi's results drift away from the PC's from tick 596 on is still open.
-The claim rests on one game and on dampf's subset, and 816-tcc, about 3.6 times slower than
-dampf, is no longer compared.
+[code generator from MIR](/glossary#code-generator-from-mir) and its
+[passes](/glossary#pass) are built, among them width narrowing, the standard optimizations,
+[value ranges](/glossary#value-range) inferred from constants, conditions, loops and call
+sites, values in the [direct page](/glossary#direct-page) instead of RAM, register allocation
+in the form the 65816 allows, and [pointer compression](/glossary#pointer-compression) for
+pointers into a single object. With them, while the game is played, it takes 0.79 frames per
+tick, against a goal of 0.6. M3's goal against Calypsi is reached: on the same scene, dampf's
+code is 2.14 times as fast as Calypsi's.
 The static timing analysis is built as well: a best and a worst case in CPU cycles for every
 function, written to `<rom>.timing.txt` and checked against the emulator on every call. Of the
-game's functions, 38 still have no bound, and the report names the loop or call that makes each
-of them so. The first [hint](/glossary#hint), `DAMPF_RANGE` from `<dampf.h>`, bounds such a
+game's functions, 37 still have no worst case, and the report names the loop or call that
+causes it. The first [hint](/glossary#hint), `DAMPF_RANGE` from `<dampf.h>`, bounds such a
 loop by hand; it is checked on the PC and costs nothing on the SNES. A cycle budget
 (`DAMPF_BUDGET`) is checked at build time: a function over its budget, or without a worst
-case, fails the build, and one above 90 % of it gets a warning. `DAMPF_TRIPS` is postponed.
-Still to come in M3: timing in master cycles and the costliest path per C line in the report
-and in the budget errors; more hand-written reference functions, and value ranges from array
-bounds. Of the two further levels of representation, LIR below MIR, 65816 code in basic blocks,
-is built; following the processor state across blocks and peephole rules are its next passes.
-HIR above MIR is open and not scheduled: MIR is lowered straight from the
-[AST](/glossary#ast). Declared subrange types are not scheduled either; they are built when a
-profile shows a hot value whose range dampf cannot infer.
+case, fails the build.
+Still to come in M3: timing in [master clocks](/glossary#master-clock) and the costliest path
+per C line in the report and in the budget errors, more hand-written reference functions, and
+value ranges from array bounds. [LIR](/glossary#lir), 65816 code in basic blocks below MIR, is
+built; following the processor state across blocks and peephole rules are its next passes. A
+further level above MIR, HIR, is open and not scheduled: MIR is lowered straight from the
+[AST](/glossary#ast).
 
 **A playable ROM, built during M3.** The playable ROM was planned for when the game's own SNES
 port needs it, but it was built ahead of that, so that every version of dampf can build the real
-game and the whole toolchain is tested on what only the console shows. Its platform layer,
-`platform/snes`, is written in C: the 19 [PVSnesLib](/glossary#pvsneslib)-shaped calls the game
-makes, the rest of its console API, and the main loop. It reaches the hardware through pointers
-to `volatile` memory, so it needs no [intrinsics](/glossary#intrinsic). There is no interrupt
-handler: the loop waits for the vertical blank itself, because C code called from an interrupt
-in the middle of a tick would overwrite the frames of the functions it interrupted, which dampf
-keeps at fixed places. Sound and save RAM are not built. A check plays the ROM in Mesen for a
-minute and fails if any byte reaches video memory outside the vertical blank, and the replay
-test plays the recording through the platform layer with the checksums of the PC. The console
-shows what the benchmark cannot: a tick that needs more than one frame waits for the next
-vertical blank, and the benchmark leaves out what the game's video code costs on the hardware.
-Hardware registers at constant addresses are now written with one long `sta` instead of an
-access through a pointer. Two things remain open: a 32-bit shift by a multiple of 8 still loops
-instead of moving bytes, and the margin of lines left for the code around a DMA copy has not
-been measured again since the register writes got faster.
+game and the whole toolchain is tested on what only the console shows. Its
+[platform layer](/glossary#platform-layer), `platform/snes`, is written in C: the 19
+[PVSnesLib](/glossary#pvsneslib)-shaped calls the game makes, the rest of its console API, and
+the main loop. It reaches the hardware through pointers to `volatile` memory, so it needs no
+[intrinsics](/glossary#intrinsic). There is no interrupt handler: the loop waits for the
+[vertical blank](/glossary#vertical-blank) itself, because C code called from an interrupt in
+the middle of a tick would overwrite the frames of the functions it interrupted, which dampf
+keeps at fixed places. A check plays the ROM in Mesen for a minute and fails if any byte
+reaches video memory outside the vertical blank, and the replay test plays the recording
+through the platform layer with the checksums of the PC. The console shows what the benchmark
+cannot: a tick that needs more than one frame waits for the next vertical blank, and the
+benchmark leaves out what the game's video code costs on the hardware. Still open is the margin
+of lines left for the code around a DMA copy: it has not been measured again since hardware
+registers at constant addresses are written with one long `sta` instead of through a pointer.
 
-**M4, next.** M4 is fine tuning until the frame budget is met: the remaining optimizations of
-the catalogue, arrays aligned to a page so that 8-bit index registers reach them,
-optimization guided by the profiles of the replays (the first part, laying out the blocks by
-a profile's counts, is built), superoptimization of short hot sequences,
-and the hints that transform code, such as `DAMPF_TABLE` and `DAMPF_PIN_X`.
+**M4, next.** M4 is fine tuning until the frame budget is met: the remaining optimizations,
+arrays aligned to a page so that 8-bit index registers reach them, optimization guided by the
+profiles of the replays (the first part, laying out the blocks by a profile's counts, is
+built), superoptimization of short hot sequences, and the hints that transform code.
 
-**What is left, and in which order.** Play takes 0.91 frames per tick, and the goal is 0.6. The
-table orders what is left in M3 and M4 by its likely gain on play, as the plan of 2026-11-17
-estimated it from the shares of a profile. The gains are estimates, not measurements, and
-several ideas that looked good measured nothing. The numbers follow that plan; the rows already
-done, FastROM (1) and hardware registers at constant addresses (12), are left out.
+**What is left, and in which order.** The game takes 0.79 frames per tick while it is played,
+and the goal is 0.6. The table orders what is left in M3 and M4 by its likely gain on play, as
+the plan of 2026-11-17 estimated it from the shares of the cycles in a profile. The gains are
+estimates, not measurements, and several ideas that looked good measured nothing. The numbers
+follow that plan; the rows already done, [FastROM](/glossary#fastrom-and-slowrom) (1) and
+hardware registers at constant addresses (12), are left out.
 
 | # | Idea | Likely gain | Effort |
 | --- | --- | --- | --- |
 | 2 | Register allocation: values in A, X and Y over several instructions instead of a direct page place each | 10–20 % | high |
 | 3 | 8-bit stretches: the [`M` flag](/glossary#m-and-x-flags) followed, `uint8_t` code in [8-bit mode](/glossary#8-bit-and-16-bit-mode) | 5–10 % | high |
-| 4 | Arrays of structs as one array per field | 5–10 % in the bubble loops | high |
+| 4 | Arrays of structs as one array per field | 5–10 % in the loops over the bubbles | high |
 | 5 | 8-bit index registers, arrays aligned to pages | 2–4 % | high |
 | 6 | Comparisons on the flags: `BIT` for bit tests | 2–4 % for the whole row (done for `CMP #0`) | low to medium |
 | 7 | Calling convention: the first argument in A, `JMP` for tail calls | 1–3 % | medium |
@@ -111,20 +105,21 @@ since the layout in memory then differs from the PC's. The block layout by a pro
 but only on request, because it needs a profile in the game's build.
 
 The order: register allocation (2), or the split of struct arrays (4) once its subset question
-is decided; then 3, 5 and 7. FastROM and rows 2 to 6 together might bring play to about 0.85
-to 1.0 frames per tick. The rest has to come from the game doing less work, in the pair loop
-of `separate` (16 % of play) and the CPU partner, as the checkpoint after M2 concluded.
+is decided; then 3, 5 and 7. The rest has to come from the game doing less work, as the
+checkpoint after M2 concluded: in the loop over all pairs of bubbles in `separate`, the game's
+function that pushes bubbles apart (16 % of the cycles of play), and in the
+[CPU partner](/glossary#cpu-partner).
 
 **M5 after that, and M6 done ahead of it.** M5 makes dampf ready to go public; it is described
-under [Publishing](#risks-and-open-questions) below. M6 was planned as the last step, because it
-changes nothing in the code dampf generates, but it was done on 2026-11-18, ahead of M5: dampf
-assembles and links with its own assembler and linker, so ca65 and ld65 are no longer needed
-to use it. dampf uses only a small part of either, its own output and its own memory map, so
-both stay in the tests as the oracle: the tests build every program both ways, the ROM dampf
-builds itself must be byte for byte the one ca65 and ld65 build from the same assembly, and
-Mesen must still show the C source. The old path through ca65 and ld65 can still be chosen.
-Using dampf needs nothing but Java once M5 brings dampf's own preprocessor; until then it needs
-gcc. An own debugger is not planned; dampf uses Mesen.
+under *Publishing* in [Risks and open questions](#risks-and-open-questions) below. M6 was
+planned as the last step, because it changes nothing in the code dampf generates, but it was
+done on 2026-11-18, ahead of M5: dampf assembles and links with its own assembler and linker, so
+ca65 and ld65 are no longer needed to use it. dampf uses only a small part of either, its own
+output and its own memory map, so both stay in the tests as the oracle: the tests build every
+program both ways, the ROM dampf builds itself must be byte for byte the one ca65 and ld65 build
+from the same assembly, and Mesen must still show the C source. The old path through ca65 and
+ld65 can still be chosen. Using dampf needs nothing but Java once M5 brings dampf's own
+preprocessor; until then it needs gcc. An own debugger is not planned; dampf uses Mesen.
 
 ## The checkpoint after M2
 
@@ -165,6 +160,16 @@ The main risks and how they are met:
 
 Open questions a user may run into:
 
+- **A miscompilation not yet found.** dampf inlines functions of up to 60 instructions, and
+  with that limit the game's benchmark gives the PC's checksums. With a limit of 80 it differs
+  from the PC in 56 of 3,610 ticks, from tick 32 on. The fault is in an older part of the code
+  generator, on a function that the larger inlining makes: the optimized MIR is right, since its
+  interpreter gives the PC's checksums; dampf's assembler and ca65 build the same ROM; and the
+  difference stays with every LIR pass switched off. The next step is to find that function and
+  reduce it to an execution test.
+- **Calypsi's drift.** Calypsi's results drift away from the PC's from tick 596 on. Whether
+  that is a miscompilation, RAM that Calypsi's start-up leaves uncleared, or a step of the
+  game's own Calypsi build that dampf's comparison lacks, is open.
 - **`goto`.** Forbid it entirely, or allow a restricted form that keeps the code structured.
 - **`restrict`.** Whether a no-alias hint of dampf's own is clearer than `restrict`, and how
   `restrict` is checked on the PC.
@@ -172,14 +177,20 @@ Open questions a user may run into:
   values sharing a place. The debug file names the source files and lines, not the locals.
 - **Hand-written assembly.** How a linked-in assembly function declares its calling convention,
   its use of the direct page and its cycle cost, so that the timing analysis can include it.
-- **Timing.** How to express path combinations that cannot happen, should the worst-case bounds
-  turn out too pessimistic, and how much HDMA the game uses, which changes the budget of a frame.
+- **Timing.** How to express path combinations that cannot happen, should the worst-case
+  bounds turn out too pessimistic, and how much HDMA the game uses (DMA transfers the SNES
+  makes line by line while it draws), which changes the budget of a frame.
 - **Publishing.** The licence is decided: dampf is under the Apache License 2.0 with LLVM
   Exceptions, the same as LLVM, so code dampf puts into a ROM carries no licence conditions and
   games built with dampf can use any licence. Before dampf can go public (M5), the snapshot of
   Blubber Blasen, its platform layer and the hand-written reference function leave the
   repository and dampf's own examples take over their jobs as test case and benchmark. They are
   also in the git history, so either the history is cleaned or the public repository starts
-  without it. dampf also gets its own C preprocessor, so that using it no longer needs gcc,
-  which users on Windows would otherwise install only for that. Hosting the repository and
-  putting the book online are part of M5 as well.
+  without it. The own examples become a set of benchmarks in different styles rather than one
+  busy scene, because every speed decision so far was measured on one game: the optimizations
+  of 2026-11-18 made play of Blubber Blasen 13 % faster, but the execution tests only 0.9 %,
+  and part of the gain comes from parameters chosen on this one game, such as the inlining
+  limit and the block order. Each optimization is then measured on all of them, and a tuned
+  parameter is chosen on the whole set. dampf also gets its own C preprocessor, so that using
+  it no longer needs gcc, which users on Windows would otherwise install only for that. Hosting
+  the repository and putting the book online are part of M5 as well.

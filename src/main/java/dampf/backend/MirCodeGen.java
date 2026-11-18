@@ -3,10 +3,13 @@ package dampf.backend;
 import dampf.frontend.CompileError;
 import dampf.frontend.SourcePos;
 import dampf.lir.BranchRelax;
+import dampf.lir.ByteStretches;
 import dampf.lir.DeadStores;
 import dampf.lir.IndexInY;
 import dampf.lir.RedundantLoads;
+import dampf.lir.KnownCarry;
 import dampf.lir.LFunction;
+import dampf.lir.Peephole;
 import dampf.mir.Block;
 import dampf.mir.Instr;
 import dampf.mir.MFunction;
@@ -121,6 +124,9 @@ public final class MirCodeGen {
             // code is shorter, so more branches may reach
             new RedundantLoads(Selection.FRAME).run(code.function());
             new IndexInY(Selection.FRAME).run(code.function());
+            new Peephole(Selection.FRAME, Selection.FRAME_START).run(code.function());
+            ByteStretches.run(code.function());
+            KnownCarry.run(code.function());
             new DeadStores(Selection.FRAME, ownValueBytes(f)).run(code.function());
             BranchRelax.run(code.function());
             Map<String, String> renamed = dampf.lir.LocalLabels.renumber(code.function(), "@L");
@@ -525,6 +531,14 @@ public final class MirCodeGen {
      * code that runs stays together and its branches reach.
      */
     static List<Block> layoutOrder(MFunction f, java.util.function.Function<String, Long> counts) {
+        // the latches of each block's loops: the way to the next round is the likely one (a
+        // filter loop's continue), as in Ball and Larus' loop heuristic
+        Map<Block, Set<Block>> latchesOf = new HashMap<>();
+        for (dampf.mir.Loops.Loop loop : dampf.mir.Loops.find(f)) {
+            for (Block x : loop.blocks()) {
+                latchesOf.computeIfAbsent(x, k -> new HashSet<>()).addAll(loop.latches());
+            }
+        }
         List<Block> order = new ArrayList<>();
         Set<Block> placed = new HashSet<>();
         int scan = 0;
@@ -542,14 +556,31 @@ public final class MirCodeGen {
             Instr t = b.terminator();
             if (t != null) {
                 for (Block s : t.successors()) {
-                    if (!placed.contains(s) && (next == null || counts != null && count(counts, s) > count(counts, next))) {
+                    if (placed.contains(s)) {
+                        continue;
+                    }
+                    // with a profile: the successor that ran more often; without: the way to the next
+                    // round of a loop, then one only this block reaches (the next test of an ||),
+                    // since a block with other ways in needs a jump from somewhere anyway
+                    boolean better;
+                    if (next == null) {
+                        better = true;
+                    } else if (counts != null) {
+                        better = count(counts, s) > count(counts, next);
+                    } else {
+                        Set<Block> latches = latchesOf.getOrDefault(b, Set.of());
+                        int rs = latches.contains(s) ? 2 : s.preds().size() == 1 ? 1 : 0;
+                        int rn = latches.contains(next) ? 2 : next.preds().size() == 1 ? 1 : 0;
+                        better = rs > rn;
+                    }
+                    if (better) {
                         next = s;
                     }
                 }
             }
             b = next;
         }
-        rotateLoops(order);
+        rotateLoops(f, order);
         if (counts != null) {
             List<Block> cold = new ArrayList<>();
             for (Block x : order) {
@@ -573,22 +604,18 @@ public final class MirCodeGen {
      * jumps back to it: that block falls through into the test, and the test branches back into
      * the loop. Per round one branch instead of a jump and a branch.
      */
-    static void rotateLoops(List<Block> order) {
+    static void rotateLoops(MFunction f, List<Block> order) {
+        // the latch of each loop head: the one block with the edge back to it
+        Map<Block, List<Block>> latches = new HashMap<>();
+        for (dampf.mir.Loops.Loop loop : dampf.mir.Loops.find(f)) {
+            latches.put(loop.head(), loop.latches());
+        }
         for (Block h : List.copyOf(order)) {
             if (h == order.getFirst() || !(h.terminator() instanceof Instr.Branch) || !onlyTest(h)) {
                 continue;
             }
-            int at = order.indexOf(h);
-            Block latch = null;
-            for (Block p : h.preds()) {
-                if (order.indexOf(p) > at) {
-                    if (latch != null || !(p.terminator() instanceof Instr.Jump)) {
-                        latch = null;
-                        break;
-                    }
-                    latch = p;
-                }
-            }
+            List<Block> back = latches.getOrDefault(h, List.of());
+            Block latch = back.size() == 1 && back.getFirst().terminator() instanceof Instr.Jump ? back.getFirst() : null;
             if (latch == null || order.indexOf(latch) + 1 < order.size() && order.get(order.indexOf(latch) + 1) == h) {
                 continue;
             }
@@ -724,13 +751,14 @@ public final class MirCodeGen {
                     for (int w = 0; w < Selection.words(t); w++) {
                         sel.ins("lda", sel.operand(s.op(0), w));
                         sel.ins("cmp", Selection.imm(c >> (16 * w)));
-                        sel.ins("bne", nextCase);
+                        // in the long form; BranchRelax makes it BEQ to the case where that reaches
+                        sel.ins("bne", nextCase, Selection.words(t) == 1);
                     }
-                    sel.ins("jmp", s.targets.get(k).name());
+                    sel.ins("jmp", s.targets.get(k).name(), true);
                     sel.place(nextCase);
                 }
                 if (s.otherwise != next) {
-                    sel.ins("jmp", s.otherwise.name());
+                    sel.ins("jmp", s.otherwise.name(), true);
                 }
             }
             case Instr.Unreachable u -> throw new IllegalStateException("the checks of hints are taken out before code generation");

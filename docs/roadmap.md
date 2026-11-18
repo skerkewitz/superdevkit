@@ -8,7 +8,7 @@ revised after M1 (see [History](#history)).
 
 M0 to M2 are done: all of Blubber Blasen compiles, and the benchmark and the replays give the PC's
 checksums, on the SNES and in a playable ROM. M3 is in progress, and its goal, faster than Calypsi,
-is reached. Parts of M4 have started early. During play the game takes 0.91 frames per tick
+is reached. Parts of M4 have started early. During play the game takes 0.79 frames per tick
 against a goal of 0.6, so the compiler work goes on while the game reduces its own work in
 parallel. The current numbers are in [optimizations.md](optimizations.md#where-things-stand).
 M5 has not started. M6 is done (2026-11-18): dampf assembles and links itself.
@@ -47,10 +47,9 @@ zero ([optimizations.md](optimizations.md#tried-and-rejected)). The numbers foll
 | 11 | `<<8` as a byte store, `switch` as a jump table, `MVN` for copies, unrolling by hint | <1 % each | low to medium | Large locally, small on the whole game. |
 
 The order: register allocation (2), or the split of struct arrays (4) once its subset question is
-decided; then 3, 5 and 7. FastROM and rows 2 to 6 together might bring play to about 0.85-1.0
-frames per tick. The rest has to come from the game doing less work: the pair loop of `separate`
-(16 %) and the CPU partner ([game-findings.md](game-findings.md), finding 7), as the checkpoint
-after M2 concluded.
+decided; then 3, 5 and 7. The rest has to come from the game doing less work: the pair loop of
+`separate` (16 %) and the CPU partner ([game-findings.md](game-findings.md), finding 7), as the
+checkpoint after M2 concluded.
 
 Also open in M3:
 
@@ -60,7 +59,7 @@ Also open in M3:
   5) and peephole rules are its next passes.
 - **Master cycles per C line.** The assembly comments and the timing report count CPU cycles.
   Next: master cycles and the costliest path per C line in the report and in the budget errors.
-- **Unbounded loops.** 38 of the game's functions have no worst case yet; the report names the
+- **Unbounded loops.** 37 of the game's functions have no worst case yet; the report names the
   loop or call that causes it, and `DAMPF_RANGE` bounds such loops by hand. `DAMPF_TRIPS` is
   postponed ([hints.md](hints.md)).
 - **Ranges from array bounds** (row 9).
@@ -112,6 +111,18 @@ Open:
   either the history is cleaned (`git filter-repo`) or the public repository starts without it.
   Own examples take over their jobs: a program large enough to be a test case, a busy scene as
   speed benchmark, and new hand-written reference functions.
+- **Varied benchmarks.** So far every speed decision was measured on one game, and it shows:
+  the optimizations of 2026-11-18 made Blubber Blasen's play 13 % faster, but the execution tests
+  only 0.9 % (median 0.6 %); the random programs did not move at all, since their cycles go to the
+  runtime's division routines ([optimizations-log.md](optimizations-log.md#optimizations-on-the-branch-optimise-2026-11-18)).
+  Part of the 13 % comes from parameters chosen on this one game (the inlining limit, the block
+  order) and from its idioms (pointers into arrays of structs, byte stores in a row). The own
+  examples therefore become a set of benchmarks in different styles rather than one busy scene:
+  code with many small calls, code that computes mostly in 16 and 32 bits, code with little
+  access to structs (plain arrays, pointer walks), a fixed-point heavy physics or particle loop, a
+  table- and switch-driven state machine, and text or tile work on bytes. Each optimization is
+  measured on all of them, a tuned parameter is chosen on the whole set, and the docs say which
+  set a measurement comes from.
 - **Own preprocessor.** Today dampf calls `gcc -E`, which users on Windows have to install (MinGW
   or MSYS) only for that. dampf gets its own C preprocessor in Java: macro expansion following
   Prosser's algorithm, `#` and `##`, variadic macros with `__VA_OPT__`, `#if` arithmetic in
@@ -159,6 +170,18 @@ both ways.
   assertion on the PC, with the replays running against them ([hints.md](hints.md)).
 
 ## Open questions
+
+- **A miscompilation in the code generator, not yet found** (2026-11-18). With functions of up to
+  80 instructions inlined (the limit is 60), the game's benchmark differs from the PC in 56 of
+  3,610 ticks, from tick 32 on. What is known: the optimized MIR is right (the interpreter gives
+  the PC's checksums, every value within its range); ca65 and dampf's assembler build the same
+  ROM; it stays with every LIR pass, `PointerRemat`, branch relaxation, the new block order,
+  loop counters in X, indexes in Y, values handed on in A and arguments computed in place
+  switched off. `main` before the branch `optimise` with the same limit is right, but there the
+  limit counts unsimplified bodies and fewer functions are inlined. So an older part of the code
+  generator (selection, `FrameLayout`, the masks) goes wrong on a function the larger inlining
+  makes. Next step: find the function by comparing the emulator's globals with the
+  interpreter's at tick 32, then reduce it to an execution test.
 
 - How Mesen shows locals that live in fixed direct page slots. The code generator from MIR keeps
   the game's values in the direct page, several values sharing a place; the `.dbg` file names the

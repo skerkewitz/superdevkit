@@ -138,4 +138,156 @@ class LirTest {
         assertThrows(IllegalArgumentException.class, () -> LParser.line("        .macro foo"));
         assertThrows(IllegalArgumentException.class, () -> LParser.line("x: lda #1"));
     }
+
+    @Test
+    void aBranchOverAJumpBecomesTheInverseBranch() {
+        // as a switch writes it: compare, branch over the jump to the case, next comparison
+        LUnit u = LParser.parse(text(
+                ".proc f",
+                ins("cmp", "#$0001"),
+                "        bne     @L0",
+                "        jmp     case1",
+                "@L0:",
+                ins("cmp", "#$0002"),
+                ins("rtl", null),
+                "case1:",
+                ins("rtl", null),
+                ".endproc"));
+        LFunction f = u.functions().getFirst();
+        // the parser does not know which branches the code generator marked; mark them as it would
+        List<LItem> items = new java.util.ArrayList<>();
+        for (LItem i : f.items()) {
+            items.add(i instanceof LInstr in && (in.mnemonic().equals("bne") || in.mnemonic().equals("jmp"))
+                    ? new LInstr(in.mnemonic(), in.operand(), null, true, true, true) : i);
+        }
+        f.rebuild(items);
+        BranchRelax.run(f);
+        List<String> code = f.instrs().stream().map(LInstr::toString).toList();
+        assertEquals(List.of("cmp #$0001", "beq case1", "cmp #$0002", "rtl", "rtl"), code);
+        assertEquals(List.of(), LVerifier.verify(u));
+    }
+
+    @Test
+    void aStoreAndLoadIntoXBecomesTax() {
+        LUnit u = LParser.parse(text(
+                ".proc f",
+                ins("sta", "z:dampf_frame+4"),
+                ins("ldx", "z:dampf_frame+4"),
+                ins("sta", "z:dampf_frame+6"),
+                ins("ldy", "z:dampf_frame+6"),
+                ins("sep", "#$20"),
+                ins8("sta", "z:dampf_frame+8"),
+                ins8("ldx", "z:dampf_frame+8"),   // 8-bit A: TAX would copy the high byte B
+                ins8("rep", "#$20"),
+                ins("rtl", null),
+                ".endproc"));
+        LFunction f = u.functions().getFirst();
+        new Peephole("dampf_frame", 0x20).run(f);
+        List<String> code = f.instrs().stream().map(LInstr::toString).toList();
+        assertEquals(List.of("sta z:dampf_frame+4", "tax", "sta z:dampf_frame+6", "tay", "sep #$20",
+                "sta z:dampf_frame+8", "ldx z:dampf_frame+8", "rep #$20", "rtl"), code);
+    }
+
+    private static List<String> peephole(String... lines) {
+        String[] all = new String[lines.length + 3];
+        all[0] = ".proc f";
+        System.arraycopy(lines, 0, all, 1, lines.length);
+        all[lines.length + 1] = ins("rtl", null);
+        all[lines.length + 2] = ".endproc";
+        LUnit u = LParser.parse(text(all));
+        LFunction f = u.functions().getFirst();
+        new Peephole("dampf_frame", 0x20).run(f);
+        assertEquals(List.of(), LVerifier.verify(u));
+        return f.instrs().stream().map(LInstr::toString).toList();
+    }
+
+    @Test
+    void shiftsRightThenLeftBecomeAMaskAndFewerShifts() {
+        assertEquals(List.of("and #$FFF8", "asl a", "asl a", "rtl"), peephole(ins("lsr", "a"), ins("lsr", "a"), ins("lsr", "a"),
+                ins("asl", "a"), ins("asl", "a"), ins("asl", "a"), ins("asl", "a"), ins("asl", "a")));
+        // as many left as right: the carry would differ, nothing changes
+        assertEquals(List.of("lsr a", "asl a", "rtl"), peephole(ins("lsr", "a"), ins("asl", "a")));
+    }
+
+    @Test
+    void aRepRightBeforeASepGoesWhereAWasEightBit() {
+        assertEquals(List.of("sep #$20", "sta z:dampf_frame+2", "sta z:dampf_frame+4", "rep #$20", "rtl"),
+                peephole(ins("sep", "#$20"), ins8("sta", "z:dampf_frame+2"), ins8("rep", "#$20"), ins("sep", "#$20"),
+                        ins8("sta", "z:dampf_frame+4"), ins8("rep", "#$20")));
+        // 16 bit before the REP: the SEP switches to 8 bit, both stay
+        assertEquals(List.of("rep #$20", "sep #$20", "rep #$20", "rtl"),
+                peephole(ins("rep", "#$20"), ins("sep", "#$20"), ins8("rep", "#$20")));
+    }
+
+    @Test
+    void theHighByteIsLoadedFromTheNextAddress() {
+        assertEquals(List.of("lda z:dampf_frame+5", "and #$00FF", "rtl"),
+                peephole(ins("lda", "z:dampf_frame+4"), ins("xba", null), ins("and", "#$00FF")));
+        assertEquals(List.of("lda _tab+3,x", "and #$00FF", "rtl"),
+                peephole(ins("lda", "_tab+2,x"), ins("xba", null), ins("and", "#$00FF")));
+        // the last word of the direct page: the byte after it is reached with absolute addressing
+        assertEquals(List.of("lda a:dampf_frame+223", "and #$00FF", "rtl"),
+                peephole(ins("lda", "z:dampf_frame+222"), ins("xba", null), ins("and", "#$00FF")));
+    }
+
+    @Test
+    void aClcGoesWhereTheCarryIsClearAlready() {
+        LUnit u = LParser.parse(text(
+                ".proc f",
+                ins("cmp", "#$0010"),
+                ins("bcs", "done"),
+                ins("clc", null),                // C = 0 after BCS not taken: goes
+                ins("adc", "#$0001"),
+                ins("clc", null),                // after ADC: unknown, stays
+                ins("adc", "#$0001"),
+                "done:",
+                ins("sec", null),                // from the BCS taken: set; falling in: unknown; stays
+                ins("rtl", null),
+                ".endproc"));
+        LFunction f = u.functions().getFirst();
+        assertEquals(1, KnownCarry.run(f));
+        assertEquals(List.of("cmp #$0010", "bcs done", "adc #$0001", "clc", "adc #$0001", "sec", "rtl"),
+                f.instrs().stream().map(LInstr::toString).toList());
+    }
+
+    private static List<String> stretches(String... lines) {
+        String[] all = new String[lines.length + 2];
+        all[0] = ".proc f";
+        System.arraycopy(lines, 0, all, 1, lines.length);
+        all[lines.length + 1] = ".endproc";
+        LUnit u = LParser.parse(text(all));
+        LFunction f = u.functions().getFirst();
+        ByteStretches.run(f);
+        assertEquals(List.of(), LVerifier.verify(u));
+        return f.instrs().stream().map(LInstr::toString).toList();
+    }
+
+    @Test
+    void aShortSixteenBitStretchBetweenByteStoresRunsInEightBits() {
+        assertEquals(List.of("sep #$20", "sta _o", "lda _x", "sec", "sbc #$01", "sta _o+1", "rep #$20", "lda #$0000", "rtl"),
+                stretches(ins("sep", "#$20"), ins8("sta", "_o"), ins8("rep", "#$20"), ins("lda", "_x"), ins("sec", null),
+                        ins("sbc", "#$0001"), ins("sep", "#$20"), ins8("sta", "_o+1"), ins8("rep", "#$20"),
+                        ins("lda", "#$0000"), ins("rtl", null)));
+        // a right shift brings bit 8 into the low byte: stays 16 bit
+        List<String> shift = stretches(ins("sep", "#$20"), ins8("rep", "#$20"), ins("lda", "_x"), ins("lsr", "a"),
+                ins("sep", "#$20"), ins8("sta", "_o"), ins8("rep", "#$20"), ins("lda", "#$0000"), ins("rtl", null));
+        assertTrue(shift.contains("lsr a") && shift.stream().filter(x -> x.equals("rep #$20")).count() == 2, shift.toString());
+        // the high byte of A is stored in 16 bits after the stretch: stays 16 bit
+        List<String> high = stretches(ins("sep", "#$20"), ins8("rep", "#$20"), ins("lda", "_x"), ins("sep", "#$20"),
+                ins8("sta", "_o"), ins8("rep", "#$20"), ins("sta", "_w"), ins("rtl", null));
+        assertTrue(high.stream().filter(x -> x.equals("rep #$20")).count() == 2, high.toString());
+    }
+
+    @Test
+    void aCompareWithZeroGoesWhereTheFlagsAreSetAlready() {
+        assertEquals(List.of("lda z:dampf_frame+4", "sta z:dampf_frame+6", "beq done", "rtl", "rtl"),
+                peephole(ins("lda", "z:dampf_frame+4"), ins("sta", "z:dampf_frame+6"), ins("cmp", "#$0000"),
+                        ins("beq", "done"), ins("rtl", null), "done:"));
+        // after a call the flags are the callee's: stays
+        assertTrue(peephole(ins("jsl", "_f"), ins("cmp", "#$0000"), ins("beq", "done"), ins("rtl", null), "done:")
+                .contains("cmp #$0000"));
+        // the carry CMP sets is read: stays
+        assertTrue(peephole(ins("lda", "z:dampf_frame+4"), ins("cmp", "#$0000"), ins("adc", "#$0001"), ins("rtl", null))
+                .contains("cmp #$0000"));
+    }
 }
