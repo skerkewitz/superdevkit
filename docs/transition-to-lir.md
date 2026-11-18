@@ -9,6 +9,15 @@ comes last on purpose.
 The plan has one rule above all others: every step leaves dampf working, and every step is
 checked by a test that would fail if the step broke something.
 
+## State
+
+Phases A and B are done (2026-11-18, on the branch `lir`): LIR with text format, parser and
+verifier; each function selected once, with branch relaxation, redundant loads, the index in Y
+and dead stores as LIR passes; `MirCodeGen` split by job. The measured steps are in
+[optimizations-log.md](optimizations-log.md), *The back end on LIR*. B5 needed no code:
+`NaiveCodeGen` writes LIR through `AsmWriter` since A3 and runs none of the passes. The section
+below describes the starting point.
+
 ## Where we are
 
 `MirCodeGen` (about 2,700 lines) turns MIR into ca65 assembly text. It does several jobs at
