@@ -548,7 +548,15 @@ public final class MirCodeGen {
             Instr t = b.terminator();
             if (t != null) {
                 for (Block s : t.successors()) {
-                    if (!placed.contains(s) && (next == null || counts != null && count(counts, s) > count(counts, next))) {
+                    if (placed.contains(s)) {
+                        continue;
+                    }
+                    // with a profile: the successor that ran more often; without: one only this block
+                    // reaches (the next test of an ||), since a block with other ways in needs a
+                    // jump from somewhere anyway
+                    boolean better = next == null || (counts != null ? count(counts, s) > count(counts, next)
+                            : s.preds().size() == 1 && next.preds().size() > 1);
+                    if (better) {
                         next = s;
                     }
                 }
