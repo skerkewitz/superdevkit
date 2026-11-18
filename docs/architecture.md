@@ -6,13 +6,18 @@ Milestone state is in [roadmap.md](roadmap.md).
 
 ## Where the code stands
 
-Of the three IR levels below only MIR is built (`dampf.mir`): the lowering from the AST (SSA built
-directly, Braun et al.), a text format (`dampf mir file.c`) that parses back (`MirParser`), a
-verifier and an interpreter. HIR will sit between the AST and MIR once struct splitting needs it.
-The code generator from MIR (`dampf.backend.MirCodeGen`, the default of `dampf build`) writes
-65816 assembly text directly and does LIR's jobs itself (`REP`/`SEP`, direct page places, A, X
-and Y, branch distances, cycles), with `FrameLayout` for the places and `Timing` for the best and
-worst case. The naive code generator works on the AST and stays the reference for optimized
+Of the three IR levels below MIR and LIR are built. MIR (`dampf.mir`): the lowering from the AST
+(SSA built directly, Braun et al.), a text format (`dampf mir file.c`) that parses back
+(`MirParser`), a verifier and an interpreter. LIR (`dampf.lir`): 65816 instructions in basic
+blocks with the accumulator width each runs in, whose text is the ca65 source dampf writes
+(`LPrinter`, `LParser`), a verifier (`LVerifier`) and passes. HIR will sit between the AST and MIR
+once struct splitting needs it. The code generator from MIR (`dampf.backend.MirCodeGen`, the
+default of `dampf build`) selects instructions once per function (`Selection` and the classes per
+kind of instruction, with `FrameLayout` for the places); the LIR passes then remove loads of what a
+register holds (`RedundantLoads`, `IndexInY`, on `RegContents`) and stores nobody reads
+(`DeadStores`), choose the branch forms (`BranchRelax`) and number the local labels
+(`LocalLabels`); `Timing` gives the best and worst case on the LIR. The way there is in
+[transition-to-lir.md](transition-to-lir.md). The naive code generator works on the AST and stays the reference for optimized
 builds (`--backend naive`; `--replace` works only with it; see [testing.md](testing.md)).
 
 The MIR passes (`dampf.mir.Optimizer`): simplification (`Simplify`), a bit chosen by a bit
@@ -42,8 +47,8 @@ C source
   → Mesen             runs and debugs at C source level
 ```
 
-As built, HIR and LIR are skipped: `dampf.mir.Lower` lowers the AST to MIR and
-`dampf.backend.MirCodeGen` writes the ca65 assembly; `dampf.backend.NaiveCodeGen` goes from the
+As built, HIR is skipped: `dampf.mir.Lower` lowers the AST to MIR, `dampf.backend.MirCodeGen`
+selects LIR from it, and the LIR passes and printer write the ca65 assembly; `dampf.backend.NaiveCodeGen` goes from the
 AST to ca65 assembly. `dampf.snes.RomBuilder` runs ca65 and ld65, and `dampf.Compiler` ties the
 steps together.
 
@@ -72,7 +77,7 @@ not LLVM's machine IR; dampf's LIR plays the role of LLVM's machine IR.
 | --- | --- | --- | --- |
 | **HIR** (high-level) | Rust MIR, Swift SIL | A control flow graph that still has struct fields, array indexing, calls and intrinsics. C's integer promotions are made explicit here, so the meaning of every operation is unambiguous. *Not built: the typed AST makes the conversions explicit.* | Call graph and recursion check; inlining; recognising loops; `DAMPF_SPLIT` (arrays of structs into one array per field); `DAMPF_TABLE` (evaluating functions at compile time). *As built: the recursion check runs on the AST (`dampf.check.CallGraph`), inlining and loops on MIR (`Inline`, `Loops`); `DAMPF_SPLIT` and `DAMPF_TABLE` are not built.* |
 | **MIR** (mid-level) | LLVM IR | SSA form (every value is assigned exactly once). Types `i8`, `i16`, `i24`; pointers as `ptr16` (within the current data bank) or `ptr24` (any bank). Memory as symbol plus offset. *As built: `i1`, `i8`, `i16`, `i32` (C's int) and one `ptr` type; signedness in the operations (sdiv/udiv, ashr/lshr, slt/ult, sext/zext); memory through `load`/`store`/`copy` on addresses from `ptradd`; locals whose address is taken, and arrays and structs, in frame slots.* | Constant propagation, dead code removal, common subexpressions, hoisting invariant code out of loops, **narrowing widths** using value ranges (16 → 8 bit where provably identical), recognising 8.8 fixed-point patterns as byte accesses. *As built: all of these (constants in `Simplify`), plus the other passes listed above.* |
-| **LIR** (low-level) | LLVM machine IR | Real 65816 instructions on virtual locations, with the processor state (M, X, D, DB) as part of the representation | Instruction selection; placing `REP`/`SEP` optimally; direct page slot allocation; assigning A, X and Y; peephole optimization; branch distances; **counting cycles and computing bounds** ([timing.md](timing.md)). *Not built: `MirCodeGen` does these jobs on the assembly it writes.* |
+| **LIR** (low-level) | LLVM machine IR | Real 65816 instructions on virtual locations, with the processor state (M, X, D, DB) as part of the representation | Instruction selection; placing `REP`/`SEP` optimally; direct page slot allocation; assigning A, X and Y; peephole optimization; branch distances; **counting cycles and computing bounds** ([timing.md](timing.md)). *Built (`dampf.lir`): instruction selection (`MirCodeGen`), branch distances, redundant loads and dead stores, cycles and bounds; `REP`/`SEP` across blocks and peephole rules come next.* |
 
 ### What runs through all levels
 
