@@ -2,7 +2,7 @@
 
 A plan for renaming superdevkit's console API so that every name a game can use starts with
 `sdevkit_`, and for making sure on every platform that a game reaches nothing else. It amends
-ADR records 29 and 32. Decided with the user on 2026-11-18; this document is the brief for the
+ADR records 29 and 32; the decision is ADR record 34. Decided with the user on 2026-11-18; this document is the brief for the
 implementation.
 
 ## What was decided
@@ -167,8 +167,12 @@ Two consequences to check while building it:
 
 - dampf's `<stdint.h>` and `<string.h>` must compile with the host compiler under `-nostdinc`.
   dampf's `memcpy` and `memset` are `static` functions in its `<string.h>` and take a `uint16_t`
-  length; on the PC the game then gets these, and gcc still calls the libc `memcpy` for struct
-  copies, which links fine.
+  length; on the PC the game then gets these. Two traps: gcc's built-ins clash with their
+  signature (a warning), and with optimisation gcc may turn the byte loop into a call to
+  `memcpy`, which in that file is the static function itself, so it would call itself forever.
+  The game's files are therefore compiled with `-ffreestanding`. A struct copy that gcc turns
+  into a call of `memcpy` goes to the static one in that file; it works, since no object is
+  larger than 32 KB (ADR 10), and the test of step 5 includes one.
 - The game's include path must not contain `lib/snes`, `lib/pseudo` or `lib/desktop`.
   `snapshots/blubberblasen.args` has `-I ../lib/snes` today; the library's sources are listed
   there as sources, so the include path entry should not be needed. If it is, find out why
@@ -214,11 +218,11 @@ act, and the double underscore says it is not part of the API.
 ## Steps
 
 Each step leaves `./gradlew build` green, the replays passing with `-Preplays`, and is one
-commit on a branch of its own (the rules for autonomous runs).
+commit on the branch `prefix` (from `m5`, merged back into it; the rules for autonomous runs).
 
-**Step 0. ADR.** Write ADR record 33 (or the next free number) with the decision and the reasons
-above, amending records 29 (header layout, `SDK_HAS_SOUND`) and 32 (the names of the sound, save
-RAM and debug calls). Link it from records 29 and 32 and from `docs/ADR.md`.
+**Step 0. ADR.** Write ADR record 34 with the decision and the reasons above, amending records 29
+(header layout, `SDK_HAS_SOUND`) and 32 (the names of the sound, save RAM and debug calls). The
+records themselves stay unchanged: their rows in `docs/ADR.md` say "amended by 34".
 
 **Step 1. New headers, library renamed, compatibility header.** Create `lib/include/sdevkit/snes.h`
 and `lib/include/sdevkit/loop.h` with the new names, the `<stdint.h>` types, and without the PC
@@ -228,7 +232,11 @@ compatibility headers: they include the new headers and map every old name to th
 (`#define setMode sdevkit_set_mode`, `#define KEY_A SDEVKIT_KEY_A`, `#define snes_vram
 sdevkit_dbg_vram`), with the typedefs `u8` to `u32`. They exist only so that the snapshot of
 Blubber Blasen, which includes `"snes/snes.h"` and must not be edited, keeps building. They are
-marked deprecated in their first comment.
+marked deprecated in their first comment. `lib/pseudo/pseudo.h` gets the internal typedefs it
+uses (`u8`, `u16`) itself, since the public header drops them. `dev/update_game_snapshot.sh`
+compares the declarations of the game's `src/snes/snes.h` with the kit's header; it now compares
+them with `sdevkit/snes.h` through the rename table, since the compatibility header declares
+nothing.
 
 Check: the snapshot's ROM builds; the replays and the game's benchmark give the same checksums.
 The ROM bytes may move: the code generator names each function's segment after the function
@@ -270,7 +278,7 @@ script, and that `snes_vram` is now `sdevkit_dbg_vram`.
 **Step 8. Remove the compatibility headers.** Only after Blubber Blasen uses the new names and
 the snapshot has been refreshed (`dev/update_game_snapshot.sh`). Delete `lib/include/snes/`, and
 change the check in `dev/update_game_snapshot.sh` that compares the game's `src/snes/snes.h` with
-`lib/include/snes/snes.h`: once the game uses the kit's header, it has no copy of its own to
+the kit's header: once the game uses the kit's header, it has no copy of its own to
 compare. This step waits for the game; it is not part of this run.
 
 ## Constraints
