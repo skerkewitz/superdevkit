@@ -20,7 +20,8 @@ register holds (`RedundantLoads`, `IndexInY`, on `RegContents`) and stores nobod
 [transition-to-lir.md](transition-to-lir.md). The naive code generator works on the AST and stays the reference for optimized
 builds (`--backend naive`; `--replace` works only with it; see [testing.md](testing.md)).
 
-The MIR passes (`dampf.mir.Optimizer`): simplification (`Simplify`), a bit chosen by a bit
+The MIR passes (`dampf.mir.Optimizer`): simplification (`Simplify`), tests against neighbouring
+constants as one range check (`RangeChecks`), a bit chosen by a bit
 (`BitSelect`), 8.8 values read as bytes (`ByteLoads`), width narrowing (`Narrow`, and
 `RangeNarrow` with the value ranges of `Ranges`), loop-invariant code (`Licm`), induction
 variables (`Induction`), pointer compression (`PointerOffsets`), multiplication and division by

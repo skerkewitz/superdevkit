@@ -877,3 +877,13 @@ does not know that Y already holds the index where the block starts, so it loads
 a pass after selection cannot exchange the registers without knowing where X is read later.
 Taken anyway: writing each function once removes the repeated writing, the consistency checks
 and the second attempt from the code generator, which is what B3 is for. The next step, `IndexInY`, wins it back and more.
+
+## Optimizations on the branch `optimise`, 2026-11-18
+
+One step at a time, each measured on the game's benchmark in dampf's emulator (FastROM), in
+master clocks per tick. Before them: play 324,844, play with the CPU partner 527,096, all ticks
+316,002 (the end of *The back end on LIR*).
+
+| Step | Play | Play, CPU partner | All | What changed |
+| --- | --- | --- | --- | --- |
+| `RangeChecks`: neighbouring constants as one range check | 324,256 | 526,568 | 315,705 | `x == 2 \|\| x == 3`, as a chain of two blocks in MIR, becomes `(x - 2) <u 2` (as LLVM's InstCombine does): one load, subtraction and compare instead of a second block with its own load, compare and often a long jump. The game has it in `floating()` (bubble state float or trapped), which `separate` asks for every pair of bubbles; 13 chains merged. 5 functions faster; 3 have a best case 2 to 4 cycles slower (the way where the first test matched was shorter), their worst cases are faster. |
