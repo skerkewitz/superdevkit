@@ -1,6 +1,8 @@
 ---
 title: Command line
 sources:
+  - src/main/java/dampf/ConfigFile.java
+  - docs/adr/0028-options-can-be-kept-in-an-argument-file-given-by.md
   - src/main/java/dampf/Main.java
   - src/main/java/dampf/Compiler.java
   - src/main/java/dampf/tools/*.java
@@ -22,7 +24,7 @@ The page opens, before the first H2, with the usage lines exactly as dampf print
 1. **build** – compile to a ROM. Each option: `-I`, `-D` (both also written joined, `-Idir`),
    `--entry`, `--backend`, `--replace`, `-o`. Defaults, which are required, what is printed on
    success. The rule for the default of `--backend` with and without `--replace`.
-2. **check** – the front end only, every file on its own, the first problem per file; the lines
+2. **check** – the front end only, every file on its own, every problem of each file (the first after FAILS, the others below it); the lines
    it prints and its exit status.
 3. **parse** – preprocess and parse; what it prints.
 4. **profile** – its arguments, what the profile file is and where it comes from, what the

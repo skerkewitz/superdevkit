@@ -6,6 +6,7 @@ exits with status 2:
 
 ```
 usage: dampf --version
+       dampf parse|build|check @file ...   (or --config file: options from an argument file; a folder means its .c files)
        dampf parse [-I dir] [-D name[=value]] file.c ...
        dampf build [-I dir] [-D name[=value]] [--entry name] [--backend mir|naive] [--replace fn=file.s] [--block-counts file] [--slowrom] [--assembler dampf|ca65] -o out.sfc file.c ...
        dampf check [-I dir] [-D name[=value]] file.c ...
@@ -35,6 +36,10 @@ call:
 dampf build --entry test_main -o build/examples/m1/calls.sfc examples/m1/calls.c
 ```
 
+A folder among the arguments stands for the `.c` files directly in it, in sorted order; files
+in its subfolders are not included, so a folder such as `src/game/debug/` does not end up in the
+ROM unasked. The same holds for `check` and `parse`.
+
 At least one C file and `-o` are required; without them dampf prints the usage and exits with
 status 2. So it does, for `build`, `check` and `parse`, when `-I`, `-D`, `--entry` or `-o` is
 the last argument and has no value.
@@ -50,7 +55,7 @@ With the [code generator from MIR](/glossary#code-generator-from-mir), the defau
 writes `calls.timing.txt` next to the ROM, with the best and worst case of every function in CPU
 cycles; [Exact timing](/inside/timing) explains how they are computed. The other files dampf
 writes next to the ROM are described in [The generated files](/reference/output-files). If the
-program has an error, dampf prints its [messages](#messages) and exits with status 1.
+program has errors, dampf prints a [message](#messages) for each and exits with status 1.
 
 ### -I {#option-i}
 
@@ -150,6 +155,53 @@ Use `-o out.sfc` to name the ROM; it is required. All files of the build go into
 of the ROM, which dampf creates if it does not exist, and take its name without `.sfc` as their
 base name.
 
+### Argument file {#argument-file}
+
+A build of a whole game needs several include directories, an entry and many source files. To
+keep them in a file you can check in, name an argument file with `@file` or `--config file`.
+`build`, `check` and `parse` take it, once per call. The snapshot of Blubber Blasen comes with
+one:
+
+```text [snapshots/blubberblasen.args]
+# Blubber Blasen's playable ROM with the dev kit (dev/build_game_rom.sh): the game, its graphics,
+# and the library on the SNES. Paths are relative to this file (ADR record 28).
+-I ../lib/include
+-I blubberblasen/src
+-I blubberblasen/generated
+-I ../lib/snes
+--entry main
+blubberblasen/src/game/
+blubberblasen/generated/
+../lib/snes/
+```
+
+```sh
+dampf build @snapshots/blubberblasen.args -o build/game/blubberblasen.sfc
+```
+
+Each line holds one option with its value, or one source file or folder. A `#` at the start of
+a word starts a comment that runs to the end of the line, blank lines are ignored, and a value
+with blanks in it can be put in double quotes. Relative paths in the file, those of `-I`, `-o`,
+`--block-counts`, the file of `--replace` and the source files, count from the file's folder,
+not from where dampf runs, so the file works from any folder.
+
+The file's arguments go in front of those of the command line, so the command line adds to
+them: more `-I`, `-D` or source files, or an option the file does not have. For `-o` and
+`--entry`, which take one value, the command line wins. A file may not name another argument
+file.
+
+A mistake in the file or in how it is named stops dampf before it compiles anything. It prints
+one line starting with `dampf:`, the file and the line number, and exits with status 2:
+
+```
+dampf: bb.args:3: -I needs one value
+```
+
+The other messages are `an argument file may not name another`,
+`one option with its value per line, or one file or folder`, `a quote is not closed`, and,
+without a line number, `no argument file bb.args`,
+`only one argument file per call (a.args and b.args)` and `--config needs a file`.
+
 ### Cycle budgets {#budgets}
 
 With the code generator from MIR, dampf checks the cycle budgets that functions declare with the
@@ -205,10 +257,20 @@ dampf check -I snapshots/blubberblasen/src -I snapshots/blubberblasen/generated 
 It runs only the front end (preprocessor, parser and the checks of the subset) and handles
 every file on its own, so one construct outside the [subset](/glossary#subset) does not hide the
 problems of other files. For each file it prints one line: `ok` and the file name, or `FAILS`
-and the first problem of that file. A last line counts the files that pass:
+and the first problem of that file, with the file's other problems indented on the lines below
+it, one at most per top-level declaration. A last line counts the files that pass:
 
 ```
 FAILS   score.c:12:5: error: 'float' is not supported: dampf has no floating point
+0 of 1 file(s) pass the front end
+```
+
+For the file `scores.c` in [Messages](#messages), which has three errors:
+
+```
+FAILS   scores.c:7:5: error: 'float' is not supported: dampf has no floating point
+        scores.c:13:5: error: 'double' is not supported: dampf has no floating point
+        scores.c:19:5: error: 'long' is not supported: use int32_t or uint32_t (long is 64 bit on the PC)
 0 of 1 file(s) pass the front end
 ```
 
@@ -239,14 +301,15 @@ FAILS   rec.c:5:16: error: recursion is not supported: count → count   (the 1 
 ```
 
 The exit status is 0 if every file passes and the files pass together, and 1 otherwise. `check`
-does not look for the entry function; `build` does. `check` takes `-I` and `-D` as
-[build](#build) does.
+does not look for the entry function; `build` does. `check` takes `-I`, `-D`, folders and an
+[argument file](#argument-file) as [build](#build) does.
 
 ## parse
 
-Use `parse` to preprocess and parse files without building the program. It takes `-I` and `-D`
-as [build](#build) does. For each file it prints the messages of the parser, such as syntax
-errors, and then one line with the number of files and errors:
+Use `parse` to preprocess and parse files without building the program. It takes `-I`, `-D`,
+folders and an [argument file](#argument-file) as [build](#build) does. For each file it prints
+the messages of the parser, such as syntax errors, and then one line with the number of files
+and errors:
 
 ```
 2 file(s), 0 error(s)
@@ -384,6 +447,45 @@ void main(void)
 score.c:12:5: error: 'float' is not supported: dampf has no floating point
 ```
 
+dampf reports every error of a run, in all files, so that one error does not hide the next.
+Within a top-level declaration, such as a function, the first error ends it, so there is at
+most one message per declaration. For this file:
+
+```c [scores.c]
+#include <stdint.h>
+
+uint16_t score;
+
+void add_points(uint16_t points)
+{
+    float factor = 1.5;
+    score += points;
+}
+
+void reset(void)
+{
+    double zero = 0;
+    score = 0;
+}
+
+void main(void)
+{
+    long double big = 0;
+    add_points(10);
+}
+```
+
+`dampf build -o build/scores.sfc scores.c` prints:
+
+```
+scores.c:7:5: error: 'float' is not supported: dampf has no floating point
+scores.c:13:5: error: 'double' is not supported: dampf has no floating point
+scores.c:19:5: error: 'long' is not supported: use int32_t or uint32_t (long is 64 bit on the PC)
+```
+
+Recursion is only looked for once the front end has found no error, so `build` reports it
+only for a program without other errors.
+
 Errors of the preprocessor are messages of the same form: dampf takes gcc's first error and its
 position, as for a missing header:
 
@@ -407,7 +509,7 @@ column 1 of the file, and its text starts with `preprocessing failed:` and gcc's
 | `bench` | benchmark finished | benchmark did not finish | wrong arguments |
 
 A usage error is a missing command or one dampf does not know, an option without its value at
-the end of the command line, and for `build` also a missing `-o`, no C file or an unknown
-`--backend` or `--assembler` value. A missing C file or header is an error in the program. Any
+the end of the command line, a mistake in an [argument file](#argument-file), and for `build`
+also a missing `-o`, no C file or an unknown `--backend` or `--assembler` value. A missing C file or header is an error in the program. Any
 other unexpected failure, such as a missing `.s` file for `--replace` or a missing profile file,
 ends dampf with a Java exception and status 1.

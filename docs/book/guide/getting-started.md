@@ -168,8 +168,13 @@ dampf check speed.c
 
 ```
 FAILS   speed.c:1:1: error: 'float' is not supported: dampf has no floating point
+        speed.c:5:5: error: 'player_speed' is not declared
 0 of 1 file(s) pass the front end
 ```
+
+dampf reports every error of a run, not only the first. The second line follows from the first:
+the declaration of `player_speed` is rejected, so the use in `test_main` finds no variable.
+Fix the first error of a file first; errors that follow from it then go away.
 
 [The C subset](/reference/c-subset) lists what dampf accepts, and
 [Command line](/reference/command-line) describes `check` and the other commands.

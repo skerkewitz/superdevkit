@@ -1,6 +1,7 @@
 ---
 title: The C subset
 sources:
+  - src/main/resources/dampf/include/string.h
   - docs/ADR.md
   - docs/adr/*.md
   - docs/subset.md

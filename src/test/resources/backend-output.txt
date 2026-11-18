@@ -96,6 +96,11 @@ exec_regress_phi_overlap.layout.timing e39cd09f41a691e9ad942061
 exec_regress_phi_overlap.mir.s0 fc81eccf9a6e926b3d89b0d1
 exec_regress_phi_overlap.mir.timing 63da4c3aeaa828d938fc7ead
 exec_regress_phi_overlap.naive.s0 0b13bb7a2184a2cb886518a9
+exec_regress_x_step_address.layout.s0 3abd507f4ef9f15009b16698
+exec_regress_x_step_address.layout.timing 36214502c143566524339788
+exec_regress_x_step_address.mir.s0 3abd507f4ef9f15009b16698
+exec_regress_x_step_address.mir.timing 36214502c143566524339788
+exec_regress_x_step_address.naive.s0 3b830ae37d9c02ec1c7047f0
 exec_returns.layout.s0 7a3356e72ce2608f5f514e02
 exec_returns.layout.timing 42aa6d086d286bdee68d9116
 exec_returns.mir.s0 28b4cd796803a5f5cc286360
@@ -111,6 +116,11 @@ exec_sizeof_types.layout.timing 78185ff794ef2bc39a10139b
 exec_sizeof_types.mir.s0 aff096b6f0dd531d9915f174
 exec_sizeof_types.mir.timing 78185ff794ef2bc39a10139b
 exec_sizeof_types.naive.s0 607f5a9b59b564ed7fb68496
+exec_string_h.layout.s0 00ebebb757ae5504f2cb7761
+exec_string_h.layout.timing 5c5042cb583d97cc40224f13
+exec_string_h.mir.s0 ae2b9817500c67368954b1ba
+exec_string_h.mir.timing 78bb1c75baac36ce78af9be1
+exec_string_h.naive.s0 3530af8d416f709664e4bd9a
 exec_strings.layout.s0 eaf6f65f7ac0895c3c55c83b
 exec_strings.layout.timing 0c66af8cdddf9f21df36becf
 exec_strings.mir.s0 28485830b5f81bb127609bb5

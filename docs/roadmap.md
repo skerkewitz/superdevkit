@@ -60,9 +60,13 @@ SNES and play in Mesen.
 Done on the branch `m5`: `tools/` became `dev/` (nothing in it was for other games), the snapshot
 moved to `snapshots/blubberblasen`, `platform/snes` became `lib/snes`, and the console API
 (`lib/include/snes/snes.h`) and the main loop with its frame rhythm (`lib/include/snes/loop.h`)
-belong to the library ([lib/README.md](../lib/README.md)). The steps still to do, each with what
+belong to the library ([lib/README.md](../lib/README.md)). dampf can be called by a game:
+argument files (`@file`, `--config`), every error of a run reported, `<string.h>` with `memset`
+and `memcpy`. Its test found a miscompilation: a loop counter kept in X was stepped before a later
+store whose address was formed from its old value (`exec/regress_x_step_address.c`); it is fixed
+and was not the one with inlining up to 80, which is still open. The steps still to do, each with what
 makes it done, are in [superdevkit-transition.md](superdevkit-transition.md#m5-the-snes-050):
-dampf called by a game (argument files, all errors, `<string.h>`), the converter, the examples,
+the converter, the examples,
 correctness (the miscompilation, tests that reach the optimizer), the book, the handover to the
 game, and the playable ROM on a console.
 
@@ -251,7 +255,7 @@ Open: the DMA margin is in M5, constant shifts longer than 8 in M9.
 
 - **Miscompilation.** Mitigated by the test layers, the naive reference and the replays as
   oracle ([testing.md](testing.md)). One is known and not found yet (M5).
-- **The optimizer is tested by one game.** 29 execution tests and 50 random programs per build,
+- **The optimizer is tested by one game.** 31 execution tests and 50 random programs per build,
   and the random programs barely reach the optimizer's patterns; in practice the optimizer is
   tested by Blubber Blasen's benchmark and one replay recording. M5 adds random programs and
   execution tests for the patterns, and more recordings would help

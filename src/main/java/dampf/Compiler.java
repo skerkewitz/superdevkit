@@ -107,8 +107,17 @@ public final class Compiler {
     public static Program frontEnd(Options o) throws CompileError, IOException {
         Preprocessor pp = new Preprocessor("gcc", SystemHeaders.directory(), o.includeDirs(), o.defines());
         AstBuilder builder = new AstBuilder(SystemHeaders.directory());
+        // every file, so that the errors of one do not hide those of the next
+        List<dampf.frontend.Diagnostic> errors = new java.util.ArrayList<>();
         for (Path source : o.sources()) {
-            builder.addFile(Parser.parse(pp.run(source), source.toString()));
+            try {
+                builder.addFile(Parser.parse(pp.run(source), source.toString()));
+            } catch (CompileError e) {
+                errors.addAll(e.diagnostics());
+            }
+        }
+        if (!errors.isEmpty()) {
+            throw new CompileError(errors);
         }
         Program program = builder.finish();
         CallGraph.of(program).checkNoRecursion();

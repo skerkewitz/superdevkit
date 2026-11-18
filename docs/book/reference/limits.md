@@ -93,14 +93,9 @@ path that the tests compare it with.
 **Other items you might notice.** These are smaller, but each changes what you can write or
 expect:
 
-- **One error per run.** dampf stops at the first error it finds, so a file with several
-  problems takes several runs. Reporting all errors of a run is part of M5.
-- **No argument file.** Every option and source file of a build goes on the command line, so a
-  build as large as Blubber Blasen's needs a shell script. M5 adds options in an argument file,
-  given by `--config` or `@file`, in which a folder stands for the `.c` files directly in it.
-- **No `<string.h>`.** dampf ships only `<stdint.h>` and `<dampf.h>`, so `#include <string.h>`
-  fails. M5 adds a `<string.h>` with `memset` and `memcpy`; copies with `MVN` or
-  DMA come in M12.
+- **A small library.** dampf ships `<stdint.h>`, `<dampf.h>` and a `<string.h>` with only
+  `memset` and `memcpy`, which take a byte value and a 16-bit size. Both copy byte by byte in
+  C; copies with `MVN` or DMA come in M12.
 - **`goto`** and labels are rejected, and that is decided (decision 4 of the subset). If real
   code needs `goto`, most likely after M5 when users bring code from elsewhere, dampf may allow
   a form that only jumps forward and out of statements, such as out of two loops to a label
@@ -178,8 +173,9 @@ Apart from that, where dampf lays out data differently from gcc on x86-64, a pro
 it: dampf's pointers are 4 bytes instead of 8 and it does not pad struct fields, so a `sizeof`
 whose value would differ from the PC is rejected. Only the element count
 `sizeof a / sizeof a[0]` is allowed for such types, because its quotient is the same on both
-sides. For `sizeof(struct pair)` with `struct pair { uint8_t a; int16_t b; }`, dampf reports,
-after the place in the source:
+sides. A `memcpy` of a struct that gcc pads is therefore written with its size as a constant,
+or as a struct assignment. For `sizeof(struct pair)` with `struct pair { uint8_t a; int16_t b; }`,
+dampf reports, after the place in the source:
 
 ```
 error: sizeof struct pair is 3 in dampf but 4 on the PC (dampf's pointers are 4 bytes, 8 on x86-64, and dampf does not pad struct fields): the program would compute other values than its PC build. Only the element count sizeof a / sizeof a[0] is allowed for such types

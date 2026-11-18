@@ -17,6 +17,8 @@ import java.util.Locale;
  *
  * <pre>
  * dampf --version                                                      print dampf's version
+ * dampf build|check|parse @file ...  (or --config file)                options from an argument file (ADR record 28);
+ *                                                                      a folder stands for its .c files
  * dampf parse [-I dir] [-D name[=value]] file.c ...                   preprocess and parse
  * dampf build [-I dir] [-D name[=value]] [--entry name] [--backend mir|naive] [--replace fn=file.s]
  *             [--block-counts file] [--slowrom] [--assembler dampf|ca65] -o out.sfc file.c ...
@@ -53,6 +55,12 @@ public final class Main {
         }
         if (args.length == 0 || !List.of("parse", "build", "check").contains(args[0])) {
             usage();
+            System.exit(2);
+        }
+        try {
+            args = ConfigFile.expand(List.of(args)).toArray(String[]::new);
+        } catch (ConfigFile.Error e) {
+            System.err.println("dampf: " + e.getMessage());
             System.exit(2);
         }
         List<Path> includes = new ArrayList<>();
@@ -117,7 +125,7 @@ public final class Main {
             } else if (a.startsWith("-D")) {
                 defines.add(a.substring(2));
             } else {
-                files.add(Path.of(a));
+                files.addAll(ConfigFile.sources(Path.of(a)));
             }
         }
         if (args[0].equals("build")) {
@@ -151,6 +159,7 @@ public final class Main {
                     System.err.println("ok      " + f);
                 } catch (CompileError e) {
                     System.err.println("FAILS   " + e.diagnostics().getFirst());
+                    e.diagnostics().stream().skip(1).forEach(d -> System.err.println("        " + d));
                 }
             }
             System.err.printf("%d of %d file(s) pass the front end%n", ok, files.size());
@@ -205,6 +214,7 @@ public final class Main {
 
     private static void usage() {
         System.err.println("usage: dampf --version");
+        System.err.println("       dampf parse|build|check @file ...   (or --config file: options from an argument file; a folder means its .c files)");
         System.err.println("       dampf parse [-I dir] [-D name[=value]] file.c ...");
         System.err.println("       dampf build [-I dir] [-D name[=value]] [--entry name] [--backend mir|naive] [--replace fn=file.s] [--block-counts file] [--slowrom] [--assembler dampf|ca65] -o out.sfc file.c ...");
         System.err.println("       dampf check [-I dir] [-D name[=value]] file.c ...");

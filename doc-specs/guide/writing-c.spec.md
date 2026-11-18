@@ -1,6 +1,7 @@
 ---
 title: Writing C for dampf
 sources:
+  - src/main/resources/dampf/include/string.h
   - docs/ADR.md
   - docs/adr/*.md
   - docs/subset.md
@@ -41,7 +42,7 @@ everything outside it is rejected with a message, and that the subset is what a 
    directory; host headers and macros never reach the code. Show how to use `__DAMPF__` to
    keep a PC-only or compiler-specific branch apart, with a short example.
 6. **Checking your code** – `dampf check` on a set of files, what it prints, and that it reports
-   the first problem per file. Link [Command line](/reference/command-line#check).
+   every problem of each file (at most one per top-level declaration). Link [Command line](/reference/command-line#check).
 
 ## Pay attention to
 

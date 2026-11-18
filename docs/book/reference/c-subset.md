@@ -16,8 +16,11 @@ Most messages below come from `dampf check`, which runs the front end on each fi
 and then checks the files that pass together. Checks that need the
 [whole program](/glossary#whole-program), such as recursion and functions that are called but
 never defined, run in that second step, and again at `dampf build`. Both commands are described
-on [Command line](/reference/command-line). Many messages start with `not supported yet:`; the
-construct is outside the subset today.
+on [Command line](/reference/command-line). A run reports every error of every file, at most one
+for each declaration or function at file scope: within one of them, the first error ends the
+check. `dampf build` checks the whole program, recursion included, only once the files have no
+other error. Many messages start with `not supported yet:`; the construct is outside the
+subset today.
 
 ## Types
 
@@ -116,7 +119,8 @@ exception is a division whose quotient is the same on both sides: the element co
 `sizeof names / sizeof names[0]` is accepted for `const char *names[3]`, which is 12 bytes in
 dampf and 24 on the PC, and gives 3 on both. A struct without padding, such as
 `struct { uint8_t kind; uint8_t flags; int16_t x; }`, has the same size on both sides, and its
-`sizeof` is accepted anywhere.
+`sizeof` is accepted anywhere. To copy a struct that gcc pads, use a struct assignment, since
+`memcpy(&saved, &bubble, sizeof bubble)` is rejected for it.
 
 A typedef name in parentheses works as in C: `sizeof(uint8_t)`, or `sizeof` of a struct type
 made with `typedef`. Where a variable has the same name as the typedef, the variable wins.
@@ -141,8 +145,14 @@ result is the same.
 dampf ships its own `<stdint.h>` with the same underlying types as the PC: `int8_t` is
 `signed char`, `int16_t` is `short`, `int32_t` is `int`, and the unsigned types alike. The
 header also defines the limits (`INT8_MIN` to `UINT32_MAX`) and the macros `INT8_C` to
-`UINT32_C`. The only other header dampf provides is `<dampf.h>`, which holds the hints (see
-[Whole program](#whole-program)).
+`UINT32_C`. The other headers dampf provides are `<dampf.h>`, which holds the hints (see
+[Whole program](#whole-program)), and `<string.h>`.
+
+The `<string.h>` of dampf has only `memset` and `memcpy`, as static functions in the header.
+Their value is a `uint8_t` and their size a `uint16_t`, since there is no plain `int` and no
+object is larger than 32 KB; a call written for the standard header, such as
+`memset(tiles, 0, sizeof tiles)`, works the same. The PC build uses the host's `<string.h>`.
+dampf has no other library function.
 
 | Rejected | Message |
 |---|---|
@@ -318,11 +328,11 @@ to a pointer such as `(uint8_t *)0x7E2000`, are accepted in any file.
 ## Preprocessor
 
 dampf preprocesses every file with `gcc -E -nostdinc -undef -D__DAMPF__=1` and its own include
-directory, which holds only `<stdint.h>` and `<dampf.h>`. Anything `gcc -E` accepts is
-allowed. Host headers and host macros never reach the code: `__GNUC__` and `__x86_64__` are not
-defined, and `#include <stdio.h>` fails. A failure of the preprocessor is an ordinary error at
-the place gcc names, with gcc's message. For a file `stdio.c` whose second line is
-`#include <stdio.h>`:
+directory, which holds only `<stdint.h>`, `<dampf.h>` and `<string.h>`. Anything `gcc -E`
+accepts is allowed. Host headers and host macros never reach the code: `__GNUC__` and
+`__x86_64__` are not defined, and `#include <stdio.h>` fails. A failure of the preprocessor is
+an ordinary error at the place gcc names, with gcc's message. For a file `stdio.c` whose second
+line is `#include <stdio.h>`:
 
 ```
 stdio.c:2:10: error: stdio.h: No such file or directory

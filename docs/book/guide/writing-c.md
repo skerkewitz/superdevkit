@@ -76,11 +76,16 @@ The constructs the subset rejects most often:
 | Structs passed or returned by value | not used by the game; pass a pointer instead |
 | `goto` and labels | would need a more general timing analysis |
 | `malloc`, any heap | all objects are static, so memory use is known at compile time |
-| Library functions | the only system headers are dampf's `<stdint.h>` and `<dampf.h>` |
+| Library functions other than `memset` and `memcpy` | dampf ships no other library |
 
 Recursion is reported with the cycle of calls, for example
 `recursion is not supported: count_down → count_down`. Struct assignment is allowed: it is a
 copy of known size.
+
+The one library header is dampf's `<string.h>`, with `memset` and `memcpy` for clearing and
+copying memory. Their value is a byte and their size a 16-bit number, since there is no plain
+`int` and no object is larger than 32 KB, so a call written for the standard header, such as
+`memset(tiles, 0, sizeof tiles)`, works the same. The PC build uses the host's `<string.h>`.
 
 Write a function without parameters as `void game_init(void)`. An empty list,
 `void game_init()`, is rejected with `missing parameter type`.
@@ -89,14 +94,15 @@ A `sizeof` whose value differs from gcc's on the PC is rejected as well, because
 would compute other values than its PC build. That is a `sizeof` of a pointer (4 bytes in dampf,
 8 on x86-64) or of a struct that gcc pads (dampf does not pad struct fields). The message gives
 both values. The element count `sizeof a / sizeof a[0]` is allowed for any array, because its
-value is the same on both sides.
+value is the same on both sides. To copy a struct that gcc pads, use a struct assignment
+instead of `memcpy`, since its `sizeof` is rejected.
 
 The complete list, with every construct and the counts from the scan of the game, is in
 [The C subset](/reference/c-subset).
 
 [Hints](/glossary#hint), macros such as `DAMPF_RANGE` that tell dampf something it cannot
-infer, come from dampf's second system header, `<dampf.h>`; in the PC build they become checked
-assertions or nothing. [Hints](/reference/hints) describes them. Intrinsics, functions for
+infer, come from dampf's header `<dampf.h>`; in the PC build they become checked assertions
+or nothing. [Hints](/reference/hints) describes them. Intrinsics, functions for
 SNES hardware such as the hardware multiplier and divider or DMA, are not built yet; see
 [Limits](/reference/limits).
 
@@ -156,7 +162,24 @@ give dampf its own `#ifdef __DAMPF__` branch.
 
 Run `dampf check` on a set of files to see whether they are in the subset, without building a
 ROM. It takes the same `-I` and `-D` options as `dampf build`, checks each file on its own and
-prints one line per file, then checks the files that pass together:
+prints one line per file, then checks the files that pass together. Here `hud.c` has three
+problems:
+
+```c [hud.c]
+#include <stdint.h>
+
+float scale;
+uint8_t lives;
+long total;
+
+void hud_draw(void)
+{
+    lives = 3;
+    goto done;
+done:
+    return;
+}
+```
 
 ```sh
 dampf check score.c hud.c
@@ -165,17 +188,21 @@ dampf check score.c hud.c
 ```
 ok      score.c
 FAILS   hud.c:3:1: error: 'float' is not supported: dampf has no floating point
+        hud.c:5:1: error: 'long' is not supported: use int32_t or uint32_t (long is 64 bit on the PC)
+        hud.c:10:5: error: not supported yet: 'goto'
 1 of 2 file(s) pass the front end
 the 1 file(s) together: ok
 ```
 
-Only the first problem of each file is reported. Because each file is checked on its own, one
-unsupported construct in one file does not hide the problems of the others; fix the reported
-one and run the check again for the next.
+Every error is reported, at most one for each declaration or function at file scope: within
+`hud_draw` the check stops at the `goto`, so the label after it gives no second line. Because
+each file is checked on its own, one unsupported construct in one file does not hide the
+problems of the others. `dampf build` reports the errors of all files in the same way.
 
 The last line covers what only the whole program shows: recursion, a function that is called
-but defined in none of the files, and a definition in two files. Here a function in `rec.c`
-calls itself:
+but defined in none of the files, and a definition in two files. These checks take only the
+files without errors, and `dampf build` runs them only once no other error is left. Here a
+function in `rec.c` calls itself:
 
 ```c [rec.c]
 #include <stdint.h>

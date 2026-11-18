@@ -405,13 +405,35 @@ final class SelectionPlan {
                         && (c.pred == Instr.Pred.EQ || c.pred == Instr.Pred.NE || c.pred == Instr.Pred.ULT
                         || c.pred == Instr.Pred.UGE) -> { }
                 case Instr.PtrAdd q when sel.folded.contains(q) && sel.layout.indexable(q) && Selection.throughCopies(q.op(1)) == v
-                        && q.op(0) != v -> indexes++;
+                        && q.op(0) != v -> {
+                    // the address is formed where it is used, with X: a use after the step would
+                    // take the next element (an offset added to it, then a store after the step)
+                    if (usedAfter(q, step, users)) {
+                        return -1;
+                    }
+                    indexes++;
+                }
                 default -> {
                     return -1;
                 }
             }
         }
         return indexes;
+    }
+
+    /** Whether an address (or one formed from it by a further ptradd) is used after the step, in the step's block. */
+    private static boolean usedAfter(Value address, Instr step, Map<Value, List<Instr>> users) {
+        List<Instr> work = new ArrayList<>(users.getOrDefault(address, List.of()));
+        for (int n = 0; n < work.size(); n++) { // NOPMD ForLoopCanBeForeach: work grows in the loop
+            Instr u = work.get(n);
+            if (u.block() == step.block() && u.block().instrs().indexOf(u) > u.block().instrs().indexOf(step)) {
+                return true;
+            }
+            if (u instanceof Instr.PtrAdd || u instanceof Instr.Copy) {
+                work.addAll(users.getOrDefault(u, List.of()));
+            }
+        }
+        return false;
     }
 
     /**

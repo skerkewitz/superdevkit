@@ -88,18 +88,26 @@ public final class AstBuilder {
         if (tu == null) {
             return;
         }
+        // every top-level declaration on its own, so that one error does not hide the next; within
+        // one declaration the first error ends it
+        List<Diagnostic> errors = new ArrayList<>();
         for (CParser.ExternalDeclarationContext ed : tu.externalDeclaration()) {
-            if (ed.functionDefinition() != null) {
-                functionDefinition(ed.functionDefinition());
-            } else if (ed.declaration() != null) {
-                topLevelDeclaration(ed.declaration());
-            } else if (ed.asmDefinition() != null) {
-                throw unsupported(ed, "inline assembly");
+            try {
+                if (ed.functionDefinition() != null) {
+                    functionDefinition(ed.functionDefinition());
+                } else if (ed.declaration() != null) {
+                    topLevelDeclaration(ed.declaration());
+                } else if (ed.asmDefinition() != null) {
+                    throw unsupported(ed, "inline assembly");
+                }
+            } catch (CompileError e) {
+                errors.addAll(e.diagnostics());
             }
         }
-        if (!sizeDiffers.isEmpty()) {
-            Map.Entry<Expr.Const, String> e = sizeDiffers.entrySet().iterator().next();
-            throw new CompileError(e.getKey().pos(), e.getValue());
+        sizeDiffers.forEach((c, message) -> errors.add(new Diagnostic(Diagnostic.Severity.ERROR, c.pos(), message)));
+        sizeDiffers.clear();
+        if (!errors.isEmpty()) {
+            throw new CompileError(errors);
         }
     }
 

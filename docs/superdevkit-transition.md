@@ -56,21 +56,11 @@ desktop running the ROM in an emulator and Mesen as the desktop are not schedule
 ## M5: the SNES (0.5.0)
 
 Done so far on `m5`: the version 0.5.0; `dev/`, `snapshots/`, `lib/snes`; the console API and the
-main loop in the library (`lib/include/snes/`, `LibApiTest`).
+main loop in the library (`lib/include/snes/`, `LibApiTest`); step 5.1.
 
 ### 5.1 dampf can be called by a game
 
-- **Argument files** (ADR record 28): `--config <file>` and `@file`, one per call, folders standing
-  for their `.c` files, for `build`, `check` and `parse`; relative paths against the file's folder;
-  errors with file and line. Tests: comments, quotes, paths, folders, an option twice, the errors.
-  dampf's scripts for the game use one (`snapshots/blubberblasen.args`).
-- **All errors of a run**, not only the first: the front end collects the errors of a file and
-  reports them all; `check` and `build` print each with its place. Test: a file with three
-  violations gives three messages.
-- **`<string.h>` with `memset` and `memcpy`**, in C in dampf's include folder, with an execution
-  test.
-
-Done when: each with its tests; the book's command-line page regenerated.
+Built: argument files, every error of a run, `<string.h>` ([roadmap](roadmap.md#m5-blubber-blasen-builds-with-the-dev-kit-050)).
 
 ### 5.2 The converter
 

@@ -149,6 +149,13 @@ object agree between both sides (`exec/pointer_to_int.c`). The SNES platform lay
 `lib/snes` is written this way. The checker does not tell platform code from game code: a
 cast from an integer to a pointer is accepted anywhere.
 
+**Library.** `<stdint.h>`, `<dampf.h>` (the hints) and `<string.h>` with `memset` and `memcpy`,
+which take a byte value and a 16-bit size, since there is no plain `int` and no object is larger
+than 32 KB. A call written for the standard header works the same way. A `sizeof` of a struct that
+gcc pads is still rejected (decision 5), and no constant size is right on both sides (3 bytes in
+dampf and 4 on the PC for `struct { uint8_t kind; int16_t x; }`), so such a struct is copied by a
+struct assignment.
+
 **Preprocessor.** Anything `gcc -E` accepts. dampf preprocesses with `-nostdinc -undef
 -D__DAMPF__=1` and its own `include/`, so host headers and host macros never reach the code.
 

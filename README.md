@@ -139,6 +139,7 @@ Windows `Mesen.exe` works. All Gradle switches are listed in the book's
 dampf build --entry test_main -o build/examples/m1/calls.sfc examples/m1/calls.c
 dampf parse -I $BB/src -I $BB/build/generated $BB/src/game/*.c
 dampf check -I $BB/src -I $BB/build/generated $BB/src/game/*.c
+dampf build @snapshots/blubberblasen.args -o build/game/blubberblasen.sfc
 ```
 
 The launcher is `build/install/dampf/bin/dampf` (`./gradlew installDist`).
@@ -153,7 +154,10 @@ timing report (`.timing.txt`). `--backend naive` picks the naive code generator,
 builds for a SlowROM cartridge (FastROM is the default), `--replace fn=file.s` links a
 hand-written function ([reference](reference/README.md)) and `--block-counts` lays out the
 blocks by a profile. `parse` only preprocesses and parses. `check` runs the front end on every
-file alone, then on all of them together (recursion, functions defined nowhere or twice).
+file alone, then on all of them together (recursion, functions defined nowhere or twice). Every
+error of a run is reported, one per top-level declaration at most. `@file` (or `--config file`)
+reads options from an argument file: one per line, paths relative to the file, and a folder
+stands for the `.c` files in it ([ADR record 28](docs/adr/0028-options-can-be-kept-in-an-argument-file-given-by.md)).
 `dampf mir`, `dampf profile` and `dampf bench` are the tools behind the scripts in `dev/`.
 
 ## Debugging in Mesen

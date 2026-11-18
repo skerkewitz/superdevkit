@@ -1,6 +1,9 @@
 ---
 title: Compiling a game
 sources:
+  - src/main/java/dampf/ConfigFile.java
+  - snapshots/blubberblasen.args
+  - docs/adr/0028-options-can-be-kept-in-an-argument-file-given-by.md
   - README.md
   - src/main/java/dampf/Main.java
   - src/main/java/dampf/Compiler.java

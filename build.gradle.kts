@@ -48,6 +48,9 @@ tasks.test {
     maxHeapSize = "2g"
     // a last resort: the program tests have their own limits (a hang fails the test, see ExecutionTest)
     timeout.set(Duration.ofHours(2))
+    // dampf's headers from the sources (SystemHeaders), so that the paths in the output are the
+    // same on every run and machine
+    systemProperty("dampf.include", "src/main/resources/dampf/include")
     // Files the tests read that are not on the class path: without them as inputs, a change to
     // a document, the game's snapshot or the platform layer left the task up to date, and
     // BookSourcesTest, AdrTest and the game's tests did not run again.
@@ -143,6 +146,16 @@ tasks.processResources {
 application {
     mainClass = "dampf.Main"
     applicationName = "dampf"
+    // dampf's headers in the distribution's include/ (SystemHeaders): the start scripts put the
+    // installation's folder in place of the marker
+    applicationDefaultJvmArgs = listOf("-Ddampf.include=__APP_HOME__/include")
+}
+
+tasks.startScripts {
+    doLast {
+        unixScript.writeText(unixScript.readText().replace("__APP_HOME__", "'\"\$APP_HOME\"'"))
+        windowsScript.writeText(windowsScript.readText().replace("__APP_HOME__", "%APP_HOME%"))
+    }
 }
 
 // dampf's headers next to the launcher (include/dampf.h), for the PC build of a game:

@@ -73,14 +73,16 @@ needed for that while the repository is private. Its work falls into five parts:
 - **Correctness first**, since the game will rely on the code. The miscompilation described
   under [Risks and open questions](#risks-and-open-questions) is found and fixed, with an
   execution test. Random programs and execution tests are added that reach the patterns the
-  optimizer looks for; there are 29 execution tests today. The playable ROM runs on a real
+  optimizer looks for; there are 31 execution tests today. The playable ROM runs on a real
   console, and the DMA margin of the [platform layer](/glossary#platform-layer) is measured
   there.
-- **A compiler a game can call.** dampf reports all errors of a run, not only the first. Its
-  options can be kept in an argument file, given by `--config` or `@file`, in which a folder
-  stands for the `.c` files directly in it, so that a game checks in one file per build. dampf
-  ships a `<string.h>` with `memset` and `memcpy`, and the examples get a converter for their
-  PNG images.
+- **A compiler a game can call.** Done: dampf reports every error of a run, at most one per
+  top-level declaration. Its options can be kept in an argument file, given by `--config` or
+  `@file`, in which a folder stands for the `.c` files directly in it, so that a game checks in
+  one file per build. dampf ships a `<string.h>` with `memset` and `memcpy`. The test of this
+  step found a miscompilation, which is fixed: a loop counter kept in the X register was stepped
+  before a later store whose address was formed from its old value. It was not the open one
+  described below. Still to come: a converter for the PNG images of the examples.
 - **The dev kit in this repository.** Done: the platform layer has become the dev kit's
   library in `lib/snes`, and the console API the dev kit owns is `lib/include/snes/snes.h`,
   taken over from the game with the same declarations. A table shows per function and platform
@@ -232,7 +234,7 @@ The main risks and how they are met:
 - **Miscompilation.** The layers of tests, the naive code generator as an independent
   reference, and the game's replays as the oracle catch wrong code. One miscompilation is known
   and not found yet; it is described below.
-- **The optimizer is tested by one game.** Each build runs 29 execution tests and 50 random
+- **The optimizer is tested by one game.** Each build runs 31 execution tests and 50 random
   programs, and the random programs barely reach the optimizer's patterns, so in practice the
   optimizer is tested by Blubber Blasen's benchmark and one replay recording. M5 adds random
   programs and execution tests for the patterns.

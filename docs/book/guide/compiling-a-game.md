@@ -65,6 +65,69 @@ file for [Mesen](/glossary#mesen) (cut here):
 wrote .../build/bench/dampf.sfc and .../build/bench/dampf.dbg
 ```
 
+Nobody types a call like this twice. Keep it in an argument file instead, which `build`, `check`
+and `parse` read when you name it with `@file` or `--config file`, one file per call. The file
+holds one option with its value per line, or one source file or folder; `#` starts a comment.
+Relative paths in it are taken from the file's folder, so the file works from any folder, and
+a folder stands for the `.c` files directly in it. The same build, kept in `bench.args` at the
+top of the repository:
+
+```text [bench.args]
+# Blubber Blasen's compiler benchmark, as dev/bench_game.sh builds it
+-I snapshots/blubberblasen/src
+-I snapshots/blubberblasen/generated
+-DsetMode=bb_setMode
+-DsetBrightness=bb_setBrightness
+-DsetScreenOn=bb_setScreenOn
+-DsetScreenOff=bb_setScreenOff
+-DsetColorEffect=bb_setColorEffect
+-DsetColorIntensity=bb_setColorIntensity
+-DsetPaletteColor=bb_setPaletteColor
+-DdmaCopyVram=bb_dmaCopyVram
+-DdmaCopyCGram=bb_dmaCopyCGram
+-DdmaClearVram=bb_dmaClearVram
+-DbgSetGfxPtr=bb_bgSetGfxPtr
+-DbgSetMapPtr=bb_bgSetMapPtr
+-DbgSetScroll=bb_bgSetScroll
+-DbgSetEnable=bb_bgSetEnable
+-DbgSetDisable=bb_bgSetDisable
+-DbgSetEnableSub=bb_bgSetEnableSub
+-DbgSetDisableSub=bb_bgSetDisableSub
+-DbgInitTileSet=bb_bgInitTileSet
+-DbgInitMapSet=bb_bgInitMapSet
+-DoamInit=bb_oamInit
+-DoamInitGfxSet=bb_oamInitGfxSet
+-DoamInitGfxAttr=bb_oamInitGfxAttr
+-DoamSet=bb_oamSet
+-DoamSetXY=bb_oamSetXY
+-DoamSetEx=bb_oamSetEx
+-DoamSetVisible=bb_oamSetVisible
+-DoamClear=bb_oamClear
+-DsnesRegWrite=bb_snesRegWrite
+-DsnesHdmaSet=bb_snesHdmaSet
+-DsnesHdmaEnable=bb_snesHdmaEnable
+-DsnesDmaFits=bb_snesDmaFits
+-DoamMemory=bb_oamMemory
+--entry main
+snapshots/blubberblasen/src/game/
+snapshots/blubberblasen/generated/
+snapshots/blubberblasen/bench/bench.c
+```
+
+The command line adds to the file, so the file leaves out the output and each call names its own:
+
+```sh
+build/install/dampf/bin/dampf build @bench.args -o build/bench/dampf.sfc
+```
+
+This builds the same ROM as the long call. The ROM that plays is built the same way, from the
+argument file that comes with the snapshot; it compiles the game with the platform layer in
+`lib/snes` instead of the benchmark's stubs:
+
+```sh
+build/install/dampf/bin/dampf build @snapshots/blubberblasen.args -o build/game/blubberblasen.sfc
+```
+
 A function can be given a [budget](/reference/command-line#budgets) in CPU cycles with
 `DAMPF_BUDGET` from `<dampf.h>`. When its worst case comes above 90% of the budget, a warning
 line comes before this one; when it is over the budget, or has no worst case, the build fails.
@@ -83,8 +146,9 @@ bound, such as `(loop at game.c:1217)`; a function that never returns, such as t
 
 A game written for gcc on the PC uses some C that dampf does not accept. Before the first build,
 run [`dampf check`](/reference/command-line#check) over all the files, with the same `-I` and
-`-D` options. It runs the front end on each file on its own and reports the first problem of
-each file, so one unsupported construct does not hide the others. Then it takes the files that
+`-D` options, or with the argument file: `dampf check @bench.args`. It runs the front end on
+each file on its own and reports every problem of each file, at most one per top-level
+declaration, so one unsupported construct does not hide the others. Then it takes the files that
 passed together and looks for what only the whole program shows: a recursion, a function that
 is called but defined in none of the files, a function defined in two files. For the snapshot
 every file passes, alone and together (cut):
@@ -126,10 +190,15 @@ build/install/dampf/bin/dampf check -I mygame/src mygame/src/*.c
 ```
 ok      mygame/src/countdown.c
 FAILS   mygame/src/physics.c:3:1: error: 'float' is not supported: dampf has no floating point
+        mygame/src/physics.c:7:39: error: 'player_speed' is not declared
 ok      mygame/src/score.c
 2 of 3 file(s) pass the front end
 FAILS   mygame/src/countdown.c:5:25: error: recursion is not supported: countdown → countdown   (the 2 file(s) together)
 ```
+
+The indented line under `physics.c` follows from the one above it: the declaration of
+`player_speed` is rejected, so its use in `move_player` finds no variable. It goes away with the
+first.
 
 For each report, change the game's code so that it fits the subset, in a way that the
 [PC build](/glossary#pc-build) still compiles and computes the same results: the same source
