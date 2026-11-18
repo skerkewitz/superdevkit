@@ -56,7 +56,7 @@ tasks.test {
     // BookSourcesTest, AdrTest and the game's tests did not run again.
     inputs.files(
         fileTree("docs") { exclude("book/node_modules/**", "book/.vitepress/cache/**", "book/.vitepress/dist/**") },
-        fileTree("doc-specs"), fileTree("examples"), fileTree("reference"),
+        fileTree("doc-specs"), fileTree("examples"), fileTree("reference"), fileTree("tools"),
         fileTree("dev"), fileTree("snapshots"), fileTree("lib"), "README.md", "CLAUDE.md",
     ).withPathSensitivity(PathSensitivity.RELATIVE).withPropertyName("documentsAndExamples")
     // Tests that need the Blubber Blasen sources read their location from this property.

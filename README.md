@@ -194,6 +194,7 @@ examples/m1/                   example for stepping through C in Mesen
 snapshots/blubberblasen/       snapshot of the game's code (do not edit; refresh with dev/update_game_snapshot.sh)
 lib/                           the dev kit's library: the console API (include/), on the SNES (snes/); see its README.md
 reference/                     hand-written assembly of hot functions, the yardstick for dampf's code
+tools/                         tools for game developers: png2snes.py, PNG to SNES graphics (see its README.md)
 dev/                           scripts for developing dampf: benchmark, profile, playable ROM, snapshot (see its README.md)
 dev/replay/                    the driver that plays the game's recordings (ReplayTest)
 dev/subset_scan.py             M0 scanner: which C constructs a code base uses
