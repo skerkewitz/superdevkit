@@ -957,8 +957,9 @@ touched. The general steps help elsewhere too, much less than in the game.
 The current state, measured on 2026-11-18 after these steps: play takes 0.79 frames per tick
 (worst 1.42), play with the CPU partner 1.36 (worst 3.03). The other parts of the benchmark take
 0.37 frames per tick on the title screen, 0.16 in the story and 1.41 in the round intro, and the
-whole benchmark 0.81, all FastROM. On the console, the playable ROM took 1.57 frames per tick
-during a minute of play, measured before these steps; that includes waiting for the vertical
+whole benchmark 0.81, all FastROM. On the console, the playable ROM took 1.16 frames per tick
+during a minute of play (3,600 frames, 3,098 ticks), also after these steps, with no byte lost
+in the vertical blank; that includes waiting for the vertical
 blank and the [platform layer](/glossary#platform-layer), so it is not comparable with the
 benchmark.
 

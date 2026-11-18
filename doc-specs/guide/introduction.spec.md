@@ -1,6 +1,7 @@
 ---
 title: What is dampf?
 sources:
+  - lib/README.md
   - docs/ADR.md
   - docs/adr/*.md
   - README.md

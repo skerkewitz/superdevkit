@@ -914,3 +914,8 @@ the game's 13 %; see the roadmap's M5 on varied benchmarks.
 compilers play the same scene (102 ticks, up to tick 812), Calypsi 1.42 frames per tick against
 dampf 0.66 (0.79 before the branch): 2.14 times as fast instead of 1.81. `level_solid_px` 871 →
 827 master clocks per call, against 724 for the hand-written one (1.14 times instead of 1.20).
+
+**The playable ROM, measured again** (on the branch `m5`, after the console API and the main
+loop moved into the dev kit's library, which changes no generated code of the game). A minute of
+play in Mesen (`dev/check_game_rom.sh`): 3,098 ticks in 3,600 frames, 1.16 frames per tick, no
+byte lost (before the branch `optimise`: 2,296 ticks, 1.57).

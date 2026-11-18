@@ -1,6 +1,7 @@
 ---
 title: Roadmap
 sources:
+  - lib/README.md
   - docs/ADR.md
   - docs/adr/*.md
   - docs/roadmap.md

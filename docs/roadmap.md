@@ -80,12 +80,13 @@ A compiler a game can call:
 The dev kit in this repository (ADR
 [record 29](adr/0029-superdevkit-is-the-project-and-dampf-is-its.md)):
 
-- **The library:** `platform/snes` became `lib/snes` (done), and the console API the dev kit now owns
-  becomes `lib/include/snes.h`, taken over from the game. `dev/update_game_snapshot.sh` warns when
-  the game's copy differs. A table shows per function and platform whether it is built or a
-  stub, and a test checks that every function of `snes.h` exists in `lib/snes`. The main loop
-  (`main.c`) is part of the library, and the three functions it calls (`game_init`, `game_tick`,
-  `game_vblank`) are declared in the console API instead of the game's `game.h`.
+- **Done: the library.** `platform/snes` became `lib/snes`, and the console API the dev kit now
+  owns is `lib/include/snes/snes.h`, taken over from the game with the same declarations;
+  `dev/update_game_snapshot.sh` warns when the game's copy declares something else. The main
+  loop (`lib/snes/main.c`) is the library's, and the frame rhythm it calls (`game_init`,
+  `game_tick`, `game_vblank`, the pad bits) is declared in `lib/include/snes/loop.h`.
+  [lib/README.md](../lib/README.md) has the table of built and stub per function and platform,
+  and `LibApiTest` checks that every function of the API exists in `lib/snes` and in the table.
 - **Done: `tools/` became `dev/`**, for developing the dev kit (benchmarks, profiles, the
   snapshot, the subset scan, the replay driver, the check of the playable ROM in Mesen). The
   split into `tools/` and `dev/` that was planned found nothing for other games: the Mesen check
@@ -322,6 +323,10 @@ Open: the DMA margin is in M5, constant shifts longer than 8 in M7.
   So an older part of the code generator (selection, `FrameLayout`, the masks) goes wrong on a
   function the larger inlining makes. Next step: find the function by comparing the emulator's
   globals with the interpreter's at tick 32, then reduce it to an execution test.
+- **In which language the dev kit's tools are written.** The first one, the PNG converter for
+  the examples, is Python for now (`tools/`). Java would keep using the dev kit to nothing but
+  Java (goal 6 of the README) and could read PNG with `javax.imageio`; Python is quicker to
+  write but is one more thing to install. To be looked at more closely before more tools come.
 - What 1.0 needs: the frame budget met, the subset decisions taken, C in interrupts, or a set of
   users.
 - How Mesen shows locals that live in fixed direct page places, several values sharing a place

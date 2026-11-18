@@ -186,7 +186,7 @@ src/test/java/dampf/           unit, execution, random, replay and emulator test
 src/test/resources/exec/       execution test programs
 examples/m1/                   example for stepping through C in Mesen
 snapshots/blubberblasen/       snapshot of the game's code (do not edit; refresh with dev/update_game_snapshot.sh)
-lib/snes/                      the dev kit's library on the SNES: the console API in C, for the playable ROM
+lib/                           the dev kit's library: the console API (include/), on the SNES (snes/); see its README.md
 reference/                     hand-written assembly of hot functions, the yardstick for dampf's code
 dev/                           scripts for developing dampf: benchmark, profile, playable ROM, snapshot (see its README.md)
 dev/replay/                    the driver that plays the game's recordings (ReplayTest)

@@ -1,6 +1,7 @@
 ---
 title: Limits
 sources:
+  - lib/README.md
   - docs/ADR.md
   - docs/adr/*.md
   - README.md

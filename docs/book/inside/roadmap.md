@@ -82,18 +82,18 @@ needed for that while the repository is private. Its work falls into five parts:
   ships a `<string.h>` with `memset` and `memcpy`, written in C for now. The install carries the
   library and the tools as well as the compiler, and the game refers to it by its folder.
 - **The dev kit in this repository.** Done: the platform layer has become the dev kit's
-  library in `lib/snes`. Next, the console API, taken over from the game, becomes
-  `lib/include/snes.h`. A table shows per function and platform whether it is built or a stub,
-  and a test checks that every function of `snes.h` exists in `lib/snes`. The main loop
-  (`main.c`) is part of the library, and the three functions it calls (`game_init`,
-  `game_tick`, `game_vblank`) are declared in the console API instead of the game's `game.h`.
-  Done: the scripts are now in `dev/`, for developing the dev kit. The planned split into
-  `tools/`, for game developers, and `dev/` found nothing for other games: the check in Mesen
-  plays Blubber Blasen with scripted input, and the replay converter reads the game's format, so
-  `tools/` comes back with the first tool for game developers. Done: the snapshot of Blubber
-  Blasen has moved to `snapshots/blubberblasen`. Examples become projects of their own, each
-  with a README, an argument file, its sources and its own build folder; the first is
-  `examples/m1`.
+  library in `lib/snes`, and the console API the dev kit owns is `lib/include/snes/snes.h`,
+  taken over from the game with the same declarations. A table shows per function and platform
+  whether it is built or a stub, and a test checks that every function of the API exists in
+  `lib/snes` and in the table. The main loop (`lib/snes/main.c`) is the library's, and the frame
+  rhythm it calls (`game_init`, `game_tick`, `game_vblank`, the pad bits) is declared in
+  `lib/include/snes/loop.h`. Done: the scripts are now in `dev/`, for developing the dev kit.
+  The planned split into `tools/`, for game developers, and `dev/` found nothing for other
+  games: the check in Mesen plays Blubber Blasen with scripted input, and the replay converter
+  reads the game's format, so `tools/` comes back with the first tool for game developers.
+  Done: the snapshot of Blubber Blasen has moved to `snapshots/blubberblasen`. Examples become
+  projects of their own, each with a README, an argument file, its sources and its own build
+  folder; the first is `examples/m1`.
 - **The book.** One book serves the whole dev kit. First the existing pages move into folders
   for dampf's part, `reference/compiler/` and `inside/compiler/`; then the user guide becomes
   the dev kit's, with getting started from the first example project, and the reference gets
@@ -246,6 +246,10 @@ Open questions a user may run into:
   interpreter gives the PC's checksums; dampf's assembler and [ca65](/glossary#ca65-and-ld65)
   build the same ROM; and the difference stays with every LIR pass switched off. The next step
   is to find that function and reduce it to an execution test; fixing it is part of M5.
+- **The language of the dev kit's tools.** The first tool, the PNG converter for the
+  examples, is written in Python for now. Java would keep the dev kit to nothing but Java to
+  install and can read PNG files itself; Python is quicker to write but is one more thing to
+  install. This is to be looked at before more tools come.
 - **What 1.0 needs.** The frame budget met, the subset decisions taken, C in interrupts, or a
   set of users: which of them is open.
 - **Calypsi's drift.** Calypsi's results drift away from the PC's from tick 596 on. Whether

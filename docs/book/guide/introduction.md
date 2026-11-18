@@ -124,10 +124,11 @@ beating Calypsi is reached. These figures were measured on 2026-11-18. The goal 
 tick is not reached yet in play, and the compiler alone is not expected to reach it: the game is
 being made to do less work at the same time.
 
-dampf builds a playable ROM of the game. Blubber Blasen's platform layer, written in C,
-implements the game's console API: the PVSnesLib-shaped calls the game makes, and the main loop.
-On the console the game ran at 1.57 frames per tick during a minute of play (3,600 frames, 2,296
-ticks), measured before the latest optimizations. That figure includes waiting for the
+dampf builds a playable ROM of the game. The dev kit's library, written in C, implements the
+console API `lib/include/snes/snes.h`, taken over from the game with the same declarations: the
+PVSnesLib-shaped calls the game makes, and the main loop. On the console the game ran at 1.16
+frames per tick during a minute of play (3,600 frames, 3,098 ticks), measured on 2026-11-18 after
+the latest optimizations. That figure includes waiting for the
 [vertical blank](/glossary#vertical-blank) and the platform layer, so it is not comparable with
 the benchmark: a tick that needs more than one frame waits for the next vertical blank, and the
 benchmark leaves out what the game's video code costs on the hardware. Sound and save RAM are

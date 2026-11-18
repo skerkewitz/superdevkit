@@ -28,8 +28,8 @@ in interrupt handlers is planned for M8, where the functions an interrupt reache
 frame area of their own; how a handler is declared and what it saves is still open.
 
 **A platform layer for your own game.** The layer in `lib/snes` implements Blubber Blasen's
-console API (`snes.h`) and nothing else. It is the dev kit's library now; in M5 the console API
-becomes the dev kit's own `lib/include/snes.h`, taken over from the game.
+console API and nothing else. It is the dev kit's library now, and the console API is the dev
+kit's own `lib/include/snes/snes.h`, taken over from the game with the same declarations.
 To build a ROM of your own game, you write a platform layer in C for the library your game
 calls, and dampf compiles it together with the game. Write it the way `lib/snes` is
 written: it reaches the I/O registers through pointers to `volatile` memory, and casts a
@@ -128,8 +128,8 @@ expect:
 - **Speed.** The generated code is not yet as fast as the goal of 60 % of a frame per
   [tick](/glossary#tick). During play (the ticks of the game's benchmark in which a round is
   played), Blubber Blasen takes 0.79 frames per tick with dampf, FastROM. On the console, during
-  a minute of play of the playable ROM, it took 1.57 frames per tick (measured on 2026-11-18,
-  before the latest optimizations). That figure is not comparable with the benchmark's: a tick
+  a minute of play of the playable ROM, it took 1.16 frames per tick (measured on 2026-11-18,
+  after the latest optimizations). That figure is not comparable with the benchmark's: a tick
   that needs more than one frame waits for the next vertical blank, and the benchmark leaves out
   what `video.c` costs on the hardware. These figures come from one game, and your code may gain
   less: the optimizations that made Blubber Blasen's play 13 % faster made the execution tests

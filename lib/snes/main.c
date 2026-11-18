@@ -1,8 +1,8 @@
 /*
- * Blubber Blasen on the SNES, built with dampf: the main loop of the platform layer.
+ * The main loop of superdevkit's library on the SNES: the frame rhythm of snes/loop.h.
  *
- * One tick per frame, as game.h asks: read the joypads, run the tick, then in the vertical blank
- * that follows copy the OAM shadow and let the game upload what the tick prepared (game_vblank).
+ * One tick per frame: read the joypads, run the tick, then in the vertical blank that follows
+ * copy the OAM shadow and let the game upload what the tick prepared (game_vblank).
  * A tick that takes longer than a frame makes the game run slower, never wrong.
  *
  * There is no interrupt handler: the loop waits for the vertical blank itself. dampf keeps
@@ -10,13 +10,12 @@
  * tick would overwrite the frames of the code it interrupted. Calling game_vblank from the loop
  * gives the same timing without that.
  *
- * Not done here: sound (game_sfx, game_music) and save RAM (the high scores start empty at every
- * power-on).
+ * Not done here: sound and save RAM.
  *
  * platform_start() and platform_frame() are also what the replay test plays a recording with
  * (dev/replay/driver.c, REPLAY_PLATFORM), so it runs the same code as the ROM you play.
  */
-#include "game/game.h"
+#include "snes/loop.h"
 #include "snes/snes.h"
 #include "hw.h"
 
@@ -44,7 +43,7 @@ void platform_frame(void)
 
 int main(void)
 {
-    uint16_t pad[NUM_PLAYERS];
+    uint16_t pad[SNES_PADS];
 
     platform_start();
     game_init(0);
