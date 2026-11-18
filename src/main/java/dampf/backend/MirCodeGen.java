@@ -2,6 +2,8 @@ package dampf.backend;
 
 import dampf.frontend.CompileError;
 import dampf.frontend.SourcePos;
+import dampf.lir.LFunction;
+import dampf.lir.LLayout;
 import dampf.mir.Block;
 import dampf.mir.Instr;
 import dampf.mir.MFunction;
@@ -149,12 +151,13 @@ public final class MirCodeGen {
                     code = new AsmWriter();
                     function(f, code);
                     boolean more = near == null;
+                    Map<String, Integer> labelAt = LLayout.labelOffsets(code.function());
                     Map<Integer, boolean[]> next = new HashMap<>(near == null ? Map.of() : near);
                     for (Map.Entry<Integer, Integer> e : sitePos.entrySet()) {
                         int k = e.getKey();
                         boolean[] was = next.getOrDefault(k, new boolean[2]);
                         Block[] to = siteTargets.get(k);
-                        boolean[] now = {was[0] || reaches(code, e.getValue(), to[0]), was[1] || reaches(code, e.getValue(), to[1])};
+                        boolean[] now = {was[0] || reaches(labelAt, e.getValue(), to[0]), was[1] || reaches(labelAt, e.getValue(), to[1])};
                         more |= now[0] != was[0] || now[1] != was[1];
                         next.put(k, now);
                     }
@@ -163,7 +166,7 @@ public final class MirCodeGen {
                     for (Map.Entry<String, RegState> e : entryIn.entrySet()) {
                         consistent &= e.getValue().within(arriving.getOrDefault(e.getKey(), RegState.NONE));
                     }
-                    ok = consistent && code.branchesReach();
+                    ok = consistent && LLayout.shortBranchesReach(code.function());
                     Map<String, RegState> learnt = new HashMap<>();
                     if (trackEntries) {
                         for (Block b : f.blocks()) {
@@ -204,7 +207,7 @@ public final class MirCodeGen {
                     throw new IllegalStateException("branches out of reach in " + f.name());
                 }
             }
-            written.put(f, new Written(code.items(), code.loopBounds(), lastOrder, layout.ranges));
+            written.put(f, new Written(code.function(), code.loopBounds(), lastOrder, layout.ranges));
             if (code.unknownInstructions() > 0) {
                 throw new IllegalStateException("the cycle table does not know an instruction in " + f.name());
             }
@@ -333,13 +336,9 @@ public final class MirCodeGen {
         ins(nearAt(site, 0) ? "bra" : "jmp", target.name());
     }
 
-    private static boolean reaches(AsmWriter w, int branchAt, Block target) {
-        Integer to = w.labelAt(target.name());
-        if (to == null) {
-            return false;
-        }
-        int d = to - (branchAt + 2);
-        return d >= -128 && d <= 127;
+    private static boolean reaches(Map<String, Integer> labelAt, int branchAt, Block target) {
+        Integer to = labelAt.get(target.name());
+        return to != null && LLayout.reaches(branchAt, to);
     }
 
     private void prelude(AsmWriter w, int module, int modules) {
@@ -393,7 +392,7 @@ public final class MirCodeGen {
     // ---------------------------------------------------------------- timing
 
     /** A function's code as written (second pass), for the timing analysis. */
-    private record Written(List<AsmWriter.Item> items, Map<String, Integer> loopBounds, List<Block> order, Ranges ranges) {}
+    private record Written(LFunction code, Map<String, Integer> loopBounds, List<Block> order, Ranges ranges) {}
 
     private final Map<MFunction, Written> written = new HashMap<>();
     private List<Block> lastOrder;
@@ -463,7 +462,7 @@ public final class MirCodeGen {
             return new Timing.Bound(0, Timing.UNBOUNDED);
         }
         Written w = written.get(f);
-        Timing.Bound b = Timing.of(f, w.items(), w.loopBounds(), w.order(), w.ranges(), callee -> bound(callee, path));
+        Timing.Bound b = Timing.of(f, w.code(), w.loopBounds(), w.order(), w.ranges(), callee -> bound(callee, path));
         path.remove(name);
         bounds.put(name, b);
         return b;

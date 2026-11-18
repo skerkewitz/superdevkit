@@ -1,5 +1,11 @@
 package dampf.backend;
 
+import dampf.lir.LBlock;
+import dampf.lir.LFunction;
+import dampf.lir.LInstr;
+import dampf.lir.LItem;
+import dampf.lir.LLabel;
+import dampf.lir.LSourceLine;
 import dampf.mir.Block;
 import dampf.mir.Instr;
 import dampf.mir.Loops;
@@ -83,16 +89,25 @@ final class Timing {
      * @param order   the blocks in the order their code was written (falling through goes to the next)
      * @param callees the bounds of called functions (by label), including the runtime's
      */
-    static Bound of(MFunction f, List<AsmWriter.Item> items, Map<String, Integer> loopBounds, List<Block> order,
+    static Bound of(MFunction f, LFunction code, Map<String, Integer> loopBounds, List<Block> order,
                     Ranges ranges, Function<String, Bound> callees) {
         Map<String, Block> byName = new HashMap<>();
         for (Block b : f.blocks()) {
             byName.put(b.name(), b);
         }
+        // the code in layout order: instructions and labels
+        List<LItem> items = new ArrayList<>();
+        for (LBlock b : code.blocks()) {
+            for (LItem i : b.items()) {
+                if (i instanceof LInstr || i instanceof LLabel) {
+                    items.add(i);
+                }
+            }
+        }
         Map<String, Integer> labelAt = new HashMap<>();
         for (int i = 0; i < items.size(); i++) {
-            if (items.get(i).isLabel()) {
-                labelAt.put(items.get(i).label(), i);
+            if (items.get(i) instanceof LLabel l) {
+                labelAt.put(l.name(), i);
             }
         }
         // every block's ways out
@@ -458,7 +473,7 @@ final class Timing {
     }
 
     /** The ways out of one block's code, items [from, to), with their cost intervals. */
-    private static Map<Object, Bound> block(List<AsmWriter.Item> items, int from, int to, Map<String, Integer> labelAt,
+    private static Map<Object, Bound> block(List<LItem> items, int from, int to, Map<String, Integer> labelAt,
                                             Map<String, Integer> loopBounds, Map<String, Block> byName, Block next,
                                             Function<String, Bound> callees) {
         int n = to - from;
@@ -473,30 +488,30 @@ final class Timing {
                 continue;
             }
             Bound a = new Bound(min[i], max[i]);
-            AsmWriter.Item it = items.get(from + i);
-            if (it.isLabel()) {
-                Integer rounds = loopBounds.get(it.label());
+            if (items.get(from + i) instanceof LLabel label) {
+                Integer rounds = loopBounds.get(label.name());
                 if (rounds != null) {
                     // a small loop: from here to the branch back; straight code in between
-                    int back = backBranch(items, from + i, to, it.label());
+                    int back = backBranch(items, from + i, to, label.name());
                     long body = 0;
                     for (int j = from + i + 1; j < back; j++) {
-                        body += items.get(j).cycles();
+                        body += ((LInstr) items.get(j)).cycles();
                     }
-                    AsmWriter.Item br = items.get(back);
+                    LInstr br = (LInstr) items.get(back);
                     Bound loop = new Bound(body + br.cycles(),
-                            add(times(rounds - 1, body + br.taken()), body + br.cycles()));
+                            add(times(rounds - 1, body + br.cyclesTaken()), body + br.cycles()));
                     relax(min, max, back - from + 1, a.plus(loop));
                 } else {
                     relax(min, max, i + 1, a);
                 }
                 continue;
             }
+            LInstr it = (LInstr) items.get(from + i);
             String m = it.mnemonic();
             String op = it.operand();
             Block target = op == null ? null : byName.get(op);
-            if (it.conditional()) {
-                Bound taken = a.plus(new Bound(it.taken(), it.taken()));
+            if (it.isConditionalBranch()) {
+                Bound taken = a.plus(new Bound(it.cyclesTaken(), it.cyclesTaken()));
                 if (target != null) {
                     join(out, target, taken);
                 } else {
@@ -536,13 +551,15 @@ final class Timing {
         return out;
     }
 
-    private static int backBranch(List<AsmWriter.Item> items, int label, int to, String name) {
+    private static int backBranch(List<LItem> items, int label, int to, String name) {
         for (int j = label + 1; j < to; j++) {
-            AsmWriter.Item it = items.get(j);
-            if (!it.isLabel() && it.conditional() && name.equals(it.operand())) {
+            if (!(items.get(j) instanceof LInstr it)) {
+                continue;
+            }
+            if (it.isConditionalBranch() && name.equals(it.operand())) {
                 return j;
             }
-            if (!it.isLabel() && (it.conditional() || it.mnemonic().startsWith("j") || it.mnemonic().equals("bra"))) {
+            if (it.isConditionalBranch() || it.mnemonic().startsWith("j") || it.mnemonic().equals("bra")) {
                 throw new IllegalStateException("a marked loop with a branch inside: " + name);
             }
         }
@@ -556,6 +573,49 @@ final class Timing {
         } else {
             min[k] = Math.min(min[k], b.best());
             max[k] = Math.max(max[k], b.worst());
+        }
+    }
+
+    /**
+     * The cost of each C line of a function, set on its header: the sum of its instructions when
+     * the line is straight code; none for a line with branches, jumps or labels, whose cost
+     * depends on the path (the bounds of the whole function cover those). Calls count only the
+     * call itself and are marked "+ calls".
+     */
+    static void lineCosts(LFunction f) {
+        LSourceLine header = null;
+        long sum = 0;
+        boolean branches = false;
+        boolean calls = false;
+        for (LBlock b : f.blocks()) {
+            for (LItem i : b.items()) {
+                switch (i) {
+                    case LSourceLine s -> {
+                        setCost(header, sum, branches, calls);
+                        header = s;
+                        sum = 0;
+                        branches = false;
+                        calls = false;
+                    }
+                    case LLabel l -> branches = true;
+                    case LInstr in -> {
+                        if (in.isConditionalBranch() || in.isJump()) {
+                            branches = true;
+                        } else {
+                            sum += in.cycles();
+                        }
+                        calls |= in.isCall();
+                    }
+                    default -> { }
+                }
+            }
+        }
+        setCost(header, sum, branches, calls);
+    }
+
+    private static void setCost(LSourceLine header, long sum, boolean branches, boolean calls) {
+        if (header != null) {
+            header.setCycles(!branches && sum > 0 ? Integer.valueOf((int) sum) : null, calls);
         }
     }
 }

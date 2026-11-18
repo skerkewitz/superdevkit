@@ -15,6 +15,7 @@ public final class LBlock {
     private final List<LItem> items = new ArrayList<>();
     private final List<LBlock> successors = new ArrayList<>();
     private LBlock fallThrough;
+    private LBlock target;
 
     public List<LItem> items() {
         return items;
@@ -76,9 +77,15 @@ public final class LBlock {
         return fallThrough;
     }
 
-    void setSuccessors(List<LBlock> s, LBlock fall) {
+    /** The block the last instruction branches or jumps to in this function, or null. */
+    public LBlock target() {
+        return target;
+    }
+
+    void setSuccessors(List<LBlock> s, LBlock to, LBlock fall) {
         successors.clear();
         successors.addAll(s);
+        target = to;
         fallThrough = fall;
     }
 

@@ -80,16 +80,14 @@ public final class LFunction implements LItem {
             LInstr last = b.last();
             List<LBlock> s = new ArrayList<>();
             LBlock fall = last == null || last.fallsThrough() ? next : null;
-            if (last != null && last.target() != null) {
-                LBlock t = target(k, last.target(), named);
-                if (t != null) {
-                    s.add(t);
-                }
+            LBlock t = last != null && last.target() != null ? target(k, last.target(), named) : null;
+            if (t != null) {
+                s.add(t);
             }
             if (fall != null && !s.contains(fall)) {
                 s.add(fall);
             }
-            b.setSuccessors(s, fall);
+            b.setSuccessors(s, t, fall);
         }
     }
 
