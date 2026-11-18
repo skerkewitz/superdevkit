@@ -110,11 +110,15 @@ public final class RomBuilder {
             runtime = new String(in.readAllBytes(), StandardCharsets.UTF_8);
         }
         List<dampf.asm.ObjectFile> objects = new ArrayList<>();
+        Map<String, long[]> asmFiles = new LinkedHashMap<>();
+        Files.writeString(outDir.resolve("dampf_runtime.s"), runtime, StandardCharsets.UTF_8);
+        asmFiles.put("dampf_runtime.s", fileInfo(outDir.resolve("dampf_runtime.s")));
         objects.add(dampf.asm.Assembler.assemble("dampf_runtime.s", runtime, Map.of("DAMPF_FASTROM", fastRom ? 1L : 0L)));
         List<String> banked = new ArrayList<>();
         for (int i = 0; i < modules.size(); i++) {
             String name = modules.size() == 1 ? baseName : baseName + "_" + (i + 1);
             Files.writeString(outDir.resolve(name + ".s"), modules.get(i), StandardCharsets.UTF_8);
+            asmFiles.put(name + ".s", fileInfo(outDir.resolve(name + ".s")));
             objects.add(dampf.asm.Assembler.assemble(name + ".s", modules.get(i), Map.of()));
             banked.addAll(bankedSegments(modules.get(i)));
         }
@@ -137,7 +141,13 @@ public final class RomBuilder {
             }
         }));
         Files.writeString(rom.labels(), labels);
+        Files.writeString(rom.dbg(), dampf.asm.DbgWriter.write(objects, image, asmFiles, rom.rom().getFileName().toString()));
         return rom;
+    }
+
+    /** Size and modification time (seconds) of a file, for the debug file. */
+    private static long[] fileInfo(Path file) throws IOException {
+        return new long[] {Files.size(file), Files.getLastModifiedTime(file).toMillis() / 1000};
     }
 
     /** The segments the code generator made for functions (C...) and constant objects (R...). */

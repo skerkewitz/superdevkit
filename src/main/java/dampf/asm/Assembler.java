@@ -51,6 +51,7 @@ public final class Assembler {
     /** Names defined so far (full names). */
     private final Set<String> defined = new HashSet<>();
     private final List<String> globals = new ArrayList<>();
+    private final Deque<ObjectFile.Proc> procStart = new ArrayDeque<>();
     private String dbgFile;
     private int dbgLine;
     private int lineNumber;
@@ -68,6 +69,8 @@ public final class Assembler {
     }
 
     private void run(String source) {
+        // like ca65's -D: a symbol of the file
+        defines.forEach((n, v) -> define(new ObjectFile.Symbol(n, null, 0, new Expr.Num(v), v >= 0 && v < 0x100)));
         Deque<boolean[]> conditions = new ArrayDeque<>();   // per .if: [taking now, taken already]
         for (String raw : source.split("\n", -1)) {
             lineNumber++;
@@ -93,12 +96,21 @@ public final class Assembler {
                 if (!conditions.stream().allMatch(c -> c[0])) {
                     continue;
                 }
+                String before = section == null ? null : section.name;
+                int start = section == null ? 0 : section.size();
                 Matcher m = LABEL_AND_CODE.matcher(code);
                 if (m.matches()) {
                     item(LParser.line(m.group(1) + ":"));
                     item(LParser.line("        " + m.group(2)));
                 } else {
                     item(LParser.line(text));
+                }
+                if (section != null && section.name.equals(before) && section.size() > start) {
+                    obj.asmLines.add(new ObjectFile.AsmLine(lineNumber, section.name, start, section.size() - start));
+                    if (dbgFile != null) {
+                        // as with ca65: the C line holds for all bytes until the next .dbg line, data too
+                        obj.lines.add(new ObjectFile.Line(section.name, start, section.size() - start, dbgFile, dbgLine));
+                    }
                 }
             } catch (RuntimeException e) {
                 throw new IllegalArgumentException(obj.name + ":" + lineNumber + ": " + e.getMessage() + " (" + raw.strip() + ")", e);
@@ -165,6 +177,7 @@ public final class Assembler {
             throw new IllegalArgumentException("'" + sym.name() + "' is defined twice");
         }
         obj.symbols.put(sym.name(), sym);
+        obj.defLine.put(sym.name(), lineNumber);
         defined.add(sym.name());
         if (sym.zeropage()) {
             zeropage.add(sym.name());
@@ -198,15 +211,17 @@ public final class Assembler {
             case PROC -> {
                 String name = args.getFirst();
                 label(name);
-                scopes.push(name);
-                cheapScope = scopePrefix();
+                procStart.push(new ObjectFile.Proc(scopePrefix() + name, current().name, current().size(), 0));
+                scopes.push(name);   // (cheap local labels belong to the .proc's label until the next normal one)
             }
             case ENDPROC -> {
                 if (scopes.isEmpty()) {
                     throw new IllegalArgumentException(".endproc without .proc");
                 }
                 scopes.pop();
-                cheapScope = scopePrefix();
+                ObjectFile.Proc p = procStart.pop();
+                obj.procs.add(new ObjectFile.Proc(p.name(), p.section(), p.offset(), current().size() - p.offset()));
+                cheapScope = p.name();
             }
             case EQUATE -> {
                 Expr e = resolveLater(Expr.parse(args.getFirst()));
@@ -271,8 +286,10 @@ public final class Assembler {
                 dbgFile = unquote(args.get(1));
                 dbgLine = Integer.parseInt(args.get(2));
             }
-            case "func" -> obj.dbgFuncs.add(new ObjectFile.DbgFunc(unquote(args.get(1)), unquote(args.get(4))));
-            default -> { }   // sym: ld65 writes it, Mesen does not show static locals from it
+            case "func" -> obj.dbgFuncs.add(new ObjectFile.DbgFunc(unquote(args.get(1)), unquote(args.get(2)), unquote(args.get(4))));
+            case "sym" -> obj.dbgSyms.add(new ObjectFile.DbgSym(obj.dbgFuncs.isEmpty() ? null : obj.dbgFuncs.getLast().label(),
+                    unquote(args.get(1)), unquote(args.get(2)), unquote(args.get(4))));
+            default -> throw new IllegalArgumentException("the debug information .dbg " + args.getFirst() + " is not supported");
         }
     }
 
@@ -286,12 +303,7 @@ public final class Assembler {
     // ---------------------------------------------------------------- instructions
 
     private void instr(LInstr in) {
-        ObjectFile.Section s = current();
-        int start = s.size();
         encode(in);
-        if (dbgFile != null) {
-            obj.lines.add(new ObjectFile.Line(s.name, start, s.size() - start, dbgFile, dbgLine));
-        }
     }
 
     private void encode(LInstr in) {

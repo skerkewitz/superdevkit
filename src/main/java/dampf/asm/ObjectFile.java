@@ -64,8 +64,17 @@ public final class ObjectFile {
     /** A line of the C source a range of code comes from (from {@code .dbg line}). */
     public record Line(String section, int offset, int size, String file, int line) {}
 
-    /** A function from {@code .dbg func} (the name in C, its label). */
-    public record DbgFunc(String name, String label) {}
+    /** A function from {@code .dbg func} (the name in C, its type string, its label). */
+    public record DbgFunc(String name, String type, String label) {}
+
+    /** A static variable of a function from {@code .dbg sym} (in the function opened last). */
+    public record DbgSym(String function, String name, String type, String label) {}
+
+    /** The bytes one line of this file made: line number, segment, offset, size. */
+    public record AsmLine(int line, String section, int offset, int size) {}
+
+    /** A {@code .proc}: its name (full), segment, where its code starts, how many bytes it has. */
+    public record Proc(String name, String section, int offset, int size) {}
 
     public final String name;
     public final Map<String, Section> sections = new LinkedHashMap<>();
@@ -76,6 +85,11 @@ public final class ObjectFile {
     /** {@code .dbg file} names with size and modification time. */
     public final Map<String, long[]> dbgFiles = new LinkedHashMap<>();
     public final List<DbgFunc> dbgFuncs = new ArrayList<>();
+    public final List<DbgSym> dbgSyms = new ArrayList<>();
+    public final List<AsmLine> asmLines = new ArrayList<>();
+    /** The line of this file where each symbol is defined. */
+    public final Map<String, Integer> defLine = new LinkedHashMap<>();
+    public final List<Proc> procs = new ArrayList<>();
 
     ObjectFile(String name) {
         this.name = name;

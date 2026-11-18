@@ -162,12 +162,38 @@ class BackendOutputTest {
         }
         assertEquals(new java.util.TreeSet<>(Files.readAllLines(r.rom().labels())), new java.util.TreeSet<>(Files.readAllLines(own.labels())),
                 key + ": the labels (own linker vs ld65)");
+        compareDebugFiles(key, DbgMeaning.read(r.rom().dbg()), DbgMeaning.read(own.dbg()));
         if (!r.timing().isEmpty()) {
             StringBuilder t = new StringBuilder();
             new TreeMap<>(r.timing()).forEach((f, bw) -> t.append(f).append(' ').append(bw[0]).append(' ').append(bw[1]).append('\n'));
             Files.writeString(dir.resolve("timing.txt"), t);
             hashes.put(key + ".timing", hash(t.toString()));
         }
+    }
+
+    /** The debug files say the same: lines and their bytes, symbols, segments, scopes, C symbols. */
+    static void compareDebugFiles(String key, DbgMeaning ld65, DbgMeaning own) {
+        java.util.Set<String> keys = new java.util.TreeSet<>(ld65.lines().keySet());
+        keys.addAll(own.lines().keySet());
+        List<String> differ = new ArrayList<>();
+        for (String k : keys) {
+            if (!java.util.Objects.equals(ld65.lines().get(k), own.lines().get(k))) {
+                differ.add(k + ": ld65 " + ld65.lines().get(k) + ", dampf " + own.lines().get(k));
+            }
+        }
+        assertTrue(differ.isEmpty(), key + ": the debug files differ in " + differ.size() + " lines: "
+                + differ.subList(0, Math.min(8, differ.size())));
+        assertEquals(ld65.symbols(), own.symbols(), key + ": the symbols of the debug files");
+        assertEquals(ld65.segments(), own.segments(), key + ": the segments of the debug files");
+        assertEquals(ld65.scopes(), own.scopes(), key + ": the scopes of the debug files");
+        // ld65 leaves out the symbol of a few static variables whose label is in another module
+        // ("?"); dampf's file names it
+        java.util.TreeSet<String> ownCsyms = new java.util.TreeSet<>();
+        for (String c : own.csyms()) {
+            String unknown = c.substring(0, c.lastIndexOf(' ') + 1) + "?";
+            ownCsyms.add(!ld65.csyms().contains(c) && ld65.csyms().contains(unknown) ? unknown : c);
+        }
+        assertEquals(ld65.csyms(), ownCsyms, key + ": the C symbols of the debug files");
     }
 
     private static String hash(String text) throws NoSuchAlgorithmException {
