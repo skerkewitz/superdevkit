@@ -138,4 +138,32 @@ class LirTest {
         assertThrows(IllegalArgumentException.class, () -> LParser.line("        .macro foo"));
         assertThrows(IllegalArgumentException.class, () -> LParser.line("x: lda #1"));
     }
+
+    @Test
+    void aBranchOverAJumpBecomesTheInverseBranch() {
+        // as a switch writes it: compare, branch over the jump to the case, next comparison
+        LUnit u = LParser.parse(text(
+                ".proc f",
+                ins("cmp", "#$0001"),
+                "        bne     @L0",
+                "        jmp     case1",
+                "@L0:",
+                ins("cmp", "#$0002"),
+                ins("rtl", null),
+                "case1:",
+                ins("rtl", null),
+                ".endproc"));
+        LFunction f = u.functions().getFirst();
+        // the parser does not know which branches the code generator marked; mark them as it would
+        List<LItem> items = new java.util.ArrayList<>();
+        for (LItem i : f.items()) {
+            items.add(i instanceof LInstr in && (in.mnemonic().equals("bne") || in.mnemonic().equals("jmp"))
+                    ? new LInstr(in.mnemonic(), in.operand(), null, true, true, true) : i);
+        }
+        f.rebuild(items);
+        BranchRelax.run(f);
+        List<String> code = f.instrs().stream().map(LInstr::toString).toList();
+        assertEquals(List.of("cmp #$0001", "beq case1", "cmp #$0002", "rtl", "rtl"), code);
+        assertEquals(List.of(), LVerifier.verify(u));
+    }
 }

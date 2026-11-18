@@ -724,13 +724,14 @@ public final class MirCodeGen {
                     for (int w = 0; w < Selection.words(t); w++) {
                         sel.ins("lda", sel.operand(s.op(0), w));
                         sel.ins("cmp", Selection.imm(c >> (16 * w)));
-                        sel.ins("bne", nextCase);
+                        // in the long form; BranchRelax makes it BEQ to the case where that reaches
+                        sel.ins("bne", nextCase, Selection.words(t) == 1);
                     }
-                    sel.ins("jmp", s.targets.get(k).name());
+                    sel.ins("jmp", s.targets.get(k).name(), true);
                     sel.place(nextCase);
                 }
                 if (s.otherwise != next) {
-                    sel.ins("jmp", s.otherwise.name());
+                    sel.ins("jmp", s.otherwise.name(), true);
                 }
             }
             case Instr.Unreachable u -> throw new IllegalStateException("the checks of hints are taken out before code generation");
