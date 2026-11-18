@@ -182,9 +182,51 @@ class LirTest {
                 ins("rtl", null),
                 ".endproc"));
         LFunction f = u.functions().getFirst();
-        Peephole.run(f);
+        new Peephole("dampf_frame", 0x20).run(f);
         List<String> code = f.instrs().stream().map(LInstr::toString).toList();
         assertEquals(List.of("sta z:dampf_frame+4", "tax", "sta z:dampf_frame+6", "tay", "sep #$20",
                 "sta z:dampf_frame+8", "ldx z:dampf_frame+8", "rep #$20", "rtl"), code);
+    }
+
+    private static List<String> peephole(String... lines) {
+        String[] all = new String[lines.length + 3];
+        all[0] = ".proc f";
+        System.arraycopy(lines, 0, all, 1, lines.length);
+        all[lines.length + 1] = ins("rtl", null);
+        all[lines.length + 2] = ".endproc";
+        LUnit u = LParser.parse(text(all));
+        LFunction f = u.functions().getFirst();
+        new Peephole("dampf_frame", 0x20).run(f);
+        assertEquals(List.of(), LVerifier.verify(u));
+        return f.instrs().stream().map(LInstr::toString).toList();
+    }
+
+    @Test
+    void shiftsRightThenLeftBecomeAMaskAndFewerShifts() {
+        assertEquals(List.of("and #$FFF8", "asl a", "asl a", "rtl"), peephole(ins("lsr", "a"), ins("lsr", "a"), ins("lsr", "a"),
+                ins("asl", "a"), ins("asl", "a"), ins("asl", "a"), ins("asl", "a"), ins("asl", "a")));
+        // as many left as right: the carry would differ, nothing changes
+        assertEquals(List.of("lsr a", "asl a", "rtl"), peephole(ins("lsr", "a"), ins("asl", "a")));
+    }
+
+    @Test
+    void aRepRightBeforeASepGoesWhereAWasEightBit() {
+        assertEquals(List.of("sep #$20", "sta z:dampf_frame+2", "sta z:dampf_frame+4", "rep #$20", "rtl"),
+                peephole(ins("sep", "#$20"), ins8("sta", "z:dampf_frame+2"), ins8("rep", "#$20"), ins("sep", "#$20"),
+                        ins8("sta", "z:dampf_frame+4"), ins8("rep", "#$20")));
+        // 16 bit before the REP: the SEP switches to 8 bit, both stay
+        assertEquals(List.of("rep #$20", "sep #$20", "rep #$20", "rtl"),
+                peephole(ins("rep", "#$20"), ins("sep", "#$20"), ins8("rep", "#$20")));
+    }
+
+    @Test
+    void theHighByteIsLoadedFromTheNextAddress() {
+        assertEquals(List.of("lda z:dampf_frame+5", "and #$00FF", "rtl"),
+                peephole(ins("lda", "z:dampf_frame+4"), ins("xba", null), ins("and", "#$00FF")));
+        assertEquals(List.of("lda _tab+3,x", "and #$00FF", "rtl"),
+                peephole(ins("lda", "_tab+2,x"), ins("xba", null), ins("and", "#$00FF")));
+        // the last word of the direct page: the byte after it is reached with absolute addressing
+        assertEquals(List.of("lda a:dampf_frame+223", "and #$00FF", "rtl"),
+                peephole(ins("lda", "z:dampf_frame+222"), ins("xba", null), ins("and", "#$00FF")));
     }
 }
