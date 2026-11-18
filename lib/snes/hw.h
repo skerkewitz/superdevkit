@@ -6,8 +6,8 @@
  * next address, which is what the two-byte registers ($2116, $43x2, ...) expect. Registers
  * that are written twice at the same address (scroll, CGDATA) take two 8-bit writes.
  */
-#ifndef BB_PLATFORM_HW_H
-#define BB_PLATFORM_HW_H
+#ifndef SDEVKIT__HW_H
+#define SDEVKIT__HW_H
 
 #include <stdint.h>
 

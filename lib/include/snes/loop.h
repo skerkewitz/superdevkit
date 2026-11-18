@@ -1,39 +1,27 @@
+/*
+ * DEPRECATED: the old names of superdevkit's console API, mapped to the sdevkit_ ones (ADR
+ * record 34). Only for code that cannot be changed yet (the snapshot of Blubber Blasen); new code
+ * includes "sdevkit/loop.h". tools/sdevkit_rename.py converts a game, and writes this file
+ * (--write-compat): do not edit it by hand.
+ */
+
 #ifndef SNES_LOOP_H
 #define SNES_LOOP_H
 
-/*
- * The frame rhythm of superdevkit (ADR record 29): the library's main loop starts the console,
- * then calls three functions that every game defines.
- *
- *   game_init(seed)    once, with the screen off;
- *   game_tick(pads)    once per frame, while the picture is drawn: the game logic, and what the
- *                      next vertical blank is to show (sprite table, maps to upload);
- *   game_vblank()      in the vertical blank after each tick, after the library has copied the
- *                      sprite table (oamMemory): uploads to VRAM and CGRAM, scroll registers.
- *
- * A tick that takes longer than a frame makes the loop wait for the next vertical blank; the
- * game is never interrupted. The pads are in the SNES's bit layout (KEY_*), one per port.
- */
+#include "sdevkit/loop.h"
 
-#include <stdint.h>
-
-#define SNES_PADS 2
-
-#define KEY_B      0x8000u
-#define KEY_Y      0x4000u
-#define KEY_SELECT 0x2000u
-#define KEY_START  0x1000u
-#define KEY_UP     0x0800u
-#define KEY_DOWN   0x0400u
-#define KEY_LEFT   0x0200u
-#define KEY_RIGHT  0x0100u
-#define KEY_A      0x0080u
-#define KEY_X      0x0040u
-#define KEY_L      0x0020u
-#define KEY_R      0x0010u
-
-void game_init(uint16_t seed);
-void game_tick(const uint16_t pad[SNES_PADS]);
-void game_vblank(void);
+#define SNES_PADS SDEVKIT_PADS
+#define KEY_B SDEVKIT_KEY_B
+#define KEY_Y SDEVKIT_KEY_Y
+#define KEY_SELECT SDEVKIT_KEY_SELECT
+#define KEY_START SDEVKIT_KEY_START
+#define KEY_UP SDEVKIT_KEY_UP
+#define KEY_DOWN SDEVKIT_KEY_DOWN
+#define KEY_LEFT SDEVKIT_KEY_LEFT
+#define KEY_RIGHT SDEVKIT_KEY_RIGHT
+#define KEY_A SDEVKIT_KEY_A
+#define KEY_X SDEVKIT_KEY_X
+#define KEY_L SDEVKIT_KEY_L
+#define KEY_R SDEVKIT_KEY_R
 
 #endif /* SNES_LOOP_H */

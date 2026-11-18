@@ -1,5 +1,5 @@
 /*
- * The game's console API (snapshots/blubberblasen/src/snes/snes.h) on the real SNES, for dampf.
+ * The console API of superdevkit (lib/include/sdevkit/snes.h, ADR record 34) on the real SNES, for dampf.
  *
  * The PVSnesLib-shaped functions do what PVSnesLib's do, as snes.h describes them; the snesXxx()
  * extensions are a few register writes each. General DMA uses channel 0; HDMA uses the channels
@@ -9,29 +9,29 @@
  * Registers that the API changes bit by bit (the main and sub screen layers, the tile bases) are
  * kept in shadows, since PPU registers cannot be read back.
  */
-#include "snes/snes.h"
+#include "sdevkit/snes.h"
 #include "hw.h"
 
-u8 oamMemory[128 * 4 + 8 * 4];
+uint8_t sdevkit_oam_memory[128 * 4 + 8 * 4];
 
-static u8 tm_shadow;          /* TM: layers on the main screen */
-static u8 ts_shadow;          /* TS: layers on the sub screen */
-static u8 nba_shadow[2];      /* BG12NBA, BG34NBA: tile bases */
+static uint8_t tm_shadow;          /* TM: layers on the main screen */
+static uint8_t ts_shadow;          /* TS: layers on the sub screen */
+static uint8_t nba_shadow[2];      /* BG12NBA, BG34NBA: tile bases */
 
-static const u16 zero_word = 0;   /* the source of dmaClearVram */
+static const uint16_t zero_word = 0;   /* the source of sdevkit_dma_clear_vram */
 
 /* A source address for a DMA channel: its 16-bit address and its bank. The bank is byte 2 of the
  * SNES address, read as a byte: dampf shifts a 32-bit value by 16 in a loop today (about 600
  * cycles), which the vertical blank cannot spare. */
-static void dma_source(u8 channel, const void *source)
+static void dma_source(uint8_t channel, const void *source)
 {
-    u32 a = (u32)source;
-    A1T(channel) = (u16)a;
-    A1B(channel) = ((const u8 *)&a)[2];
+    uint32_t a = (uint32_t)source;
+    A1T(channel) = (uint16_t)a;
+    A1B(channel) = ((const uint8_t *)&a)[2];
 }
 
 /* One general DMA on channel 0: mode (DMAP), destination register (low byte of $21xx). */
-static void dma0(u8 mode, u8 reg, const u8 *source, u16 size)
+static void dma0(uint8_t mode, uint8_t reg, const uint8_t *source, uint16_t size)
 {
     DMAP(0) = mode;
     BBAD(0) = reg;
@@ -41,19 +41,19 @@ static void dma0(u8 mode, u8 reg, const u8 *source, u16 size)
 }
 
 /* --- video.h ------------------------------------------------------------------------ */
-void setMode(u8 mode, u8 size)
+void sdevkit_set_mode(uint8_t mode, uint8_t size)
 {
-    BGMODE = (u8)(mode | size);
-    tm_shadow = BG1_ENABLE | BG2_ENABLE | BG3_ENABLE | OBJ_ENABLE;
+    BGMODE = (uint8_t)(mode | size);
+    tm_shadow = SDEVKIT_BG1_ENABLE | SDEVKIT_BG2_ENABLE | SDEVKIT_BG3_ENABLE | SDEVKIT_OBJ_ENABLE;
     TM = tm_shadow;
 }
 
-void setBrightness(u8 level)
+void sdevkit_set_brightness(uint8_t level)
 {
-    INIDISP = (u8)(level == 0 ? 0x80 : (level & 0x0F));
+    INIDISP = (uint8_t)(level == 0 ? 0x80 : (level & 0x0F));
 }
 
-void setScreenOn(void)
+void sdevkit_set_screen_on(void)
 {
     /* PVSnesLib waits for a vertical blank first */
     while (HVBJOY & 0x80) {
@@ -63,225 +63,225 @@ void setScreenOn(void)
     INIDISP = 0x0F;
 }
 
-void setScreenOff(void)
+void sdevkit_set_screen_off(void)
 {
     INIDISP = 0x80;
 }
 
-void setColorEffect(u8 colorMathA, u8 colorMathB)
+void sdevkit_set_color_effect(uint8_t colorMathA, uint8_t colorMathB)
 {
     REG8(0x2130) = colorMathA;
     REG8(0x2131) = colorMathB;
 }
 
-void setColorIntensity(u8 colorApply, u8 intensity)
+void sdevkit_set_color_intensity(uint8_t colorApply, uint8_t intensity)
 {
-    REG8(0x2132) = (u8)(colorApply | (intensity & 0x1F));
+    REG8(0x2132) = (uint8_t)(colorApply | (intensity & 0x1F));
 }
 
-void setPaletteColor(u16 paletteEntry, u16 paletteColor)
+void sdevkit_set_palette_color(uint16_t paletteEntry, uint16_t paletteColor)
 {
-    CGADD = (u8)paletteEntry;
-    CGDATA = (u8)paletteColor;
-    CGDATA = (u8)(paletteColor >> 8);
+    CGADD = (uint8_t)paletteEntry;
+    CGDATA = (uint8_t)paletteColor;
+    CGDATA = (uint8_t)(paletteColor >> 8);
 }
 
 /* --- dma.h ----------------------------------------------------------------------------- */
-void dmaCopyVram(const u8 *source, u16 address, u16 size)
+void sdevkit_dma_copy_vram(const uint8_t *source, uint16_t address, uint16_t size)
 {
     VMAIN = 0x80;                   /* step after the high byte */
     VMADD = address;
     dma0(0x01, 0x18, source, size); /* two registers, $2118/$2119 */
 }
 
-void dmaCopyCGram(const u8 *source, u16 address, u16 size)
+void sdevkit_dma_copy_cgram(const uint8_t *source, uint16_t address, uint16_t size)
 {
-    CGADD = (u8)address;
+    CGADD = (uint8_t)address;
     dma0(0x00, 0x22, source, size);
 }
 
-void dmaClearVram(void)
+void sdevkit_dma_clear_vram(void)
 {
     VMAIN = 0x80;
     VMADD = 0;
-    dma0(0x09, 0x18, (const u8 *)&zero_word, 0);   /* fixed source; size 0 is 64 KB */
+    dma0(0x09, 0x18, (const uint8_t *)&zero_word, 0);   /* fixed source; size 0 is 64 KB */
 }
 
 /* --- background.h ------------------------------------------------------------------------ */
-void bgSetGfxPtr(u8 bgNumber, u16 address)
+void sdevkit_bg_set_gfx_ptr(uint8_t bgNumber, uint16_t address)
 {
-    u8 i = (u8)(bgNumber >> 1);
-    u8 base = (u8)((address >> 12) & 0x0F);
+    uint8_t i = (uint8_t)(bgNumber >> 1);
+    uint8_t base = (uint8_t)((address >> 12) & 0x0F);
     if (bgNumber & 1) {
-        nba_shadow[i] = (u8)((nba_shadow[i] & 0x0F) | (base << 4));
+        nba_shadow[i] = (uint8_t)((nba_shadow[i] & 0x0F) | (base << 4));
     } else {
-        nba_shadow[i] = (u8)((nba_shadow[i] & 0xF0) | base);
+        nba_shadow[i] = (uint8_t)((nba_shadow[i] & 0xF0) | base);
     }
     REG8(0x210B + i) = nba_shadow[i];
 }
 
-void bgSetMapPtr(u8 bgNumber, u16 address, u8 mapSize)
+void sdevkit_bg_set_map_ptr(uint8_t bgNumber, uint16_t address, uint8_t mapSize)
 {
-    REG8(0x2107 + bgNumber) = (u8)(((address >> 8) & 0xFC) | mapSize);
+    REG8(0x2107 + bgNumber) = (uint8_t)(((address >> 8) & 0xFC) | mapSize);
 }
 
-void bgSetScroll(u8 bgNumber, u16 x, u16 y)
+void sdevkit_bg_set_scroll(uint8_t bgNumber, uint16_t x, uint16_t y)
 {
-    u16 h = (u16)(0x210D + (bgNumber << 1));
-    REG8(h) = (u8)x;
-    REG8(h) = (u8)(x >> 8);
-    REG8(h + 1) = (u8)y;
-    REG8(h + 1) = (u8)(y >> 8);
+    uint16_t h = (uint16_t)(0x210D + (bgNumber << 1));
+    REG8(h) = (uint8_t)x;
+    REG8(h) = (uint8_t)(x >> 8);
+    REG8(h + 1) = (uint8_t)y;
+    REG8(h + 1) = (uint8_t)(y >> 8);
 }
 
-void bgSetEnable(u8 bgNumber)
+void sdevkit_bg_set_enable(uint8_t bgNumber)
 {
-    tm_shadow = (u8)(tm_shadow | (1 << bgNumber));
+    tm_shadow = (uint8_t)(tm_shadow | (1 << bgNumber));
     TM = tm_shadow;
 }
 
-void bgSetDisable(u8 bgNumber)
+void sdevkit_bg_set_disable(uint8_t bgNumber)
 {
-    tm_shadow = (u8)(tm_shadow & ~(1 << bgNumber));
+    tm_shadow = (uint8_t)(tm_shadow & ~(1 << bgNumber));
     TM = tm_shadow;
 }
 
-void bgSetEnableSub(u8 bgNumber)
+void sdevkit_bg_set_enable_sub(uint8_t bgNumber)
 {
-    ts_shadow = (u8)(ts_shadow | (1 << bgNumber));
+    ts_shadow = (uint8_t)(ts_shadow | (1 << bgNumber));
     TS = ts_shadow;
 }
 
-void bgSetDisableSub(u8 bgNumber)
+void sdevkit_bg_set_disable_sub(uint8_t bgNumber)
 {
-    ts_shadow = (u8)(ts_shadow & ~(1 << bgNumber));
+    ts_shadow = (uint8_t)(ts_shadow & ~(1 << bgNumber));
     TS = ts_shadow;
 }
 
-void bgInitTileSet(u8 bgNumber, const u8 *tileSource, const u8 *tilePalette, u8 paletteEntry, u16 tileSize,
-                   u16 paletteSize, u16 colorMode, u16 address)
+void sdevkit_bg_init_tile_set(uint8_t bgNumber, const uint8_t *tileSource, const uint8_t *tilePalette, uint8_t paletteEntry, uint16_t tileSize,
+                   uint16_t paletteSize, uint16_t colorMode, uint16_t address)
 {
-    dmaCopyVram(tileSource, address, tileSize);
-    dmaCopyCGram(tilePalette, (u16)(paletteEntry * colorMode), paletteSize);
-    bgSetGfxPtr(bgNumber, address);
+    sdevkit_dma_copy_vram(tileSource, address, tileSize);
+    sdevkit_dma_copy_cgram(tilePalette, (uint16_t)(paletteEntry * colorMode), paletteSize);
+    sdevkit_bg_set_gfx_ptr(bgNumber, address);
 }
 
-void bgInitMapSet(u8 bgNumber, const u8 *mapSource, u16 mapSize, u8 sizeMode, u16 address)
+void sdevkit_bg_init_map_set(uint8_t bgNumber, const uint8_t *mapSource, uint16_t mapSize, uint8_t sizeMode, uint16_t address)
 {
-    dmaCopyVram(mapSource, address, mapSize);
-    bgSetMapPtr(bgNumber, address, sizeMode);
+    sdevkit_dma_copy_vram(mapSource, address, mapSize);
+    sdevkit_bg_set_map_ptr(bgNumber, address, sizeMode);
 }
 
 /* --- sprite.h ------------------------------------------------------------------------------ */
 /* The bits of sprite id (a byte offset) in the high table: x bit 8, then the size. */
-static u8 *high_byte(u16 id)
+static uint8_t *high_byte(uint16_t id)
 {
-    return &oamMemory[512 + (id >> 4)];
+    return &sdevkit_oam_memory[512 + (id >> 4)];
 }
 
-static u8 high_shift(u16 id)
+static uint8_t high_shift(uint16_t id)
 {
-    return (u8)((id >> 1) & 6);
+    return (uint8_t)((id >> 1) & 6);
 }
 
-static void set_x8(u16 id, u16 x)
+static void set_x8(uint16_t id, uint16_t x)
 {
-    u8 *h = high_byte(id);
-    u8 bit = (u8)(1 << high_shift(id));
-    *h = (u8)((x & 0x100) ? (*h | bit) : (*h & ~bit));
+    uint8_t *h = high_byte(id);
+    uint8_t bit = (uint8_t)(1 << high_shift(id));
+    *h = (uint8_t)((x & 0x100) ? (*h | bit) : (*h & ~bit));
 }
 
-void oamInit(void)
+void sdevkit_oam_init(void)
 {
-    oamClear(0, 0);
+    sdevkit_oam_clear(0, 0);
 }
 
-void oamInitGfxSet(const u8 *tileSource, u16 tileSize, const u8 *tilePalette, u16 paletteSize, u8 tilePaletteNumber,
-                   u16 address, u8 oamsize)
+void sdevkit_oam_init_gfx_set(const uint8_t *tileSource, uint16_t tileSize, const uint8_t *tilePalette, uint16_t paletteSize, uint8_t tilePaletteNumber,
+                   uint16_t address, uint8_t oamsize)
 {
-    dmaCopyVram(tileSource, address, tileSize);
-    dmaCopyCGram(tilePalette, (u16)(128 + tilePaletteNumber * 16), paletteSize);
-    oamInitGfxAttr(address, oamsize);
+    sdevkit_dma_copy_vram(tileSource, address, tileSize);
+    sdevkit_dma_copy_cgram(tilePalette, (uint16_t)(128 + tilePaletteNumber * 16), paletteSize);
+    sdevkit_oam_init_gfx_attr(address, oamsize);
 }
 
-void oamInitGfxAttr(u16 address, u8 oamsize)
+void sdevkit_oam_init_gfx_attr(uint16_t address, uint8_t oamsize)
 {
-    OBSEL = (u8)(oamsize | ((address >> 13) & 7));
+    OBSEL = (uint8_t)(oamsize | ((address >> 13) & 7));
 }
 
-void oamSet(u16 id, u16 xspr, u16 yspr, u8 priority, u8 hflip, u8 vflip, u16 gfxoffset, u8 paletteoffset)
+void sdevkit_oam_set(uint16_t id, uint16_t xspr, uint16_t yspr, uint8_t priority, uint8_t hflip, uint8_t vflip, uint16_t gfxoffset, uint8_t paletteoffset)
 {
-    oamMemory[id] = (u8)xspr;
-    oamMemory[id + 1] = (u8)yspr;
-    oamMemory[id + 2] = (u8)gfxoffset;
-    oamMemory[id + 3] = (u8)((vflip << 7) | (hflip << 6) | ((priority & 3) << 4) | ((paletteoffset & 7) << 1)
+    sdevkit_oam_memory[id] = (uint8_t)xspr;
+    sdevkit_oam_memory[id + 1] = (uint8_t)yspr;
+    sdevkit_oam_memory[id + 2] = (uint8_t)gfxoffset;
+    sdevkit_oam_memory[id + 3] = (uint8_t)((vflip << 7) | (hflip << 6) | ((priority & 3) << 4) | ((paletteoffset & 7) << 1)
                              | ((gfxoffset >> 8) & 1));
     set_x8(id, xspr);
 }
 
-void oamSetXY(u16 id, u16 xspr, u16 yspr)
+void sdevkit_oam_set_xy(uint16_t id, uint16_t xspr, uint16_t yspr)
 {
-    oamMemory[id] = (u8)xspr;
-    oamMemory[id + 1] = (u8)yspr;
+    sdevkit_oam_memory[id] = (uint8_t)xspr;
+    sdevkit_oam_memory[id + 1] = (uint8_t)yspr;
     set_x8(id, xspr);
 }
 
-void oamSetEx(u16 id, u8 size, u8 hide)
+void sdevkit_oam_set_ex(uint16_t id, uint8_t size, uint8_t hide)
 {
-    u8 *h = high_byte(id);
-    u8 bit = (u8)(2 << high_shift(id));
-    *h = (u8)(size == OBJ_LARGE ? (*h | bit) : (*h & ~bit));
-    oamSetVisible(id, hide);
+    uint8_t *h = high_byte(id);
+    uint8_t bit = (uint8_t)(2 << high_shift(id));
+    *h = (uint8_t)(size == SDEVKIT_OBJ_LARGE ? (*h | bit) : (*h & ~bit));
+    sdevkit_oam_set_visible(id, hide);
 }
 
-void oamSetVisible(u16 id, u8 hide)
+void sdevkit_oam_set_visible(uint16_t id, uint8_t hide)
 {
-    /* hidden: y below the picture (ATTR2_DISABLED), as the console API and the pseudo SNES have
-     * it; shown: nothing, the next oamSet gives it its y. (It used to set bit 8 of x to hide and
+    /* hidden: y below the picture (SDEVKIT_ATTR2_DISABLED), as the console API and the pseudo SNES have
+     * it; shown: nothing, the next sdevkit_oam_set gives it its y. (It used to set bit 8 of x to hide and
      * clear it to show, which moved a sprite at a negative x to the right edge, and did not hide
      * one whose low byte of x was above 240.) */
-    if (hide == OBJ_HIDE) {
-        oamMemory[id + 1] = ATTR2_DISABLED;
+    if (hide == SDEVKIT_OBJ_HIDE) {
+        sdevkit_oam_memory[id + 1] = SDEVKIT_ATTR2_DISABLED;
     }
 }
 
-void oamClear(u16 first, u8 numEntries)
+void sdevkit_oam_clear(uint16_t first, uint8_t numEntries)
 {
-    u16 id = first;
-    u16 end = (u16)(numEntries == 0 ? 512 : first + ((u16)numEntries << 2));
-    for (; id < end && id < 512; id = (u16)(id + 4)) {   /* as the pseudo SNES: x 0, hidden, small */
-        u8 *h = high_byte(id);
-        oamMemory[id] = 0;
-        oamMemory[id + 1] = ATTR2_DISABLED;
-        *h = (u8)(*h & ~(3 << high_shift(id)));
+    uint16_t id = first;
+    uint16_t end = (uint16_t)(numEntries == 0 ? 512 : first + ((uint16_t)numEntries << 2));
+    for (; id < end && id < 512; id = (uint16_t)(id + 4)) {   /* as the pseudo SNES: x 0, hidden, small */
+        uint8_t *h = high_byte(id);
+        sdevkit_oam_memory[id] = 0;
+        sdevkit_oam_memory[id + 1] = SDEVKIT_ATTR2_DISABLED;
+        *h = (uint8_t)(*h & ~(3 << high_shift(id)));
     }
 }
 
 /* --- Extensions ------------------------------------------------------------------------------ */
-void snesRegWrite(u8 reg, u8 value)
+void sdevkit_reg_write(uint8_t reg, uint8_t value)
 {
     REG8(0x2100 + reg) = value;
 }
 
-void snesHdmaSet(u8 channel, u8 reg, u8 twoRegs, const u8 *table)
+void sdevkit_hdma_set(uint8_t channel, uint8_t reg, uint8_t twoRegs, const uint8_t *table)
 {
-    DMAP(channel) = (u8)(twoRegs ? 0x01 : 0x00);   /* direct, CPU to PPU, one or two registers */
+    DMAP(channel) = (uint8_t)(twoRegs ? 0x01 : 0x00);   /* direct, CPU to PPU, one or two registers */
     BBAD(channel) = reg;
     dma_source(channel, table);
 }
 
-void snesHdmaEnable(u8 channels)
+void sdevkit_hdma_enable(uint8_t channels)
 {
     HDMAEN = channels;
 }
 
 /* The line the picture is at: 225..261 is the vertical blank. */
-static u16 vcount(void)
+static uint16_t vcount(void)
 {
-    u16 line;
+    uint16_t line;
     (void)SLHV;
     line = OPVCT;
-    line = (u16)(line | ((OPVCT & 1) << 8));
+    line = (uint16_t)(line | ((OPVCT & 1) << 8));
     (void)STAT78;
     return line;
 }
@@ -297,27 +297,27 @@ static u16 vcount(void)
 #define SETUP_LINES 8
 #endif
 
-u8 snesDmaFits(u16 bytes)
+uint8_t sdevkit_dma_fits(uint16_t bytes)
 {
-    u16 line = vcount();
+    uint16_t line = vcount();
     if (line < VBLANK_FIRST_LINE || line >= LINES - 1 - SETUP_LINES) {
         return 0;
     }
-    return (u8)(bytes <= (u16)(LINES - 1 - SETUP_LINES - line) * 160);
+    return (uint8_t)(bytes <= (uint16_t)(LINES - 1 - SETUP_LINES - line) * 160);
 }
 
 /* --- for main.c ------------------------------------------------------------------------------ */
 /* The OAM shadow into OAM: 544 bytes, in a vertical blank. */
-void platform_oam_upload(void)
+void sdevkit__oam_upload(void)
 {
     OAMADD = 0;
-    dma0(0x00, 0x04, oamMemory, sizeof oamMemory);
+    dma0(0x00, 0x04, sdevkit_oam_memory, sizeof sdevkit_oam_memory);
 }
 
 /* Power-on state: all PPU registers that start undefined are cleared, VRAM, CGRAM and OAM too. */
-void platform_reset_video(void)
+void sdevkit__reset_video(void)
 {
-    u8 r;
+    uint8_t r;
     INIDISP = 0x80;
     for (r = 0x01; r <= 0x0C; r++) {
         REG8(0x2100 + r) = 0;
@@ -334,7 +334,7 @@ void platform_reset_video(void)
     REG8(0x211E) = 1;
     REG8(0x211E) = 0;
     VMAIN = 0x80;
-    dmaClearVram();
+    sdevkit_dma_clear_vram();
     CGADD = 0;
     for (r = 0; r < 255; r++) {
         CGDATA = 0;
@@ -344,14 +344,14 @@ void platform_reset_video(void)
     CGDATA = 0;
     tm_shadow = ts_shadow = 0;
     nba_shadow[0] = nba_shadow[1] = 0;
-    oamClear(0, 0);
+    sdevkit_oam_clear(0, 0);
     for (r = 0; r < 32; r++) {
-        oamMemory[512 + r] = 0;
+        sdevkit_oam_memory[512 + r] = 0;
     }
-    platform_oam_upload();
+    sdevkit__oam_upload();
 }
 
-void platform_wait_vblank(void)
+void sdevkit__wait_vblank(void)
 {
     /* the start of a vertical blank: a tick that ended inside one waits for the next, so the
      * uploads always get the whole of it */
@@ -361,19 +361,17 @@ void platform_wait_vblank(void)
     }
 }
 
-#ifdef BB_DEBUG
-/* Only video_check_maps() (a debug check on the PC's pseudo SNES) reads VRAM like memory; the
- * SNES cannot, and nothing calls it there. */
-const u16 *snes_vram(void)
+/* Only the pseudo SNES can read VRAM like memory (a debug check of the desktop); the SNES
+ * cannot, so here it is a single zero word. */
+const uint16_t *sdevkit_dbg_vram(void)
 {
-    static const u16 none[1];
+    static const uint16_t none[1];
     return none;
 }
-#endif
 
 /* Both joypads, SNES bit layout (game.h). The automatic read runs in the first lines of the
  * vertical blank. */
-void platform_read_pads(u16 *pad1, u16 *pad2)
+void sdevkit__read_pads(uint16_t *pad1, uint16_t *pad2)
 {
     while (HVBJOY & 1) {
     }

@@ -1,6 +1,6 @@
 /*
  * Pseudo SNES, the desktop side of superdevkit's library: the memories, the picture registers
- * and the functions of the console API that write them (snes/snes.h). render.c draws the picture
+ * and the functions of the console API that write them (sdevkit/snes.h). render.c draws the picture
  * from this state; pseudo.h is what the two share. Taken over from Blubber Blasen's src/snes.
  *
  * Portable C99: no raylib, no heap, no floating point. Everything is static, like
@@ -11,313 +11,313 @@
 
 #include <string.h>
 
-SnesState g_snes;
-u8 oamMemory[128 * 4 + 8 * 4];
+sdevkit__pseudo_state sdevkit__pseudo;
+uint8_t sdevkit_oam_memory[128 * 4 + 8 * 4];
 
 /* --- Registers ----------------------------------------------------------------------- */
-void snes_write_reg(u8 reg, u8 value)
+void sdevkit__write_reg(uint8_t reg, uint8_t value)
 {
-    if (reg >= PPU_BG1HOFS && reg <= PPU_BG1HOFS + 7) {
+    if (reg >= SDEVKIT_PPU_BG1HOFS && reg <= SDEVKIT_PPU_BG1HOFS + 7) {
         /* BGnHOFS / BGnVOFS: written twice, low byte then high byte, through a
          * shared latch (simplified from the SNES formula; same result for
          * two writes in a row). */
-        u8 bg = (u8)((reg - PPU_BG1HOFS) >> 1);
-        u16 v = (u16)(((u16)value << 8) | g_snes.scroll_latch);
-        if ((reg - PPU_BG1HOFS) & 1) {
-            g_snes.vofs[bg] = (u16)(v & 0x3FF);
+        uint8_t bg = (uint8_t)((reg - SDEVKIT_PPU_BG1HOFS) >> 1);
+        uint16_t v = (uint16_t)(((uint16_t)value << 8) | sdevkit__pseudo.scroll_latch);
+        if ((reg - SDEVKIT_PPU_BG1HOFS) & 1) {
+            sdevkit__pseudo.vofs[bg] = (uint16_t)(v & 0x3FF);
         } else {
-            g_snes.hofs[bg] = (u16)(v & 0x3FF);
+            sdevkit__pseudo.hofs[bg] = (uint16_t)(v & 0x3FF);
         }
-        g_snes.scroll_latch = value;
-    } else if (reg == PPU_COLDATA) {
-        u8 i = (u8)(value & 0x1F);
-        if (value & CM_APPLY_RED)   g_snes.fixed_r = i;
-        if (value & CM_APPLY_GREEN) g_snes.fixed_g = i;
-        if (value & CM_APPLY_BLUE)  g_snes.fixed_b = i;
+        sdevkit__pseudo.scroll_latch = value;
+    } else if (reg == SDEVKIT_PPU_COLDATA) {
+        uint8_t i = (uint8_t)(value & 0x1F);
+        if (value & SDEVKIT_CM_APPLY_RED)   sdevkit__pseudo.fixed_r = i;
+        if (value & SDEVKIT_CM_APPLY_GREEN) sdevkit__pseudo.fixed_g = i;
+        if (value & SDEVKIT_CM_APPLY_BLUE)  sdevkit__pseudo.fixed_b = i;
     }
-    g_snes.regs[reg] = value;
+    sdevkit__pseudo.regs[reg] = value;
 }
 
-u8 snes_reg(u8 reg)
+uint8_t sdevkit__reg(uint8_t reg)
 {
-    return g_snes.regs[reg];
+    return sdevkit__pseudo.regs[reg];
 }
 
-void snesRegWrite(u8 reg, u8 value)
+void sdevkit_reg_write(uint8_t reg, uint8_t value)
 {
-    snes_write_reg(reg, value);
+    sdevkit__write_reg(reg, value);
 }
 
 /* --- Power on and vertical blank -------------------------------------------------------- */
-void snes_reset(void)
+void sdevkit__reset(void)
 {
-    memset(&g_snes, 0, sizeof g_snes);
-    memset(oamMemory, 0, sizeof oamMemory);
-    g_snes.regs[PPU_INIDISP] = 0x80;   /* forced blank until the game turns the screen on */
+    memset(&sdevkit__pseudo, 0, sizeof sdevkit__pseudo);
+    memset(sdevkit_oam_memory, 0, sizeof sdevkit_oam_memory);
+    sdevkit__pseudo.regs[SDEVKIT_PPU_INIDISP] = 0x80;   /* forced blank until the game turns the screen on */
 }
 
-void snes_vblank(void)
+void sdevkit__vblank(void)
 {
-    memcpy(g_snes.oam, oamMemory, sizeof g_snes.oam);
-    g_snes.dma_count = 0;
-    g_snes.dma_lost = 0;
-    g_snes.in_vblank = 1;
+    memcpy(sdevkit__pseudo.oam, sdevkit_oam_memory, sizeof sdevkit__pseudo.oam);
+    sdevkit__pseudo.dma_count = 0;
+    sdevkit__pseudo.dma_lost = 0;
+    sdevkit__pseudo.in_vblank = 1;
 }
 
-void snes_display(void)
+void sdevkit__display(void)
 {
-    g_snes.in_vblank = 0;
+    sdevkit__pseudo.in_vblank = 0;
 }
 
 /* May this many bytes go to VRAM / CGRAM now? Counts them either way. */
-static u8 dma_allowed(u16 size)
+static uint8_t dma_allowed(uint16_t size)
 {
-    u8 forced_blank = (u8)((g_snes.regs[PPU_INIDISP] & 0x80) != 0);
-    if (forced_blank || (g_snes.in_vblank && g_snes.dma_count + size <= SNES_VBLANK_DMA_BYTES)) {
-        g_snes.dma_count = (u16)(g_snes.dma_count + size);
+    uint8_t forced_blank = (uint8_t)((sdevkit__pseudo.regs[SDEVKIT_PPU_INIDISP] & 0x80) != 0);
+    if (forced_blank || (sdevkit__pseudo.in_vblank && sdevkit__pseudo.dma_count + size <= SDEVKIT__VBLANK_DMA_BYTES)) {
+        sdevkit__pseudo.dma_count = (uint16_t)(sdevkit__pseudo.dma_count + size);
         return 1;
     }
-    g_snes.dma_lost = (u16)(g_snes.dma_lost + size);
+    sdevkit__pseudo.dma_lost = (uint16_t)(sdevkit__pseudo.dma_lost + size);
     return 0;
 }
 
-SnesStats snes_stats(void)
+sdevkit__frame_stats sdevkit__stats(void)
 {
-    SnesStats s = g_snes.stats;
-    s.dma_bytes = g_snes.dma_count;   /* of the current / last vertical blank */
-    s.dma_lost = g_snes.dma_lost;
+    sdevkit__frame_stats s = sdevkit__pseudo.stats;
+    s.dma_bytes = sdevkit__pseudo.dma_count;   /* of the current / last vertical blank */
+    s.dma_lost = sdevkit__pseudo.dma_lost;
     return s;
 }
 
-const u16 *snes_vram(void)
+const uint16_t *sdevkit_dbg_vram(void)
 {
-    return g_snes.vram;
+    return sdevkit__pseudo.vram;
 }
 
-const u16 *snes_cgram(void)
+const uint16_t *sdevkit__cgram(void)
 {
-    return g_snes.cgram;
+    return sdevkit__pseudo.cgram;
 }
 
-const u8 *snes_oam(void)
+const uint8_t *sdevkit__oam(void)
 {
-    return g_snes.oam;
+    return sdevkit__pseudo.oam;
 }
 
 /* --- video.h ------------------------------------------------------------------------------ */
-void setMode(u8 mode, u8 size)
+void sdevkit_set_mode(uint8_t mode, uint8_t size)
 {
-    snes_write_reg(PPU_BGMODE, (u8)(mode | size));
-    snes_write_reg(PPU_TM, BG1_ENABLE | BG2_ENABLE | BG3_ENABLE | OBJ_ENABLE);
+    sdevkit__write_reg(SDEVKIT_PPU_BGMODE, (uint8_t)(mode | size));
+    sdevkit__write_reg(SDEVKIT_PPU_TM, SDEVKIT_BG1_ENABLE | SDEVKIT_BG2_ENABLE | SDEVKIT_BG3_ENABLE | SDEVKIT_OBJ_ENABLE);
 }
 
 /* As in PVSnesLib: 0 switches the screen off (forced blank), 1..15 on. */
-void setBrightness(u8 level)
+void sdevkit_set_brightness(uint8_t level)
 {
-    snes_write_reg(PPU_INIDISP, (u8)(level ? (level & 0x0F) : 0x80));
+    sdevkit__write_reg(SDEVKIT_PPU_INIDISP, (uint8_t)(level ? (level & 0x0F) : 0x80));
 }
 
-void setScreenOn(void)
+void sdevkit_set_screen_on(void)
 {
-    snes_write_reg(PPU_INIDISP, 0x0F);
+    sdevkit__write_reg(SDEVKIT_PPU_INIDISP, 0x0F);
 }
 
-void setScreenOff(void)
+void sdevkit_set_screen_off(void)
 {
-    snes_write_reg(PPU_INIDISP, (u8)(g_snes.regs[PPU_INIDISP] | 0x80));
+    sdevkit__write_reg(SDEVKIT_PPU_INIDISP, (uint8_t)(sdevkit__pseudo.regs[SDEVKIT_PPU_INIDISP] | 0x80));
 }
 
-void setColorEffect(u8 colorMathA, u8 colorMathB)
+void sdevkit_set_color_effect(uint8_t colorMathA, uint8_t colorMathB)
 {
-    snes_write_reg(PPU_CGWSEL, colorMathA);
-    snes_write_reg(PPU_CGADSUB, colorMathB);
+    sdevkit__write_reg(SDEVKIT_PPU_CGWSEL, colorMathA);
+    sdevkit__write_reg(SDEVKIT_PPU_CGADSUB, colorMathB);
 }
 
-void setColorIntensity(u8 colorApply, u8 intensity)
+void sdevkit_set_color_intensity(uint8_t colorApply, uint8_t intensity)
 {
-    snes_write_reg(PPU_COLDATA, (u8)(colorApply | (intensity & 0x1F)));
+    sdevkit__write_reg(SDEVKIT_PPU_COLDATA, (uint8_t)(colorApply | (intensity & 0x1F)));
 }
 
-void setPaletteColor(u16 paletteEntry, u16 paletteColor)
+void sdevkit_set_palette_color(uint16_t paletteEntry, uint16_t paletteColor)
 {
     if (dma_allowed(2)) {
-        g_snes.cgram[paletteEntry & 0xFF] = (u16)(paletteColor & 0x7FFF);
+        sdevkit__pseudo.cgram[paletteEntry & 0xFF] = (uint16_t)(paletteColor & 0x7FFF);
     }
 }
 
 /* --- dma.h ---------------------------------------------------------------------------------- */
-void dmaCopyVram(const u8 *source, u16 address, u16 size)
+void sdevkit_dma_copy_vram(const uint8_t *source, uint16_t address, uint16_t size)
 {
-    u16 i;
+    uint16_t i;
     if (!dma_allowed(size)) {
         return;
     }
     for (i = 0; i + 1 < size; i += 2) {
-        g_snes.vram[(u16)(address + (i >> 1)) & (SNES_VRAM_WORDS - 1)] = (u16)(source[i] | (source[i + 1] << 8));
+        sdevkit__pseudo.vram[(uint16_t)(address + (i >> 1)) & (SDEVKIT__VRAM_WORDS - 1)] = (uint16_t)(source[i] | (source[i + 1] << 8));
     }
 }
 
-void dmaCopyCGram(const u8 *source, u16 address, u16 size)
+void sdevkit_dma_copy_cgram(const uint8_t *source, uint16_t address, uint16_t size)
 {
-    u16 i;
+    uint16_t i;
     if (!dma_allowed(size)) {
         return;
     }
     for (i = 0; i + 1 < size; i += 2) {
-        g_snes.cgram[(u16)(address + (i >> 1)) & 0xFF] = (u16)((source[i] | (source[i + 1] << 8)) & 0x7FFF);
+        sdevkit__pseudo.cgram[(uint16_t)(address + (i >> 1)) & 0xFF] = (uint16_t)((source[i] | (source[i + 1] << 8)) & 0x7FFF);
     }
 }
 
-void dmaClearVram(void)
+void sdevkit_dma_clear_vram(void)
 {
-    if (dma_allowed(0) && (g_snes.regs[PPU_INIDISP] & 0x80)) {
-        memset(g_snes.vram, 0, sizeof g_snes.vram);
+    if (dma_allowed(0) && (sdevkit__pseudo.regs[SDEVKIT_PPU_INIDISP] & 0x80)) {
+        memset(sdevkit__pseudo.vram, 0, sizeof sdevkit__pseudo.vram);
     }
 }
 
 /* --- background.h ------------------------------------------------------------------------------ */
-void bgSetGfxPtr(u8 bgNumber, u16 address)
+void sdevkit_bg_set_gfx_ptr(uint8_t bgNumber, uint16_t address)
 {
-    u8 reg = (u8)(bgNumber < 2 ? PPU_BG12NBA : PPU_BG34NBA);
-    u8 n = (u8)((address >> 12) & 0x0F);
-    u8 v = g_snes.regs[reg];
-    v = (u8)((bgNumber & 1) ? (v & 0x0F) | (n << 4) : (v & 0xF0) | n);
-    snes_write_reg(reg, v);
+    uint8_t reg = (uint8_t)(bgNumber < 2 ? SDEVKIT_PPU_BG12NBA : SDEVKIT_PPU_BG34NBA);
+    uint8_t n = (uint8_t)((address >> 12) & 0x0F);
+    uint8_t v = sdevkit__pseudo.regs[reg];
+    v = (uint8_t)((bgNumber & 1) ? (v & 0x0F) | (n << 4) : (v & 0xF0) | n);
+    sdevkit__write_reg(reg, v);
 }
 
-void bgSetMapPtr(u8 bgNumber, u16 address, u8 mapSize)
+void sdevkit_bg_set_map_ptr(uint8_t bgNumber, uint16_t address, uint8_t mapSize)
 {
-    snes_write_reg((u8)(PPU_BG1SC + (bgNumber & 3)), (u8)(((address >> 8) & 0xFC) | (mapSize & 3)));
+    sdevkit__write_reg((uint8_t)(SDEVKIT_PPU_BG1SC + (bgNumber & 3)), (uint8_t)(((address >> 8) & 0xFC) | (mapSize & 3)));
 }
 
-void bgSetScroll(u8 bgNumber, u16 x, u16 y)
+void sdevkit_bg_set_scroll(uint8_t bgNumber, uint16_t x, uint16_t y)
 {
-    g_snes.hofs[bgNumber & 3] = (u16)(x & 0x3FF);
-    g_snes.vofs[bgNumber & 3] = (u16)(y & 0x3FF);
+    sdevkit__pseudo.hofs[bgNumber & 3] = (uint16_t)(x & 0x3FF);
+    sdevkit__pseudo.vofs[bgNumber & 3] = (uint16_t)(y & 0x3FF);
 }
 
-void bgSetEnable(u8 bgNumber)
+void sdevkit_bg_set_enable(uint8_t bgNumber)
 {
-    snes_write_reg(PPU_TM, (u8)(g_snes.regs[PPU_TM] | (1 << (bgNumber & 3))));
+    sdevkit__write_reg(SDEVKIT_PPU_TM, (uint8_t)(sdevkit__pseudo.regs[SDEVKIT_PPU_TM] | (1 << (bgNumber & 3))));
 }
 
-void bgSetDisable(u8 bgNumber)
+void sdevkit_bg_set_disable(uint8_t bgNumber)
 {
-    snes_write_reg(PPU_TM, (u8)(g_snes.regs[PPU_TM] & ~(1 << (bgNumber & 3))));
+    sdevkit__write_reg(SDEVKIT_PPU_TM, (uint8_t)(sdevkit__pseudo.regs[SDEVKIT_PPU_TM] & ~(1 << (bgNumber & 3))));
 }
 
-void bgSetEnableSub(u8 bgNumber)
+void sdevkit_bg_set_enable_sub(uint8_t bgNumber)
 {
-    snes_write_reg(PPU_TS, (u8)(g_snes.regs[PPU_TS] | (1 << (bgNumber & 3))));
+    sdevkit__write_reg(SDEVKIT_PPU_TS, (uint8_t)(sdevkit__pseudo.regs[SDEVKIT_PPU_TS] | (1 << (bgNumber & 3))));
 }
 
-void bgSetDisableSub(u8 bgNumber)
+void sdevkit_bg_set_disable_sub(uint8_t bgNumber)
 {
-    snes_write_reg(PPU_TS, (u8)(g_snes.regs[PPU_TS] & ~(1 << (bgNumber & 3))));
+    sdevkit__write_reg(SDEVKIT_PPU_TS, (uint8_t)(sdevkit__pseudo.regs[SDEVKIT_PPU_TS] & ~(1 << (bgNumber & 3))));
 }
 
-void bgInitTileSet(u8 bgNumber, const u8 *tileSource, const u8 *tilePalette, u8 paletteEntry, u16 tileSize,
-                   u16 paletteSize, u16 colorMode, u16 address)
+void sdevkit_bg_init_tile_set(uint8_t bgNumber, const uint8_t *tileSource, const uint8_t *tilePalette, uint8_t paletteEntry, uint16_t tileSize,
+                   uint16_t paletteSize, uint16_t colorMode, uint16_t address)
 {
-    dmaCopyVram(tileSource, address, tileSize);
-    dmaCopyCGram(tilePalette, (u16)(paletteEntry * colorMode), paletteSize);
-    bgSetGfxPtr(bgNumber, address);
+    sdevkit_dma_copy_vram(tileSource, address, tileSize);
+    sdevkit_dma_copy_cgram(tilePalette, (uint16_t)(paletteEntry * colorMode), paletteSize);
+    sdevkit_bg_set_gfx_ptr(bgNumber, address);
 }
 
-void bgInitMapSet(u8 bgNumber, const u8 *mapSource, u16 mapSize, u8 sizeMode, u16 address)
+void sdevkit_bg_init_map_set(uint8_t bgNumber, const uint8_t *mapSource, uint16_t mapSize, uint8_t sizeMode, uint16_t address)
 {
-    dmaCopyVram(mapSource, address, mapSize);
+    sdevkit_dma_copy_vram(mapSource, address, mapSize);
     if (bgNumber != 0xFF) {
-        bgSetMapPtr(bgNumber, address, sizeMode);
+        sdevkit_bg_set_map_ptr(bgNumber, address, sizeMode);
     }
 }
 
 /* --- sprite.h -------------------------------------------------------------------------------- */
-static void set_high_bits(u16 id, u8 mask, u8 bits)
+static void set_high_bits(uint16_t id, uint8_t mask, uint8_t bits)
 {
-    u16 n = (u16)(id >> 2);
-    u8 shift = (u8)((n & 3) * 2);
-    u8 *b = &oamMemory[512 + (n >> 2)];
-    *b = (u8)((*b & ~(mask << shift)) | ((bits & mask) << shift));
+    uint16_t n = (uint16_t)(id >> 2);
+    uint8_t shift = (uint8_t)((n & 3) * 2);
+    uint8_t *b = &sdevkit_oam_memory[512 + (n >> 2)];
+    *b = (uint8_t)((*b & ~(mask << shift)) | ((bits & mask) << shift));
 }
 
-void oamInit(void)
+void sdevkit_oam_init(void)
 {
-    memset(oamMemory, 0, sizeof oamMemory);
-    oamClear(0, 0);
+    memset(sdevkit_oam_memory, 0, sizeof sdevkit_oam_memory);
+    sdevkit_oam_clear(0, 0);
 }
 
-void oamInitGfxSet(const u8 *tileSource, u16 tileSize, const u8 *tilePalette, u16 paletteSize, u8 tilePaletteNumber,
-                   u16 address, u8 oamsize)
+void sdevkit_oam_init_gfx_set(const uint8_t *tileSource, uint16_t tileSize, const uint8_t *tilePalette, uint16_t paletteSize, uint8_t tilePaletteNumber,
+                   uint16_t address, uint8_t oamsize)
 {
-    dmaCopyVram(tileSource, address, tileSize);
-    dmaCopyCGram(tilePalette, (u16)(128 + tilePaletteNumber * 16), paletteSize);
-    oamInitGfxAttr(address, oamsize);
+    sdevkit_dma_copy_vram(tileSource, address, tileSize);
+    sdevkit_dma_copy_cgram(tilePalette, (uint16_t)(128 + tilePaletteNumber * 16), paletteSize);
+    sdevkit_oam_init_gfx_attr(address, oamsize);
 }
 
-void oamInitGfxAttr(u16 address, u8 oamsize)
+void sdevkit_oam_init_gfx_attr(uint16_t address, uint8_t oamsize)
 {
-    snes_write_reg(PPU_OBSEL, (u8)(oamsize | ((address >> 13) & 7)));
+    sdevkit__write_reg(SDEVKIT_PPU_OBSEL, (uint8_t)(oamsize | ((address >> 13) & 7)));
 }
 
-void oamSet(u16 id, u16 xspr, u16 yspr, u8 priority, u8 hflip, u8 vflip, u16 gfxoffset, u8 paletteoffset)
+void sdevkit_oam_set(uint16_t id, uint16_t xspr, uint16_t yspr, uint8_t priority, uint8_t hflip, uint8_t vflip, uint16_t gfxoffset, uint8_t paletteoffset)
 {
-    oamMemory[id] = (u8)xspr;
-    oamMemory[id + 1] = (u8)yspr;
-    oamMemory[id + 2] = (u8)gfxoffset;
-    oamMemory[id + 3] = (u8)(((vflip & 1) << 7) | ((hflip & 1) << 6) | ((priority & 3) << 4) | ((paletteoffset & 7) << 1) |
+    sdevkit_oam_memory[id] = (uint8_t)xspr;
+    sdevkit_oam_memory[id + 1] = (uint8_t)yspr;
+    sdevkit_oam_memory[id + 2] = (uint8_t)gfxoffset;
+    sdevkit_oam_memory[id + 3] = (uint8_t)(((vflip & 1) << 7) | ((hflip & 1) << 6) | ((priority & 3) << 4) | ((paletteoffset & 7) << 1) |
                              ((gfxoffset >> 8) & 1));
-    set_high_bits(id, 1, (u8)((xspr >> 8) & 1));
+    set_high_bits(id, 1, (uint8_t)((xspr >> 8) & 1));
 }
 
-void oamSetXY(u16 id, u16 xspr, u16 yspr)
+void sdevkit_oam_set_xy(uint16_t id, uint16_t xspr, uint16_t yspr)
 {
-    oamMemory[id] = (u8)xspr;
-    oamMemory[id + 1] = (u8)yspr;
-    set_high_bits(id, 1, (u8)((xspr >> 8) & 1));
+    sdevkit_oam_memory[id] = (uint8_t)xspr;
+    sdevkit_oam_memory[id + 1] = (uint8_t)yspr;
+    set_high_bits(id, 1, (uint8_t)((xspr >> 8) & 1));
 }
 
-void oamSetEx(u16 id, u8 size, u8 hide)
+void sdevkit_oam_set_ex(uint16_t id, uint8_t size, uint8_t hide)
 {
-    set_high_bits(id, 2, (u8)((size & 1) << 1));
-    oamSetVisible(id, hide);
+    set_high_bits(id, 2, (uint8_t)((size & 1) << 1));
+    sdevkit_oam_set_visible(id, hide);
 }
 
-void oamSetVisible(u16 id, u8 hide)
+void sdevkit_oam_set_visible(uint16_t id, uint8_t hide)
 {
     if (hide) {
-        oamMemory[id + 1] = ATTR2_DISABLED;
+        sdevkit_oam_memory[id + 1] = SDEVKIT_ATTR2_DISABLED;
     }
 }
 
-void oamClear(u16 first, u8 numEntries)
+void sdevkit_oam_clear(uint16_t first, uint8_t numEntries)
 {
-    u16 id, end = (u16)(numEntries ? first + numEntries * 4 : 128 * 4);
+    uint16_t id, end = (uint16_t)(numEntries ? first + numEntries * 4 : 128 * 4);
     for (id = first; id < end && id < 128 * 4; id += 4) {
-        oamMemory[id] = 0;
-        oamMemory[id + 1] = ATTR2_DISABLED;
+        sdevkit_oam_memory[id] = 0;
+        sdevkit_oam_memory[id + 1] = SDEVKIT_ATTR2_DISABLED;
         set_high_bits(id, 3, 0);
     }
 }
 
 /* --- HDMA ----------------------------------------------------------------------------------- */
-void snesHdmaSet(u8 channel, u8 reg, u8 twoRegs, const u8 *table)
+void sdevkit_hdma_set(uint8_t channel, uint8_t reg, uint8_t twoRegs, const uint8_t *table)
 {
-    SnesHdma *h = &g_snes.hdma[channel & 7];
+    sdevkit__hdma_channel *h = &sdevkit__pseudo.hdma[channel & 7];
     h->reg = reg;
     h->two = twoRegs;
     h->table = table;
 }
 
-u8 snesDmaFits(u16 bytes)
+uint8_t sdevkit_dma_fits(uint16_t bytes)
 {
-    if (g_snes.regs[PPU_INIDISP] & 0x80) {
+    if (sdevkit__pseudo.regs[SDEVKIT_PPU_INIDISP] & 0x80) {
         return 1;
     }
-    return (u8)(g_snes.in_vblank && g_snes.dma_count + bytes <= SNES_VBLANK_DMA_BYTES);
+    return (uint8_t)(sdevkit__pseudo.in_vblank && sdevkit__pseudo.dma_count + bytes <= SDEVKIT__VBLANK_DMA_BYTES);
 }
 
-void snesHdmaEnable(u8 channels)
+void sdevkit_hdma_enable(uint8_t channels)
 {
-    g_snes.hdma_enabled = channels;
+    sdevkit__pseudo.hdma_enabled = channels;
 }

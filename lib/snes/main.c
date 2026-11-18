@@ -1,5 +1,5 @@
 /*
- * The main loop of superdevkit's library on the SNES: the frame rhythm of snes/loop.h.
+ * The main loop of superdevkit's library on the SNES: the frame rhythm of sdevkit/loop.h.
  *
  * One tick per frame: read the joypads, run the tick, then in the vertical blank that follows
  * copy the OAM shadow and let the game upload what the tick prepared (game_vblank).
@@ -12,44 +12,44 @@
  *
  * Not done here: sound and save RAM.
  *
- * platform_start() and platform_frame() are also what the replay test plays a recording with
+ * sdevkit__start() and sdevkit__frame() are also what the replay test plays a recording with
  * (dev/replay/driver.c, REPLAY_PLATFORM), so it runs the same code as the ROM you play.
  */
-#include "snes/loop.h"
-#include "snes/snes.h"
+#include "sdevkit/loop.h"
+#include "sdevkit/snes.h"
 #include "hw.h"
 
-void platform_reset_video(void);
-void platform_oam_upload(void);
-void platform_wait_vblank(void);
-void platform_read_pads(u16 *pad1, u16 *pad2);
+void sdevkit__reset_video(void);
+void sdevkit__oam_upload(void);
+void sdevkit__wait_vblank(void);
+void sdevkit__read_pads(uint16_t *pad1, uint16_t *pad2);
 
 /* Before game_init: the console in a known state, the screen off. */
-void platform_start(void)
+void sdevkit__start(void)
 {
     WRIO = 0xFF;        /* the H/V counter latch needs bit 7 set */
     NMITIMEN = 0;
-    platform_reset_video();
+    sdevkit__reset_video();
     NMITIMEN = 0x01;    /* automatic joypad read, no interrupts */
 }
 
 /* After each game_tick: the next vertical blank, the OAM shadow, the game's uploads. */
-void platform_frame(void)
+void sdevkit__frame(void)
 {
-    platform_wait_vblank();
-    platform_oam_upload();
+    sdevkit__wait_vblank();
+    sdevkit__oam_upload();
     game_vblank();
 }
 
 int main(void)
 {
-    uint16_t pad[SNES_PADS];
+    uint16_t pad[SDEVKIT_PADS];
 
-    platform_start();
+    sdevkit__start();
     game_init(0);
     for (;;) {
-        platform_read_pads(&pad[0], &pad[1]);
+        sdevkit__read_pads(&pad[0], &pad[1]);
         game_tick(pad);
-        platform_frame();
+        sdevkit__frame();
     }
 }

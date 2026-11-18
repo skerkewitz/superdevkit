@@ -10,3 +10,4 @@ out/
 node_modules/
 docs/book/.vitepress/cache/
 docs/book/.vitepress/dist/
+__pycache__/

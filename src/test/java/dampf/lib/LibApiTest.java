@@ -16,15 +16,13 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
- * The console API of the dev kit (ADR record 29): every function {@code lib/include/snes/snes.h}
- * declares for games exists in {@code lib/snes} and in {@code lib/pseudo} (the desktop), built or
- * as a stub, and has its row in the table
- * of {@code lib/README.md}. The PC side of the header (the {@code snes_xxx()} functions after
- * "PC side") is the PC implementation's interface, not the console API, and is not checked.
+ * The console API of the dev kit (ADR records 29 and 34): every function
+ * {@code lib/include/sdevkit/snes.h} declares exists in {@code lib/snes} and in {@code lib/pseudo}
+ * (the desktop), built or as a stub, and has its row in the table of {@code lib/README.md}.
  */
 class LibApiTest {
 
-    private static final Path HEADER = Path.of("lib/include/snes/snes.h");
+    private static final Path HEADER = Path.of("lib/include/sdevkit/snes.h");
     private static final Path SNES = Path.of("lib/snes");
     private static final Path PSEUDO = Path.of("lib/pseudo");
     private static final Path README = Path.of("lib/README.md");
@@ -39,11 +37,8 @@ class LibApiTest {
     }
 
     static Set<String> consoleApi() throws IOException {
-        String h = Files.readString(HEADER);
-        int pc = h.indexOf("/* --- PC side");
-        assertTrue(pc > 0, HEADER + " has no \"PC side\" section");
         Set<String> names = new TreeSet<>();
-        Matcher m = DECLARATION.matcher(code(h.substring(0, pc)));
+        Matcher m = DECLARATION.matcher(code(Files.readString(HEADER)));
         while (m.find()) {
             names.add(m.group(1));
         }
@@ -52,7 +47,7 @@ class LibApiTest {
 
     @Test
     void theHeaderDeclaresTheConsoleApi() throws IOException {
-        assertTrue(consoleApi().containsAll(List.of("setMode", "dmaCopyVram", "oamSet", "snesDmaFits")), consoleApi().toString());
+        assertTrue(consoleApi().containsAll(List.of("sdevkit_set_mode", "sdevkit_dma_copy_vram", "sdevkit_oam_set", "sdevkit_dma_fits", "sdevkit_dbg_vram")), consoleApi().toString());
     }
 
     @Test
@@ -77,7 +72,7 @@ class LibApiTest {
         }
         List<String> missing = new ArrayList<>(consoleApi());
         missing.removeAll(defined);
-        assertEquals(List.of(), missing, "functions of snes.h that " + platform + " does not define (a stub counts)");
+        assertEquals(List.of(), missing, "functions of sdevkit/snes.h that " + platform + " does not define (a stub counts)");
     }
 
     @Test
@@ -87,6 +82,6 @@ class LibApiTest {
         while (m.find()) {
             rows.add(m.group(1));
         }
-        assertEquals(consoleApi(), rows, "the rows of the table in lib/README.md and the console API of snes.h");
+        assertEquals(consoleApi(), rows, "the rows of the table in lib/README.md and the console API of sdevkit/snes.h");
     }
 }

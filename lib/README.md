@@ -6,7 +6,7 @@ compiled together with the implementation of its platform; it calls nothing else
 
 | Folder | What |
 | --- | --- |
-| `include/snes/snes.h` | The console API: the PVSnesLib-shaped functions and the `snesXxx()` extensions, with their constants and the sprite table `oamMemory`. Its last section, the PC side (`snes_xxx()`), is the PC implementation's interface, not for games. |
+| `include/snes/snes.h` | The console API: the PVSnesLib-shaped functions and the `snesXxx()` extensions, with their constants and the sprite table `sdevkit_oam_memory`. Its last section, the PC side (`snes_xxx()`), is the PC implementation's interface, not for games. |
 | `include/snes/loop.h` | The frame rhythm: the library's main loop calls `game_init`, then per frame `game_tick` and `game_vblank`, which every game defines; the pad bits `KEY_*`. |
 | `snes/` | The SNES: the API in C with registers as `volatile` pointers (`snes.c`, `hw.h`) and the main loop (`main.c`), compiled by dampf with the game. See its [README](snes/README.md). |
 | `pseudo/` | The desktop: the pseudo SNES, taken over from Blubber Blasen's `src/snes`: the memories, the registers and the API in portable C, and a renderer that builds the picture line by line as the PPU does (`render.c`). It counts every byte the SNES would lose (written outside the vertical blank, or more than a vertical blank can copy). New against the game's copy: 16 x 16 background tiles, and row y of the picture is scanline y + 1 as on the SNES. |
@@ -36,34 +36,35 @@ Desktop means `pseudo/` with `desktop/` (Linux now).
 
 | Function | SNES | desktop |
 | --- | --- | --- |
-| `setMode` | built | built |
-| `setBrightness` | built | built |
-| `setScreenOn` | built | built |
-| `setScreenOff` | built | built |
-| `setColorEffect` | built | built |
-| `setColorIntensity` | built | built |
-| `setPaletteColor` | built | built |
-| `dmaCopyVram` | built | built |
-| `dmaCopyCGram` | built | built |
-| `dmaClearVram` | built | built |
-| `bgSetGfxPtr` | built | built |
-| `bgSetMapPtr` | built | built |
-| `bgSetScroll` | built | built |
-| `bgSetEnable` | built | built |
-| `bgSetDisable` | built | built |
-| `bgSetEnableSub` | built | built |
-| `bgSetDisableSub` | built | built |
-| `bgInitTileSet` | built | built |
-| `bgInitMapSet` | built | built |
-| `oamInit` | built | built |
-| `oamInitGfxSet` | built | built |
-| `oamInitGfxAttr` | built | built |
-| `oamSet` | built | built |
-| `oamSetXY` | built | built |
-| `oamSetEx` | built | built |
-| `oamSetVisible` | built | built |
-| `oamClear` | built | built |
-| `snesRegWrite` | built | built |
-| `snesHdmaSet` | built | built |
-| `snesHdmaEnable` | built | built |
-| `snesDmaFits` | built | built |
+| `sdevkit_set_mode` | built | built |
+| `sdevkit_set_brightness` | built | built |
+| `sdevkit_set_screen_on` | built | built |
+| `sdevkit_set_screen_off` | built | built |
+| `sdevkit_set_color_effect` | built | built |
+| `sdevkit_set_color_intensity` | built | built |
+| `sdevkit_set_palette_color` | built | built |
+| `sdevkit_dma_copy_vram` | built | built |
+| `sdevkit_dma_copy_cgram` | built | built |
+| `sdevkit_dma_clear_vram` | built | built |
+| `sdevkit_bg_set_gfx_ptr` | built | built |
+| `sdevkit_bg_set_map_ptr` | built | built |
+| `sdevkit_bg_set_scroll` | built | built |
+| `sdevkit_bg_set_enable` | built | built |
+| `sdevkit_bg_set_disable` | built | built |
+| `sdevkit_bg_set_enable_sub` | built | built |
+| `sdevkit_bg_set_disable_sub` | built | built |
+| `sdevkit_bg_init_tile_set` | built | built |
+| `sdevkit_bg_init_map_set` | built | built |
+| `sdevkit_oam_init` | built | built |
+| `sdevkit_oam_init_gfx_set` | built | built |
+| `sdevkit_oam_init_gfx_attr` | built | built |
+| `sdevkit_oam_set` | built | built |
+| `sdevkit_oam_set_xy` | built | built |
+| `sdevkit_oam_set_ex` | built | built |
+| `sdevkit_oam_set_visible` | built | built |
+| `sdevkit_oam_clear` | built | built |
+| `sdevkit_reg_write` | built | built |
+| `sdevkit_hdma_set` | built | built |
+| `sdevkit_hdma_enable` | built | built |
+| `sdevkit_dma_fits` | built | built |
+| `sdevkit_dbg_vram` | built (a single zero word: the SNES cannot read VRAM) | built |

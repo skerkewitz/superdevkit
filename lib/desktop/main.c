@@ -1,12 +1,12 @@
 /*
  * The desktop frontend of superdevkit (Linux now, Windows next; ADR record 32): a window with
- * raylib, the keyboard and a gamepad as the SNES joypad, and the frame rhythm of snes/loop.h on
- * the pseudo SNES (lib/pseudo):
+ * raylib, the keyboard and a gamepad as the SNES joypad, and the frame rhythm of sdevkit/loop.h
+ * on the pseudo SNES (lib/pseudo):
  *
  *   game_tick(pads)     the picture is being drawn: VRAM and CGRAM take nothing now
- *   snes_vblank()       the vertical blank begins: the sprite table is copied
+ *   sdevkit__vblank()   the vertical blank begins: the sprite table is copied
  *   game_vblank()       the game's uploads
- *   snes_render()       the picture of the frame, which ends the vertical blank
+ *   sdevkit__render()   the picture of the frame, which ends the vertical blank
  *
  * The pseudo SNES counts every byte that would not arrive on the console (written outside the
  * vertical blank, or more than one vertical blank can copy), so the desktop finds what the SNES
@@ -24,8 +24,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "snes/loop.h"
-#include "snes/snes.h"
+#include "sdevkit/loop.h"
+#include "sdevkit/snes.h"
+#include "pseudo.h"
 /* raylib names its keyboard keys KEY_UP, KEY_A ...: the joypad bits of loop.h go, this file
  * writes them as numbers */
 #undef KEY_B
@@ -46,17 +47,17 @@
 #define GAME_NAME "superdevkit"
 #endif
 
-static unsigned char rgba[SNES_W * SNES_H * 4];
+static unsigned char rgba[SDEVKIT__W * SDEVKIT__H * 4];
 
 /* The picture of the pseudo SNES (BGR 5:5:5) as RGBA. */
 static void picture(void)
 {
-    static u16 frame[SNES_W * SNES_H];
+    static uint16_t frame[SDEVKIT__W * SDEVKIT__H];
     int i;
 
-    snes_render(frame);
-    for (i = 0; i < SNES_W * SNES_H; i++) {
-        u16 c = frame[i];
+    sdevkit__render(frame);
+    for (i = 0; i < SDEVKIT__W * SDEVKIT__H; i++) {
+        uint16_t c = frame[i];
         int r = c & 31, g = (c >> 5) & 31, b = (c >> 10) & 31;
         rgba[i * 4 + 0] = (unsigned char)((r << 3) | (r >> 2));
         rgba[i * 4 + 1] = (unsigned char)((g << 3) | (g >> 2));
@@ -66,21 +67,21 @@ static void picture(void)
 }
 
 /* One frame of the console; returns the bytes lost in it. */
-static unsigned frame_step(const uint16_t pad[SNES_PADS])
+static unsigned frame_step(const uint16_t pad[SDEVKIT_PADS])
 {
-    SnesStats s;
+    sdevkit__frame_stats s;
 
     game_tick(pad);
-    snes_vblank();
+    sdevkit__vblank();
     game_vblank();
-    s = snes_stats();
+    s = sdevkit__stats();
     picture();
     return s.dma_lost;
 }
 
 static void save_png(const char *path)
 {
-    Image img = { rgba, SNES_W, SNES_H, 1, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 };
+    Image img = { rgba, SDEVKIT__W, SDEVKIT__H, 1, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 };
     ExportImage(img, path);
 }
 
@@ -125,21 +126,21 @@ static int window(int scale)
     int shots = 0;
 
     SetTraceLogLevel(LOG_WARNING);
-    InitWindow(SNES_W * scale, SNES_H * scale, GAME_NAME " (superdevkit)");
+    InitWindow(SDEVKIT__W * scale, SDEVKIT__H * scale, GAME_NAME " (superdevkit)");
     SetTargetFPS(60);
     {
-        Image img = { rgba, SNES_W, SNES_H, 1, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 };
+        Image img = { rgba, SDEVKIT__W, SDEVKIT__H, 1, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 };
         tex = LoadTextureFromImage(img);
     }
     while (!WindowShouldClose()) {
-        uint16_t pad[SNES_PADS] = { 0, 0 };
+        uint16_t pad[SDEVKIT_PADS] = { 0, 0 };
         pad[0] = keyboard();
         lost += frame_step(pad);
         UpdateTexture(tex, rgba);
         BeginDrawing();
         ClearBackground(BLACK);
-        DrawTexturePro(tex, (Rectangle){ 0, 0, SNES_W, SNES_H },
-                       (Rectangle){ 0, 0, (float)(SNES_W * scale), (float)(SNES_H * scale) }, (Vector2){ 0, 0 }, 0, WHITE);
+        DrawTexturePro(tex, (Rectangle){ 0, 0, SDEVKIT__W, SDEVKIT__H },
+                       (Rectangle){ 0, 0, (float)(SDEVKIT__W * scale), (float)(SDEVKIT__H * scale) }, (Vector2){ 0, 0 }, 0, WHITE);
         EndDrawing();
         if (IsKeyPressed(KEY_F12)) {
             char name[64];
@@ -214,7 +215,7 @@ static int check(const char *path, const char *out)
     }
     fclose(in);
     for (f = 0; f < frames; f++) {
-        uint16_t pad[SNES_PADS] = { 0, 0 };
+        uint16_t pad[SDEVKIT_PADS] = { 0, 0 };
         unsigned l;
         int i;
         for (i = 0; i < npress; i++) {
@@ -258,7 +259,7 @@ int main(int argc, char **argv)
             return 2;
         }
     }
-    snes_reset();
+    sdevkit__reset();
     game_init(0);
     if (check_file != NULL) {
         SetTraceLogLevel(LOG_WARNING);

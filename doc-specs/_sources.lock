@@ -62,7 +62,7 @@ guide/introduction docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.
 guide/introduction docs/adr/0034-every-name-of-the-console-api-starts-with.md e719f3a2fb26
 guide/introduction docs/optimizations.md 647f94a894cd
 guide/introduction docs/roadmap.md 60dccbe5a64c
-guide/introduction lib/README.md 0e0c12de9a80
+guide/introduction lib/README.md 05423ccb1200
 guide/introduction lib/snes/README.md 986a2679dcb9
 guide/writing-c doc-specs/guide/writing-c.spec.md 487df1ba795b
 guide/writing-c docs/ADR.md 1d63c800663b
@@ -343,7 +343,7 @@ inside/roadmap docs/adr/0032-desktop-and-web-are-for-prototyping-with-sound.md 7
 inside/roadmap docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md 5ad51480af48
 inside/roadmap docs/adr/0034-every-name-of-the-console-api-starts-with.md e719f3a2fb26
 inside/roadmap docs/roadmap.md 60dccbe5a64c
-inside/roadmap lib/README.md 0e0c12de9a80
+inside/roadmap lib/README.md 05423ccb1200
 inside/testing README.md 7a2f2177bf74
 inside/testing build.gradle.kts 88f5fb2832a4
 inside/testing dev/README.md 0e53a9bf595c
@@ -520,7 +520,7 @@ reference/limits docs/optimizations.md 647f94a894cd
 reference/limits docs/roadmap.md 60dccbe5a64c
 reference/limits docs/subset.md 91c2e2a5019a
 reference/limits docs/timing.md ce5dfbe3b13c
-reference/limits lib/README.md 0e0c12de9a80
+reference/limits lib/README.md 05423ccb1200
 reference/limits lib/snes/README.md 986a2679dcb9
 reference/output-files README.md 7a2f2177bf74
 reference/output-files doc-specs/reference/output-files.spec.md a0a6a169b3b0

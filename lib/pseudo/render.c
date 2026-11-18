@@ -22,74 +22,74 @@
 
 #include <string.h>
 
-#define W SNES_W
-#define H SNES_H
+#define W SDEVKIT__W
+#define H SDEVKIT__H
 
 enum { L_BG1, L_BG2, L_BG3, L_BG4, L_OBJ, L_BACK };
 
 /* One layer's pixels on the current line. */
 typedef struct {
-    u8 color[W];     /* CGRAM index */
-    u8 opaque[W];
-    u8 prio[W];      /* tile priority bit, or sprite priority 0..3 */
+    uint8_t color[W];     /* CGRAM index */
+    uint8_t opaque[W];
+    uint8_t prio[W];      /* tile priority bit, or sprite priority 0..3 */
 } Line;
 
 static Line bg_line[3];
 static Line obj_line;
-static u8   obj_pal[W];          /* sprite palette 0..7, for colour math on palettes 4..7 */
-static u8   win1[W], win2[W];
+static uint8_t   obj_pal[W];          /* sprite palette 0..7, for colour math on palettes 4..7 */
+static uint8_t   win1[W], win2[W];
 
 /* --- HDMA ---------------------------------------------------------------------------- */
 typedef struct {
-    const u8 *p;          /* next table byte */
-    u8        lines;      /* lines left of the current entry */
-    u8        repeat;     /* new data on every line */
-    u8        done;
-    const u8 *data;       /* data of the current line */
+    const uint8_t *p;          /* next table byte */
+    uint8_t        lines;      /* lines left of the current entry */
+    uint8_t        repeat;     /* new data on every line */
+    uint8_t        done;
+    const uint8_t *data;       /* data of the current line */
 } HdmaRun;
 
 static HdmaRun hdma_run[8];
 
 static void hdma_start(void)
 {
-    u8 c;
+    uint8_t c;
     for (c = 0; c < 8; c++) {
         HdmaRun *r = &hdma_run[c];
-        r->p = g_snes.hdma[c].table;
+        r->p = sdevkit__pseudo.hdma[c].table;
         r->lines = 0;
-        r->done = (u8)(!(g_snes.hdma_enabled & (1 << c)) || !r->p);
+        r->done = (uint8_t)(!(sdevkit__pseudo.hdma_enabled & (1 << c)) || !r->p);
     }
 }
 
 static void hdma_line(void)
 {
-    u8 c;
+    uint8_t c;
     for (c = 0; c < 8; c++) {
         HdmaRun *r = &hdma_run[c];
-        const SnesHdma *h = &g_snes.hdma[c];
-        u8 size = (u8)(h->two ? 2 : 1), write = 0;
+        const sdevkit__hdma_channel *h = &sdevkit__pseudo.hdma[c];
+        uint8_t size = (uint8_t)(h->two ? 2 : 1), write = 0;
         if (r->done) {
             continue;
         }
         if (r->lines == 0) {
-            u8 count = *r->p++;
+            uint8_t count = *r->p++;
             if (count == 0) {
                 r->done = 1;
                 continue;
             }
-            r->repeat = (u8)(count > 0x80);
-            r->lines = (u8)(count > 0x80 ? count - 0x80 : count);
+            r->repeat = (uint8_t)(count > 0x80);
+            r->lines = (uint8_t)(count > 0x80 ? count - 0x80 : count);
             r->data = r->p;
-            r->p += r->repeat ? (u16)size * r->lines : size;
+            r->p += r->repeat ? (uint16_t)size * r->lines : size;
             write = 1;
         } else if (r->repeat) {
             r->data += size;
             write = 1;
         }
         if (write) {
-            snes_write_reg(h->reg, r->data[0]);
+            sdevkit__write_reg(h->reg, r->data[0]);
             if (h->two) {
-                snes_write_reg((u8)(h->reg + 1), r->data[1]);
+                sdevkit__write_reg((uint8_t)(h->reg + 1), r->data[1]);
             }
         }
         r->lines--;
@@ -98,89 +98,89 @@ static void hdma_line(void)
 
 /* --- Tiles ------------------------------------------------------------------------------ */
 /* Colour 0..15 (4 bpp) or 0..3 (2 bpp) of pixel (x, y) of the tile at this VRAM word. */
-static u8 tile_pixel(u16 addr, u8 bpp, u8 x, u8 y)
+static uint8_t tile_pixel(uint16_t addr, uint8_t bpp, uint8_t x, uint8_t y)
 {
-    u16 w0 = g_snes.vram[(u16)(addr + y) & (SNES_VRAM_WORDS - 1)];
-    u8 bit = (u8)(7 - x);
-    u8 c = (u8)(((w0 >> bit) & 1) | (((w0 >> (8 + bit)) & 1) << 1));
+    uint16_t w0 = sdevkit__pseudo.vram[(uint16_t)(addr + y) & (SDEVKIT__VRAM_WORDS - 1)];
+    uint8_t bit = (uint8_t)(7 - x);
+    uint8_t c = (uint8_t)(((w0 >> bit) & 1) | (((w0 >> (8 + bit)) & 1) << 1));
     if (bpp == 4) {
-        u16 w1 = g_snes.vram[(u16)(addr + 8 + y) & (SNES_VRAM_WORDS - 1)];
-        c = (u8)(c | (((w1 >> bit) & 1) << 2) | (((w1 >> (8 + bit)) & 1) << 3));
+        uint16_t w1 = sdevkit__pseudo.vram[(uint16_t)(addr + 8 + y) & (SDEVKIT__VRAM_WORDS - 1)];
+        c = (uint8_t)(c | (((w1 >> bit) & 1) << 2) | (((w1 >> (8 + bit)) & 1) << 3));
     }
     return c;
 }
 
 /* --- Backgrounds -------------------------------------------------------------------------- */
-static void draw_bg(u8 bg, u8 line)
+static void draw_bg(uint8_t bg, uint8_t line)
 {
     Line *out = &bg_line[bg];
-    u8 bpp = (u8)(bg < 2 ? 4 : 2);
-    u8 sc = g_snes.regs[PPU_BG1SC + bg];
-    u16 map = (u16)((sc & 0xFC) << 8);
-    u16 mapw = (u16)((sc & 1) ? 64 : 32), maph = (u16)((sc & 2) ? 64 : 32);
-    u8 nba = g_snes.regs[bg < 2 ? PPU_BG12NBA : PPU_BG34NBA];
-    u16 chr = (u16)(((bg & 1) ? nba >> 4 : nba & 0x0F) << 12);
-    u16 py = (u16)((line + g_snes.vofs[bg]) & 0x3FF);
-    u8 big = (u8)((g_snes.regs[PPU_BGMODE] >> (4 + bg)) & 1);   /* BGMODE: this layer has 16 x 16 tiles */
-    u8 shift = (u8)(big ? 4 : 3);
-    u16 ty = (u16)((py >> shift) & (maph - 1));
-    u16 hofs = g_snes.hofs[bg];
-    s16 x = (s16)-(hofs & 7);   /* the first tile may start left of the screen */
+    uint8_t bpp = (uint8_t)(bg < 2 ? 4 : 2);
+    uint8_t sc = sdevkit__pseudo.regs[SDEVKIT_PPU_BG1SC + bg];
+    uint16_t map = (uint16_t)((sc & 0xFC) << 8);
+    uint16_t mapw = (uint16_t)((sc & 1) ? 64 : 32), maph = (uint16_t)((sc & 2) ? 64 : 32);
+    uint8_t nba = sdevkit__pseudo.regs[bg < 2 ? SDEVKIT_PPU_BG12NBA : SDEVKIT_PPU_BG34NBA];
+    uint16_t chr = (uint16_t)(((bg & 1) ? nba >> 4 : nba & 0x0F) << 12);
+    uint16_t py = (uint16_t)((line + sdevkit__pseudo.vofs[bg]) & 0x3FF);
+    uint8_t big = (uint8_t)((sdevkit__pseudo.regs[SDEVKIT_PPU_BGMODE] >> (4 + bg)) & 1);   /* BGMODE: this layer has 16 x 16 tiles */
+    uint8_t shift = (uint8_t)(big ? 4 : 3);
+    uint16_t ty = (uint16_t)((py >> shift) & (maph - 1));
+    uint16_t hofs = sdevkit__pseudo.hofs[bg];
+    int16_t x = (int16_t)-(hofs & 7);   /* the first tile may start left of the screen */
 
     /* one tile (8 pixels) at a time: its map entry and row are read once */
-    for (; x < W; x = (s16)(x + 8)) {
-        u16 px = (u16)((x + hofs) & 0x3FF);
-        u16 tx = (u16)((px >> shift) & (mapw - 1));
-        u16 screen = (u16)((tx >> 5) + (ty >> 5) * (mapw >> 5));
-        u16 entry = g_snes.vram[(u16)(map + screen * 0x400 + (ty & 31) * 32 + (tx & 31)) & (SNES_VRAM_WORDS - 1)];
-        u8 fy = (u8)(py & 7), pal = (u8)((entry >> 10) & 7), prio = (u8)((entry >> 13) & 1), i;
-        u16 addr;
-        u16 tile = (u16)(entry & 0x3FF);
+    for (; x < W; x = (int16_t)(x + 8)) {
+        uint16_t px = (uint16_t)((x + hofs) & 0x3FF);
+        uint16_t tx = (uint16_t)((px >> shift) & (mapw - 1));
+        uint16_t screen = (uint16_t)((tx >> 5) + (ty >> 5) * (mapw >> 5));
+        uint16_t entry = sdevkit__pseudo.vram[(uint16_t)(map + screen * 0x400 + (ty & 31) * 32 + (tx & 31)) & (SDEVKIT__VRAM_WORDS - 1)];
+        uint8_t fy = (uint8_t)(py & 7), pal = (uint8_t)((entry >> 10) & 7), prio = (uint8_t)((entry >> 13) & 1), i;
+        uint16_t addr;
+        uint16_t tile = (uint16_t)(entry & 0x3FF);
         if (big) {                     /* a 16 x 16 tile is the 8 x 8 tiles n, n + 1, n + 16, n + 17 */
-            u8 right = (u8)((px >> 3) & 1), lower = (u8)((py >> 3) & 1);
-            if (entry & BG_TIL_FLIPX) right = (u8)!right;
-            if (entry & BG_TIL_FLIPY) lower = (u8)!lower;
-            tile = (u16)(tile + right + lower * 16);
+            uint8_t right = (uint8_t)((px >> 3) & 1), lower = (uint8_t)((py >> 3) & 1);
+            if (entry & SDEVKIT_BG_TIL_FLIPX) right = (uint8_t)!right;
+            if (entry & SDEVKIT_BG_TIL_FLIPY) lower = (uint8_t)!lower;
+            tile = (uint16_t)(tile + right + lower * 16);
         }
-        if (entry & BG_TIL_FLIPY) fy = (u8)(7 - fy);
-        addr = (u16)(chr + tile * (bpp == 4 ? 16 : 8));
+        if (entry & SDEVKIT_BG_TIL_FLIPY) fy = (uint8_t)(7 - fy);
+        addr = (uint16_t)(chr + tile * (bpp == 4 ? 16 : 8));
         for (i = 0; i < 8; i++) {
-            s16 sx = (s16)(x + i);
-            u8 c;
+            int16_t sx = (int16_t)(x + i);
+            uint8_t c;
             if (sx < 0 || sx >= W) {
                 continue;
             }
-            c = tile_pixel(addr, bpp, (u8)((entry & BG_TIL_FLIPX) ? 7 - i : i), fy);
-            out->opaque[sx] = (u8)(c != 0);
-            out->color[sx] = (u8)(bpp == 4 ? pal * 16 + c : pal * 4 + c);
+            c = tile_pixel(addr, bpp, (uint8_t)((entry & SDEVKIT_BG_TIL_FLIPX) ? 7 - i : i), fy);
+            out->opaque[sx] = (uint8_t)(c != 0);
+            out->color[sx] = (uint8_t)(bpp == 4 ? pal * 16 + c : pal * 4 + c);
             out->prio[sx] = prio;
         }
     }
 }
 
 /* --- Sprites -------------------------------------------------------------------------------- */
-static const u8 obj_sizes[8][2] = {
+static const uint8_t obj_sizes[8][2] = {
     { 8, 16 }, { 8, 32 }, { 8, 64 }, { 16, 32 }, { 16, 64 }, { 32, 64 }, { 16, 32 }, { 16, 32 }
 };
 
-static void draw_sprites(u8 line)
+static void draw_sprites(uint8_t line)
 {
-    u8 list[32], count = 0, tiles = 0, range_over = 0, time_over = 0;
-    u8 obsel = g_snes.regs[PPU_OBSEL];
-    u16 base = (u16)((obsel & 7) << 13);
-    u16 gap = (u16)((((obsel >> 3) & 3) + 1) << 12);
+    uint8_t list[32], count = 0, tiles = 0, range_over = 0, time_over = 0;
+    uint8_t obsel = sdevkit__pseudo.regs[SDEVKIT_PPU_OBSEL];
+    uint16_t base = (uint16_t)((obsel & 7) << 13);
+    uint16_t gap = (uint16_t)((((obsel >> 3) & 3) + 1) << 12);
     int i;
 
     memset(obj_line.opaque, 0, sizeof obj_line.opaque);
 
     /* range: the first 32 sprites on this line */
     for (i = 0; i < 128; i++) {
-        const u8 *o = &g_snes.oam[i * 4];
-        u8 hi = (u8)(g_snes.oam[512 + (i >> 2)] >> ((i & 3) * 2));
-        u8 size = obj_sizes[obsel >> 5][hi & 2 ? 1 : 0];
-        s16 x = (s16)(o[0] | ((hi & 1) << 8));
-        u8 row = (u8)(line - o[1] - 1);   /* drawn one line below y */
-        if (x >= 256) x = (s16)(x - 512);
+        const uint8_t *o = &sdevkit__pseudo.oam[i * 4];
+        uint8_t hi = (uint8_t)(sdevkit__pseudo.oam[512 + (i >> 2)] >> ((i & 3) * 2));
+        uint8_t size = obj_sizes[obsel >> 5][hi & 2 ? 1 : 0];
+        int16_t x = (int16_t)(o[0] | ((hi & 1) << 8));
+        uint8_t row = (uint8_t)(line - o[1] - 1);   /* drawn one line below y */
+        if (x >= 256) x = (int16_t)(x - 512);
         if (row >= size || x <= -size || x >= W) {
             continue;
         }
@@ -188,23 +188,23 @@ static void draw_sprites(u8 line)
             range_over = 1;
             break;
         }
-        list[count++] = (u8)i;
+        list[count++] = (uint8_t)i;
     }
 
     /* time: tiles are fetched from the last sprite in the list to the first */
     {
-        u8 allowed[32][8];   /* per sprite, per 8-pixel column */
+        uint8_t allowed[32][8];   /* per sprite, per 8-pixel column */
         int k;
         memset(allowed, 0, sizeof allowed);
         for (k = count - 1; k >= 0; k--) {
-            const u8 *o = &g_snes.oam[list[k] * 4];
-            u8 hi = (u8)(g_snes.oam[512 + (list[k] >> 2)] >> ((list[k] & 3) * 2));
-            u8 size = obj_sizes[obsel >> 5][hi & 2 ? 1 : 0];
-            s16 x = (s16)(o[0] | ((hi & 1) << 8));
-            u8 col;
-            if (x >= 256) x = (s16)(x - 512);
+            const uint8_t *o = &sdevkit__pseudo.oam[list[k] * 4];
+            uint8_t hi = (uint8_t)(sdevkit__pseudo.oam[512 + (list[k] >> 2)] >> ((list[k] & 3) * 2));
+            uint8_t size = obj_sizes[obsel >> 5][hi & 2 ? 1 : 0];
+            int16_t x = (int16_t)(o[0] | ((hi & 1) << 8));
+            uint8_t col;
+            if (x >= 256) x = (int16_t)(x - 512);
             for (col = 0; col < size / 8; col++) {
-                s16 cx = (s16)(x + col * 8);
+                int16_t cx = (int16_t)(x + col * 8);
                 if (cx <= -8 || cx >= W) {
                     continue;          /* off screen: not fetched */
                 }
@@ -219,83 +219,83 @@ static void draw_sprites(u8 line)
 
         /* draw from the last to the first: lower numbers end up in front */
         for (k = count - 1; k >= 0; k--) {
-            const u8 *o = &g_snes.oam[list[k] * 4];
-            u8 hi = (u8)(g_snes.oam[512 + (list[k] >> 2)] >> ((list[k] & 3) * 2));
-            u8 size = obj_sizes[obsel >> 5][hi & 2 ? 1 : 0];
-            s16 x = (s16)(o[0] | ((hi & 1) << 8));
-            u8 attr = o[3];
-            u16 name = (u16)(o[2] | ((attr & 1) << 8));
-            u8 row = (u8)(line - o[1] - 1), sx;
-            if (x >= 256) x = (s16)(x - 512);
-            if (attr & 0x80) row = (u8)(size - 1 - row);
+            const uint8_t *o = &sdevkit__pseudo.oam[list[k] * 4];
+            uint8_t hi = (uint8_t)(sdevkit__pseudo.oam[512 + (list[k] >> 2)] >> ((list[k] & 3) * 2));
+            uint8_t size = obj_sizes[obsel >> 5][hi & 2 ? 1 : 0];
+            int16_t x = (int16_t)(o[0] | ((hi & 1) << 8));
+            uint8_t attr = o[3];
+            uint16_t name = (uint16_t)(o[2] | ((attr & 1) << 8));
+            uint8_t row = (uint8_t)(line - o[1] - 1), sx;
+            if (x >= 256) x = (int16_t)(x - 512);
+            if (attr & 0x80) row = (uint8_t)(size - 1 - row);
             for (sx = 0; sx < size; sx++) {
-                s16 px = (s16)(x + sx);
-                u8 fx = (u8)((attr & 0x40) ? size - 1 - sx : sx);
-                u16 t, addr;
-                u8 c;
+                int16_t px = (int16_t)(x + sx);
+                uint8_t fx = (uint8_t)((attr & 0x40) ? size - 1 - sx : sx);
+                uint16_t t, addr;
+                uint8_t c;
                 if (px < 0 || px >= W || !allowed[k][sx >> 3]) {
                     continue;
                 }
                 /* the tile of this 8x8 part: the name table wraps within 16 x 16 tiles */
-                t = (u16)((name & 0x100) | ((((name >> 4) + (row >> 3)) & 0x0F) << 4) | (((name & 0x0F) + (fx >> 3)) & 0x0F));
-                addr = (u16)(base + ((t & 0x100) ? gap : 0) + (t & 0xFF) * 16);
-                c = tile_pixel(addr, 4, (u8)(fx & 7), (u8)(row & 7));
+                t = (uint16_t)((name & 0x100) | ((((name >> 4) + (row >> 3)) & 0x0F) << 4) | (((name & 0x0F) + (fx >> 3)) & 0x0F));
+                addr = (uint16_t)(base + ((t & 0x100) ? gap : 0) + (t & 0xFF) * 16);
+                c = tile_pixel(addr, 4, (uint8_t)(fx & 7), (uint8_t)(row & 7));
                 if (c) {
                     obj_line.opaque[px] = 1;
-                    obj_line.color[px] = (u8)(128 + ((attr >> 1) & 7) * 16 + c);
-                    obj_line.prio[px] = (u8)((attr >> 4) & 3);
-                    obj_pal[px] = (u8)((attr >> 1) & 7);
+                    obj_line.color[px] = (uint8_t)(128 + ((attr >> 1) & 7) * 16 + c);
+                    obj_line.prio[px] = (uint8_t)((attr >> 4) & 3);
+                    obj_pal[px] = (uint8_t)((attr >> 1) & 7);
                 }
             }
         }
     }
 
-    g_snes.stats.range_over_lines = (u8)(g_snes.stats.range_over_lines + range_over);
-    g_snes.stats.time_over_lines = (u8)(g_snes.stats.time_over_lines + time_over);
-    if (count > g_snes.stats.most_sprites) g_snes.stats.most_sprites = count;
-    if (tiles > g_snes.stats.most_tiles) g_snes.stats.most_tiles = tiles;
+    sdevkit__pseudo.stats.range_over_lines = (uint8_t)(sdevkit__pseudo.stats.range_over_lines + range_over);
+    sdevkit__pseudo.stats.time_over_lines = (uint8_t)(sdevkit__pseudo.stats.time_over_lines + time_over);
+    if (count > sdevkit__pseudo.stats.most_sprites) sdevkit__pseudo.stats.most_sprites = count;
+    if (tiles > sdevkit__pseudo.stats.most_tiles) sdevkit__pseudo.stats.most_tiles = tiles;
 }
 
 /* --- Windows ---------------------------------------------------------------------------------- */
 /* Is x in the area of a layer whose window select nibble is sel (bit 0 window 1
  * inverted, bit 1 window 1 on, bit 2 window 2 inverted, bit 3 window 2 on)? */
-static u8 in_area(u8 sel, u8 logic, u16 x)
+static uint8_t in_area(uint8_t sel, uint8_t logic, uint16_t x)
 {
-    u8 a = (u8)(win1[x] ^ (sel & 1)), b = (u8)(win2[x] ^ ((sel >> 2) & 1));
-    u8 on1 = (u8)(sel & 2), on2 = (u8)(sel & 8);
+    uint8_t a = (uint8_t)(win1[x] ^ (sel & 1)), b = (uint8_t)(win2[x] ^ ((sel >> 2) & 1));
+    uint8_t on1 = (uint8_t)(sel & 2), on2 = (uint8_t)(sel & 8);
     if (!on1 && !on2) return 0;
     if (!on2) return a;
     if (!on1) return b;
     switch (logic & 3) {
-    case 0:  return (u8)(a | b);
-    case 1:  return (u8)(a & b);
-    case 2:  return (u8)(a ^ b);
-    default: return (u8)!(a ^ b);
+    case 0:  return (uint8_t)(a | b);
+    case 1:  return (uint8_t)(a & b);
+    case 2:  return (uint8_t)(a ^ b);
+    default: return (uint8_t)!(a ^ b);
     }
 }
 
-static u8 layer_sel(u8 layer)
+static uint8_t layer_sel(uint8_t layer)
 {
     switch (layer) {
-    case L_BG1: return (u8)(g_snes.regs[PPU_W12SEL] & 0x0F);
-    case L_BG2: return (u8)(g_snes.regs[PPU_W12SEL] >> 4);
-    case L_BG3: return (u8)(g_snes.regs[PPU_W34SEL] & 0x0F);
-    case L_BG4: return (u8)(g_snes.regs[PPU_W34SEL] >> 4);
-    case L_OBJ: return (u8)(g_snes.regs[PPU_WOBJSEL] & 0x0F);
-    default:    return (u8)(g_snes.regs[PPU_WOBJSEL] >> 4);   /* colour window */
+    case L_BG1: return (uint8_t)(sdevkit__pseudo.regs[SDEVKIT_PPU_W12SEL] & 0x0F);
+    case L_BG2: return (uint8_t)(sdevkit__pseudo.regs[SDEVKIT_PPU_W12SEL] >> 4);
+    case L_BG3: return (uint8_t)(sdevkit__pseudo.regs[SDEVKIT_PPU_W34SEL] & 0x0F);
+    case L_BG4: return (uint8_t)(sdevkit__pseudo.regs[SDEVKIT_PPU_W34SEL] >> 4);
+    case L_OBJ: return (uint8_t)(sdevkit__pseudo.regs[SDEVKIT_PPU_WOBJSEL] & 0x0F);
+    default:    return (uint8_t)(sdevkit__pseudo.regs[SDEVKIT_PPU_WOBJSEL] >> 4);   /* colour window */
     }
 }
 
-static u8 layer_logic(u8 layer)
+static uint8_t layer_logic(uint8_t layer)
 {
-    if (layer < L_OBJ) return (u8)((g_snes.regs[PPU_WBGLOG] >> (layer * 2)) & 3);
-    if (layer == L_OBJ) return (u8)(g_snes.regs[PPU_WOBJLOG] & 3);
-    return (u8)((g_snes.regs[PPU_WOBJLOG] >> 2) & 3);
+    if (layer < L_OBJ) return (uint8_t)((sdevkit__pseudo.regs[SDEVKIT_PPU_WBGLOG] >> (layer * 2)) & 3);
+    if (layer == L_OBJ) return (uint8_t)(sdevkit__pseudo.regs[SDEVKIT_PPU_WOBJLOG] & 3);
+    return (uint8_t)((sdevkit__pseudo.regs[SDEVKIT_PPU_WOBJLOG] >> 2) & 3);
 }
 
 /* --- Main and sub screen ---------------------------------------------------------------------- */
 /* Mode 1, front to back: which layer at which priority. */
-typedef struct { u8 layer, prio; } Slot;
+typedef struct { uint8_t layer, prio; } Slot;
 static const Slot order_bg3_high[] = {
     { L_BG3, 1 }, { L_OBJ, 3 }, { L_BG1, 1 }, { L_BG2, 1 }, { L_OBJ, 2 }, { L_BG1, 0 }, { L_BG2, 0 },
     { L_OBJ, 1 }, { L_OBJ, 0 }, { L_BG3, 0 }
@@ -307,14 +307,14 @@ static const Slot order_normal[] = {
 
 /* The frontmost layer at x on a screen with these layers (TM or TS) and
  * window masks (TMW or TSW). Returns the layer; *color is its CGRAM index. */
-static u8 front(u16 x, u8 shown, u8 masked, u8 *color)
+static uint8_t front(uint16_t x, uint8_t shown, uint8_t masked, uint8_t *color)
 {
-    u8 high = (u8)((g_snes.regs[PPU_BGMODE] & BG3_MODE1_PRIORITY_HIGH) != 0);
+    uint8_t high = (uint8_t)((sdevkit__pseudo.regs[SDEVKIT_PPU_BGMODE] & SDEVKIT_BG3_MODE1_PRIORITY_HIGH) != 0);
     const Slot *order = high ? order_bg3_high : order_normal;
-    u8 n = (u8)(high ? sizeof order_bg3_high / sizeof order_bg3_high[0] : sizeof order_normal / sizeof order_normal[0]);
-    u8 i;
+    uint8_t n = (uint8_t)(high ? sizeof order_bg3_high / sizeof order_bg3_high[0] : sizeof order_normal / sizeof order_normal[0]);
+    uint8_t i;
     for (i = 0; i < n; i++) {
-        u8 layer = order[i].layer;
+        uint8_t layer = order[i].layer;
         const Line *l = layer == L_OBJ ? &obj_line : &bg_line[layer];
         if (!(shown & (1 << layer)) || !l->opaque[x] || l->prio[x] != order[i].prio) {
             continue;
@@ -330,122 +330,122 @@ static u8 front(u16 x, u8 shown, u8 masked, u8 *color)
 }
 
 /* --- Colour math --------------------------------------------------------------------------------- */
-static u16 add_sub(u16 m, u16 s, u8 sub, u8 half)
+static uint16_t add_sub(uint16_t m, uint16_t s, uint8_t sub, uint8_t half)
 {
-    u16 out = 0;
-    u8 shift;
-    for (shift = 0; shift <= 10; shift = (u8)(shift + 5)) {
-        s16 a = (s16)((m >> shift) & 31), b = (s16)((s >> shift) & 31), v;
+    uint16_t out = 0;
+    uint8_t shift;
+    for (shift = 0; shift <= 10; shift = (uint8_t)(shift + 5)) {
+        int16_t a = (int16_t)((m >> shift) & 31), b = (int16_t)((s >> shift) & 31), v;
         if (sub) {
-            v = (s16)(a - b);
+            v = (int16_t)(a - b);
             if (v < 0) v = 0;
-            if (half) v = (s16)(v >> 1);
+            if (half) v = (int16_t)(v >> 1);
         } else {
-            v = (s16)(a + b);
-            if (half) v = (s16)(v >> 1);
+            v = (int16_t)(a + b);
+            if (half) v = (int16_t)(v >> 1);
             if (v > 31) v = 31;
         }
-        out = (u16)(out | (v << shift));
+        out = (uint16_t)(out | (v << shift));
     }
     return out;
 }
 
-static u8 region(u8 mode, u8 in_window)
+static uint8_t region(uint8_t mode, uint8_t in_window)
 {
     switch (mode & 3) {
     case 0:  return 0;               /* never */
-    case 1:  return (u8)!in_window;  /* outside the colour window */
+    case 1:  return (uint8_t)!in_window;  /* outside the colour window */
     case 2:  return in_window;       /* inside */
     default: return 1;               /* always */
     }
 }
 
-static u16 brighten(u16 c, u8 level)
+static uint16_t brighten(uint16_t c, uint8_t level)
 {
-    u16 r = (u16)((c & 31) * level / 15), g = (u16)(((c >> 5) & 31) * level / 15), b = (u16)(((c >> 10) & 31) * level / 15);
-    return (u16)(r | (g << 5) | (b << 10));
+    uint16_t r = (uint16_t)((c & 31) * level / 15), g = (uint16_t)(((c >> 5) & 31) * level / 15), b = (uint16_t)(((c >> 10) & 31) * level / 15);
+    return (uint16_t)(r | (g << 5) | (b << 10));
 }
 
-void snes_render(u16 *out)
+void sdevkit__render(uint16_t *out)
 {
-    u16 y, x;
+    uint16_t y, x;
 
-    memset(&g_snes.stats, 0, sizeof g_snes.stats);
-    g_snes.in_vblank = 0;   /* the picture is being drawn: VRAM and CGRAM are closed */
+    memset(&sdevkit__pseudo.stats, 0, sizeof sdevkit__pseudo.stats);
+    sdevkit__pseudo.in_vblank = 0;   /* the picture is being drawn: VRAM and CGRAM are closed */
     hdma_start();
 
     /* Row y of the picture is scanline y + 1: the SNES never shows scanline 0, so a background
      * scrolled to 0 shows its line 1 first, and a sprite at y appears on row y. (Taken over from
      * Blubber Blasen's pseudo SNES, which drew row y as scanline y, a line lower than the SNES.) */
     for (y = 0; y < H; y++) {
-        u8 inidisp, tm, ts, tmw, tsw, cgwsel, cgadsub, cw_sel, cw_logic;
-        u16 wl1, wr1, wl2, wr2, fixed;
-        u16 *row = &out[y * W];
+        uint8_t inidisp, tm, ts, tmw, tsw, cgwsel, cgadsub, cw_sel, cw_logic;
+        uint16_t wl1, wr1, wl2, wr2, fixed;
+        uint16_t *row = &out[y * W];
 
         hdma_line();
-        inidisp = g_snes.regs[PPU_INIDISP];
+        inidisp = sdevkit__pseudo.regs[SDEVKIT_PPU_INIDISP];
         if (inidisp & 0x80) {
             memset(row, 0, W * sizeof row[0]);
             continue;
         }
-        tm = g_snes.regs[PPU_TM];
-        ts = g_snes.regs[PPU_TS];
-        tmw = g_snes.regs[PPU_TMW];
-        tsw = g_snes.regs[PPU_TSW];
-        cgwsel = g_snes.regs[PPU_CGWSEL];
-        cgadsub = g_snes.regs[PPU_CGADSUB];
+        tm = sdevkit__pseudo.regs[SDEVKIT_PPU_TM];
+        ts = sdevkit__pseudo.regs[SDEVKIT_PPU_TS];
+        tmw = sdevkit__pseudo.regs[SDEVKIT_PPU_TMW];
+        tsw = sdevkit__pseudo.regs[SDEVKIT_PPU_TSW];
+        cgwsel = sdevkit__pseudo.regs[SDEVKIT_PPU_CGWSEL];
+        cgadsub = sdevkit__pseudo.regs[SDEVKIT_PPU_CGADSUB];
         cw_sel = layer_sel(L_BACK);
         cw_logic = layer_logic(L_BACK);
-        fixed = (u16)(g_snes.fixed_r | (g_snes.fixed_g << 5) | (g_snes.fixed_b << 10));
+        fixed = (uint16_t)(sdevkit__pseudo.fixed_r | (sdevkit__pseudo.fixed_g << 5) | (sdevkit__pseudo.fixed_b << 10));
 
-        wl1 = g_snes.regs[PPU_WH0];
-        wr1 = g_snes.regs[PPU_WH1];
-        wl2 = g_snes.regs[PPU_WH2];
-        wr2 = g_snes.regs[PPU_WH3];
+        wl1 = sdevkit__pseudo.regs[SDEVKIT_PPU_WH0];
+        wr1 = sdevkit__pseudo.regs[SDEVKIT_PPU_WH1];
+        wl2 = sdevkit__pseudo.regs[SDEVKIT_PPU_WH2];
+        wr2 = sdevkit__pseudo.regs[SDEVKIT_PPU_WH3];
         for (x = 0; x < W; x++) {
-            win1[x] = (u8)(x >= wl1 && x <= wr1);
-            win2[x] = (u8)(x >= wl2 && x <= wr2);
+            win1[x] = (uint8_t)(x >= wl1 && x <= wr1);
+            win2[x] = (uint8_t)(x >= wl2 && x <= wr2);
         }
 
         for (x = 0; x < 3; x++) {
             if ((tm | ts) & (1 << x)) {
-                draw_bg((u8)x, (u8)(y + 1));
+                draw_bg((uint8_t)x, (uint8_t)(y + 1));
             } else {
                 memset(bg_line[x].opaque, 0, sizeof bg_line[x].opaque);
             }
         }
-        if ((tm | ts) & OBJ_ENABLE) {
-            draw_sprites((u8)(y + 1));
+        if ((tm | ts) & SDEVKIT_OBJ_ENABLE) {
+            draw_sprites((uint8_t)(y + 1));
         } else {
             memset(obj_line.opaque, 0, sizeof obj_line.opaque);
         }
 
         for (x = 0; x < W; x++) {
-            u8 mc, sc, cw = in_area(cw_sel, cw_logic, x);
-            u8 ml = front(x, tm, tmw, &mc);
-            u16 color = g_snes.cgram[mc];
-            u8 clipped = region((u8)(cgwsel >> 6), cw);
-            u8 math_on = (u8)!region((u8)(cgwsel >> 4), cw);
-            u8 layer_math = (u8)(ml == L_BACK ? (cgadsub & CM_MSCR_BACK) != 0
-                               : ml == L_OBJ ? (cgadsub & CM_MSCR_PAL47) && obj_pal[x] >= 4
+            uint8_t mc, sc, cw = in_area(cw_sel, cw_logic, x);
+            uint8_t ml = front(x, tm, tmw, &mc);
+            uint16_t color = sdevkit__pseudo.cgram[mc];
+            uint8_t clipped = region((uint8_t)(cgwsel >> 6), cw);
+            uint8_t math_on = (uint8_t)!region((uint8_t)(cgwsel >> 4), cw);
+            uint8_t layer_math = (uint8_t)(ml == L_BACK ? (cgadsub & SDEVKIT_CM_MSCR_BACK) != 0
+                               : ml == L_OBJ ? (cgadsub & SDEVKIT_CM_MSCR_PAL47) && obj_pal[x] >= 4
                                : (cgadsub >> ml) & 1);
             if (clipped) {
                 color = 0;
             }
             if (math_on && layer_math) {
-                u16 sub = fixed;
-                u8 half = (u8)((cgadsub & CM_DIV2_DIVIDE) && !clipped);
-                if (cgwsel & CM_SUBBGOBJ_ENABLE) {
-                    u8 sl = front(x, ts, tsw, &sc);
+                uint16_t sub = fixed;
+                uint8_t half = (uint8_t)((cgadsub & SDEVKIT_CM_DIV2_DIVIDE) && !clipped);
+                if (cgwsel & SDEVKIT_CM_SUBBGOBJ_ENABLE) {
+                    uint8_t sl = front(x, ts, tsw, &sc);
                     if (sl == L_BACK) {
                         half = 0;                    /* empty sub screen: the fixed colour, not halved */
                     } else {
-                        sub = g_snes.cgram[sc];
+                        sub = sdevkit__pseudo.cgram[sc];
                     }
                 }
-                color = add_sub(color, sub, (u8)((cgadsub & CM_SUB_MAINSUB) != 0), half);
+                color = add_sub(color, sub, (uint8_t)((cgadsub & SDEVKIT_CM_SUB_MAINSUB) != 0), half);
             }
-            row[x] = brighten(color, (u8)(inidisp & 0x0F));
+            row[x] = brighten(color, (uint8_t)(inidisp & 0x0F));
         }
     }
 }
