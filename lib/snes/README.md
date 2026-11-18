@@ -1,14 +1,14 @@
 # lib/snes: the library on the SNES
 
-The dev kit's console API (`lib/include/snes/snes.h`, see [lib/README.md](../README.md)) on the
+The dev kit's console API (`lib/include/sdevkit/snes.h`, see [lib/README.md](../README.md)) on the
 real SNES, written in C and compiled by dampf together with the game. With it, `dev/build_game_rom.sh` builds a
 ROM you can play (`build/game/blubberblasen.sfc`, for Mesen or real hardware).
 
 | File | What |
 | --- | --- |
 | `hw.h` | The registers, as pointers to `volatile` memory |
-| `snes.c` | The PVSnesLib-shaped functions and the `snesXxx()` extensions of `snes.h`, and what `main.c` needs from the hardware |
-| `main.c` | Start-up and the main loop of `snes/loop.h`: joypads, `game_tick`, then in the vertical blank the OAM copy and `game_vblank` |
+| `snes.c` | The functions of `sdevkit/snes.h`, and what `main.c` needs from the hardware (`sdevkit__oam_upload`, `sdevkit__wait_vblank`, ...) |
+| `main.c` | Start-up and the main loop of `sdevkit/loop.h`: joypads, `game_tick`, then in the vertical blank the OAM copy and `game_vblank` |
 
 There is no interrupt handler: the main loop waits for the vertical blank itself, because C code
 called from an NMI in the middle of a tick would overwrite the frames of the code it interrupted
@@ -21,4 +21,7 @@ Mesen (a recorded game through this layer must give the PC's checksums). More in
 
 This is the dev kit's library on the SNES
 ([ADR record 29](../../docs/adr/0029-superdevkit-is-the-project-and-dampf-is-its.md)). The API it
-implements was taken over from Blubber Blasen's `src/snes/snes.h`, whose declarations it keeps.
+implements was taken over from Blubber Blasen's `src/snes/snes.h` and renamed
+([ADR record 34](../../docs/adr/0034-every-name-of-the-console-api-starts-with.md)); through
+the rename table its declarations are still those of the game's copy
+(`dev/update_game_snapshot.sh` warns when they differ).

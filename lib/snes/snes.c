@@ -1,8 +1,9 @@
 /*
- * The console API of superdevkit (lib/include/sdevkit/snes.h, ADR record 34) on the real SNES, for dampf.
+ * The console API of superdevkit (lib/include/sdevkit/snes.h, ADR record 34) on the real SNES,
+ * for dampf.
  *
- * The PVSnesLib-shaped functions do what PVSnesLib's do, as snes.h describes them; the snesXxx()
- * extensions are a few register writes each. General DMA uses channel 0; HDMA uses the channels
+ * PVSnesLib's functions, renamed, do what PVSnesLib's do, as sdevkit/snes.h describes them; the
+ * extensions (sdevkit_reg_write, sdevkit_hdma_*, sdevkit_dma_fits) are a few register writes each. General DMA uses channel 0; HDMA uses the channels
  * the game names (3 to 5). Nothing here waits for a vertical blank: the main loop (main.c) calls
  * the game's vertical blank code at the right time.
  *

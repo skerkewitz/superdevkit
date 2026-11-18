@@ -1,7 +1,7 @@
 /*
  * Pseudo SNES, the desktop side of superdevkit's library: the memories, the picture registers
- * and the functions of the console API that write them (sdevkit/snes.h). render.c draws the picture
- * from this state; pseudo.h is what the two share. Taken over from Blubber Blasen's src/snes.
+ * and the functions of the console API that write them (sdevkit/snes.h). render.c draws the
+ * picture from this state; pseudo.h is what the two share. Taken over from Blubber Blasen's src/snes.
  *
  * Portable C99: no raylib, no heap, no floating point. Everything is static, like
  * the console's memory.

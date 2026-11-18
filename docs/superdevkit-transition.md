@@ -32,7 +32,7 @@ The kit:
 | Part | What |
 | --- | --- |
 | `compiler/` (today `src/`) | dampf |
-| `lib/include/snes/` | the console API (`snes.h`), the frame rhythm (`loop.h`), sound, save RAM and debug registrations |
+| `lib/include/sdevkit/` | the console API (`snes.h`), the frame rhythm (`loop.h`), sound, save RAM and debug registrations; every name `sdevkit_`/`SDEVKIT_` (ADR record 34). `lib/include/snes/` maps the old names until the game switches |
 | `lib/snes/` | the SNES: the API in C, the main loop |
 | `lib/pseudo/` | the pseudo SNES for the desktop and the web: video memory, registers, the renderer, portable C (from Blubber Blasen's `src/snes`) |
 | `lib/desktop/` | the frontend of `win64` and `linux` (raylib): window, scaling, input, sound, save file, debug view, screenshots |
@@ -56,7 +56,7 @@ desktop running the ROM in an emulator and Mesen as the desktop are not schedule
 ## M5: the SNES (0.5.0)
 
 Done so far on `m5`: the version 0.5.0; `dev/`, `snapshots/`, `lib/snes`; the console API and the
-main loop in the library (`lib/include/snes/`, `LibApiTest`); steps 5.1 and 5.2; the three examples.
+main loop in the library (`lib/include/sdevkit/`, `LibApiTest`, `LibNamesTest`); steps 5.1 and 5.2; the three examples.
 
 ### 5.1 dampf can be called by a game
 
@@ -105,7 +105,8 @@ guide becomes the dev kit's (getting started from `hello`); `reference/api/` for
 In [game-findings.md](game-findings.md), for the game's agent: a build of the SNES ROM with the
 dev kit next to the PVSnesLib one (an argument file in the game's repository, `-I lib/include`,
 `lib/snes/*.c`), the data as plain C (`map2c`, `gfx2c` without `--snes`), `BB_FAST` with a
-`__DAMPF__` branch, an ADR of the game's own.
+`__DAMPF__` branch, an ADR of the game's own; the console API's new names (ADR record 34,
+finding 8: `tools/sdevkit_rename.py`), after which the kit drops `lib/include/snes/`.
 
 ### 5.7 On a console (needs the hardware)
 
@@ -123,19 +124,19 @@ one on, so that it matches the SNES pixel for pixel. Still to do: its tests from
 
 ### 7.2 Sound, save RAM and the debug registrations in the API
 
-New headers in `lib/include/snes/`, built in `lib/pseudo` and `lib/desktop`, stubs in `lib/snes`,
-rows in `lib/README.md`'s table:
+New headers in `lib/include/sdevkit/`, with the names of ADR record 34, built in `lib/pseudo` and
+`lib/desktop`, stubs in `lib/snes`, rows in `lib/README.md`'s table:
 
-- `sound.h`: `sfxPlay(id)`, `musicPlay(track)`, `musicStop()`. The numbers come from the project
-  file (the converter writes `SFX_*` and `MUSIC_*` into a header); on the desktop the frontend
-  plays the files. On the SNES nothing yet; later a queue the main loop sends to the sound
-  processor in the vertical blank.
-- `sram.h`: `snesSram()` (the block) and `SNES_SRAM_SIZE` from the project file; the frontend
-  saves it when it changed and on exit.
-- `debug.h`: `debugToggle(name, &flag)`, `debugRange(name, &value, lo, hi)`,
-  `debugColor(name, &colour)`, `debugAction(name, function)` once at start;
-  `debugBox(x, y, w, h, kind)` per frame. Empty on the SNES; an execution test checks that dampf
-  removes the calls (cycles of a tick with and without them).
+- `sound.h`: `sdevkit_sfx_play(id)`, `sdevkit_music_play(track)`, `sdevkit_music_stop()`. The
+  numbers come from the project file (the converter writes `SDEVKIT_SFX_*` and
+  `SDEVKIT_MUSIC_*` into a header); on the desktop the frontend plays the files. On the SNES
+  nothing yet; later a queue the main loop sends to the sound processor in the vertical blank.
+- `sram.h`: `sdevkit_sram()` (the block) and `SDEVKIT_SRAM_SIZE` from the project file; the
+  frontend saves it when it changed and on exit.
+- `debug.h`: `sdevkit_dbg_toggle(name, &flag)`, `sdevkit_dbg_range(name, &value, lo, hi)`,
+  `sdevkit_dbg_color(name, &colour)`, `sdevkit_dbg_action(name, function)` once at start;
+  `sdevkit_dbg_box(x, y, w, h, kind)` per frame. Empty on the SNES; an execution test checks that
+  dampf removes the calls (cycles of a tick with and without them).
 
 Done when: `LibApiTest` covers the new headers; an execution test per stub on the SNES.
 
@@ -147,8 +148,8 @@ frame rhythm, F12 for a screenshot, and `--check` without a window; `tools/build
 music, save RAM, the debug view, the CRT filter. The plan as it was:
 
 `lib/desktop` in C with raylib: the window (256 x 224 scaled to whole multiples), the frame
-rhythm of `loop.h` (`game_tick`, then `snes_vblank`, `game_vblank`, `snes_render`), keyboard and
-gamepad to `KEY_*`, sound and music from files, save RAM in a file next to the program, a
+rhythm of `loop.h` (`game_tick`, then `sdevkit__vblank`, `game_vblank`, `sdevkit__render`),
+keyboard and gamepad to `SDEVKIT_KEY_*`, sound and music from files, save RAM in a file next to the program, a
 screenshot key, the debug view (Dear ImGui through its C binding, or raylib's own immediate mode
 GUI, decided in the step): pause, step, slow motion, the registered switches, ranges, colours and
 actions, the boxes as overlays, views of VRAM, palettes and sprites. The CRT filter of Blubber
@@ -178,8 +179,8 @@ tests of the TOML reader and of the plan each command makes (`--plan` output).
 
 The three examples get `superdevkit.toml` (their `build.sh` and `.args` go). The handover to the
 game: Blubber Blasen's desktop build from the kit (its sound calls from `game_sfx()` to
-`sfxPlay()`, its save RAM to `snesSram()`, its debug view to registrations; its recordings stay its
-own, reached through `debugAction`).
+`sdevkit_sfx_play()`, its save RAM to `sdevkit_sram()`, its debug view to registrations; its
+recordings stay its own, reached through `sdevkit_dbg_action`).
 
 ## M8: the web (0.8.0)
 

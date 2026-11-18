@@ -40,7 +40,7 @@ needs is an open question. The rule is ADR
 | M4 | Fine tuning, started early: block layout by a profile, peephole rules, loop and branch optimizations | 0.4.0 | Done 2026-11-18 |
 | M6 | Standing alone: dampf's own assembler and linker | 0.4.0 | Done 2026-11-18 |
 | M5 | Blubber Blasen builds its ROM with the dev kit, from its own repository | 0.5.0 | In work |
-| M7 | Windows and Linux: the pseudo SNES and the desktop frontend in the kit, the `superdevkit` command with `init`, `build`, `run`; the examples and Blubber Blasen run on the desktop from the kit | 0.7.0 | Planned |
+| M7 | Windows and Linux: the pseudo SNES and the desktop frontend in the kit, the `superdevkit` command with `init`, `build`, `run`; the examples and Blubber Blasen run on the desktop from the kit | 0.7.0 | In work (started during M5) |
 | M8 | The web: the same games in the browser; Blubber Blasen drops its own PC side | 0.8.0 | Planned |
 | M9 | The optimizer: what was left of M3, register allocation first | 0.9.0 | Planned |
 | M10 | Language, platform and usability: C in interrupts, intrinsics, the open subset decisions, dampf's own preprocessor | 0.10.0 | Planned |
@@ -59,8 +59,12 @@ SNES and play in Mesen.
 
 Done on the branch `m5`: `tools/` became `dev/` (nothing in it was for other games), the snapshot
 moved to `snapshots/blubberblasen`, `platform/snes` became `lib/snes`, and the console API
-(`lib/include/snes/snes.h`) and the main loop with its frame rhythm (`lib/include/snes/loop.h`)
-belong to the library ([lib/README.md](../lib/README.md)). dampf can be called by a game:
+(`lib/include/sdevkit/snes.h`) and the main loop with its frame rhythm
+(`lib/include/sdevkit/loop.h`) belong to the library ([lib/README.md](../lib/README.md)). Every
+name a game can use starts with `sdevkit_` or `SDEVKIT_`, the desktop build checks that a game
+calls nothing else, and `tools/sdevkit_rename.py` converts code from the old names, which a
+deprecated header keeps for the game until it switches (ADR
+[record 34](adr/0034-every-name-of-the-console-api-starts-with.md)). dampf can be called by a game:
 argument files (`@file`, `--config`), every error of a run reported, `<string.h>` with `memset`
 and `memcpy`. Its test found a miscompilation: a loop counter kept in X was stepped before a later
 store whose address was formed from its old value (`exec/regress_x_step_address.c`); it is fixed
@@ -75,22 +79,23 @@ game, and the playable ROM on a console.
 
 ## M7: Windows and Linux (0.7.0)
 
-Started early, during M5 (2026-11-18), because prototyping and checking a game is so much quicker
-on the desktop: the pseudo SNES is in the kit (`lib/pseudo`, with 16 x 16 background tiles, and
-row y of the picture as scanline y + 1 like the SNES), with a desktop frontend for Linux
-(`lib/desktop`, raylib 5.5 fetched by `tools/fetch_raylib.sh`, built by `tools/build_desktop.sh`)
-and a headless check that plays an example's `check.txt` in a second (`DesktopExamplesTest`).
-The examples give the same picture on the SNES and on the desktop, pixel for pixel
-(`dev/compare_example.sh`); that comparison found a bug in `lib/snes`, whose `oamSetVisible`
-moved a sprite at a negative x to the right edge. Linux is built on WSL, Windows will be built
-natively on Windows. Still to do in M7: the rest of the steps below.
+Started early, during M5 (2026-11-18), because prototyping and checking a game is so much
+quicker on the desktop: the pseudo SNES is in the kit (`lib/pseudo`, with 16 x 16 background
+tiles, and row y of the picture as scanline y + 1 like the SNES), with a desktop frontend for
+Linux (`lib/desktop`, raylib 5.5 fetched by `tools/fetch_raylib.sh`, built by
+`tools/build_desktop.sh`) and a headless check that plays an example's `check.txt` in a second
+(`DesktopExamplesTest`). The examples give the same picture on the SNES and on the desktop,
+pixel for pixel (`dev/compare_example.sh`); that comparison found a bug in `lib/snes`, whose
+`oamSetVisible` (now `sdevkit_oam_set_visible`) moved a sprite at a negative x to the right
+edge. Linux is built on WSL, Windows will be built natively on Windows.
 
-The pseudo SNES from Blubber Blasen in the kit (`lib/pseudo`), sound, save RAM and the debug
-registrations in the console API (built on the desktop, stubs on the SNES; ADR
-[record 32](adr/0032-desktop-and-web-are-for-prototyping-with-sound.md)), the desktop frontend
-with raylib (`lib/desktop`), and the `superdevkit` command with `init`, `build` and `run` (ADR
-[record 31](adr/0031-the-superdevkit-command-builds-a-project-from-its.md)). Done when the
-examples and Blubber Blasen run on Windows and Linux from the kit. The steps are in
+Still to do in M7: the pseudo SNES's tests from the game, sound, save RAM and the debug
+registrations in the console API (built on the desktop, stubs on the SNES; ADR [record
+32](adr/0032-desktop-and-web-are-for-prototyping-with-sound.md), with the names of [record
+34](adr/0034-every-name-of-the-console-api-starts-with.md)), the desktop frontend on Windows and
+with sound, save RAM and the debug view, and the `superdevkit` command with `init`, `build` and
+`run` (ADR [record 31](adr/0031-the-superdevkit-command-builds-a-project-from-its.md)). Done
+when the examples and Blubber Blasen run on Windows and Linux from the kit. The steps are in
 [superdevkit-transition.md](superdevkit-transition.md#m7-windows-and-linux-070).
 
 ## M8: the web (0.8.0)
@@ -244,8 +249,8 @@ What it takes:
 Built 2026-11-17, ahead of the game's own SNES port, so that every iteration of dampf can be played
 and the toolchain is tested on what only the console shows.
 
-- **The platform layer** is `lib/snes`, in C: the 19 PVSnesLib-shaped calls of `snes.h` and
-  the rest of its API (`snes.c`), and the main loop (`main.c`). It reaches the hardware through
+- **The platform layer** is `lib/snes`, in C: the console API of `sdevkit/snes.h` (PVSnesLib's
+  calls, renamed, and the extensions; `snes.c`), and the main loop (`main.c`). It reaches the hardware through
   pointers to `volatile` memory and needs one language feature of its own, the cast from a pointer
   to an integer for DMA source addresses ([subset.md](subset.md), *Hardware access*).
 - **No interrupt handler.** The loop waits for the vertical blank, then copies the OAM shadow and

@@ -73,7 +73,7 @@ class ConstAddressTest {
     }
 
     /**
-     * A register pair as the SNES platform's bgSetScroll writes it: h = 0x210D + 2 * n, then
+     * A register pair as the SNES platform's sdevkit_bg_set_scroll writes it: h = 0x210D + 2 * n, then
      * REG8(h) and REG8(h + 1). h is the sum of one constant address and the index of the other,
      * so it must be computed (the code generator once folded it away and crashed).
      */

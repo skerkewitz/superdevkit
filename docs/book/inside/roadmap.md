@@ -50,7 +50,7 @@ released stay.
 | M4 | Fine tuning, started early: the block layout by a profile, peephole rules, loop and branch optimizations | 0.4.0 | Done 2026-11-18 |
 | M6 | Standing alone: dampf's own assembler and linker | 0.4.0 | Done 2026-11-18 |
 | M5 | Blubber Blasen builds its ROM with the dev kit, from its own repository | 0.5.0 | In work |
-| M7 | Windows and Linux: the pseudo SNES and the desktop frontend in the dev kit, the `superdevkit` command with `init`, `build` and `run`; the examples and Blubber Blasen run on the desktop from the dev kit | 0.7.0 | Planned |
+| M7 | Windows and Linux: the pseudo SNES and the desktop frontend in the dev kit, the `superdevkit` command with `init`, `build` and `run`; the examples and Blubber Blasen run on the desktop from the dev kit | 0.7.0 | In work (started during M5) |
 | M8 | The web: the same games in the browser; Blubber Blasen drops its own PC side | 0.8.0 | Planned |
 | M9 | The optimizer: what was left of M3, register allocation first | 0.9.0 | Planned |
 | M10 | Language, platform and usability: C in interrupts, [intrinsics](/glossary#intrinsic), the open subset decisions, dampf's own preprocessor | 0.10.0 | Planned |
@@ -83,15 +83,19 @@ needed for that while the repository is private. Its work falls into five parts:
   step found a miscompilation, which is fixed: a loop counter kept in the X register was stepped
   before a later store whose address was formed from its old value. It was not the open one
   described below. Still to come: a converter for the PNG images of the examples.
-- **The dev kit in this repository.** Done: the platform layer has become the dev kit's
-  library in `lib/snes`, and the console API the dev kit owns is `lib/include/snes/snes.h`,
-  taken over from the game with the same declarations. A table shows per function and platform
-  whether it is built or a stub, and a test checks that every function of the API exists in
-  `lib/snes` and in the table. The main loop (`lib/snes/main.c`) is the library's, and the frame
-  rhythm it calls (`game_init`, `game_tick`, `game_vblank`, the pad bits) is declared in
-  `lib/include/snes/loop.h`. Done: the scripts are now in `dev/`, for developing the dev kit,
-  since nothing in them was for other games. Done: the snapshot of Blubber Blasen has moved to
-  `snapshots/blubberblasen`. Examples become projects of their own, each with a README, an
+- **The dev kit in this repository.** Done: the platform layer has become the dev kit's library
+  in `lib/snes`, and the console API the dev kit owns is `lib/include/sdevkit/snes.h`. A table
+  shows per function and platform whether it is built or a stub, and a test checks that every
+  function of the API exists in `lib/snes` and in the table. The main loop (`lib/snes/main.c`)
+  is the library's, and the frame rhythm it calls (`game_init`, `game_tick`, `game_vblank`, the
+  pad bits) is declared in `lib/include/sdevkit/loop.h`. Done: every name a game can use starts
+  with `sdevkit_` or `SDEVKIT_` (`oamSetXY` became `sdevkit_oam_set_xy`, `KEY_A` became
+  `SDEVKIT_KEY_A`), so that it cannot clash with raylib, libc or the library's own helpers, and
+  the desktop build checks that a game calls nothing else. `tools/sdevkit_rename.py` converts
+  code from the old names, and a deprecated header, `lib/include/snes/`, keeps them for Blubber
+  Blasen until the game switches. Done: the scripts are now in `dev/`, for developing the dev
+  kit, since nothing in them was for other games. Done: the snapshot of Blubber Blasen has moved
+  to `snapshots/blubberblasen`. Examples become projects of their own, each with a README, an
   argument file, its sources and assets and its own build folder.
 - **The book.** One book serves the whole dev kit. First the existing pages move into folders
   for dampf's part, `reference/compiler/` and `inside/compiler/`; then the user guide becomes
@@ -102,17 +106,21 @@ needed for that while the repository is private. Its work falls into five parts:
 
 ### After M5
 
-**M7, Windows and Linux**, brings the dev kit to the desktop, for prototyping a game quickly.
-The pseudo SNES, Blubber Blasen's implementation of the console API on the PC, moves into the
-dev kit as `lib/pseudo`, with a desktop frontend built on raylib in `lib/desktop`. The console
-API gains sound, save RAM and a debug view. A game plays sound by number with `sfxPlay(id)`,
-`musicPlay(track)` and `musicStop()`, the numbers taken from the assets its project file lists.
-Save RAM is a block of memory, `snesSram()`, as on a cartridge, and the dev kit saves it when it
-changed and on exit. The debug view has standard views such as pause, step and the SNES's VRAM,
-and a game registers what it wants to change with `debugToggle`, `debugRange`, `debugColor` and
-`debugAction` and draws boxes per frame with `debugBox`. All of this is built on the desktop
-and a stub on the SNES, where the debug functions are empty, so the game code needs no
-`#ifdef`. The `superdevkit` command, written in Java and shipped with dampf, builds a project
+**M7, Windows and Linux**, brings the dev kit to the desktop, for prototyping a game quickly. It
+started early, during M5, because prototyping and checking a game is much quicker on the
+desktop. The pseudo SNES, Blubber Blasen's implementation of the console API on the PC, is in
+the dev kit as `lib/pseudo`, with a desktop frontend for Linux built on raylib in `lib/desktop`,
+and the examples give the same picture on the SNES and on the desktop, pixel for pixel. Still to
+come are the pseudo SNES's tests from the game, the frontend on Windows, and the `superdevkit`
+command. The console API gains sound, save RAM and a debug view. A game plays sound by number
+with `sdevkit_sfx_play(id)`, `sdevkit_music_play(track)` and `sdevkit_music_stop()`, the numbers
+taken from the assets its project file lists. Save RAM is a block of memory, `sdevkit_sram()`,
+as on a cartridge, and the dev kit saves it when it changed and on exit. The debug view has
+standard views such as pause, step and the SNES's VRAM, and a game registers what it wants to
+change with `sdevkit_dbg_toggle`, `sdevkit_dbg_range`, `sdevkit_dbg_color` and
+`sdevkit_dbg_action` and draws boxes per frame with `sdevkit_dbg_box`. All of this is built on
+the desktop and a stub on the SNES, where the debug functions are empty, so the game code needs
+no `#ifdef`. The `superdevkit` command, written in Java and shipped with dampf, builds a project
 described by its `superdevkit.toml`: `init` copies an example, `build` builds for the target it
 is given (`snes`, `win64`, `linux` or `web`), and `run` builds and starts the game. It calls the
 compilers itself, one call per file and one to link, without CMake, Make or shell scripts, and
@@ -154,9 +162,12 @@ saves is open. M10 also brings intrinsics for the hardware multipliers, the divi
 open decision on the subset whether plain `char` is for text only, function pointers in
 constant tables, hand-written assembly with the code generator from MIR (`--replace` works only
 with the [naive code generator](/glossary#naive-code-generator) today), and less memory for a
-compile, which takes 1.8 GB for the game. dampf gets its own C preprocessor, so that using it
-needs nothing but Java; today users on Windows install MinGW or MSYS only for `gcc -E`, which
-stays in the tests as the oracle.
+compile, which takes 1.8 GB for the game. dampf is to warn where gcc warns by default, first on
+a constant that does not fit the type it initializes or is assigned to
+(`uint8_t w[] = { 420 }`): dampf truncates it as gcc does, but silently, and that hid a bug in
+CatchMe, a cat's wait of 420 that became 164, which only the desktop build's `-Woverflow`
+showed. dampf gets its own C preprocessor, so that using it needs nothing but Java; today users
+on Windows install MinGW or MSYS only for `gcc -E`, which stays in the tests as the oracle.
 
 **M11, timing and debugging**, counts the timing report, the assembly comments and the budgets
 in master clocks instead of CPU cycles, names the costliest path per C line in the report and in

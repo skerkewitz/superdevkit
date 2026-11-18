@@ -215,6 +215,28 @@ act, and the double underscore says it is not part of the API.
   compile, and one that declares and calls a raylib function by hand must fail the symbol check,
   each with the expected message.
 
+## Outcome (2026-11-19)
+
+Steps 0 to 7 are built, one commit each on the branch `prefix`, with `./gradlew build -Preplays`
+green after each; step 8 waits for the game. The open points below, answered:
+
+- The ROM layout of the snapshot moved in step 1 (1,331 bytes differ: the code generator names
+  each function's segment after the function), the cycles of all 342 functions stayed the same,
+  and the game's ROM check gives the same 3,095 ticks for 3,600 frames.
+- The compiler's own symbols in the desktop check: only `__stack_chk_fail` turned up (Arch's gcc
+  turns on the stack protector by default); `memcpy`, `memset` and `memmove` stay allowed for
+  struct copies. clang was not tried.
+- dampf's `<stdint.h>` and `<string.h>` compile on the host under `-nostdinc` unchanged. Without
+  `-ffreestanding` gcc calls libc's `memcpy` instead of dampf's static one; the recursion through
+  a loop turned into a call did not show up, and `-fno-tree-loop-distribute-patterns` stays as a
+  guard.
+- `-I ../lib/snes` was not needed: without it in the four argument files every ROM is byte for
+  byte the same, so it went.
+
+Two more: the library uses the `<stdint.h>` types itself, so `pseudo.h` needed no typedefs of its
+own; and the desktop build's `-Woverflow` found a bug in CatchMe (a wait of 420 in a `uint8_t`),
+which dampf compiled silently (roadmap M10: warnings where gcc warns).
+
 ## Steps
 
 Each step leaves `./gradlew build` green, the replays passing with `-Preplays`, and is one

@@ -18,9 +18,10 @@ with `dev/build_game_rom.sh`. Its [platform layer](/glossary#platform-layer) in 
 written in C, implements the 19 [PVSnesLib](/glossary#pvsneslib)-shaped calls that the game's
 `video.c` makes, the rest of the game's console API and the main loop. Two parts are missing:
 sound, which the game does not have yet, and save RAM, so the high scores start empty at every
-power-on. In M7 the console API gets sound, by number with `sfxPlay`, `musicPlay` and
-`musicStop`, and save RAM, as a block of memory from `snesSram()`; both are built on the desktop
-and stubs on the SNES until the SNES side has them. The playable ROM belongs to no milestone: it
+power-on. In M7 the console API gets sound, by number with `sdevkit_sfx_play`,
+`sdevkit_music_play` and `sdevkit_music_stop`, and save RAM, as a block of memory from
+`sdevkit_sram()`; both are built on the desktop and stubs on the SNES until the SNES side has
+them. The playable ROM belongs to no milestone: it
 was split off from M2 and built ahead of the game's own SNES port. It has been played in Mesen,
 not yet on a real console; that test is part of M5. The layer also has no interrupt handler. Its
 loop waits for the [vertical blank](/glossary#vertical-blank) and does the work there, because C
@@ -31,7 +32,11 @@ frame area of their own; how a handler is declared and what it saves is still op
 
 **A platform layer for your own game.** The layer in `lib/snes` implements Blubber Blasen's
 console API and nothing else. It is the dev kit's library now, and the console API is the dev
-kit's own `lib/include/snes/snes.h`, taken over from the game with the same declarations.
+kit's own `lib/include/sdevkit/snes.h`, taken over from the game and renamed: every name a game
+can use starts with `sdevkit_` or `SDEVKIT_`, so PVSnesLib's `setMode` is `sdevkit_set_mode` and
+`KEY_A` is `SDEVKIT_KEY_A`. The snapshot of Blubber Blasen still uses the old names; a deprecated
+header in `lib/include/snes/` maps them to the new ones until the game switches, and
+`tools/sdevkit_rename.py` converts code from the old names.
 To build a ROM of your own game, you write a platform layer in C for the library your game
 calls, and dampf compiles it together with the game. Write it the way `lib/snes` is
 written: it reaches the I/O registers through pointers to `volatile` memory, and casts a
@@ -117,6 +122,10 @@ expect:
   cannot declare its calling convention, [direct page](/glossary#direct-page) use and cycles
   for the timing analysis. Making it work with the
   [code generator from MIR](/glossary#code-generator-from-mir) is part of M10.
+- **Warnings.** dampf truncates a constant that does not fit the type it initializes or is
+  assigned to, such as `uint8_t w[] = { 420 }`, as gcc does, but silently, where gcc warns by
+  default. Warnings where gcc warns by default are planned for M10, this one first. Meanwhile
+  the warnings of gcc on the PC build show it.
 - **Memory for a compile:** compiling Blubber Blasen takes 1.8 GB. Less is a goal of M10.
 - **Locals in [Mesen](/glossary#mesen):** Mesen shows the C source and the names of globals,
   but not the locals that live in fixed direct page slots, nor the C type of a variable.
