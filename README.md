@@ -15,8 +15,8 @@ assembler and linker) is done ahead of M5; the state of each
 milestone is in [docs/roadmap.md](docs/roadmap.md). dampf compiles all of Blubber Blasen and
 builds a playable ROM of it, with the game's console API written in C in
 [platform/snes](platform/snes/README.md) (sound and save RAM are not built yet). During play the
-game takes 0.79 frames per tick, and dampf's code was 1.81 times as fast as Calypsi's on the
-same scene before the latest optimizations; the current figures are in
+game takes 0.79 frames per tick, and dampf's code is 2.14 times as fast as Calypsi's on the
+same scene; the current figures are in
 [docs/optimizations.md](docs/optimizations.md#where-things-stand). dampf computes a best and a
 worst case in CPU cycles for every function, and a function over its cycle budget
 (`DAMPF_BUDGET`) fails the build ([docs/timing.md](docs/timing.md)). The naive code generator,

@@ -59,7 +59,7 @@ Also open in M3:
   5) and peephole rules are its next passes.
 - **Master cycles per C line.** The assembly comments and the timing report count CPU cycles.
   Next: master cycles and the costliest path per C line in the report and in the budget errors.
-- **Unbounded loops.** 38 of the game's functions have no worst case yet; the report names the
+- **Unbounded loops.** 37 of the game's functions have no worst case yet; the report names the
   loop or call that causes it, and `DAMPF_RANGE` bounds such loops by hand. `DAMPF_TRIPS` is
   postponed ([hints.md](hints.md)).
 - **Ranges from array bounds** (row 9).

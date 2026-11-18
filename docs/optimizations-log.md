@@ -909,3 +909,8 @@ best `returns.c` -11.3 %, `tables.c` -5.8 %, `control.c` -5.4 %; one slower, `po
 +0.2 %), the random programs 24,369,308 → 24,362,084 (±0.0 %; their cycles go to the runtime's
 division routines, which no step touched). The general steps help elsewhere too, much less than
 the game's 13 %; see the roadmap's M5 on varied benchmarks.
+
+**Against Calypsi and the hand-written function, measured again.** In the play ticks where both
+compilers play the same scene (102 ticks, up to tick 812), Calypsi 1.42 frames per tick against
+dampf 0.66 (0.79 before the branch): 2.14 times as fast instead of 1.81. `level_solid_px` 871 →
+827 master clocks per call, against 724 for the hand-written one (1.14 times instead of 1.20).
