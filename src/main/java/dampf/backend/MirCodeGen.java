@@ -131,78 +131,17 @@ public final class MirCodeGen {
         }
         layout();
         for (MFunction f : module.functions()) {
-            // several passes: each learns what A, X and Y hold where each block starts (entryIn:
-            // what every way into it brings, from the pass before), and which values need not be
-            // stored. The code that is kept must be consistent: every assumption it made holds on
-            // every way in. If the passes with assumptions do not end so, the function is written
-            // again without them. Every pass writes jumps and branches in their long form, and
-            // BranchRelax gives them the short form where it reaches.
-            AsmWriter code = null;
-            for (int attempt = 0; attempt < 2; attempt++) {
-                trackEntries = attempt == 0;
-                entryIn = Map.of();
-                skipStore = Set.of();
-                neverSkip.clear();
-                boolean ok = false;
-                for (int pass = 0; pass < MAX_PASSES; pass++) {
-                    code = new AsmWriter();
-                    function(f, code);
-                    BranchRelax.run(code.function());
-                    // a value not stored must not be read from its place
-                    boolean consistent = !internalBroken && java.util.Collections.disjoint(skipStore, readValues);
-                    for (Map.Entry<String, RegState> e : entryIn.entrySet()) {
-                        consistent &= e.getValue().within(arriving.getOrDefault(e.getKey(), RegState.NONE));
-                    }
-                    ok = consistent && dampf.lir.LLayout.shortBranchesReach(code.function());
-                    Map<String, RegState> learnt = new HashMap<>();
-                    if (trackEntries) {
-                        for (Block b : f.blocks()) {
-                            RegState got = arriving.getOrDefault(b.name(), RegState.NONE);
-                            // after a contradiction, keep only what both agree on: the assumptions
-                            // shrink then, so the passes come to an end
-                            learnt.put(b.name(), consistent ? got : got.meet(entryIn.getOrDefault(b.name(), RegState.NONE)));
-                        }
-                    }
-                    // values stored but never read from their place: not stored in the next pass
-                    Set<Instr> skipNext = new HashSet<>();
-                    if (trackEntries) {
-                        for (Instr v : skipStore) {
-                            if (readValues.contains(v)) {
-                                neverSkip.add(v);
-                            } else {
-                                skipNext.add(v);
-                            }
-                        }
-                        for (Instr v : storedValues) {
-                            if (!readValues.contains(v) && !neverSkip.contains(v) && !argumentPlaced.contains(v)) {
-                                skipNext.add(v);
-                            }
-                        }
-                    }
-                    boolean changes = !learnt.equals(entryIn) || !skipNext.equals(skipStore);
-                    if (ok && !changes || pass == MAX_PASSES - 1) {
-                        break;
-                    }
-                    entryIn = learnt;
-                    skipStore = skipNext;
-                }
-                if (ok) {
-                    break;
-                }
-                if (attempt == 1) {
-                    throw new IllegalStateException("branches out of reach in " + f.name());
-                }
-            }
-            if (trackEntries) {
-                checkEntries(code.function());
-            }
+            trackEntries = false;
+            entryIn = Map.of();
+            skipStore = Set.of();
+            neverSkip.clear();
+            AsmWriter code = new AsmWriter();
+            function(f, code);
             // loads of what a register holds on every way in, then stores no path reads; then the
             // code is shorter, so more branches may reach
-            int removed = new RedundantLoads(FRAME).run(code.function());
-            removed += new DeadStores(FRAME, ownValueBytes(f)).run(code.function());
-            if (removed > 0) {
-                BranchRelax.run(code.function());
-            }
+            new RedundantLoads(FRAME).run(code.function());
+            new DeadStores(FRAME, ownValueBytes(f)).run(code.function());
+            BranchRelax.run(code.function());
             Map<String, String> renamed = dampf.lir.LocalLabels.renumber(code.function(), "@L");
             Map<String, Integer> bounds = new HashMap<>();
             code.loopBounds().forEach((label, rounds) -> bounds.put(renamed.getOrDefault(label, label), rounds));

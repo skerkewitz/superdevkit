@@ -866,3 +866,15 @@ them: play 326,596 (0.91 frames), play with the CPU partner 528,446, all ticks 3
 | B2: branch relaxation on LIR | 326,592 | 528,440 | 316,983 | A few long branches that reach now get the short form; the passes before stopped early in those places. |
 | B4: dead stores as a LIR pass | 325,572 | 527,421 | 316,359 | Stores to a function's own value places that no path reads afterwards go (byte-wise liveness over the blocks), on top of the stores the passes already left out. No function of the game or the tests got slower. |
 | B3b: redundant loads as a LIR pass | 324,897 | 527,103 | 316,042 | Loads of what A, X or Y holds on every way in go (an `LDA` whose N and Z a branch reads becomes `CMP #0`), found by the data flow analysis over the code the passes keep; the passes assume less than it finds at loop heads and labels inside blocks. 50 functions of the tests and the game faster, none slower. |
+| B3c: each function written once | 325,209 | 527,410 | 316,248 | Selection runs once per function and assumes nothing where a block starts; the redundant loads (with `LDA x / ADC y` where A holds y becoming `ADC x`), the dead stores and the branch forms come from the LIR passes. Before, `generate()` wrote each function up to 14 times. **A regression of 312 clocks per tick in play (0.1 %)**, see below. |
+
+**The regression of B3c.** Of the game's functions, 18 got faster and 8 slower (`_alloc_bubble`,
+`_bubble_shoot`, `_bubble_spawn_special`, `_build_sprites`, `_emit_bubbles`, `_shoot`,
+`_update_rescue`, `_video_frame`; their worst cases by 0.1 to 2 %). All 8 lose for the same
+reason: an indexed access chooses X or Y while it is written, and the code that is written once
+does not know that Y already holds the index where the block starts, so it loads X instead, and
+a pass after selection cannot exchange the registers without knowing where X is read later.
+Taken anyway: writing each function once removes the repeated writing, the consistency checks
+and the second attempt from the code generator, which is what B3 is for. It can be won back by a
+LIR pass that follows where X and Y are read (to use Y where it holds the index), which is noted
+as a later step in [transition-to-lir.md](transition-to-lir.md).

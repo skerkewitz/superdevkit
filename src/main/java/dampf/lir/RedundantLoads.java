@@ -70,6 +70,20 @@ public final class RedundantLoads {
                     s = contents.after(cmp, s);
                     continue;
                 }
+                // LDA x / ADC y (or AND, ORA, EOR) with A holding y: ADC x (the operation is
+                // commutative and sets the flags itself; the carry an ADC reads is not touched by LDA)
+                int n = nextInstr(items, k);
+                if (op != null && in.mnemonic().equals("lda") && in.m16() && n >= 0
+                        && items.get(n) instanceof LInstr next && next.m16() && next.operand() != null
+                        && COMMUTATIVE.contains(next.mnemonic()) && s.a().contains(next.operand())
+                        && !next.operand().equals(op)) {
+                    LInstr fused = next.withOperand(op);
+                    liveAfter.put(fused, liveAfter.get(next));
+                    items.set(n, fused);
+                    items.remove(k--);
+                    changed++;
+                    continue;
+                }
                 s = contents.after(in, s);
             }
         }
@@ -77,6 +91,21 @@ public final class RedundantLoads {
             f.rebuild(f.items());
         }
         return changed;
+    }
+
+    private static final java.util.Set<String> COMMUTATIVE = java.util.Set.of("adc", "and", "ora", "eor");
+
+    /** The next instruction after k in the block (comments skipped), -1 if none. */
+    private static int nextInstr(List<LItem> items, int k) {
+        for (int j = k + 1; j < items.size(); j++) {
+            if (items.get(j) instanceof LInstr) {
+                return j;
+            }
+            if (items.get(j) instanceof LLabel) {
+                return -1;
+            }
+        }
+        return -1;
     }
 
     /** The flags live at the end of each block. */
