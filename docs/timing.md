@@ -130,8 +130,8 @@ For code without branches, the run time is exact. Every condition that adds cycl
 Once data decides the path, there is a best and a worst case, both exact. Bounds go function by
 function, bottom-up over the call graph, which has no cycles since the subset has no recursion.
 They are computed on the structure of the code; unrestricted `goto` would need a more general
-analysis, and whether the subset allows a restricted form is open ([subset.md](subset.md),
-decision 4). Loops need a bound: a constant trip count, or a hint checked as an assertion on the
+analysis, which is why the subset rejects `goto` (ADR
+[record 27](adr/0027-goto-and-labels-stay-rejected-and-a-forward-and.md)). Loops need a bound: a constant trip count, or a hint checked as an assertion on the
 PC ([hints.md](hints.md)).
 
 The worst case may count paths that never occur together (two branches never both taken). The

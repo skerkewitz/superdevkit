@@ -16,6 +16,7 @@ import java.util.Locale;
  * Command line entry point.
  *
  * <pre>
+ * dampf --version                                                      print dampf's version
  * dampf parse [-I dir] [-D name[=value]] file.c ...                   preprocess and parse
  * dampf build [-I dir] [-D name[=value]] [--entry name] [--backend mir|naive] [--replace fn=file.s]
  *             [--block-counts file] [--slowrom] [--assembler dampf|ca65] -o out.sfc file.c ...
@@ -34,6 +35,10 @@ public final class Main {
     private Main() {}
 
     public static void main(String[] args) throws IOException {
+        if (args.length == 1 && (args[0].equals("--version") || args[0].equals("version"))) {
+            System.out.println("dampf " + version());
+            return;
+        }
         if (args.length > 0 && args[0].equals("mir")) {
             dampf.tools.Mir.main(java.util.Arrays.copyOfRange(args, 1, args.length));
             return;
@@ -187,8 +192,20 @@ public final class Main {
         System.exit(errors == 0 ? 0 : 1);
     }
 
+    /** dampf's version, from {@code build.gradle.kts} (ADR record 26). */
+    public static String version() {
+        try (var in = Main.class.getResourceAsStream("/dampf/version.properties")) {
+            var properties = new java.util.Properties();
+            properties.load(in);
+            return properties.getProperty("version");
+        } catch (IOException | NullPointerException e) {
+            throw new IllegalStateException("dampf/version.properties is missing from the build", e);
+        }
+    }
+
     private static void usage() {
-        System.err.println("usage: dampf parse [-I dir] [-D name[=value]] file.c ...");
+        System.err.println("usage: dampf --version");
+        System.err.println("       dampf parse [-I dir] [-D name[=value]] file.c ...");
         System.err.println("       dampf build [-I dir] [-D name[=value]] [--entry name] [--backend mir|naive] [--replace fn=file.s] [--block-counts file] [--slowrom] [--assembler dampf|ca65] -o out.sfc file.c ...");
         System.err.println("       dampf check [-I dir] [-D name[=value]] file.c ...");
         System.err.println("       dampf profile rom.sfc profile.txt [top] [--skip file.c ...] [--instructions] [--blocks file]");

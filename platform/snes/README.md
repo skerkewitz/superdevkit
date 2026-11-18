@@ -17,7 +17,7 @@ called from an NMI in the middle of a tick would overwrite the frames of the cod
 Checks: `tools/check_game_rom.sh` (a minute of play in Mesen: no byte may reach VRAM, CGRAM or OAM
 outside a vertical blank; frames per tick; screenshots), and `ReplayTest` with `-Preplays` and a
 Mesen (a recorded game through this layer must give the PC's checksums). More in
-[docs/roadmap.md](../../docs/roadmap.md), *After M2: a playable ROM*.
+[docs/roadmap.md](../../docs/roadmap.md), *The playable ROM*.
 
 This layer is specific to Blubber Blasen, like the snapshot in `examples/blubberblasen`, and leaves
 the repository with it when dampf goes public (milestone M5).

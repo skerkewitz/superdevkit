@@ -5,7 +5,8 @@ Run dampf without arguments, or with a command it does not know, and it prints i
 exits with status 2:
 
 ```
-usage: dampf parse [-I dir] [-D name[=value]] file.c ...
+usage: dampf --version
+       dampf parse [-I dir] [-D name[=value]] file.c ...
        dampf build [-I dir] [-D name[=value]] [--entry name] [--backend mir|naive] [--replace fn=file.s] [--block-counts file] [--slowrom] [--assembler dampf|ca65] -o out.sfc file.c ...
        dampf check [-I dir] [-D name[=value]] file.c ...
        dampf profile rom.sfc profile.txt [top] [--skip file.c ...] [--instructions] [--blocks file]
@@ -13,6 +14,13 @@ usage: dampf parse [-I dir] [-D name[=value]] file.c ...
 
 Two more commands, `mir` and `bench`, are not in this list; they are described below. After
 `./gradlew installDist` the launcher is `build/install/dampf/bin/dampf`.
+
+Use `dampf --version`, or `dampf version`, to see which dampf you have. It prints one line on
+the standard output and exits with status 0:
+
+```
+dampf 0.4.0
+```
 
 The commands `build`, `check` and `parse` print everything on the standard error stream;
 `profile`, `mir` and `bench` print their results on the standard output.
@@ -390,6 +398,7 @@ column 1 of the file, and its text starts with `preprocessing failed:` and gcc's
 
 | Command | 0 | 1 | 2 |
 |---|---|---|---|
+| `--version` | version printed | — | further arguments |
 | `build` | ROM written | error in the program, or a budget not kept | usage error |
 | `check` | every file passes, also together | a file or the files together fail | usage error |
 | `parse` | no errors | at least one error | usage error |

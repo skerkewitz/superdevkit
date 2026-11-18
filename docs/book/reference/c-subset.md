@@ -249,6 +249,12 @@ Every statement of C99 is accepted except these:
 
 `setjmp` and `longjmp` are not available, since dampf has no header that declares them.
 
+The rejection of `goto` and labels is decided and stays. A `goto` into a loop would give the
+loop a second entry, and then dampf's loop optimizations and its worst-case timing bounds would
+no longer apply. If real code needs `goto`, dampf may allow a form that only jumps forward and
+out of statements, such as out of two loops to a label after them, which keeps every loop with
+a single entry. Unrestricted `goto` will not be built.
+
 ## Expressions
 
 Every expression of C99 is accepted except these:
@@ -367,7 +373,7 @@ are not built yet; see [Limits](/reference/limits).
 
 ## Open decisions
 
-Four questions about the subset are not settled. Until they are, dampf does what was
+Three questions about the subset are not settled. Until they are, dampf does what was
 recommended for each:
 
 - **Plain `char` for text.** The recommendation is to give `char` the x86-64 meaning, a signed
@@ -382,5 +388,5 @@ recommended for each:
   dampf makes every pointer 4 bytes today (address, bank, zero byte). Narrower pointers are an
   optimization of the [code generator from MIR](/glossary#code-generator-from-mir), such as
   [pointer compression](/glossary#pointer-compression); they do not change `sizeof`.
-- **`goto`.** The recommendation is to forbid it until a program needs it, since unrestricted
-  `goto` would need a more general timing analysis. dampf rejects it today.
+
+`goto` was the fourth open question; it is decided, see [Statements](#statements).

@@ -311,9 +311,9 @@ worst case of 300 instead of 367, failed 94 tests; the largest measured call too
 **Bounds per function, bottom-up.** dampf computes the bounds of one function at a time, the
 callees first, on the structure of its code: blocks, then loops collapsed innermost first. This
 needs a call graph without cycles, which the subset gives by having no recursion, and code
-whose loops have a structure; unrestricted `goto` would need a more general analysis, and
-whether the subset allows a restricted form is still open. (`docs/timing.md`, *Level 2: exact
-bounds for branches and loops*)
+whose loops have a structure; unrestricted `goto` would need a more general analysis, which is
+why the subset rejects `goto`. (`docs/timing.md`, *Level 2: exact bounds for branches and
+loops*)
 
 **A worst case that may be too high.** The worst case adds up the costliest way through every
 branch, also where two branches can never both be taken. Annotations that exclude impossible

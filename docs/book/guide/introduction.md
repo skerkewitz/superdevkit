@@ -98,13 +98,17 @@ Its non-goals:
 
 ## Where it stands
 
-dampf compiles all of Blubber Blasen. The milestones M0 (define the subset), M1 (end to end, with
-stepping through C in Mesen) and M2 (all of the game compiled by the
-[naive code generator](/glossary#naive-code-generator), with the PC's checksums) are done. M3, the
-optimizer, is in progress: dampf lowers the program to [MIR](/glossary#mir), its intermediate
-representation, optimizes it and generates 65816 code from it. Parts of the fine tuning of M4
-have started early. M6 (an assembler and linker of its own) is done, ahead of M5 (publishing),
-which has not started.
+dampf compiles all of Blubber Blasen, and its version is 0.4.0. The milestones M0 (define the
+subset), M1 (end to end, with stepping through C in Mesen), M2 (all of the game compiled by the
+[naive code generator](/glossary#naive-code-generator), with the PC's checksums), M3 (the
+optimizer: dampf lowers the program to [MIR](/glossary#mir), its intermediate representation,
+optimizes it and generates 65816 code from it), M4 (fine tuning: block layout, peephole rules,
+loop and branch optimizations) and M6 (an assembler and linker of its own) are concluded. Next
+is M5, cleanup and publishing, which makes dampf public on GitHub as version 0.5.0, an alpha.
+Every version before 1.0 is a pre-release, so the subset, the command line and the files dampf
+writes may change from one version to the next. After M5, the optimizer work that is left goes
+on in M7, language, platform and usability (among them a preprocessor of dampf's own) in M8,
+timing and debugging in M9, and fine tuning until the frame budget is met in M10.
 
 The game's benchmark runs the game code with a fixed input and every PVSnesLib call stubbed out.
 During play (the benchmark's ticks of the game itself, not title, story or round intro), Blubber

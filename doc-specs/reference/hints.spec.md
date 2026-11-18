@@ -1,6 +1,8 @@
 ---
 title: Hints
 sources:
+  - docs/ADR.md
+  - docs/adr/*.md
   - docs/hints.md
   - docs/timing.md
   - docs/subrange-types.md

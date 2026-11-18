@@ -88,11 +88,9 @@ Limits: a single function or constant object can be at most 32 KB (the game's ow
 ADR-0006, already keeps graphics within that), and the start-up code, runtime and initial values
 of variables together must fit into bank `$80`.
 
-## Alternatives considered
+## Why
 
-- **DBR = 0 and only 8 KB of RAM with 16-bit addresses**, everything else through long addresses:
-  the 65816 has no long addressing for `inc`, `dec`, shifts, `stz`, `ldx`, `ldy`, `stx`, `sty` or
-  `bit`, so most variables would need extra instructions.
-- **Switching DBR between RAM and ROM per access**: cheaper ROM table reads, but every switch costs
-  instructions and makes the code harder to follow. If the measurements show that ROM tables are
-  hot, optimization J can do it locally.
+Why RAM is laid out this way, and the alternatives weighed, are in ADR
+[record 9](adr/0009-all-variables-live-in-bank-7e-and-dbr-stays-7e.md); pointers in
+[record 10](adr/0010-pointers-are-4-bytes-and-no-object-crosses-a-bank.md), the ROM in
+[record 12](adr/0012-lorom-with-fastrom-code-from-bank-80-one-segment.md).

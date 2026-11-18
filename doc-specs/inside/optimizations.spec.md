@@ -1,6 +1,8 @@
 ---
 title: Optimizations
 sources:
+  - docs/ADR.md
+  - docs/adr/*.md
   - docs/optimizations.md
   - docs/optimizations-log.md
   - docs/subrange-types.md
@@ -49,5 +51,5 @@ latest overall figure against the naive code and Calypsi.
 
 ## Out of scope
 
-- The optimizations not started (M4): one line linking [Roadmap](/inside/roadmap).
+- The optimizations not built yet (M7 and M10): one line linking [Roadmap](/inside/roadmap).
 - Exact timing: [Exact timing](/inside/timing).
