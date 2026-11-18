@@ -265,3 +265,19 @@ about 1 % of cycles per tick that no reasonable effort wins back, it is taken an
 loss is taken too, since a step can be reverted, but every loss gets an entry in
 [optimizations-log.md](optimizations-log.md): how much slower, where, and why it could not be
 avoided. The work happens on the branch `lir`, one commit per step, and is merged after review.
+
+**Phase B in the order B2, B3a, B4, B3b, B3c, B1, B5** (2026-11-18). B1 splits `MirCodeGen` into
+classes. Done first, it would move the branch passes, the register assumptions across blocks
+and the dead stores into the new classes, only for B2 to B4 to take them out again, and every
+diff of those steps would span several files. So the jobs come out first and the split comes
+after, when what is left is instruction selection. B3 comes in three parts: the analysis of
+register contents on LIR, checked against what the passes assume at every block start (B3a);
+loads the analysis finds redundant, removed by a LIR pass (B3b); and the switch, where selection
+writes each function once and these passes do what the repeated writing did (B3c). The dead
+stores (B4) come before B3c, since the switch needs them as a pass.
+
+**Local labels are numbered per function** (2026-11-18). The code generator numbered its local
+labels (`@L…`) with one counter for the whole program and every pass, so their names depended on
+how often a function was written. With branch relaxation the long form of every conditional
+branch takes a label, and the short form drops it, so the names would change with every change
+of reach. `LocalLabels` numbers them per function in the order they are defined.

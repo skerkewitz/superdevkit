@@ -47,7 +47,12 @@ final class AsmWriter {
 
     /** An instruction; {@code operand} and {@code comment} may be null. */
     void ins(String mnemonic, String operand, String comment) {
-        LInstr in = new LInstr(mnemonic, operand, comment, m16);
+        ins(mnemonic, operand, comment, false);
+    }
+
+    /** {@code relax}: a jump or branch in its long form that {@link dampf.lir.BranchRelax} may shorten. */
+    void ins(String mnemonic, String operand, String comment, boolean relax) {
+        LInstr in = new LInstr(mnemonic, operand, comment, m16, true, relax);
         if (!in.known()) {
             unknown++;
         }

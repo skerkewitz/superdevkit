@@ -2,8 +2,10 @@ package dampf.backend;
 
 import dampf.frontend.CompileError;
 import dampf.frontend.SourcePos;
+import dampf.lir.BranchRelax;
+import dampf.lir.LBlock;
 import dampf.lir.LFunction;
-import dampf.lir.LLayout;
+import dampf.lir.RegContents;
 import dampf.mir.Block;
 import dampf.mir.Instr;
 import dampf.mir.MFunction;
@@ -127,46 +129,29 @@ public final class MirCodeGen {
         }
         layout();
         for (MFunction f : module.functions()) {
-            // several passes: each finds out which branches reach their block directly, and
-            // later passes use the short form where an earlier one found it reaches. Branches
-            // only get shorter, but what the passes learn about the registers can make other code
-            // longer (CMP #0 instead of LDA dp), so the code that is kept is checked once more.
-            // The passes also learn what A, X and Y hold where each block starts (entryIn: what
-            // every way into it brings, from the pass before). The code that is kept must be
-            // consistent: every assumption it made holds on every way in, and every short branch
-            // reaches. If the passes with assumptions do not end so, the function is written again
-            // without them.
+            // several passes: each learns what A, X and Y hold where each block starts (entryIn:
+            // what every way into it brings, from the pass before), and which values need not be
+            // stored. The code that is kept must be consistent: every assumption it made holds on
+            // every way in. If the passes with assumptions do not end so, the function is written
+            // again without them. Every pass writes jumps and branches in their long form, and
+            // BranchRelax gives them the short form where it reaches.
             AsmWriter code = null;
             for (int attempt = 0; attempt < 2; attempt++) {
                 trackEntries = attempt == 0;
-                near = null;
                 entryIn = Map.of();
                 skipStore = Set.of();
                 neverSkip.clear();
                 boolean ok = false;
-                for (int pass = 0; pass < BRANCH_PASSES + 8; pass++) {
-                    jumpSites = 0;
-                    sitePos.clear();
-                    siteTargets.clear();
+                for (int pass = 0; pass < MAX_PASSES; pass++) {
                     code = new AsmWriter();
                     function(f, code);
-                    boolean more = near == null;
-                    Map<String, Integer> labelAt = LLayout.labelOffsets(code.function());
-                    Map<Integer, boolean[]> next = new HashMap<>(near == null ? Map.of() : near);
-                    for (Map.Entry<Integer, Integer> e : sitePos.entrySet()) {
-                        int k = e.getKey();
-                        boolean[] was = next.getOrDefault(k, new boolean[2]);
-                        Block[] to = siteTargets.get(k);
-                        boolean[] now = {was[0] || reaches(labelAt, e.getValue(), to[0]), was[1] || reaches(labelAt, e.getValue(), to[1])};
-                        more |= now[0] != was[0] || now[1] != was[1];
-                        next.put(k, now);
-                    }
+                    BranchRelax.run(code.function());
                     // a value not stored must not be read from its place
                     boolean consistent = !internalBroken && java.util.Collections.disjoint(skipStore, readValues);
                     for (Map.Entry<String, RegState> e : entryIn.entrySet()) {
                         consistent &= e.getValue().within(arriving.getOrDefault(e.getKey(), RegState.NONE));
                     }
-                    ok = consistent && LLayout.shortBranchesReach(code.function());
+                    ok = consistent && dampf.lir.LLayout.shortBranchesReach(code.function());
                     Map<String, RegState> learnt = new HashMap<>();
                     if (trackEntries) {
                         for (Block b : f.blocks()) {
@@ -193,10 +178,9 @@ public final class MirCodeGen {
                         }
                     }
                     boolean changes = !learnt.equals(entryIn) || !skipNext.equals(skipStore);
-                    if (ok && !more && !changes || pass >= BRANCH_PASSES + 7) {
+                    if (ok && !changes || pass == MAX_PASSES - 1) {
                         break;
                     }
-                    near = next;
                     entryIn = learnt;
                     skipStore = skipNext;
                 }
@@ -207,7 +191,13 @@ public final class MirCodeGen {
                     throw new IllegalStateException("branches out of reach in " + f.name());
                 }
             }
-            written.put(f, new Written(code.function(), code.loopBounds(), lastOrder, layout.ranges));
+            if (trackEntries) {
+                checkEntries(code.function());
+            }
+            Map<String, String> renamed = dampf.lir.LocalLabels.renumber(code.function(), "@L");
+            Map<String, Integer> bounds = new HashMap<>();
+            code.loopBounds().forEach((label, rounds) -> bounds.put(renamed.getOrDefault(label, label), rounds));
+            written.put(f, new Written(code.function(), bounds, lastOrder, layout.ranges));
             if (code.unknownInstructions() > 0) {
                 throw new IllegalStateException("the cycle table does not know an instruction in " + f.name());
             }
@@ -243,12 +233,8 @@ public final class MirCodeGen {
         return modules;
     }
 
-    /**
-     * Branch sites: per jumpOn and jumpTo of a function, where the branch was in this pass and its
-     * targets; from the passes before, which targets a short branch reaches (near). The passes
-     * stop when nothing new reaches; the code kept is checked with AsmWriter.branchesReach.
-     */
-    private static final int BRANCH_PASSES = 6;
+    /** At most this many passes per attempt. */
+    private static final int MAX_PASSES = 14;
 
     /**
      * What A, X and Y hold for sure, as aHolds, xHolds and yHolds do: the places (or immediate)
@@ -306,40 +292,45 @@ public final class MirCodeGen {
         RegState st = new RegState(Set.copyOf(aHolds), xHolds, yHolds);
         arriving.merge(label, st, RegState::meet);
     }
-    private final Map<Integer, Integer> sitePos = new HashMap<>();
-    private final Map<Integer, Block[]> siteTargets = new HashMap<>();
-    /** Per site: whether a short branch reaches each target (in some pass so far). */
-    private Map<Integer, boolean[]> near;
     /**
-     * Sites are numbered the same way in every pass: one per jump of a block, and a fixed group per
-     * conditional (its branch and each JMP any of its forms may need), measured only in passes
-     * where it was written.
-     */
-    private int jumpSites;
-    private static final int SITES_PER_CONDITIONAL = 5;
-
-    private boolean nearAt(int site, int target) {
-        boolean[] n = near == null ? null : near.get(site);
-        return n != null && n[target];
-    }
-
-    /**
-     * An unconditional jump to a block: BRA where it reaches (the same 3 cycles as JMP, one byte
-     * shorter, so other branches reach more often), else JMP. A site of the branch passes.
+     * An unconditional jump to a block, in its long form (JMP); {@link BranchRelax} makes it a BRA
+     * where that reaches (the same 3 cycles, one byte shorter, so other branches reach more often).
      */
     private void jumpTo(Block target) {
-        jumpTo(jumpSites++, target);
+        ins("jmp", target.name(), true);
     }
 
-    private void jumpTo(int site, Block target) {
-        sitePos.put(site, out.position());
-        siteTargets.put(site, new Block[] {target, target});
-        ins(nearAt(site, 0) ? "bra" : "jmp", target.name());
-    }
-
-    private static boolean reaches(Map<String, Integer> labelAt, int branchAt, Block target) {
-        Integer to = labelAt.get(target.name());
-        return to != null && LLayout.reaches(branchAt, to);
+    /**
+     * What the passes assumed A, X and Y hold where each block starts must hold in the code that
+     * is kept, as the data flow analysis over its LIR finds (values never stored, kept in A only,
+     * are left out: their place is not written).
+     */
+    private void checkEntries(LFunction code) {
+        Set<String> notStored = new HashSet<>();
+        for (Instr i : forward) {
+            if (place.containsKey(i)) {
+                notStored.add(dest(i, 0));
+            }
+        }
+        for (Instr i : skipStore) {
+            if (place.containsKey(i)) {
+                notStored.add(dest(i, 0));
+            }
+        }
+        Map<LBlock, RegContents.State> in = new RegContents(FRAME).entries(code);
+        for (Map.Entry<String, RegState> e : entryIn.entrySet()) {
+            LBlock b = code.block(e.getKey());
+            if (b == null || !in.containsKey(b)) {
+                continue;   // not reached
+            }
+            Set<String> a = new HashSet<>(e.getValue().a());
+            a.removeAll(notStored);
+            RegContents.State assumed = new RegContents.State(Set.copyOf(a), e.getValue().x(), e.getValue().y());
+            if (!assumed.within(in.get(b))) {
+                throw new IllegalStateException("in " + code.name() + " at " + e.getKey() + " the passes assumed " + assumed
+                        + ", the analysis of the code finds " + in.get(b));
+            }
+        }
     }
 
     private void prelude(AsmWriter w, int module, int modules) {
@@ -1861,52 +1852,32 @@ public final class MirCodeGen {
      * label earlier code branches to; it means true if {@code differMeansTrue}, else false.
      */
     private void jumpOn(String taken, String differ, boolean differMeansTrue, Block ifTrue, Block ifFalse, Block next) {
-        int site = jumpSites;
-        jumpSites += SITES_PER_CONDITIONAL;
-        sitePos.put(site, out.position());   // where the branch is in this pass
-        siteTargets.put(site, new Block[] {ifTrue, ifFalse});
-        if (differ == null) {
-            boolean t = nearAt(site, 0);
-            boolean f = nearAt(site, 1);
-            // a short branch straight to the block where it reaches
-            if (ifFalse == next && t) {
-                ins(taken, ifTrue.name());
-                return;
-            }
-            if (ifTrue == next && f) {
-                ins(inverse(taken), ifFalse.name());
-                return;
-            }
-            if (ifTrue != next && ifFalse != next && t) {
-                ins(taken, ifTrue.name());
-                jumpTo(site + 1, ifFalse);
-                return;
-            }
-        }
+        // the long form; BranchRelax shortens it where the targets reach (not with differ)
+        boolean relax = differ == null;
         String skip = label();
         if (ifFalse == next) {
-            ins(inverse(taken), skip);
+            ins(inverse(taken), skip, relax);
             if (differ != null && differMeansTrue) {
                 place(differ);
             }
-            jumpTo(site + 2, ifTrue);
+            jumpTo(ifTrue);
             place(skip);
             if (differ != null && !differMeansTrue) {
                 place(differ);
             }
             return;
         }
-        ins(taken, skip);
+        ins(taken, skip, relax);
         if (differ != null && !differMeansTrue) {
             place(differ);
         }
-        jumpTo(site + 3, ifFalse);
+        jumpTo(ifFalse);
         place(skip);
         if (differ != null && differMeansTrue) {
             place(differ);
         }
         if (ifTrue != next) {
-            jumpTo(site + 4, ifTrue);
+            jumpTo(ifTrue);
         }
     }
 
@@ -2219,6 +2190,11 @@ public final class MirCodeGen {
     }
 
     private void ins(String mnemonic, String operand) {
+        ins(mnemonic, operand, false);
+    }
+
+    /** {@code relax}: a jump or branch {@link BranchRelax} may shorten. */
+    private void ins(String mnemonic, String operand, boolean relax) {
         if (xTaken != null && changesX(mnemonic)) {
             throw new IllegalStateException(mnemonic + " in a loop whose " + Printer.instr(xTaken) + " lives in X");
         }
@@ -2274,7 +2250,7 @@ public final class MirCodeGen {
             }
         }
         noteRead(mnemonic, operand);
-        out.ins(mnemonic, operand, null);
+        out.ins(mnemonic, operand, null, relax);
         track(mnemonic, operand);
     }
 

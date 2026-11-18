@@ -15,17 +15,23 @@ public final class LInstr implements LItem {
     private final boolean m16;
     private final boolean x16;
     private final int opcode;
+    private final boolean relaxable;
 
     public LInstr(String mnemonic, String operand, String comment, boolean m16) {
-        this(mnemonic, operand, comment, m16, true);
+        this(mnemonic, operand, comment, m16, true, false);
     }
 
-    public LInstr(String mnemonic, String operand, String comment, boolean m16, boolean x16) {
+    /**
+     * {@code relaxable}: a jump or branch whose form {@link BranchRelax} may choose (the code
+     * generator writes the long form).
+     */
+    public LInstr(String mnemonic, String operand, String comment, boolean m16, boolean x16, boolean relaxable) {
         this.mnemonic = mnemonic;
         this.operand = operand;
         this.comment = comment;
         this.m16 = m16;
         this.x16 = x16;
+        this.relaxable = relaxable;
         this.opcode = Cycles65816.opcode(mnemonic, Cycles65816.mode(mnemonic, operand));
     }
 
@@ -48,6 +54,11 @@ public final class LInstr implements LItem {
 
     public boolean x16() {
         return x16;
+    }
+
+    /** Whether {@link BranchRelax} may give this jump or branch a shorter form. */
+    public boolean relaxable() {
+        return relaxable;
     }
 
     public int opcode() {
@@ -126,12 +137,12 @@ public final class LInstr implements LItem {
 
     /** The same instruction with another operand. */
     public LInstr withOperand(String newOperand) {
-        return new LInstr(mnemonic, newOperand, comment, m16, x16);
+        return new LInstr(mnemonic, newOperand, comment, m16, x16, relaxable);
     }
 
     /** The same instruction with another mnemonic (BRA for JMP, ...). */
     public LInstr withMnemonic(String newMnemonic) {
-        return new LInstr(newMnemonic, operand, comment, m16, x16);
+        return new LInstr(newMnemonic, operand, comment, m16, x16, relaxable);
     }
 
     @Override

@@ -13,6 +13,8 @@ public final class LFunction implements LItem {
     private final LDirective proc;
     private LDirective endproc;
     private final List<LBlock> blocks = new ArrayList<>();
+    /** The block lines are added to while the function is built (null after a branch, jump or return). */
+    private LBlock open;
 
     public LFunction(LDirective proc) {
         this.proc = proc;
@@ -32,6 +34,7 @@ public final class LFunction implements LItem {
 
     void close(LDirective end) {
         this.endproc = end;
+        open = null;
         link();
     }
 
@@ -39,10 +42,61 @@ public final class LFunction implements LItem {
         return blocks;
     }
 
-    LBlock newBlock() {
+    /**
+     * Adds a line while the function is built: every label starts a block, and every branch,
+     * jump or return ends one; comments and directives between them belong to the block after
+     * them (so a block may start with comments before its label).
+     */
+    void append(LItem item) {
+        switch (item) {
+            case LLabel l -> {
+                if (open == null || open.hasCode() || open.label() != null) {
+                    open = newBlock();
+                }
+                open.add(l);
+            }
+            case LInstr in -> {
+                if (open == null) {
+                    open = newBlock();
+                }
+                open.add(in);
+                if (in.endsBlock()) {
+                    open = null;
+                }
+            }
+            case LFunction f -> throw new IllegalArgumentException("a function inside .proc " + name());
+            default -> {
+                if (open == null) {
+                    open = newBlock();
+                }
+                open.add(item);
+            }
+        }
+    }
+
+    private LBlock newBlock() {
         LBlock b = new LBlock();
         blocks.add(b);
         return b;
+    }
+
+    /** All lines in layout order. */
+    public List<LItem> items() {
+        List<LItem> out = new ArrayList<>();
+        for (LBlock b : blocks) {
+            out.addAll(b.items());
+        }
+        return out;
+    }
+
+    /** Replaces the code with these lines, cut into blocks again. */
+    public void rebuild(List<LItem> items) {
+        blocks.clear();
+        open = null;
+        for (LItem i : items) {
+            append(i);
+        }
+        link();
     }
 
     /** The block a named label starts, or null. */

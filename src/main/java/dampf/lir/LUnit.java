@@ -6,14 +6,11 @@ import java.util.List;
 /**
  * A piece of assembly as LIR: top-level items (directives, data, comments) and functions. Built
  * line by line with {@link #add}: {@code .proc} opens a function, {@code .endproc} closes it, and
- * in between the lines are cut into basic blocks. Every label starts a block, and every branch,
- * jump or return ends one; comments and directives between them belong to the block after them
- * (so a block may start with comments before its label).
+ * in between the lines are cut into basic blocks ({@link LFunction#append}).
  */
 public final class LUnit {
     private final List<LItem> items = new ArrayList<>();
     private LFunction function;
-    private LBlock block;
 
     public List<LItem> items() {
         return items;
@@ -35,7 +32,6 @@ public final class LUnit {
             if (item instanceof LDirective d && d.kind() == LDirective.Kind.PROC) {
                 function = new LFunction(d);
                 items.add(function);
-                block = null;
             } else if (item instanceof LInstr) {
                 throw new IllegalArgumentException("an instruction outside .proc: " + item);
             } else {
@@ -47,32 +43,10 @@ public final class LUnit {
             case LDirective d when d.kind() == LDirective.Kind.ENDPROC -> {
                 function.close(d);
                 function = null;
-                block = null;
             }
             case LDirective d when d.kind() == LDirective.Kind.PROC ->
                     throw new IllegalArgumentException(".proc inside .proc " + function.name());
-            case LLabel l -> {
-                if (block == null || block.hasCode() || block.label() != null) {
-                    block = function.newBlock();
-                }
-                block.add(l);
-            }
-            case LInstr in -> {
-                if (block == null) {
-                    block = function.newBlock();
-                }
-                block.add(in);
-                if (in.endsBlock()) {
-                    block = null;
-                }
-            }
-            case LFunction f -> throw new IllegalArgumentException("a function inside .proc " + function.name());
-            default -> {
-                if (block == null) {
-                    block = function.newBlock();
-                }
-                block.add(item);
-            }
+            default -> function.append(item);
         }
     }
 
