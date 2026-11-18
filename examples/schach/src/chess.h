@@ -15,6 +15,7 @@
 #define CHESS_H
 
 #include <stdint.h>
+#include <dampf.h>
 
 /* --- pieces and squares ---------------------------------------------------------------------- */
 enum { EMPTY, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING };
@@ -73,6 +74,7 @@ extern uint8_t hist_len;
 extern int16_t psq_val[16][128];
 extern const int16_t KING_MG[64], KING_EG[64];
 extern const uint8_t PHASE_OF[8];
+extern const int16_t PIECE_VALUE[8];   /* centipawns, by type */
 
 void chess_init(void);                  /* tables: Zobrist keys, piece squares; once */
 uint8_t set_fen(const char *fen);       /* 1 when the FEN was read */
@@ -81,7 +83,11 @@ uint8_t attacked(uint8_t sq, uint8_t by);
 uint8_t in_check(void);                 /* the side to move */
 uint8_t left_in_check(void);            /* after make_move: the side that moved */
 uint8_t illegal_after(uint8_t from, uint8_t was_in_check);   /* the same, cheaper */
-void gen_moves(uint8_t captures_only);  /* appends to the move list */
+uint8_t gave_check(void);               /* after make_move: the side to move is in check */
+/* Appends the moves of the side to move to the move list: GEN_ALL, GEN_CAPTURES (with every
+ * promotion) or GEN_QUIETS (the rest); check says whether the side is in check (no castling). */
+enum { GEN_ALL, GEN_CAPTURES, GEN_QUIETS };
+void gen_moves(uint8_t kind, uint8_t check);
 void make_move(uint8_t from, uint8_t to, uint8_t flag);
 void unmake_move(void);
 uint8_t repeated(void);                 /* the position was there before, same side to move */

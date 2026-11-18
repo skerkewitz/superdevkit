@@ -49,7 +49,10 @@ static uint8_t castle_keep[128];
  * diagonal, else 0. */
 static int8_t RAY[239];
 
-static const int16_t VALUE[8] = { 0, 100, 320, 330, 500, 900, 0, 0 };
+/* KNIGHT_JUMP[a - b + 119]: 1 when a knight on b attacks a. */
+static uint8_t KNIGHT_JUMP[239];
+
+const int16_t PIECE_VALUE[8] = { 0, 100, 320, 330, 500, 900, 0, 0 };
 const uint8_t PHASE_OF[8] = { 0, 0, 1, 1, 2, 4, 0, 0 };
 
 /* Piece squares from white's view, written as the board is seen: a8 first, h1 last (the
@@ -145,9 +148,9 @@ void chess_init(void)
                 zob[p][sq] = rnd32();
                 if (TYPE(p) != KING) {
                     if (COLOR(p) == WHITE) {
-                        psq_val[p][sq] = (int16_t)(VALUE[TYPE(p)] + PST[TYPE(p) - 1][(7 - r) * 8 + f]);
+                        psq_val[p][sq] = (int16_t)(PIECE_VALUE[TYPE(p)] + PST[TYPE(p) - 1][(7 - r) * 8 + f]);
                     } else {
-                        psq_val[p][sq] = (int16_t)-(VALUE[TYPE(p)] + PST[TYPE(p) - 1][r * 8 + f]);
+                        psq_val[p][sq] = (int16_t)-(PIECE_VALUE[TYPE(p)] + PST[TYPE(p) - 1][r * 8 + f]);
                     }
                 }
             }
@@ -171,6 +174,7 @@ void chess_init(void)
             RAY[delta + 119] = d;
             delta = (int16_t)(delta + d);
         }
+        KNIGHT_JUMP[KNIGHT_STEPS[i] + 119] = 1;
     }
     castle_keep[SQ(4, 0)] = (uint8_t)(15 & ~(CASTLE_WK | CASTLE_WQ));
     castle_keep[SQ(7, 0)] = (uint8_t)(15 & ~CASTLE_WK);
@@ -428,30 +432,16 @@ uint8_t left_in_check(void)
     return attacked(KING_SQ(side ^ BLACK), side);
 }
 
-/* After make_move(from, ...): whether the side that moved left its king attacked, cheaper than
- * left_in_check() when the side was not in check before. Then only a king move, an en passant
- * capture (two pieces leave a line) and a piece that left a line through its own king can
- * expose the king: the line from the king through the from square is looked at, nothing else. */
-uint8_t illegal_after(uint8_t from, uint8_t was_in_check)
+/* Whether a slider of the colour by stands first on the line from k in the step d: queens on
+ * every line, rooks on ranks and files, bishops on diagonals. */
+static uint8_t slider_on_line(uint8_t k, int8_t d, uint8_t by)
 {
-    uint8_t mover = (uint8_t)(side ^ BLACK);
-    uint8_t k = KING_SQ(mover);
-    uint8_t s = (uint8_t)(sp - 1);
-    int8_t d;
-    uint8_t t, p;
+    uint8_t t = (uint8_t)(k + d), p;
 
-    if (was_in_check || k == u_to[s] || u_flag[s] == MF_EP) {
-        return attacked(k, side);
-    }
-    d = RAY[(int16_t)from - (int16_t)k + 119];
-    if (d == 0) {
-        return 0;
-    }
-    t = (uint8_t)(k + d);
     while (!OFF(t)) {
         p = board[t];
         if (p != EMPTY) {
-            if (COLOR(p) == mover) {
+            if (COLOR(p) != by) {
                 return 0;
             }
             if (TYPE(p) == QUEEN) {
@@ -467,10 +457,75 @@ uint8_t illegal_after(uint8_t from, uint8_t was_in_check)
     return 0;
 }
 
+/* After make_move: whether the move gave check, the side to move now being in check. Cheaper
+ * than in_check(): a check comes from the piece that moved, or from a slider behind the square
+ * it left. Castling and en passant (a rook and two pawns move) ask in_check(). */
+uint8_t gave_check(void)
+{
+    uint8_t s = (uint8_t)(sp - 1);
+    uint8_t from = u_from[s], to = u_to[s], flag = u_flag[s];
+    uint8_t by = (uint8_t)(side ^ BLACK);
+    uint8_t k = KING_SQ(side);
+    uint8_t type = TYPE(board[to]);
+    int8_t d;
+
+    if (flag == MF_EP || flag == MF_CASTLE) {
+        return in_check();
+    }
+    switch (type) {
+    case PAWN:
+        if (by == WHITE ? (k == (uint8_t)(to + 15) || k == (uint8_t)(to + 17))
+                        : (k == (uint8_t)(to - 15) || k == (uint8_t)(to - 17))) {
+            return 1;
+        }
+        break;
+    case KNIGHT:
+        if (KNIGHT_JUMP[(int16_t)k - (int16_t)to + 119]) {
+            return 1;
+        }
+        break;
+    case KING:
+        break;
+    default:
+        d = RAY[(int16_t)k - (int16_t)to + 119];
+        if (d != 0 && (type == QUEEN || (type == ROOK) == (d == 1 || d == -1 || d == 16 || d == -16))) {
+            uint8_t t = (uint8_t)(to + d);
+            while (t != k && board[t] == EMPTY) {
+                t = (uint8_t)(t + d);
+            }
+            if (t == k) {
+                return 1;
+            }
+        }
+        break;
+    }
+    d = RAY[(int16_t)from - (int16_t)k + 119];
+    return d != 0 && slider_on_line(k, d, by);
+}
+
+/* After make_move(from, ...): whether the side that moved left its king attacked, cheaper than
+ * left_in_check() when the side was not in check before. Then only a king move, an en passant
+ * capture (two pieces leave a line) and a piece that left a line through its own king can
+ * expose the king: the line from the king through the from square is looked at, nothing else. */
+uint8_t illegal_after(uint8_t from, uint8_t was_in_check)
+{
+    uint8_t mover = (uint8_t)(side ^ BLACK);
+    uint8_t k = KING_SQ(mover);
+    uint8_t s = (uint8_t)(sp - 1);
+    int8_t d;
+
+    if (was_in_check || k == u_to[s] || u_flag[s] == MF_EP) {
+        return attacked(k, side);
+    }
+    d = RAY[(int16_t)from - (int16_t)k + 119];
+    return d != 0 && slider_on_line(k, d, side);
+}
+
 /* --- move generation ------------------------------------------------------------------------- */
 static void add(uint8_t from, uint8_t to, uint8_t flag)
 {
     uint16_t n = mv_count;
+    DAMPF_RANGE(n, 0, MOVES_MAX - 1);
     mv_from[n] = from;
     mv_to[n] = to;
     mv_flag[n] = flag;
@@ -489,8 +544,10 @@ static void add_pawn(uint8_t from, uint8_t to, uint8_t last_rank)
     }
 }
 
-void gen_moves(uint8_t captures_only)
+void gen_moves(uint8_t kind, uint8_t check)
 {
+    uint8_t quiets = (uint8_t)(kind != GEN_CAPTURES);
+    uint8_t captures = (uint8_t)(kind != GEN_QUIETS);
     uint8_t base = (uint8_t)(side << 1);
     uint8_t enemy = (uint8_t)(side ^ BLACK);
     uint8_t i, j, from, to, p, q, type;
@@ -507,16 +564,16 @@ void gen_moves(uint8_t captures_only)
         type = TYPE(p);
         if (type == PAWN) {
             to = (uint8_t)(from + fwd);
-            if (board[to] == EMPTY && (!captures_only || RANK_OF(to) == last_rank)) {
+            if (board[to] == EMPTY && (RANK_OF(to) == last_rank ? captures : quiets)) {
                 add_pawn(from, to, last_rank);
-                if (RANK_OF(from) == start_rank && !captures_only) {
+                if (RANK_OF(from) == start_rank && quiets) {
                     to = (uint8_t)(to + fwd);
                     if (board[to] == EMPTY) {
                         add(from, to, MF_DOUBLE);
                     }
                 }
             }
-            for (j = 0; j < 2; j++) {
+            for (j = 0; j < 2 && captures; j++) {
                 to = (uint8_t)(from + fwd + (j == 0 ? -1 : 1));
                 if (OFF(to)) {
                     continue;
@@ -537,10 +594,10 @@ void gen_moves(uint8_t captures_only)
                 }
                 q = board[to];
                 if (q == EMPTY) {
-                    if (!captures_only) {
+                    if (quiets) {
                         add(from, to, MF_NORMAL);
                     }
-                } else if (COLOR(q) == enemy) {
+                } else if (COLOR(q) == enemy && captures) {
                     add(from, to, MF_NORMAL);
                 }
             }
@@ -553,11 +610,11 @@ void gen_moves(uint8_t captures_only)
                 while (!OFF(to)) {
                     q = board[to];
                     if (q == EMPTY) {
-                        if (!captures_only) {
+                        if (quiets) {
                             add(from, to, MF_NORMAL);
                         }
                     } else {
-                        if (COLOR(q) == enemy) {
+                        if (COLOR(q) == enemy && captures) {
                             add(from, to, MF_NORMAL);
                         }
                         break;
@@ -569,11 +626,11 @@ void gen_moves(uint8_t captures_only)
     }
     /* castling: the rights, the squares between empty, the king not in check and not passing an
      * attacked square; whether it lands in check is left to left_in_check() */
-    if (!captures_only && (castle & (side == WHITE ? CASTLE_WK | CASTLE_WQ : CASTLE_BK | CASTLE_BQ)) != 0) {
+    if (quiets && !check && (castle & (side == WHITE ? CASTLE_WK | CASTLE_WQ : CASTLE_BK | CASTLE_BQ)) != 0) {
         uint8_t k = side == WHITE ? SQ(4, 0) : SQ(4, 7);
         uint8_t kside = side == WHITE ? CASTLE_WK : CASTLE_BK;
         uint8_t qside = side == WHITE ? CASTLE_WQ : CASTLE_BQ;
-        if (!attacked(k, enemy)) {
+        {
             if ((castle & kside) && board[k + 1] == EMPTY && board[k + 2] == EMPTY && !attacked((uint8_t)(k + 1), enemy)) {
                 add(k, (uint8_t)(k + 2), MF_CASTLE);
             }
@@ -764,7 +821,7 @@ uint32_t perft(uint8_t depth)
     }
     pf_first[0] = mv_count;
     pf_check[0] = in_check();
-    gen_moves(0);
+    gen_moves(GEN_ALL, pf_check[0]);
     pf_cur[0] = pf_first[0];
     for (;;) {
         m = pf_cur[ply];
@@ -781,6 +838,7 @@ uint32_t perft(uint8_t depth)
             }
             continue;
         }
+        DAMPF_RANGE(m, 0, MOVES_MAX - 1);
         pf_cur[ply] = (uint16_t)(m + 1);
         make_move(mv_from[m], mv_to[m], mv_flag[m]);
         if (illegal_after(mv_from[m], pf_check[ply])) {
@@ -805,7 +863,7 @@ uint32_t perft(uint8_t depth)
         ply++;
         pf_first[ply] = mv_count;
         pf_check[ply] = in_check();
-        gen_moves(0);
+        gen_moves(GEN_ALL, pf_check[ply]);
         pf_cur[ply] = pf_first[ply];
     }
     mv_count = pf_first[0];
@@ -821,7 +879,7 @@ void list_legal(void)
     uint16_t first = mv_count, m;
 
     legal_n = 0;
-    gen_moves(0);
+    gen_moves(GEN_ALL, in_check());
     for (m = first; m < mv_count; m++) {
         make_move(mv_from[m], mv_to[m], mv_flag[m]);
         if (!left_in_check()) {
@@ -971,7 +1029,7 @@ void move_text(uint8_t from, uint8_t to, uint8_t flag, char *out)
     if (in_check()) {
         uint16_t first = mv_count, m;
         uint8_t mate = 1;
-        gen_moves(0);
+        gen_moves(GEN_ALL, 1);
         for (m = first; m < mv_count && mate; m++) {
             make_move(mv_from[m], mv_to[m], mv_flag[m]);
             if (!left_in_check()) {

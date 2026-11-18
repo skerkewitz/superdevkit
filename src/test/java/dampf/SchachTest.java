@@ -22,9 +22,12 @@ import org.junit.jupiter.api.io.TempDir;
  * The chess example (examples/schach) on the SNES: a test program of its own, built by gcc and by
  * dampf, run on the PC and in dampf's emulator; the results (globals named by the program) must be
  * the same. Prints the CPU cycles per unit of work, the measure of the example's speed; with the
- * environment variable SCHACH_PROFILE=1 also the cycles per function.
+ * environment variable SCHACH_PROFILE=1 also the cycles per function, and it writes the ROM and
+ * its execution counts to build/schach/ for {@code dampf profile build/schach/<name>.sfc
+ * build/schach/<name>.profile.txt}, the cycles per C line.
  *
- * test/perft_snes.c: perft over the five standard positions, the counts the known ones.
+ * test/perft_snes.c: perft over the five standard positions, the counts the known ones;
+ * test/search_snes.c: searches with a node limit, the same moves, scores and node counts.
  */
 class SchachTest {
     private static final Path TEST = Path.of("examples/schach/test");
@@ -47,6 +50,16 @@ class SchachTest {
         });
     }
 
+    @Test
+    void searchGivesTheSameMovesOnTheSnes() {
+        assertTimeoutPreemptively(Duration.ofMinutes(5), () -> {
+            Run run = run("search_snes.c", Map.of("move_from", 4, "move_to", 4, "move_flag", 4, "scores", 4, "depths", 4, "node_counts", 4,
+                    "total_nodes", 1, "given_back", 1), 3000);
+            assertEquals("1", run.pc().get("given_back"), "the board after each search");
+            run.print("search", Long.parseLong(run.pc().get("total_nodes")), "nodes", "node");
+        });
+    }
+
     /** What a test program did on both sides, and the CPU cycles test_main took on the SNES. */
     private record Run(Map<String, String> pc, long cycles, Map<String, Long> self) {
         void print(String what, long units, String plural, String unit) {
@@ -63,8 +76,11 @@ class SchachTest {
      */
     private Run run(String program, Map<String, Integer> globals, long frames) throws Exception {
         Path src = TEST.resolve(program);
-        Compiler.Result r = Compiler.compile(new Compiler.Options(List.of(src), List.of(), List.of(), "test_main",
-                tmp.resolve("t.sfc")).withBackend(Compiler.Backend.MIR));
+        boolean profile = "1".equals(System.getenv("SCHACH_PROFILE"));
+        Path rom = profile ? Files.createDirectories(Path.of("build/schach")).resolve(program.replace(".c", ".sfc"))
+                : tmp.resolve("t.sfc");
+        Compiler.Result r = Compiler.compile(new Compiler.Options(List.of(src), List.of(), List.of(), "test_main", rom)
+                .withBackend(Compiler.Backend.MIR));
         Map<String, Integer> sizes = new HashMap<>();
         for (var v : r.program().globals()) {
             if (globals.containsKey(v.name())) {
@@ -81,8 +97,8 @@ class SchachTest {
                 code.merge(address, name, (x, y) -> x.startsWith("__") ? y : x);   // a function, not a linker symbol
             }
         });
-        boolean profile = "1".equals(System.getenv("SCHACH_PROFILE"));
         Map<String, Long> self = new HashMap<>();
+        Map<Integer, Long> executed = new TreeMap<>();
         long[] at = {-1, -1, 0};
         String[] current = {null};
         assertTrue(snes.run(frames * FRAME, address -> {
@@ -99,8 +115,16 @@ class SchachTest {
                 Map.Entry<Long, String> f = code.floorEntry((long) address);
                 current[0] = f == null ? "?" : f.getValue();
                 at[2] = now;
+                if ((address & 0xFFFF) >= 0x8000 && (address >> 16) >= 0x80) {   // LoROM: the offset in the file
+                    executed.merge(((address >> 16) & 0x7F) * 0x8000 + (address & 0x7FFF), 1L, Long::sum);
+                }
             }
         }), program + " did not finish within " + frames + " frames");
+        if (profile) {                   // for dampf profile: the cycles per C line
+            StringBuilder text = new StringBuilder("clocks " + snes.masterClock() + "\n");
+            executed.forEach((offset, count) -> text.append(offset).append(' ').append(count).append('\n'));
+            Files.writeString(rom.resolveSibling(program.replace(".c", ".profile.txt")), text);
+        }
         byte[] wram = snes.wram();
         for (Map.Entry<String, Integer> g : globals.entrySet()) {
             int size = sizes.get(g.getKey());
@@ -135,7 +159,8 @@ class SchachTest {
         Path c = tmp.resolve("pc.c"), exe = tmp.resolve("pc");
         Files.writeString(c, h);
         Processes.check(tmp, Duration.ofMinutes(1), List.of("gcc", "-std=c99", "-O1", "-Wall", "-fsanitize=undefined",
-                "-fno-sanitize-recover=all", "-o", exe.toString(), c.toString()));
+                "-fno-sanitize-recover=all", "-idirafter", dampf.frontend.SystemHeaders.directory().toString(),
+                "-o", exe.toString(), c.toString()));
         Map<String, String> out = new HashMap<>();
         for (String line : Processes.check(tmp, Duration.ofMinutes(2), List.of(exe.toString())).strip().split("\n")) {
             int sp = line.lastIndexOf(' ');
