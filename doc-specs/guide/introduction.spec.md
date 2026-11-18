@@ -4,6 +4,7 @@ sources:
   - README.md
   - docs/roadmap.md
   - docs/optimizations.md
+  - platform/snes/README.md
 audience: Game programmers deciding whether dampf fits their SNES project
 ---
 
@@ -41,6 +42,11 @@ source compiles and behaves bit for bit the same with gcc on the PC.
   builds on the PC. Do not describe the game beyond that.
 - dampf builds a playable ROM of the game (the SNES platform layer); say so in *Where it
   stands*, with what is not built there (sound, save RAM).
+- Whether dampf fits the reader's own game: its logic must also build with gcc on the PC, and
+  the calls it makes into PVSnesLib or another library need a
+  [platform layer](/glossary#platform-layer) written in C, as Blubber Blasen's is. Say both
+  plainly, in *What dampf assumes* or *Where it stands*.
+- Give the unit with the first figure (frames per tick), before or in the table.
 
 ## Out of scope
 

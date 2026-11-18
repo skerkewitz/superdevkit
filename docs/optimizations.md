@@ -162,7 +162,7 @@ already exposed a miscompilation ([roadmap.md](roadmap.md#open-questions)). Whic
 | 816-tcc (PVSnesLib) | probably 5–10 × (observed: very slow, needed workarounds) |
 | Calypsi | about 1.1 × on `level_solid_px` (an older run) |
 | dampf, naive code generator | 4.5 × on `level_solid_px` ([log](optimizations-log.md#the-first-reference-function-level_solid_px-2026-11-17)) |
-| dampf from MIR, today | 1.20 × on `level_solid_px` ([Where things stand](#where-things-stand)) |
+| dampf from MIR, today | 1.14 × on `level_solid_px` ([Where things stand](#where-things-stand)) |
 | dampf after the optimizations, hot loops, without hints | estimated 1.2–1.5 × |
 | dampf after the optimizations, hot loops, with hints | estimated 1.1–1.2 ×, in places equal |
 | dampf, the rest of the code | equal to or better than what a human writes there in practice |

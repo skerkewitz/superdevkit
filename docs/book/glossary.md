@@ -42,6 +42,11 @@ Another C compiler for the 65816. dampf's speed on Blubber Blasen is measured ag
 dampf's main code generator (`--backend mir`, the default): it translates optimized
 [MIR](#mir) into 65816 assembly. Compare the [naive code generator](#naive-code-generator).
 
+## CPU partner
+
+The computer-controlled second player of Blubber Blasen. It plans by simulating moves ahead
+every tick, which makes *play with the CPU partner* the hardest part of the game's benchmark.
+
 ## DBR
 
 Data bank register: the [bank](#bank) the 65816 uses for 16-bit data addresses. dampf keeps it
@@ -57,6 +62,12 @@ functions there.
 
 The C function the [runtime](#runtime) calls after start-up, `main` unless `--entry` names
 another. It is `void name(void)`, or `int main(void)`, whose result is ignored.
+
+## FastROM and SlowROM
+
+The two speeds at which the SNES reads a cartridge's ROM. FastROM reads banks `$80` and up at
+3.58 MHz, SlowROM at 2.68 MHz. dampf builds FastROM by default; `--slowrom` builds for a SlowROM
+cartridge.
 
 ## Frame
 
@@ -87,6 +98,12 @@ form of branches.
 The two bits of the 65816's processor status that set [8-bit or 16-bit mode](#_8-bit-and-16-bit-mode):
 `M` for the accumulator and memory accesses, `X` for the index registers X and Y.
 
+## Master clock
+
+The SNES's base clock. A CPU cycle takes several master clocks, more for slow memory, so the
+exact cost of code is counted in master clocks: one NTSC [frame](#frame) is 357,366 of them.
+dampf's cycle report counts CPU cycles; its benchmark measures master clocks.
+
 ## Mesen
 
 Mesen 2, the SNES emulator and debugger dampf's ROMs are run and debugged in. It reads the debug
@@ -114,6 +131,13 @@ to 8 or 16 bits or removing a repeated computation.
 
 The same C source compiled with gcc on an x86-64 PC. It is the reference: what dampf's code
 computes on the SNES must match it bit for bit.
+
+## Platform layer
+
+The C code that implements a game's console API on the real SNES: setting up the hardware, the
+main loop and waiting for the [vertical blank](#vertical-blank). dampf compiles it together with
+the game. Blubber Blasen's platform layer implements its PVSnesLib-shaped calls; a game that
+calls another library needs a platform layer for that library.
 
 ## Pointer compression
 
@@ -156,6 +180,11 @@ whose result depends on undefined behaviour fails instead of passing by chance.
 
 The smallest and largest value a variable or an expression can have, which dampf infers. A value
 that fits 8 or 16 bits lets dampf use the cheaper mode and instructions.
+
+## Vertical blank
+
+The time between two pictures when the SNES does not draw, about 60 times a second. Graphics
+memory may only be written then, so a game waits for it at the end of every frame.
 
 ## Whole program
 

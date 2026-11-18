@@ -12,6 +12,7 @@ sources:
   - src/main/java/dampf/mir/Optimizer.java
   - src/main/java/dampf/Main.java
   - src/main/java/dampf/frontend/AstBuilder.java
+  - src/main/java/dampf/check/CallGraph.java
 audience: Readers who want to know what happens between the C files and the ROM, and new contributors
 ---
 

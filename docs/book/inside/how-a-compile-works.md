@@ -10,8 +10,8 @@ not need any of it to use dampf.
 
 The class `Compiler` holds the whole pipeline: C files go in, a SNES ROM with debug
 information comes out. Two code generators share the front end: the code generator from
-[MIR](/glossary#mir), which `dampf build` uses unless you choose another, and the naive code
-generator, which works straight from the [AST](/glossary#ast).
+[MIR](/glossary#mir), which `dampf build` uses unless you choose the naive one or use
+`--replace`, and the naive code generator, which works straight from the [AST](/glossary#ast).
 
 ```mermaid
 flowchart TD
@@ -33,12 +33,16 @@ flowchart TD
 - **Parse**: an ANTLR parser turns the preprocessed text into a parse tree.
 - **AST**: the parse trees of all files become one typed AST; subset violations are found here.
 - **Checks**: the call graph of the whole program is built, and recursion is rejected.
-- **Lowering to MIR**: each function becomes a graph of basic blocks in SSA form.
-- **Passes**: the optimizer rewrites the MIR until nothing changes.
-- **Instruction selection**: each function of the MIR becomes LIR, 65816 code in basic blocks.
+- **Lowering to MIR**: each function becomes a graph of basic blocks in [SSA](/glossary#ssa)
+  form.
+- **Passes**: the optimizer's [passes](/glossary#pass) rewrite the MIR until nothing changes.
+- **Instruction selection**: each function of the MIR becomes [LIR](/glossary#lir), 65816 code in
+  basic blocks.
 - **LIR passes**: loads and stores nobody needs are removed, branch forms are chosen, and the
-  LIR is printed as ca65 assembly; the naive path writes that assembly straight from the AST.
-- **Assembling and linking**: the assembly is assembled, packed into ROM banks and linked.
+  LIR is printed as [ca65](/glossary#ca65-and-ld65) assembly; the naive path writes that
+  assembly straight from the AST.
+- **Assembling and linking**: the assembly is assembled, packed into ROM
+  [banks](/glossary#bank) and linked.
 
 ## Preprocess and parse
 
@@ -69,16 +73,16 @@ conversions, the integer promotions among them, are made explicit, so the meanin
 operation is fixed before any code is generated.
 
 A `sizeof` becomes a constant here, and it has to have the value gcc gives on x86-64, because
-the result must match the PC build bit for bit. dampf's pointers are 4 bytes against 8 on the
-PC, and dampf does not pad struct fields, so for such types dampf rejects `sizeof` with a
-message. The one use it allows is the element count `sizeof a / sizeof a[0]`, whose quotient is
-the same on both.
+the result must match the [PC build](/glossary#pc-build) bit for bit. dampf's pointers are 4
+bytes against 8 on the PC, and dampf does not pad struct fields, so for such types dampf rejects
+`sizeof` with a message. The one use it allows is the element count `sizeof a / sizeof a[0]`,
+whose quotient is the same on both.
 
-The class `AstBuilder` also reads the hints of `<dampf.h>`, macros that tell dampf what it
-cannot infer. A `DAMPF_RANGE` statement gives the lowest and highest value of a local variable
-or parameter of an integer type, with constant bounds, and becomes a statement of its own in the
-AST. `DAMPF_BUDGET` in front of a function definition gives the most CPU cycles the function
-may take.
+The class `AstBuilder` also reads the [hints](/glossary#hint) of `<dampf.h>`, macros that tell
+dampf what it cannot infer. A `DAMPF_RANGE` statement gives the lowest and highest value of a
+local variable or parameter of an integer type, with constant bounds, and becomes a statement of
+its own in the AST. `DAMPF_BUDGET` in front of a function definition gives the most CPU cycles
+the function may take.
 
 The subset is enforced here, not in the grammar. A construct outside the subset parses, and
 then gets a message that says what is not supported, with the position of the C source. Once
@@ -97,9 +101,9 @@ examples/m1/calls.c:1:1: error: entry function 'main' is not defined
 ## Checks on the whole program
 
 Because dampf sees every file at once, it builds the call graph of the whole program
-(`CallGraph`) and rejects recursion, direct or through other functions. Every function then
-has a fixed set of callers, which the code generators rely on when they place the frames of
-functions in memory.
+(`CallGraph`) and rejects recursion, direct or through other functions. Without recursion no
+function runs twice at the same time, so the parameters and locals of a function can live at
+fixed addresses, in its static frame.
 
 The command `dampf check` runs the same check on the files that pass the front end, after it
 has checked each file on its own; the command is on [Command line](/reference/command-line).
@@ -111,13 +115,13 @@ for data flow and LIR for the 65816; today MIR and LIR exist, and HIR would come
 arrays of structs needs it (see the [Roadmap](/inside/roadmap)).
 
 The class `Lower` translates the AST into MIR directly: each function becomes a graph of basic
-blocks in [SSA](/glossary#ssa) form, with explicit widths and the signedness in the operations.
+blocks in SSA form, with explicit widths and the signedness in the operations.
 A `DAMPF_RANGE` becomes comparisons that branch to a block ending in `unreachable` when the hint
-is wrong: the range analysis learns the [value range](/glossary#value-range) from them, and the
-code generator takes them out once it has computed the ranges.
+is wrong, and the range analysis learns the [value range](/glossary#value-range) from them.
+They stay in the MIR through all passes; the code generator takes them out.
 
-Then `Optimizer` runs the [passes](/glossary#pass). On each function it repeats, until nothing
-changes:
+Then `Optimizer` runs the passes. On each function it repeats, until nothing changes or at
+most 20 times:
 
 1. simplification (`Simplify`),
 2. tests against neighbouring constants as one range check (`RangeChecks`),
@@ -135,8 +139,10 @@ After that round, `ParamRanges` narrows the ranges of parameters across the whol
 if it did, the round runs again. Then small functions are inlined (`Inline`); `Optimizer` hands
 it the passes, so that it can run them on a function again before that function's callers
 decide whether to inline it. Pointer parameters are compressed (`PointerParams`), and if either
-changed something, the passes run again, followed by `ParamRanges` once more. Last, `Schedule`
-sets the order of the instructions for the code generator, and the verifier checks the result.
+changed something, the passes run again. Pointers that became offsets in the callers may then
+reach more callees, so `PointerParams` runs once more, and `ParamRanges` after it, each followed
+by the passes if it changed something. Last, `Schedule` sets the order of the instructions for
+the code generator, and the verifier checks the result.
 What MIR looks like is on [MIR](/inside/mir); what each pass does is on
 [Optimizations](/inside/optimizations).
 
@@ -145,11 +151,11 @@ What MIR looks like is on [MIR](/inside/mir); what each pass does is on
 The [code generator from MIR](/glossary#code-generator-from-mir), `MirCodeGen`, is dampf's
 main code generator. First it prepares the MIR once more: loop exits get blocks of their own
 (`ExitEdges`), return blocks are copied into their predecessors (`Returns`), pointer sums are
-computed again where their value is needed (`PointerRemat`), and the checks of the hints come
-out (`Hints`). Then it selects the instructions of each function once
-(`Selection`, with one class per kind of MIR instruction and `FrameLayout` for the places): it
-sets the processor modes with `REP` and `SEP` and gives every value a place in a frame or in A,
-X or Y.
+computed again where their value is needed (`PointerRemat`), and `Hints` computes every
+function's value ranges with the checks of the hints, then takes the checks out. Then it
+selects the instructions of each function once (`Selection`, with one class per kind of MIR
+instruction and `FrameLayout` for the places): it sets the processor modes with `REP` and `SEP`
+and gives every value a place in a frame or in A, X or Y.
 
 What instruction selection writes is LIR, the low-level intermediate representation: 65816
 instructions in basic blocks, each with the accumulator width it runs in. Its text is the ca65
@@ -168,8 +174,8 @@ The [naive code generator](/glossary#naive-code-generator), `NaiveCodeGen`, tran
 directly, almost everything in 32-bit `int` as C's promotions say. It stays as an independent
 reference: the tests compare the code generator from MIR with it. It is also the only one that
 accepts `--replace`, which links a hand-written assembly version of a function in place of the
-compiled one; with the code generator from MIR, dampf stops with
-`--replace works with the naive code generator only`. The options are on
+compiled one, so `--replace` without `--backend` selects it; with `--backend mir`, dampf stops
+with `--replace works with the naive code generator only`. The options are on
 [Command line](/reference/command-line).
 
 Both write ca65 assembly with the source line of every C statement as a `.dbg line`
@@ -185,13 +191,15 @@ ca65 that dampf writes and the runtime uses, and reports anything else as an err
 works in one pass and chooses the size of each operand when it reads the line.
 
 No function or constant object may cross a bank boundary, so dampf has to know every segment's
-size before it can place the segments in [banks](/glossary#bank). After assembling it knows
-them all, so one link is enough: dampf packs the function and constant segments into the 32 KB
-banks from `$80` up, largest first, each into the first bank with room, and links. The image is
-padded to a power of two, the header gets the ROM size and the checksum, and dampf writes the
+size before it can place the segments in banks. After assembling it knows them all, so one
+link is enough: dampf packs the function and constant segments into the 32 KB
+banks from `$80` up, largest first, each into the first bank with room, and links. The
+start-up switches these banks to [FastROM](/glossary#fastrom-and-slowrom) speed, and the header
+says FastROM, unless `--slowrom` builds for a SlowROM cartridge. The image is padded to a
+power of two, the header gets the ROM size and the checksum, and dampf writes the
 debug file in ld65's format, which Mesen reads.
 
-Use `--assembler ca65` to build with [ca65 and ld65](/glossary#ca65-and-ld65) instead; the ROM
+Use `--assembler ca65` to build with ca65 and ld65 instead; the ROM
 is the same. With them, dampf assembles with `ca65 -g` and links twice, because it learns the
 segment sizes from ld65's map file: the first link puts everything into one large area only to
 read the sizes, and the second links with the packed configuration. The options are on
