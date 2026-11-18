@@ -1,0 +1,427 @@
+ticks 15799
+shot 30
+press 60 62 start
+press 61 62 left
+press 63 64 left
+press 65 66 left
+press 67 68 down
+press 69 70 a
+press 71 72 right
+press 73 74 up
+press 75 76 up
+press 77 78 a
+shot 288
+press 289 290 right
+press 291 292 right
+press 293 294 right
+press 295 296 right
+press 297 298 down
+press 299 300 down
+press 301 302 a
+press 303 304 left
+press 305 306 up
+press 307 308 up
+press 309 310 a
+shot 515
+press 516 517 left
+press 518 519 left
+press 520 521 down
+press 522 523 a
+press 524 525 up
+press 526 527 up
+press 528 529 a
+shot 748
+press 749 750 left
+press 751 752 down
+press 753 754 down
+press 755 756 down
+press 757 758 a
+press 759 760 right
+press 761 762 right
+press 763 764 up
+press 765 766 up
+press 767 768 a
+shot 983
+press 984 985 right
+press 986 987 a
+press 988 989 left
+press 990 991 up
+press 992 993 up
+press 994 995 a
+shot 1254
+press 1255 1256 a
+press 1257 1258 left
+press 1259 1260 left
+press 1261 1262 up
+press 1263 1264 a
+shot 1538
+press 1539 1540 right
+press 1541 1542 down
+press 1543 1544 down
+press 1545 1546 down
+press 1547 1548 down
+press 1549 1550 down
+press 1551 1552 a
+press 1553 1554 up
+press 1555 1556 a
+shot 1773
+press 1774 1775 right
+press 1776 1777 down
+press 1778 1779 a
+press 1780 1781 left
+press 1782 1783 left
+press 1784 1785 a
+shot 2017
+press 2018 2019 a
+press 2020 2021 left
+press 2022 2023 a
+shot 2261
+press 2262 2263 right
+press 2264 2265 right
+press 2266 2267 up
+press 2268 2269 up
+press 2270 2271 up
+press 2272 2273 a
+press 2274 2275 right
+press 2276 2277 up
+press 2278 2279 a
+shot 2589
+press 2590 2591 down
+press 2592 2593 down
+press 2594 2595 a
+press 2596 2597 right
+press 2598 2599 up
+press 2600 2601 a
+shot 2868
+press 2869 2870 left
+press 2871 2872 left
+press 2873 2874 down
+press 2875 2876 down
+press 2877 2878 a
+press 2879 2880 right
+press 2881 2882 right
+press 2883 2884 up
+press 2885 2886 up
+press 2887 2888 a
+shot 3152
+press 3153 3154 left
+press 3155 3156 left
+press 3157 3158 down
+press 3159 3160 down
+press 3161 3162 down
+press 3163 3164 a
+press 3165 3166 right
+press 3167 3168 a
+shot 3409
+press 3410 3411 left
+press 3412 3413 left
+press 3414 3415 up
+press 3416 3417 up
+press 3418 3419 a
+press 3420 3421 right
+press 3422 3423 right
+press 3424 3425 up
+press 3426 3427 a
+shot 3732
+press 3733 3734 right
+press 3735 3736 a
+press 3737 3738 left
+press 3739 3740 a
+shot 3970
+press 3971 3972 down
+press 3973 3974 down
+press 3975 3976 a
+press 3977 3978 up
+press 3979 3980 a
+shot 4219
+press 4220 4221 up
+press 4222 4223 a
+press 4224 4225 left
+press 4226 4227 down
+press 4228 4229 a
+shot 4544
+press 4545 4546 right
+press 4547 4548 a
+press 4549 4550 up
+press 4551 4552 a
+shot 4820
+press 4821 4822 left
+press 4823 4824 down
+press 4825 4826 a
+press 4827 4828 right
+press 4829 4830 right
+press 4831 4832 a
+shot 5133
+press 5134 5135 a
+press 5136 5137 up
+press 5138 5139 a
+shot 5392
+press 5393 5394 down
+press 5395 5396 down
+press 5397 5398 down
+press 5399 5400 a
+press 5401 5402 left
+press 5403 5404 left
+press 5405 5406 up
+press 5407 5408 up
+press 5409 5410 a
+shot 5680
+press 5681 5682 right
+press 5683 5684 up
+press 5685 5686 a
+press 5687 5688 up
+press 5689 5690 a
+shot 6033
+press 6034 6035 left
+press 6036 6037 left
+press 6038 6039 down
+press 6040 6041 down
+press 6042 6043 down
+press 6044 6045 a
+press 6046 6047 right
+press 6048 6049 up
+press 6050 6051 a
+shot 6313
+press 6314 6315 right
+press 6316 6317 right
+press 6318 6319 up
+press 6320 6321 a
+press 6322 6323 left
+press 6324 6325 a
+shot 6615
+press 6616 6617 a
+press 6618 6619 right
+press 6620 6621 down
+press 6622 6623 a
+shot 6877
+press 6878 6879 left
+press 6880 6881 up
+press 6882 6883 up
+press 6884 6885 a
+press 6886 6887 right
+press 6888 6889 up
+press 6890 6891 a
+shot 7254
+press 7255 7256 right
+press 7257 7258 right
+press 7259 7260 down
+press 7261 7262 down
+press 7263 7264 down
+press 7265 7266 down
+press 7267 7268 down
+press 7269 7270 a
+press 7271 7272 left
+press 7273 7274 left
+press 7275 7276 left
+press 7277 7278 a
+shot 7604
+press 7605 7606 left
+press 7607 7608 left
+press 7609 7610 left
+press 7611 7612 a
+press 7613 7614 right
+press 7615 7616 up
+press 7617 7618 a
+shot 7907
+press 7908 7909 right
+press 7910 7911 right
+press 7912 7913 right
+press 7914 7915 up
+press 7916 7917 a
+press 7918 7919 left
+press 7920 7921 left
+press 7922 7923 up
+press 7924 7925 up
+press 7926 7927 a
+shot 8220
+press 8221 8222 left
+press 8223 8224 down
+press 8225 8226 down
+press 8227 8228 down
+press 8229 8230 a
+press 8231 8232 left
+press 8233 8234 down
+press 8235 8236 a
+shot 8513
+press 8514 8515 a
+press 8516 8517 right
+press 8518 8519 a
+shot 8815
+press 8816 8817 a
+press 8818 8819 right
+press 8820 8821 a
+shot 9102
+press 9103 9104 up
+press 9105 9106 up
+press 9107 9108 up
+press 9109 9110 up
+press 9111 9112 a
+press 9113 9114 left
+press 9115 9116 a
+shot 9396
+press 9397 9398 a
+press 9399 9400 up
+press 9401 9402 up
+press 9403 9404 a
+shot 9680
+press 9681 9682 a
+press 9683 9684 down
+press 9685 9686 down
+press 9687 9688 down
+press 9689 9690 a
+shot 9972
+press 9973 9974 right
+press 9975 9976 down
+press 9977 9978 down
+press 9979 9980 down
+press 9981 9982 a
+press 9983 9984 right
+press 9985 9986 a
+shot 10254
+press 10255 10256 left
+press 10257 10258 left
+press 10259 10260 up
+press 10261 10262 up
+press 10263 10264 up
+press 10265 10266 a
+press 10267 10268 right
+press 10269 10270 a
+shot 10559
+press 10560 10561 a
+press 10562 10563 right
+press 10564 10565 right
+press 10566 10567 right
+press 10568 10569 down
+press 10570 10571 down
+press 10572 10573 down
+press 10574 10575 a
+shot 10852
+press 10853 10854 a
+press 10855 10856 left
+press 10857 10858 left
+press 10859 10860 left
+press 10861 10862 left
+press 10863 10864 left
+press 10865 10866 left
+press 10867 10868 up
+press 10869 10870 up
+press 10871 10872 up
+press 10873 10874 up
+press 10875 10876 up
+press 10877 10878 up
+press 10879 10880 a
+shot 11172
+press 11173 11174 a
+press 11175 11176 right
+press 11177 11178 right
+press 11179 11180 down
+press 11181 11182 down
+press 11183 11184 a
+shot 11463
+press 11464 11465 a
+press 11466 11467 right
+press 11468 11469 right
+press 11470 11471 right
+press 11472 11473 right
+press 11474 11475 right
+press 11476 11477 a
+shot 11764
+press 11765 11766 left
+press 11767 11768 left
+press 11769 11770 left
+press 11771 11772 left
+press 11773 11774 down
+press 11775 11776 down
+press 11777 11778 a
+press 11779 11780 up
+press 11781 11782 a
+shot 12080
+press 12081 12082 right
+press 12083 12084 right
+press 12085 12086 right
+press 12087 12088 right
+press 12089 12090 up
+press 12091 12092 a
+press 12093 12094 left
+press 12095 12096 left
+press 12097 12098 down
+press 12099 12100 down
+press 12101 12102 a
+shot 12377
+press 12378 12379 left
+press 12380 12381 down
+press 12382 12383 down
+press 12384 12385 a
+press 12386 12387 right
+press 12388 12389 a
+shot 12652
+press 12653 12654 up
+press 12655 12656 up
+press 12657 12658 a
+press 12659 12660 up
+press 12661 12662 up
+press 12663 12664 up
+press 12665 12666 a
+shot 12895
+press 12896 12897 down
+press 12898 12899 down
+press 12900 12901 down
+press 12902 12903 down
+press 12904 12905 down
+press 12906 12907 a
+press 12908 12909 left
+press 12910 12911 a
+shot 13141
+press 13142 13143 a
+press 13144 13145 right
+press 13146 13147 a
+shot 13379
+press 13380 13381 a
+press 13382 13383 right
+press 13384 13385 a
+shot 13619
+press 13620 13621 a
+press 13622 13623 left
+press 13624 13625 a
+shot 13849
+press 13850 13851 a
+press 13852 13853 right
+press 13854 13855 a
+shot 14074
+press 14075 14076 a
+press 14077 14078 left
+press 14079 14080 a
+shot 14299
+press 14300 14301 a
+press 14302 14303 right
+press 14304 14305 a
+shot 14522
+press 14523 14524 a
+press 14525 14526 left
+press 14527 14528 a
+shot 14750
+press 14751 14752 a
+press 14753 14754 right
+press 14755 14756 a
+shot 14978
+press 14979 14980 a
+press 14981 14982 right
+press 14983 14984 a
+shot 15207
+press 15208 15209 a
+press 15210 15211 left
+press 15212 15213 a
+shot 15436
+press 15437 15438 a
+press 15439 15440 right
+press 15441 15442 a
+shot 15664
+press 15665 15666 a
+press 15667 15668 left
+press 15669 15670 a
+shot 15715
+press 15716 15717 a
+press 15718 15719 right
+press 15720 15721 a
+shot 15766
+shot 15797

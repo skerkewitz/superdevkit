@@ -9,8 +9,11 @@
  * moves start in the shared list, which move is next, the best so far, and a stage:
  *   ST_ENTER  the node is new: draws, the table, stand pat, generate the moves;
  *   ST_NEXT   pick the best move not tried yet, make it, and enter the child at ply + 1;
- *   ST_CHILD  the child has left with its score in ret: take the move back, update alpha.
- * A node leaves by dropping its moves and handing its score one ply up (leave()). One step of
+ *   ST_CHILD  the child has left with its score in ret: take the move back, update alpha;
+ *   ST_NULL   the null move's child has left: cut if it held beta, else generate the moves.
+ * Pruning: the null move (the other side moves twice; if the position still holds beta with a
+ * shallower search, the node is cut), and at depth 1 only the captures and the checks when the
+ * evaluation is far below alpha (futility). A node leaves by dropping its moves and handing its score one ply up (leave()). One step of
  * search_run() is one of these stages, so the search stops after any step and goes on in the next
  * frame; a node limit (never time) ends it, and gives the same move on the SNES and on the PC.
  */
@@ -22,8 +25,10 @@
 #define MATE_BOUND 28000
 #define QS_PLIES 6                      /* the quiescence search stops this deep below the horizon */
 #define SORTED 8                        /* a node picks its best moves first, this many; then in order */
+#define NULL_R 2                        /* the null move is searched this much shallower */
+#define FUTILITY 300                    /* at depth 1, quiet moves cannot win more than this */
 
-enum { ST_ENTER, ST_NEXT, ST_CHILD };
+enum { ST_ENTER, ST_NEXT, ST_CHILD, ST_NULL };
 enum { TT_NONE, TT_EXACT, TT_LOWER, TT_UPPER };
 
 uint8_t best_from, best_to, best_flag;
@@ -41,6 +46,8 @@ static int16_t s_alpha[MAX_PLY], s_beta[MAX_PLY], s_best[MAX_PLY], s_alpha0[MAX_
 static uint16_t s_first[MAX_PLY], s_cur[MAX_PLY], s_made[MAX_PLY], s_batch[MAX_PLY];
 static uint8_t s_stage[MAX_PLY], s_legal[MAX_PLY], s_check[MAX_PLY], s_quiet[MAX_PLY];
 static uint8_t s_bfrom[MAX_PLY], s_bto[MAX_PLY], s_bflag[MAX_PLY];
+static uint8_t s_null_ok[MAX_PLY], s_futile[MAX_PLY], s_hint_from[MAX_PLY], s_hint_to[MAX_PLY];
+static int16_t s_static[MAX_PLY];       /* the evaluation of the node, where it was needed */
 static uint8_t killer_from[MAX_PLY][2], killer_to[MAX_PLY][2];
 
 /* The transposition table: 2048 entries, the low 11 bits of the hash pick one, the high 16 bits
@@ -212,7 +219,11 @@ static void stop(void)
 {
     while (ply > 0) {
         ply--;
-        unmake_move();
+        if (s_stage[ply] == ST_NULL) {
+            unmake_null();
+        } else {
+            unmake_move();
+        }
     }
     mv_count = s_first[0];
     if (s_bfrom[0] != NO_SQ) {
@@ -222,6 +233,23 @@ static void stop(void)
         best_score = s_best[0];
     }
     done = 1;
+}
+
+/* The moves of a full node: the captures first, the quiet moves only if none of them cuts; all at
+ * once in check, or when the table's move is a quiet one, so that it still comes first. */
+static void generate(uint8_t p, uint8_t hint_from, uint8_t hint_to)
+{
+    if (s_check[p] || (hint_from != NO_SQ && board[hint_to] == EMPTY)) {
+        s_quiet[p] = 1;
+        gen_moves(GEN_ALL, s_check[p]);
+    } else {
+        s_quiet[p] = 0;
+        gen_moves(GEN_CAPTURES, 0);
+    }
+    score_moves(p, s_first[p], hint_from, hint_to);
+    s_cur[p] = s_first[p];
+    s_batch[p] = s_first[p];
+    s_stage[p] = ST_NEXT;
 }
 
 static void enter(void)
@@ -289,20 +317,51 @@ static void enter(void)
             hint_to = best_to;
         }
         s_best[p] = -INF;
-        /* the captures first, the quiet moves only if none of them cuts; all at once in check, or
-         * when the table's move is a quiet one, so that it still comes first */
-        if (check || (hint_from != NO_SQ && board[hint_to] == EMPTY)) {
-            s_quiet[p] = 1;
-            gen_moves(GEN_ALL, check);
-        } else {
-            s_quiet[p] = 0;
-            gen_moves(GEN_CAPTURES, 0);
+        s_futile[p] = 0;
+        if (p > 0 && !check && (depth == 1 || depth >= NULL_R + 1)) {
+            s_static[p] = evaluate();
         }
+        if (p > 0 && !check && depth >= NULL_R + 1 && s_null_ok[p] && s_beta[p] < MATE_BOUND
+            && s_beta[p] > -MATE_BOUND && s_static[p] >= s_beta[p] && has_pieces()) {
+            uint8_t c = (uint8_t)(p + 1);
+            s_hint_from[p] = hint_from;
+            s_hint_to[p] = hint_to;
+            make_null();
+            s_alpha[c] = (int16_t)-s_beta[p];
+            s_beta[c] = (int16_t)(1 - s_beta[p]);
+            s_depth[c] = (int8_t)(depth - 1 - NULL_R);
+            s_check[c] = 0;
+            s_null_ok[c] = 0;
+            s_stage[c] = ST_ENTER;
+            s_stage[p] = ST_NULL;
+            ply = c;
+            return;
+        }
+        if (p > 0 && !check && depth == 1 && s_static[p] + FUTILITY <= s_alpha[p]) {
+            s_futile[p] = 1;
+            s_best[p] = (int16_t)(s_static[p] + FUTILITY);
+        }
+        generate(p, hint_from, hint_to);
+        return;
     }
     score_moves(p, s_first[p], hint_from, hint_to);
     s_cur[p] = s_first[p];
     s_batch[p] = s_first[p];
     s_stage[p] = ST_NEXT;
+}
+
+/* After the null move: a cut if the other side, moving twice, still could not get below beta. */
+static void null_done(void)
+{
+    uint8_t p = ply;
+    int16_t v = (int16_t)-ret;
+
+    unmake_null();
+    if (v >= s_beta[p]) {
+        leave(v >= MATE_BOUND ? s_beta[p] : v);
+        return;
+    }
+    generate(p, s_hint_from[p], s_hint_to[p]);
 }
 
 static void finish(void)
@@ -398,9 +457,15 @@ static void next(void)
     s_check[p + 1] = gave_check();
     s_legal[p]++;
     s_made[p] = m;
+    /* a futile node: of the quiet moves only the checks are searched */
+    if (s_futile[p] && s_quiet[p] && m >= s_batch[p] && s_batch[p] != s_first[p] && !s_check[p + 1]) {
+        unmake_move();
+        return;
+    }
     s_alpha[p + 1] = (int16_t)-s_beta[p];
     s_beta[p + 1] = (int16_t)-s_alpha[p];
     s_depth[p + 1] = (int8_t)(s_depth[p] - 1);
+    s_null_ok[p + 1] = 1;
     s_stage[p + 1] = ST_ENTER;
     s_stage[p] = ST_CHILD;
     ply = (uint8_t)(p + 1);
@@ -487,6 +552,9 @@ uint8_t search_run(uint16_t steps)
             break;
         case ST_NEXT:
             next();
+            break;
+        case ST_NULL:
+            null_done();
             break;
         default:
             child();

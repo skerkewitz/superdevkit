@@ -780,6 +780,57 @@ void unmake_move(void)
     phase = u_phase[s];
 }
 
+/* The null move of the search: the other side moves again, nothing on the board changes. No
+ * position before it counts for repetitions (half is 0 until it is taken back). */
+void make_null(void)
+{
+    uint8_t s = sp;
+
+    u_flag[s] = MF_NORMAL;
+    u_ep[s] = ep;
+    u_half[s] = half;
+    hist[hist_len] = hash;
+    hist_len++;
+    if (ep != NO_SQ) {
+        hash ^= zob_ep[FILE_OF(ep)];
+        ep = NO_SQ;
+    }
+    half = 0;
+    side ^= BLACK;
+    hash ^= zob_side;
+    sp = (uint8_t)(s + 1);
+}
+
+void unmake_null(void)
+{
+    uint8_t s = (uint8_t)(sp - 1);
+
+    sp = s;
+    hist_len--;
+    hash = hist[hist_len];
+    side ^= BLACK;
+    ep = u_ep[s];
+    half = u_half[s];
+}
+
+/* Whether the side to move has a piece other than pawns and the king: without one, zugzwang is
+ * common and the null move is not safe. */
+uint8_t has_pieces(void)
+{
+    uint8_t base = (uint8_t)(side << 1), i, sq, t;
+
+    for (i = 1; i < 16; i++) {
+        sq = plist[base + i];
+        if (!OFF(sq)) {
+            t = TYPE(board[sq]);
+            if (t != PAWN) {
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
 uint8_t repeated(void)
 {
     uint8_t i, stop;

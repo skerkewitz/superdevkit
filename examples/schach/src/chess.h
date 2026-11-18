@@ -91,6 +91,9 @@ void gen_moves(uint8_t kind, uint8_t check);
 void make_move(uint8_t from, uint8_t to, uint8_t flag);
 void unmake_move(void);
 uint8_t repeated(void);                 /* the position was there before, same side to move */
+void make_null(void);                   /* the search's null move: the other side moves again */
+void unmake_null(void);
+uint8_t has_pieces(void);               /* the side to move has more than king and pawns */
 
 /* perft: the number of legal move sequences of a depth; divide[] gets the count per first move. */
 #define DIVIDE_MAX 64

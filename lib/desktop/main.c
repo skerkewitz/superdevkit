@@ -166,10 +166,12 @@ static uint16_t button(const char *name)
     exit(2);
 }
 
+#define CHECK_LINES 4096                /* press and shot lines a check may have, each */
+
 static int check(const char *path, const char *out)
 {
-    static Press presses[256];
-    static long shots[256];
+    static Press presses[CHECK_LINES];
+    static long shots[CHECK_LINES];
     int npress = 0, nshot = 0;
     long frames = 600, f;
     unsigned lost = 0;
@@ -187,9 +189,13 @@ static int check(const char *path, const char *out)
         }
         if (strcmp(w, "ticks") == 0) {
             frames = atol(strtok(NULL, " \t\r\n"));
-        } else if (strcmp(w, "shot") == 0 && nshot < 256) {
+        } else if ((strcmp(w, "shot") == 0 && nshot == CHECK_LINES) || (strcmp(w, "press") == 0 && npress == CHECK_LINES)) {
+            fprintf(stderr, "check: %s has more than %d %s lines\n", path, CHECK_LINES, w);
+            fclose(in);
+            return 2;
+        } else if (strcmp(w, "shot") == 0) {
             shots[nshot++] = atol(strtok(NULL, " \t\r\n"));
-        } else if (strcmp(w, "press") == 0 && npress < 256) {
+        } else if (strcmp(w, "press") == 0) {
             Press *p = &presses[npress++];
             p->from = atol(strtok(NULL, " \t\r\n"));
             p->to = atol(strtok(NULL, " \t\r\n"));
