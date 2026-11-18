@@ -38,8 +38,10 @@ import java.util.TreeMap;
  *
  * <p><b>Values.</b> Every MIR value (parameter, instruction result) has a fixed place in RAM: 2
  * bytes for i1, i8 and i16, 4 bytes for i32 and pointers. An i1 or i8 is kept zero-extended to
- * 16 bits, so a 16-bit load gives its value. Every instruction loads its operands from there
- * and stores its result there; nothing stays in a register from one instruction to the next.
+ * 16 bits, so a 16-bit load gives its value. An instruction loads its operands from there and
+ * stores its result there, except where {@link SelectionPlan} decided otherwise (a result handed
+ * on in A to its only reader, a loop counter kept in X, an index in Y); the LIR passes then remove
+ * loads of what a register holds and stores nobody reads.
  *
  * <p><b>Frames</b> form a compiled stack. dampf has no recursion, so the call graph is acyclic,
  * and a function's frame can start where the frames of all the functions it calls end: frames

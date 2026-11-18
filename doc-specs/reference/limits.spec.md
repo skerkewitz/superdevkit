@@ -19,7 +19,7 @@ repeating plans: what is not built yet, and what will never be.
 
 1. **Not built yet** – what the SNES platform layer of the playable ROM leaves out (sound, save
    RAM), hints, intrinsics, timing in master cycles and outside the CPU (DMA, interrupts), an
-   own assembler and linker (M6), other planned items of the roadmap that a user would notice.
+   own preprocessor (M5; gcc is needed until then), other planned items of the roadmap that a user would notice.
    For each, a sentence on what it will do and what to do meanwhile, if the sources say.
 2. **Never planned** – the README's non-goals that limit a user: full C, other targets, an own
    debugger, floating point.

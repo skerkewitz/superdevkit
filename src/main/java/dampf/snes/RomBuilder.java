@@ -15,15 +15,16 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Assembles and links generated code with the dampf SNES runtime into a LoROM image, using ca65
- * and ld65. Besides the ROM it writes ld65's debug file (.dbg, which Mesen reads), a label file,
- * a map file and the linker configuration it used.
+ * Assembles and links generated code with the dampf SNES runtime into a LoROM image: with dampf's
+ * own assembler and linker ({@link #buildNative}), or with ca65 and ld65 ({@link #build}). Besides
+ * the ROM it writes the debug file (.dbg, in ld65's format, which Mesen reads) and a label file;
+ * with ld65 also a map file and the linker configurations it used.
  *
  * <p>ROM banks: code and constant data live in banks $80 and up, 32 KB each ($8000-$FFFF). The
- * code generator puts every function and every constant object into its own segment; ld65 cannot
- * split a segment, so none of them crosses a bank boundary. The builder links twice: once to
- * measure the exact size of every segment, then with a configuration that packs the segments into
- * banks (largest first, first fit). The runtime's fixed parts stay in bank $80, where the reset
+ * code generator puts every function and every constant object into its own segment, and none of
+ * them crosses a bank boundary: the segments are packed into banks (largest first, first fit).
+ * dampf's linker knows every segment's size after assembling; with ld65 the builder links twice,
+ * once to measure the size of every segment, then with a configuration that packs them. The runtime's fixed parts stay in bank $80, where the reset
  * vector points. The image is padded to a power of two, and the header gets the ROM size and the
  * checksum.
  */

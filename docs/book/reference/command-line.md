@@ -6,7 +6,7 @@ exits with status 2:
 
 ```
 usage: dampf parse [-I dir] [-D name[=value]] file.c ...
-       dampf build [-I dir] [-D name[=value]] [--entry name] [--backend mir|naive] [--replace fn=file.s] [--block-counts file] [--slowrom] -o out.sfc file.c ...
+       dampf build [-I dir] [-D name[=value]] [--entry name] [--backend mir|naive] [--replace fn=file.s] [--block-counts file] [--slowrom] [--assembler dampf|ca65] -o out.sfc file.c ...
        dampf check [-I dir] [-D name[=value]] file.c ...
        dampf profile rom.sfc profile.txt [top] [--skip file.c ...] [--instructions] [--blocks file]
 ```
@@ -123,6 +123,18 @@ runs stays together and its branches are short. Only the order of the blocks cha
 from an older build or from other code make the program slower at most, never wrong. Without
 the option the order does not depend on any profile. Only the
 [code generator from MIR](/glossary#code-generator-from-mir) uses it.
+
+### --assembler {#assembler}
+
+Use `--assembler dampf` or `--assembler ca65` to choose what assembles and links the program.
+The default, `dampf`, is dampf's own assembler and linker. With `ca65`, dampf runs
+[ca65 and ld65](/glossary#ca65-and-ld65) from the cc65 suite instead, which must then be
+installed; the ROM is the same, and ld65 also writes a map file next to it. For any other value,
+dampf prints this line, then its usage, and exits with status 2:
+
+```
+unknown assembler 'gas' (dampf or ca65)
+```
 
 ### -o {#output}
 
@@ -387,6 +399,6 @@ column 1 of the file, and its text starts with `preprocessing failed:` and gcc's
 
 A usage error is a missing command or one dampf does not know, an option without its value at
 the end of the command line, and for `build` also a missing `-o`, no C file or an unknown
-`--backend` value. A missing C file or header is an error in the program. Any other unexpected
-failure, such as a missing `.s` file for `--replace` or a missing profile file, ends dampf with
-a Java exception and status 1.
+`--backend` or `--assembler` value. A missing C file or header is an error in the program. Any
+other unexpected failure, such as a missing `.s` file for `--replace` or a missing profile file,
+ends dampf with a Java exception and status 1.

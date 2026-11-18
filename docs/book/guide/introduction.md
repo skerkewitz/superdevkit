@@ -78,9 +78,9 @@ dampf's goals:
 4. **Readable output.** The generated assembly is commented, so you can follow what each part is
    meant to do.
 5. **Correctness first.** Every optimization is checked automatically against a reference.
-6. **Nothing to install but Java, in the end.** dampf uses
-   [ca65 and ld65](/glossary#ca65-and-ld65) for now; its own assembler and linker are the last
-   milestone, M6.
+6. **Nothing to install but Java, in the end.** dampf assembles and links with its own
+   assembler and linker, so you need no [ca65 and ld65](/glossary#ca65-and-ld65); gcc is still
+   needed for preprocessing until dampf has a preprocessor of its own.
 
 Its non-goals:
 
@@ -97,8 +97,8 @@ stepping through C in Mesen) and M2 (all of the game compiled by the
 [naive code generator](/glossary#naive-code-generator), with the PC's checksums) are done. M3, the
 optimizer, is in progress: dampf lowers the program to [MIR](/glossary#mir), its intermediate
 representation, optimizes it and generates 65816 code from it. Parts of the fine tuning of M4
-have started early. M5 (publishing) and M6 (an assembler and linker of its own) have not
-started.
+have started early. M6 (an assembler and linker of its own) is done, ahead of M5 (publishing),
+which has not started.
 
 During play, Blubber Blasen's game logic takes 0.91 frames per tick with dampf, against 4.37
 with the naive code generator (measured on 2026-11-18). Calypsi's 2.72 came from an older

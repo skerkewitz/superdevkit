@@ -10,7 +10,8 @@ separate project in parallel with the game.
 The name: in German, *Dampf machen* ("make steam") means to get things moving fast. It also fits
 the steam factory of Blubber Blasen.
 
-Status: milestones M0 to M2 are done, M3 (the optimizer) is in progress; the state of each
+Status: milestones M0 to M2 are done, M3 (the optimizer) is in progress, and M6 (dampf's own
+assembler and linker) is done ahead of M5; the state of each
 milestone is in [docs/roadmap.md](docs/roadmap.md). dampf compiles all of Blubber Blasen and
 builds a playable ROM of it, with the game's console API written in C in
 [platform/snes](platform/snes/README.md) (sound and save RAM are not built yet). During play the
@@ -92,11 +93,12 @@ working documents it is written from.
 
 ## Prerequisites
 
-To use dampf: JDK 25 or newer and gcc. To develop it, also ca65 and ld65 from cc65 2.19 (the
-tests build every program with them as well and compare the ROMs) and Python 3. Mesen 2 is
+To use dampf: JDK 25 or newer and gcc. To develop it, also ca65 and ld65 from cc65 2.19
+(`BackendOutputTest` builds the execution tests, 20 random programs and the game with them as
+well and compares the ROMs) and Python 3. Mesen 2 is
 optional (the tests then also run there), clang is needed only for `tools/subset_scan.py`,
 Node.js only for the book. Gradle comes with the wrapper. The book's
-[getting started](docs/book/guide/getting-started.md) page has the full list.
+[getting started](docs/book/guide/getting-started.md) page has what a user needs.
 
 On Arch Linux, cc65 is not in the official repositories; build it from source:
 

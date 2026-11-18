@@ -527,8 +527,12 @@ tick.
 ## In the code generator
 
 The [code generator from MIR](/glossary#code-generator-from-mir) does more than translate one
-instruction at a time. The loop of the [Induction](#induction) example comes out like this,
-without the comment and debug lines:
+instruction at a time. It selects the instructions of each function once, as
+[LIR](/glossary#lir): 65816 instructions in basic blocks, with the accumulator width each runs
+in. Passes on the LIR (`dampf.lir`) then remove loads of what a register holds
+(`RedundantLoads`, `IndexInY`) and stores nobody reads (`DeadStores`), choose the branch forms
+(`BranchRelax`) and number the local labels (`LocalLabels`). The loop of the
+[Induction](#induction) example comes out like this, without the comment and debug lines:
 
 ```asm
 b2_body:
@@ -562,28 +566,27 @@ each of these is:
   place A equals (after `LDA x` and `STA y`, both), and leaves out a load of the same thing. A
   write to a place drops it and its byte neighbours. Remembering every place instead of one
   took play from 1.50 to 1.49. A 1-word value that every use takes from A, in whichever block,
-  is not stored at all. The code generator learns that over its passes: a value stored in one
-  pass but never read from its place is not stored in the next, and if that pass reads it after
-  all, the pass is thrown away and the value stays stored. A φ that shares the value's place
-  counts as a read. Play 1.08 to 1.06.
+  is not stored at all: once the function is written, `DeadStores` removes every store to one
+  of its own value places (its values, parameters and φ places) that no path reads afterwards,
+  byte by byte, backwards over the blocks. Stores to globals, frame slots, a callee's
+  parameters or the runtime's registers stay. Leaving such values unstored first took play from
+  1.08 to 1.06; as a pass on LIR, on top of what was left out already, it took play from
+  326,592 to 325,572 master clocks per tick.
 - **What A, X and Y hold where a block starts.** Counted over the whole benchmark, 41 % of the
   `LDX dp` loaded the value X held already, and 28 % of the `LDA dp` the value A held (counted
   by value, so some are coincidences). A block starts with what every way into it brings: the
-  branches and jumps to it, and the code that falls through. The passes that find the short
-  branches (below) learn this, each pass assuming what the pass before found. The code that is
-  kept must be consistent, every assumption holding on every way in, and every short branch
-  must still reach; if the passes do not end so, the function is written again without
-  assumptions. Play 1.36 to 1.34. A label inside a block, where a branch skips a `JMP` for
-  example, is reached only by branches written earlier in the same pass, so what holds there is
-  known exactly: what those branches and the code falling through bring. The code generator's
-  own small loops (shifts by a variable count, copies) are the exception: a branch comes back
-  to their label, so nothing is assumed there. A branch back to any other label already placed
-  must bring what was assumed there, or the pass counts as inconsistent; this is a safety net,
-  as the code generator writes no such branch. After a contradiction the next pass keeps only
-  what the assumption and what arrived agree on, instead of giving up at once; the assumptions
-  only shrink then, so the passes come to an end. Together these took play from 1.33 to 1.31.
-  Knowing the pointer in `dampf_ptr` across blocks as well changed nothing measurable, because
-  pointer compression left almost no pointer accesses in the hot code; it was not kept.
+  branches and jumps to it, and the code that falls through. Selection assumes nothing where a
+  block starts; `RedundantLoads` finds what holds there by a data flow analysis over the LIR
+  (`RegContents`), where ways meet keeping what all of them bring, and removes the loads of a
+  value a register holds already. A load also sets the N and Z flags: where a branch reads them,
+  an `LDA` becomes `CMP #0`, which sets them the same for the value in A, unless the carry it
+  changes is read too. `LDX` and `LDY` go only where their flags are not read. The pass also
+  writes `LDA x` followed by `ADC y`, with A holding `y`, as `ADC x` (and the same for `AND`,
+  `ORA` and `EOR`). Knowing what A, X and Y hold where a block starts first took play from 1.36
+  to 1.34, and from 1.33 to 1.31 with labels inside blocks; as a pass on LIR it took play from
+  325,572 to 324,897 master clocks per tick. Knowing the pointer in `dampf_ptr` across blocks
+  as well changed nothing measurable, because pointer compression left almost no pointer
+  accesses in the hot code; it was not kept.
 - **φs written directly.** The predecessors of a block write its φs into their places, without a
   copy through a second place, where liveness shows that this is safe; also before a branch.
   On a loop's exit edge that would write them in every round for an edge taken once, so just
@@ -616,7 +619,11 @@ each of these is:
   is never negative goes into Y for `lda [dp],y`, which adds Y to the pointer: the sum of
   pointer and index is not computed. An index plus a constant (a field of `p[i]`) still computes
   it. Play 1.02 to 1.01. The pointer may itself be a sum, such as a row of a 2D array: play 0.92
-  to 0.91, the title 0.44 to 0.39.
+  to 0.91, the title 0.44 to 0.39. Selection chooses X or Y while it writes a block, without
+  knowing what Y holds where the block starts; `IndexInY` makes up for some of that. Where Y
+  holds `p` on every way in, `LDX p` and `LDA table,X` become `LDA table,Y`, if every read of X
+  until it is written again is such an access, Y does not change in between, and nothing reads
+  X afterwards or the flags of the `LDX`. Play 325,209 to 324,844 master clocks per tick.
 - **Loop counters in X.** A φ of a loop head can live in X for the whole loop when it is only
   compared with constants, indexes the loop's array accesses and is stepped by a constant
   (`INX`, `DEX`, or `TXA`/`ADC`/`TAX`). Loops with calls, the runtime's multiplication or
@@ -647,12 +654,12 @@ each of these is:
   make the code slower, never wrong; without counts nothing changes. Play 1.38 to 1.37 with
   counts from the measured ticks, and nearly as much with counts from other ticks.
 - **Short branches and `BRA`.** A conditional branch to a block that is not the next one either
-  reaches it or skips a `JMP` to it. Each function is generated several times: each pass
-  measures the distances, and in the next a branch within reach goes straight to its block. A
-  pass is never longer than the one before, so a branch that reached keeps reaching, and the
-  passes stop when no further branch reaches; the code that is kept is checked once more. A
-  jump that reaches its block is `BRA`, as fast as `JMP` and one byte shorter, so more branches
-  reach. Play 1.48 to 1.47.
+  reaches it or skips a `JMP` to it. Selection writes every jump and branch between blocks in
+  its long form; `BranchRelax` then gives the short form, in rounds, to every one that reaches
+  its target in the code of the round before, until nothing changes. Shorter code only brings
+  targets closer, so a branch that reached once keeps reaching. It runs after the other LIR
+  passes, whose shorter code lets more branches reach. A jump that reaches its block is `BRA`,
+  as fast as `JMP` and one byte shorter, so more branches reach. Play 1.48 to 1.47.
 - **`INC` and `DEC`.** A step `x + 1` or `x - 1` whose result goes back to the place of `x`,
   such as a loop counter, is `INC` or `DEC` on the place: 7 cycles instead of 13 for `CLC`,
   `LDA`, `ADC`, `STA`. It needs `x` really stored there, not only handed on in A. Play 1.47
@@ -779,6 +786,13 @@ budget is hardest to meet; the worst tick is in parentheses where the source giv
 | loop counters in X next to an index in Y | 1.00 (1.74) | 1.60 (3.40) |
 | the loop test on the offset | 0.92 (1.64) | 1.51 (3.31) |
 | a row of a 2D array as the pointer for an index in Y | 0.91 (1.60) | 1.48 (3.18) |
+
+The steps that moved the back end to LIR were measured on 2026-11-18 in dampf's emulator, in
+master clocks per tick. Together they took play from 326,596 to 324,844, both 0.91 frames per
+tick, and play with the CPU partner from 528,446 to 527,096. Writing each function once, with
+the LIR passes in place of the repeated writing, cost 312 clocks per tick in play (0.1 %),
+because selection no longer knew that Y held an index where a block starts; `IndexInY` won that
+back and more.
 
 The last row is also the current state, measured again on 2026-11-18. The other parts of the
 benchmark take 0.39 frames per tick on the title screen, 0.17 in the story and 1.39 in the round

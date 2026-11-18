@@ -16,9 +16,9 @@ Mesen, so that they have seen every tool dampf needs work once.
 
 ## Sections
 
-1. **What you need** – the prerequisites table of the README, cut to what this page needs (JDK,
-   gcc, ca65 and ld65, Mesen 2 for looking at the result), with the note on building cc65 from
-   source where a distribution does not have it.
+1. **What you need** – the prerequisites of the README, cut to what this page needs (JDK, gcc,
+   Mesen 2 for looking at the result). ca65 and ld65 are needed only to develop dampf (its tests
+   compare with them), not to use it; say so in one sentence and point to the README.
 2. **Build dampf** – `./gradlew installDist`, where the launcher ends up, and that the first
    `./gradlew build` also runs the tests (and when they need Mesen).
 3. **Compile a first program** – show `examples/m1/calls.c` in full, then the `dampf build`
@@ -28,8 +28,8 @@ Mesen, so that they have seen every tool dampf needs work once.
    link [The generated files](/reference/output-files).
 5. **Look at it in Mesen** – open the ROM with the `.dbg` file next to it, step through
    `test_main` in the C source; link [Debugging in Mesen](/guide/debugging) for more.
-6. **When something goes wrong** – the two or three failures a new user meets: ca65 or ld65 not
-   found, gcc not found (the preprocessor), a construct outside the subset (show the message
+6. **When something goes wrong** – the two or three failures a new user meets: gcc not found
+   (the preprocessor), a construct outside the subset (show the message
    format with one real example from `dampf check`). Link
    [Command line](/reference/command-line).
 

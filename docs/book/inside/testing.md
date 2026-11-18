@@ -114,6 +114,21 @@ Next to these layers are tests of single parts: front-end tests such as `ParserT
 the MIR of every execution program and of the whole game, parses it back and checks that it
 verifies and prints to the same text.
 
+`BackendOutputTest` freezes the output of the back end. It keeps a hash of the assembly and of
+the static timing for every execution test, 20 random programs and the game (once more with a
+hand-written assembly version of one game function linked in), with both code generators. A
+change that only moves code must keep every hash; one that changes the code on purpose records
+new hashes with `-PbackendOutput=update`, which also keeps a copy of the assembly in
+`build/backend-output-ref/` to compare against. The same test reads every assembly file back as
+LIR, dampf's low-level representation (65816 code in basic blocks, written as ca65 source):
+printed again, it must give the same text, and the LIR verifier must pass. And it builds every
+ROM twice, with ca65 and ld65, the assembler and linker of the cc65 suite, and with dampf's own
+assembler and linker. The two images must match byte for byte, the label files must name the
+same addresses, and the debug files must say the same, whatever ids and order each file uses:
+the bytes of every line, the symbols, segments, scopes and C symbols (`DbgMeaning`). This is why
+you need ca65 and ld65 to develop dampf, but not to use it. `LirTest` checks the blocks, printer,
+parser and verifier of LIR on small hand-written pieces.
+
 ## dampf's emulator and Mesen
 
 The SNES side of the tests runs in `dampf.emu`, a 65816 emulator in Java with LoROM, work RAM and
@@ -148,7 +163,8 @@ Each takes the Mesen from `.mesen/Mesen.exe`, or the one `MESEN` names.
 ## Running the tests
 
 `./gradlew build` compiles dampf and runs every test that needs no property: the unit tests, the
-execution tests (in Mesen too, when `.mesen/` exists) and 50 random programs. The rest is
+execution tests (in Mesen too, when `.mesen/` exists), 50 random programs and the check of the
+back end's output. The rest is
 switched on with Gradle properties:
 
 | Call | What it does |
@@ -160,6 +176,7 @@ switched on with Gradle properties:
 | `./gradlew test -Prandom=<N>` | N random programs instead of 50 |
 | `./gradlew test -PrandomSeed=<S>` | random programs from seed S on (default 1) |
 | `./gradlew test -Preplays` | also the game's replays and `GameTimingTest`; with a Mesen also the replays through the platform layer |
+| `./gradlew test --tests '*BackendOutputTest' -PbackendOutput=update` | records new hashes of the back end's output and copies its assembly to `build/backend-output-ref/` |
 | `./gradlew test -PcpuTests` | also the emulator against SingleStepTests, 300 tests per opcode |
 | `./gradlew test -PcpuTests=<N>` | the same with N tests per opcode |
 | `./gradlew test -Pblubberblasen=<path>` | tests that need the game's sources read them from there |
@@ -222,11 +239,11 @@ A test must fail, not wait forever. Every program test runs under a hard time li
 (`assertTimeoutPreemptively`): 3 minutes per execution test, 2 per random program, 15 per
 replay (20 through the platform layer) and 2 per MIR round trip, because JUnit's default
 timeouts do not cover the dynamic tests these are built from; `GameTimingTest` has 10 minutes.
-External programs (gcc, the PC builds, ca65, ld65) run through `dampf.util.Processes` with a
-time limit and are killed when it runs out. The emulator stops after 600 frames in the program
-tests and after 200,000 frames in `dampf bench` and the replays; the MIR interpreter counts its
-steps. The Gradle test task has an overall limit of 2 hours as a last resort. A program that
-loops forever fails in about a minute with
+External programs (gcc, the PC builds, and ca65 and ld65 where the tests use them) run through
+`dampf.util.Processes` with a time limit and are killed when it runs out. The emulator stops
+after 600 frames in the program tests and after 200,000 frames in `dampf bench` and the
+replays; the MIR interpreter counts its steps. The Gradle test task has an overall limit of 2
+hours as a last resort. A program that loops forever fails in about a minute with
 "did not finish within 60 s and was stopped (does it hang?)".
 
 ## Why it works this way

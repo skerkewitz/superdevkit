@@ -20,7 +20,7 @@ also describes plans. What is not built yet, listed for users, is on
 | M3 | The big levers: the optimizer on [MIR](/glossary#mir), timing report, inferred value ranges, pointer compression; faster than [Calypsi](/glossary#calypsi) | In progress; faster than Calypsi since 2026-11-17 |
 | M4 | Fine tuning until the frame budget is met | Started early: the block layout by a profile |
 | M5 | Publishing: own examples instead of Blubber Blasen, an own preprocessor, a hosted repository | Not started |
-| M6 | Standing alone: an own assembler and linker, so that using dampf needs nothing but Java | Not started; the very last step |
+| M6 | Standing alone: an own assembler and linker, so that using dampf needs nothing but Java | Done 2026-11-18, ahead of M5; gcc still needed until M5's preprocessor |
 
 M2 showed that the whole game works on dampf. All of Blubber Blasen compiles with the
 [naive code generator](/glossary#naive-code-generator), the game's benchmark gives the
@@ -54,9 +54,10 @@ loop by hand; it is checked on the PC and costs nothing on the SNES. A cycle bud
 case, fails the build, and one above 90 % of it gets a warning. `DAMPF_TRIPS` is postponed.
 Still to come in M3: timing in master cycles and the costliest path per C line in the report
 and in the budget errors; more hand-written reference functions, and value ranges from array
-bounds. Two further levels of representation, HIR above MIR and LIR below it, are open and not
-scheduled: MIR is lowered straight from the [AST](/glossary#ast), and the code generator writes
-65816 code from MIR. Declared subrange types are not scheduled either; they are built when a
+bounds. Of the two further levels of representation, LIR below MIR, 65816 code in basic blocks,
+is built; following the processor state across blocks and peephole rules are its next passes.
+HIR above MIR is open and not scheduled: MIR is lowered straight from the
+[AST](/glossary#ast). Declared subrange types are not scheduled either; they are built when a
 profile shows a hot value whose range dampf cannot infer.
 
 **A playable ROM, built during M3.** The playable ROM was planned for when the game's own SNES
@@ -114,13 +115,16 @@ is decided; then 3, 5 and 7. FastROM and rows 2 to 6 together might bring play t
 to 1.0 frames per tick. The rest has to come from the game doing less work, in the pair loop
 of `separate` (16 % of play) and the CPU partner, as the checkpoint after M2 concluded.
 
-**M5 and M6, after that.** M5 makes dampf ready to go public; it is described under
-[Publishing](#risks-and-open-questions) below. M6 is decided: dampf gets its own assembler and
-linker, so that ca65 and ld65 are no longer needed and using dampf needs nothing but Java.
-dampf uses only a small part of either, its own output and its own memory map, so both stay in
-the tests as the oracle: the ROM dampf builds itself must be byte for byte the one ca65 and ld65
-build from the same assembly, and Mesen must still show the C source. It comes last because it
-changes nothing in the code dampf generates. An own debugger is not planned; dampf uses Mesen.
+**M5 after that, and M6 done ahead of it.** M5 makes dampf ready to go public; it is described
+under [Publishing](#risks-and-open-questions) below. M6 was planned as the last step, because it
+changes nothing in the code dampf generates, but it was done on 2026-11-18, ahead of M5: dampf
+assembles and links with its own assembler and linker, so ca65 and ld65 are no longer needed
+to use it. dampf uses only a small part of either, its own output and its own memory map, so
+both stay in the tests as the oracle: the tests build every program both ways, the ROM dampf
+builds itself must be byte for byte the one ca65 and ld65 build from the same assembly, and
+Mesen must still show the C source. The old path through ca65 and ld65 can still be chosen.
+Using dampf needs nothing but Java once M5 brings dampf's own preprocessor; until then it needs
+gcc. An own debugger is not planned; dampf uses Mesen.
 
 ## The checkpoint after M2
 

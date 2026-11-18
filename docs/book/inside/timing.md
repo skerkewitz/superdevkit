@@ -35,8 +35,8 @@ count of a loop without a counter (`DAMPF_TRIPS`); see [Limits](/reference/limit
 
 ## Bounds for a function
 
-The analysis, `dampf.backend.Timing`, works on the code as the code generator wrote it, with the
-cycles of every instruction, in two steps.
+The analysis, `dampf.backend.Timing`, works on the code as the code generator wrote it, the
+function's [LIR](/glossary#lir) with the cycles of every instruction, in two steps.
 
 **Within a block.** Each basic block of the function's [MIR](/glossary#mir) becomes straight
 code, apart from forward branches over a few instructions and the small loops the code
@@ -166,7 +166,7 @@ that remain without a bound run over memory (`while (s[n]) n++;`), step their co
 something other than a constant, or could really run forever in C. A
 [hint](/glossary#hint), `DAMPF_RANGE` on the counter inside the loop, gives such a loop a bound
 through the value ranges ([Hints](/reference/hints)). In the benchmark build of
-[Blubber Blasen](/glossary#blubber-blasen) of 2026-11-18, 296 functions get a bound and 38 do
+[Blubber Blasen](/glossary#blubber-blasen) of 2026-11-18, 294 functions get a bound and 37 do
 not.
 
 ### Calls

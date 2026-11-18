@@ -82,12 +82,13 @@ same for the 180,000 calls of the game's benchmark. A runtime bound set too low 
 
 ### In the game
 
-In the game's benchmark build (2026-11-18), 296 functions get a bound and 38 do not. The loops
+In the game's benchmark build (2026-11-18, after the LIR passes), 294 functions get a bound and
+37 do not. The loops
 left are those that run over memory (`while (s[n]) n++;`, a queue,
 `while (stage_next < stage_count)`), whose counter is not stepped by a constant, or that could
 really run forever in C; they need a hint. Examples: `abs16` 13–21 cycles, `floating` 27–34,
-`level_solid_px` 21–144, `text_number` 215–3,114, `bg_clear` 111–65,790, `separate`
-27–142,715.
+`level_solid_px` 21–144, `text_number` 215–3,114, `bg_clear` 107–65,786, `separate`
+27–137,435.
 
 ### Not built yet
 

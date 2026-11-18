@@ -8,7 +8,9 @@ sources:
   - src/main/java/dampf/Compiler.java
   - src/main/java/dampf/mir/*.java
   - src/main/java/dampf/backend/MirCodeGen.java
+  - src/main/java/dampf/backend/*Selection*.java
   - src/main/java/dampf/backend/FrameLayout.java
+  - src/main/java/dampf/lir/*.java
 audience: Readers who want to know why dampf's code is fast, or why a line compiled the way it did
 ---
 

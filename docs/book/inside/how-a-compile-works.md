@@ -21,9 +21,10 @@ flowchart TD
     AST --> CHK[checks: call graph, no recursion]
     CHK --> LOW[lowering to MIR]
     LOW --> PASS[MIR passes]
-    PASS --> MCG[code generator from MIR]
+    PASS --> SEL[instruction selection to LIR]
+    SEL --> LP[LIR passes]
     CHK --> NCG[naive code generator]
-    MCG --> AS[ca65 and ld65]
+    LP --> AS[assembling and linking]
     NCG --> AS
     AS --> ROM[ROM and debug file]
 ```
@@ -34,8 +35,10 @@ flowchart TD
 - **Checks**: the call graph of the whole program is built, and recursion is rejected.
 - **Lowering to MIR**: each function becomes a graph of basic blocks in SSA form.
 - **Passes**: the optimizer rewrites the MIR until nothing changes.
-- **Code generation**: MIR, or the AST in the naive path, becomes ca65 assembly.
-- **ca65 and ld65**: the assembly is assembled, packed into ROM banks and linked.
+- **Instruction selection**: each function of the MIR becomes LIR, 65816 code in basic blocks.
+- **LIR passes**: loads and stores nobody needs are removed, branch forms are chosen, and the
+  LIR is printed as ca65 assembly; the naive path writes that assembly straight from the AST.
+- **Assembling and linking**: the assembly is assembled, packed into ROM banks and linked.
 
 ## Preprocess and parse
 
@@ -104,9 +107,8 @@ has checked each file on its own; the command is on [Command line](/reference/co
 ## MIR and its passes
 
 dampf's design has three intermediate levels below the AST: HIR for the structure of C, MIR
-for data flow and LIR for the 65816; today only MIR exists, HIR would come once splitting
-arrays of structs needs it, and the code generator from MIR does LIR's jobs itself (see the
-[Roadmap](/inside/roadmap)).
+for data flow and LIR for the 65816; today MIR and LIR exist, and HIR would come once splitting
+arrays of structs needs it (see the [Roadmap](/inside/roadmap)).
 
 The class `Lower` translates the AST into MIR directly: each function becomes a graph of basic
 blocks in [SSA](/glossary#ssa) form, with explicit widths and the signedness in the operations.
@@ -139,16 +141,23 @@ What MIR looks like is on [MIR](/inside/mir); what each pass does is on
 ## Code generation
 
 The [code generator from MIR](/glossary#code-generator-from-mir), `MirCodeGen`, is dampf's
-main code generator. It writes 65816 assembly directly and does the jobs of LIR on the way: it
-sets the processor modes with `REP` and `SEP`, gives every value a place in a frame or in A, X
-or Y, and decides branch distances. Before that it prepares the MIR once more: loop exits get
-blocks of their own (`ExitEdges`), return blocks are copied into their predecessors
-(`Returns`), and the checks of the hints come out (`Hints`). Besides the assembly, it computes
-the best and worst case of every function in CPU cycles, which `dampf build` writes to a
-`.timing.txt` file next to the ROM. `Compiler` then checks every function with a
-`DAMPF_BUDGET` against its worst case: a function above its budget, or one without a worst
-case, stops the build with an error, and one above 90 % of its budget gets a warning that does
-not.
+main code generator. First it prepares the MIR once more: loop exits get blocks of their own
+(`ExitEdges`), return blocks are copied into their predecessors (`Returns`), and the checks of
+the hints come out (`Hints`). Then it selects the instructions of each function once
+(`Selection`, with one class per kind of MIR instruction and `FrameLayout` for the places): it
+sets the processor modes with `REP` and `SEP` and gives every value a place in a frame or in A,
+X or Y.
+
+What instruction selection writes is LIR, the low-level intermediate representation: 65816
+instructions in basic blocks, each with the accumulator width it runs in. Its text is the ca65
+assembly file dampf writes, so the `.s` file next to the ROM is the LIR as the passes left it.
+The LIR passes remove loads of a value a register already holds (`RedundantLoads`, `IndexInY`)
+and stores nobody reads (`DeadStores`), choose the branch forms (`BranchRelax`) and number the
+local labels (`LocalLabels`). On the finished LIR, `Timing` computes the best and worst case of
+every function in CPU cycles, which `dampf build` writes to a `.timing.txt` file next to the
+ROM. `Compiler` then checks every function with a `DAMPF_BUDGET` against its worst case: a
+function above its budget, or one without a worst case, stops the build with an error, and one
+above 90 % of its budget gets a warning that does not.
 
 The [naive code generator](/glossary#naive-code-generator), `NaiveCodeGen`, translates the AST
 directly, almost everything in 32-bit `int` as C's promotions say. It stays as an independent
@@ -164,17 +173,26 @@ directive. Each function and each constant object goes into a segment of its own
 
 ## Assembling and linking
 
-The class `RomBuilder` turns the assembly into a LoROM image with
-[ca65 and ld65](/glossary#ca65-and-ld65). It copies the [runtime](/glossary#runtime) as
-`dampf_runtime.s` next to the program, assembles both with `ca65 -g`, and then links twice.
-ld65 cannot split a segment, so dampf has to know every size before it can place the segments
-in [banks](/glossary#bank): the first link puts everything into one large area only to read the
-segment sizes from the map file. dampf then packs the function and constant segments into the
-32 KB banks from `$80` up, largest first, each into the first bank with room, and links again
-with that configuration. The image is padded to a power of two, and the header gets the ROM
-size and the checksum.
+The class `RomBuilder` turns the assembly into a LoROM image with dampf's own assembler and
+linker (`Assembler` and `Linker` in `dampf.asm`). It writes the [runtime](/glossary#runtime) as
+`dampf_runtime.s` next to the program and assembles both. The assembler reads the subset of
+ca65 that dampf writes and the runtime uses, and reports anything else as an error; like ca65 it
+works in one pass and chooses the size of each operand when it reads the line.
 
-The segments of the final configuration:
+No function or constant object may cross a bank boundary, so dampf has to know every segment's
+size before it can place the segments in [banks](/glossary#bank). After assembling it knows
+them all, so one link is enough: dampf packs the function and constant segments into the 32 KB
+banks from `$80` up, largest first, each into the first bank with room, and links. The image is
+padded to a power of two, the header gets the ROM size and the checksum, and dampf writes the
+debug file in ld65's format, which Mesen reads.
+
+Use `--assembler ca65` to build with [ca65 and ld65](/glossary#ca65-and-ld65) instead; the ROM
+is the same. With them, dampf assembles with `ca65 -g` and links twice, because it learns the
+segment sizes from ld65's map file: the first link puts everything into one large area only to
+read the sizes, and the second links with the packed configuration. The options are on
+[Command line](/reference/command-line).
+
+The segments and where they go:
 
 | Segment | Where |
 |---|---|
@@ -194,16 +212,22 @@ All files go into the directory of the ROM, which dampf creates if it is missing
 | File | What it is |
 |---|---|
 | `calls.sfc` | the ROM |
-| `calls.dbg` | ld65's debug file, which Mesen reads |
-| `calls.lbl`, `calls.map` | label file and map file of the final link |
-| `calls.s`, `calls.o` | the generated assembly and its object file |
-| `dampf_runtime.s`, `dampf_runtime.o` | the runtime and its object file |
-| `calls.cfg` | the linker configuration of the final link |
-| `calls_measure.cfg`, `calls_measure.map` | configuration and map file of the first link |
+| `calls.dbg` | the debug file, which Mesen reads |
+| `calls.lbl` | the label file |
+| `calls.s` | the generated assembly |
+| `dampf_runtime.s` | the runtime |
 | `calls.timing.txt` | best and worst case per function (code generator from MIR only) |
 
-The tools run in that directory with plain file names, and the C file names in the debug file
-are relative to it, so Mesen finds the sources wherever the ROM is opened from.
+With `--assembler ca65` more files join them:
+
+| File | What it is |
+|---|---|
+| `calls.o`, `dampf_runtime.o` | the object files |
+| `calls.cfg`, `calls.map` | linker configuration and map file of the final link |
+| `calls_measure.cfg`, `calls_measure.map` | configuration and map file of the first link |
+
+The C file names in the debug file are relative to that directory, and ca65 and ld65 run in it
+with plain file names, so Mesen finds the sources wherever the ROM is opened from.
 
 ## Why it works this way
 
@@ -212,11 +236,12 @@ although dampf supports far less. A parse error would only say that something is
 the subset checker can say what is not supported, such as recursion, with a clear message
 (`docs/architecture.md`, *Pipeline*).
 
-**ca65 and ld65 instead of an own assembler.** Because dampf compiles the whole program, it
-already knows every instruction size and decides branch distances itself, and it controls
-placement through segments; an own assembler or linker would gain nothing for the code. ld65
-also writes the `.dbg` file Mesen reads, which makes debugging at the level of the C source
-possible. The price is the second link to learn the segment sizes (`docs/architecture.md`,
+**An own assembler and linker that gain nothing for the code.** Because dampf compiles the
+whole program, it already knows every instruction size and decides branch distances itself, and
+it controls placement through segments, so ca65 and ld65 would build the same code. dampf has
+its own so that using it needs no cc65. ca65 and ld65 stay the reference: the tests build every
+program both ways and compare the ROMs and the debug files. The price is an assembler that
+reads only the subset of ca65 dampf writes (`docs/architecture.md`,
 *Assembly output and debugging*).
 
 **Not more than three intermediate levels.** Every level costs a lowering step, a verifier, a

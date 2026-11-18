@@ -23,7 +23,7 @@ import java.util.Map;
 public final class Compiler {
     /**
      * @param entry        the function the runtime calls after start-up; must be {@code void name(void)}
-     * @param output       the ROM to write; the assembly, .dbg, label and map files go next to it
+     * @param output       the ROM to write; the assembly, .dbg and label files go next to it (with ca65, also ld65's map)
      * @param replacements functions linked from hand-written assembly instead of being compiled
      *                     (C name to .s file): the escape hatch for reference versions
      *                     (docs/optimizations.md). The function keeps dampf's calling convention:

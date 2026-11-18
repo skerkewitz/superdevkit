@@ -3,8 +3,10 @@
 # The generated files
 
 A `dampf build` writes the ROM and, in the same directory, everything that went into it: the
-generated assembly, the files of [ca65 and ld65](/glossary#ca65-and-ld65), and the debug file
-for [Mesen](/glossary#mesen). The examples on this page come from building the M1 example:
+generated assembly, a label file and the debug file for [Mesen](/glossary#mesen). dampf
+assembles and links with its own assembler and linker; with `--assembler ca65` it uses
+[ca65 and ld65](/glossary#ca65-and-ld65) instead, which build the same ROM and leave more files
+behind. The examples on this page come from building the M1 example:
 
 ```sh
 build/install/dampf/bin/dampf build --entry test_main -o build/examples/m1/calls.sfc examples/m1/calls.c
@@ -20,28 +22,36 @@ All names start with the name of the ROM without `.sfc`, here `calls`, except th
 | File | What it contains | What reads it |
 |---|---|---|
 | `calls.sfc` | the ROM: a LoROM image, padded to a power of two, with size and checksum in its header | Mesen |
-| `calls.s` | the generated assembly, commented line by line | ca65, a person |
-| `dampf_runtime.s` | the [runtime](/glossary#runtime), copied out of dampf | ca65, a person |
+| `calls.s` | the generated assembly, commented line by line | a person |
+| `dampf_runtime.s` | the [runtime](/glossary#runtime), copied out of dampf | a person |
+| `calls.lbl` | the label file, in ld65's format: one address per label | a person |
+| `calls.dbg` | the debug file, in ld65's format: source files, lines, symbols | Mesen |
+| `calls.timing.txt` | best and worst case in CPU cycles per function; only with the code generator from MIR | a person |
+
+With `--assembler ca65`, the directory also holds what ca65 and ld65 write:
+
+| File | What it contains | What reads it |
+|---|---|---|
 | `calls.o`, `dampf_runtime.o` | the assembled objects | ld65 |
 | `calls.cfg` | the linker configuration: memory areas and which segment goes into which ROM bank | ld65, a person |
 | `calls_measure.cfg`, `calls_measure.map` | the configuration and map of the first link, which only measures sizes | ld65, a person |
 | `calls.map` | ld65's map: every module's segments, and the address and size of each segment | a person |
-| `calls.lbl` | ld65's label file: one address per label | a person |
-| `calls.dbg` | ld65's debug file: source files, lines, symbols | Mesen |
-| `calls.timing.txt` | best and worst case in CPU cycles per function; only with the code generator from MIR | a person |
 
-The ROM is linked twice. The code generator puts every function into a segment of its own
-(`C_add3`) and every constant object as well (`R_` and its name), because ld65 cannot split a
-segment and so none of them can cross a 32 KB [bank](/glossary#bank) of the ROM. The first link
-puts everything into one large area to learn the size of each segment; dampf then packs the
-segments into banks from `$80` on, the largest first, each into the first bank with room, and
-links again with the configuration in `calls.cfg`. The runtime's start-up code, the initial
-values of variables, the header and the vectors stay in bank `$80`. Where code and data end up
+In that build ca65 reads the `.s` files, and ld65 writes the label file and the debug file.
+
+The code generator puts every function into a segment of its own (`C_add3`) and every constant
+object as well (`R_` and its name), because a linker cannot split a segment and so none of them
+can cross a 32 KB [bank](/glossary#bank) of the ROM. dampf packs the segments into banks from
+`$80` on, the largest first, each into the first bank with room. Its own linker knows the size
+of every segment once the modules are assembled and links once. ld65 links twice: the first
+link puts everything into one large area to learn the size of each segment, the second uses the
+configuration in `calls.cfg`. The runtime's start-up code, the initial values of variables, the
+header and the vectors stay in bank `$80`. Where code and data end up
 in memory is on [Runtime and memory](/reference/runtime-and-memory).
 
 When there is more than one assembly module, they are numbered: `calls_1.s`, `calls_2.s` and so
-on, each with its `.o`. With `--replace`, for example, each hand-written `.s` file is
-added as a module of its own.
+on, each with its `.o` when ca65 assembles them. With `--replace`, for example, each
+hand-written `.s` file is added as a module of its own.
 
 ## Reading the assembly
 
@@ -84,8 +94,8 @@ line, column), then its segment. The parts of one C line are these:
 
 - **The source line header** is the comment `; calls.c:11` with the text of the C line. When the
   line is straight-line code, the header ends with the sum of its cycles, `[ 10 cyc ]`.
-- **The `.dbg line` directive** below it tells ca65 which C line the following instructions
-  belong to; it ends up in the debug file (see [The debug file](#the-debug-file)).
+- **The `.dbg line` directive** below it tells the assembler which C line the following
+  instructions belong to; it ends up in the debug file (see [The debug file](#the-debug-file)).
 - **The instruction comments** differ between the code generators. The code generator from MIR
   writes the [MIR](/glossary#mir) instruction it translates as a comment line above the 65816
   instructions for it (`; %0 = add i16 %a, %b`); the instructions themselves carry no comment.
@@ -219,16 +229,19 @@ How dampf computes these numbers is on [Exact timing](/inside/timing).
 
 ## The debug file
 
-Mesen shows the C source while you step through the ROM because of `calls.dbg`, the debug file
-ld65 writes. It lists the source files (the runtime's `.s`, the generated `.s` and the C files)
-and, for every instruction, the C line it belongs to, taken from the `.dbg line` directives in
-the assembly. It also holds the labels of the program. The naive code generator adds
-`.dbg func` and `.dbg sym` directives, so the debug file also names the C functions and their
-parameters and locals; the code generator from MIR writes only the file and line directives.
+Mesen shows the C source while you step through the ROM because of `calls.dbg`, the debug file.
+dampf writes it in ld65's format, which Mesen reads; with `--assembler ca65`, ld65 writes it. It
+lists the source files (the runtime's `.s`, the generated `.s` and, from the `.dbg file`
+directives at the top of the assembly, the C files) and, for every instruction, the C line it
+belongs to, taken from the `.dbg line` directives in the assembly. It also holds the labels of
+the program. The naive code generator adds `.dbg func` and `.dbg sym` directives, so the debug
+file also names the C functions and their parameters and locals; the code generator from MIR
+writes only the file and line directives.
 
 The paths of the C files are relative to the directory of the debug file. For
 `build/examples/m1/calls.dbg` the source is `../../../examples/m1/calls.c`, and the generated
-files are named without a directory, because dampf runs ca65 and ld65 in the output directory.
+files are named without a directory, because dampf assembles them by their file name in the
+output directory (and runs ca65 and ld65 there).
 Mesen therefore finds the sources wherever the ROM is opened, as long as the ROM and the sources
 keep their positions relative to each other. A ROM written outside the repository gets a path
 that climbs up to the common parent directory.

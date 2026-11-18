@@ -3,8 +3,8 @@
 
 This page lists what dampf does not do: first what is planned but not built, then what dampf
 will never do, and last where its results could differ from the [PC build](/glossary#pc-build).
-The milestones named here (M3 for the optimizer, M4 for fine tuning, M6 for standing alone) are
-on the [Roadmap](/inside/roadmap), which also has their state; this page makes no promise beyond
+The milestones named here (M3 for the optimizer, M4 for fine tuning, M5 for publishing) are on
+the [Roadmap](/inside/roadmap), which also has their state; this page makes no promise beyond
 it.
 
 ## Not built yet
@@ -58,11 +58,13 @@ A loop whose bound dampf cannot find in the code makes a worst case "unbounded",
 for 38 functions of Blubber Blasen; such a loop needs a hint, as described above. For measured
 cycles per function, use `dampf profile` ([Command line](/reference/command-line)).
 
-**An own assembler and linker.** dampf writes assembly for [ca65](/glossary#ca65-and-ld65) and
-links with ld65, so you need both installed next to Java. In M6, dampf gets its own assembler
-and linker, so that using it needs nothing but Java; ca65 and ld65 then stay in the tests, which
-check that dampf's own ROM is byte-identical to theirs. M6 is deliberately the last step,
-because it changes nothing in the code dampf generates.
+**An own preprocessor.** dampf preprocesses the C source with `gcc -E`, so you need gcc
+installed next to Java; on Windows that means installing MinGW or MSYS for this alone. In M5,
+dampf gets its own C preprocessor in Java, and gcc is then needed only to develop dampf, not to
+use it; `gcc -E` stays in the tests, which compare the output of dampf's preprocessor with
+gcc's. Assembling and linking already need nothing else: dampf has its own assembler and linker
+(M6, done ahead of M5), and [ca65 and ld65](/glossary#ca65-and-ld65) are only an alternative
+path that the tests compare it with.
 
 **Other items you might notice.** These are smaller, but each changes what you can write or
 expect:

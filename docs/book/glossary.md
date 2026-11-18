@@ -29,8 +29,9 @@ tested on the PC. A snapshot of its code is in `examples/blubberblasen`.
 
 ## ca65 and ld65
 
-The assembler and linker of the cc65 suite. dampf writes ca65 assembly and lets ld65 link it
-into a ROM, and ld65 writes the debug file Mesen reads.
+The assembler and linker of the cc65 suite. dampf writes its assembly in ca65's syntax and
+assembles and links it with its own assembler and linker; with `--assembler ca65` it uses ca65
+and ld65 instead, which give the same ROM. The debug file Mesen reads is in ld65's format.
 
 ## Calypsi
 
@@ -74,6 +75,13 @@ checked assertion or nothing. Two hints are built; see [Hints](/reference/hints)
 A function that gives C code access to SNES hardware, such as the hardware multiplier or DMA. In
 the PC build it is a plain function. Not built yet.
 
+## LIR
+
+dampf's low-level intermediate representation: each function as basic blocks of real 65816
+instructions, each knowing the accumulator width it runs in. Its text is the assembly file dampf
+writes. Its [passes](#pass) remove loads and stores that are not needed and choose the short
+form of branches.
+
 ## M and X flags
 
 The two bits of the 65816's processor status that set [8-bit or 16-bit mode](#_8-bit-and-16-bit-mode):
@@ -81,9 +89,9 @@ The two bits of the 65816's processor status that set [8-bit or 16-bit mode](#_8
 
 ## Mesen
 
-Mesen 2, the SNES emulator and debugger dampf's ROMs are run and debugged in. It reads ld65's
-debug file and shows the C source while stepping. dampf also has an emulator of its own for the
-tests.
+Mesen 2, the SNES emulator and debugger dampf's ROMs are run and debugged in. It reads the debug
+file (in ld65's format) and shows the C source while stepping. dampf also has an emulator of its
+own for the tests.
 
 ## MIR
 

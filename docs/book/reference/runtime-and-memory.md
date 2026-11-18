@@ -137,12 +137,15 @@ routines, the initial values of variables (copied to RAM at start-up), the heade
 `$80:FFC0` and the vectors at `$80:FFE0`. The rest of the bank is filled like the others.
 
 **Every function and every constant object** gets a segment of its own: `C_` and the function's
-name for code, `R_` and the object's name for constant data. ld65, the linker, cannot split a
-segment over banks, so no function or constant object crosses a bank boundary. To pack them,
-dampf links twice: once to measure every segment, then with a configuration that puts them into
-banks, largest first, each into the first bank with room. The configuration of the second link
-is written next to the ROM as `<name>.cfg`. For `examples/m1/calls.c` built with
-`--entry test_main` everything fits into bank `$80`:
+name for code, `R_` and the object's name for constant data. No segment is split over banks, so
+no function or constant object crosses a bank boundary. dampf packs the segments into banks,
+largest first, each into the first bank with room. Its own linker knows the size of every
+segment after assembling and links once. With
+[`--assembler ca65`](/reference/command-line#assembler), [ld65](/glossary#ca65-and-ld65)
+cannot split a segment over banks either, and dampf links twice: once to measure every segment,
+then with a configuration that packs them in the same way. That configuration is written next
+to the ROM as `<name>.cfg`. For `examples/m1/calls.c` built with `--entry test_main` and
+`--assembler ca65` everything fits into bank `$80`:
 
 ```
 MEMORY {

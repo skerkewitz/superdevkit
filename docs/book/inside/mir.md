@@ -10,12 +10,12 @@
 
 dampf's design has three intermediate representations between the checked syntax tree and the
 assembly: HIR keeps the structure of C (loops, structs, array indexing), MIR describes the data
-flow, and LIR the 65816 with its registers and processor state. MIR is the middle level,
-comparable to LLVM IR; despite the name it is neither Rust's MIR nor LLVM's machine IR. Of the
-three, only MIR is built: the program goes straight from the [AST](/glossary#ast) to MIR, and
-the code generator from MIR writes assembly from it and does LIR's jobs itself: `REP` and `SEP`,
-direct page places, the registers A, X and Y, branch distances and cycles. HIR and LIR are not
-built ([Roadmap](/inside/roadmap)).
+flow, and [LIR](/glossary#lir) the 65816 with its registers and processor state. MIR is the
+middle level, comparable to LLVM IR; despite the name it is neither Rust's MIR nor LLVM's
+machine IR. Of the three, MIR and LIR are built: the program goes straight from the
+[AST](/glossary#ast) to MIR, the code generator from MIR selects LIR from it, 65816 instructions
+in basic blocks with the accumulator width each runs in, and the LIR passes and printer write
+the assembly. HIR is not built ([Roadmap](/inside/roadmap)).
 
 A function in MIR is a graph of basic blocks: straight runs of instructions that end in exactly
 one jump, branch, switch, return or `unreachable`. The instructions are in
@@ -310,6 +310,7 @@ optimization fits nowhere cleanly. (`docs/architecture.md`, *Why more than one* 
 **Text, verifier and interpreter for every level.** The alternative is to test only the
 finished ROM, where a broken pass shows up as a wrong number with no hint which step caused it.
 A text that parses back lets a pass test be IR text in, pass, expected IR text out, as in LLVM;
-the verifier after every pass stops a broken pass at once; and an interpreter per level narrows
-a bug down to the lowering between two levels. The cost is that every level needs all three
-before it is useful. (`docs/testing.md`, *What the IR levels bring for testing*)
+the verifier after every pass stops a broken pass at once; and an interpreter for HIR and MIR
+narrows a bug down to the lowering between two levels. The cost is that every level needs these
+before it is useful. LIR has a text format and a verifier but no interpreter; its meaning is
+checked by running the code. (`docs/testing.md`, *What the IR levels bring for testing*)

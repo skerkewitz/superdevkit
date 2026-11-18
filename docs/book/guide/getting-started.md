@@ -2,8 +2,8 @@
 # Getting started
 
 This page takes you from a fresh checkout of dampf to a ROM built from `examples/m1/calls.c`,
-open in [Mesen](/glossary#mesen). On the way you use every tool dampf needs once: the JDK, gcc,
-[ca65 and ld65](/glossary#ca65-and-ld65).
+open in [Mesen](/glossary#mesen). On the way you use every tool dampf needs once: the JDK and
+gcc.
 
 All commands run from the top of the repository. The launcher dampf builds is
 `build/install/dampf/bin/dampf`; put that directory on your `PATH` if you like. The page writes
@@ -15,18 +15,13 @@ All commands run from the top of the repository. The launcher dampf builds is
 | --- | --- |
 | JDK 25 or newer | building and running dampf (the code targets Java 25) |
 | gcc | the preprocessor (`gcc -E`), and the PC side of the tests |
-| ca65, ld65 (cc65 2.19) | assembling and linking the generated code into a ROM |
 | Mesen 2 | running the ROM and stepping through the C source |
 
 dampf runs gcc only to preprocess your source: `#include` and `#define` work as on the PC, with
-dampf's own `<stdint.h>`. ca65 and ld65 come from the cc65 suite. Some distributions do not
-package cc65 (Arch Linux has it only outside the official repositories); build it from source
-there:
-
-```sh
-git clone --depth 1 --branch V2.19 https://github.com/cc65/cc65.git
-cd cc65 && make bin && sudo make install PREFIX=/usr/local
-```
+dampf's own `<stdint.h>`. dampf assembles and links the ROM with its own assembler and linker.
+[ca65 and ld65](/glossary#ca65-and-ld65) from cc65 2.19 are needed only to develop dampf, since
+its tests build every program with them as well and compare the ROMs; the README of the
+repository says how to install them.
 
 Gradle comes with the wrapper in the repository, so there is nothing to install for it.
 
@@ -119,15 +114,14 @@ The entry function takes no arguments and returns nothing: `void test_main(void)
 
 - **`calls.s`**: the generated 65816 assembly, with the C source line and a comment for each
   instruction.
-- **`calls.dbg`**: ld65's debug file, which lets Mesen show the C source while you step.
+- **`calls.dbg`**: the debug file, in ld65's format, which lets Mesen show the C source while
+  you step.
 - **`calls.lbl`**: a label file.
-- **`calls.map`**: the map file ld65 writes when it links the ROM.
 - **`calls.timing.txt`**: the best and worst case of each function in CPU cycles, from entry to
   return.
 
-dampf leaves a few more intermediate files there, such as the runtime's assembly
-(`dampf_runtime.s`) and the object files. [The generated files](/reference/output-files)
-describes them all.
+dampf also leaves the runtime's assembly (`dampf_runtime.s`) there.
+[The generated files](/reference/output-files) describes them all.
 
 ## Look at it in Mesen
 
@@ -146,16 +140,6 @@ repository, so that Mesen also finds the debug file and the sources.
 [Debugging in Mesen](/guide/debugging) has more on stepping through C code.
 
 ## When something goes wrong
-
-**ca65 or ld65 not found.** dampf runs both to make the ROM. If one is missing from your `PATH`,
-the build stops with a Java exception that starts like this:
-
-```
-Exception in thread "main" java.io.IOException: Cannot run program "ca65" (in directory "/path/to/dampf/build/examples/m1"): Exec failed, error: 2 (No such file or directory)
-```
-
-Install cc65 as in [What you need](#what-you-need) and check that `ca65` and `ld65` run from the
-shell.
 
 **gcc not found.** Every command that reads C runs gcc as the preprocessor first, so without
 gcc nothing compiles:

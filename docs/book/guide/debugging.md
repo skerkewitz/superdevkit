@@ -17,9 +17,10 @@ build/install/dampf/bin/dampf build --entry test_main -o build/examples/m1/calls
 ```
 
 Next to the ROM `calls.sfc`, dampf writes the generated assembly `calls.s` and the debug file
-`calls.dbg`, together with a label file and a map file. The debug file comes from
-[ld65](/glossary#ca65-and-ld65): every C line in the assembly carries a `.dbg line` directive,
-and ld65 turns those into the table Mesen uses to map an address back to a file and a line.
+`calls.dbg`, together with a label file. Every C line in the assembly carries a `.dbg line`
+directive, and dampf turns those into the table Mesen uses to map an address back to a file
+and a line. It writes the debug file in the format of [ld65](/glossary#ca65-and-ld65), which
+Mesen reads; with `--assembler ca65`, ld65 writes it instead.
 [The generated files](/reference/output-files) describes each file.
 
 Open the ROM in Mesen with the `.dbg` file next to it. In the debugger's integration settings,

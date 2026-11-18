@@ -59,8 +59,10 @@ worst case comes above 90% of the budget, a warning line comes before this one; 
 over the budget, or has no worst case, the build fails.
 
 Next to the ROM, dampf writes the generated assembly (one `.s` file per module, plus the
-runtime's), the label and map files, and `dampf.timing.txt` with the best and worst case of
-each function in CPU cycles. A function without a worst case is marked `unbounded`, with the
+runtime's), the label file, and `dampf.timing.txt` with the best and worst case of each
+function in CPU cycles. dampf assembles and links with its own assembler and linker; with
+`--assembler ca65` it uses [ca65 and ld65](/glossary#ca65-and-ld65) instead, which build the
+same ROM and also write a map file. A function without a worst case is marked `unbounded`, with the
 loop or call that has no bound, such as `(loop at game.c:1217)`; a function that never returns,
 such as the benchmark's `main`, has `never` as its best case. Every option of `build` is on
 [Command line](/reference/command-line).
