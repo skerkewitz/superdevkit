@@ -12,9 +12,11 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Runs a ROM headless in Mesen 2 ({@code --testrunner} with a Lua script). The dampf runtime
- * writes to $21FB when the entry function has returned; the script then reads the globals and
- * writes them to a file. Works with the Windows Mesen from WSL: paths are converted with wslpath.
+ * Runs a ROM headless in Mesen ({@code --testrunner} with a Lua script; MesenCE, ADR record 33).
+ * The dampf runtime writes to $21FB when the entry function has returned; the script then reads
+ * the globals and writes them to a file. Works with the Linux build (its libraries from
+ * {@code lib/} next to it, dev/fetch_mesen.sh) and with the Windows build from WSL, whose paths
+ * are converted with wslpath.
  */
 final class MesenRunner {
     /**
@@ -74,12 +76,18 @@ final class MesenRunner {
                   end, emu.eventType.endFrame)
                 """);
         if (ppuCheck) {
-            // the data ports of OAM ($2104), VRAM ($2118/$2119) and CGRAM ($2122)
+            // the data ports of OAM ($2104), VRAM ($2118/$2119) and CGRAM ($2122); the vertical
+            // blank from the end of a frame to the start of the next, the screen off by bit 7 of
+            // INIDISP ($2100): flags instead of emu.getState() per byte, which is ~50 times slower
             lua.append("""
+                      local vblank, screenOff = false, emu.getState()["ppu.forcedBlank"]
+                      emu.addEventCallback(function() vblank = true end, emu.eventType.endFrame)
+                      emu.addEventCallback(function() vblank = false end, emu.eventType.startFrame)
+                      emu.addMemoryCallback(function(addr, value) screenOff = (value & 0x80) ~= 0 end,
+                        emu.callbackType.write, 0x2100, 0x2100)
                       emu.addMemoryCallback(function(addr, value)
                         if addr == 0x2104 or addr == 0x2118 or addr == 0x2119 or addr == 0x2122 then
-                          local st = emu.getState()
-                          if st["ppu.scanline"] < 225 and not st["ppu.forcedBlank"] then ppuLost = ppuLost + 1 end
+                          if not vblank and not screenOff then ppuLost = ppuLost + 1 end
                         end
                       end, emu.callbackType.write, 0x2104, 0x2122)
                     """);
@@ -113,8 +121,14 @@ final class MesenRunner {
         Path script = dir.resolve("mesen_run.lua");
         Files.writeString(script, lua);
 
-        Process p = new ProcessBuilder(mesen.toString(), "--testrunner", "--timeout=" + timeoutSeconds, hostPath(rom.rom()), hostPath(script))
-                .directory(mesen.getParent().toFile()).redirectErrorStream(true).start();
+        ProcessBuilder pb = new ProcessBuilder(mesen.toString(), "--testrunner", "--timeout=" + timeoutSeconds, hostPath(rom.rom()), hostPath(script))
+                .directory(mesen.getParent().toFile()).redirectErrorStream(true);
+        Path lib = mesen.toAbsolutePath().getParent().resolve("lib");
+        if (Files.isDirectory(lib)) {
+            String old = System.getenv("LD_LIBRARY_PATH");
+            pb.environment().put("LD_LIBRARY_PATH", lib + (old == null || old.isEmpty() ? "" : ":" + old));
+        }
+        Process p = pb.start();
         p.getInputStream().transferTo(java.io.OutputStream.nullOutputStream());
         if (!p.waitFor(timeoutSeconds + 30L, TimeUnit.SECONDS)) {
             p.destroyForcibly();
@@ -155,9 +169,9 @@ final class MesenRunner {
         return m;
     }
 
-    /** The path as Mesen sees it: a Windows path when we run in WSL. */
-    private static String hostPath(Path p) throws IOException {
-        if (!isWsl()) {
+    /** The path as Mesen sees it: a Windows path for the Windows build run from WSL. */
+    private String hostPath(Path p) throws IOException {
+        if (!isWsl() || !mesen.getFileName().toString().endsWith(".exe")) {
             return p.toAbsolutePath().toString();
         }
         try {

@@ -1,12 +1,51 @@
-frames 1400
+ticks 1700
 shot 60
 press 100 104 start
 shot 140
-press 160 300 down b
-press 300 330 down
-press 330 700 right
-shot 520
-press 700 1000 down
-shot 1000
-press 1000 1390 right
-shot 1399
+press 120 168 right
+press 168 192 down
+press 192 240 right
+press 240 256 up
+press 256 304 right
+press 304 344 down
+press 344 392 right
+press 392 416 down
+press 416 464 right
+press 464 480 up
+press 480 528 right
+press 528 568 down
+press 568 616 right
+press 616 640 down
+press 640 688 right
+press 688 704 up
+press 704 752 right
+press 752 792 down
+press 792 840 right
+press 840 864 down
+press 864 912 right
+press 912 928 up
+press 928 976 right
+press 976 1016 down
+press 1016 1064 right
+press 1064 1088 down
+press 1088 1136 right
+press 1136 1152 up
+press 1152 1200 right
+press 1200 1240 down
+press 1240 1288 right
+press 1288 1312 down
+press 1312 1360 right
+press 1360 1376 up
+press 1376 1424 right
+press 1424 1464 down
+press 1464 1512 right
+press 1512 1536 down
+press 1536 1584 right
+press 1584 1600 up
+press 1600 1648 right
+press 1648 1650 down
+shot 400
+shot 800
+shot 1200
+shot 1600
+shot 1699

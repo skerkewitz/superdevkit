@@ -17,7 +17,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The console API of the dev kit (ADR record 29): every function {@code lib/include/snes/snes.h}
- * declares for games exists in {@code lib/snes}, built or as a stub, and has its row in the table
+ * declares for games exists in {@code lib/snes} and in {@code lib/pseudo} (the desktop), built or
+ * as a stub, and has its row in the table
  * of {@code lib/README.md}. The PC side of the header (the {@code snes_xxx()} functions after
  * "PC side") is the PC implementation's interface, not the console API, and is not checked.
  */
@@ -25,6 +26,7 @@ class LibApiTest {
 
     private static final Path HEADER = Path.of("lib/include/snes/snes.h");
     private static final Path SNES = Path.of("lib/snes");
+    private static final Path PSEUDO = Path.of("lib/pseudo");
     private static final Path README = Path.of("lib/README.md");
 
     private static final Pattern DECLARATION = Pattern.compile("\\b(\\w+)\\s*\\([^(){};]*\\)\\s*;");
@@ -55,8 +57,17 @@ class LibApiTest {
 
     @Test
     void everyFunctionOfTheConsoleApiExistsOnTheSnes() throws IOException {
+        assertDefinesAll(SNES);
+    }
+
+    @Test
+    void everyFunctionOfTheConsoleApiExistsOnTheDesktop() throws IOException {
+        assertDefinesAll(PSEUDO);
+    }
+
+    private static void assertDefinesAll(Path platform) throws IOException {
         Set<String> defined = new TreeSet<>();
-        try (Stream<Path> files = Files.list(SNES)) {
+        try (Stream<Path> files = Files.list(platform)) {
             for (Path f : files.filter(p -> p.toString().endsWith(".c")).toList()) {
                 Matcher m = DEFINITION.matcher(code(Files.readString(f)));
                 while (m.find()) {
@@ -66,7 +77,7 @@ class LibApiTest {
         }
         List<String> missing = new ArrayList<>(consoleApi());
         missing.removeAll(defined);
-        assertEquals(List.of(), missing, "functions of snes.h that lib/snes does not define (a stub counts)");
+        assertEquals(List.of(), missing, "functions of snes.h that " + platform + " does not define (a stub counts)");
     }
 
     @Test

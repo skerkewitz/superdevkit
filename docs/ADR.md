@@ -34,7 +34,7 @@ of its subject.
 | 17 | [dampf has its own emulator, validated against SingleStepTests and Mesen](adr/0017-dampf-has-its-own-emulator-validated-against.md) | Accepted | 2026-11-17 |
 | 18 | [Every function gets a best and a worst case, and `DAMPF_BUDGET` fails the build](adr/0018-every-function-gets-a-best-and-a-worst-case-and.md) | Accepted | 2026-11-17 |
 | 19 | [dampf assembles and links itself, with ca65 and ld65 as the oracle](adr/0019-dampf-assembles-and-links-itself-with-ca65-and.md) | Accepted | 2026-11-18 |
-| 20 | [Mesen is the debugger, and the `.dbg` file means what ld65's means](adr/0020-mesen-is-the-debugger-and-the-dbg-file-means-what.md) | Accepted | 2026-11-18 |
+| 20 | [Mesen is the debugger, and the `.dbg` file means what ld65's means](adr/0020-mesen-is-the-debugger-and-the-dbg-file-means-what.md) | Accepted; amended by 33 | 2026-11-18 |
 | 21 | [The platform layer is C with `volatile` pointers, and the main loop waits for the vertical blank](adr/0021-the-platform-layer-is-c-with-volatile-pointers-and.md) | Accepted | 2026-11-17 |
 | 22 | [The compiler and the game work in parallel towards the frame budget](adr/0022-the-compiler-and-the-game-work-in-parallel-towards.md) | Accepted | 2026-11-17 |
 | 23 | [Value ranges are inferred first, and subrange types wait for a profile](adr/0023-value-ranges-are-inferred-first-and-subrange-types.md) | Accepted | 2026-11-17 |
@@ -47,3 +47,4 @@ of its subject.
 | 30 | [One book for superdevkit, with dampf as a part of its own](adr/0030-one-book-for-superdevkit-with-dampf-as-a-part-of.md) | Accepted | 2026-11-18 |
 | 31 | [The superdevkit command builds a project from its TOML file and calls the compilers itself](adr/0031-the-superdevkit-command-builds-a-project-from-its.md) | Accepted | 2026-11-18 |
 | 32 | [Desktop and web are for prototyping, with sound, save RAM and a debug view the game registers into](adr/0032-desktop-and-web-are-for-prototyping-with-sound.md) | Accepted | 2026-11-18 |
+| 33 | [MesenCE is the emulator for the console checks and the debugger](adr/0033-mesence-is-the-emulator-for-the-console-checks.md) | Accepted | 2026-11-18 |

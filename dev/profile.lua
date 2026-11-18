@@ -1,4 +1,4 @@
--- Mesen 2 script: how often each instruction ran (execution counts per ROM offset), for
+-- Mesen script: how often each instruction ran (execution counts per ROM offset), for
 -- dampf profile. Written to profile.txt as "offset count" lines, plus "clocks N": the master
 -- clocks of the measured stretch, counted in whole frames (Lua sees Mesen's master clock as a
 -- 32-bit number, which a replay of a few thousand ticks would overflow).

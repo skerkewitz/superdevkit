@@ -113,7 +113,8 @@ dampf's cycle report counts CPU cycles; its benchmark measures master clocks.
 
 ## Mesen
 
-Mesen 2, the SNES emulator and debugger dampf's ROMs are run and debugged in. It reads the debug
+MesenCE (the continuation of Mesen 2), the SNES emulator and debugger dampf's ROMs are run and
+debugged in. It reads the debug
 file (in ld65's format) and shows the C source while stepping. dampf also has an emulator of its
 own for the tests.
 

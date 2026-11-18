@@ -1,4 +1,4 @@
-frames 1500
+ticks 1500
 shot 60
 press 120 124 start
 shot 200

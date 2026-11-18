@@ -101,7 +101,7 @@ working documents it is written from.
 
 To use dampf: JDK 25 or newer and gcc. To develop it, also ca65 and ld65 from cc65 2.19
 (`BackendOutputTest` builds the execution tests, 20 random programs and the game with them as
-well and compares the ROMs) and Python 3. Mesen 2 is
+well and compares the ROMs) and Python 3. Mesen (MesenCE) is
 optional (the tests then also run there), clang is needed only for `dev/subset_scan.py`,
 Node.js only for the book. Gradle comes with the wrapper. The book's
 [getting started](docs/book/guide/getting-started.md) page has what a user needs.
@@ -127,10 +127,10 @@ dev/bench_game.sh                      # the game's benchmark: checksums and cyc
 dev/build_game_rom.sh                  # the playable ROM: build/game/blubberblasen.sfc
 ```
 
-The tests run in dampf's own emulator (`dampf.emu`) and, when `.mesen/Mesen.exe` exists (not in
-git), headless in Mesen 2 as well: unpack Mesen 2.1.1 there and allow Lua scripts I/O access
-(in `settings.json`: `"Debug": { "ScriptWindow": { "AllowIoOsAccess": true } }`). From WSL, the
-Windows `Mesen.exe` works. All Gradle switches are listed in the book's
+The tests run in dampf's own emulator (`dampf.emu`) and, when `.mesen/` holds a Mesen (not in
+git), headless in Mesen as well: `dev/fetch_mesen.sh` puts MesenCE there, the Linux and the
+Windows build, with the settings the tests need ([ADR record 33](docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md)).
+The Linux build is taken when it is there; from WSL the Windows `Mesen.exe` works too. All Gradle switches are listed in the book's
 [testing](docs/book/inside/testing.md) page, the scripts in [dev/README.md](dev/README.md).
 
 ## Using it
@@ -162,7 +162,7 @@ stands for the `.c` files in it ([ADR record 28](docs/adr/0028-options-can-be-ke
 
 ## Debugging in Mesen
 
-Open the ROM in Mesen 2 with the `.dbg` file next to it. In the debugger's integration settings,
+Open the ROM in Mesen (MesenCE; Mesen 2 works the same) with the `.dbg` file next to it. In the debugger's integration settings,
 let Mesen load `.dbg` files automatically; it then shows the C source. The debug file names the C
 sources relative to itself, so keep the repository's layout. From WSL, open the ROM through
 `\\wsl.localhost\...`. The book's [debugging](docs/book/guide/debugging.md) page shows how to

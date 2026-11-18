@@ -10,7 +10,7 @@ audience: Users who want to step through their C code on the SNES
 
 ## Purpose
 
-Show how to debug a ROM built by dampf in Mesen 2 at the level of the C source, and how to read
+Show how to debug a ROM built by dampf in Mesen (MesenCE) at the level of the C source, and how to read
 the generated assembly beside it.
 
 ## Sections

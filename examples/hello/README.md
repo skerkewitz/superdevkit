@@ -5,8 +5,13 @@ position shown as numbers. About a hundred lines of C in one file, for a first l
 superdevkit game is put together and for stepping through C in Mesen.
 
 ```bash
-examples/hello/build.sh            # -> examples/hello/build/hello.sfc
+examples/hello/build.sh            # the SNES: examples/hello/build/hello.sfc
+tools/build_desktop.sh examples/hello   # the desktop (Linux): examples/hello/build/linux/hello
 ```
+
+On the desktop the keyboard is the joypad: the arrows, Z (B), X (A), A (Y), S (X), Q and W (L and
+R), Enter (Start). `dev/compare_example.sh hello` plays it on both with the input of `check.txt`
+and compares the pictures, pixel for pixel.
 
 Open `build/hello.sfc` in Mesen with `build/hello.dbg` next to it, and step through
 `src/hello.c` in its debugger. `dev/check_example.sh hello` plays it headless with the input of

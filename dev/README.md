@@ -7,8 +7,10 @@ shell scripts that compile call `./gradlew -q installDist` and use
 as the game's own `tools/snesbench/build.sh` does.
 
 Where a script can run in Mesen, `WITH_MESEN=1` switches it on and `MESEN=<path>` picks the
-executable (default `.mesen/Mesen.exe`). The script copies the ROM and a Lua script into Mesen's
-folder, runs `--testrunner` there and moves the result into `build/`.
+executable (default: MesenCE in `.mesen/`, the Linux build before the Windows one; `mesen.sh`).
+`fetch_mesen.sh` puts it there ([ADR record 33](../docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md)).
+The script copies the ROM and a Lua script into Mesen's folder, runs `--testrunner` there and
+moves the result into `build/`.
 
 | Script | What it does | Arguments and variables | Needs | Writes |
 | --- | --- | --- | --- | --- |
@@ -19,9 +21,13 @@ folder, runs `--testrunner` there and moves the result into `build/`.
 | `profile.lua` | Mesen script for `profile_game.sh`: execution counts per ROM offset between two ticks (`$21FA` writes), stops at `$21FB`. | `PROFILE_FROM`, `PROFILE_TO`, filled in by the script | Mesen | `profile.txt` in Mesen's folder |
 | `game_mir.sh` | Prints the MIR of the benchmark build (`dampf mir`), or runs it in the MIR interpreter. | arguments go to `dampf mir`: `-O` (after the passes), `--bench main`, `--check-ranges` | | standard output |
 | `build_game_rom.sh` | The playable ROM: the game, its graphics and `lib/snes`, with the argument file `snapshots/blubberblasen.args`. No PVSnesLib renaming. | extra arguments go to `dampf build` (e.g. `-DBB_DEBUG`, `--backend naive`) | | `build/game/blubberblasen.sfc` and the files `dampf build` writes next to it |
+| `fetch_mesen.sh` | Puts MesenCE (a pinned version) into `.mesen/`: the Linux and the Windows build, portable, with the settings the scripts and tests need (SNES joypads, Lua file access, no frame skipping); on Arch also the libraries the Linux build needs, into `.mesen/lib`. | | curl, unzip, Python 3 | `.mesen/`, `build/mesen/` |
+| `mesen.sh` | Sourced by the scripts that run Mesen: picks `MESEN` and runs the test runner in its folder (`mesen_run`). | `MESEN` | | |
 | `check_game_rom.sh` | Plays the ROM headless in Mesen for 3,600 frames with scripted input (`game_rom_check.lua`): bytes written to VRAM, CGRAM or OAM outside a vertical blank, frames per tick, screenshots. Fails when a byte is lost. | `NOBUILD=1` skips `build_game_rom.sh`; `MESEN` | Mesen, Python 3 | `build/game/rom_check.txt`, `rom_check_<frame>.png` |
 | `check_example.sh` | Plays an example (`examples/<name>`) headless in Mesen with the input of its `check.txt` (`example_check.lua`): bytes written to VRAM, CGRAM or OAM outside a vertical blank, screenshots. Fails when a byte is lost. | `<name>`; `NOBUILD=1` skips the example's `build.sh`; `MESEN` | Mesen, Python 3 | `examples/<name>/build/check/` |
-| `example_check.lua` | Mesen script for `check_example.sh`: the input (`frames`, `press F1 F2 buttons`, `shot F` lines of `check.txt`) and the count of lost bytes. | | Mesen | `example_check.txt` and screenshots in Mesen's folder |
+| `compare_example.sh` | Plays an example on the SNES (Mesen, `check_example.sh`) and on the desktop (its headless check) with the same input and compares the screenshots pixel for pixel (`compare_shots.py`): dampf's code and gcc's, `lib/snes` and the pseudo SNES must show the same. | `<name>` | Mesen, gcc, raylib, Python 3 | `examples/<name>/build/check/`, `build/desktop-check/` |
+| `compare_shots.py` | Compares two folders of screenshots at the SNES's 5 bits per colour. | `snes_dir desktop_dir` | Python 3 | standard output |
+| `example_check.lua` | Mesen script for `check_example.sh`: the input (`ticks N`, `press T1 T2 buttons`, `shot T` lines of `check.txt`, counted in ticks so that a tick longer than a frame does not change the run), the count of lost bytes and of ticks. | | Mesen | `example_check.txt` and screenshots in Mesen's folder |
 | `art/` | How the examples' graphics were drawn, by program: `pix.py` (a small raster: shapes with shading, outlines, PNG output), `catchme.py`. They write the PNG files of the examples' `assets/`. | `python3 dev/art/catchme.py examples/catchme/assets` | Python 3 | the PNG files |
 | `game_rom_check.lua` | Mesen script for `check_game_rom.sh`. | | Mesen | `rom_check.txt` and screenshots in Mesen's folder |
 | `update_game_snapshot.sh` | Replaces `snapshots/blubberblasen` with the game's current code, data, benchmark files and recordings, and writes `SNAPSHOT.md`. Build the game once first so `build/generated` is current. | the game's folder | the game's sources, built | `snapshots/blubberblasen/` |

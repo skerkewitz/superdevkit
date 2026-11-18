@@ -65,14 +65,25 @@ argument files (`@file`, `--config`), every error of a run reported, `<string.h>
 and `memcpy`. Its test found a miscompilation: a loop counter kept in X was stepped before a later
 store whose address was formed from its old value (`exec/regress_x_step_address.c`); it is fixed
 and was not the one with inlining up to 80, which is still open. The converter
-`tools/png2snes.py`, and the first example, CatchMe (`examples/catchme`), which plays in Mesen
-without losing a byte (`dev/check_example.sh`) and is built by `ExamplesTest` in every build. The steps still to do, each with what
+`tools/png2snes.py`, and the three examples, hello, CatchMe and Steinschlag (`examples/`), which
+play in Mesen without losing a byte (`dev/check_example.sh`) and are built by `ExamplesTest` in
+every build. The steps still to do, each with what
 makes it done, are in [superdevkit-transition.md](superdevkit-transition.md#m5-the-snes-050):
-the examples hello and Steinschlag,
+the remaining examples work (the book's getting-started on hello),
 correctness (the miscompilation, tests that reach the optimizer), the book, the handover to the
 game, and the playable ROM on a console.
 
 ## M7: Windows and Linux (0.7.0)
+
+Started early, during M5 (2026-11-18), because prototyping and checking a game is so much quicker
+on the desktop: the pseudo SNES is in the kit (`lib/pseudo`, with 16 x 16 background tiles, and
+row y of the picture as scanline y + 1 like the SNES), with a desktop frontend for Linux
+(`lib/desktop`, raylib 5.5 fetched by `tools/fetch_raylib.sh`, built by `tools/build_desktop.sh`)
+and a headless check that plays an example's `check.txt` in a second (`DesktopExamplesTest`).
+The examples give the same picture on the SNES and on the desktop, pixel for pixel
+(`dev/compare_example.sh`); that comparison found a bug in `lib/snes`, whose `oamSetVisible`
+moved a sprite at a negative x to the right edge. Linux is built on WSL, Windows will be built
+natively on Windows. Still to do in M7: the rest of the steps below.
 
 The pseudo SNES from Blubber Blasen in the kit (`lib/pseudo`), sound, save RAM and the debug
 registrations in the console API (built on the desktop, stubs on the SNES; ADR
@@ -164,7 +175,7 @@ would gain from variables shown with their C type (`uint8_t`, signed `int16_t`),
 and the locals of a function in their direct page places. The cc65 format already has fields
 for part of this (a storage class `sc` and an offset on `csym`) that Mesen ignores. The plan:
 dampf first fills what the format has, then a small patch teaches Mesen to read it, offered to
-Mesen's author; NES developers who use cc65 would gain from it too. A patch from a compiler with
+MesenCE, where Mesen is maintained now ([record 33](adr/0033-mesence-is-the-emulator-for-the-console-checks.md)); NES developers who use cc65 would gain from it too. A patch from a compiler with
 users is easier to argue for, so the patch waits until the dev kit is public. With it, the code from MIR
 writes the processor state line in the assembly as the naive code generator does.
 

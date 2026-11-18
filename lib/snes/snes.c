@@ -236,18 +236,24 @@ void oamSetEx(u16 id, u8 size, u8 hide)
 
 void oamSetVisible(u16 id, u8 hide)
 {
-    /* hidden: x bit 8 set, so the sprite is left of the screen */
-    u8 *h = high_byte(id);
-    u8 bit = (u8)(1 << high_shift(id));
-    *h = (u8)(hide == OBJ_HIDE ? (*h | bit) : (*h & ~bit));
+    /* hidden: y below the picture (ATTR2_DISABLED), as the console API and the pseudo SNES have
+     * it; shown: nothing, the next oamSet gives it its y. (It used to set bit 8 of x to hide and
+     * clear it to show, which moved a sprite at a negative x to the right edge, and did not hide
+     * one whose low byte of x was above 240.) */
+    if (hide == OBJ_HIDE) {
+        oamMemory[id + 1] = ATTR2_DISABLED;
+    }
 }
 
 void oamClear(u16 first, u8 numEntries)
 {
     u16 id = first;
     u16 end = (u16)(numEntries == 0 ? 512 : first + ((u16)numEntries << 2));
-    for (; id < end; id = (u16)(id + 4)) {
+    for (; id < end && id < 512; id = (u16)(id + 4)) {   /* as the pseudo SNES: x 0, hidden, small */
+        u8 *h = high_byte(id);
+        oamMemory[id] = 0;
         oamMemory[id + 1] = ATTR2_DISABLED;
+        *h = (u8)(*h & ~(3 << high_shift(id)));
     }
 }
 

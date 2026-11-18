@@ -89,8 +89,8 @@ blank, the pause between two pictures, then copies the sprite table (OAM) and ru
 uploads in `game_vblank`. This needs Mesen, because dampf's emulator has no PPU, the SNES's
 graphics chip. The checksums must match the PC build, and `MesenRunner` (with its PPU check)
 counts every byte written to VRAM, CGRAM or OAM outside a vertical blank with the screen on.
-The PPU drops such a byte, so the count must be 0. Lua runs for every one of those writes, so
-this test takes about nine minutes.
+The PPU drops such a byte, so the count must be 0. Lua runs for every one of those writes; the
+test takes about a minute.
 
 The playable ROM has a quicker check of its own, `dev/check_game_rom.sh`: it builds the ROM
 and plays it headless in Mesen for a minute of game time, counts the same lost bytes, reports
@@ -151,14 +151,19 @@ ways:
   ticks, and the same master cycles per tick within a few cycles out of millions.
 
 Mesen itself runs only for the execution tests and the replay through the platform layer, and
-only when it is there: when `.mesen/Mesen.exe` exists in the repository (it is not in git) or
-`-Pmesen` names one. `MesenRunner` starts it headless (`--testrunner`) with a Lua script that
-waits for the write to `$21FB`, reads the globals and writes them to a file. In the tests, the
+only when it is there: when `.mesen/` in the repository holds one (it is not in git) or
+`-Pmesen` names one. `dev/fetch_mesen.sh` puts MesenCE there, the Linux build `Mesen` and the
+Windows build `Mesen.exe`, both portable and with the settings the tests need; Gradle takes
+`.mesen/Mesen` when it exists, else `.mesen/Mesen.exe`. `MesenRunner` starts it headless
+(`--testrunner`) with a Lua script that waits for the write to `$21FB`, reads the globals and
+writes them to a file. It works with the Linux build, whose libraries it takes from
+`.mesen/lib` when that folder exists, and from WSL with the Windows build. In the tests, the
 random programs, the other replays and the benchmark run in dampf's emulator only.
 
 Outside the Gradle tests, `dev/check_game_rom.sh` starts Mesen on its own, and
 `dev/bench_game.sh` and `dev/profile_game.sh` run their ROM in it with `WITH_MESEN=1`.
-Each takes the Mesen from `.mesen/Mesen.exe`, or the one `MESEN` names.
+Each takes the Mesen that `MESEN` names, else `.mesen/Mesen`, else `.mesen/Mesen.exe`
+(`dev/mesen.sh`).
 
 ## Running the tests
 
@@ -172,7 +177,7 @@ switched on with Gradle properties:
 | `./gradlew build` | build and run the default tests |
 | `./gradlew test` | the default tests only |
 | `./gradlew test --tests dampf.exec.ExecutionTest` | one test class |
-| `./gradlew test -Pmesen=<path to Mesen.exe>` | execution tests also in this Mesen instead of `.mesen/Mesen.exe` |
+| `./gradlew test -Pmesen=<path to Mesen>` | execution tests also in this Mesen instead of the one in `.mesen/` |
 | `./gradlew test -Prandom=<N>` | N random programs instead of 50 |
 | `./gradlew test -PrandomSeed=<S>` | random programs from seed S on (default 1) |
 | `./gradlew test -Preplays` | also the game's replays and `GameTimingTest`; with a Mesen also the replays through the platform layer |

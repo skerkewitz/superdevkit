@@ -2,9 +2,10 @@
 # Debugging in Mesen
 
 A ROM built by dampf can be debugged at the level of its C source in
-[Mesen](/glossary#mesen) 2: Mesen shows the C file, stops on a C line and steps from one C
-statement to the next. Beside it, the assembly dampf writes tells you what each C line became
-on the 65816. dampf brings no debugger of its own; it writes the files Mesen needs.
+[Mesen](/glossary#mesen) (MesenCE; Mesen 2 works the same): Mesen shows the C file, stops on
+a C line and steps from one C statement to the next. Beside it, the assembly dampf writes tells
+you what each C line became on the 65816. dampf brings no debugger of its own; it writes the
+files Mesen needs.
 
 ## Set up Mesen
 

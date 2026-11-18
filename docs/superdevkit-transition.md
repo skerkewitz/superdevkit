@@ -56,7 +56,7 @@ desktop running the ROM in an emulator and Mesen as the desktop are not schedule
 ## M5: the SNES (0.5.0)
 
 Done so far on `m5`: the version 0.5.0; `dev/`, `snapshots/`, `lib/snes`; the console API and the
-main loop in the library (`lib/include/snes/`, `LibApiTest`); steps 5.1 and 5.2; CatchMe.
+main loop in the library (`lib/include/snes/`, `LibApiTest`); steps 5.1 and 5.2; the three examples.
 
 ### 5.1 dampf can be called by a game
 
@@ -73,14 +73,14 @@ Each example is a project: `README.md`, `<name>.args` (until the CLI of M7, the 
 dampf, until the CLI replaces it. Each runs in Mesen with a script of scripted input
 (`dev/check_example.sh <name>`: screenshots, bytes lost outside the vertical blank).
 
-- **hello**: `examples/m1` as a project: a sprite and text on the screen, stepping through C in
+- **hello** (built: `examples/hello`; still to do: the book's getting-started on it, and `examples/m1` gone): `examples/m1` as a project: a sprite and text on the screen, stepping through C in
   Mesen. The book's getting-started page uses it.
 - **CatchMe** (built: `examples/catchme`, plays in Mesen with `dev/check_example.sh`, built by
   `ExamplesTest`): a maze-chase game of its own (its own maze, characters and look): a mouse eats
   crumbs in a maze, four cats with different ways of chasing, a chili that turns the tables for a
   while, score, lives, levels that get faster. 8 x 8 background tiles for the maze, 16 x 16
   sprites. A good first example for a new SNES developer: one screen, no scrolling.
-- **Steinschlag**: a dig-and-boulders game of its own: a miner digs through dirt, boulders and
+- **Steinschlag** (built: `examples/steinschlag`, its scrolling checked against the desktop): a dig-and-boulders game of its own: a miner digs through dirt, boulders and
   gems fall and roll, gems open the exit, beetles follow the walls, caves larger than the screen.
   Cells of 16 x 16 drawn from 2 x 2 background tiles; the cave is 40 x 22 cells (640 x 352 pixels),
   so the camera scrolls in x and y; the background map holds 64 x 64 tiles (512 x 512 pixels), so
@@ -116,10 +116,10 @@ again.
 
 ### 7.1 The pseudo SNES in the kit
 
-Blubber Blasen's `src/snes` (`ppu.c`, `render.c`, `snes_internal.h`, portable C99) into
-`lib/pseudo`. Its tests come with it (from the game's `tests/test_snes.c`, the parts that test the
-pseudo SNES). `dev/update_game_snapshot.sh` warns when the game's copy differs, until the game
-uses the kit's.
+Built (during M5): `lib/pseudo`, with 16 x 16 background tiles and the picture's rows as scanlines
+one on, so that it matches the SNES pixel for pixel. Still to do: its tests from the game's
+`tests/test_snes.c` (the parts that test the pseudo SNES); the game's copy now differs on purpose
+(the two changes), which the handover to the game has to say.
 
 ### 7.2 Sound, save RAM and the debug registrations in the API
 
@@ -140,6 +140,11 @@ rows in `lib/README.md`'s table:
 Done when: `LibApiTest` covers the new headers; an execution test per stub on the SNES.
 
 ### 7.3 The desktop frontend
+
+Built for Linux (during M5): `lib/desktop/main.c` with a window, the keyboard and a gamepad, the
+frame rhythm, F12 for a screenshot, and `--check` without a window; `tools/build_desktop.sh` and
+`tools/fetch_raylib.sh` until the CLI. Still to do: Windows (built natively on Windows), sound and
+music, save RAM, the debug view, the CRT filter. The plan as it was:
 
 `lib/desktop` in C with raylib: the window (256 x 224 scaled to whole multiples), the frame
 rhythm of `loop.h` (`game_tick`, then `snes_vblank`, `game_vblank`, `snes_render`), keyboard and

@@ -17,7 +17,7 @@ Mesen, so that they have seen every tool dampf needs work once.
 ## Sections
 
 1. **What you need** – the prerequisites of the README, cut to what this page needs (JDK, gcc,
-   Mesen 2 for looking at the result). ca65 and ld65 are needed only to develop dampf (its tests
+   Mesen, that is MesenCE, for looking at the result). ca65 and ld65 are needed only to develop dampf (its tests
    compare with them), not to use it; say so in one sentence and point to the README.
 2. **Build dampf** – `./gradlew installDist`, where the launcher ends up, and that the first
    `./gradlew build` also runs the tests (and when they need Mesen).

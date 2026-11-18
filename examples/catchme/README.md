@@ -7,8 +7,13 @@ screen, no scrolling, one background layer and a handful of sprites.
 ## Build and play
 
 ```bash
-examples/catchme/build.sh          # -> examples/catchme/build/catchme.sfc
+examples/catchme/build.sh            # the SNES: examples/catchme/build/catchme.sfc
+tools/build_desktop.sh examples/catchme   # the desktop (Linux): examples/catchme/build/linux/catchme
 ```
+
+On the desktop the keyboard is the joypad: the arrows, Z (B), X (A), A (Y), S (X), Q and W (L and
+R), Enter (Start). `dev/compare_example.sh catchme` plays it on both with the input of `check.txt`
+and compares the pictures, pixel for pixel.
 
 Open `build/catchme.sfc` in Mesen (with `build/catchme.dbg` next to it, Mesen shows the C
 source while you step). `dev/check_example.sh catchme` plays it headless with the input of

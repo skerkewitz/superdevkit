@@ -46,7 +46,7 @@ many constants).
 
 **Execution tests** (`ExecutionTest`) are small C programs, each on one area. Each runs on the
 PC, in the MIR interpreter before and after the passes, and as both ROMs in dampf's emulator;
-the naive ROM also runs headless in Mesen 2 (`--testrunner` with a Lua script) when one is
+the naive ROM also runs headless in Mesen (`--testrunner` with a Lua script) when one is
 there. A third ROM from MIR is built with arbitrary block counts (`--block-counts`, a third of
 the blocks "never ran") and must still give gcc's results, since a profile changes only the
 order of the blocks. The ROMs from MIR also check the static timing against the emulator
@@ -72,8 +72,8 @@ With a Mesen, `ReplayTest` also plays each recording through the SNES platform l
 vertical blank, copies the OAM shadow and runs `game_vblank`'s uploads. This needs Mesen, since
 dampf's emulator has no PPU. The checksums must match the PC, and `MesenRunner` (with its PPU
 check) counts every byte written to VRAM, CGRAM or OAM outside a vertical blank with the screen
-on, which must be none. Lua runs for every one of those bytes, so this test takes about nine
-minutes. The playable ROM has a quicker check, `dev/check_game_rom.sh`: a minute of scripted
+on, which must be none. Lua runs for every one of those bytes; with flags kept by the frame
+events instead of the PPU state read per byte, the test takes about a minute (ADR record 33). The playable ROM has a quicker check, `dev/check_game_rom.sh`: a minute of scripted
 play in Mesen with the same count of lost bytes, the frames per tick, and screenshots. It found
 the first platform bug (a map row copied after the vertical blank had ended).
 
@@ -94,7 +94,7 @@ ticks. `GameTimingTest` (with `-Preplays`) checks the static timing on it.
     match. Emulation mode is only modelled as far as the start-up needs it;
   - against Mesen on the game's benchmark: the same checksums on all 3,610 ticks, and the same
     master cycles per tick within a few cycles out of millions (`dampf bench`).
-- **Mesen** (`.mesen/Mesen.exe` or `-Pmesen=<path>`) runs the execution tests and the replay
+- **Mesen** (MesenCE in `.mesen/`, from `dev/fetch_mesen.sh`, or `-Pmesen=<path>`) runs the execution tests and the replay
   through the platform layer; the random programs and the other replays run in dampf's emulator
   only.
 - **Cycle table:** `CycleTableAgainstEmulatorTest` checks the cost model

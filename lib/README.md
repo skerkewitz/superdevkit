@@ -9,10 +9,14 @@ compiled together with the implementation of its platform; it calls nothing else
 | `include/snes/snes.h` | The console API: the PVSnesLib-shaped functions and the `snesXxx()` extensions, with their constants and the sprite table `oamMemory`. Its last section, the PC side (`snes_xxx()`), is the PC implementation's interface, not for games. |
 | `include/snes/loop.h` | The frame rhythm: the library's main loop calls `game_init`, then per frame `game_tick` and `game_vblank`, which every game defines; the pad bits `KEY_*`. |
 | `snes/` | The SNES: the API in C with registers as `volatile` pointers (`snes.c`, `hw.h`) and the main loop (`main.c`), compiled by dampf with the game. See its [README](snes/README.md). |
-| `pseudo/`, `desktop/`, `web/` | Windows, Linux and the web, later (M7 and M8, [the plan](../docs/superdevkit-transition.md)): the pseudo SNES from Blubber Blasen's `src/snes`, which implements the same API, and the frontends. Until then the game's pseudo SNES is the PC column of the table. |
+| `pseudo/` | The desktop: the pseudo SNES, taken over from Blubber Blasen's `src/snes`: the memories, the registers and the API in portable C, and a renderer that builds the picture line by line as the PPU does (`render.c`). It counts every byte the SNES would lose (written outside the vertical blank, or more than a vertical blank can copy). New against the game's copy: 16 x 16 background tiles, and row y of the picture is scanline y + 1 as on the SNES. |
+| `desktop/` | The desktop's frontend (`main.c`, Linux now, Windows next): a window with raylib, the keyboard and a gamepad as the joypad, the frame rhythm of `loop.h`; `--check check.txt` plays without a window and writes screenshots. Built by `tools/build_desktop.sh`. |
+| `web/` | The web, later (M8, [the plan](../docs/superdevkit-transition.md)). |
 
-Build a game with `-I lib/include -I lib/snes` in front of its own include paths and
-`lib/snes/*.c` among its sources.
+On the SNES a game is built with `-I lib/include -I lib/snes` in front of its own include paths and
+`lib/snes/*.c` among its sources (dampf); on the desktop with `-I lib/include -I lib/pseudo` and
+`lib/pseudo/*.c lib/desktop/*.c` (the system's C compiler, `tools/build_desktop.sh`). The same
+game code gives the same picture on both, pixel for pixel (`dev/compare_example.sh`).
 
 ## Rules
 
@@ -23,14 +27,14 @@ Build a game with `-I lib/include -I lib/snes` in front of its own include paths
   yet, since every function is built everywhere.
 - The library is ordinary code for dampf: the subset, `<stdint.h>` and `<dampf.h>`.
 
-`LibApiTest` checks that every function of `snes.h` (before its PC side) is defined in `snes/`
-and has its row here.
+`LibApiTest` checks that every function of `snes.h` (before its PC side) is defined in `snes/` and
+in `pseudo/`, and has its row here.
 
 ## Built and stub, per function and platform
 
-PC means Blubber Blasen's pseudo SNES for now.
+Desktop means `pseudo/` with `desktop/` (Linux now).
 
-| Function | SNES | PC |
+| Function | SNES | desktop |
 | --- | --- | --- |
 | `setMode` | built | built |
 | `setBrightness` | built | built |

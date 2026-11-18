@@ -15,7 +15,7 @@ All commands run from the top of the repository. The launcher dampf builds is
 | --- | --- |
 | JDK 25 or newer | building and running dampf (the code targets Java 25) |
 | gcc | the preprocessor (`gcc -E`), and the PC side of the tests |
-| Mesen 2 | running the ROM and stepping through the C source |
+| Mesen (MesenCE) | running the ROM and stepping through the C source |
 
 dampf runs gcc only to preprocess your source: `#include` and `#define` work as on the PC, with
 dampf's own `<stdint.h>`. dampf assembles and links the ROM with its own assembler and linker.
@@ -33,10 +33,11 @@ Gradle comes with the wrapper in the repository, so there is nothing to install 
 
 This compiles dampf and writes the launcher to `build/install/dampf/bin/dampf`. It runs no
 tests. The first `./gradlew build` compiles dampf and runs its tests as well. The tests need no
-Mesen: they run the generated programs in dampf's own emulator. When `.mesen/Mesen.exe` exists
-in the repository (it is not in git), or you name one with `-Pmesen=/path/to/Mesen.exe`, the
-execution tests run each program in Mesen too. [Testing](/inside/testing) says how to set that
-up.
+Mesen: they run the generated programs in dampf's own emulator. When `.mesen/` in the repository
+holds a Mesen (it is not in git), or you name one with `-Pmesen=/path/to/Mesen`, the execution
+tests run each program in Mesen too. `dev/fetch_mesen.sh` puts MesenCE there, the Linux build
+`Mesen` and the Windows build `Mesen.exe`; the Linux build is taken when it is there.
+[Testing](/inside/testing) says how to set that up.
 
 Next to `bin/`, `build/install/dampf/include` holds dampf's headers, `<dampf.h>` among them.
 They are there for the PC build of a game, which finds them with

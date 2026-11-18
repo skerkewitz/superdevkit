@@ -6,7 +6,8 @@ from the README.
 
 - Build and test: `./gradlew build`. The execution, random and replay tests run in dampf's own
   emulator (`dampf.emu`, validated against the SingleStepTests suite and against Mesen); the
-  execution tests also run in Mesen when `.mesen/` exists (not in git).
+  execution tests also run in Mesen when `.mesen/` exists (not in git; `dev/fetch_mesen.sh` puts
+  MesenCE there, ADR record 33).
 - A new language feature needs an execution test in `src/test/resources/exec/` (PC vs SNES).
 - dampf works on the snapshot `snapshots/blubberblasen` (never edit it; refresh with
   `dev/update_game_snapshot.sh /mnt/d/Develop/AiProject/BlubberBlasen`). Never run Mesen or write
@@ -22,7 +23,7 @@ from the README.
   on the game; the user forwards it). After dampf is finished: write `docs/game-guide.md` from it.
 - Blubber Blasen (the first user and test case) is at `/mnt/d/Develop/AiProject/BlubberBlasen`
   (Windows `D:\Develop\AiProject\BlubberBlasen`). Its `tools/snesbench` is the benchmark that
-  compares compilers in Mesen 2 headless (`Mesen.exe --testrunner` with a Lua script).
+  compares compilers in Mesen headless (`Mesen.exe --testrunner` with a Lua script).
 - Code targets Java 25 (`options.release = 25`); the machine has JDK 27.
 - Preprocessing is `gcc -E -nostdinc -undef -D__DAMPF__=1` with dampf's own `<stdint.h>`.
   Do not let host headers or host macros in.

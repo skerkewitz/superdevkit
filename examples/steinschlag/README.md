@@ -6,17 +6,20 @@ Beetles crawl along the walls, and touching one ends badly. Enough gems open the
 the time runs out. An example of superdevkit that scrolls: the cave is larger than the screen.
 
 ```bash
-examples/steinschlag/build.sh          # -> examples/steinschlag/build/steinschlag.sfc
+examples/steinschlag/build.sh            # the SNES: examples/steinschlag/build/steinschlag.sfc
+tools/build_desktop.sh examples/steinschlag   # the desktop (Linux): examples/steinschlag/build/linux/steinschlag
 ```
+
+On the desktop the keyboard is the joypad: the arrows, Z (B), X (A), A (Y), S (X), Q and W (L and
+R), Enter (Start). `dev/compare_example.sh steinschlag` plays it on both with the input of `check.txt`
+and compares the pictures, pixel for pixel.
 
 The joypad moves the miner; with B or Y held it digs or takes a gem next to it without moving.
 A boulder moves when pushed twice into a space. Start starts a game.
 
-Not verified yet: the camera scrolling far into the cave. In Mesen with scripted input
-(`dev/check_example.sh steinschlag`) it plays without losing a byte and manages 0.98 ticks per
-frame, but the scripted miner gets stuck on boulders near the start; the scrolling will be
-checked on the desktop target (roadmap M7), where a game can be steered and looked at more
-easily.
+The scrolling is checked: with the input of `check.txt` the miner digs to the right edge of the
+cave and down, and the screenshots of the SNES and of the desktop are the same, pixel for pixel.
+On the SNES it plays without losing a byte and manages 0.98 ticks per frame.
 
 ## How it is made
 
