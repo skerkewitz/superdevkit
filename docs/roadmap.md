@@ -8,7 +8,7 @@ revised after M1 (see [History](#history)).
 
 M0 to M2 are done: all of Blubber Blasen compiles, and the benchmark and the replays give the PC's
 checksums, on the SNES and in a playable ROM. M3 is in progress, and its goal, faster than Calypsi,
-is reached. Parts of M4 have started early. During play the game takes 0.91 frames per tick
+is reached. Parts of M4 have started early. During play the game takes 0.79 frames per tick
 against a goal of 0.6, so the compiler work goes on while the game reduces its own work in
 parallel. The current numbers are in [optimizations.md](optimizations.md#where-things-stand).
 M5 has not started. M6 is done (2026-11-18): dampf assembles and links itself.

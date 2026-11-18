@@ -21,14 +21,17 @@ perfect assembly.
 The game's benchmark (`tools/snesbench` in the game repository, built with
 `tools/bench_game.sh`) runs the game code with a fixed input, every PVSnesLib call stubbed out; all
 3,610 ticks give the PC's checksums. One NTSC frame is 357,366 master clocks.
-Code from MIR with all passes, FastROM (the default). All figures measured on 2026-11-18:
+Code from MIR with all passes, FastROM (the default). All figures measured on 2026-11-18; the
+first four rows after the optimizations on the branch `optimise`
+([log](optimizations-log.md#optimizations-on-the-branch-optimise-2026-11-18)), the comparisons with
+Calypsi, `level_solid_px` and the console before them:
 
 | What | Now |
 | --- | --- |
-| Play, frames per tick | 0.91 average, worst tick 1.60 |
-| Play with the CPU partner | 1.48 average, worst tick 3.18 |
-| Title, story, round intro | 0.39, 0.17, 1.39 |
-| The whole benchmark | 0.89 |
+| Play, frames per tick | 0.79 average, worst tick 1.42 |
+| Play with the CPU partner | 1.36 average, worst tick 3.03 |
+| Title, story, round intro | 0.37, 0.16, 1.41 |
+| The whole benchmark | 0.81 |
 | dampf's naive code generator | play 4.37 (worst 7.26), with the CPU partner 5.58 (worst 10.53), also FastROM; 4.8 times as slow in play |
 | Against Calypsi | 1.81 times as fast: in the play ticks where both play the same scene (711-812), FastROM for both, Calypsi 1.42 frames per tick, dampf 0.79 (`tools/bench_compilers.sh`; Calypsi drifts from the PC from tick 596 on, see [roadmap.md](roadmap.md#open-questions)) |
 | Against hand-written `level_solid_px` | 1.20 times the cycles: 871 against 724 master clocks per call, both FastROM (`REPLACE=` in `tools/bench_game.sh`) |
