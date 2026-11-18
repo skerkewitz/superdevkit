@@ -40,6 +40,6 @@ assembly or to read memory in Mesen.
 
 ## Out of scope
 
-- The SNES platform layer of the playable ROM (`platform/snes`): only that it is the code that
+- The SNES platform layer of the playable ROM (`lib/snes`): only that it is the code that
   touches the I/O registers.
 - How frames are laid out in detail: [Optimizations](/inside/optimizations).

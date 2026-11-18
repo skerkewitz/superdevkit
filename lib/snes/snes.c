@@ -1,5 +1,5 @@
 /*
- * The game's console API (examples/blubberblasen/src/snes/snes.h) on the real SNES, for dampf.
+ * The game's console API (snapshots/blubberblasen/src/snes/snes.h) on the real SNES, for dampf.
  *
  * The PVSnesLib-shaped functions do what PVSnesLib's do, as snes.h describes them; the snesXxx()
  * extensions are a few register writes each. General DMA uses channel 0; HDMA uses the channels
@@ -283,7 +283,7 @@ static u16 vcount(void)
 /* A DMA moves one byte per 8 master cycles, a line has 1364: 170 bytes. Kept to 160 a line. A copy
  * that starts after the last line of the vertical blank is lost, and the code between this check
  * and the copy runs first: so the line it is in now does not count, nor SETUP_LINES more. Measured
- * in Mesen (tools/check_game_rom.sh): from the check to the start of a tileset copy in video.c
+ * in Mesen (dev/check_game_rom.sh): from the check to the start of a tileset copy in video.c
  * takes 3.5 lines, the setup of the palette copy after it (video.c asks once for both) 1.5 more.
  * The setup is that slow because dampf writes each register through a pointer today; when it
  * writes them directly, this margin can shrink. */

@@ -19,7 +19,7 @@ perfect assembly.
 ## Where things stand
 
 The game's benchmark (`tools/snesbench` in the game repository, built with
-`tools/bench_game.sh`) runs the game code with a fixed input, every PVSnesLib call stubbed out; all
+`dev/bench_game.sh`) runs the game code with a fixed input, every PVSnesLib call stubbed out; all
 3,610 ticks give the PC's checksums. One NTSC frame is 357,366 master clocks.
 Code from MIR with all passes, FastROM (the default). All figures measured on 2026-11-18; the
 console row before the optimizations on the branch `optimise`
@@ -33,9 +33,9 @@ them:
 | Title, story, round intro | 0.37, 0.16, 1.41 |
 | The whole benchmark | 0.81 |
 | dampf's naive code generator | play 4.37 (worst 7.26), with the CPU partner 5.58 (worst 10.53), also FastROM; 5.5 times as slow in play |
-| Against Calypsi | 2.14 times as fast: in the play ticks where both play the same scene (102 ticks, up to 812), FastROM for both, Calypsi 1.42 frames per tick, dampf 0.66 (`tools/bench_compilers.sh`; Calypsi drifts from the PC from tick 596 on, see [roadmap.md](roadmap.md#open-questions)) |
-| Against hand-written `level_solid_px` | 1.14 times the cycles: 827 against 724 master clocks per call, both FastROM (`REPLACE=` in `tools/bench_game.sh`) |
-| On the console (playable ROM) | 1.57 frames per tick during a minute of play (3,600 frames, 2,296 ticks), no byte lost in the vertical blank (`tools/check_game_rom.sh`). This includes waiting for the vertical blank and the platform layer, so it is not comparable with the benchmark |
+| Against Calypsi | 2.14 times as fast: in the play ticks where both play the same scene (102 ticks, up to 812), FastROM for both, Calypsi 1.42 frames per tick, dampf 0.66 (`dev/bench_compilers.sh`; Calypsi drifts from the PC from tick 596 on, see [roadmap.md](roadmap.md#open-questions)) |
+| Against hand-written `level_solid_px` | 1.14 times the cycles: 827 against 724 master clocks per call, both FastROM (`REPLACE=` in `dev/bench_game.sh`) |
+| On the console (playable ROM) | 1.57 frames per tick during a minute of play (3,600 frames, 2,296 ticks), no byte lost in the vertical blank (`dev/check_game_rom.sh`). This includes waiting for the vertical blank and the platform layer, so it is not comparable with the benchmark |
 
 Play is not yet within the budget. With the CPU partner, the worst tick is where it is hardest
 to meet. The numbers are measured without block counts from a profile unless they say so.

@@ -5,10 +5,10 @@ sources:
   - src/main/java/dampf/Main.java
   - src/main/java/dampf/Compiler.java
   - src/main/java/dampf/tools/Profile.java
-  - examples/blubberblasen/SNAPSHOT.md
-  - tools/bench_game.sh
-  - tools/profile_game.sh
-  - platform/snes/README.md
+  - snapshots/blubberblasen/SNAPSHOT.md
+  - dev/bench_game.sh
+  - dev/profile_game.sh
+  - lib/snes/README.md
 audience: Users moving from one example file to the many files of a real game
 ---
 
@@ -22,13 +22,13 @@ and measuring where the cycles go.
 
 1. **Many files, one call** – all `.c` files on one command line, `-I` for include directories
    and `-D` for defines, the entry function. A `dampf build` call for the snapshot's benchmark
-   (as `tools/bench_game.sh` builds it), and what it prints. Before it, the shortest call for
+   (as `dev/bench_game.sh` builds it), and what it prints. Before it, the shortest call for
    a game of the reader's own (its `.c` files, `-I`, `-o`, the entry function by default
    `main`), with the launcher from [Getting started](/guide/getting-started).
 2. **Find what does not fit first** – `dampf check` over the game's files before the first
    build, and what to do with each report (change the code, keeping the PC build working).
 3. **Where the time goes** – `dampf profile`: what it reads and what it prints, cycles per
-   function, with a short excerpt of real output. Mention that `tools/profile_game.sh` does the
+   function, with a short excerpt of real output. Mention that `dev/profile_game.sh` does the
    whole round for the snapshot.
 4. **Replacing a function with assembly** – `--replace fn=file.s`, what it is for (comparing a
    hand-written function with dampf's, as `reference/` does), and that it switches to the naive
@@ -36,7 +36,7 @@ and measuring where the cycles go.
 
 ## Pay attention to
 
-- Commands run from the top of the repository on `examples/blubberblasen`; run them and copy
+- Commands run from the top of the repository on `snapshots/blubberblasen`; run them and copy
   what they print, cut where long.
 - The snapshot is not edited; say that a reader compiling their own game passes its paths.
 - The game's own build and its PVSnesLib calls are not part of this page; the benchmark stubs

@@ -97,7 +97,7 @@ The README, the working documents and the tests are complete; the book is select
   The book shows it as a title above the block. A fragment that belongs to no file has no title.
 - The user guide uses the files of the repository where they show the point:
   `examples/m1/calls.c` for a first program, the snapshot of Blubber Blasen in
-  `examples/blubberblasen` for a whole game. Other examples are as small as the point needs.
+  `snapshots/blubberblasen` for a whole game. Other examples are as small as the point needs.
   Names say what the code does (`player_x`, `add3`), not `foo` or `x`.
 - Every example C program is valid in the subset and compiles with dampf; every command shown
   runs as shown from the top of the repository; every message shown is what dampf prints for
@@ -155,4 +155,4 @@ Use the terms of the [glossary](../docs/book/glossary.md) and spell them as it d
 - Hostnames, user names, paths of a developer's machine (`/mnt/d/...`, `/home/...`).
 - Credentials, tokens or keys.
 - Statements about how the game's own repository is organized beyond what the snapshot in
-  `examples/blubberblasen` shows.
+  `snapshots/blubberblasen` shows.

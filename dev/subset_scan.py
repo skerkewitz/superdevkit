@@ -6,7 +6,7 @@ so the dampf subset can be derived from real code. M0 tooling: the subset is
 now enforced by dampf itself (dampf check); this stays for scanning other code.
 
 Usage:
-    tools/subset_scan.py [--details] -I<dir> ... file.c ...
+    dev/subset_scan.py [--details] -I<dir> ... file.c ...
 
 Only nodes located in the given files (or headers next to them) are counted;
 system headers are ignored.

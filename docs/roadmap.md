@@ -80,15 +80,18 @@ A compiler a game can call:
 The dev kit in this repository (ADR
 [record 29](adr/0029-superdevkit-is-the-project-and-dampf-is-its.md)):
 
-- **The library:** `platform/snes` becomes `lib/snes`, and the console API the dev kit now owns
+- **The library:** `platform/snes` became `lib/snes` (done), and the console API the dev kit now owns
   becomes `lib/include/snes.h`, taken over from the game. `dev/update_game_snapshot.sh` warns when
   the game's copy differs. A table shows per function and platform whether it is built or a
   stub, and a test checks that every function of `snes.h` exists in `lib/snes`. The main loop
   (`main.c`) is part of the library, and the three functions it calls (`game_init`, `game_tick`,
   `game_vblank`) are declared in the console API instead of the game's `game.h`.
-- **`tools/` split** into `tools/` (for game developers: the checks in Mesen, replays to C) and
-  `dev/` (for developing the dev kit: benchmarks, profiles, the snapshot, the subset scan).
-- **The snapshot** moves from `examples/blubberblasen` to `snapshots/blubberblasen`.
+- **Done: `tools/` became `dev/`**, for developing the dev kit (benchmarks, profiles, the
+  snapshot, the subset scan, the replay driver, the check of the playable ROM in Mesen). The
+  split into `tools/` and `dev/` that was planned found nothing for other games: the Mesen check
+  plays Blubber Blasen with scripted input, and the replay converter reads the game's format.
+  `tools/` comes back with the first tool for game developers (a graphics converter, say).
+- **Done: the snapshot** moved from `examples/blubberblasen` to `snapshots/blubberblasen`.
 - **Examples as projects:** `examples/<name>/` with a README, an argument file `<name>.args`,
   `src/`, `assets/` and its own `build/`. The first is `examples/m1` turned into a project
   (stepping through C in Mesen); the book's getting-started page uses it.
@@ -254,7 +257,7 @@ What it takes:
 Built 2026-11-17, ahead of the game's own SNES port, so that every iteration of dampf can be played
 and the toolchain is tested on what only the console shows.
 
-- **The platform layer** is `platform/snes`, in C: the 19 PVSnesLib-shaped calls of `snes.h` and
+- **The platform layer** is `lib/snes`, in C: the 19 PVSnesLib-shaped calls of `snes.h` and
   the rest of its API (`snes.c`), and the main loop (`main.c`). It reaches the hardware through
   pointers to `volatile` memory and needs one language feature of its own, the cast from a pointer
   to an integer for DMA source addresses ([subset.md](subset.md), *Hardware access*).
@@ -263,8 +266,8 @@ and the toolchain is tested on what only the console shows.
   of the code it interrupted, since dampf keeps them at fixed places.
 - **Not built:** sound (the game has none yet), save RAM (the high scores start empty at every
   power-on).
-- **Building and checking:** `tools/build_game_rom.sh` writes `build/game/blubberblasen.sfc`.
-  `tools/check_game_rom.sh` plays it in Mesen for a minute with scripted input, saves screenshots,
+- **Building and checking:** `dev/build_game_rom.sh` writes `build/game/blubberblasen.sfc`.
+  `dev/check_game_rom.sh` plays it in Mesen for a minute with scripted input, saves screenshots,
   and fails if any byte reaches VRAM, CGRAM or OAM outside a vertical blank. `ReplayTest`
   (`-Preplays`, with a Mesen) plays the recording through the platform layer: the same checksums
   as the PC, and no byte lost.
@@ -324,7 +327,7 @@ Open: the DMA margin is in M5, constant shifts longer than 8 in M7.
 - How Mesen shows locals that live in fixed direct page places, several values sharing a place
   (M9).
 - Why Calypsi's results drift from the PC's from tick 596 on: a miscompile, RAM its start-up
-  leaves uncleared, or a step of the game's own Calypsi build that `tools/bench_compilers.sh`
+  leaves uncleared, or a step of the game's own Calypsi build that `dev/bench_compilers.sh`
   lacks. Until then the comparison rests on 102 ticks.
 - How to express impossible path combinations, should the worst-case bounds turn out too
   pessimistic in practice ([timing.md](timing.md)).
@@ -379,12 +382,12 @@ Dates are 2026-11-17 unless a line says otherwise. The measurements are in [opti
 - **M2, step 1: ROMs larger than 32 KB.** Code and constant data spread over several banks, calls
   across banks, no object across a bank boundary; `exec/banks.c` spans four banks.
 - **Step 2: the game's benchmark.** `bench.c` and all of `src/game` compile; all 3,610 ticks match
-  the PC (`tools/bench_game.sh`). The game's finding 5 (`(unsigned)` casts in `video.c`) is in
+  the PC (`dev/bench_game.sh`). The game's finding 5 (`(unsigned)` casts in `video.c`) is in
   the snapshot, so all 16 files pass the front end.
 - **Step 3: the replays.** A converter turns a replay into an input table in ROM;
   `plus_bot_seed42.bbr` (3,000 ticks, 50 checksums) matches on the PC and on the SNES
   (`./gradlew test -Preplays`).
-- **Step 4: cycles per function.** `tools/profile_game.sh bench|replay` and `dampf profile`.
+- **Step 4: cycles per function.** `dev/profile_game.sh bench|replay` and `dampf profile`.
 - **Step 5: first reference function.** `level_solid_px` by hand (`reference/`,
   `dampf build --replace`); dampf's naive code was 4.5 times slower.
 
@@ -466,7 +469,7 @@ both ways.
 
 Blubber Blasen is dampf's first user and its main test case. Its deterministic replays are the
 oracle for correctness, and its busiest scene is the benchmark for speed. dampf works on a snapshot
-in `examples/blubberblasen` (refreshed with `tools/update_game_snapshot.sh`), so a change in the
+in `snapshots/blubberblasen` (refreshed with `dev/update_game_snapshot.sh`), so a change in the
 game that dampf cannot handle yet never breaks it. What dampf finds worth changing in the game goes
 to [game-findings.md](game-findings.md); when dampf is finished, `docs/game-guide.md` explains how
 to write game code that dampf compiles well.

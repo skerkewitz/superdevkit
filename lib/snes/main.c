@@ -14,7 +14,7 @@
  * power-on).
  *
  * platform_start() and platform_frame() are also what the replay test plays a recording with
- * (tools/replay/driver.c, REPLAY_PLATFORM), so it runs the same code as the ROM you play.
+ * (dev/replay/driver.c, REPLAY_PLATFORM), so it runs the same code as the ROM you play.
  */
 #include "game/game.h"
 #include "snes/snes.h"

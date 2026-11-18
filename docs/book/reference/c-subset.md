@@ -280,7 +280,7 @@ to [Hardware access](#hardware-access).
 ## Hardware access
 
 Two constructs exist for platform code, the layer that talks to the SNES hardware, and not for
-game code. The SNES platform layer in `platform/snes` is written with both of them.
+game code. The SNES platform layer in `lib/snes` is written with both of them.
 
 **Pointers to `volatile` memory** reach the I/O registers. Every access through such a pointer
 is one access of exactly the width of its type, in the order the program gives. This writes to

@@ -59,25 +59,25 @@ made odd, shift counts masked, wide arithmetic in `uint32_t`) and favours bounda
 
 **Replays.** The game records a play session as a `.bbr` file: the start (seed, save RAM, round,
 options), the joypad words whenever they change, and a checksum of everything the game shows
-every 60 ticks. `tools/replay_to_c.py` turns a recording into C tables in ROM, and
-`tools/replay/driver.c` plays them exactly like the game's own `replay_run()` (the game's
+every 60 ticks. `dev/replay_to_c.py` turns a recording into C tables in ROM, and
+`dev/replay/driver.c` plays them exactly like the game's own `replay_run()` (the game's
 `replay.c` is host code with stdio and `malloc`, so the driver is written in dampf's subset).
 `ReplayTest` builds the driver with the game in its debug configuration (`BB_DEBUG`) with gcc
 and with dampf, and requires both to match every recorded checksum and each other; the build
 from MIR and the optimized MIR in the interpreter must match too.
 
 With a Mesen, `ReplayTest` also plays each recording through the SNES platform layer
-(`platform/snes`, the code of the playable ROM) instead of the stubs: the driver, built with
+(`lib/snes`, the code of the playable ROM) instead of the stubs: the driver, built with
 `REPLAY_PLATFORM`, starts the console before `game_init` and after every tick waits for the
 vertical blank, copies the OAM shadow and runs `game_vblank`'s uploads. This needs Mesen, since
 dampf's emulator has no PPU. The checksums must match the PC, and `MesenRunner` (with its PPU
 check) counts every byte written to VRAM, CGRAM or OAM outside a vertical blank with the screen
 on, which must be none. Lua runs for every one of those bytes, so this test takes about nine
-minutes. The playable ROM has a quicker check, `tools/check_game_rom.sh`: a minute of scripted
+minutes. The playable ROM has a quicker check, `dev/check_game_rom.sh`: a minute of scripted
 play in Mesen with the same count of lost bytes, the frames per tick, and screenshots. It found
 the first platform bug (a map row copied after the vertical blank had ended).
 
-**The game's benchmark** (`tools/bench_game.sh`) runs 3,610 ticks with three checksums per tick
+**The game's benchmark** (`dev/bench_game.sh`) runs 3,610 ticks with three checksums per tick
 against a PC build of the same program, plus the cycles per tick. It also runs in the MIR
 interpreter (`dampf mir --bench main ...`, 11 seconds) and gives the PC's checksums on all
 ticks. `GameTimingTest` (with `-Preplays`) checks the static timing on it.

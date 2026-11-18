@@ -6,7 +6,7 @@ sources:
   - README.md
   - docs/roadmap.md
   - docs/optimizations.md
-  - platform/snes/README.md
+  - lib/snes/README.md
 audience: Game programmers deciding whether dampf fits their SNES project
 ---
 

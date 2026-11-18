@@ -10,7 +10,7 @@ reference is faster, the reason becomes a hint or an optimization rule.
 
 ```bash
 dampf build ... --replace level_solid_px=reference/level_solid_px.s
-REPLACE="level_solid_px=reference/level_solid_px.s" tools/bench_game.sh
+REPLACE="level_solid_px=reference/level_solid_px.s" dev/bench_game.sh
 ```
 
 `--replace` keeps the function's parameters and frame and emits no code for it; the assembly file

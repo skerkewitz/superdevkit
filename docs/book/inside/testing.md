@@ -73,7 +73,7 @@ reproduced, and the failing program is printed in the message.
 **The game's replays** check the whole of [Blubber Blasen](/glossary#blubber-blasen). The game
 records a play session as a `.bbr` file: its start (seed, save RAM, round, options), the joypad
 input whenever it changes, and every 60 [ticks](/glossary#tick) a checksum of everything the
-game shows. `tools/replay_to_c.py` turns a recording into C tables, and `tools/replay/driver.c`
+game shows. `dev/replay_to_c.py` turns a recording into C tables, and `dev/replay/driver.c`
 plays them back the way the game's own replay code does, but written in the subset. `ReplayTest`
 builds the driver with the game in its debug configuration (`BB_DEBUG`) with gcc and with both of
 dampf's code generators, runs the ROMs in dampf's emulator and the optimized MIR in the
@@ -82,7 +82,7 @@ end with the same results as the PC build. A recording is about 15,000
 [frames](/glossary#frame) long, so the test runs only when you ask for it.
 
 The driver normally plays the game on stubs of its console functions. With a Mesen,
-`ReplayTest` also plays each recording through the SNES platform layer (`platform/snes`), the C
+`ReplayTest` also plays each recording through the SNES platform layer (`lib/snes`), the C
 code that makes the playable ROM: the driver, built with `REPLAY_PLATFORM` by the code generator
 from MIR, starts the console before `game_init` and after every tick waits for the vertical
 blank, the pause between two pictures, then copies the sprite table (OAM) and runs the game's
@@ -92,13 +92,13 @@ counts every byte written to VRAM, CGRAM or OAM outside a vertical blank with th
 The PPU drops such a byte, so the count must be 0. Lua runs for every one of those writes, so
 this test takes about nine minutes.
 
-The playable ROM has a quicker check of its own, `tools/check_game_rom.sh`: it builds the ROM
+The playable ROM has a quicker check of its own, `dev/check_game_rom.sh`: it builds the ROM
 and plays it headless in Mesen for a minute of game time, counts the same lost bytes, reports
 how many frames the game needs per tick and saves screenshots to `build/game/`. It fails when a
 byte was lost. It found the first bug of the platform layer, a row of the map copied after the
 vertical blank had ended.
 
-**The game's benchmark** (`tools/bench_game.sh`) is the second check of the whole game. It plays
+**The game's benchmark** (`dev/bench_game.sh`) is the second check of the whole game. It plays
 3,610 ticks, compares three checksums per tick with a PC build of the same program, and counts
 the cycles of every tick, which is how dampf's speed is measured. It runs in dampf's emulator
 (`dampf bench`) or, with `WITH_MESEN=1`, in Mesen, and the MIR interpreter can run it as well
@@ -156,8 +156,8 @@ only when it is there: when `.mesen/Mesen.exe` exists in the repository (it is n
 waits for the write to `$21FB`, reads the globals and writes them to a file. In the tests, the
 random programs, the other replays and the benchmark run in dampf's emulator only.
 
-Outside the Gradle tests, `tools/check_game_rom.sh` starts Mesen on its own, and
-`tools/bench_game.sh` and `tools/profile_game.sh` run their ROM in it with `WITH_MESEN=1`.
+Outside the Gradle tests, `dev/check_game_rom.sh` starts Mesen on its own, and
+`dev/bench_game.sh` and `dev/profile_game.sh` run their ROM in it with `WITH_MESEN=1`.
 Each takes the Mesen from `.mesen/Mesen.exe`, or the one `MESEN` names.
 
 ## Running the tests
@@ -184,8 +184,8 @@ switched on with Gradle properties:
 | `./gradlew pmdMain pmdTest` | PMD's checks with the rules in `config/pmd/ruleset.xml`; reports in `build/reports/pmd/`; findings do not fail the build |
 | `./gradlew cpd` | copied code in `src/main/java` (PMD's CPD), from 100 tokens on; report in `build/reports/cpd/main.txt` |
 | `./gradlew cpd -PcpdTokens=<N>` | the same from N tokens on |
-| `tools/bench_game.sh` | the game's benchmark: checksums and cycles |
-| `tools/check_game_rom.sh` | the playable ROM for a minute in Mesen: lost bytes, frames per tick, screenshots |
+| `dev/bench_game.sh` | the game's benchmark: checksums and cycles |
+| `dev/check_game_rom.sh` | the playable ROM for a minute in Mesen: lost bytes, frames per tick, screenshots |
 
 The first run with `-PcpuTests` downloads the start of each opcode's file of the suite, about
 50 MB, into `~/.cache/dampf/65816-tests`; later runs use the copy. Without a property, the tests
@@ -193,8 +193,8 @@ that need one are skipped, not failed.
 
 Coverage, PMD and CPD are not part of `./gradlew build`. JaCoCo is off by default because it
 slows down the tests that run the emulator, and PMD's findings are there to be read, not to stop
-a build. All scripts in `tools/`, with their arguments and variables, are listed in
-`tools/README.md` in the repository.
+a build. All scripts in `dev/`, with their arguments and variables, are listed in
+`dev/README.md` in the repository.
 
 ## Adding an execution test
 

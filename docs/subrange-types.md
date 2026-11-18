@@ -281,7 +281,7 @@ On the 65816 this is a large gain: full pointers are expensive there, an index i
 
 The analysis is only sound if every pointer value comes from taking the address of something dampf knows. The subset therefore adds:
 
-- **No casts between integers and pointers.** Hardware registers would be reached only through intrinsics, never through `(uint8_t *)0x2100`. *Not adopted:* the platform layer (`platform/snes`) uses pointers to `volatile` memory made from numbers, and dampf accepts such casts ([subset.md](subset.md), *Hardware access*). A full points-to analysis would need the rule back.
+- **No casts between integers and pointers.** Hardware registers would be reached only through intrinsics, never through `(uint8_t *)0x2100`. *Not adopted:* the platform layer (`lib/snes`) uses pointers to `volatile` memory made from numbers, and dampf accepts such casts ([subset.md](subset.md), *Hardware access*). A full points-to analysis would need the rule back.
 - **Pointer arithmetic stays within one array.** `p + 1` must point into the same array as `p` (or one past its end), checked in the interpreter. MIR's `ptradd` with a 16-bit offset already relies on this ([memory-map.md](memory-map.md)).
 
 ### Loop bounds for linked structures

@@ -14,8 +14,8 @@ dampf writes may change from one version to the next.
 ## Not built yet
 
 **Sound and save RAM in the SNES platform layer.** dampf builds a playable ROM of Blubber
-Blasen with `tools/build_game_rom.sh`. Its [platform layer](/glossary#platform-layer) in
-`platform/snes`, written in C, implements the 19 [PVSnesLib](/glossary#pvsneslib)-shaped calls
+Blasen with `dev/build_game_rom.sh`. Its [platform layer](/glossary#platform-layer) in
+`lib/snes`, written in C, implements the 19 [PVSnesLib](/glossary#pvsneslib)-shaped calls
 that the game's `video.c` makes, the rest of the game's console API and the main loop. Two parts
 are missing: sound, which the game does not have yet, and save RAM, so the high scores start
 empty at every power-on. The playable ROM belongs to no milestone: it was split off from M2 and
@@ -27,11 +27,11 @@ there, because C code called from an interrupt in the middle of a tick would ove
 in interrupt handlers is planned for M8, where the functions an interrupt reaches can get a
 frame area of their own; how a handler is declared and what it saves is still open.
 
-**A platform layer for your own game.** The layer in `platform/snes` implements Blubber Blasen's
-console API (`snes.h`) and nothing else. In M5 it becomes the dev kit's library, `lib/snes`,
-and the console API becomes the dev kit's own `lib/include/snes.h`, taken over from the game.
+**A platform layer for your own game.** The layer in `lib/snes` implements Blubber Blasen's
+console API (`snes.h`) and nothing else. It is the dev kit's library now; in M5 the console API
+becomes the dev kit's own `lib/include/snes.h`, taken over from the game.
 To build a ROM of your own game, you write a platform layer in C for the library your game
-calls, and dampf compiles it together with the game. Write it the way `platform/snes` is
+calls, and dampf compiles it together with the game. Write it the way `lib/snes` is
 written: it reaches the I/O registers through pointers to `volatile` memory, and casts a
 pointer to an integer to get the SNES address a DMA channel copies from
 ([The C subset](/reference/c-subset)).

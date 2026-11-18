@@ -4,7 +4,7 @@
 -- 32-bit number, which a replay of a few thousand ticks would overflow).
 --
 -- The stretch is given in ticks of the game's benchmark (bench.c writes $21FA after each tick):
--- PROFILE_FROM and PROFILE_TO are filled in by tools/profile_game.sh. FROM 0 starts at once;
+-- PROFILE_FROM and PROFILE_TO are filled in by dev/profile_game.sh. FROM 0 starts at once;
 -- the profile also ends when the program writes $21FB (done), e.g. a replay.
 local ok, err = pcall(function()
   local from, to = PROFILE_FROM, PROFILE_TO

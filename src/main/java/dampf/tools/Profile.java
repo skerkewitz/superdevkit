@@ -14,7 +14,7 @@ import java.util.regex.Pattern;
 
 /**
  * Cycles per function from an execution profile: Mesen counts how often each instruction ran
- * (tools/profile.lua), dampf knows what each instruction costs ({@link Cycles65816}).
+ * (dev/profile.lua), dampf knows what each instruction costs ({@link Cycles65816}).
  *
  * <p>Instructions are assigned to the function whose code contains them (the nearest function
  * label below; functions are the {@code .proc}s of the generated assembly and the runtime's

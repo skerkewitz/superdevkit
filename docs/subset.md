@@ -19,14 +19,14 @@ definitions in two files.
 
 Two tools, both repeatable when the game changes:
 
-- `tools/subset_scan.py` parses each file with clang (`-ast-dump=json`) and counts the constructs
+- `dev/subset_scan.py` parses each file with clang (`-ast-dump=json`) and counts the constructs
   that matter for the subset and the optimizer, with their places (`--details`).
 - `gcc -fcallgraph-info` gives the complete call graph (609 edges), which was checked for cycles
   and indirect calls.
 
 ```bash
 BB=/path/to/BlubberBlasen
-tools/subset_scan.py --details -I$BB/src -I$BB/build/generated $BB/src/game/*.c
+dev/subset_scan.py --details -I$BB/src -I$BB/build/generated $BB/src/game/*.c
 ```
 
 The scan is of the release build: `BB_DEBUG` is not defined, so `debug.c` and the debug
@@ -91,7 +91,7 @@ API in `src/snes/snes.h`: `bgInitTileSet`, `bgSetDisable`, `bgSetGfxPtr`, `bgSet
 `bgSetScroll`, `dmaCopyCGram`, `dmaCopyVram`, `oamInit`, `oamInitGfxAttr`, `setBrightness`,
 `setColorEffect`, `setColorIntensity`, `setMode`, `setPaletteColor`, `setScreenOff`,
 `snesDmaFits`, `snesHdmaEnable`, `snesHdmaSet`, `snesRegWrite`. On the PC these are the pseudo
-SNES; for dampf they are a platform layer in C (`platform/snes/snes.c`), which
+SNES; for dampf they are a platform layer in C (`lib/snes/snes.c`), which
 reaches the hardware through volatile pointers (*Hardware access* below) and needs no intrinsics.
 
 The platform calls into the game through `game_init`, `game_tick`, `game_vblank` and the getters
@@ -146,7 +146,7 @@ itself is rejected). A cast from a pointer to an integer gives the SNES address 
 `bank << 16 | address`, which a DMA channel needs as its source; a cast to a narrower type
 truncates that number. On the PC the number is something else, so only distances within one
 object agree between both sides (`exec/pointer_to_int.c`). The SNES platform layer in
-`platform/snes` is written this way. The checker does not tell platform code from game code: a
+`lib/snes` is written this way. The checker does not tell platform code from game code: a
 cast from an integer to a pointer is accepted anywhere.
 
 **Preprocessor.** Anything `gcc -E` accepts. dampf preprocesses with `-nostdinc -undef

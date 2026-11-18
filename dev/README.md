@@ -1,9 +1,9 @@
-# tools
+# dev
 
-Scripts around dampf. Run them from anywhere; each changes to the repository root first. The
+Scripts for developing dampf against Blubber Blasen; none of them is meant for another game. Run them from anywhere; each changes to the repository root first. The
 shell scripts that compile call `./gradlew -q installDist` and use
 `build/install/dampf/bin/dampf`. Unless a row says otherwise, they work on the snapshot in
-`examples/blubberblasen` and rename every PVSnesLib call to an empty stub (`-Dname=bb_name`),
+`snapshots/blubberblasen` and rename every PVSnesLib call to an empty stub (`-Dname=bb_name`),
 as the game's own `tools/snesbench/build.sh` does.
 
 Where a script can run in Mesen, `WITH_MESEN=1` switches it on and `MESEN=<path>` picks the
@@ -18,10 +18,10 @@ folder, runs `--testrunner` there and moves the result into `build/`.
 | `profile_game.sh` | Cycles per function of the dampf build (`dampf profile`). | `bench [from to]` (ticks, default 900 1700: play) or `replay [name]` (default the first recording); `TOP=<n>` rows (default 40); `INSTRUCTIONS=1` adds cycles per instruction and addressing mode; `BLOCKS=<file>`; `BACKEND=naive`; `WITH_MESEN`, `MESEN` | Python 3 for replays; replays need `WITH_MESEN=1` | `build/profile/bench.sfc` (a replay: `<name>.sfc`), execution counts next to it in `.profile.txt`, block counts in `bench.blocks.txt` (for `BLOCKS=`) |
 | `profile.lua` | Mesen script for `profile_game.sh`: execution counts per ROM offset between two ticks (`$21FA` writes), stops at `$21FB`. | `PROFILE_FROM`, `PROFILE_TO`, filled in by the script | Mesen | `profile.txt` in Mesen's folder |
 | `game_mir.sh` | Prints the MIR of the benchmark build (`dampf mir`), or runs it in the MIR interpreter. | arguments go to `dampf mir`: `-O` (after the passes), `--bench main`, `--check-ranges` | | standard output |
-| `build_game_rom.sh` | The playable ROM: the game, its graphics and `platform/snes`. No PVSnesLib renaming. | extra arguments go to `dampf build` (e.g. `-DBB_DEBUG`, `--backend naive`) | | `build/game/blubberblasen.sfc` and the files `dampf build` writes next to it |
+| `build_game_rom.sh` | The playable ROM: the game, its graphics and `lib/snes`. No PVSnesLib renaming. | extra arguments go to `dampf build` (e.g. `-DBB_DEBUG`, `--backend naive`) | | `build/game/blubberblasen.sfc` and the files `dampf build` writes next to it |
 | `check_game_rom.sh` | Plays the ROM headless in Mesen for 3,600 frames with scripted input (`game_rom_check.lua`): bytes written to VRAM, CGRAM or OAM outside a vertical blank, frames per tick, screenshots. Fails when a byte is lost. | `NOBUILD=1` skips `build_game_rom.sh`; `MESEN` | Mesen, Python 3 | `build/game/rom_check.txt`, `rom_check_<frame>.png` |
 | `game_rom_check.lua` | Mesen script for `check_game_rom.sh`. | | Mesen | `rom_check.txt` and screenshots in Mesen's folder |
-| `update_game_snapshot.sh` | Replaces `examples/blubberblasen` with the game's current code, data, benchmark files and recordings, and writes `SNAPSHOT.md`. Build the game once first so `build/generated` is current. | the game's folder | the game's sources, built | `examples/blubberblasen/` |
+| `update_game_snapshot.sh` | Replaces `snapshots/blubberblasen` with the game's current code, data, benchmark files and recordings, and writes `SNAPSHOT.md`. Build the game once first so `build/generated` is current. | the game's folder | the game's sources, built | `snapshots/blubberblasen/` |
 | `replay_to_c.py` | Turns a recording (`.bbr`) into C tables for `replay/driver.c`. Used by `ReplayTest` and `profile_game.sh replay`. | `recording.bbr`, C on standard output | Python 3 | standard output |
 | `subset_scan.py` | M0 scanner: counts which C constructs a code base uses, from clang's JSON AST. | `[--details] -I<dir> ... file.c ...` | clang, Python 3 | standard output |
-| `replay/` | `driver.c` plays a recording as the game's `replay_run()` does, in dampf's subset, so it runs on the PC (`REPLAY_PC`) and the SNES; `stubs.c` holds the empty PVSnesLib calls; with `REPLAY_PLATFORM` the SNES side uses `platform/snes` instead. Used by `ReplayTest`. | `replay_data.h` declares the tables | | |
+| `replay/` | `driver.c` plays a recording as the game's `replay_run()` does, in dampf's subset, so it runs on the PC (`REPLAY_PC`) and the SNES; `stubs.c` holds the empty PVSnesLib calls; with `REPLAY_PLATFORM` the SNES side uses `lib/snes` instead. Used by `ReplayTest`. | `replay_data.h` declares the tables | | |

@@ -199,7 +199,7 @@ Use `check` to find out which files of a code base dampf accepts, before you try
 of them:
 
 ```sh
-dampf check -I examples/blubberblasen/src -I examples/blubberblasen/generated examples/blubberblasen/src/game/*.c
+dampf check -I snapshots/blubberblasen/src -I snapshots/blubberblasen/generated snapshots/blubberblasen/src/game/*.c
 ```
 
 It runs only the front end (preprocessor, parser and the checks of the subset) and handles
@@ -271,7 +271,7 @@ usage: dampf profile <rom.sfc> <profile.txt> [top N] [--skip file.c ...] [--inst
   instruction with its offset in the ROM file and its count, and optionally a line
   `clocks N` with the master clocks (the SNES's base clock, 357,366 per frame) of the measured
   stretch. [Mesen](/glossary#mesen) writes it with the Lua
-  script `tools/profile.lua`; [`dampf bench --profile`](#bench-profile) writes the same format
+  script `dev/profile.lua`; [`dampf bench --profile`](#bench-profile) writes the same format
   from dampf's own emulator.
 - **`top`** is a number: how many functions the table shows, the most expensive first. The
   default is 40. It also limits the rows of the table that `--instructions` adds.

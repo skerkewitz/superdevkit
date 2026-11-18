@@ -81,15 +81,19 @@ needed for that while the repository is private. Its work falls into five parts:
   stands for the `.c` files directly in it, so that a game checks in one file per build. dampf
   ships a `<string.h>` with `memset` and `memcpy`, written in C for now. The install carries the
   library and the tools as well as the compiler, and the game refers to it by its folder.
-- **The dev kit in this repository.** The platform layer becomes the dev kit's library in
-  `lib/snes`, and the console API, taken over from the game, becomes `lib/include/snes.h`. A
-  table shows per function and platform whether it is built or a stub, and a test checks that
-  every function of `snes.h` exists in `lib/snes`. The main loop (`main.c`) is part of the
-  library, and the three functions it calls (`game_init`, `game_tick`, `game_vblank`) are
-  declared in the console API instead of the game's `game.h`. The tools are split into
-  `tools/`, for game developers, and `dev/`, for developing the dev kit; the snapshot of Blubber
-  Blasen moves to `snapshots/blubberblasen`. Examples become projects of their own, each with a
-  README, an argument file, its sources and its own build folder; the first is `examples/m1`.
+- **The dev kit in this repository.** Done: the platform layer has become the dev kit's
+  library in `lib/snes`. Next, the console API, taken over from the game, becomes
+  `lib/include/snes.h`. A table shows per function and platform whether it is built or a stub,
+  and a test checks that every function of `snes.h` exists in `lib/snes`. The main loop
+  (`main.c`) is part of the library, and the three functions it calls (`game_init`,
+  `game_tick`, `game_vblank`) are declared in the console API instead of the game's `game.h`.
+  Done: the scripts are now in `dev/`, for developing the dev kit. The planned split into
+  `tools/`, for game developers, and `dev/` found nothing for other games: the check in Mesen
+  plays Blubber Blasen with scripted input, and the replay converter reads the game's format, so
+  `tools/` comes back with the first tool for game developers. Done: the snapshot of Blubber
+  Blasen has moved to `snapshots/blubberblasen`. Examples become projects of their own, each
+  with a README, an argument file, its sources and its own build folder; the first is
+  `examples/m1`.
 - **The book.** One book serves the whole dev kit. First the existing pages move into folders
   for dampf's part, `reference/compiler/` and `inside/compiler/`; then the user guide becomes
   the dev kit's, with getting started from the first example project, and the reference gets
@@ -198,7 +202,7 @@ play). Relaxing the requirement stays as a fallback, decided on measured numbers
 ticks still do not fit.
 
 The game changes in its own repository. dampf follows by refreshing its snapshot of the game's
-code in `examples/blubberblasen` and measuring again with the benchmark, the replays and the
+code in `snapshots/blubberblasen` and measuring again with the benchmark, the replays and the
 profile. Whether the budget is met therefore depends on work outside dampf.
 
 ## Risks and open questions

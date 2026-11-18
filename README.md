@@ -17,7 +17,7 @@ dampf is the compiler of a development kit for SNES games, superdevkit, which th
 holds until it is published ([ADR record 29](docs/adr/0029-superdevkit-is-the-project-and-dampf-is-its.md)).
 The milestones and versions are in [docs/roadmap.md](docs/roadmap.md). dampf compiles all of Blubber Blasen and
 builds a playable ROM of it, with the game's console API written in C in
-[platform/snes](platform/snes/README.md) (sound and save RAM are not built yet). During play the
+[lib/snes](lib/snes/README.md) (sound and save RAM are not built yet). During play the
 game takes 0.79 frames per tick, and dampf's code is 2.14 times as fast as Calypsi's on the
 same scene; the current figures are in
 [docs/optimizations.md](docs/optimizations.md#where-things-stand). dampf computes a best and a
@@ -92,15 +92,15 @@ working documents it is written from.
 - [docs/testing.md](docs/testing.md): the test layers and how they work.
 - [docs/roadmap.md](docs/roadmap.md): milestones and their state, risks, open questions, the relation to Blubber Blasen.
 - [docs/game-findings.md](docs/game-findings.md): things in Blubber Blasen's code worth changing, for whoever works on the game.
-- [tools/README.md](tools/README.md): the scripts in `tools/`.
-- [examples/blubberblasen/SNAPSHOT.md](examples/blubberblasen/SNAPSHOT.md): the snapshot of the game dampf is developed against.
+- [dev/README.md](dev/README.md): the scripts in `dev/`, for developing dampf against the game.
+- [snapshots/blubberblasen/SNAPSHOT.md](snapshots/blubberblasen/SNAPSHOT.md): the snapshot of the game dampf is developed against.
 
 ## Prerequisites
 
 To use dampf: JDK 25 or newer and gcc. To develop it, also ca65 and ld65 from cc65 2.19
 (`BackendOutputTest` builds the execution tests, 20 random programs and the game with them as
 well and compares the ROMs) and Python 3. Mesen 2 is
-optional (the tests then also run there), clang is needed only for `tools/subset_scan.py`,
+optional (the tests then also run there), clang is needed only for `dev/subset_scan.py`,
 Node.js only for the book. Gradle comes with the wrapper. The book's
 [getting started](docs/book/guide/getting-started.md) page has what a user needs.
 
@@ -121,15 +121,15 @@ cd cc65 && make bin && sudo make install PREFIX=/usr/local
 ./gradlew test -Pcoverage                # JaCoCo: build/reports/jacoco/test/html/index.html
 ./gradlew pmdMain pmdTest                # PMD: build/reports/pmd/ (not a gate)
 ./gradlew cpd                            # copied code: build/reports/cpd/main.txt
-tools/bench_game.sh                      # the game's benchmark: checksums and cycles
-tools/build_game_rom.sh                  # the playable ROM: build/game/blubberblasen.sfc
+dev/bench_game.sh                      # the game's benchmark: checksums and cycles
+dev/build_game_rom.sh                  # the playable ROM: build/game/blubberblasen.sfc
 ```
 
 The tests run in dampf's own emulator (`dampf.emu`) and, when `.mesen/Mesen.exe` exists (not in
 git), headless in Mesen 2 as well: unpack Mesen 2.1.1 there and allow Lua scripts I/O access
 (in `settings.json`: `"Debug": { "ScriptWindow": { "AllowIoOsAccess": true } }`). From WSL, the
 Windows `Mesen.exe` works. All Gradle switches are listed in the book's
-[testing](docs/book/inside/testing.md) page, the scripts in [tools/README.md](tools/README.md).
+[testing](docs/book/inside/testing.md) page, the scripts in [dev/README.md](dev/README.md).
 
 ## Using it
 
@@ -152,7 +152,7 @@ builds for a SlowROM cartridge (FastROM is the default), `--replace fn=file.s` l
 hand-written function ([reference](reference/README.md)) and `--block-counts` lays out the
 blocks by a profile. `parse` only preprocesses and parses. `check` runs the front end on every
 file alone, then on all of them together (recursion, functions defined nowhere or twice).
-`dampf mir`, `dampf profile` and `dampf bench` are the tools behind the scripts in `tools/`.
+`dampf mir`, `dampf profile` and `dampf bench` are the tools behind the scripts in `dev/`.
 
 ## Debugging in Mesen
 
@@ -185,12 +185,12 @@ src/main/resources/dampf/snes/     SNES runtime (start-up, header, vectors)
 src/test/java/dampf/           unit, execution, random, replay and emulator tests; book source checks
 src/test/resources/exec/       execution test programs
 examples/m1/                   example for stepping through C in Mesen
-examples/blubberblasen/        snapshot of the game's code (do not edit; refresh with tools/update_game_snapshot.sh)
-platform/snes/                 the game's console API in C, for the playable ROM
+snapshots/blubberblasen/       snapshot of the game's code (do not edit; refresh with dev/update_game_snapshot.sh)
+lib/snes/                      the dev kit's library on the SNES: the console API in C, for the playable ROM
 reference/                     hand-written assembly of hot functions, the yardstick for dampf's code
-tools/                         scripts: benchmark, profile, playable ROM, snapshot, subset scan (see its README.md)
-tools/replay/                  the driver that plays the game's recordings (ReplayTest)
-tools/subset_scan.py           M0 scanner: which C constructs a code base uses
+dev/                           scripts for developing dampf: benchmark, profile, playable ROM, snapshot (see its README.md)
+dev/replay/                    the driver that plays the game's recordings (ReplayTest)
+dev/subset_scan.py             M0 scanner: which C constructs a code base uses
 config/pmd/                    PMD rules (./gradlew pmdMain pmdTest)
 assets/                        the logo
 docs/                          the working documents (see Documents)

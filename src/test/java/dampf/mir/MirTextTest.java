@@ -34,7 +34,7 @@ class MirTextTest {
 
     @Test
     void theWholeGameRoundTrips() throws Exception {
-        Path bb = Path.of("examples/blubberblasen");
+        Path bb = Path.of("snapshots/blubberblasen");
         List<Path> sources = new ArrayList<>();
         try (Stream<Path> s = Files.list(bb.resolve("src/game"))) {
             s.filter(p -> p.toString().endsWith(".c")).sorted().forEach(sources::add);
@@ -43,7 +43,7 @@ class MirTextTest {
             s.filter(p -> p.toString().endsWith(".c")).sorted().forEach(sources::add);
         }
         sources.add(bb.resolve("bench/bench.c"));
-        // as tools/bench_game.sh: every PVSnesLib call goes to bench.c's empty stub
+        // as dev/bench_game.sh: every PVSnesLib call goes to bench.c's empty stub
         List<String> defines = new ArrayList<>();
         for (String f : List.of("setMode", "setBrightness", "setScreenOn", "setScreenOff", "setColorEffect",
                 "setColorIntensity", "setPaletteColor", "dmaCopyVram", "dmaCopyCGram", "dmaClearVram", "bgSetGfxPtr",

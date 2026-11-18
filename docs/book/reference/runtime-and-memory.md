@@ -225,7 +225,7 @@ bits and masked, which reads the byte after it as well.
 A register with an index, `*(volatile uint8_t *)(0x210B + i)` for an `i` that is never negative,
 becomes `sta f:$00210B,x`. Other pointers made from numbers go through `dampf_ptr`, and so does
 every one in code from the naive code generator. In a playable game only the SNES platform layer
-in `platform/snes` writes registers: it implements the game's console API in C, and the game
+in `lib/snes` writes registers: it implements the game's console API in C, and the game
 logic does not touch the registers itself.
 
 The hardware intrinsics that will give C code access to the hardware are not built yet (see

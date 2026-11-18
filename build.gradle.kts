@@ -53,8 +53,8 @@ tasks.test {
     // BookSourcesTest, AdrTest and the game's tests did not run again.
     inputs.files(
         fileTree("docs") { exclude("book/node_modules/**", "book/.vitepress/cache/**", "book/.vitepress/dist/**") },
-        fileTree("doc-specs"), fileTree("examples"), fileTree("platform"), fileTree("reference"),
-        fileTree("tools"), "README.md", "CLAUDE.md",
+        fileTree("doc-specs"), fileTree("examples"), fileTree("reference"),
+        fileTree("dev"), fileTree("snapshots"), fileTree("lib"), "README.md", "CLAUDE.md",
     ).withPathSensitivity(PathSensitivity.RELATIVE).withPropertyName("documentsAndExamples")
     // Tests that need the Blubber Blasen sources read their location from this property.
     providers.gradleProperty("blubberblasen").orNull?.let { systemProperty("dampf.blubberblasen", it) }

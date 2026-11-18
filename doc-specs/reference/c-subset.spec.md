@@ -38,7 +38,7 @@ compiled silently. Link [Writing C for dampf](/guide/writing-c) for the introduc
    access each, in order, exact width; a `volatile` variable itself is rejected), and the cast
    from a pointer to an integer (the SNES address `bank << 16 | address`; on the PC another
    number, so only distances within one object agree). One short example writing a PPU
-   register; point to `platform/snes` as the code that uses both.
+   register; point to `lib/snes` as the code that uses both.
 9. **Preprocessor** – what `gcc -E` is called with, the predefined `__DAMPF__`.
 10. **Whole program** – one program from all files, `static` names local to their file.
 11. **Open decisions** – the decisions of `docs/subset.md` that are not settled, each with what

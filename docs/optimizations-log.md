@@ -30,7 +30,7 @@ game's ROADMAP already lists a cheaper CPU partner as a candidate; see also
 
 ## dampf's naive code generator (2026-11-17)
 
-The same benchmark built with dampf (`tools/bench_game.sh`): all 3,610 ticks give the same
+The same benchmark built with dampf (`dev/bench_game.sh`): all 3,610 ticks give the same
 checksums as the PC reference. Frames per tick:
 
 | State | Ticks | dampf, naive | 816-tcc | Calypsi |
@@ -55,7 +55,7 @@ tick takes 12.23 frames, which is where the 60 % budget is hardest to meet.
 
 ## Where the naive code spends its time (2026-11-17)
 
-`tools/profile_game.sh bench` profiles the benchmark's play ticks 900–1700 (as the game's own
+`dev/profile_game.sh bench` profiles the benchmark's play ticks 900–1700 (as the game's own
 profile does): dampf's emulator (or Mesen, with `WITH_MESEN=1`) counts how often each instruction runs, dampf's cycle table
 (`dampf.target.Cycles65816`) gives what each instruction costs, and `dampf profile` adds it up
 per function. The benchmark's own checksum code (`bench.c`) is left out. The model agrees with the
@@ -112,7 +112,7 @@ its checksums caught it. Hand-written code needs the same oracle as compiled cod
 
 ## dampf's code generator from MIR, before any pass (2026-11-17)
 
-The code generator from MIR (`dampf.backend.MirCodeGen`, `BACKEND=mir tools/bench_game.sh`) keeps
+The code generator from MIR (`dampf.backend.MirCodeGen`, `BACKEND=mir dev/bench_game.sh`) keeps
 every value in RAM and translates one MIR instruction at a time. It is the starting point the MIR
 passes are measured from. All 3,610 ticks give the PC's checksums. Frames per tick:
 
@@ -499,7 +499,7 @@ arrays with different values, and only one fits in X. Play 1.54 → 1.53 frames 
 ## Where the time goes, by instruction (2026-11-17)
 
 `dampf profile ... --instructions` (for the benchmark's play ticks: `INSTRUCTIONS=1
-tools/profile_game.sh bench`) adds up the cycles per instruction and addressing mode. In the game code at 1.50 frames per tick: `sta dp` 18.8 %, `lda dp` 16.5 %,
+dev/profile_game.sh bench`) adds up the cycles per instruction and addressing mode. In the game code at 1.50 frames per tick: `sta dp` 18.8 %, `lda dp` 16.5 %,
 `cmp #imm` 7.4 %, `lda abs,x` 7.2 %, `jmp abs` 5.6 %, `ldx dp` 4.8 %, `and #imm` 4.7 %,
 `lda #imm` 3.8 %, `adc #imm` 3.5 %, `bne` 3.2 %, `clc` 3.1 %. Values going to and from the direct
 page are still a third of the time; a `jmp` runs almost a million times in the 800 ticks, mostly
@@ -574,9 +574,9 @@ rarely. A profile knows: `dampf profile ... --blocks file` writes how often each
 block labels are in the label file), and `dampf build --block-counts file` lays the blocks out
 by it: the successor that ran more often follows, and blocks that never ran go to the end of the
 function. The code that runs stays together, its branches reach, and `JMP` drops out of the top
-instructions (it was 5.6 % of the cycles). `tools/profile_game.sh` writes
-`build/profile/<what>.blocks.txt`; `BLOCKS=<file>` passes it to `tools/bench_game.sh` and
-`tools/profile_game.sh`.
+instructions (it was 5.6 % of the cycles). `dev/profile_game.sh` writes
+`build/profile/<what>.blocks.txt`; `BLOCKS=<file>` passes it to `dev/bench_game.sh` and
+`dev/profile_game.sh`.
 
 Only the order of the blocks follows the counts, so counts of other code make the code slower,
 never wrong; the execution tests build every program once more with arbitrary counts (a third of
@@ -844,7 +844,7 @@ offset (see their sections); the column before it is SlowROM speed, as the earli
 | `level_solid_px`, per call | 3,849 | 6,648 | 1,149 | 871 clocks |
 
 Calypsi's 2.72 frames per tick during play (on an older version of the game) is passed. On the
-same version (the snapshot, `tools/bench_compilers.sh`, measured in dampf's emulator, which
+same version (the snapshot, `dev/bench_compilers.sh`, measured in dampf's emulator, which
 matches Mesen on Calypsi's ROM), in the play ticks where both play the same scene (711-812),
 Calypsi took 1.67 frames per tick and dampf 1.14 (both at SlowROM speed), 1.47 times as fast;
 with FastROM for both and the steps since, Calypsi takes 1.42 and dampf 0.79, 1.81 times as fast.

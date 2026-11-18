@@ -8,8 +8,8 @@ from the README.
   emulator (`dampf.emu`, validated against the SingleStepTests suite and against Mesen); the
   execution tests also run in Mesen when `.mesen/` exists (not in git).
 - A new language feature needs an execution test in `src/test/resources/exec/` (PC vs SNES).
-- dampf works on the snapshot `examples/blubberblasen` (never edit it; refresh with
-  `tools/update_game_snapshot.sh /mnt/d/Develop/AiProject/BlubberBlasen`). Never run Mesen or write
+- dampf works on the snapshot `snapshots/blubberblasen` (never edit it; refresh with
+  `dev/update_game_snapshot.sh /mnt/d/Develop/AiProject/BlubberBlasen`). Never run Mesen or write
   files inside the game's own folders: another agent is working there.
 - Why a decision was taken is in `docs/ADR.md` (the table of all records with their status) and
   `docs/adr/NNNN-<start-of-title>.md` (one file per record: `# N. Title`, then **Context.**,

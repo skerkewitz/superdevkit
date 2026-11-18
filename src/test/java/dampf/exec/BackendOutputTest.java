@@ -43,7 +43,7 @@ class BackendOutputTest {
     private static final Path HASHES = Path.of("src/test/resources/backend-output.txt");
     private static final Path OUT = Path.of("build/backend-output");
     private static final Path REF = Path.of("build/backend-output-ref");
-    private static final Path GAME = Path.of("examples/blubberblasen");
+    private static final Path GAME = Path.of("snapshots/blubberblasen");
     static final int RANDOM_PROGRAMS = 20;
 
     @Test

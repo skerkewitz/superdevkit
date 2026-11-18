@@ -56,7 +56,7 @@ known object becomes a 16-bit offset into it, within a function and across calls
 The PPU and CPU registers (`$2100-$21FF`, `$4200-$43FF`) are in bank 0, which DBR does not point
 to. The runtime writes them with 24-bit long addresses (`sta f:$002100`). C code reaches them
 through pointers to `volatile` memory ([subset.md](subset.md), *Hardware access*); only the
-platform layer (`platform/snes`) does this. A pointer made from a constant becomes a long address
+platform layer (`lib/snes`) does this. A pointer made from a constant becomes a long address
 in the code (`sta f:$00210B`, 5 cycles for a byte), and a constant plus a 16-bit index that is
 never negative and stays in the bank an indexed long address (`REG8(0x210B + i)` is
 `sta f:$00210B,x`): no pointer is built (it used to go through `[dampf_ptr],y`, about 30 cycles a

@@ -25,7 +25,7 @@ built by dampf.
 ## Blubber Blasen
 
 The game dampf is developed for and tested on. Its game logic is C that also builds and is
-tested on the PC. A snapshot of its code is in `examples/blubberblasen`.
+tested on the PC. A snapshot of its code is in `snapshots/blubberblasen`.
 
 ## ca65 and ld65
 
@@ -57,7 +57,7 @@ at `$7E`, where all RAM objects live.
 superdevkit, a development kit for SNES games: dampf as its compiler, a library with the console
 API for the SNES and later for the PC, and tools. It lives in dampf's repository until it is
 published. Its library for the SNES is the [platform layer](#platform-layer) that today sits in
-`platform/snes`.
+`lib/snes`.
 
 ## Direct page
 

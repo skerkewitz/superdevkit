@@ -27,7 +27,7 @@ import java.util.Locale;
  *                                                                      files that pass together (recursion, calls of
  *                                                                      functions defined nowhere, double definitions)
  * dampf profile rom.sfc profile.txt [top] [--skip file.c ...] [--instructions] [--blocks file]
- *                                                                      cycles per function (tools/profile.lua), and
+ *                                                                      cycles per function (dev/profile.lua), and
  *                                                                      per kind of instruction
  * </pre>
  */

@@ -3,16 +3,17 @@
 
 A game is not one file but many, with headers in several directories and macros set on the
 command line: the snapshot below has 17 `.c` files. This page compiles the snapshot of
-[Blubber Blasen](/glossary#blubber-blasen) in `examples/blubberblasen` with dampf, finds what
+[Blubber Blasen](/glossary#blubber-blasen) in `snapshots/blubberblasen` with dampf, finds what
 does not fit the [subset](/glossary#subset), and measures where the cycles go. The snapshot is
 a copy of the game's code that is never edited; when you compile your own game, pass its paths
 instead.
 
 The game's own build and its [PVSnesLib](/glossary#pvsneslib) calls are not part of this page.
-The examples build the game's compiler benchmark (`examples/blubberblasen/bench/bench.c`),
+The examples build the game's compiler benchmark (`snapshots/blubberblasen/bench/bench.c`),
 which replaces every PVSnesLib call with an empty stub, so what runs is the game logic alone. A
 ROM that plays needs a [platform layer](/glossary#platform-layer) for the library the game
-calls, compiled together with the game; Blubber Blasen's is in `platform/snes`.
+calls, compiled together with the game; Blubber Blasen's is in `lib/snes`, the library of the
+[dev kit](/glossary#dev-kit) on the SNES.
 
 ## Many files, one call
 
@@ -30,15 +31,15 @@ the shortest call with the launcher from [Getting started](/guide/getting-starte
 build/install/dampf/bin/dampf build -I mygame/src -o build/mygame/mygame.sfc mygame/src/*.c
 ```
 
-For the snapshot, the include directories are `examples/blubberblasen/src` and
-`examples/blubberblasen/generated`. The benchmark's build adds one `-D` per PVSnesLib call,
+For the snapshot, the include directories are `snapshots/blubberblasen/src` and
+`snapshots/blubberblasen/generated`. The benchmark's build adds one `-D` per PVSnesLib call,
 which renames it (`setMode` becomes `bb_setMode`) to one of the stubs in `bench.c`. This is
-the call `tools/bench_game.sh` makes, with the options written out; the script also passes
+the call `dev/bench_game.sh` makes, with the options written out; the script also passes
 `--backend mir`, which is the default:
 
 ```sh
 build/install/dampf/bin/dampf build \
-    -I examples/blubberblasen/src -I examples/blubberblasen/generated \
+    -I snapshots/blubberblasen/src -I snapshots/blubberblasen/generated \
     -DsetMode=bb_setMode -DsetBrightness=bb_setBrightness -DsetScreenOn=bb_setScreenOn \
     -DsetScreenOff=bb_setScreenOff -DsetColorEffect=bb_setColorEffect \
     -DsetColorIntensity=bb_setColorIntensity -DsetPaletteColor=bb_setPaletteColor \
@@ -53,8 +54,8 @@ build/install/dampf/bin/dampf build \
     -DsnesHdmaSet=bb_snesHdmaSet -DsnesHdmaEnable=bb_snesHdmaEnable \
     -DsnesDmaFits=bb_snesDmaFits -DoamMemory=bb_oamMemory \
     --entry main -o build/bench/dampf.sfc \
-    examples/blubberblasen/src/game/*.c examples/blubberblasen/generated/*.c \
-    examples/blubberblasen/bench/bench.c
+    snapshots/blubberblasen/src/game/*.c snapshots/blubberblasen/generated/*.c \
+    snapshots/blubberblasen/bench/bench.c
 ```
 
 It compiles in seconds and prints one line, with the full paths of the ROM and of the debug
@@ -89,16 +90,16 @@ is called but defined in none of the files, a function defined in two files. For
 every file passes, alone and together (cut):
 
 ```sh
-build/install/dampf/bin/dampf check -I examples/blubberblasen/src \
-    -I examples/blubberblasen/generated examples/blubberblasen/src/game/*.c \
-    examples/blubberblasen/generated/*.c examples/blubberblasen/bench/bench.c
+build/install/dampf/bin/dampf check -I snapshots/blubberblasen/src \
+    -I snapshots/blubberblasen/generated snapshots/blubberblasen/src/game/*.c \
+    snapshots/blubberblasen/generated/*.c snapshots/blubberblasen/bench/bench.c
 ```
 
 ```
-ok      examples/blubberblasen/src/game/boss.c
-ok      examples/blubberblasen/src/game/bubble.c
+ok      snapshots/blubberblasen/src/game/boss.c
+ok      snapshots/blubberblasen/src/game/bubble.c
 ...
-ok      examples/blubberblasen/bench/bench.c
+ok      snapshots/blubberblasen/bench/bench.c
 17 of 17 file(s) pass the front end
 the 17 file(s) together: ok
 ```
@@ -166,12 +167,12 @@ stretch took, and the label file and `.s` files that `build` wrote next to the R
 say where each function starts. Then it adds up the cycles of every instruction per function.
 A call is counted at the caller: each `JSL` that ran adds one call to the function it targets.
 
-For the snapshot, `tools/profile_game.sh` does the whole round. It builds the benchmark as
+For the snapshot, `dev/profile_game.sh` does the whole round. It builds the benchmark as
 above, runs [ticks](/glossary#tick) 900 to 1700, a stretch in which the game is played, in
 dampf's own emulator, which writes the counts, and prints the report:
 
 ```sh
-tools/profile_game.sh bench
+dev/profile_game.sh bench
 ```
 
 The script builds into `build/profile` and writes the counts to
@@ -218,7 +219,7 @@ To see which kinds of instruction the cycles go to, add `--instructions` to `dam
 or set `INSTRUCTIONS=1` for the script:
 
 ```sh
-INSTRUCTIONS=1 tools/profile_game.sh bench
+INSTRUCTIONS=1 dev/profile_game.sh bench
 ```
 
 A second table then follows, with the cycles per instruction and addressing mode in the
@@ -243,7 +244,7 @@ out so that what runs often stays together
 ([`--block-counts`](/reference/command-line#block-counts)):
 
 ```sh
-BLOCKS=build/profile/bench.blocks.txt tools/bench_game.sh
+BLOCKS=build/profile/bench.blocks.txt dev/bench_game.sh
 ```
 
 Only the order of the blocks changes, so the program gives the same results with or without
@@ -274,7 +275,7 @@ That convention is the one of the [naive code generator](/glossary#naive-code-ge
 with
 
 ```
-examples/blubberblasen/bench/bench.c:215:5: error: --replace works with the naive code generator only
+snapshots/blubberblasen/bench/bench.c:215:5: error: --replace works with the naive code generator only
 ```
 
 Budgets and the timing file come from the code generator from MIR: the naive one computes no
@@ -286,7 +287,7 @@ and compares its run with the PC's checksums and, if there is one, with the last
 naive code generator:
 
 ```sh
-REPLACE="level_solid_px=reference/level_solid_px.s" tools/bench_game.sh
+REPLACE="level_solid_px=reference/level_solid_px.s" dev/bench_game.sh
 ```
 
 How the benchmark and the replays check dampf against the PC is on [Testing](/inside/testing).
