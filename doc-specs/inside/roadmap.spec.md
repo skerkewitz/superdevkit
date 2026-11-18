@@ -16,11 +16,12 @@ working history of `docs/roadmap.md`.
 ## Sections
 
 1. **Where dampf stands** – the current version and what it can do, in two or three sentences.
-2. **Versions** – milestone N is 0.N.0, everything before 1.0 is a pre-release, 0.5.0 is the
-   first public version and an alpha.
-3. **Milestones** – a table: milestone, goal, version, state. Then one short section for M5 (what
-   makes the alpha: correctness, use from another project, cleanup and hosting), and one
-   paragraph each for the planned milestones after it.
+2. **Versions** – milestone N is 0.N.0, the version is the dev kit's, everything before 1.0 is
+   a pre-release, publishing is a step of its own.
+3. **Milestones** – a table: milestone, goal, version, state. Then one short section for M5 (the
+   game builds with the dev kit: correctness, a compiler a game can call, the dev kit's layout in
+   this repository, the game's side), one paragraph each for the planned milestones after it,
+   and one short section each for the dev kit after M5 and for publishing, both not scheduled.
 4. **The checkpoint after M2** – the decision that the compiler and the game work in parallel,
    with the numbers that led to it.
 5. **Risks and open questions** – from the roadmap, those a user would care about.

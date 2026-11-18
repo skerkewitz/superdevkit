@@ -52,6 +52,13 @@ every tick, which makes *play with the CPU partner* the hardest part of the game
 Data bank register: the [bank](#bank) the 65816 uses for 16-bit data addresses. dampf keeps it
 at `$7E`, where all RAM objects live.
 
+## Dev kit
+
+superdevkit, a development kit for SNES games: dampf as its compiler, a library with the console
+API for the SNES and later for the PC, and tools. It lives in dampf's repository until it is
+published. Its library for the SNES is the [platform layer](#platform-layer) that today sits in
+`platform/snes`.
+
 ## Direct page
 
 A 256-byte window of bank 0 that the 65816 reaches with one-byte addresses, faster and shorter

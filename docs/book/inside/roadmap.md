@@ -15,18 +15,22 @@ dampf is at version 0.4.0, from 2026-11-18. It compiles all of Blubber Blasen, g
 results of the [PC build](/glossary#pc-build) in the game's benchmark and replays, on the SNES
 and in a playable ROM, and assembles and links the ROM itself. While the game is played it
 takes 0.79 frames per [tick](/glossary#tick) against a goal of 0.6, and on the same scene
-dampf's code is 2.14 times as fast as [Calypsi](/glossary#calypsi)'s. Next is M5, which makes
-dampf public as the alpha 0.5.0.
+dampf's code is 2.14 times as fast as [Calypsi](/glossary#calypsi)'s.
+
+dampf is the compiler of superdevkit, a development kit for SNES games that this repository
+holds until it is published. Next is M5, version 0.5.0: Blubber Blasen builds its ROM with the
+dev kit, from its own repository.
 
 ## Versions
 
-The version is set in one place, `build.gradle.kts`, and `dampf --version` prints it. Milestone
-N is released as version 0.N.0, and fixes between two milestones raise the last number. M6 was
-done ahead of M5 and is part of 0.4.0, so there is no 0.6.0.
+The version is the dev kit's. It is set in one place, `build.gradle.kts`, and `dampf --version`
+prints it. Milestone N is released as version 0.N.0, and fixes between two milestones raise the
+last number. M6 was done ahead of M5 and is part of 0.4.0, so there is no 0.6.0.
 
 Every version before 1.0 is a pre-release: the [subset](/glossary#subset), the command line and
-the files dampf writes may change from one version to the next. 0.5.0, the end of M5, is the
-first public version and is called an alpha. What 1.0 needs is not decided.
+the files dampf writes may change from one version to the next. Publishing is a step of its
+own and not scheduled yet (see [Publishing](#publishing-not-scheduled)), so 0.5.0, the end of
+M5, is not a public version. What 1.0 needs is not decided.
 
 Versions follow the milestones rather than what changed, as semantic versioning would have
 them, because before 1.0 nearly every milestone breaks something, and such numbers would say
@@ -44,7 +48,7 @@ released stay.
 | M3 | The big levers: [MIR](/glossary#mir), [LIR](/glossary#lir) and the [code generator from MIR](/glossary#code-generator-from-mir), static timing and budgets, [value ranges](/glossary#value-range) and [pointer compression](/glossary#pointer-compression); faster than Calypsi | 0.4.0 | Done 2026-11-18 |
 | M4 | Fine tuning, started early: the block layout by a profile, peephole rules, loop and branch optimizations | 0.4.0 | Done 2026-11-18 |
 | M6 | Standing alone: dampf's own assembler and linker | 0.4.0 | Done 2026-11-18 |
-| M5 | Cleanup and publishing: public on GitHub, usable from Blubber Blasen's repository | 0.5.0, alpha | Next |
+| M5 | Blubber Blasen builds its ROM with the dev kit, from its own repository | 0.5.0 | Next |
 | M7 | The optimizer: what was left of M3, register allocation first | 0.7.0 | Planned |
 | M8 | Language, platform and usability: C in interrupts, [intrinsics](/glossary#intrinsic), the open subset decisions, dampf's own preprocessor | 0.8.0 | Planned |
 | M9 | Timing and debugging: [master clocks](/glossary#master-clock), bounds for more loops, locals and types in Mesen | 0.9.0 | Planned |
@@ -56,38 +60,37 @@ while too little was planned after them, so what was left moved to M7 and M10. T
 M5 follows the likely gain and what each milestone needs from the one before; it is revised
 when M5 is done.
 
-### M5: cleanup and publishing
+### M5: Blubber Blasen builds with the dev kit
 
-M5 is done when dampf is public on GitHub as release 0.5.0, its build runs there, and Blubber
-Blasen builds its SNES ROM from its own repository with that release. Its work falls into three
-parts:
+M5 is done when Blubber Blasen builds its SNES ROM from its own repository with a local install
+of the dev kit, and that ROM plays the game's recordings with the PC's checksums. No release is
+needed for that while the repository is private. Its work falls into four parts:
 
-- **Correctness first**, since others will rely on the code. The miscompilation described under
-  [Risks and open questions](#risks-and-open-questions) is found and fixed, with an execution
-  test. The random programs are made to reach the optimizer, with loops over arrays of structs,
-  pointers into arrays, byte stores in a row, 8.8 fixed-point values and fewer divisions, and
-  more execution tests cover the patterns the optimizer looks for; there are 29 today. The
-  playable ROM runs on a real console or a flash cartridge, and the margin of 8 lines that the
-  [platform layer](/glossary#platform-layer) leaves for the code around a DMA copy is measured
-  again, since a copy that starts after the [vertical blank](/glossary#vertical-blank) is lost.
-- **Use from another project.** dampf reports all errors of a run, not only the first, and
-  ships a `<string.h>` with `memset` and `memcpy`, written in C for now. A release is the
-  distribution as a zip on GitHub, with the version in its name. The platform layer moves to the
-  game's repository, which owns its console API, and the game's build calls dampf. The book is
-  written for a user who starts from the release, not from a clone.
-- **Cleanup and hosting.** The snapshot of Blubber Blasen, its platform layer and the
-  hand-written reference function leave the repository, and dampf's own examples take over
-  their jobs as test case and benchmark. They are also in the git history, so either the history
-  is cleaned or the public repository starts without it. The examples become a set of
-  benchmarks in different styles rather than one busy scene, because every speed decision so far
-  was measured on one game: the optimizations of 2026-11-18 made play of Blubber Blasen 13 %
-  faster, but the execution tests only 0.9 %, and part of the gain comes from parameters chosen
-  on this one game, such as the inlining limit and the block order. Each optimization is then
-  measured on all of them, and a tuned parameter is chosen on the whole set. The repository
-  moves to GitHub, with a build on GitHub Actions and the book on GitHub Pages. The licence is
-  decided: dampf is under the Apache License 2.0 with LLVM Exceptions, the same as LLVM, so code
-  dampf puts into a ROM carries no licence conditions and games built with dampf can use any
-  licence.
+- **Correctness first**, since the game will rely on the code. The miscompilation described
+  under [Risks and open questions](#risks-and-open-questions) is found and fixed, with an
+  execution test. The random programs are made to reach the optimizer, with loops over arrays of
+  structs, pointers into arrays, byte stores in a row, 8.8 fixed-point values and fewer
+  divisions, and more execution tests cover the patterns the optimizer looks for; there are 29
+  today. The playable ROM runs on a real console or a flash cartridge, and the margin of 8 lines
+  that the [platform layer](/glossary#platform-layer) leaves for the code around a DMA copy is
+  measured again, since a copy that starts after the
+  [vertical blank](/glossary#vertical-blank) is lost.
+- **A compiler a game can call.** dampf reports all errors of a run, not only the first. Its
+  options can be kept in an argument file, given by `--config` or `@file`, in which a folder
+  stands for the `.c` files directly in it, so that a game checks in one file per build. dampf
+  ships a `<string.h>` with `memset` and `memcpy`, written in C for now. The install carries the
+  library and the tools as well as the compiler, and the game refers to it by its folder.
+- **The dev kit in this repository.** The platform layer becomes the dev kit's library in
+  `lib/snes`, and the console API, taken over from the game, becomes `lib/include/snes.h`. A
+  table shows per function and platform whether it is built or a stub, and a test checks that
+  every function of `snes.h` exists in `lib/snes`. The main loop (`main.c`) is part of the
+  library, and the three functions it calls (`game_init`, `game_tick`, `game_vblank`) are
+  declared in the console API instead of the game's `game.h`. The tools are split into
+  `tools/`, for game developers, and `dev/`, for developing the dev kit; the snapshot of Blubber
+  Blasen moves to `snapshots/blubberblasen`. Examples become projects of their own, each with a
+  README, an argument file, its sources and its own build folder; the first is `examples/m1`.
+- **The game's side**, done in the game's own repository: a build script for the dev kit next to
+  the PVSnesLib one, with an argument file, and the game's data as plain C.
 
 ### After M5
 
@@ -130,9 +133,9 @@ today. Frame-level timing adds DRAM refresh, HDMA and interrupts. Mesen shows th
 the names of global variables from dampf's debug file, and nothing more; dampf's users would
 gain from variables shown with their C type, struct fields, and the locals of a function in
 their direct page places. dampf first fills what the debug file's format already has room for,
-then a small patch teaches Mesen to read it, offered to Mesen's author. It comes after M5
-because a patch from a compiler with users is easier to argue for. A debugger of dampf's own is
-not planned.
+then a small patch teaches Mesen to read it, offered to Mesen's author. The patch waits until
+the dev kit is public, because a patch from a compiler with users is easier to argue for. A
+debugger of dampf's own is not planned.
 
 **M10, fine tuning**, takes up what was left of M4 until the frame budget is met: the block
 layout by a profile by default (it is built, but only on request, because it needs a profile in
@@ -143,6 +146,31 @@ inlining limit and the block order, on the user's own code and keep the fastest 
 candidate checked against the PC's results. The hints that transform code come in M10, as do
 variables in bank `$7F`, and subrange types declared in the source, but those only once a
 profile shows a hot value whose range dampf cannot infer.
+
+### The dev kit after M5 (not scheduled)
+
+Three steps of the dev kit have no milestone yet. The PC side of the console API, the pseudo
+SNES and the generic part of the game's raylib and web frontends, moves from the game into
+`lib/pc`, together with the game's own developers, since it changes their daily work. The
+compiler moves into a folder `compiler/` once the PC side brings a second build world into the
+repository. Converters such as `gfx2c` go into `tools/`.
+
+### Publishing (not scheduled)
+
+The dev kit goes public as superdevkit when it is useful to someone other than Blubber Blasen.
+For that, the snapshot of Blubber Blasen, its replays and the hand-written reference function
+leave the repository, and dampf's own examples take over their jobs as test case and benchmark.
+They are also in the git history, so either the history is cleaned or the public repository
+starts without it. The examples become a set of benchmarks in different styles rather than one
+busy scene, because every speed decision so far was measured on one game: the optimizations of
+2026-11-18 made play of Blubber Blasen 13 % faster, but the execution tests only 0.9 %, and part
+of the gain comes from parameters chosen on this one game, such as the inlining limit and the
+block order. Each optimization is then measured on all of them, and a tuned parameter is chosen
+on the whole set. The repository is renamed to superdevkit, with dampf as its compiler, and
+moves to GitHub, with a release there, a build on GitHub Actions and the book on GitHub Pages.
+The licence is decided already: dampf is under the Apache License 2.0 with LLVM Exceptions, the
+same as LLVM, so code dampf puts into a ROM carries no licence conditions and games built with
+dampf can use any licence.
 
 ## The checkpoint after M2
 
@@ -180,7 +208,8 @@ The main risks and how they are met:
   optimizer is tested by Blubber Blasen's benchmark and one replay recording. M5 adds random
   programs and execution tests for the patterns.
 - **Tuned on one game.** The inlining limit, the block order and the idioms the optimizer looks
-  for come from Blubber Blasen. The set of benchmarks in M5 is meant to correct that.
+  for come from Blubber Blasen. The set of benchmarks that publishing brings is meant to
+  correct that.
 - **Never run on a console.** Everything is checked in dampf's emulator and in Mesen;
   [FastROM](/glossary#fastrom-and-slowrom), the DMA margin and timing at the edges have not run
   on hardware yet, which M5 changes.
@@ -222,4 +251,5 @@ Open questions a user may run into:
   bounds turn out too pessimistic, and how much HDMA the game uses (DMA transfers the SNES
   makes line by line while it draws), which changes the budget of a frame.
 - **Reference functions.** Which functions become the hand-written yardsticks for dampf's code.
-  `level_solid_px` is still the only one, and it leaves the repository with the game in M5.
+  `level_solid_px` is still the only one, and it leaves the repository with the game at
+  publishing.

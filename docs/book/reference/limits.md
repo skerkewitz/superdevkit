@@ -1,13 +1,15 @@
 <!-- GENERATED from doc-specs/reference/limits.spec.md by /docs-gen. Do not edit; change the spec or its sources. -->
 # Limits
 
-dampf is at version 0.4.0: milestones M0 to M4 and M6 are concluded. The milestones named on
-this page are the open ones: M5 for cleanup and publishing (the alpha 0.5.0, the first public
-version), M7 for the optimizer, M8 for language, platform and usability, M9 for timing and
-debugging, and M10 for fine tuning. They are on the [Roadmap](/inside/roadmap), which also has
-their state and their order; nothing here goes beyond it. Every version before 1.0 is a
-pre-release, so the subset, the command line and the files dampf writes may change from one
-version to the next.
+dampf is at version 0.4.0: milestones M0 to M4 and M6 are concluded. dampf is the compiler of
+superdevkit, a development kit for SNES games that is held in dampf's repository until it is
+published. The milestones named on this page are the open ones: M5, in which Blubber Blasen
+builds its ROM with the dev kit from its own repository (0.5.0), M7 for the optimizer, M8 for
+language, platform and usability, M9 for timing and debugging, and M10 for fine tuning.
+Publishing is a step of its own and not scheduled yet. They are on the
+[Roadmap](/inside/roadmap), which also has their state and their order; nothing here goes
+beyond it. Every version before 1.0 is a pre-release, so the subset, the command line and the
+files dampf writes may change from one version to the next.
 
 ## Not built yet
 
@@ -26,12 +28,13 @@ in interrupt handlers is planned for M8, where the functions an interrupt reache
 frame area of their own; how a handler is declared and what it saves is still open.
 
 **A platform layer for your own game.** The layer in `platform/snes` implements Blubber Blasen's
-console API (`snes.h`) and nothing else. In M5 it moves to the game's repository, which owns
-that API, and leaves this one together with the game's snapshot when dampf goes public. To build
-a ROM of your own game, you write a platform layer in C for the library your game calls, and
-dampf compiles it together with the game. Write it the way `platform/snes` is written: it
-reaches the I/O registers through pointers to `volatile` memory, and casts a pointer to an
-integer to get the SNES address a DMA channel copies from ([The C subset](/reference/c-subset)).
+console API (`snes.h`) and nothing else. In M5 it becomes the dev kit's library, `lib/snes`,
+and the console API becomes the dev kit's own `lib/include/snes.h`, taken over from the game.
+To build a ROM of your own game, you write a platform layer in C for the library your game
+calls, and dampf compiles it together with the game. Write it the way `platform/snes` is
+written: it reaches the I/O registers through pointers to `volatile` memory, and casts a
+pointer to an integer to get the SNES address a DMA channel copies from
+([The C subset](/reference/c-subset)).
 
 **Hints.** A [hint](/glossary#hint) is a macro that tells dampf something it cannot infer, such
 as `DAMPF_RANGE(i, 0, 15)` for "`i` is always between 0 and 15". In the PC build a hint that
@@ -90,6 +93,9 @@ expect:
 
 - **One error per run.** dampf stops at the first error it finds, so a file with several
   problems takes several runs. Reporting all errors of a run is part of M5.
+- **No argument file.** Every option and source file of a build goes on the command line, so a
+  build as large as Blubber Blasen's needs a shell script. M5 adds options in an argument file,
+  given by `--config` or `@file`, in which a folder stands for the `.c` files directly in it.
 - **No `<string.h>`.** dampf ships only `<stdint.h>` and `<dampf.h>`, so `#include <string.h>`
   fails. M5 adds a `<string.h>` with `memset` and `memcpy`, written in C; copies with `MVN` or
   DMA come in M10.
@@ -117,8 +123,8 @@ expect:
 - **Memory for a compile:** compiling Blubber Blasen takes 1.8 GB. Less is a goal of M8.
 - **Locals in [Mesen](/glossary#mesen):** Mesen shows the C source and the names of globals,
   but not the locals that live in fixed direct page slots, nor the C type of a variable.
-  Better C debugging in Mesen is planned for M9, after M5, once dampf is public: dampf first
-  fills what the debug format has, then a small patch is to teach Mesen to read it.
+  Better C debugging in Mesen is planned for M9: dampf first fills what the debug format has,
+  then a small patch is to teach Mesen to read it, which waits until the dev kit is public.
 - **Speed.** The generated code is not yet as fast as the goal of 60 % of a frame per
   [tick](/glossary#tick). During play (the ticks of the game's benchmark in which a round is
   played), Blubber Blasen takes 0.79 frames per tick with dampf, FastROM. On the console, during
@@ -127,15 +133,15 @@ expect:
   that needs more than one frame waits for the next vertical blank, and the benchmark leaves out
   what `video.c` costs on the hardware. These figures come from one game, and your code may gain
   less: the optimizations that made Blubber Blasen's play 13 % faster made the execution tests
-  only 0.9 % faster. In M5 the speed is to be measured on a set of benchmarks in different
-  styles, and tuned parameters such as the inlining limit chosen on the whole set. The optimizer
-  goes on in M7: register allocation first, then the [`M` flag](/glossary#m-and-x-flags)
-  followed across blocks, arrays of structs stored as one array per field, 8-bit index
-  registers with arrays aligned to pages, 16-bit pointers into RAM, and constant shifts by a
-  multiple of 8 as byte moves (a 32-bit shift by 16 is a loop of 16 steps today, about 600
-  cycles). The fine tuning of M10 follows: the
-  layout of blocks by a profile by default (it is built, but opt-in), a superoptimizer for short
-  hot sequences, `switch` as a jump table, `MVN` for copies, and bank `$7F` for variables.
+  only 0.9 % faster. A set of benchmarks in different styles, on which each optimization is
+  measured and tuned parameters such as the inlining limit are chosen, comes with publishing,
+  which is not scheduled yet. The optimizer goes on in M7: register allocation first, then the
+  [`M` flag](/glossary#m-and-x-flags) followed across blocks, arrays of structs stored as one
+  array per field, 8-bit index registers with arrays aligned to pages, 16-bit pointers into RAM,
+  and constant shifts by a multiple of 8 as byte moves (a 32-bit shift by 16 is a loop of 16
+  steps today, about 600 cycles). The fine tuning of M10 follows: the layout of blocks by a
+  profile by default (it is built, but opt-in), a superoptimizer for short hot sequences,
+  `switch` as a jump table, `MVN` for copies, and bank `$7F` for variables.
 
 ## Never planned
 

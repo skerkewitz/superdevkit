@@ -19,5 +19,5 @@ outside a vertical blank; frames per tick; screenshots), and `ReplayTest` with `
 Mesen (a recorded game through this layer must give the PC's checksums). More in
 [docs/roadmap.md](../../docs/roadmap.md), *The playable ROM*.
 
-This layer is specific to Blubber Blasen, like the snapshot in `examples/blubberblasen`, and leaves
-the repository with it when dampf goes public (milestone M5).
+In M5 this layer becomes the dev kit's library, `lib/snes`, with the console API as
+`lib/include/snes.h` ([ADR record 29](../../docs/adr/0029-superdevkit-is-the-project-and-dampf-is-its.md)).

@@ -19,7 +19,8 @@ import org.junit.jupiter.api.Test;
  * The architecture decision records: {@code docs/ADR.md} holds the table, {@code docs/adr/} one
  * file per record. Nothing else keeps the two in step, so these tests do: every file has its row
  * and every row its file, the numbers have no gaps, the titles agree, the statuses name records
- * that exist, and so does every "record N" cited in the documents.
+ * that exist, and so does every "record N" cited in the documents. A record of another project
+ * is cited with its name in front ("gosu-flint's record 32") and is not checked.
  */
 class AdrTest {
 
@@ -34,6 +35,7 @@ class AdrTest {
             "(Accepted|Superseded)((; (amends|supersedes|amended by|superseded by|superseded in part by)"
             + " \\d+(, \\d+)*)*)");
     private static final Pattern CITED = Pattern.compile("\\b[Rr]ecords? (\\d+)");
+    private static final Pattern OTHER_PROJECT = Pattern.compile("[\\w-]+'s\\s+$");
 
     record Row(int number, String title, String file, String status) {}
 
@@ -126,8 +128,12 @@ class AdrTest {
             }
         }
         for (Path document : documents) {
-            Matcher m = CITED.matcher(Files.readString(document));
+            String text = Files.readString(document);
+            Matcher m = CITED.matcher(text);
             while (m.find()) {
+                if (OTHER_PROJECT.matcher(text.substring(Math.max(0, m.start() - 40), m.start())).find()) {
+                    continue;
+                }
                 int cited = Integer.parseInt(m.group(1));
                 if (cited < 1 || cited > count) {
                     wrong.add(document + ": record " + cited);

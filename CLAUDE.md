@@ -16,7 +16,8 @@ from the README.
   **Decision.**, **Alternatives.** where there were any, **Consequences.**). A decision made or
   changed is a new file plus its row; never edit an existing record, change the status of the
   records it supersedes or amends in the table instead. An open question becomes a record only
-  when it is decided. Cite records by number ("ADR record 6"). `AdrTest` checks table and files.
+  when it is decided. Cite records by number ("ADR record 6"); a record of another project with its name in front
+  ("gosu-flint's record 32"). `AdrTest` checks table and files.
 - Anything worth changing in the game goes into `docs/game-findings.md` (written for the AI working
   on the game; the user forwards it). After dampf is finished: write `docs/game-guide.md` from it.
 - Blubber Blasen (the first user and test case) is at `/mnt/d/Develop/AiProject/BlubberBlasen`

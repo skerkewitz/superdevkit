@@ -4,7 +4,8 @@
 dampf is a compiler for a [subset](/glossary#subset) of C that produces fast code for the WDC
 65816, and it has exactly one target: the Super Nintendo. The same source also compiles with gcc
 on the PC, and what dampf's code computes on the SNES matches that [PC build](/glossary#pc-build)
-bit for bit.
+bit for bit. dampf is the compiler of superdevkit, a development kit for SNES games that is not
+published yet.
 
 The name comes from German: *Dampf machen* ("make steam") means to get things moving fast. It
 also fits the steam factory of [Blubber Blasen](/glossary#blubber-blasen), dampf's first user, a
@@ -104,8 +105,8 @@ subset), M1 (end to end, with stepping through C in Mesen), M2 (all of the game 
 optimizer: dampf lowers the program to [MIR](/glossary#mir), its intermediate representation,
 optimizes it and generates 65816 code from it), M4 (fine tuning: block layout, peephole rules,
 loop and branch optimizations) and M6 (an assembler and linker of its own) are concluded. Next
-is M5, cleanup and publishing, which makes dampf public on GitHub as version 0.5.0, an alpha.
-Every version before 1.0 is a pre-release, so the subset, the command line and the files dampf
+is M5, in which Blubber Blasen builds its ROM with the dev kit from its own repository: that is
+version 0.5.0. Publishing the dev kit is a step of its own and not scheduled yet. Every version before 1.0 is a pre-release, so the subset, the command line and the files dampf
 writes may change from one version to the next. After M5, the optimizer work that is left goes
 on in M7, language, platform and usability (among them a preprocessor of dampf's own) in M8,
 timing and debugging in M9, and fine tuning until the frame budget is met in M10.
