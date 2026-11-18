@@ -64,9 +64,11 @@ belong to the library ([lib/README.md](../lib/README.md)). dampf can be called b
 argument files (`@file`, `--config`), every error of a run reported, `<string.h>` with `memset`
 and `memcpy`. Its test found a miscompilation: a loop counter kept in X was stepped before a later
 store whose address was formed from its old value (`exec/regress_x_step_address.c`); it is fixed
-and was not the one with inlining up to 80, which is still open. The steps still to do, each with what
+and was not the one with inlining up to 80, which is still open. The converter
+`tools/png2snes.py`, and the first example, CatchMe (`examples/catchme`), which plays in Mesen
+without losing a byte (`dev/check_example.sh`) and is built by `ExamplesTest` in every build. The steps still to do, each with what
 makes it done, are in [superdevkit-transition.md](superdevkit-transition.md#m5-the-snes-050):
-the converter, the examples,
+the examples hello and Steinschlag,
 correctness (the miscompilation, tests that reach the optimizer), the book, the handover to the
 game, and the playable ROM on a console.
 

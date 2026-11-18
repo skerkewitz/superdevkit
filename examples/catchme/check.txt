@@ -1,0 +1,12 @@
+frames 1500
+shot 60
+press 120 124 start
+shot 200
+press 250 420 left
+press 420 600 down
+press 600 800 right
+press 800 1000 up
+press 1000 1200 left
+shot 700
+shot 1100
+shot 1499

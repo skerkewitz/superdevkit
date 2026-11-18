@@ -56,7 +56,7 @@ desktop running the ROM in an emulator and Mesen as the desktop are not schedule
 ## M5: the SNES (0.5.0)
 
 Done so far on `m5`: the version 0.5.0; `dev/`, `snapshots/`, `lib/snes`; the console API and the
-main loop in the library (`lib/include/snes/`, `LibApiTest`); step 5.1.
+main loop in the library (`lib/include/snes/`, `LibApiTest`); steps 5.1 and 5.2; CatchMe.
 
 ### 5.1 dampf can be called by a game
 
@@ -64,12 +64,7 @@ Built: argument files, every error of a run, `<string.h>` ([roadmap](roadmap.md#
 
 ### 5.2 The converter
 
-`tools/png2snes.py` (Python for now; the language of the kit's tools is an open question of the
-roadmap): `tiles` (4 bits per pixel and the palette of an image of up to 16 colours, indexed or
-RGB(A)) and `palette` (the colours of a strip). Output `NAME.c` and `NAME.h` into a build folder.
-Tests: a round trip of tiles and colours (a Python test the Gradle build runs).
-
-Done when: the examples build their graphics with it.
+Built: `tools/png2snes.py`, tested by `ToolsTest`.
 
 ### 5.3 The examples on the SNES
 
@@ -80,7 +75,8 @@ dampf, until the CLI replaces it. Each runs in Mesen with a script of scripted i
 
 - **hello**: `examples/m1` as a project: a sprite and text on the screen, stepping through C in
   Mesen. The book's getting-started page uses it.
-- **CatchMe**: a maze-chase game of its own (its own maze, characters and look): a mouse eats
+- **CatchMe** (built: `examples/catchme`, plays in Mesen with `dev/check_example.sh`, built by
+  `ExamplesTest`): a maze-chase game of its own (its own maze, characters and look): a mouse eats
   crumbs in a maze, four cats with different ways of chasing, a chili that turns the tables for a
   while, score, lives, levels that get faster. 8 x 8 background tiles for the maze, 16 x 16
   sprites. A good first example for a new SNES developer: one screen, no scrolling.
