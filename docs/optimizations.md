@@ -105,6 +105,18 @@ allowed (the platform layer uses them); this form does not need the rule against
 - Keeping the pointer in `dampf_ptr` across blocks: nothing measurable, since pointer compression
   left almost no pointer accesses in the hot code
   ([log](optimizations-log.md#what-a-x-and-y-hold-across-blocks-a-second-index-in-y-2026-11-17)).
+- Bounding a byte by a condition on its zero extension (2026-11-18): `i < n` on bytes is compared
+  as `zext(i) < zext(n)`, so `i` itself gets no bound, and the increment of a byte loop counter is
+  written in 8 bits (`SEP`, `INC`, `REP`: 11 cycles, 31,812 times in the play ticks) to keep the
+  high byte clean. Passing the bound on to `i` changed one of the game's 27 such increments: the
+  range analysis keeps 8-bit values as signed intervals, and with a byte-sized `n` the counter is
+  0..254, which is not one. In a test it even cost (an 8-bit `INC` inside an 8-bit stretch that
+  exists anyway is cheaper than a 16-bit one). Left out; it needs unsigned ranges for bytes, or
+  byte loop counters widened to 16 bits, for about 0.3 %.
+- Jump tables for `switch` (considered, 2026-11-18): a table dispatch (subtract, range check,
+  `ASL`, `TAX`, `JMP (table,X)`) costs about 24 cycles, as much as the chain of compares over three
+  to four cases, needs X, and gives the timing analysis an indirect jump. The game's switches are
+  short; after the branch relaxation a matching case costs a taken `BEQ`.
 
 ## Ideas not yet built
 
