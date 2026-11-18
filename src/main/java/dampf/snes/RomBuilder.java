@@ -94,6 +94,52 @@ public final class RomBuilder {
         return rom;
     }
 
+    /**
+     * Builds the ROM with dampf's own assembler and linker ({@link dampf.asm.Assembler},
+     * {@link dampf.asm.Linker}) instead of ca65 and ld65: the same image, with one link, since the
+     * size of every segment is known after assembling. Writes the .sfc, the assembly of every
+     * module (as the build with ca65 does) and the label file.
+     */
+    public static Rom buildNative(List<String> modules, Path outDir, String baseName, boolean fastRom) throws IOException {
+        Files.createDirectories(outDir);
+        String runtime;
+        try (InputStream in = RomBuilder.class.getResourceAsStream(RES + "runtime.s")) {
+            if (in == null) {
+                throw new IOException("missing resource " + RES + "runtime.s");
+            }
+            runtime = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        }
+        List<dampf.asm.ObjectFile> objects = new ArrayList<>();
+        objects.add(dampf.asm.Assembler.assemble("dampf_runtime.s", runtime, Map.of("DAMPF_FASTROM", fastRom ? 1L : 0L)));
+        List<String> banked = new ArrayList<>();
+        for (int i = 0; i < modules.size(); i++) {
+            String name = modules.size() == 1 ? baseName : baseName + "_" + (i + 1);
+            Files.writeString(outDir.resolve(name + ".s"), modules.get(i), StandardCharsets.UTF_8);
+            objects.add(dampf.asm.Assembler.assemble(name + ".s", modules.get(i), Map.of()));
+            banked.addAll(bankedSegments(modules.get(i)));
+        }
+        Map<String, Integer> sizes = new LinkedHashMap<>(dampf.asm.Linker.sizes(objects));
+        sizes.putIfAbsent("DATA", 0);
+        List<List<String>> banks = pack(banked, sizes);
+        dampf.asm.Linker.Image image = dampf.asm.Linker.link(objects, banks);
+        Rom rom = new Rom(outDir.resolve(baseName + ".sfc"), outDir.resolve(baseName + ".dbg"),
+                outDir.resolve(baseName + ".lbl"), outDir.resolve(baseName + ".map"));
+        Files.write(rom.rom(), image.rom());
+        fixHeader(rom.rom());
+        StringBuilder labels = new StringBuilder();
+        image.globals().forEach((n, v) -> labels.append(String.format("al %06X .%s%n", v & 0xFFFFFF, n)));
+        image.locals().forEach((o, m) -> m.forEach((n, v) -> {
+            if (o.symbols.get(n).isLabel()) {
+                String shortName = n.lastIndexOf("::") < 0 ? n : n.substring(n.lastIndexOf("::") + 2);
+                if (!shortName.startsWith(":")) {
+                    labels.append(String.format("al %06X .%s%n", v & 0xFFFFFF, shortName));
+                }
+            }
+        }));
+        Files.writeString(rom.labels(), labels);
+        return rom;
+    }
+
     /** The segments the code generator made for functions (C...) and constant objects (R...). */
     static List<String> bankedSegments(String asm) {
         List<String> names = new ArrayList<>();

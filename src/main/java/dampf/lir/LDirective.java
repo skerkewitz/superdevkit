@@ -21,7 +21,7 @@ public record LDirective(Kind kind, String label, List<String> args, String comm
         EQUATE,
         SEGMENT, PROC, ENDPROC, DBG,
         P816, SMART, A8, A16, I8, I16,
-        IMPORT, IMPORTZP, EXPORT, GLOBAL,
+        IMPORT, IMPORTZP, EXPORT, EXPORTZP, GLOBAL,
         BYTE, WORD, RES;
 
         /** The directive for a ca65 name ("segment", "a16"), or null. */

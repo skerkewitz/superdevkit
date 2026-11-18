@@ -33,6 +33,10 @@ import org.junit.jupiter.api.Test;
  * <p>It also reads every assembly file back as LIR ({@link LParser}): printed again, it must be
  * the same text, and it must pass {@link LVerifier}.
  *
+ * <p>And it builds every ROM a second time with dampf's own assembler and linker
+ * ({@link dampf.snes.RomBuilder#buildNative}): the image must be the same, byte for byte, and the
+ * label file must name the same addresses.
+ *
  * <p>Every run writes the assembly to {@code build/backend-output/}; an update also copies it to
  * {@code build/backend-output-ref/}, so a changed hash can be followed with a plain {@code diff -r}.
  */
@@ -143,6 +147,21 @@ class BackendOutputTest {
             // the modification time of a source file (.dbg file) changes with every checkout
             hashes.put(key + ".s" + i, hash(asm.get(i).replaceAll("(\\.dbg\\s+file, \"[^\"]*\", \\d+, )\\d+", "$10")));
         }
+        // dampf's own assembler and linker build the same ROM as ca65 and ld65
+        Path nativeDir = Files.createDirectories(dir.resolve("native"));
+        dampf.snes.RomBuilder.Rom own = dampf.snes.RomBuilder.buildNative(asm, nativeDir, "out", o.fastRom());
+        byte[] want = Files.readAllBytes(r.rom().rom());
+        byte[] got = Files.readAllBytes(own.rom());
+        assertEquals(want.length, got.length, key + ": the ROM's size (own linker vs ld65)");
+        for (int i = 0; i < want.length; i++) {
+            if (want[i] != got[i]) {
+                throw new AssertionError(key + ": the ROM differs at $" + Integer.toHexString(i) + " (bank $"
+                        + Integer.toHexString(0x80 + i / 0x8000) + ", address $" + Integer.toHexString(0x8000 + i % 0x8000)
+                        + "): ld65 $" + Integer.toHexString(want[i] & 0xFF) + ", dampf $" + Integer.toHexString(got[i] & 0xFF));
+            }
+        }
+        assertEquals(new java.util.TreeSet<>(Files.readAllLines(r.rom().labels())), new java.util.TreeSet<>(Files.readAllLines(own.labels())),
+                key + ": the labels (own linker vs ld65)");
         if (!r.timing().isEmpty()) {
             StringBuilder t = new StringBuilder();
             new TreeMap<>(r.timing()).forEach((f, bw) -> t.append(f).append(' ').append(bw[0]).append(' ').append(bw[1]).append('\n'));
