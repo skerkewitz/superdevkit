@@ -8,7 +8,8 @@ plugins {
 }
 
 group = "dampf"
-version = "0.1.0-SNAPSHOT"
+// The version (ADR record 26): milestone N is 0.N.0. dampf --version prints it.
+version = "0.4.0"
 
 repositories {
     mavenCentral()
@@ -47,6 +48,14 @@ tasks.test {
     maxHeapSize = "2g"
     // a last resort: the program tests have their own limits (a hang fails the test, see ExecutionTest)
     timeout.set(Duration.ofHours(2))
+    // Files the tests read that are not on the class path: without them as inputs, a change to
+    // a document, the game's snapshot or the platform layer left the task up to date, and
+    // BookSourcesTest, AdrTest and the game's tests did not run again.
+    inputs.files(
+        fileTree("docs") { exclude("book/node_modules/**", "book/.vitepress/cache/**", "book/.vitepress/dist/**") },
+        fileTree("doc-specs"), fileTree("examples"), fileTree("platform"), fileTree("reference"),
+        fileTree("tools"), "README.md", "CLAUDE.md",
+    ).withPathSensitivity(PathSensitivity.RELATIVE).withPropertyName("documentsAndExamples")
     // Tests that need the Blubber Blasen sources read their location from this property.
     providers.gradleProperty("blubberblasen").orNull?.let { systemProperty("dampf.blubberblasen", it) }
     // Execution tests run ROMs in Mesen 2: -Pmesen=/path/to/Mesen.exe, or the one in .mesen/
@@ -122,6 +131,13 @@ tasks.register<JavaExec>("cpd") {
         "--format", "text", "--report-file", report.get().asFile.path, "--no-fail-on-violation")
     doFirst { report.get().asFile.parentFile.mkdirs() }
     doLast { println("CPD report: " + report.get().asFile) }
+}
+
+// dampf/version.properties carries the version into the jar, for dampf --version.
+tasks.processResources {
+    val version = project.version.toString()
+    inputs.property("version", version)
+    filesMatching("dampf/version.properties") { expand("version" to version) }
 }
 
 application {

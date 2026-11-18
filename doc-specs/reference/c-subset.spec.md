@@ -1,6 +1,8 @@
 ---
 title: The C subset
 sources:
+  - docs/ADR.md
+  - docs/adr/*.md
   - docs/subset.md
   - src/main/resources/dampf/include/stdint.h
   - src/main/resources/dampf/include/dampf.h

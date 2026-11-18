@@ -132,7 +132,7 @@ by design, but not built until something needs them.
 known at compile time.
 
 **Statements.** Everything in C99 except `goto`, labels, `setjmp`/`longjmp` and variable-length
-arrays (`goto` is decision 4 below). Inline assembly is rejected too.
+arrays (`goto` is decision 4 below, decided). Inline assembly is rejected too.
 
 **Expressions.** Everything in C99 except compound literals. Struct assignment is allowed (it is
 a copy of known size, a candidate for `MVN`), although the release build does not use it today.
@@ -166,8 +166,8 @@ yet.
 
 ## Decisions
 
-Decisions 1 to 4 are open; each has a recommendation, which dampf implements until it is
-decided. Decision 5 is decided. What dampf does today:
+Decisions 1 to 3 are open; each has a recommendation, which dampf implements until it is
+decided. Decisions 4 and 5 are decided. What dampf does today:
 
 - decision 1: plain `char` is a signed 8-bit type; the restriction to text is not enforced yet;
 - decision 2: both code generators store enum objects in 4 bytes, like the PC, and the checker
@@ -176,7 +176,7 @@ decided. Decision 5 is decided. What dampf does today:
   generators; the code generator from MIR turns a pointer into one object into a 16-bit offset
   within a function and through parameters ([optimizations.md](optimizations.md#pointer-compression)); 16-bit
   pointers into RAM are not built;
-- decision 4: `goto` is rejected;
+- decision 4: `goto` and labels are rejected (ADR [record 27](adr/0027-goto-and-labels-stay-rejected-and-a-forward-and.md));
 - decision 5: a `sizeof` that differs from the PC is rejected, except the element count.
 
 1. **Plain `char` for text.** The game uses `char` only for strings and name buffers. Plain
@@ -197,22 +197,15 @@ decided. Decision 5 is decided. What dampf does today:
    comes from the game: whole-program analysis can tell which pointers only ever point into
    bank 0 RAM (the object pointers like `Bubble *b`) and keep those at 16 bit.
 
-4. **`goto`.** The game does not use it. Unrestricted `goto` would need a more general timing
-   analysis ([timing.md](timing.md)), which computes bounds on structured code. Options: forbid it
-   entirely, or allow a restricted form that keeps the code structured. Recommendation: forbid it
-   until a use appears.
+4. **`goto`** (decided 2026-11-18). `goto` and labels stay rejected. If real code needs `goto`,
+   dampf may allow a form that only jumps forward and out of statements, which keeps every loop
+   with a single entry; unrestricted `goto` will not be built: ADR
+   [record 27](adr/0027-goto-and-labels-stay-rejected-and-a-forward-and.md), with the options weighed.
 
-5. **`sizeof` of pointers and padded structs** (decided 2026-11-17). On the PC a pointer is 8
-   bytes and gcc pads struct fields to their alignment (`struct { uint8_t a; int16_t b; }` is 4
-   bytes); dampf uses 4-byte pointers and no padding (3 bytes). A program that uses such a
-   `sizeof` would compute other values than its PC build, against the rule that both behave the
-   same. Options were: report the PC's value but keep the compact layout (silently wrong as soon
-   as code depends on the layout), lay structs out like gcc (costs RAM, pointers still differ),
-   reject such a `sizeof`, or accept the difference as a documented exception. Decided: reject it,
-   with a message that gives both values, except in a division whose quotient is the same on both
-   (`sizeof a / sizeof a[0]`, the element count, also over an array of pointers). None of the
-   options would have made the code faster; the exception would only have helped code that needs
-   the SNES size, such as a DMA length taken from a padded struct, which the game does not have.
+5. **`sizeof` of pointers and padded structs** (decided 2026-11-17). A `sizeof` that differs
+   from gcc's on x86-64 is rejected, except the element count `sizeof a / sizeof a[0]`: ADR
+   [record 11](adr/0011-structs-have-no-padding-and-a-sizeof-that-differs.md), with the options
+   weighed.
 
 ## What the game has to change
 

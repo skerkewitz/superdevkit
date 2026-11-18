@@ -88,7 +88,7 @@ optimization with a letter. The letters map to this page as follows:
 | M | Copy and fill with `MVN`/`MVP` or DMA | not built |
 | N | Values in X/Y | loop counters in X, a second index in Y, loop-invariant indexes in Y, an index through a pointer in Y, what A, X and Y hold across blocks |
 
-The optimizations not started yet are on the [Roadmap](/inside/roadmap).
+The optimizations not built yet (milestones M7 and M10) are on the [Roadmap](/inside/roadmap).
 
 ### Simplify
 

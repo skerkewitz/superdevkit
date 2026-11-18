@@ -1,71 +1,203 @@
 # Roadmap
 
-Milestones, risks and open questions. The plan was set at the kickoff on 2026-11-17, extended by
-the design discussion the same day (hints, reference benchmarks, exact timing, three IR levels) and
-revised after M1 (see [History](#history)).
+Milestones, versions, risks and open questions. The plan was set at the kickoff on 2026-11-17
+and revised several times since; on 2026-11-18, at version 0.4.0, M3 and M4 were concluded and
+what was left of them moved to the milestones after M5 (see [History](#history)).
 
 ## Where dampf stands
 
-M0 to M2 are done: all of Blubber Blasen compiles, and the benchmark and the replays give the PC's
-checksums, on the SNES and in a playable ROM. M3 is in progress, and its goal, faster than Calypsi,
-is reached. Parts of M4 have started early. During play the game takes 0.79 frames per tick
-against a goal of 0.6, so the compiler work goes on while the game reduces its own work in
-parallel. The current numbers are in [optimizations.md](optimizations.md#where-things-stand).
-M5 has not started. M6 is done (2026-11-18): dampf assembles and links itself.
+Version 0.4.0 (2026-11-18). M0 to M4 and M6 are concluded: all of Blubber Blasen compiles, the
+benchmark and the replays give the PC's checksums, on the SNES and in a playable ROM, dampf's
+code is faster than Calypsi's, and dampf assembles and links itself. During play the game takes
+0.79 frames per tick against a goal of 0.6, so the compiler work goes on while the game reduces
+its own work in parallel; the current numbers are in
+[optimizations.md](optimizations.md#where-things-stand).
+
+Next is M5: cleanup and publishing, so that dampf is public on GitHub and Blubber Blasen builds
+with a released dampf from its own repository. That is version 0.5.0, an alpha.
+
+## Versions
+
+dampf's version is in `build.gradle.kts`, and `dampf --version` prints it. Milestone N is
+released as version 0.N.0; fixes in between raise the last number. M6 was done ahead of M5 and
+is part of 0.4.0, so there is no 0.6.0. Every version before 1.0 is a pre-release: the subset,
+the command line and the files dampf writes may change from one to the next. 0.5.0 is the first
+public one, an alpha. What 1.0 needs is an open question. The rule is ADR
+[record 26](adr/0026-milestone-n-is-version-0n0-and-the-first-public.md).
 
 ## Milestones
 
-| Milestone | Goal | Done when | State |
+| Milestone | Goal | Version | State |
 | --- | --- | --- | --- |
-| M0 | Define the subset | Blubber Blasen's `src/game` is scanned; [subset.md](subset.md) lists what is allowed, what is not, and what the game code has to change | Done 2026-11-17; `goto` (decision 4) still open |
-| M1 | End to end | A small function is compiled, assembled with ca65, linked with ld65, runs automatically in a test, and Mesen shows its C source while stepping | Done 2026-11-17 |
-| M2 | Naive but complete | All of Blubber Blasen compiles with the naive code generator, the game's benchmark and replays give the same checksums as the PC, cycles are measured per tick and per function and compared with Calypsi, and the first reference assembly function gives the first dampf/reference ratio | Done 2026-11-17 |
-| Checkpoint | Decide whether the plan reaches the budget | See [History](#checkpoint-after-m2) | Decided 2026-11-17: compiler and game in parallel |
-| M3 | The big levers | Optimizations A–D ([optimizations.md](optimizations.md)), built on the three IR levels. Goal: faster than Calypsi (reached 2026-11-17). Also: static best/worst case per function and the timing report, `DAMPF_BUDGET` checked at build time ([timing.md](timing.md)), the remaining reference functions; inferred value ranges and pointer compression ([subrange-types.md](subrange-types.md)) | In progress: MIR, its passes, LIR and the code generator from MIR built; HIR and the rest open (below) |
-| M4 | Fine tuning | Optimizations E–N until the frame budget is met, page-aligned arrays with 8-bit index registers. Also: profile-guided optimization from the replays, superoptimization of short hot sequences, `DAMPF_TABLE`, `DAMPF_PIN_X` and the other transforming hints | Started early: E, F, G, J, K and N in progress, block layout by a profile built |
-| M5 | Publishing | dampf can go public: own examples replace Blubber Blasen as test case and benchmark, dampf has its own preprocessor, the repository is hosted | Not started |
-| M6 | Standing alone | dampf has its own assembler and linker; using dampf needs nothing but Java | Done 2026-11-18, ahead of M5 ([transition-to-lir.md](transition-to-lir.md), phase C); gcc is still needed until M5's preprocessor |
+| M0 | Define the subset: Blubber Blasen's `src/game` scanned, [subset.md](subset.md) written | 0.4.0 | Done 2026-11-17 |
+| M1 | End to end: a small function compiled, assembled, linked, run in a test, stepped through in Mesen | 0.4.0 | Done 2026-11-17 |
+| M2 | Naive but complete: all of Blubber Blasen compiles, the benchmark and replays give the PC's checksums, cycles measured and compared with Calypsi | 0.4.0 | Done 2026-11-17 |
+| M3 | The big levers: MIR, LIR and the code generator from MIR, static timing and budgets, value ranges and pointer compression; faster than Calypsi | 0.4.0 | Done 2026-11-18 |
+| M4 | Fine tuning, started early: block layout by a profile, peephole rules, loop and branch optimizations | 0.4.0 | Done 2026-11-18 |
+| M6 | Standing alone: dampf's own assembler and linker | 0.4.0 | Done 2026-11-18 |
+| M5 | Cleanup and publishing: public on GitHub, usable from Blubber Blasen's repository | 0.5.0, alpha | Next |
+| M7 | The optimizer: what was left of M3, register allocation first | 0.7.0 | Planned |
+| M8 | Language, platform and usability: C in interrupts, intrinsics, the open subset decisions, dampf's own preprocessor | 0.8.0 | Planned |
+| M9 | Timing and debugging: master cycles, bounds for more loops, locals and types in Mesen | 0.9.0 | Planned |
+| M10 | Fine tuning: what was left of M4, until the frame budget is met | 0.10.0 | Planned |
 
-## What is left in M3 and M4
+What each concluded milestone reached is in [History](#history). The order after M5 follows the
+likely gain and what each milestone needs from the one before; it is revised when M5 is done.
 
-The open rows of the plan made on 2026-11-17, by likely gain on play and effort. The gains are
-estimates from the profile's shares, not measurements; several ideas that looked good measured
-zero ([optimizations.md](optimizations.md#tried-and-rejected)). The numbers follow the original plan; the done rows
-(1 FastROM, 12 hardware registers at constant addresses) are in [History](#history).
+## M5: cleanup and publishing (0.5.0, alpha)
+
+Done when dampf is public on GitHub as release 0.5.0, its build runs there, and Blubber Blasen
+builds its SNES ROM from its own repository with that release.
+
+Correctness first, since others will rely on the code:
+
+- **The miscompilation with inlining up to 80** found and fixed, with an execution test (see
+  [Open questions](#open-questions) for what is known). The limit of 60 only avoids the function
+  that shows it.
+- **Random programs that reach the optimizer:** loops over arrays of structs, pointers into
+  arrays, byte stores in a row, 8.8 values, fewer divisions. Today their cycles go to the
+  runtime's division routines, and the optimizations of 2026-11-18 did not move them at all.
+- **More execution tests** for the patterns the optimizer looks for (29 programs today).
+- **The playable ROM on a real console or flash cartridge** (needs the hardware), and the DMA
+  margin `SETUP_LINES` measured again: `snesDmaFits` leaves 8 lines for the code around a copy,
+  since a copy that starts after the vertical blank is lost.
+
+Usable from another project:
+
+- **All errors of a run reported**, not only the first.
+- **`<string.h>` with `memset` and `memcpy`**, in C for now (as `MVN` or DMA in M10).
+- **A release:** the distribution (`./gradlew installDist`, with `include/`) as a zip on GitHub,
+  with the version in its name.
+- **Blubber Blasen builds with it:** the platform layer (`platform/snes`) moves to the game's
+  repository, which owns its console API, and the game's build calls dampf.
+- **The book for a user outside this repository:** getting started from the release, not from a
+  clone.
+
+Cleanup and hosting:
+
+- **Own examples instead of Blubber Blasen.** The snapshot (`examples/blubberblasen`), the
+  platform layer and the hand-written benchmark in `reference/` leave the repository. They are in
+  the git history, so either the history is cleaned (`git filter-repo`) or the public repository
+  starts without it. Own examples take over their jobs: a program large enough to be a test
+  case, new hand-written reference functions, and a set of benchmarks in different styles
+  rather than one busy scene. So far every speed decision was measured on one game: the
+  optimizations of 2026-11-18 made Blubber Blasen's play 13 % faster but the execution tests only
+  0.9 % (median 0.6 %), and part of the 13 % comes from parameters chosen on this one game (the
+  inlining limit, the block order) and from its idioms
+  ([optimizations-log.md](optimizations-log.md#optimizations-on-the-branch-optimise-2026-11-18)).
+  The set: code with many small calls, code that computes mostly in 16 and 32 bits, code with
+  little access to structs (plain arrays, pointer walks), a fixed-point physics or particle loop,
+  a table- and switch-driven state machine, text or tile work on bytes. Each optimization is
+  measured on all of them, a tuned parameter is chosen on the whole set, and the docs say which
+  set a measurement comes from.
+- **The game's own findings** ([game-findings.md](game-findings.md)) go to the game's repository
+  with the snapshot; `docs/game-guide.md` is written from them there.
+- **The documents** say nothing that only holds for the private repository.
+- **Hosting:** the repository on GitHub, a build on GitHub Actions (cc65 installed for the
+  tests that compare with ca65 and ld65; no Mesen), the book on GitHub Pages.
+
+## M7: the optimizer (0.7.0)
+
+What was left of M3. The rows are from the plan made on 2026-11-17 and keep its numbers; the
+gains are estimates from the profile's shares, not measurements, and several ideas that looked
+good measured zero ([optimizations.md](optimizations.md#tried-and-rejected)). The done rows (1
+FastROM, 12 hardware registers at constant addresses) are in [History](#history).
 
 | # | Idea | Likely gain | Effort | Notes |
 | --- | --- | --- | --- | --- |
-| 2 | Register allocation: values in A, X and Y over several instructions instead of a direct page place each | 10-20 % | high | Loads and stores of direct page values are the largest share of the cycles. With one accumulator, choosing what lives where is the hard part. In progress (steps in History). Next: stores moved to the path that needs them, fewer reloads. |
-| 3 | 8-bit stretches: the M flag followed (`REP`/`SEP`), `uint8_t` code in 8-bit mode | 5-10 % | high | Fewer `AND #$00FF`, and 8-bit accesses are a cycle cheaper. Needs the processor state across blocks. Only a small start: 8-bit mode kept across C lines within a block. |
-| 4 | Arrays of structs as one array per field (catalogue D, `DAMPF_SPLIT`) | 5-10 % in the bubble loops | high | `separate`, `bubbles_update` and `bubbles_draw` are 30 %. Needs a subset decision or a hint, since the layout then differs from the PC. |
+| 2 | Register allocation: values in A, X and Y over several instructions instead of a direct page place each | 10-20 % | high | Loads and stores of direct page values are the largest share of the cycles. With one accumulator, choosing what lives where is the hard part. Today one pass per pattern (loop counters in X, indexes in Y, values handed on in A, `PointerRemat`, `ByteStretches`); a common model of what lives where comes first. Next steps: stores moved to the path that needs them, fewer reloads. |
+| 3 | 8-bit stretches: the M flag followed (`REP`/`SEP`) across blocks, `uint8_t` code in 8-bit mode | 5-10 % | high | Fewer `AND #$00FF`, and 8-bit accesses are a cycle cheaper. Only a small start: 8-bit mode kept across C lines within a block. |
+| 4 | Arrays of structs as one array per field (catalogue D, `DAMPF_SPLIT`), with HIR to do it in | 5-10 % in the bubble loops | high | `separate`, `bubbles_update` and `bubbles_draw` are 30 %. Needs a subset decision or a hint, since the layout then differs from the PC. |
 | 5 | 8-bit index registers, arrays aligned to pages | 2-4 % | high | `LDA abs,X` a cycle cheaper; needs the X flag followed and the alignment in the memory map. |
-| 6 | Comparisons on the flags: `BIT` for bit tests | 2-4 % for the whole row | low to medium | Done for `CMP #0`; `BIT` not tried. Most remaining `CMP #imm` compare with other constants and feed `BCC`/`BCS`. |
+| 6 | Comparisons on the flags: `BIT` for bit tests | 2-4 % for the whole row | low to medium | Done for `CMP #0`. Most remaining `CMP #imm` compare with other constants and feed `BCC`/`BCS`. |
 | 7 | Calling convention (catalogue C): the first argument in A, `JMP` for tail calls | 1-3 % | medium | `ground_px` is called 12,000 times in 800 ticks. |
-| 8 | The block layout by a profile by default (from the replays) | ~1 % | low | Built (`--block-counts`), opt-in; needs a profile in the game's build. |
 | 9 | Value ranges from array bounds | 1-2 % | medium | More 8-bit narrowing, fewer masks. |
+
+Also in M7:
+
+- **16-bit pointers into RAM** ([subset.md](subset.md), decision 3), and enum objects in one byte
+  (decision 2), each once its subset decision is taken.
+- **Constant shifts by a multiple of 8 as byte moves.** A 32-bit shift by 16 is a loop of 16
+  steps today, about 600 cycles.
+
+The order: register allocation (2), or the split of struct arrays (4) once its subset question
+is decided; then 3, 5 and 7. The rest has to come from the game doing less work: the pair loop
+of `separate` (16 %) and the CPU partner ([game-findings.md](game-findings.md), finding 1), as
+the checkpoint after M2 concluded.
+
+## M8: language, platform and usability (0.8.0)
+
+- **C in interrupt handlers.** Frames have fixed places (ADR
+  [record 6](adr/0006-no-recursion-no-free-function-pointers-and-no-heap.md)), so C called from
+  an NMI or IRQ would overwrite the frames of the code it interrupted, and the platform layer
+  waits for the vertical blank instead. Nearly every SNES game has an NMI handler, and raster
+  effects need an IRQ handler. The functions an interrupt reaches can get a frame area of their
+  own; open is how a handler is declared and what it saves
+  ([optimizations.md](optimizations.md#knowing-the-machine) has the idea).
+- **Intrinsics** for the hardware multipliers, the divider and DMA ([subset.md](subset.md),
+  *Intrinsics*).
+- **The open subset decision** 1 (plain `char` for text only) in [subset.md](subset.md); 2 and
+  3 come with M7. Decision 4 is taken: `goto` stays rejected (ADR
+  [record 27](adr/0027-goto-and-labels-stay-rejected-and-a-forward-and.md)).
+- **Function pointers in constant tables**, allowed by design and not built.
+- **Hand-written assembly with the code generator from MIR:** `--replace` works only with the
+  naive one, and a linked-in function has no way to declare its calling convention, direct page
+  use and cycles for the timing analysis.
+- **dampf's own preprocessor**, so that using dampf needs nothing but Java: macro expansion
+  following Prosser's algorithm, `#` and `##`, variadic macros with `__VA_OPT__`, `#if`
+  arithmetic in `intmax_t`, line markers for the debug information. `gcc -E` stays in the tests
+  as the oracle, on every test program, every example and generated macro cases. Today users on
+  Windows install MinGW or MSYS only for `gcc -E`.
+- **Less memory for a compile:** the game takes 1.8 GB.
+- **The SNES facts out of the code generators** (DBR `$7E`, the frame addresses, long I/O
+  addresses) into the target ([architecture.md](architecture.md#core-and-target)).
+- **`restrict`** or a no-alias hint of dampf's own (see [Open questions](#open-questions)).
+
+## M9: timing and debugging (0.9.0)
+
+Timing ([timing.md](timing.md#not-built-yet)):
+
+- master cycles instead of CPU cycles, in the report, the comments and the budgets;
+- the costliest path per C line, in the report and in budget errors, and best and worst case in
+  the comments of lines with a branch;
+- bounds for more loops: 37 of the game's functions have none; `DAMPF_TRIPS` for loops without
+  a counter (postponed, [hints.md](hints.md));
+- the measured cycles of budgeted functions checked in the emulator tests;
+- level 3: DRAM refresh, HDMA and interrupts at frame level.
+
+Better C debugging in Mesen: Mesen shows the C source and the names of global variables from
+the `.dbg` file, and that is all. Of a C symbol (`csym`) it reads only the name and the assembly
+symbol it belongs to, and the type that cc65 and dampf write is always `"00"`. dampf's users
+would gain from variables shown with their C type (`uint8_t`, signed `int16_t`), struct fields,
+and the locals of a function in their direct page places. The cc65 format already has fields
+for part of this (a storage class `sc` and an offset on `csym`) that Mesen ignores. The plan:
+dampf first fills what the format has, then a small patch teaches Mesen to read it, offered to
+Mesen's author; NES developers who use cc65 would gain from it too. A patch from a compiler with
+users is easier to argue for, which is why this comes after M5. With it, the code from MIR
+writes the processor state line in the assembly as the naive code generator does.
+
+## M10: fine tuning (0.10.0)
+
+What was left of M4, until the frame budget is met:
+
+| # | Idea | Likely gain | Effort | Notes |
+| --- | --- | --- | --- | --- |
+| 8 | The block layout by a profile by default (from the replays) | ~1 % | low | Built (`--block-counts`), opt-in; needs a profile in the game's build. |
 | 10 | Superoptimizer for short hot sequences | 1-3 % | high | Gains spread thin. |
-| 11 | `<<8` as a byte store, `switch` as a jump table, `MVN` for copies, unrolling by hint | <1 % each | low to medium | Large locally, small on the whole game. |
+| 11 | `<<8` as a byte store, `switch` as a jump table, `MVN` for copies (and `memcpy`), unrolling by hint | <1 % each | low to medium | Large locally, small on the whole game. |
 
-The order: register allocation (2), or the split of struct arrays (4) once its subset question is
-decided; then 3, 5 and 7. The rest has to come from the game doing less work: the pair loop of
-`separate` (16 %) and the CPU partner ([game-findings.md](game-findings.md), finding 7), as the
-checkpoint after M2 concluded.
+Also in M10:
 
-Also open in M3:
-
-- **HIR.** MIR is lowered straight from the AST; HIR is open and not scheduled.
-  [architecture.md](architecture.md) places the split of struct arrays (row 4) there. LIR is built
-  ([transition-to-lir.md](transition-to-lir.md)); the processor state across blocks (rows 3 and
-  5) and peephole rules are its next passes.
-- **Master cycles per C line.** The assembly comments and the timing report count CPU cycles.
-  Next: master cycles and the costliest path per C line in the report and in the budget errors.
-- **Unbounded loops.** 37 of the game's functions have no worst case yet; the report names the
-  loop or call that causes it, and `DAMPF_RANGE` bounds such loops by hand. `DAMPF_TRIPS` is
-  postponed ([hints.md](hints.md)).
-- **Ranges from array bounds** (row 9).
-- **Subrange types** (`DAMPF_RANGED`, `DAMPF_AS` and their checker, sections 3–6 of
-  [subrange-types.md](subrange-types.md)) are not scheduled. They are built when a profile shows a
-  hot value whose range dampf cannot infer and that costs real cycles.
+- profile-guided inlining, and code size spent for speed where the profile says it is hot;
+- a tuning option (`--tune`) that tries the parameters chosen today on one game (the inlining
+  limit, the block order) on the user's own workload and keeps the fastest build, each candidate
+  checked against the PC's results ([optimizations.md](optimizations.md));
+- `DAMPF_TABLE`, `DAMPF_PIN_X`, `DAMPF_LIKELY`/`DAMPF_UNLIKELY` and the other transforming
+  hints ([hints.md](hints.md));
+- bank `$7F` for variables ([memory-map.md](memory-map.md));
+- subrange types (`DAMPF_RANGED`, `DAMPF_AS`), only when a profile shows a hot value whose range
+  dampf cannot infer ([subrange-types.md](subrange-types.md), ADR
+  [record 23](adr/0023-value-ranges-are-inferred-first-and-subrange-types.md)).
 
 ## The playable ROM
 
@@ -90,80 +222,35 @@ and the toolchain is tested on what only the console shows.
 The console showed things the benchmark could not. A tick that needs more than one frame waits for
 the next vertical blank, and the benchmark leaves out what `video.c` costs on the hardware. With the
 naive code generator the vertical blank code is so slow that the room tiles never fit
-([game-findings.md](game-findings.md), finding 8). The console figure (frames per tick during a
+([game-findings.md](game-findings.md), finding 2). The console figure (frames per tick during a
 minute of play, measured again on 2026-11-18) is in
 [optimizations.md](optimizations.md#where-things-stand).
 
-Open:
-
-- **Constant shifts longer than 8 still loop.** A 32-bit shift by 16 is a loop of 16 steps (about
-  600 cycles); a shift by a multiple of 8 should move bytes.
-- **The DMA margin is not measured again.** `snesDmaFits` leaves `SETUP_LINES` (8) lines for the
-  code around a copy, because a copy that starts after the vertical blank is lost (the first
-  version lost a row of the text layer). The margin can shrink since the register writes got
-  faster.
-
-## M5: publishing
-
-- **Own examples.** The Blubber Blasen snapshot (`examples/blubberblasen`), its platform layer
-  (`platform/snes`) and the hand-written benchmark in `reference/` (assembly of a Blubber Blasen
-  function) leave the repository. Deleting them is not enough: they are in the git history, so
-  either the history is cleaned (`git filter-repo`) or the public repository starts without it.
-  Own examples take over their jobs: a program large enough to be a test case, a busy scene as
-  speed benchmark, and new hand-written reference functions.
-- **Varied benchmarks.** So far every speed decision was measured on one game, and it shows:
-  the optimizations of 2026-11-18 made Blubber Blasen's play 13 % faster, but the execution tests
-  only 0.9 % (median 0.6 %); the random programs did not move at all, since their cycles go to the
-  runtime's division routines ([optimizations-log.md](optimizations-log.md#optimizations-on-the-branch-optimise-2026-11-18)).
-  Part of the 13 % comes from parameters chosen on this one game (the inlining limit, the block
-  order) and from its idioms (pointers into arrays of structs, byte stores in a row). The own
-  examples therefore become a set of benchmarks in different styles rather than one busy scene:
-  code with many small calls, code that computes mostly in 16 and 32 bits, code with little
-  access to structs (plain arrays, pointer walks), a fixed-point heavy physics or particle loop, a
-  table- and switch-driven state machine, and text or tile work on bytes. Each optimization is
-  measured on all of them, a tuned parameter is chosen on the whole set, and the docs say which
-  set a measurement comes from.
-- **Own preprocessor.** Today dampf calls `gcc -E`, which users on Windows have to install (MinGW
-  or MSYS) only for that. dampf gets its own C preprocessor in Java: macro expansion following
-  Prosser's algorithm, `#` and `##`, variadic macros with `__VA_OPT__`, `#if` arithmetic in
-  `intmax_t`, line markers for the debug information. `gcc -E` stays in the tests as the oracle:
-  the output of dampf's preprocessor is compared with gcc's on every test program, every example
-  and on generated macro cases. After this, gcc is only needed to develop dampf (the PC side of
-  the execution tests), not to use it.
-- **Hosting**, and the book online.
-
-## After M5: better C debugging in Mesen
-
-Mesen shows the C source and the names of global variables from the `.dbg` file, and that is
-all: of a C symbol (`csym`) it reads only the name and the assembly symbol it belongs to, and the
-type that cc65 and dampf write is always `"00"`. dampf's users would gain from variables shown
-with their C type (`uint8_t`, signed `int16_t`), struct fields, and the locals of a function in
-their direct page slots. The cc65 format already has fields for part of this (a storage class
-`sc` and an offset on `csym`) that Mesen ignores. The plan: dampf first fills what the format
-has, then a small patch teaches Mesen to read it, offered to Mesen's author. NES developers who
-use cc65 would gain from it too. This comes when dampf is public and has users, since a patch
-from a compiler with users is easier to argue for.
-
-## M6: standing alone
-
-dampf assembles and links itself, so ca65 and ld65 are no longer needed and using dampf needs
-nothing but Java. dampf only uses a small part of ca65 (its own output) and of ld65 (its own
-memory map), so both stay as the oracle in the tests: the ROM dampf builds itself must be
-byte-identical to the one ca65 and ld65 build from the same assembly, and the debug information
-must still let Mesen show the C source. It was planned as the last step, since it changes nothing in
-the code dampf generates. It was decided on 2026-11-18 that it comes: dampf should need nothing but Java. It was done the same day,
-ahead of M5 ([transition-to-lir.md](transition-to-lir.md), phase C): `dampf build` uses its own
-assembler and linker, `--assembler ca65` keeps the old path, and the tests build every program
-both ways.
+Open: the DMA margin is in M5, constant shifts longer than 8 in M7.
 
 ## Risks
 
-- **Miscompilation.** Mitigated by the four test layers, the naive reference and the replays as
-  oracle ([testing.md](testing.md)).
+- **Miscompilation.** Mitigated by the test layers, the naive reference and the replays as
+  oracle ([testing.md](testing.md)). One is known and not found yet (M5).
+- **The optimizer is tested by one game.** 29 execution tests and 50 random programs per build,
+  and the random programs barely reach the optimizer's patterns; in practice the optimizer is
+  tested by Blubber Blasen's benchmark and one replay recording. M5 adds random programs and
+  execution tests for the patterns, and more recordings would help
+  ([game-findings.md](game-findings.md), finding 5).
+- **Tuned on one game.** The inlining limit, the block order and the idioms the optimizer looks
+  for come from Blubber Blasen. Mitigated by the set of benchmarks in M5.
+- **Never run on a console.** Everything is checked in dampf's emulator and in Mesen; FastROM,
+  the DMA margin and timing at the edges have not run on hardware (M5).
 - **Different behaviour on PC and SNES.** Mitigated by fixed-width types only, exact promotion
   rules and the differential tests against gcc.
-- **Scope creep.** The compiler could become the project and stall the game. Mitigated by running
-  it in parallel and by milestones that are measured against Blubber Blasen.
+- **The frame budget depends on the game.** The checkpoint after M2 concluded that the compiler
+  alone cannot reach it; with the CPU partner the worst tick takes 3 frames.
+- **Little human knowledge of the code.** About 23,000 lines were written in two days, mostly by
+  AI agents. A bug like the open miscompilation needs someone who knows how the code generator
+  works; today that knowledge is mostly in the documents and the ADR.
+- **Scope creep.** The compiler could become the project and stall the game; the book and M6
+  came before M5. Mitigated by running it in parallel and by milestones that are measured against
+  Blubber Blasen.
 - **Gains smaller than hoped.** Each optimization is measured; the catalogue was re-prioritised
   after M2.
 - **A wrong hint silently produces wrong code.** Mitigated by checking every fact hint as an
@@ -171,34 +258,30 @@ both ways.
 
 ## Open questions
 
-- **A miscompilation in the code generator, not yet found** (2026-11-18). With functions of up to
-  80 instructions inlined (the limit is 60), the game's benchmark differs from the PC in 56 of
-  3,610 ticks, from tick 32 on. What is known: the optimized MIR is right (the interpreter gives
-  the PC's checksums, every value within its range); ca65 and dampf's assembler build the same
-  ROM; it stays with every LIR pass, `PointerRemat`, branch relaxation, the new block order,
-  loop counters in X, indexes in Y, values handed on in A and arguments computed in place
-  switched off. `main` before the branch `optimise` with the same limit is right, but there the
-  limit counts unsimplified bodies and fewer functions are inlined. So an older part of the code
-  generator (selection, `FrameLayout`, the masks) goes wrong on a function the larger inlining
-  makes. Next step: find the function by comparing the emulator's globals with the
-  interpreter's at tick 32, then reduce it to an execution test.
-
-- How Mesen shows locals that live in fixed direct page slots. The code generator from MIR keeps
-  the game's values in the direct page, several values sharing a place; the `.dbg` file names the
-  source files and lines (and, from the naive generator, the functions), not the locals.
+- **A miscompilation in the code generator, not yet found** (2026-11-18; fixing it is part of
+  M5). With functions of up to 80 instructions inlined (the limit is 60), the game's benchmark
+  differs from the PC in 56 of 3,610 ticks, from tick 32 on. What is known: the optimized MIR is
+  right (the interpreter gives the PC's checksums, every value within its range); ca65 and
+  dampf's assembler build the same ROM; it stays with every LIR pass, `PointerRemat`, branch
+  relaxation, the new block order, loop counters in X, indexes in Y, values handed on in A and
+  arguments computed in place switched off. `main` before the branch `optimise` with the same
+  limit is right, but there the limit counts unsimplified bodies and fewer functions are inlined.
+  So an older part of the code generator (selection, `FrameLayout`, the masks) goes wrong on a
+  function the larger inlining makes. Next step: find the function by comparing the emulator's
+  globals with the interpreter's at tick 32, then reduce it to an execution test.
+- What 1.0 needs: the frame budget met, the subset decisions taken, C in interrupts, or a set of
+  users.
+- How Mesen shows locals that live in fixed direct page places, several values sharing a place
+  (M9).
 - Why Calypsi's results drift from the PC's from tick 596 on: a miscompile, RAM its start-up
   leaves uncleared, or a step of the game's own Calypsi build that `tools/bench_compilers.sh`
-  lacks.
-- `goto`: forbid it entirely, or allow a restricted form that keeps the code structured?
-  ([subset.md](subset.md), decision 4)
+  lacks. Until then the comparison rests on 102 ticks.
 - How to express impossible path combinations, should the worst-case bounds turn out too
   pessimistic in practice ([timing.md](timing.md)).
 - How `restrict` is checked on the PC in practice, and whether a dampf-specific no-alias hint is
   clearer than `restrict` ([hints.md](hints.md)).
-- Which functions become reference benchmarks. The Calypsi comparison and the profiles that were
-  to decide it are in; `level_solid_px` is still the only one (`reference/`).
-- How a linked-in hand-written assembly function declares its calling convention, direct page
-  usage and cycle cost, so the timing analysis can include it.
+- Which functions become reference benchmarks. `level_solid_px` is still the only one
+  (`reference/`), and it leaves the repository with the game in M5.
 - How much HDMA the game uses, since it changes the frame-level budget ([timing.md](timing.md)).
 
 ## History
@@ -224,6 +307,15 @@ Dates are 2026-11-17 unless a line says otherwise. The measurements are in [opti
   they need no language change and the profile points at them. Declared subrange types wait until
   a profile shows a range dampf cannot infer.
 
+- **At version 0.4.0** (2026-11-18). M3 and M4 were concluded: their goals as first set were
+  partly reached (faster than Calypsi; the frame budget not yet), and too much stayed open in
+  them while too little was planned after them. What was left moved to new milestones: the
+  optimizations of M3 to M7, the fine tuning of M4 to M10, and the work found in the review of
+  that day ([archive/status-2026-11-18.md](archive/status-2026-11-18.md)) to M5, M8 and M9. M5
+  changed from publishing to cleanup and publishing, an alpha for use from Blubber Blasen's
+  repository; dampf's own preprocessor moved from M5 to M8. Versions came in: milestone N is
+  0.N.0 (ADR [record 26](adr/0026-milestone-n-is-version-0n0-and-the-first-public.md)).
+
 ### M0 to M2
 
 - **M0.** The decisions in subset.md are implemented as recommended until decided. The hint macros
@@ -243,22 +335,13 @@ Dates are 2026-11-17 unless a line says otherwise. The measurements are in [opti
 
 ### Checkpoint after M2
 
-The question was whether the optimizations reach the budget or the game also has to do less work.
-After M2 the goal of 0.6 frames needed the naive code to get 9–11 times faster on average and
-14–20 times on the worst tick. The optimizations were expected to bring 3–6 times, and the first
-reference function agreed (4.5 times). Even at hand-written quality everywhere, play would have
-stayed at about 1.2–1.7 frames on average and the worst tick with the CPU partner at 3–4 frames.
-The compiler alone cannot close the gap.
+The question was whether the optimizations reach the budget or the game also has to do less
+work. **Decided: compiler and game in parallel**, with 30 Hz game logic on the heaviest ticks as
+the fallback; the numbers and the options weighed are in ADR
+[record 22](adr/0022-the-compiler-and-the-game-work-in-parallel-towards.md). The request to the
+game is finding 1 in [game-findings.md](game-findings.md).
 
-The options were: compiler first and decide after M3, compiler and game in parallel, or relax the
-requirement (for example 30 Hz game logic on the heaviest ticks). **Decided: compiler and game in
-parallel.** dampf goes on with M3; the game works on the hot spots no compiler can fix, the CPU
-partner and the pairwise bubble separation, as its own ROADMAP (step 2b) already planned. The
-request to the game is finding 7 in [game-findings.md](game-findings.md). Relaxing the requirement
-stays as a fallback, decided on measured numbers if rare worst ticks still do not fit. The game's
-changes happen in its own repository; dampf refreshes its snapshot and measures.
-
-### Done in M3 and M4
+### M3 and M4
 
 - **MIR.** Lowering with SSA, a text format that parses back (`dampf.mir.MirParser`), verifier and
   interpreter; the whole game runs on MIR with the PC's checksums. The optimizing pipeline is
@@ -296,18 +379,31 @@ changes happen in its own repository; dampf refreshes its snapshot and measures.
   not measure.
 - **Block layout by a profile** (`dampf profile --blocks`, `dampf build --block-counts`), opt-in.
 
+### M6
+
+dampf assembles and links itself, so ca65 and ld65 are no longer needed and using dampf needs
+nothing but Java. dampf only uses a small part of ca65 (its own output) and of ld65 (its own
+memory map), so both stay as the oracle in the tests: the ROM dampf builds itself must be
+byte-identical to the one ca65 and ld65 build from the same assembly, and the debug information
+must still let Mesen show the C source. It was planned as the last step, since it changes nothing in
+the code dampf generates. It was decided on 2026-11-18 that it comes: dampf should need nothing but Java. It was done the same day,
+ahead of M5 ([transition-to-lir.md](transition-to-lir.md), phase C): `dampf build` uses its own
+assembler and linker, `--assembler ca65` keeps the old path, and the tests build every program
+both ways.
+
 ### Answered questions
 
-- An own assembler and linker: yes, in M6, so that dampf needs nothing but Java (decided
-  2026-11-18). An own debugger stays a non-goal.
-- Build tool: Gradle (Kotlin DSL, with the wrapper).
+- An own assembler and linker: yes, in M6 (ADR
+  [record 19](adr/0019-dampf-assembles-and-links-itself-with-ca65-and.md)). An own debugger
+  stays a non-goal ([record 20](adr/0020-mesen-is-the-debugger-and-the-dbg-file-means-what.md)).
+- Build tool: Gradle ([record 2](adr/0002-java-25-antlr-with-the-grammars-v4-c-grammar-and.md)).
 - Stage 2 platform API: no intrinsics needed; a platform layer in C with volatile register access
-  (`platform/snes`).
+  ([record 21](adr/0021-the-platform-layer-is-c-with-volatile-pointers-and.md)).
 - Whole ROMs headless in tests: Mesen 2's test runner (`Mesen.exe --testrunner rom.sfc
   script.lua`), as the game's `tools/snesbench` does.
 - Mesen shows the C source with dampf's debug output: yes.
-- Licence: Apache License 2.0 with LLVM Exceptions, the same as LLVM, so code dampf puts into a
-  ROM carries no licence conditions.
+- Licence: Apache License 2.0 with LLVM Exceptions
+  ([record 25](adr/0025-dampf-is-under-the-apache-license-20-with-llvm.md)).
 - What the Calypsi investigation finds: dampf is faster on the same scene; the order of the
   optimizations follows the plan above.
 

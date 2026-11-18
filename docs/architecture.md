@@ -101,9 +101,8 @@ three (`Printer`/`MirParser`, `Verifier`, `Interpreter`).
 
 ### Deliberately not more than three
 
-Every level costs a lowering step, a verifier, a text format and tests. Three levels cover the
-three kinds of knowledge: the structure of C, data flow, and the machine. A further level is only
-added if an optimization demonstrably fits nowhere cleanly.
+Why three levels and not more, and why HIR waits: ADR
+[record 13](adr/0013-three-ir-levels-and-hir-waits-until-something.md).
 
 ## Core and target
 
@@ -166,9 +165,6 @@ touches, are not computed yet ([timing.md](timing.md)).
 
 ## Implementation
 
-- Java, compiled for the current LTS release (25): records, sealed interfaces and pattern
-  matching suit an IR and compiler passes well, and strong types catch many errors early.
-- ANTLR 4 for the parser, with the C grammar from grammars-v4 (vendored, see
-  `src/main/antlr/dampf/parser/README.md`).
-- Gradle with the wrapper as the build tool.
-- Compilation speed does not matter: a game this size compiles in seconds either way.
+Java 25, ANTLR 4 with the vendored C grammar from grammars-v4
+(`src/main/antlr/dampf/parser/README.md`), and Gradle with the wrapper; the reasons are in ADR
+[record 2](adr/0002-java-25-antlr-with-the-grammars-v4-c-grammar-and.md).

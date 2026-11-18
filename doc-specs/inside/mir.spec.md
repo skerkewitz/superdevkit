@@ -1,6 +1,8 @@
 ---
 title: MIR
 sources:
+  - docs/ADR.md
+  - docs/adr/*.md
   - docs/architecture.md
   - docs/testing.md
   - src/main/java/dampf/mir/Instr.java

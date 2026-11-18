@@ -1,6 +1,8 @@
 ---
 title: How a compile works
 sources:
+  - docs/ADR.md
+  - docs/adr/*.md
   - docs/architecture.md
   - src/main/java/dampf/Compiler.java
   - src/main/java/dampf/frontend/Preprocessor.java

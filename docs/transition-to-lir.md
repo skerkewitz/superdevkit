@@ -179,7 +179,7 @@ against, and it must not share the passes it is meant to check.
 After phase B, `MirCodeGen` selects instructions and nothing else, and the following
 optimizations have their place in LIR, each as its own measured step: `REP`/`SEP` across blocks,
 8-bit index registers (`SEP #$10`) for page-aligned arrays, peephole rules, and later the
-superoptimization of short sequences from M4.
+superoptimization of short sequences (M10).
 
 ## Phase C: machine code without ca65 and ld65 (M6)
 
@@ -216,72 +216,22 @@ leave the list of things a user needs, and stay in the list for developing dampf
 | --- | --- | --- |
 | A | nothing visible | LIR with text format, parser and verifier; a test that catches any unplanned change in the output |
 | B | faster code from the optimizations that need LIR | a code generator that only selects instructions; each job tested on its own; each function written once |
-| C | dampf needs only Java (with M5's preprocessor) | ca65 and ld65 only in the tests, as the oracle |
+| C | dampf needs only Java (with M8's preprocessor) | ca65 and ld65 only in the tests, as the oracle |
 
 ## Decisions
 
-**LIR is made of basic blocks with explicit successors** (2026-11-18). A basic block is straight
-code: it is entered only at its start and left only at its end. Every label starts a block,
-every branch, jump or return ends one. Each block knows its successors, including the block it
-falls through to, its place in the layout order (where it lies in the ROM), and the MIR block it
-comes from (for `Timing` and the loop bounds). This is how LLVM's `MachineBasicBlock` works.
+**LIR is made of basic blocks with explicit successors, and the cycles of a C line belong to
+`Timing`** (2026-11-18): ADR
+[record 14](adr/0014-lir-is-basic-blocks-with-explicit-successors-and.md). The extra risk in
+phase A is the builder that cuts `AsmWriter`'s stream into blocks. It sits behind
+`BackendOutputTest`: the printer must turn the blocks back into the same text.
 
-The alternative was a flat list of instructions and labels, as `AsmWriter` builds today, with
-the control flow computed when a pass needs it. That would have made phase A a little simpler,
-but every pass of phase B (register contents, dead stores, `REP`/`SEP` across blocks) is a data
-flow analysis over blocks, and with a flat list each of them would rebuild the graph or work on
-a stale one. Phase A is done once; the passes of phase B and later keep coming. One block per
-MIR block was ruled out as well: the small branches the code generator writes inside a MIR
-block (shifts, copies, skips over a few instructions) would disturb the analyses as they
-disturb `Timing` today. With real basic blocks those special cases in `Timing` go away.
+**The debug file means what ld65's means; the text may differ** (2026-11-18): ADR
+[record 20](adr/0020-mesen-is-the-debugger-and-the-dbg-file-means-what.md).
 
-The extra risk in phase A is the builder that cuts `AsmWriter`'s stream into blocks. It sits
-behind `BackendOutputTest`: the printer must turn the blocks back into the same text.
-
-**Cycles of an instruction belong to the instruction, cycles of a C line belong to `Timing`**
-(2026-11-18). `LInstr.cycles()` computes the cycles from opcode, addressing mode and width with
-`Cycles65816`; the printer, `Timing` and the verifier all ask it. The cost of a C line (the
-`[ n cyc ]` header in the `.s` file) comes from `Timing`, and the printer only prints what it is
-given. In phase A, `Timing` gives exactly what `AsmWriter` writes today (the sum for straight
-code, nothing for a line with branches), so the output stays identical. After that, the next
-timing step of the roadmap (the costliest path per C line, and master cycles) extends `Timing`,
-and the `.s` file shows it without a change to the printer.
-
-The alternative was to leave both in the printer, as today. Then the cost of a C line would be
-computed in two places, a sum in the printer and the path analysis in `Timing`, and the
-printer's sum stays empty for every line with a branch, which are the lines that loops and
-conditions are made of. The price of the decision: the line costs in the `.s` file need a run
-of `Timing`, which every build does anyway.
-
-**The debug file means what ld65's means; the text may differ** (2026-11-18). There is no
-written specification of the `.dbg` format, but both ends are open source and small enough to
-read: ld65 writes it in `src/ld65/dbgfile.c` (cc65, zlib licence), and Mesen reads it in
-`UI/Debugger/Integration/DbgImporter.cs` (GPLv3, so it is read to learn the format, never
-copied). The format is text, one record per line (`line id=0,file=0,line=224,span=134`). Mesen
-reads `file`, `line`, `span`, `seg`, `sym`, `csym` and `scope`, and ignores `mod`, `type` and
-`info`.
-
-dampf writes every record type ld65 writes, including the ones Mesen ignores: they are simple,
-and cc65's `dbginfo` library, which other tools use, needs `version` and `info`. The test reads
-dampf's file and ld65's file and compares what they say: which source line covers which ROM
-address range, which symbol is at which address, which C functions and variables exist. The
-ids and the order of the records may differ, so a plain `diff` is not the test. Writing the text
-byte for byte as ld65 does was ruled out: the ids and the order follow ld65's internals (the
-order in which it reads object files and spans), and copying them helps neither Mesen nor a
-user. Should Mesen turn out to rely on the order, for example on `span` ids without gaps, dampf
-matches ld65 in that one point.
-
-Better C debugging (variables shown with their C type, struct fields, locals per function in
-their direct page slots) needs more than ld65 writes and Mesen reads. That is a separate step
-after M5, in [roadmap.md](roadmap.md), not part of this plan.
-
-**A step may cost some speed if the code gets much cleaner** (2026-11-18). A step that changes
-the generated code tries first not to make the game slower. If a step makes the back end much
-cleaner (for example, B3, which writes each function once instead of up to 14 times) and costs
-about 1 % of cycles per tick that no reasonable effort wins back, it is taken anyway. A bigger
-loss is taken too, since a step can be reverted, but every loss gets an entry in
-[optimizations-log.md](optimizations-log.md): how much slower, where, and why it could not be
-avoided. The work happens on the branch `lir`, one commit per step, and is merged after review.
+**A step may cost some speed if the code gets much cleaner** (2026-11-18): ADR
+[record 24](adr/0024-a-refactoring-step-may-cost-about-1-speed-if-the.md). The work happens on
+the branch `lir`, one commit per step, and is merged after review.
 
 **Phase B in the order B2, B3a, B4, B3b, B3c, B1, B5** (2026-11-18). B1 splits `MirCodeGen` into
 classes. Done first, it would move the branch passes, the register assumptions across blocks

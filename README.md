@@ -10,9 +10,9 @@ separate project in parallel with the game.
 The name: in German, *Dampf machen* ("make steam") means to get things moving fast. It also fits
 the steam factory of Blubber Blasen.
 
-Status: milestones M0 to M2 are done, M3 (the optimizer) is in progress, and M6 (dampf's own
-assembler and linker) is done ahead of M5; the state of each
-milestone is in [docs/roadmap.md](docs/roadmap.md). dampf compiles all of Blubber Blasen and
+Status: version 0.4.0. Milestones M0 to M4 and M6 (dampf's own assembler and linker) are done;
+next is M5, cleanup and publishing, which makes dampf public as the alpha 0.5.0. The milestones
+and versions are in [docs/roadmap.md](docs/roadmap.md). dampf compiles all of Blubber Blasen and
 builds a playable ROM of it, with the game's console API written in C in
 [platform/snes](platform/snes/README.md) (sound and save RAM are not built yet). During play the
 game takes 0.79 frames per tick, and dampf's code is 2.14 times as fast as Calypsi's on the
@@ -59,7 +59,7 @@ Goals:
 5. Correctness first: every optimization is checked automatically against a reference.
 6. In the end, nothing to install but Java. dampf assembles and links with its own assembler and
    linker (milestone M6); gcc is still needed for preprocessing until dampf has its own
-   preprocessor (M5).
+   preprocessor (M8).
 
 Non-goals:
 
@@ -76,6 +76,7 @@ The user book is in [docs/book](docs/book) (`npm install`, then `npm run docs:de
 are generated from the specs in [doc-specs](doc-specs/README.md). The documents below are the
 working documents it is written from.
 
+- [docs/ADR.md](docs/ADR.md): the architecture decision records, why dampf is built the way it is; one file per record in [docs/adr](docs/adr).
 - [docs/architecture.md](docs/architecture.md): the pipeline, the three IR levels, core and target, the assembly output.
 - [docs/subset.md](docs/subset.md): the C subset, derived from what the game uses, and the decisions about it.
 - [docs/hints.md](docs/hints.md): hints that tell dampf what a human assembly programmer would know.

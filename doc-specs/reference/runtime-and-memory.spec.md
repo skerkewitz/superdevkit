@@ -1,6 +1,8 @@
 ---
 title: Runtime and memory
 sources:
+  - docs/ADR.md
+  - docs/adr/*.md
   - docs/memory-map.md
   - src/main/resources/dampf/snes/runtime.s
   - src/main/java/dampf/snes/RomBuilder.java

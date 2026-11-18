@@ -11,6 +11,12 @@ from the README.
 - dampf works on the snapshot `examples/blubberblasen` (never edit it; refresh with
   `tools/update_game_snapshot.sh /mnt/d/Develop/AiProject/BlubberBlasen`). Never run Mesen or write
   files inside the game's own folders: another agent is working there.
+- Why a decision was taken is in `docs/ADR.md` (the table of all records with their status) and
+  `docs/adr/NNNN-<start-of-title>.md` (one file per record: `# N. Title`, then **Context.**,
+  **Decision.**, **Alternatives.** where there were any, **Consequences.**). A decision made or
+  changed is a new file plus its row; never edit an existing record, change the status of the
+  records it supersedes or amends in the table instead. An open question becomes a record only
+  when it is decided. Cite records by number ("ADR record 6"). `AdrTest` checks table and files.
 - Anything worth changing in the game goes into `docs/game-findings.md` (written for the AI working
   on the game; the user forwards it). After dampf is finished: write `docs/game-guide.md` from it.
 - Blubber Blasen (the first user and test case) is at `/mnt/d/Develop/AiProject/BlubberBlasen`
