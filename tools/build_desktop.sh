@@ -6,6 +6,14 @@
 #   examples/catchme/build/linux/catchme             plays it in a window
 #   examples/catchme/build/linux/catchme --check examples/catchme/check.txt --out DIR
 # CC picks the compiler (default cc).
+#
+# The game reaches only superdevkit's console API (ADR record 34), so it is built in three steps:
+#   1. the game's sources alone, as on the SNES: without the host's headers (-nostdinc), with
+#      dampf's include folder (<stdint.h>, <string.h>) and the kit's public headers only;
+#      -ffreestanding and -fno-tree-loop-distribute-patterns keep gcc from turning the byte loop
+#      of dampf's static memcpy into a call of memcpy, which in that file is the loop itself;
+#   2. tools/check_game_symbols.py: what the game's objects call must be the kit's;
+#   3. the link with the pseudo SNES, the frontend and raylib.
 set -e
 cd "$(dirname "$0")/.."
 EX=${1:?usage: tools/build_desktop.sh examples/<name>}
@@ -14,12 +22,29 @@ NAME=$(basename "$EX")
 CONVERT_ONLY=1 sh "$EX/build.sh"
 tools/fetch_raylib.sh linux
 OUT=$EX/build/linux
-mkdir -p "$OUT"
+OBJ=$OUT/obj
+rm -rf "$OBJ" && mkdir -p "$OBJ"
 R=build/raylib/linux
+DAMPF_INCLUDE=src/main/resources/dampf/include
+CC=${CC:-cc}
+WARN="-Wall -Wextra -Wno-unused-parameter"
+
+GAME_OBJECTS=""
+for src in "$EX"/src/*.c "$EX"/build/gen/*.c; do
+    [ -f "$src" ] || continue
+    obj=$OBJ/$(basename "$(dirname "$src")")_$(basename "$src" .c).o
+    # shellcheck disable=SC2086
+    $CC -std=c99 -O2 $WARN -nostdinc -ffreestanding -fno-tree-loop-distribute-patterns \
+        -isystem "$DAMPF_INCLUDE" -I lib/include -I "$EX/src" -I "$EX/build/gen" -c "$src" -o "$obj"
+    GAME_OBJECTS="$GAME_OBJECTS $obj"
+done
+[ -n "$GAME_OBJECTS" ] || { echo "build_desktop: no C sources in $EX/src"; exit 1; }
 # shellcheck disable=SC2086
-${CC:-cc} -std=c99 -O2 -Wall -Wextra -Wno-unused-parameter \
-    -I lib/include -I lib/pseudo -I "$EX/src" -I "$EX/build/gen" -I "$R/include" -DGAME_NAME="\"$NAME\"" \
-    "$EX"/src/*.c "$EX"/build/gen/*.c lib/pseudo/*.c lib/desktop/*.c \
+python3 -I tools/check_game_symbols.py lib/include/sdevkit $GAME_OBJECTS
+
+# shellcheck disable=SC2086
+$CC -std=c99 -O2 $WARN -I lib/include -I lib/pseudo -I "$R/include" -DGAME_NAME="\"$NAME\"" \
+    $GAME_OBJECTS lib/pseudo/*.c lib/desktop/*.c \
     "$R/lib/libraylib.a" -lGL -lm -lpthread -ldl -lrt -lX11 \
     -o "$OUT/$NAME"
 echo "built $OUT/$NAME"

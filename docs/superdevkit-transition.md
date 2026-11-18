@@ -185,6 +185,9 @@ own, reached through `debugAction`).
 
 - `web` as a target of the CLI with `emcc` and raylib's web build; `lib/web`: the page, the click
   to start (sound and keyboard focus need a click in the browser), save RAM in IndexedDB.
+- The game is compiled on its own as on the desktop (ADR record 34, `tools/build_desktop.sh`):
+  `-nostdinc` with dampf's include folder, then `tools/check_game_symbols.py` on its objects
+  (`emcc` writes LLVM objects; `llvm-nm` reads them) before the link.
 - `superdevkit run web` serves the build on a local port and opens the browser.
 - The examples in the browser; Blubber Blasen's web build from the kit, and then the game drops
   `src/snes`, `src/platform` and its web build: its folder holds its game, its assets, its debug
