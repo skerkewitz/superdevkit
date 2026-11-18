@@ -71,7 +71,7 @@ public final class NaiveCodeGen {
     /** Where globals() and frames() write: the RAM part, or the block of one ROM object. */
     private AsmWriter asm;
     /** One block of assembly per banked segment (a function, or a constant object in ROM). */
-    private final List<String> banked = new ArrayList<>();
+    private final List<AsmWriter> banked = new ArrayList<>();
     /** The function whose block contains the entry point. */
     private int entryBlock = -1;
     private final Map<String, List<String>> sourceLines = new HashMap<>();
@@ -124,14 +124,13 @@ public final class NaiveCodeGen {
             if (f.isDefined() && !replaced.contains(f.name())) {
                 AsmWriter code = new AsmWriter();
                 function(f, code);
-                String text = code.toString();
                 if (code.unknownInstructions() > 0) {
                     throw new IllegalStateException("the cycle table does not know an instruction in " + f.name());
                 }
                 if (f == entry) {
                     entryBlock = banked.size();
                 }
-                banked.add(text);
+                banked.add(code);
             }
         }
         AsmWriter ram = new AsmWriter();
@@ -145,7 +144,8 @@ public final class NaiveCodeGen {
             AsmWriter w = new AsmWriter();
             prelude(w, m, chunks);
             if (m == 0) {
-                w.raw(ram.toString());
+                w.append(ram);
+                w.blank();   // (as when the text was copied in)
             }
             for (int i = m * SEGMENTS_PER_MODULE; i < Math.min(banked.size(), (m + 1) * SEGMENTS_PER_MODULE); i++) {
                 if (i == entryBlock) {
@@ -153,7 +153,8 @@ public final class NaiveCodeGen {
                     w.raw("        .export dampf_entry");
                     w.raw("dampf_entry = " + entry.label() + "             ; the runtime calls this after start-up");
                 }
-                w.raw(banked.get(i));
+                w.append(banked.get(i));
+                w.blank();
             }
             modules.add(w.toString());
         }
@@ -245,7 +246,7 @@ public final class NaiveCodeGen {
             asm.raw(v.label() + ":" + pad("", Math.max(1, 27 - v.label().length())) + "; " + what);
             data(v.type().size(), init == null ? List.of() : init.items());
             if (v.inRom()) {
-                banked.add(asm.toString());
+                banked.add(asm);
                 asm = ram;
             }
         }

@@ -73,7 +73,7 @@ public final class MirCodeGen {
     private final Map<String, List<MFunction>> callees = new HashMap<>();
     private int frameTotal;
 
-    private final List<String> banked = new ArrayList<>();
+    private final List<AsmWriter> banked = new ArrayList<>();
     private int entryBlock = -1;
     private final Map<String, List<String>> sourceLines = new HashMap<>();
     private final Map<String, Path> sourceFiles = new LinkedHashMap<>();
@@ -211,7 +211,7 @@ public final class MirCodeGen {
             if (f == entryFunction) {
                 entryBlock = banked.size();
             }
-            banked.add(code.toString());
+            banked.add(code);
         }
         AsmWriter ram = new AsmWriter();
         globals(ram);
@@ -222,7 +222,8 @@ public final class MirCodeGen {
             AsmWriter w = new AsmWriter();
             prelude(w, m, chunks);
             if (m == 0) {
-                w.raw(ram.toString());
+                w.append(ram);
+                w.blank();   // (as when the text was copied in)
             }
             for (int i = m * SEGMENTS_PER_MODULE; i < Math.min(banked.size(), (m + 1) * SEGMENTS_PER_MODULE); i++) {
                 if (i == entryBlock) {
@@ -230,7 +231,8 @@ public final class MirCodeGen {
                     w.raw("        .export dampf_entry");
                     w.raw("dampf_entry = " + entry + "             ; the runtime calls this after start-up");
                 }
-                w.raw(banked.get(i));
+                w.append(banked.get(i));
+                w.blank();
             }
             modules.add(w.toString());
         }
@@ -608,7 +610,7 @@ public final class MirCodeGen {
             w.raw(g.symbol() + ":");
             data(w, g);
             if (g.readOnly()) {
-                banked.add(w.toString());
+                banked.add(w);
             }
         }
     }

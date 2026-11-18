@@ -1,12 +1,20 @@
 package dampf.backend;
 
+import dampf.lir.LDirective;
+import dampf.lir.LInstr;
+import dampf.lir.LLabel;
+import dampf.lir.LParser;
+import dampf.lir.LPrinter;
+import dampf.lir.LSourceLine;
+import dampf.lir.LUnit;
 import dampf.target.Cycles65816;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Writes ca65 source with aligned operands and comments, and the CPU cycles of every instruction
- * in a column on the right ({@link Cycles65816}; a conditional branch shows "not taken/taken").
+ * Collects what a code generator writes as LIR ({@link LUnit}); {@link LPrinter} turns it into
+ * ca65 source with aligned operands and comments, and the CPU cycles of every instruction in a
+ * column on the right ({@link Cycles65816}; a conditional branch shows "not taken/taken").
  *
  * <p>It follows the accumulator width through the code ({@code SEP/REP #$20}; index registers are
  * always 16 bit in dampf's code). A C line started with {@link #sourceHeader} gets the sum of its
@@ -15,15 +23,11 @@ import java.util.List;
  * docs/timing.md). Calls count only the call itself and are marked "+ calls".
  */
 final class AsmWriter {
-    private static final int OPERAND_COLUMN = 16;
-    private static final int COMMENT_COLUMN = 36;
-    private static final int CYCLE_COLUMN = 92;
-
-    private final List<String> lines = new ArrayList<>();
+    private final LUnit unit = new LUnit();
     private boolean m16 = true;
 
     // the C line being written
-    private int header = -1;
+    private LSourceLine header;
     private int lineCycles;
     private boolean lineBranches;
     private boolean lineCalls;
@@ -90,36 +94,21 @@ final class AsmWriter {
 
     /** An instruction; {@code operand} and {@code comment} may be null. */
     void ins(String mnemonic, String operand, String comment) {
-        StringBuilder line = new StringBuilder("        ").append(mnemonic);
-        if (operand != null) {
-            pad(line, OPERAND_COLUMN);
-            line.append(operand);
-        }
-        if (comment != null) {
-            pad(line, COMMENT_COLUMN);
-            line.append("; ").append(comment);
-        }
-        int op = Cycles65816.opcode(mnemonic, Cycles65816.mode(mnemonic, operand));
-        if (op >= 0 && (Cycles65816.isConditionalBranch(op) || mnemonic.equals("bra"))) {
+        LInstr in = new LInstr(mnemonic, operand, comment, m16);
+        int op = in.opcode();
+        if (op >= 0 && in.isShortBranch()) {
             shortBranches.add(new Object[] {position, operand});
         }
-        if (op >= 0) {
-            position += Cycles65816.length(op, m16, true);
-        }
-        String cycles;
+        position += in.length();
         if (op < 0) {
             unknown++;
-            cycles = "?";
             items.add(new Item(mnemonic, operand, 0, 0, false, null));
-        } else if (Cycles65816.isConditionalBranch(op)) {
-            cycles = Cycles65816.cycles(op, m16, true, false) + "/" + Cycles65816.cycles(op, m16, true, true);
+        } else if (in.isConditionalBranch()) {
             lineBranches = true;
-            items.add(new Item(mnemonic, operand, Cycles65816.cycles(op, m16, true, false),
-                    Cycles65816.cycles(op, m16, true, true), true, null));
+            items.add(new Item(mnemonic, operand, in.cycles(), in.cyclesTaken(), true, null));
         } else {
-            int c = Cycles65816.cycles(op, m16, true, false);
+            int c = in.cycles();
             items.add(new Item(mnemonic, operand, c, c, false, null));
-            cycles = Integer.toString(c);
             lineCycles += c;
             if (mnemonic.equals("jmp") || mnemonic.equals("bra") || mnemonic.equals("jml")) {
                 lineBranches = true;
@@ -128,13 +117,7 @@ final class AsmWriter {
                 lineCalls = true;
             }
         }
-        if (comment == null) {
-            pad(line, COMMENT_COLUMN);
-            line.append(';');
-        }
-        pad(line, CYCLE_COLUMN);
-        line.append(" ".repeat(Math.max(0, 5 - cycles.length()))).append(cycles);
-        lines.add(line.toString());
+        unit.add(in);
         if ((mnemonic.equals("sep") || mnemonic.equals("rep")) && operand != null && operand.equals("#$20")) {
             m16 = mnemonic.equals("rep");
         }
@@ -143,31 +126,41 @@ final class AsmWriter {
     /** Starts a C line: its header comment, which gets the line's cycles when the line is done. */
     void sourceHeader(String text) {
         finishLine();
-        header = lines.size();
-        lines.add(text);
+        header = new LSourceLine(text);
+        unit.add(header);
     }
 
     void label(String name) {
         labelAt.put(name, position);
         items.add(new Item(null, null, 0, 0, false, name));
-        lines.add(name + ":");
+        unit.add(new LLabel(name));
         lineBranches = true; // a label inside a line: something jumps here
     }
 
-    /** A line written as is. */
+    /** A directive, data or comment line, written as ca65 source (read into LIR by {@link LParser}). */
     void raw(String text) {
-        lines.add(text);
+        unit.add(LParser.line(text, m16));
     }
 
     /** A comment indented like an instruction. */
     void note(String text) {
-        StringBuilder line = new StringBuilder();
-        pad(line, COMMENT_COLUMN);
-        lines.add(line + "; " + text);
+        unit.add(LDirective.note(text));
     }
 
     void blank() {
-        lines.add("");
+        unit.add(LDirective.BLANK_LINE);
+    }
+
+    /** Appends what another writer wrote. */
+    void append(AsmWriter other) {
+        other.finishLine();
+        unit.addAll(other.unit);
+    }
+
+    /** What was written, as LIR (the cost of the last C line is set). */
+    LUnit unit() {
+        finishLine();
+        return unit;
     }
 
     int unknownInstructions() {
@@ -175,29 +168,18 @@ final class AsmWriter {
     }
 
     private void finishLine() {
-        if (header >= 0 && !lineBranches && lineCycles > 0) {
-            StringBuilder h = new StringBuilder(lines.get(header));
-            pad(h, CYCLE_COLUMN - 12);
-            h.append("[ ").append(lineCycles).append(" cyc").append(lineCalls ? " + calls" : "").append(" ]");
-            lines.set(header, h.toString());
+        if (header != null && !lineBranches && lineCycles > 0) {
+            header.setCycles(lineCycles, lineCalls);
         }
-        header = -1;
+        header = null;
         lineCycles = 0;
         lineBranches = false;
         lineCalls = false;
     }
 
-    private static void pad(StringBuilder line, int column) {
-        line.append(" ".repeat(Math.max(1, column - line.length())));
-    }
-
     @Override
     public String toString() {
         finishLine();
-        StringBuilder out = new StringBuilder();
-        for (String l : lines) {
-            out.append(l).append('\n');
-        }
-        return out.toString();
+        return LPrinter.print(unit);
     }
 }
