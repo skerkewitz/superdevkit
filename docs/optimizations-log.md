@@ -865,3 +865,4 @@ them: play 326,596 (0.91 frames), play with the CPU partner 528,446, all ticks 3
 | --- | --- | --- | --- | --- |
 | B2: branch relaxation on LIR | 326,592 | 528,440 | 316,983 | A few long branches that reach now get the short form; the passes before stopped early in those places. |
 | B4: dead stores as a LIR pass | 325,572 | 527,421 | 316,359 | Stores to a function's own value places that no path reads afterwards go (byte-wise liveness over the blocks), on top of the stores the passes already left out. No function of the game or the tests got slower. |
+| B3b: redundant loads as a LIR pass | 324,897 | 527,103 | 316,042 | Loads of what A, X or Y holds on every way in go (an `LDA` whose N and Z a branch reads becomes `CMP #0`), found by the data flow analysis over the code the passes keep; the passes assume less than it finds at loop heads and labels inside blocks. 50 functions of the tests and the game faster, none slower. |

@@ -4,6 +4,7 @@ import dampf.frontend.CompileError;
 import dampf.frontend.SourcePos;
 import dampf.lir.BranchRelax;
 import dampf.lir.DeadStores;
+import dampf.lir.RedundantLoads;
 import dampf.lir.LBlock;
 import dampf.lir.LFunction;
 import dampf.lir.RegContents;
@@ -195,8 +196,11 @@ public final class MirCodeGen {
             if (trackEntries) {
                 checkEntries(code.function());
             }
-            // stores no path reads; then the code is shorter, so more branches may reach
-            if (new DeadStores(FRAME, ownValueBytes(f)).run(code.function()) > 0) {
+            // loads of what a register holds on every way in, then stores no path reads; then the
+            // code is shorter, so more branches may reach
+            int removed = new RedundantLoads(FRAME).run(code.function());
+            removed += new DeadStores(FRAME, ownValueBytes(f)).run(code.function());
+            if (removed > 0) {
                 BranchRelax.run(code.function());
             }
             Map<String, String> renamed = dampf.lir.LocalLabels.renumber(code.function(), "@L");
