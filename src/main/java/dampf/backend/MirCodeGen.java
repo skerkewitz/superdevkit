@@ -580,7 +580,7 @@ public final class MirCodeGen {
             }
             b = next;
         }
-        rotateLoops(order);
+        rotateLoops(f, order);
         if (counts != null) {
             List<Block> cold = new ArrayList<>();
             for (Block x : order) {
@@ -604,22 +604,18 @@ public final class MirCodeGen {
      * jumps back to it: that block falls through into the test, and the test branches back into
      * the loop. Per round one branch instead of a jump and a branch.
      */
-    static void rotateLoops(List<Block> order) {
+    static void rotateLoops(MFunction f, List<Block> order) {
+        // the latch of each loop head: the one block with the edge back to it
+        Map<Block, List<Block>> latches = new HashMap<>();
+        for (dampf.mir.Loops.Loop loop : dampf.mir.Loops.find(f)) {
+            latches.put(loop.head(), loop.latches());
+        }
         for (Block h : List.copyOf(order)) {
             if (h == order.getFirst() || !(h.terminator() instanceof Instr.Branch) || !onlyTest(h)) {
                 continue;
             }
-            int at = order.indexOf(h);
-            Block latch = null;
-            for (Block p : h.preds()) {
-                if (order.indexOf(p) > at) {
-                    if (latch != null || !(p.terminator() instanceof Instr.Jump)) {
-                        latch = null;
-                        break;
-                    }
-                    latch = p;
-                }
-            }
+            List<Block> back = latches.getOrDefault(h, List.of());
+            Block latch = back.size() == 1 && back.getFirst().terminator() instanceof Instr.Jump ? back.getFirst() : null;
             if (latch == null || order.indexOf(latch) + 1 < order.size() && order.get(order.indexOf(latch) + 1) == h) {
                 continue;
             }
