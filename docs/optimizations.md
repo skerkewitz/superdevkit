@@ -113,6 +113,10 @@ allowed (the platform layer uses them); this form does not need the rule against
   0..254, which is not one. In a test it even cost (an 8-bit `INC` inside an 8-bit stretch that
   exists anyway is cheaper than a 16-bit one). Left out; it needs unsigned ranges for bytes, or
   byte loop counters widened to 16 bits, for about 0.3 %.
+- Inlining larger functions with a single call site (2026-11-18): raising that limit from 150
+  instructions to 200 made play slower (290,433 → 294,651 master clocks per tick), to 400 slower
+  still (297,979), although no call is copied. Large inlined bodies make the caller's frame
+  larger, so fewer of its values get a place in the direct page. The limit stays at 150.
 - Jump tables for `switch` (considered, 2026-11-18): a table dispatch (subtract, range check,
   `ASL`, `TAX`, `JMP (table,X)`) costs about 24 cycles, as much as the chain of compares over three
   to four cases, needs X, and gives the timing analysis an indirect jump. The game's switches are
