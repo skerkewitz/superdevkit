@@ -9,15 +9,16 @@ work in the vertical blank and a safety margin come off that; how many CPU cycle
 on [Exact timing](/inside/timing). The game's benchmark runs the same game code with a fixed
 input for 3,610 ticks and measures every tick.
 
-During play, the code dampf now generates takes 0.91 frames per tick (worst tick 1.60) with
+During play, the code dampf now generates takes 0.79 frames per tick (worst tick 1.42) with
 FastROM, which is the default: the ROM read at 3.58 MHz instead of 2.68 MHz. These figures were
 measured on 2026-11-18. The figures on this page before FastROM were measured at SlowROM speed,
 where dampf's code took 1.31 (worst 2.25) when FastROM came. dampf's own
 [naive code generator](/glossary#naive-code-generator) takes 4.37 frames per tick (worst 7.26)
-for the same code, 4.8 times as long. Against [Calypsi](/glossary#calypsi), on the same version
-of the game and with FastROM for both, dampf is 1.81 times as fast: in the play ticks where both
-play the same scene, Calypsi takes 1.42 frames per tick and dampf 0.79. dampf is past Calypsi,
-but still about 1.5 times away from the budget. This page explains, pass by pass, where that
+for the same code, about 5.5 times as long. Against [Calypsi](/glossary#calypsi), on the same
+version of the game and with FastROM for both, dampf is 1.81 times as fast: in the play ticks
+where both play the same scene, Calypsi takes 1.42 frames per tick and dampf 0.79, measured
+before the last steps under [The measurements](#the-measurements). dampf is past Calypsi, but
+still about 1.3 times away from the budget. This page explains, pass by pass, where that
 speed comes from.
 
 ## Why the 65816 needs a different optimizer
@@ -51,10 +52,10 @@ Each [pass](/glossary#pass) reads MIR, dampf's intermediate form in [SSA](/gloss
 and writes better MIR. `dampf.mir.Optimizer` runs them on every function in a fixed order,
 round after round, until a round changes nothing (at most 20 rounds). It then gives parameters
 the ranges their arguments have at every call and, if that narrowed any, runs the rounds again.
-Then it inlines small functions and compresses pointer parameters, and if either changed
-anything, it runs the rounds again, followed by both parameter passes once more. Scheduling
-comes last. Every pass is exact: it changes how a value is computed, never
-the value.
+Then it inlines small functions, running the rounds on a function as soon as something was
+inlined into it, and compresses pointer parameters; if either changed anything, it runs the
+rounds again, followed by both parameter passes once more. Scheduling comes last. Every pass
+is exact: it changes how a value is computed, never the value.
 
 `dampf mir file.c` prints the MIR as it comes from the lowering, `dampf mir -O file.c` after
 the passes; the examples below are their output.
@@ -65,16 +66,16 @@ catalogue. The letters map to this page as follows:
 | Letter | Optimization | Where it is built |
 | --- | --- | --- |
 | A | Static frames in the direct page | code generator: frames, shared places |
-| B | Width analysis (8/16 bit) | `Narrow`, `RangeNarrow`; full `REP`/`SEP` tracking not built |
+| B | Width analysis (8/16 bit) | `Narrow`, `RangeNarrow`, `ByteStretches`; full `REP`/`SEP` tracking not built |
 | C | Inlining and calling convention | `Inline`; parameters in registers not built |
 | D | Data layout (one array per field) | not built |
 | E | 8.8 fixed point as byte accesses | `ByteLoads`; `<<8` not built |
 | F | Loops | `Induction`, `Licm`, loop counters in X, loop rotation; unrolling not built |
-| G | Branches | compare and branch, `BitSelect`, block layout (also by a profile), short branches, `BRA` |
+| G | Branches | compare and branch, `BitSelect`, `RangeChecks`, block layout (also by a profile), short branches, `BRA` |
 | H | Standard optimizations | `Simplify`, `Gvn`, `DeadCode`; loop-invariant code under F |
 | I | Multiply and divide | `StrengthReduce`, multiplication in A; hardware multiplier not built |
 | J | Banks and placement | FastROM for all code and constant data, registers at constant addresses |
-| K | Peephole | in the code generator: `STZ`, `INC`/`DEC`, and a few more |
+| K | Peephole | in the code generator: `STZ`, `INC`/`DEC`; on LIR: `Peephole`, `KnownCarry` |
 | L | `switch` as jump table | not built |
 | M | Copy and fill with `MVN`/`MVP` or DMA | not built |
 | N | Values in X/Y | loop counters in X, a second index in Y, loop-invariant indexes in Y |
@@ -104,6 +105,57 @@ code generator then compares with an immediate operand directly. In the example 
 Together with `Gvn` and an extension of `Narrow` through φs, it took play from 6.12 to 5.17
 frames per tick. The canonical comparisons, together with a change in the code generator, took
 it from 1.93 to 1.76, and jump threading over constant φs from 1.74 to 1.67.
+
+### RangeChecks
+
+In MIR, `||` is control flow: `x == 2 || x == 3` is a block that branches on `x == 2`, and a
+second block that does nothing but branch on `x == 3` to the same target. `RangeChecks` makes
+the two one test of an interval, as LLVM's InstCombine does: `(x - 2) <u 2`, the difference
+compared unsigned. Where the values are an aligned block of a power of two, as 2 and 3 are, it
+writes `(x & ~1) == 2` instead. On the 65816 that is one load and compare instead of a second
+block with its own load, compare and often a jump. Longer chains merge step by step, and `!=`
+with `&&` is the same with the branches swapped.
+
+```c
+#include <stdint.h>
+
+uint8_t floating_count;
+
+void count_floating(uint8_t state) {
+    if (state == 2 || state == 3) {
+        floating_count++;
+    }
+}
+```
+
+Before the passes, two blocks test `state`:
+
+```
+b0_entry:
+    %0 = zext i8 %state to i32                  ; floating.c:6
+    %1 = cmp eq i32 %0, 2                       ; floating.c:6
+    br %1, b1_then, b3_or                       ; floating.c:6
+; ...
+b3_or:                    ; from b0_entry
+    %6 = zext i8 %state to i32                  ; floating.c:6
+    %7 = cmp eq i32 %6, 3                       ; floating.c:6
+    br %7, b1_then, b2_endif                    ; floating.c:6
+```
+
+After them, one mask and one comparison:
+
+```
+b0_entry:
+    %0 = and i8 %state, -2                      ; floating.c:6
+    %1 = cmp eq i8 %0, 2                        ; floating.c:6
+    br %1, b1_then, b2_endif                    ; floating.c:6
+```
+
+`state == 3 || state == 4`, not an aligned block, becomes `sub i8 %state, 3` and
+`cmp ult i8 %0, 2`. Blubber Blasen has this test in `floating()`, which `separate` asks for
+every pair of bubbles; 13 chains merged. The subtraction took play from 324,844 to 324,256
+master clocks per tick, the mask later from 309,008 to 306,298: its `#$00FE` also clears the
+high byte of the 16-bit load, so the `SEC`, the `SBC` and the byte mask go.
 
 ### BitSelect
 
@@ -457,10 +509,12 @@ The sources give no separate measurement for it.
 ### Inline
 
 A call costs about 30 cycles besides the work: `JSL` and `RTL`, the arguments copied into the
-callee's frame, the result copied back. `Inline` copies functions of at most 30 MIR instructions,
+callee's frame, the result copied back. `Inline` copies functions of at most 60 MIR instructions,
 and functions with a single call site of at most 150, into their callers, as long as a caller
 stays below 1,500. It works bottom-up, leaves first; the call graph has no cycles, because the
-subset has no recursion. Then the passes run again and see both sides of the call.
+subset has no recursion. A function that something was inlined into goes through the rounds of
+passes before its own callers decide, so its size is that of the simplified body, as in LLVM's
+inliner. Then the passes run again and see both sides of the call.
 
 ```c
 #include <stdint.h>
@@ -506,6 +560,13 @@ fewer byte masks, jump threading); together they took
 play from 2.72 to 2.55 frames per tick. The frames of the whole game grew from 214 to 410
 bytes.
 
+Measuring sizes on the simplified bodies took play from 306,298 to 301,962 master clocks per
+tick: the game's `ground_px`, 29 instructions once simplified, had counted as more than the old
+limit of 30 and is now inlined at all its 58 call sites. Raising that limit from 30 to 60 took
+play to 290,433, and the game's code from 99,925 to 113,859 bytes. At 80, the benchmark no
+longer matches the PC build: the larger inlining exposes a function the code generator gets
+wrong, so the limit stays at 60 until that bug is found.
+
 ### PointerParams
 
 A pointer parameter that every call fills with a pointer into the same global object becomes a
@@ -530,14 +591,15 @@ The [code generator from MIR](/glossary#code-generator-from-mir) does more than 
 instruction at a time. It selects the instructions of each function once, as
 [LIR](/glossary#lir): 65816 instructions in basic blocks, with the accumulator width each runs
 in. Passes on the LIR (`dampf.lir`) then remove loads of what a register holds
-(`RedundantLoads`, `IndexInY`) and stores nobody reads (`DeadStores`), choose the branch forms
+(`RedundantLoads`, `IndexInY`), apply peephole rules (`Peephole`), run short 16-bit stretches
+between byte stores in 8 bits (`ByteStretches`), drop a `CLC` or `SEC` where the carry is known
+(`KnownCarry`), remove stores nobody reads (`DeadStores`), choose the branch forms
 (`BranchRelax`) and number the local labels (`LocalLabels`). The loop of the
 [Induction](#induction) example comes out like this, without the comment and debug lines:
 
 ```asm
 b2_body:
         lda     _bubbles,x          ;                                                           6
-        clc                         ;                                                           2
         adc     #$0001              ;                                                           3
         sta     _bubbles,x          ;                                                           6
         txa                         ;                                                           2
@@ -550,8 +612,8 @@ b1_for:
 ```
 
 The offset lives in X for the whole loop and is all that is left of the counter, the comparison
-branches on the flags, and the loop test sits after the body. What
-each of these is:
+branches on the flags, and the loop test sits after the body. The first `ADC` has no `CLC`:
+the body is reached only by the `BCC`, so the carry is clear there. What each of these is:
 
 - **Frames in the direct page.** dampf has no recursion, so the frames form a compiled stack: a
   function's frame starts after the frames of all the functions it calls. The leaves of the call
@@ -607,7 +669,10 @@ each of these is:
   for `< 0` or `>= 0` is the sign flag of the load (`bmi`/`bpl`). Play 5.17 to 4.48. Later also
   where the value is already in A: the code generator follows whether N and Z still describe
   it (loads and arithmetic set that, stores and jumps keep it, `ldx`, `cmp`, a call or a label
-  clears it), and writes `cmp #0` only if not. Play 1.10 to 1.08.
+  clears it), and writes `cmp #0` only if not. Play 1.10 to 1.08. The `Peephole` pass on LIR
+  also removes a `CMP #0` right after an instruction that set N and Z from A in the same width,
+  where the carry it sets is not read: mostly the case `0` of a `switch` after a load. Play
+  284,286 to 283,728 master clocks per tick.
 - **X for indices.** A load or store at a global plus a 16-bit index that the value ranges show
   to be non-negative is `ldx` and `lda symbol+constant,x`: no pointer is computed. A negative
   index would carry into the bank, because X adds as an unsigned number. Where X holds another
@@ -645,9 +710,15 @@ each of these is:
 - **Shifts.** Shifts by a constant up to 8 are written out instead of looping; shifts by 8 or
   more of a 16-bit value start with `XBA`, which swaps the bytes of A.
 - **Block layout.** Blocks are written in chains, each followed by a successor not yet written,
-  so most branches skip one jump instead of choosing between two. A small loop head is placed
-  after the block that jumps back to it, so a round costs one branch instead of a jump and a
-  branch. With block counts from a profile
+  so most branches skip one jump instead of choosing between two. Without a profile, the
+  successor that leads to the next round of one of the block's loops comes first (as in Ball and
+  Larus' loop heuristic, so a filter loop's `continue` falls through), then one that only this
+  block reaches (the next test of an `||`), then the true side of the branch: a block with other
+  ways in needs a jump from somewhere anyway. Play 286,947 to 284,286 master clocks per tick. A
+  small loop head is placed after the block that jumps back to it, which the loop analysis
+  names, so a round costs one branch instead of a jump and a branch; taking that block from the
+  loop analysis instead of from the order took play from 283,728 to 282,498. With block counts
+  from a profile
   ([`--block-counts`](/reference/command-line#block-counts)), the successor that ran more often
   follows, and blocks that never ran go to the end of the function, so the code that runs stays
   together and its branches reach. Only the order follows the counts, so counts of other code
@@ -659,7 +730,11 @@ each of these is:
   its target in the code of the round before, until nothing changes. Shorter code only brings
   targets closer, so a branch that reached once keeps reaching. It runs after the other LIR
   passes, whose shorter code lets more branches reach. A jump that reaches its block is `BRA`,
-  as fast as `JMP` and one byte shorter, so more branches reach. Play 1.48 to 1.47.
+  as fast as `JMP` and one byte shorter, so more branches reach. Play 1.48 to 1.47. A branch
+  over a jump becomes one inverted branch to the jump's target anywhere in a block, not only at
+  its end, and a `switch` writes its jumps the same way: a matching case is a taken `BEQ`
+  (3 cycles) instead of a `BNE` not taken and a `JMP` (5). Play 322,222 to 321,043 master clocks
+  per tick.
 - **`INC` and `DEC`.** A step `x + 1` or `x - 1` whose result goes back to the place of `x`,
   such as a loop counter, is `INC` or `DEC` on the place: 7 cycles instead of 13 for `CLC`,
   `LDA`, `ADC`, `STA`. It needs `x` really stored there, not only handed on in A. Play 1.47
@@ -672,6 +747,32 @@ each of these is:
   long or through a pointer) is `STZ` instead of `LDA #0` and `STA`, and so is a zero a φ gets,
   unless A holds 0 already. In the [PointerOffsets](#pointeroffsets) example, `o[0] = 0` is
   `stz _oam,x`. Play 1.43 to 1.41.
+- **Peephole rules.** `Peephole` replaces a few instructions in a row within a block by cheaper
+  ones. `STA p` followed by `LDX p` becomes `STA p` and `TAX` (and `LDY` becomes `TAY`), 2 cycles
+  instead of 3 or 4; if nothing reads `p` afterwards, `DeadStores` removes the store. Play
+  321,043 to 318,591 master clocks per tick. `LSR A` k times and then `ASL A` m times, m > k,
+  becomes an `AND` with a mask and m - k shifts (`(slot >> 3) << 5` in the game's
+  `build_sprites`: 7 cycles instead of 16); `REP #$20` and `SEP #$20` where A was 8 bit before
+  both go; `LDA x`, `XBA`, `AND #$00FF` becomes `LDA x+1`, `AND #$00FF`. Play 318,591 to 316,639.
+- **The carry where it is known.** `KnownCarry` follows the carry over the blocks: a branch on
+  the carry tells it on both ways, `CLC` and `SEC` set it, arithmetic, compares, shifts and
+  calls make it unknown. A `CLC` where it is clear already goes, likewise a `SEC` where it is
+  set; the typical case is `CMP #n` and `BCC body`, then `CLC` and `ADC` in the body, as in the
+  loop above. 313 of the game's 1,488 `CLC` go. Play 316,639 to 315,047.
+- **8-bit stretches.** In `SEP #$20`, `STA o,Y`, `REP #$20`, `LDA x`, `SEC`, `SBC #1`,
+  `SEP #$20`, `STA o+1,Y`, only the low byte of the stretch between `REP` and `SEP` is stored,
+  so `ByteStretches` removes the pair and computes the stretch in 8 bits (`SBC #$01`). Every
+  instruction allowed in the stretch gives the same low byte in 8 bits; stores, right shifts,
+  compares, `XBA`, `TAX`, calls, a carry from inside the stretch and loads of hardware registers
+  are not allowed, and no flag or high byte of A it leaves behind may be read afterwards. 417 of
+  the game's 1,576 `REP #$20` go. Play 290,433 to 286,947.
+- **Pointer sums where they are needed.** `Item *it = &g_items[i]` in a loop is a sum of a
+  global and an index; its loads and stores are addressed with the index in X or Y, and the sum
+  itself is never computed. But one call that takes `&it->x`, on a rare way through the loop,
+  made the code generator compute the whole pointer, bank word included, in every round. Just
+  before code generation, `PointerRemat` gives each use of such a sum's value its own copy of
+  the sum, right before the use; never in a loop the original is not in, and never for a φ. The
+  original then only addresses loads and stores. Play 315,047 to 309,008.
 
 ## Value ranges
 
@@ -683,6 +784,12 @@ whose other predecessors are all back edges gets the condition of the one edge t
 loop, because a value tested before the loop does not change inside it. A φ joins its incoming
 values. Loops are iterated until nothing changes, and a value whose interval keeps growing is
 widened to its type's whole range after 24 changes, so the iteration ends.
+
+A φ takes each incoming value with the condition of the edge it comes along: in
+`x < 0 ? -x : x`, the `x` comes along the edge where `x < 0` is false, so it is not negative
+there. With that, the absolute value of a difference of two bytes lies in 0..255, and the
+comparisons with it become unsigned; the game's signed comparisons (`EOR #$8000`) fell from 184
+to 160. Play went from 324,256 to 322,222 master clocks per tick.
 
 Widening overshoots: the counter of `for (i = 0; i < 768; i++)` passes 24 changes long before
 768 and got its type's whole range, which kept it from being narrowed and from indexing with X.
@@ -794,11 +901,40 @@ the LIR passes in place of the repeated writing, cost 312 clocks per tick in pla
 because selection no longer knew that Y held an index where a block starts; `IndexInY` won that
 back and more.
 
-The last row is also the current state, measured again on 2026-11-18. The other parts of the
-benchmark take 0.39 frames per tick on the title screen, 0.17 in the story and 1.39 in the round
-intro, and the whole benchmark 0.89. On the console, the playable ROM took 1.57 frames per tick
-during a minute of play; that includes waiting for the vertical blank and the platform layer, so
-it is not comparable with the benchmark.
+The steps after them were also measured on 2026-11-18 in dampf's emulator, one at a time, in
+master clocks per tick (357,366 make a frame):
+
+| Step | Play | Play, CPU partner |
+| --- | --- | --- |
+| before them | 324,844 | 527,096 |
+| neighbouring constants as one range check (`RangeChecks`) | 324,256 | 526,568 |
+| φ ranges with the conditions of their edges | 322,222 | 525,415 |
+| branch relaxation everywhere, switches too | 321,043 | 524,276 |
+| `STA p` / `LDX p` as `STA p` / `TAX` | 318,591 | 522,294 |
+| peephole rules for shifts, `REP`/`SEP`, high bytes | 316,639 | 520,629 |
+| no `CLC` where the carry is clear (`KnownCarry`) | 315,047 | 518,756 |
+| pointer sums where their value is needed (`PointerRemat`) | 309,008 | 512,257 |
+| range checks of aligned blocks as a mask | 306,298 | 509,646 |
+| functions simplified before their callers inline them | 301,962 | 504,774 |
+| inlining up to 60 instructions | 290,433 | 493,872 |
+| 8-bit stretches between byte stores (`ByteStretches`) | 286,947 | 490,828 |
+| block order: a successor only this block reaches | 286,244 | 490,087 |
+| block order: the way to the next round first | 284,286 | 486,715 |
+| no `CMP #0` where N and Z are set | 283,728 | 486,210 |
+| loop rotation by the loop's own latch | 282,498 | 484,490 |
+
+Together they took play from 0.91 to 0.79 frames per tick, 13 %. Measured outside the game, on
+dampf's execution tests and 50 random programs (master cycles of the whole program), the same
+steps took the execution tests from 6,223,446 to 6,164,334 (−0.9 %) and left the random
+programs where they were: their cycles go to the runtime's division routines, which no step
+touched. The general steps help elsewhere too, much less than in the game.
+
+The current state, measured on 2026-11-18 after these steps: play takes 0.79 frames per tick
+(worst 1.42), play with the CPU partner 1.36 (worst 3.03). The other parts of the benchmark take
+0.37 frames per tick on the title screen, 0.16 in the story and 1.41 in the round intro, and the
+whole benchmark 0.81. On the console, the playable ROM took 1.57 frames per tick during a minute
+of play, measured before these steps; that includes waiting for the vertical blank and the
+platform layer, so it is not comparable with the benchmark.
 
 The steps are cumulative: each row includes everything above it. Loop rotation is not in the
 table; it brought about 0.5 %, measured on the benchmark's bare loop (801 to 783 clocks per
@@ -830,7 +966,8 @@ part, at SlowROM speed:
 | dampf, code from MIR | 1,149 | 1.34 |
 | hand-written | 856 | 1.0 |
 
-With FastROM, measured on 2026-11-18, dampf's code takes 871 master clocks per call and the
+With FastROM, measured on 2026-11-18 before the last steps under
+[The measurements](#the-measurements), dampf's code takes 871 master clocks per call and the
 hand-written code 724: 1.20 times. The 816-tcc and Calypsi figures come from older runs on the
 game's side. On a small function
 like this one, Calypsi already comes close to hand-written code, and dampf is behind it there.

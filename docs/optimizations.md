@@ -32,7 +32,7 @@ Calypsi, `level_solid_px` and the console before them:
 | Play with the CPU partner | 1.36 average, worst tick 3.03 |
 | Title, story, round intro | 0.37, 0.16, 1.41 |
 | The whole benchmark | 0.81 |
-| dampf's naive code generator | play 4.37 (worst 7.26), with the CPU partner 5.58 (worst 10.53), also FastROM; 4.8 times as slow in play |
+| dampf's naive code generator | play 4.37 (worst 7.26), with the CPU partner 5.58 (worst 10.53), also FastROM; 5.5 times as slow in play |
 | Against Calypsi | 1.81 times as fast: in the play ticks where both play the same scene (711-812), FastROM for both, Calypsi 1.42 frames per tick, dampf 0.79 (`tools/bench_compilers.sh`; Calypsi drifts from the PC from tick 596 on, see [roadmap.md](roadmap.md#open-questions)) |
 | Against hand-written `level_solid_px` | 1.20 times the cycles: 871 against 724 master clocks per call, both FastROM (`REPLACE=` in `tools/bench_game.sh`) |
 | On the console (playable ROM) | 1.57 frames per tick during a minute of play (3,600 frames, 2,296 ticks), no byte lost in the vertical blank (`tools/check_game_rom.sh`). This includes waiting for the vertical blank and the platform layer, so it is not comparable with the benchmark |
@@ -49,16 +49,16 @@ entry.
 | # | Optimization | Status | Latest measured gain |
 | --- | --- | --- | --- |
 | A | Static frames in the direct page: locals, parameters and temporaries in fixed direct page places, shared between functions never active at the same time (the call graph is complete and has no recursion, [subset.md](subset.md)) | Partly. Frames as a compiled stack with the leaves in the direct page, places shared within a function by liveness, values every use takes from A not stored; open: the rest of register allocation | 386,306 → 379,855 ([values not stored](optimizations-log.md#values-not-stored-2026-11-17)) |
-| B | Width analysis (8/16 bit) and value ranges | Partly. Narrowing from the types, 16-bit pointer offsets, value ranges (see below), switches on bytes in 16 bits, 8 bit kept between a byte load and a byte store and across register accesses; open: full `REP`/`SEP` tracking | 379,855 → 370,620 ([switches on bytes](optimizations-log.md#switches-on-bytes-compare-16-bits-2026-11-17)) |
+| B | Width analysis (8/16 bit) and value ranges | Partly. Narrowing from the types, 16-bit pointer offsets, value ranges (see below), switches on bytes in 16 bits, 8 bit kept between a byte load and a byte store and across register accesses, short 16-bit stretches between byte stores in 8 bits (`ByteStretches`); open: full `REP`/`SEP` tracking | 379,855 → 370,620 ([switches on bytes](optimizations-log.md#switches-on-bytes-compare-16-bits-2026-11-17)) |
 | C | Inlining and calling convention | Partly. Inlining (`Inline`), arguments computed in the callee's parameter place, returns copied into each path; open: parameters in registers, tail calls | 370,620 → 364,829 ([returns copied](optimizations-log.md#returns-copied-into-each-path-2026-11-17)) |
 | D | Data layout: arrays of structs split into one array per field, or D pointed at the current object | Not built | |
 | E | 8.8 fixed point: the integer part as a byte access | Partly. A load shifted right by 8 or more is a byte load (`ByteLoads`); open: `<<8` | 1.49 → 1.48 ([byte loads for 8.8 values](optimizations-log.md#a-remembers-every-place-it-equals-byte-loads-for-88-values-2026-11-17)) |
 | F | Loops | Partly. Counters in X, induction variables, the loop test moved to the offset, `INC`/`DEC` steps, loop-invariant code (`Licm`), loop rotation; open: unrolling | 356,238 → 329,834, −7.4 % ([loop test on the offset](optimizations-log.md#the-loop-test-on-the-offset-2026-11-17)) |
-| G | Branches | Partly. Compare and branch in one, jump threading, short branches wherever they reach, `BRA` for near jumps, bit selections without a branch, rare blocks laid out by a profile (`--block-counts`) | 494,619 → 488,323 with a profile ([blocks by a profile](optimizations-log.md#blocks-laid-out-by-a-profile-2026-11-17)) |
+| G | Branches | Partly. Compare and branch in one, jump threading, short branches wherever they reach, `BRA` for near jumps, bit selections without a branch, tests against neighbouring constants as one range check (`RangeChecks`), the latch and single-predecessor successors laid out first, rare blocks laid out by a profile (`--block-counts`) | 494,619 → 488,323 with a profile ([blocks by a profile](optimizations-log.md#blocks-laid-out-by-a-profile-2026-11-17)) |
 | H | Standard optimizations: folding, identities, branch folding, block merging, value numbering, redundant loads, dead code | Built | 6.12 → 5.17 ([after H](optimizations-log.md#after-the-standard-optimizations-h-2026-11-17)) |
 | I | Multiply and divide | Partly. Constants as shifts and adds (in MIR for i32, in A for 8 and 16 bits), powers of two with C's signed rounding; open: the hardware multipliers | 2.29 → 2.07 ([multiplication in A](optimizations-log.md#arrays-indexed-with-x-multiplication-in-a-2026-11-17)) |
 | J | Banks and placement | Partly. All code and constant data in banks $80 and up at FastROM speed (`--slowrom` switches it off), registers at constant addresses as long addresses | 1.31 → 1.10 ([FastROM](optimizations-log.md#fastrom-2026-11-17)) |
-| K | Peephole | Partly. A remembers every place it equals, `INC`/`DEC` in place, `STZ`, no `CMP #0` where N and Z already describe A | 391,423 → 386,306 ([no `CMP #0`](optimizations-log.md#no-cmp-0-where-the-flags-are-set-2026-11-17)) |
+| K | Peephole | Partly. A remembers every place it equals, `INC`/`DEC` in place, `STZ`, no `CMP #0` where N and Z already describe A, `TAX` for a reload of a stored value, shifts as a mask, the high byte as a byte load (`Peephole`), no `CLC` where the carry is known clear (`KnownCarry`) | 391,423 → 386,306 ([no `CMP #0`](optimizations-log.md#no-cmp-0-where-the-flags-are-set-2026-11-17)) |
 | L | `switch` as a jump table (`JMP (abs,X)`) | Not built | |
 | M | Copy and fill with `MVN`/`MVP` or DMA | Not built | |
 | N | Values in X and Y | Partly. Loop counters in X (also next to an index in Y), a second index in Y, loop-invariant indexes in Y, the index through a pointer in Y (rows of 2D arrays included), what A, X and Y hold known across blocks | 329,834 → 326,596 ([index in Y](optimizations-log.md#a-pointer-plus-an-index-the-index-in-y-2026-11-17)) |
@@ -119,7 +119,7 @@ allowed (the platform layer uses them); this form does not need the rule against
 - Inlining larger functions with a single call site (2026-11-18): raising that limit from 150
   instructions to 200 made play slower (290,433 → 294,651 master clocks per tick), to 400 slower
   still (297,979), although no call is copied. Why is not clear: every frame access of the play
-  ticks still goes to the direct page. The limit stays at 150.
+  ticks still goes to the direct page. The limit for a single call site stays at 150.
 - `PointerRemat` for φ uses (2026-11-18): `best = v` in a loop keeps `v` computed in every round.
   Copying the chain to the end of the predecessor instead, with the condition that the chain
   then folds away completely (else the copy comes on top), made play slower (286,947 → 288,149
@@ -131,7 +131,7 @@ allowed (the platform layer uses them); this form does not need the rule against
   of a loop's test is the inside already.
 - Inlining up to 80 instructions (2026-11-18): play 282,246 master clocks per tick (from
   282,498), but the benchmark's checksums differ from the PC: the larger inlining makes a
-  function the code generator gets wrong. The limit stays at 60 until that bug is found
+  function the code generator gets wrong. The general limit stays at 60 until that bug is found
   ([roadmap.md](roadmap.md#open-questions)).
 - Jump tables for `switch` (considered, 2026-11-18): a table dispatch (subtract, range check,
   `ASL`, `TAX`, `JMP (table,X)`) costs about 24 cycles, as much as the chain of compares over three

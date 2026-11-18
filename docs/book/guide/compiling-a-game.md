@@ -175,21 +175,21 @@ build/install/dampf/bin/dampf profile build/profile/bench.sfc \
 The report starts like this (cut after twelve rows):
 
 ```
-11,355,896 instructions, 38,988,074 CPU cycles (measured stretch: 7,199,675,048 master clocks, 20146.5 frames)
-left out (bench.c): 96.5% of all CPU cycles
+9,780,436 instructions, 33,553,205 CPU cycles (measured stretch: 7,164,989,812 master clocks, 20049.4 frames)
+left out (bench.c): 96.9% of all CPU cycles
   share      calls  instructions      CPU cycles   cyc/call  function
-  15.7%        680     1,906,250       6,118,499      8,997  separate
-  12.9%        800     1,420,008       5,012,808      6,266  build_sprites
-   7.9%        680       900,669       3,092,424      4,547  bubbles_update
-   6.8%        800       727,513       2,653,277      3,316  bubbles_draw
-   4.7%      1,600       491,428       1,836,203      1,147  player_update
-   4.1%     12,008       501,885       1,616,178        134  ground_px
-   3.9%        800       428,164       1,507,796      1,884  enemies_draw
-   3.8%        680       444,386       1,483,240      2,181  items_update
-   3.5%        800       405,379       1,363,887      1,704  update_play
-   3.2%        800       395,695       1,250,837      1,563  items_draw
-   3.1%      1,501       334,418       1,221,713        813  think_walker
-   2.6%      2,892       319,620       1,006,524        348  level_wall_ahead
+  16.0%        680     1,627,151       5,359,747      7,881  separate
+  13.4%        800     1,273,700       4,491,428      5,614  build_sprites
+   8.4%        680       808,355       2,820,903      4,148  bubbles_update
+   7.4%        800       678,525       2,477,256      3,096  bubbles_draw
+   5.0%      1,501       484,912       1,681,578      1,120  think_walker
+   4.9%        800       480,719       1,650,717      2,063  update_play
+   4.5%      3,434       473,441       1,505,552        438  level_on_ground
+   4.3%        800       403,177       1,429,353      1,786  enemies_draw
+   4.2%      1,600       396,256       1,396,562        872  player_update
+   3.5%        680       358,415       1,188,671      1,748  items_update
+   3.4%        800       359,832       1,141,359      1,426  items_draw
+   2.6%        800       236,767         856,413      1,070  build_oam
 ```
 
 The first line sums up all functions that are not left out. The measured stretch in brackets
@@ -197,8 +197,8 @@ covers everything that ran, the harness included, also counted in [frames](/glos
 the second line says how much of it the harness took. Each row then gives the function's share
 of the cycles, how often it was called, its instructions, its CPU cycles and the cycles per
 call, the most expensive function first.
-The cycles per call tell a function that is cheap but called often, such as `ground_px`, from
-one that is expensive each time, such as `separate`. The runtime's routines, such as the
+The cycles per call tell a function that is cheap but called often, such as `level_on_ground`,
+from one that is expensive each time, such as `separate`. The runtime's routines, such as the
 multiplication, appear as `(runtime) dampf_mul16`.
 
 To see which kinds of instruction the cycles go to, add `--instructions` to `dampf profile`,
@@ -213,12 +213,12 @@ functions that are not left out (cut after six rows):
 
 ```
   share      executed      CPU cycles  instruction
-  14.1%     1,377,889       5,510,854  sta dp
-  12.1%     1,175,511       4,702,044  lda dp
-   8.1%       528,206       3,169,236  lda abs,x
-   7.6%       982,252       2,946,756  cmp #imm
-   5.8%       759,786       2,279,358  and #imm
-   4.0%       521,125       1,563,375  jmp abs
+  13.3%     1,115,206       4,460,122  sta dp
+  11.5%       972,720       3,849,241  lda dp
+   9.4%       527,536       3,154,608  lda abs,x
+   7.7%       858,098       2,574,294  cmp #imm
+   6.8%       759,273       2,277,819  and #imm
+   4.3%       557,814       1,446,852  bne
 ```
 
 Here about a quarter of the time goes to loading and storing variables in the

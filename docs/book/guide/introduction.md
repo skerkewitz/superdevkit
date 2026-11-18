@@ -100,22 +100,23 @@ representation, optimizes it and generates 65816 code from it. Parts of the fine
 have started early. M6 (an assembler and linker of its own) is done, ahead of M5 (publishing),
 which has not started.
 
-During play, Blubber Blasen's game logic takes 0.91 frames per tick with dampf, against 4.37
+During play, Blubber Blasen's game logic takes 0.79 frames per tick with dampf, against 4.37
 with the naive code generator (measured on 2026-11-18). Calypsi's 2.72 came from an older
 version of the game. On the same version, in the play ticks where both compilers play the same
-scene, both with FastROM, Calypsi takes 1.42 frames per tick and dampf 0.79: dampf is 1.81
-times as fast, so M3's goal of beating Calypsi is reached. The goal of 0.6 frames is not
-reached yet, and the compiler alone is not expected to reach it: the game is being made to do
-less work at the same time.
+scene, both with FastROM, Calypsi took 1.42 frames per tick and dampf 0.79: dampf was 1.81
+times as fast, so M3's goal of beating Calypsi is reached. That comparison was measured before
+the latest optimizations. The goal of 0.6 frames is not reached yet, and the compiler alone is
+not expected to reach it: the game is being made to do less work at the same time.
 
 dampf builds a playable ROM of the game. The SNES platform layer, written in C, implements the
 game's console API: the PVSnesLib-shaped calls the game makes, and the main loop. On the console
-the game runs at 1.57 frames per tick for now: a tick that needs more than one frame waits for
-the next vertical blank, and the benchmark leaves out what the game's video code costs on the
-hardware. Sound and save RAM are not built. Most of the hints are not built either. dampf
-computes a best and a worst case in CPU cycles for every function, and a function marked with
-`DAMPF_BUDGET` that goes over its cycle budget fails the build. The [Roadmap](/inside/roadmap)
-has the plan, and [Limits](/reference/limits) lists what dampf does not do yet.
+the game ran at 1.57 frames per tick before the latest optimizations: a tick that needs more
+than one frame waits for the next vertical blank, and the benchmark leaves out what the game's
+video code costs on the hardware. Sound and save RAM are not built. Most of the hints are not
+built either. dampf computes a best and a worst case in CPU cycles for every function, and a
+function marked with `DAMPF_BUDGET` that goes over its cycle budget fails the build. The
+[Roadmap](/inside/roadmap) has the plan, and [Limits](/reference/limits) lists what dampf does
+not do yet.
 
 ## Where to go next
 

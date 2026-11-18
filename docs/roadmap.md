@@ -47,10 +47,9 @@ zero ([optimizations.md](optimizations.md#tried-and-rejected)). The numbers foll
 | 11 | `<<8` as a byte store, `switch` as a jump table, `MVN` for copies, unrolling by hint | <1 % each | low to medium | Large locally, small on the whole game. |
 
 The order: register allocation (2), or the split of struct arrays (4) once its subset question is
-decided; then 3, 5 and 7. FastROM and rows 2 to 6 together might bring play to about 0.85-1.0
-frames per tick. The rest has to come from the game doing less work: the pair loop of `separate`
-(16 %) and the CPU partner ([game-findings.md](game-findings.md), finding 7), as the checkpoint
-after M2 concluded.
+decided; then 3, 5 and 7. The rest has to come from the game doing less work: the pair loop of
+`separate` (16 %) and the CPU partner ([game-findings.md](game-findings.md), finding 7), as the
+checkpoint after M2 concluded.
 
 Also open in M3:
 

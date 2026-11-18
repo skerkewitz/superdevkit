@@ -40,9 +40,10 @@ division, the standard optimizations, compare and branch in one,
 loops and call sites, values in the [direct page](/glossary#direct-page) instead of RAM,
 register allocation in the form the 65816 allows, induction variables, and
 [pointer compression](/glossary#pointer-compression) for pointers into a single object. With
-them, play of Blubber Blasen takes 0.91 frames per tick, against a goal of 0.6.
-That reaches M3's goal against Calypsi: on the same scene, dampf's code is 1.81 times as fast
-as Calypsi's. Why Calypsi's results drift away from the PC's from tick 596 on is still open.
+them, play of Blubber Blasen takes 0.79 frames per tick, against a goal of 0.6.
+M3's goal against Calypsi is reached: on the same scene, dampf's code was 1.81 times as fast
+as Calypsi's before the latest optimizations. Why Calypsi's results drift away from the PC's
+from tick 596 on is still open.
 The claim rests on one game and on dampf's subset, and 816-tcc, about 3.6 times slower than
 dampf, is no longer compared.
 The static timing analysis is built as well: a best and a worst case in CPU cycles for every
@@ -54,8 +55,9 @@ loop by hand; it is checked on the PC and costs nothing on the SNES. A cycle bud
 case, fails the build, and one above 90 % of it gets a warning. `DAMPF_TRIPS` is postponed.
 Still to come in M3: timing in master cycles and the costliest path per C line in the report
 and in the budget errors; more hand-written reference functions, and value ranges from array
-bounds. Of the two further levels of representation, LIR below MIR, 65816 code in basic blocks,
-is built; following the processor state across blocks and peephole rules are its next passes.
+bounds. Of the two further levels of representation, [LIR](/glossary#lir) below MIR, 65816
+code in basic blocks, is built; following the processor state across blocks and peephole
+rules are its next passes.
 HIR above MIR is open and not scheduled: MIR is lowered straight from the
 [AST](/glossary#ast). Declared subrange types are not scheduled either; they are built when a
 profile shows a hot value whose range dampf cannot infer.
@@ -84,7 +86,7 @@ optimization guided by the profiles of the replays (the first part, laying out t
 a profile's counts, is built), superoptimization of short hot sequences,
 and the hints that transform code, such as `DAMPF_TABLE` and `DAMPF_PIN_X`.
 
-**What is left, and in which order.** Play takes 0.91 frames per tick, and the goal is 0.6. The
+**What is left, and in which order.** Play takes 0.79 frames per tick, and the goal is 0.6. The
 table orders what is left in M3 and M4 by its likely gain on play, as the plan of 2026-11-17
 estimated it from the shares of a profile. The gains are estimates, not measurements, and
 several ideas that looked good measured nothing. The numbers follow that plan; the rows already
@@ -111,9 +113,8 @@ since the layout in memory then differs from the PC's. The block layout by a pro
 but only on request, because it needs a profile in the game's build.
 
 The order: register allocation (2), or the split of struct arrays (4) once its subset question
-is decided; then 3, 5 and 7. FastROM and rows 2 to 6 together might bring play to about 0.85
-to 1.0 frames per tick. The rest has to come from the game doing less work, in the pair loop
-of `separate` (16 % of play) and the CPU partner, as the checkpoint after M2 concluded.
+is decided; then 3, 5 and 7. The rest has to come from the game doing less work, in the pair
+loop of `separate` (16 % of play) and the CPU partner, as the checkpoint after M2 concluded.
 
 **M5 after that, and M6 done ahead of it.** M5 makes dampf ready to go public; it is described
 under [Publishing](#risks-and-open-questions) below. M6 was planned as the last step, because it
@@ -165,6 +166,11 @@ The main risks and how they are met:
 
 Open questions a user may run into:
 
+- **A miscompilation not yet found.** With functions of up to 80 instructions inlined instead
+  of the usual limit of 60, the game's benchmark differs from the PC in 56 of 3,610 ticks, from
+  tick 32 on. The optimized MIR is right, since its interpreter gives the PC's checksums, so an
+  older part of the code generator goes wrong on a function that the larger inlining makes. The
+  next step is to find that function and reduce it to an execution test.
 - **`goto`.** Forbid it entirely, or allow a restricted form that keeps the code structured.
 - **`restrict`.** Whether a no-alias hint of dampf's own is clearer than `restrict`, and how
   `restrict` is checked on the PC.
@@ -180,6 +186,11 @@ Open questions a user may run into:
   Blubber Blasen, its platform layer and the hand-written reference function leave the
   repository and dampf's own examples take over their jobs as test case and benchmark. They are
   also in the git history, so either the history is cleaned or the public repository starts
-  without it. dampf also gets its own C preprocessor, so that using it no longer needs gcc,
-  which users on Windows would otherwise install only for that. Hosting the repository and
-  putting the book online are part of M5 as well.
+  without it. The own examples become a set of benchmarks in different styles rather than one
+  busy scene, because every speed decision so far was measured on one game: the optimizations
+  of 2026-11-18 made play of Blubber Blasen 13 % faster, but the execution tests only 0.9 %,
+  and part of the gain comes from parameters chosen on this one game, such as the inlining
+  limit and the block order. Each optimization is then measured on all of them, and a tuned
+  parameter is chosen on the whole set. dampf also gets its own C preprocessor, so that using
+  it no longer needs gcc, which users on Windows would otherwise install only for that. Hosting
+  the repository and putting the book online are part of M5 as well.

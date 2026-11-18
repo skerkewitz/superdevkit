@@ -120,21 +120,23 @@ Then `Optimizer` runs the [passes](/glossary#pass). On each function it repeats,
 changes:
 
 1. simplification (`Simplify`),
-2. a bit chosen by a bit without a branch (`BitSelect`),
-3. byte loads (`ByteLoads`),
-4. width narrowing (`Narrow`), and narrowing with value ranges (`RangeNarrow`),
-5. loop-invariant code moved before the loop (`Licm`),
-6. induction variables (`Induction`),
-7. pointer compression (`PointerOffsets`),
-8. multiplication and division by constants (`StrengthReduce`),
-9. common subexpressions and redundant loads (`Gvn`),
-10. dead code removal (`DeadCode`).
+2. tests against neighbouring constants as one range check (`RangeChecks`),
+3. a bit chosen by a bit without a branch (`BitSelect`),
+4. byte loads (`ByteLoads`),
+5. width narrowing (`Narrow`), and narrowing with value ranges (`RangeNarrow`),
+6. loop-invariant code moved before the loop (`Licm`),
+7. induction variables (`Induction`),
+8. pointer compression (`PointerOffsets`),
+9. multiplication and division by constants (`StrengthReduce`),
+10. common subexpressions and redundant loads (`Gvn`),
+11. dead code removal (`DeadCode`).
 
 After that round, `ParamRanges` narrows the ranges of parameters across the whole program, and
-if it did, the round runs again. Then small functions are inlined (`Inline`), pointer
-parameters are compressed (`PointerParams`), and if either changed something, the passes run
-again, followed by `ParamRanges` once more. Last, `Schedule` sets the order of the
-instructions for the code generator, and the verifier checks the result.
+if it did, the round runs again. Then small functions are inlined (`Inline`); `Optimizer` hands
+it the passes, so that it can run them on a function again before that function's callers
+decide whether to inline it. Pointer parameters are compressed (`PointerParams`), and if either
+changed something, the passes run again, followed by `ParamRanges` once more. Last, `Schedule`
+sets the order of the instructions for the code generator, and the verifier checks the result.
 What MIR looks like is on [MIR](/inside/mir); what each pass does is on
 [Optimizations](/inside/optimizations).
 
@@ -142,8 +144,9 @@ What MIR looks like is on [MIR](/inside/mir); what each pass does is on
 
 The [code generator from MIR](/glossary#code-generator-from-mir), `MirCodeGen`, is dampf's
 main code generator. First it prepares the MIR once more: loop exits get blocks of their own
-(`ExitEdges`), return blocks are copied into their predecessors (`Returns`), and the checks of
-the hints come out (`Hints`). Then it selects the instructions of each function once
+(`ExitEdges`), return blocks are copied into their predecessors (`Returns`), pointer sums are
+computed again where their value is needed (`PointerRemat`), and the checks of the hints come
+out (`Hints`). Then it selects the instructions of each function once
 (`Selection`, with one class per kind of MIR instruction and `FrameLayout` for the places): it
 sets the processor modes with `REP` and `SEP` and gives every value a place in a frame or in A,
 X or Y.
@@ -151,9 +154,11 @@ X or Y.
 What instruction selection writes is LIR, the low-level intermediate representation: 65816
 instructions in basic blocks, each with the accumulator width it runs in. Its text is the ca65
 assembly file dampf writes, so the `.s` file next to the ROM is the LIR as the passes left it.
-The LIR passes remove loads of a value a register already holds (`RedundantLoads`, `IndexInY`)
-and stores nobody reads (`DeadStores`), choose the branch forms (`BranchRelax`) and number the
-local labels (`LocalLabels`). On the finished LIR, `Timing` computes the best and worst case of
+The LIR passes remove loads of a value a register already holds (`RedundantLoads`, `IndexInY`),
+apply peephole rules (`Peephole`), run short 16-bit stretches between byte stores in 8 bits
+(`ByteStretches`), drop a `CLC` or `SEC` where the carry is known (`KnownCarry`), remove stores
+nobody reads (`DeadStores`), choose the branch forms (`BranchRelax`) and number the local labels
+(`LocalLabels`). On the finished LIR, `Timing` computes the best and worst case of
 every function in CPU cycles, which `dampf build` writes to a `.timing.txt` file next to the
 ROM. `Compiler` then checks every function with a `DAMPF_BUDGET` against its worst case: a
 function above its budget, or one without a worst case, stops the build with an error, and one

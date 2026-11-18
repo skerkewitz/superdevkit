@@ -81,11 +81,15 @@ expect:
 - **Speed.** The fine tuning of M4 (more optimizations, page-aligned arrays with 8-bit index
   registers, profile-guided optimization from the replays) has only started with the layout of
   blocks by a profile, so the generated code is not yet as fast as the goal of 60 % of a
-  [frame](/glossary#frame) per [tick](/glossary#tick): during play, Blubber Blasen takes 0.91
+  [frame](/glossary#frame) per [tick](/glossary#tick): during play, Blubber Blasen takes 0.79
   frames per tick with dampf (with FastROM). On the console, during a minute of play of the
-  playable ROM, it takes 1.57 frames per tick (measured on 2026-11-18), because a tick
-  that needs more than one frame waits for the next vertical blank and the benchmark leaves out
-  what `video.c` costs on the hardware.
+  playable ROM, it took 1.57 frames per tick (measured on 2026-11-18, before the latest
+  optimizations), because a tick that needs more than one frame waits for the next vertical
+  blank and the benchmark leaves out what `video.c` costs on the hardware. These figures come
+  from one game, and your code may gain less: the optimizations that made Blubber Blasen's play
+  13 % faster made the execution tests only 0.9 % faster. In M5 the speed is to be measured on a
+  set of benchmarks in different styles, and tuned parameters such as the inlining limit chosen
+  on the whole set.
 
 ## Never planned
 
@@ -105,7 +109,13 @@ Fast compilation is not a goal either; a game the size of Blubber Blasen compile
 
 ## Known differences from gcc
 
-None are known. Where dampf lays out data differently from gcc on x86-64, a program cannot see
+One is known but not yet found: the roadmap records a miscompilation in an older part of the
+code generator. Blubber Blasen meets it only when dampf inlines functions of up to 80
+instructions, where its benchmark differs from the PC in 56 of 3,610 ticks; with the limit dampf
+uses, 60, it gives the PC's checksums. The fault is in the code generator, not in the inlining,
+so other code may meet it too; the comparison with the PC build described below is how it shows.
+
+Apart from that, where dampf lays out data differently from gcc on x86-64, a program cannot see
 it: dampf's pointers are 4 bytes instead of 8 and it does not pad struct fields, so a `sizeof`
 whose value would differ from the PC is rejected. Only the element count
 `sizeof a / sizeof a[0]` is allowed for such types, because its quotient is the same on both
