@@ -112,6 +112,18 @@ Open:
   either the history is cleaned (`git filter-repo`) or the public repository starts without it.
   Own examples take over their jobs: a program large enough to be a test case, a busy scene as
   speed benchmark, and new hand-written reference functions.
+- **Varied benchmarks.** So far every speed decision was measured on one game, and it shows:
+  the optimizations of 2026-11-18 made Blubber Blasen's play 13 % faster, but the execution tests
+  only 0.9 % (median 0.6 %); the random programs did not move at all, since their cycles go to the
+  runtime's division routines ([optimizations-log.md](optimizations-log.md#optimizations-on-the-branch-optimise-2026-11-18)).
+  Part of the 13 % comes from parameters chosen on this one game (the inlining limit, the block
+  order) and from its idioms (pointers into arrays of structs, byte stores in a row). The own
+  examples therefore become a set of benchmarks in different styles rather than one busy scene:
+  code with many small calls, code that computes mostly in 16 and 32 bits, code with little
+  access to structs (plain arrays, pointer walks), a fixed-point heavy physics or particle loop, a
+  table- and switch-driven state machine, and text or tile work on bytes. Each optimization is
+  measured on all of them, a tuned parameter is chosen on the whole set, and the docs say which
+  set a measurement comes from.
 - **Own preprocessor.** Today dampf calls `gcc -E`, which users on Windows have to install (MinGW
   or MSYS) only for that. dampf gets its own C preprocessor in Java: macro expansion following
   Prosser's algorithm, `#` and `##`, variadic macros with `__VA_OPT__`, `#if` arithmetic in

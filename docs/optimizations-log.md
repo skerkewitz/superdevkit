@@ -901,3 +901,11 @@ master clocks per tick. Before them: play 324,844, play with the CPU partner 527
 | Block order: the way to the next round first | 284,286 | 486,715 | 290,349 | Refines the step before, as in Ball and Larus' loop heuristic: a successor that is a latch of one of the block's loops (the way to the next round, a filter loop's `continue`) comes next; then one only this block reaches; then the true side. The step before had put the rest of the loop body first in `if (!floating(b)) continue;`, so the common way out took a long jump. |
 | Peephole: no `CMP #0` where N and Z are set already | 283,728 | 486,210 | 289,946 | `CMP #$0000` right after an instruction that set N and Z from A in the same width (stores between them change neither) goes where the carry it sets is not read afterwards; mostly the case `0` of a `switch` after a load. 73 functions faster, none slower. |
 | Loop rotation by the loop's own latch | 282,498 | 484,490 | 289,027 | A small loop test goes right behind the block that jumps back to it, so that block falls through into the test and the test branches back into the loop. The latch was taken as "the one predecessor placed after the test"; with the new block order the loop's entry block can lie after the test too, and the inner loop of `separate` lost its rotation (a `BRA` back to the test in every round). The latch now comes from the loop analysis. |
+
+**Outside the game.** The same steps, measured on the execution tests and 50 random programs
+(master cycles of the whole program in dampf's emulator, code from MIR, `main` before the branch
+against the branch's end): the execution tests 6,223,446 → 6,164,334 (-0.9 %; median -0.6 %,
+best `returns.c` -11.3 %, `tables.c` -5.8 %, `control.c` -5.4 %; one slower, `pointer_offsets.c`,
++0.2 %), the random programs 24,369,308 → 24,362,084 (±0.0 %; their cycles go to the runtime's
+division routines, which no step touched). The general steps help elsewhere too, much less than
+the game's 13 %; see the roadmap's M5 on varied benchmarks.
