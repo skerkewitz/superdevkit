@@ -875,6 +875,5 @@ reason: an indexed access chooses X or Y while it is written, and the code that 
 does not know that Y already holds the index where the block starts, so it loads X instead, and
 a pass after selection cannot exchange the registers without knowing where X is read later.
 Taken anyway: writing each function once removes the repeated writing, the consistency checks
-and the second attempt from the code generator, which is what B3 is for. It can be won back by a
-LIR pass that follows where X and Y are read (to use Y where it holds the index), which is noted
-as a later step in [transition-to-lir.md](transition-to-lir.md).
+and the second attempt from the code generator, which is what B3 is for. The next step, `IndexInY`, wins it back and more.
+| `IndexInY`: Y for an index it holds | 324,844 | 527,096 | 316,002 | `LDX p / LDA table,X` becomes `LDA table,Y` where Y holds p on every way in, nothing reads X afterwards and N and Z of the `LDX` are not read. Play is now 53 clocks per tick faster than before B3c. Two of the 8 functions that B3c made slower are faster again; the others choose X for a new index where X held another one, which a pass after selection would have to rename across several instructions. |
