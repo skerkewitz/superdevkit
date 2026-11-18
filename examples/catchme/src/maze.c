@@ -152,7 +152,8 @@ void maze_clear_cell(uint8_t x, uint8_t y)
 
 /* The wall colours of palette 0: dark to bright, and all white while blinking. */
 static const uint16_t WALL_COLOURS[5] = {
-    RGB8(22, 18, 64), RGB8(44, 38, 128), RGB8(70, 68, 190), RGB8(112, 120, 236), RGB8(184, 196, 255),
+    SDEVKIT_RGB8(22, 18, 64), SDEVKIT_RGB8(44, 38, 128), SDEVKIT_RGB8(70, 68, 190),
+    SDEVKIT_RGB8(112, 120, 236), SDEVKIT_RGB8(184, 196, 255),
 };
 
 void maze_blink(uint8_t on)
@@ -160,7 +161,8 @@ void maze_blink(uint8_t on)
     uint8_t i;
 
     for (i = 0; i < 5; i++) {
-        setPaletteColor((uint16_t)(1 + i), on ? RGB8(250, 250, 250) : WALL_COLOURS[i]);
+        sdevkit_set_palette_color((uint16_t)(1 + i),
+                                  on ? SDEVKIT_RGB8(250, 250, 250) : WALL_COLOURS[i]);
     }
 }
 

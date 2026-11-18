@@ -1,5 +1,5 @@
 /*
- * CatchMe: the course of the game, and the frame rhythm of superdevkit (snes/loop.h).
+ * CatchMe: the course of the game, and the frame rhythm of superdevkit (sdevkit/loop.h).
  *
  *   game_init     once, with the screen off: graphics and palettes into VRAM and CGRAM
  *   game_tick     once per frame: the game logic, the sprite table, what the map should show
@@ -103,7 +103,7 @@ static void title(void)
     text(10, 22, "HI", 1);
     number(13, 22, best, 6);
     actors_hide();
-    oamSetVisible(ID_BONUS, OBJ_HIDE);
+    sdevkit_oam_set_visible(ID_BONUS, SDEVKIT_OBJ_HIDE);
 }
 
 /* The mouse runs across the title, the cats after it. */
@@ -134,7 +134,7 @@ static void ready(void)
     actors_reset();
     caught_in_row = 0;
     cheese_left = 0;
-    oamSetVisible(ID_BONUS, OBJ_HIDE);
+    sdevkit_oam_set_visible(ID_BONUS, SDEVKIT_OBJ_HIDE);
     text(13, 19, "READY!", 1);
 }
 
@@ -209,10 +209,11 @@ static uint8_t collisions(void)
             cheese_left = 0;
         }
         if (cheese_left > 0) {
-            oamSet(ID_BONUS, 7 * 16 + 8, 8 * 16 + MAZE_TOP - 1, 3, 0, 0, SPRITE_CHEESE, PAL_HOT);
-            oamSetEx(ID_BONUS, OBJ_SMALL, OBJ_SHOW);
+            sdevkit_oam_set(ID_BONUS, 7 * 16 + 8, 8 * 16 + MAZE_TOP - 1, 3, 0, 0, SPRITE_CHEESE,
+                            PAL_HOT);
+            sdevkit_oam_set_ex(ID_BONUS, SDEVKIT_OBJ_SMALL, SDEVKIT_OBJ_SHOW);
         } else {
-            oamSetVisible(ID_BONUS, OBJ_HIDE);
+            sdevkit_oam_set_visible(ID_BONUS, SDEVKIT_OBJ_HIDE);
         }
     }
     return 0;
@@ -222,29 +223,30 @@ static uint8_t collisions(void)
 void game_init(uint16_t seed)
 {
     rng = (uint16_t)(rng ^ seed);
-    setMode(BG_MODE1, 0);
-    bgSetDisable(1);
-    bgSetDisable(2);
-    bgInitTileSet(0, maze_gfx_tiles, maze_gfx_pal, 0, MAZE_GFX_TILES_SIZE, MAZE_GFX_PAL_SIZE, BG_16COLORS, VRAM_BG_TILES);
-    bgSetMapPtr(0, VRAM_BG_MAP, SC_32x32);
-    bgSetScroll(0, 0, 0x3FF);          /* the first line of the map on the first line of the screen */
-    oamInitGfxSet(sprites_gfx_tiles, SPRITES_GFX_TILES_SIZE, sprites_gfx_pal, SPRITES_GFX_PAL_SIZE, 0, VRAM_SPRITES,
-                  OBJ_SIZE16_L32);
-    dmaCopyCGram(pal_ginger_pal, 128 + 16 * 1, PAL_GINGER_PAL_SIZE);
-    dmaCopyCGram(pal_black_pal, 128 + 16 * 2, PAL_BLACK_PAL_SIZE);
-    dmaCopyCGram(pal_white_pal, 128 + 16 * 3, PAL_WHITE_PAL_SIZE);
-    dmaCopyCGram(pal_brown_pal, 128 + 16 * 4, PAL_BROWN_PAL_SIZE);
-    dmaCopyCGram(pal_scared_pal, 128 + 16 * 5, PAL_SCARED_PAL_SIZE);
-    dmaCopyCGram(pal_hot_pal, 128 + 16 * 6, PAL_HOT_PAL_SIZE);
-    oamInit();
+    sdevkit_set_mode(SDEVKIT_BG_MODE1, 0);
+    sdevkit_bg_set_disable(1);
+    sdevkit_bg_set_disable(2);
+    sdevkit_bg_init_tile_set(0, maze_gfx_tiles, maze_gfx_pal, 0, MAZE_GFX_TILES_SIZE,
+                             MAZE_GFX_PAL_SIZE, SDEVKIT_BG_16COLORS, VRAM_BG_TILES);
+    sdevkit_bg_set_map_ptr(0, VRAM_BG_MAP, SDEVKIT_SC_32x32);
+    sdevkit_bg_set_scroll(0, 0, 0x3FF);          /* the first line of the map on the first line of the screen */
+    sdevkit_oam_init_gfx_set(sprites_gfx_tiles, SPRITES_GFX_TILES_SIZE, sprites_gfx_pal,
+                             SPRITES_GFX_PAL_SIZE, 0, VRAM_SPRITES, SDEVKIT_OBJ_SIZE16_L32);
+    sdevkit_dma_copy_cgram(pal_ginger_pal, 128 + 16 * 1, PAL_GINGER_PAL_SIZE);
+    sdevkit_dma_copy_cgram(pal_black_pal, 128 + 16 * 2, PAL_BLACK_PAL_SIZE);
+    sdevkit_dma_copy_cgram(pal_white_pal, 128 + 16 * 3, PAL_WHITE_PAL_SIZE);
+    sdevkit_dma_copy_cgram(pal_brown_pal, 128 + 16 * 4, PAL_BROWN_PAL_SIZE);
+    sdevkit_dma_copy_cgram(pal_scared_pal, 128 + 16 * 5, PAL_SCARED_PAL_SIZE);
+    sdevkit_dma_copy_cgram(pal_hot_pal, 128 + 16 * 6, PAL_HOT_PAL_SIZE);
+    sdevkit_oam_init();
     level = 1;
     title();
-    dmaCopyVram((const u8 *)bg_map, VRAM_BG_MAP, MAP_BYTES);   /* the screen is still off */
+    sdevkit_dma_copy_vram((const uint8_t *)bg_map, VRAM_BG_MAP, MAP_BYTES);   /* the screen is still off */
     bg_map_dirty = 0;
-    setBrightness(15);
+    sdevkit_set_brightness(15);
 }
 
-void game_tick(const uint16_t pad[SNES_PADS])
+void game_tick(const uint16_t pad[SDEVKIT_PADS])
 {
     uint16_t pressed = (uint16_t)(pad[0] & ~last_pad);
 
@@ -254,7 +256,7 @@ void game_tick(const uint16_t pad[SNES_PADS])
     case ST_TITLE:
         timer++;
         title_parade();
-        if (pressed & KEY_START) {
+        if (pressed & SDEVKIT_KEY_START) {
             rng = (uint16_t)(rng ^ timer);
             new_game();
         }
@@ -276,7 +278,7 @@ void game_tick(const uint16_t pad[SNES_PADS])
             state = ST_CLEAR;
             timer = 120;
             actors_hide();
-            oamSetVisible(ID_BONUS, OBJ_HIDE);
+            sdevkit_oam_set_visible(ID_BONUS, SDEVKIT_OBJ_HIDE);
         }
         actors_draw(frame);
         break;
@@ -284,10 +286,10 @@ void game_tick(const uint16_t pad[SNES_PADS])
         actors_hide();
         mouse.dir = (uint8_t)((timer >> 2) & 3);
         actors_draw(0);
-        oamSetVisible(4, OBJ_HIDE);
-        oamSetVisible(8, OBJ_HIDE);
-        oamSetVisible(12, OBJ_HIDE);
-        oamSetVisible(16, OBJ_HIDE);
+        sdevkit_oam_set_visible(4, SDEVKIT_OBJ_HIDE);
+        sdevkit_oam_set_visible(8, SDEVKIT_OBJ_HIDE);
+        sdevkit_oam_set_visible(12, SDEVKIT_OBJ_HIDE);
+        sdevkit_oam_set_visible(16, SDEVKIT_OBJ_HIDE);
         if (--timer == 0) {
             lives--;
             hud();
@@ -324,7 +326,7 @@ void game_tick(const uint16_t pad[SNES_PADS])
 void game_vblank(void)
 {
     if (bg_map_dirty) {
-        dmaCopyVram((const u8 *)bg_map, VRAM_BG_MAP, MAP_BYTES);
+        sdevkit_dma_copy_vram((const uint8_t *)bg_map, VRAM_BG_MAP, MAP_BYTES);
         bg_map_dirty = 0;
     }
     if (blink_dirty) {

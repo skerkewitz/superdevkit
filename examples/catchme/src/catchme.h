@@ -7,8 +7,8 @@
 #define CATCHME_H
 
 #include <stdint.h>
-#include "snes/loop.h"
-#include "snes/snes.h"
+#include "sdevkit/loop.h"
+#include "sdevkit/snes.h"
 
 /* --- the maze (maze.c) ----------------------------------------------------------------------- */
 #define MAZE_W 16              /* cells of 16 x 16 pixels */

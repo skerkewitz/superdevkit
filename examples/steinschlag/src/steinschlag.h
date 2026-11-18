@@ -7,8 +7,8 @@
 #define STEINSCHLAG_H
 
 #include <stdint.h>
-#include "snes/loop.h"
-#include "snes/snes.h"
+#include "sdevkit/loop.h"
+#include "sdevkit/snes.h"
 
 /* --- the cave (cave.c) ----------------------------------------------------------------------- */
 #define CAVE_W 40              /* cells of 16 x 16 pixels: 640 x 352 pixels */

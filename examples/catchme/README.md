@@ -31,7 +31,7 @@ works for less time.
 | `catchme.args` | the call of dampf: the include paths, the entry, the sources (ADR record 28) |
 | `build.sh` | converts the assets with `tools/png2snes.py`, then calls dampf (until the `superdevkit` command, roadmap M7) |
 | `src/catchme.h` | what the files share |
-| `src/game.c` | the course of the game (title, ready, play, a life lost, a level cleared, game over), score and lives, and the frame rhythm: `game_init`, `game_tick`, `game_vblank` (`snes/loop.h`) |
+| `src/game.c` | the course of the game (title, ready, play, a life lost, a level cleared, game over), score and lives, and the frame rhythm: `game_init`, `game_tick`, `game_vblank` (`sdevkit/loop.h`) |
 | `src/maze.c` | the maze as text, the background map in RAM, the walls drawn from their neighbours, the status line |
 | `src/actors.c` | the mouse and the cats: moving cell by cell at speeds in sixteenths of a pixel, the tunnel, how each cat chases |
 | `assets/` | the graphics as PNG: `maze_gfx.png` (background tiles and font), `sprites_gfx.png` (the sprites, 128 pixels wide so the tiles are in VRAM order), `pal_*.png` (the palettes of the cats and the other states). Drawn by `dev/art/catchme.py`; edit them in any paint program |
@@ -40,7 +40,7 @@ works for less time.
 Things worth looking at for a first SNES game:
 
 - **The frame rhythm.** `game_tick` runs while the picture is drawn and only prepares: it moves
-  everything, fills the sprite table (`oamSet`) and changes the background map in RAM.
+  everything, fills the sprite table (`sdevkit_oam_set`) and changes the background map in RAM.
   `game_vblank` runs in the vertical blank, the only time the PPU accepts new data: it copies the
   map (2 KB) when it changed, and changes the wall colours when a level is cleared. The library
   copies the sprite table itself.
@@ -52,7 +52,7 @@ Things worth looking at for a first SNES game:
 - **Four chasers with one rule.** Each cat goes to the open cell closest to a target; only the
   targets differ: the mouse, three cells ahead of it, nowhere in particular, or its own corner
   when close.
-- **One line of scroll.** `bgSetScroll(0, 0, 0x3FF)`: the SNES shows the second line of a
+- **One line of scroll.** `sdevkit_bg_set_scroll(0, 0, 0x3FF)`: the SNES shows the second line of a
   background on the first line of the screen; scrolling it up by one fixes that. Sprites are
   placed one line higher for the same reason.
 

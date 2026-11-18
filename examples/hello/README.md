@@ -27,10 +27,10 @@ Open `build/hello.sfc` in Mesen with `build/hello.dbg` next to it, and step thro
 What it shows:
 
 - `game_init` runs with the screen off, so it can copy as much as it likes into VRAM and
-  CGRAM; at the end it switches the screen on with `setBrightness(15)`.
+  CGRAM; at the end it switches the screen on with `sdevkit_set_brightness(15)`.
 - `game_tick` changes the background map in RAM (`map`), never VRAM: the PPU only takes new
   data in the vertical blank, and `game_vblank` copies the map there when it changed.
-- The sprite table is written with `oamSet` in `game_tick`; the library copies it in the
+- The sprite table is written with `sdevkit_oam_set` in `game_tick`; the library copies it in the
   vertical blank itself.
 - Sprites are placed one line higher than where they should appear, and the background is
   scrolled up by one line: the SNES shows both one line lower otherwise.

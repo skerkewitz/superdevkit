@@ -120,13 +120,13 @@ void mouse_move(uint16_t pad)
 {
     uint8_t speed = (uint8_t)(level < 8 ? 15 + level : 23);
 
-    if (pad & KEY_UP) {
+    if (pad & SDEVKIT_KEY_UP) {
         want = DIR_UP;
-    } else if (pad & KEY_DOWN) {
+    } else if (pad & SDEVKIT_KEY_DOWN) {
         want = DIR_DOWN;
-    } else if (pad & KEY_LEFT) {
+    } else if (pad & SDEVKIT_KEY_LEFT) {
         want = DIR_LEFT;
-    } else if (pad & KEY_RIGHT) {
+    } else if (pad & SDEVKIT_KEY_RIGHT) {
         want = DIR_RIGHT;
     }
     if (want != DIR_NONE && want == reverse(mouse.dir)) {
@@ -317,8 +317,9 @@ void cats_move(void)
 
 static void put(uint16_t id, const Actor *a, uint16_t tile, uint8_t palette)
 {
-    oamSet(id, (uint16_t)(a->x & 0x1FF), (uint16_t)(a->y + MAZE_TOP - 1), 3, 0, 0, tile, palette);
-    oamSetEx(id, OBJ_SMALL, OBJ_SHOW);
+    sdevkit_oam_set(id, (uint16_t)(a->x & 0x1FF), (uint16_t)(a->y + MAZE_TOP - 1), 3, 0, 0, tile,
+                    palette);
+    sdevkit_oam_set_ex(id, SDEVKIT_OBJ_SMALL, SDEVKIT_OBJ_SHOW);
 }
 
 void actors_draw(uint8_t frame)
@@ -347,6 +348,6 @@ void actors_hide(void)
     uint8_t i;
 
     for (i = 0; i <= CATS; i++) {
-        oamSetVisible((uint16_t)(i * 4), OBJ_HIDE);
+        sdevkit_oam_set_visible((uint16_t)(i * 4), SDEVKIT_OBJ_HIDE);
     }
 }
