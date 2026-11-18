@@ -36,7 +36,7 @@ public final class Compiler {
      * @param fastRom      the ROM in banks $80-$FF runs at 3.58 MHz (FastROM, the default); false
      *                     for a SlowROM cartridge
      * @param ca65         assemble and link with ca65 and ld65 instead of dampf's own assembler and
-     *                     linker (which build the same ROM; see docs/transition-to-lir.md)
+     *                     linker (which build the same ROM; see ADR record 19)
      */
     public record Options(List<Path> sources, List<Path> includeDirs, List<String> defines, String entry, Path output,
                           Map<String, Path> replacements, Backend backend,

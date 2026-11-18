@@ -112,7 +112,8 @@ ticks. `GameTimingTest` (with `-Preplays`) checks the static timing on it.
   reference function), with both code generators. A step that only moves code must keep every
   hash; one that changes code records new ones (`-PbackendOutput=update`, which also keeps a copy
   of the assembly in `build/backend-output-ref/` for diffing) together with the game's numbers
-  ([transition-to-lir.md](transition-to-lir.md)). It also reads every assembly file back as LIR
+  in [optimizations-log.md](optimizations-log.md), and never in the same step as a move (ADR
+  [record 24](adr/0024-a-refactoring-step-may-cost-about-1-speed-if-the.md)). It also reads every assembly file back as LIR
   (the same text again, and the LIR verifier passes), and builds every ROM with ca65 and ld65 and
   with dampf's own assembler and linker: the images must be the same byte for byte, the label
   files must name the same addresses, and the debug files must say the same (`DbgMeaning`: the

@@ -14,7 +14,7 @@ import java.util.TreeSet;
  * What a debug file in ld65's format says, independent of its ids and order: which bytes (CPU
  * addresses, as maximal ranges) every line of every file covers, C lines apart from lines of assembly; which symbol
  * has which value; the segments with their place in the ROM file; the scopes of functions; the C
- * symbols. Two files that say the same give equal objects (docs/transition-to-lir.md).
+ * symbols. Two files that say the same give equal objects (ADR record 20).
  */
 record DbgMeaning(Map<String, TreeSet<String>> lines, TreeSet<String> symbols, TreeSet<String> segments,
                   TreeSet<String> scopes, TreeSet<String> csyms) {

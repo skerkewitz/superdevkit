@@ -1,6 +1,6 @@
 # 24. A refactoring step may cost about 1 % speed if the back end gets much cleaner
 
-**Context.** The move of the back end to LIR ([transition-to-lir.md](../transition-to-lir.md))
+**Context.** The move of the back end to LIR ([transition-to-lir.md](../archive/transition-to-lir.md))
 replaced jobs the code generator did on the side with passes of their own. A pass that does a
 job cleanly can find a little less than the special case it replaces.
 

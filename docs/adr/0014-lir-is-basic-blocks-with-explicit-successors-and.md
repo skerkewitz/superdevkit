@@ -2,7 +2,7 @@
 
 **Context.** The first code generator from MIR wrote ca65 text directly and did several jobs on
 the side (register contents, dead stores, branch distances), writing each function up to 14
-times. The plan to separate them ([transition-to-lir.md](../transition-to-lir.md)) needed a
+times. The plan to separate them ([transition-to-lir.md](../archive/transition-to-lir.md)) needed a
 low-level IR, and every pass it was for is a data flow analysis over blocks.
 
 **Decision.**

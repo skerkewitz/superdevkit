@@ -387,7 +387,7 @@ memory map), so both stay as the oracle in the tests: the ROM dampf builds itsel
 byte-identical to the one ca65 and ld65 build from the same assembly, and the debug information
 must still let Mesen show the C source. It was planned as the last step, since it changes nothing in
 the code dampf generates. It was decided on 2026-11-18 that it comes: dampf should need nothing but Java. It was done the same day,
-ahead of M5 ([transition-to-lir.md](transition-to-lir.md), phase C): `dampf build` uses its own
+ahead of M5 ([archive/transition-to-lir.md](archive/transition-to-lir.md), phase C): `dampf build` uses its own
 assembler and linker, `--assembler ca65` keeps the old path, and the tests build every program
 both ways.
 

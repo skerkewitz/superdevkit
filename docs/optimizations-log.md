@@ -857,7 +857,7 @@ from the PC's from tick 596 on, so later ticks compare other scenes ([roadmap.md
 
 ## The back end on LIR, 2026-11-18
 
-The steps of [transition-to-lir.md](transition-to-lir.md) that change the generated code, each
+The steps of [archive/transition-to-lir.md](archive/transition-to-lir.md) that change the generated code, each
 measured on the game's benchmark in dampf's emulator (FastROM), in master clocks per tick. Before
 them: play 326,596 (0.91 frames), play with the CPU partner 528,446, all ticks 316,986.
 

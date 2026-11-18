@@ -1,9 +1,14 @@
 # Transition to LIR
 
+Archived 2026-11-18: all three phases are done. The decisions taken here are ADR records 14, 19,
+20 and 24 ([ADR.md](../ADR.md)); the rule for steps that only move code is in
+[testing.md](../testing.md) (`BackendOutputTest`); the optimizations this plan left for later
+are in [roadmap.md](../roadmap.md), M7 and M10. The text below is the plan as it stood then.
+
 This document plans how dampf's back end gets from where it is today to where
-[architecture.md](architecture.md) wants it: a slim code generator from MIR, a low-level IR (LIR)
+[architecture.md](../architecture.md) wants it: a slim code generator from MIR, a low-level IR (LIR)
 of real 65816 instructions with its own passes, and finally machine code written by dampf
-itself, without ca65 and ld65. The last part is milestone M6 in [roadmap.md](roadmap.md) and
+itself, without ca65 and ld65. The last part is milestone M6 in [roadmap.md](../roadmap.md) and
 comes last on purpose.
 
 The plan has one rule above all others: every step leaves dampf working, and every step is
@@ -14,7 +19,7 @@ checked by a test that would fail if the step broke something.
 Phases A and B are done (2026-11-18, on the branch `lir`): LIR with text format, parser and
 verifier; each function selected once, with branch relaxation, redundant loads, the index in Y
 and dead stores as LIR passes; `MirCodeGen` split by job. The measured steps are in
-[optimizations-log.md](optimizations-log.md), *The back end on LIR*. B5 needed no code:
+[optimizations-log.md](../optimizations-log.md), *The back end on LIR*. B5 needed no code:
 `NaiveCodeGen` writes LIR through `AsmWriter` since A3 and runs none of the passes.
 
 Phase C is done too (2026-11-18), ahead of M5 at the user's request: `dampf.asm` assembles the
@@ -106,7 +111,7 @@ the `.s` file shows exactly where. Most steps of phases A and B are of this kind
 **Measured changes.** A step that is meant to change the code (a new pass, a pass that replaces
 an older and weaker one) gets new hashes, but only together with the game's numbers: cycles per
 tick from `tools/bench_game.sh`, code size, and the timing report. The numbers go into
-[optimizations-log.md](optimizations-log.md) as usual. A step never moves code and changes it at
+[optimizations-log.md](../optimizations-log.md) as usual. A step never moves code and changes it at
 the same time; that would make a difference in the output impossible to explain.
 
 In addition, every step keeps the usual rule: `./gradlew build` is green, and the replays pass
@@ -222,15 +227,15 @@ leave the list of things a user needs, and stay in the list for developing dampf
 
 **LIR is made of basic blocks with explicit successors, and the cycles of a C line belong to
 `Timing`** (2026-11-18): ADR
-[record 14](adr/0014-lir-is-basic-blocks-with-explicit-successors-and.md). The extra risk in
+[record 14](../adr/0014-lir-is-basic-blocks-with-explicit-successors-and.md). The extra risk in
 phase A is the builder that cuts `AsmWriter`'s stream into blocks. It sits behind
 `BackendOutputTest`: the printer must turn the blocks back into the same text.
 
 **The debug file means what ld65's means; the text may differ** (2026-11-18): ADR
-[record 20](adr/0020-mesen-is-the-debugger-and-the-dbg-file-means-what.md).
+[record 20](../adr/0020-mesen-is-the-debugger-and-the-dbg-file-means-what.md).
 
 **A step may cost some speed if the code gets much cleaner** (2026-11-18): ADR
-[record 24](adr/0024-a-refactoring-step-may-cost-about-1-speed-if-the.md). The work happens on
+[record 24](../adr/0024-a-refactoring-step-may-cost-about-1-speed-if-the.md). The work happens on
 the branch `lir`, one commit per step, and is merged after review.
 
 **Phase B in the order B2, B3a, B4, B3b, B3c, B1, B5** (2026-11-18). B1 splits `MirCodeGen` into

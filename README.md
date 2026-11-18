@@ -84,7 +84,7 @@ working documents it is written from.
 - [docs/optimizations.md](docs/optimizations.md): where things stand, the optimization catalogue, the gap to hand-written assembly.
 - [docs/optimizations-log.md](docs/optimizations-log.md): dated measurements of each optimization step.
 - [docs/timing.md](docs/timing.md): exact timing, worst-case bounds and cycle budgets.
-- [docs/transition-to-lir.md](docs/transition-to-lir.md): the way from the old code generator to LIR and to machine code without ca65 and ld65.
+- [docs/archive](docs/archive): finished plans and reviews, kept as they were (the way to LIR and to dampf's own assembler and linker, the status review of 2026-11-18).
 - [docs/memory-map.md](docs/memory-map.md): where code, data, variables and pointers live.
 - [docs/testing.md](docs/testing.md): the test layers and how they work.
 - [docs/roadmap.md](docs/roadmap.md): milestones and their state, risks, open questions, the relation to Blubber Blasen.

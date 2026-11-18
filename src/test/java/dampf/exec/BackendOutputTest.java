@@ -26,8 +26,7 @@ import org.junit.jupiter.api.Test;
  * The back end's output, frozen: a hash of the assembly dampf writes (and of the static timing)
  * for every execution test, a fixed set of random programs and the whole game, with both code
  * generators. A refactoring of the back end that is meant to move code without changing what it
- * does must leave every hash as it was (docs/transition-to-lir.md, "How we keep from breaking
- * things"). A step that changes the code on purpose records new hashes with
+ * does must leave every hash as it was (docs/testing.md, ADR record 24). A step that changes the code on purpose records new hashes with
  * {@code ./gradlew test --tests '*BackendOutputTest' -PbackendOutput=update}.
  *
  * <p>It also reads every assembly file back as LIR ({@link LParser}): printed again, it must be

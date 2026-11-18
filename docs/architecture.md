@@ -19,7 +19,7 @@ register holds (`RedundantLoads`, `IndexInY`, on `RegContents`), apply peephole 
 `CLC` or `SEC` where the carry is known (`KnownCarry`) and remove stores nobody
 reads (`DeadStores`), choose the branch forms (`BranchRelax`) and number the local labels
 (`LocalLabels`); `Timing` gives the best and worst case on the LIR. The way there is in
-[transition-to-lir.md](transition-to-lir.md). The naive code generator works on the AST and stays the reference for optimized
+[archive/transition-to-lir.md](archive/transition-to-lir.md). The naive code generator works on the AST and stays the reference for optimized
 builds (`--backend naive`; `--replace` works only with it; see [testing.md](testing.md)).
 
 The MIR passes (`dampf.mir.Optimizer`): simplification (`Simplify`), tests against neighbouring
