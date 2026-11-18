@@ -25,7 +25,7 @@ The first 8 KB of bank `$7E` are the same memory as `$0000-$1FFF` in bank 0. The
 
 The frames must fit into `$0020-$1DFF`, or the build fails. A function's frame starts after the
 frames of the functions it calls, so the leaves of the call graph lie in the direct page
-([optimizations.md](optimizations.md), optimization A). ld65 does not know this area: the
+([optimizations.md](optimizations.md), optimization A). The linker does not know this area: the
 generated code sets `dampf_frame = $0020` itself.
 
 Bank `$7F` (another 64 KB) is not used yet.
@@ -75,9 +75,10 @@ switches the ROM there to 3.58 MHz (`MEMSEL` at `$420D`); the header says FastRO
   routines, the initial values of variables (copied to RAM at start-up), the header at `$FFC0` and
   the vectors at `$FFE0`. The rest of the bank is filled like the others.
 - **Every function and every constant object** gets its own segment, and no segment crosses a bank
-  boundary. ld65 cannot split a segment over banks, so dampf links twice: once to measure every
-  segment, then with a configuration that packs them into banks (largest first, into the first
-  bank with room). The configuration it used is written next to the ROM (`<name>.cfg`).
+  boundary. Segments are packed into banks largest first, into the first bank with room. dampf's
+  own linker knows every segment's size after assembling; with `--assembler ca65`, ld65 cannot
+  split a segment over banks, so dampf links twice: once to measure every segment, then with a
+  configuration that packs them (written next to the ROM, `<name>.cfg`).
 - **Calls** are `JSL`/`RTL`, because caller and callee may be in different banks; jumps inside a
   function stay in its bank.
 - **ROM data** is read with 24-bit long addresses, because DBR points to RAM.

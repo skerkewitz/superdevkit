@@ -56,8 +56,9 @@ Goals:
 4. Readable output: the generated assembly is commented so a human can follow what each part is
    meant to do.
 5. Correctness first: every optimization is checked automatically against a reference.
-6. In the end, nothing to install but Java: dampf gets its own assembler and linker (milestone
-   M6). Until then it uses ca65 and ld65.
+6. In the end, nothing to install but Java. dampf assembles and links with its own assembler and
+   linker (milestone M6); gcc is still needed for preprocessing until dampf has its own
+   preprocessor (M5).
 
 Non-goals:
 
@@ -81,7 +82,7 @@ working documents it is written from.
 - [docs/optimizations.md](docs/optimizations.md): where things stand, the optimization catalogue, the gap to hand-written assembly.
 - [docs/optimizations-log.md](docs/optimizations-log.md): dated measurements of each optimization step.
 - [docs/timing.md](docs/timing.md): exact timing, worst-case bounds and cycle budgets.
-- [docs/transition-to-lir.md](docs/transition-to-lir.md): the plan from today's code generator to LIR and to machine code without ca65 and ld65.
+- [docs/transition-to-lir.md](docs/transition-to-lir.md): the way from the old code generator to LIR and to machine code without ca65 and ld65.
 - [docs/memory-map.md](docs/memory-map.md): where code, data, variables and pointers live.
 - [docs/testing.md](docs/testing.md): the test layers and how they work.
 - [docs/roadmap.md](docs/roadmap.md): milestones and their state, risks, open questions, the relation to Blubber Blasen.
@@ -91,9 +92,10 @@ working documents it is written from.
 
 ## Prerequisites
 
-JDK 25 or newer, gcc, ca65 and ld65 from cc65 2.19, and Python 3. Mesen 2 is optional (the tests
-then also run there), clang is needed only for `tools/subset_scan.py`, Node.js only for the
-book. Gradle comes with the wrapper. The book's
+To use dampf: JDK 25 or newer and gcc. To develop it, also ca65 and ld65 from cc65 2.19 (the
+tests build every program with them as well and compare the ROMs) and Python 3. Mesen 2 is
+optional (the tests then also run there), clang is needed only for `tools/subset_scan.py`,
+Node.js only for the book. Gradle comes with the wrapper. The book's
 [getting started](docs/book/guide/getting-started.md) page has the full list.
 
 On Arch Linux, cc65 is not in the official repositories; build it from source:
@@ -134,8 +136,10 @@ dampf check -I $BB/src -I $BB/build/generated $BB/src/game/*.c
 The launcher is `build/install/dampf/bin/dampf` (`./gradlew installDist`).
 
 `build` writes the ROM and next to it the generated assembly (`.s`, with the C source line and a
-comment for each instruction; the naive code also shows the processor state), ld65's debug file (`.dbg`), a label file
-and a map file. The runtime calls the entry function after start-up (`void name(void)`, default
+comment for each instruction; the naive code also shows the processor state), the debug file
+(`.dbg`, in ld65's format, which Mesen reads) and a label file. `--assembler ca65` assembles and
+links with ca65 and ld65 instead of dampf's own assembler and linker (the same ROM; ld65 also
+writes a map file). The runtime calls the entry function after start-up (`void name(void)`, default
 `main`) and writes to $21FB when it returns. With the code generator from MIR it also writes the
 timing report (`.timing.txt`). `--backend naive` picks the naive code generator, `--slowrom`
 builds for a SlowROM cartridge (FastROM is the default), `--replace fn=file.s` links a
@@ -162,9 +166,11 @@ src/main/java/dampf/frontend/  preprocessor call, source positions, parsing, AST
 src/main/java/dampf/ast/       typed AST of the whole program
 src/main/java/dampf/check/     subset checks (call graph, no recursion)
 src/main/java/dampf/mir/       MIR: lowering from the AST, the passes, the interpreter
-src/main/java/dampf/backend/   code generators (from MIR, and the naive one from the AST; ca65 assembly), timing
+src/main/java/dampf/backend/   code generators (from MIR, and the naive one from the AST), timing
+src/main/java/dampf/lir/       LIR: 65816 code in basic blocks, its text (ca65 source), verifier, passes
+src/main/java/dampf/asm/       dampf's assembler and linker, and the debug file
 src/main/java/dampf/target/    the 65816's cycle table
-src/main/java/dampf/snes/      ROM build with ca65/ld65 (writes the ld65 memory map)
+src/main/java/dampf/snes/      ROM build (memory map, bank packing, header; with dampf's linker or ld65)
 src/main/java/dampf/emu/       dampf's own 65816 and SNES emulator
 src/main/java/dampf/tools/     dampf mir, dampf bench, dampf profile
 src/main/java/dampf/util/      running external programs

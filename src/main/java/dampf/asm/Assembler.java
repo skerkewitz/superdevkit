@@ -34,7 +34,7 @@ import java.util.regex.Pattern;
  * before it, and {@code :+}/{@code :-} go to the next or previous unnamed label.
  */
 public final class Assembler {
-    private static final Pattern LABEL_AND_CODE = Pattern.compile("^(@?[A-Za-z_][A-Za-z0-9_]*):\\s+([a-zA-Z].*)$");
+    private static final Pattern LABEL_AND_CODE = Pattern.compile("^((?:@?[A-Za-z_][A-Za-z0-9_]*)?):\\s+([a-zA-Z].*)$");
     private static final Set<String> INDEX_IMMEDIATE = Set.of("ldx", "ldy", "cpx", "cpy");
     private static final Set<String> BYTE_IMMEDIATE = Set.of("rep", "sep", "brk", "cop", "wdm");
 

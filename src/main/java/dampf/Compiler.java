@@ -35,19 +35,21 @@ public final class Compiler {
      *                     slower, never wrong.
      * @param fastRom      the ROM in banks $80-$FF runs at 3.58 MHz (FastROM, the default); false
      *                     for a SlowROM cartridge
+     * @param ca65         assemble and link with ca65 and ld65 instead of dampf's own assembler and
+     *                     linker (which build the same ROM; see docs/transition-to-lir.md)
      */
     public record Options(List<Path> sources, List<Path> includeDirs, List<String> defines, String entry, Path output,
                           Map<String, Path> replacements, Backend backend,
-                          java.util.function.BiFunction<String, String, Long> blockCounts, boolean fastRom) {
+                          java.util.function.BiFunction<String, String, Long> blockCounts, boolean fastRom, boolean ca65) {
         public Options(List<Path> sources, List<Path> includeDirs, List<String> defines, String entry, Path output,
                        Map<String, Path> replacements, Backend backend) {
-            this(sources, includeDirs, defines, entry, output, replacements, backend, null, true);
+            this(sources, includeDirs, defines, entry, output, replacements, backend, null, true, false);
         }
 
         public Options(List<Path> sources, List<Path> includeDirs, List<String> defines, String entry, Path output,
                        Map<String, Path> replacements, Backend backend,
                        java.util.function.BiFunction<String, String, Long> blockCounts) {
-            this(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, true);
+            this(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, true, false);
         }
 
         public Options(List<Path> sources, List<Path> includeDirs, List<String> defines, String entry, Path output) {
@@ -60,15 +62,20 @@ public final class Compiler {
         }
 
         public Options withBackend(Backend b) {
-            return new Options(sources, includeDirs, defines, entry, output, replacements, b, blockCounts, fastRom);
+            return new Options(sources, includeDirs, defines, entry, output, replacements, b, blockCounts, fastRom, ca65);
         }
 
         public Options withBlockCounts(java.util.function.BiFunction<String, String, Long> counts) {
-            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, counts, fastRom);
+            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, counts, fastRom, ca65);
         }
 
         public Options withFastRom(boolean fast) {
-            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fast);
+            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fast, ca65);
+        }
+
+        /** {@code true}: assemble and link with ca65 and ld65. */
+        public Options withCa65(boolean useCa65) {
+            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fastRom, useCa65);
         }
 
         /** Block counts from a file of lines "function block count" ({@code dampf profile --blocks}). */
@@ -151,7 +158,8 @@ public final class Compiler {
         for (Path s : o.replacements().values()) {
             asm.add(Files.readString(s));
         }
-        RomBuilder.Rom rom = RomBuilder.build(asm, outDir, baseName, o.fastRom());
+        RomBuilder.Rom rom = o.ca65() ? RomBuilder.build(asm, outDir, baseName, o.fastRom())
+                : RomBuilder.buildNative(asm, outDir, baseName, o.fastRom());
         return new Result(program, asm, rom, timing, warnings);
     }
 

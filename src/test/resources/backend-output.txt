@@ -157,6 +157,11 @@ game.naive.s1 c39bbb58a78e9cd68ab469e0
 game.naive.s2 71d851aba77ff9f5d8abd921
 game.naive.s3 e1a4903a0c3959867696c13e
 game.naive.s4 34021946da8bdff8f5d2da7b
+game_reference.naive.s0 d8af4a7412f179f2891a17af
+game_reference.naive.s1 609d8a649b046bd6ee9a609c
+game_reference.naive.s2 9784357b3ff41f9b9e94de1b
+game_reference.naive.s3 918ec317a31fc4fe87aabfd4
+game_reference.naive.s4 28568105cbc0f6f70b37e96f
 random1.mir.s0 cc77f0db3c3a8851ec2bf326
 random1.mir.timing 66634d067e6ab4bb728bd8dc
 random1.naive.s0 547feb8fad01f0fc9bb214f0

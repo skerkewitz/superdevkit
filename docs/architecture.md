@@ -42,15 +42,16 @@ C source
   → HIR               C structure and meaning: loops, structs, arrays, hints
   → MIR               SSA form, explicit widths, no structs, still machine-independent
   → LIR               65816 instructions, processor state, direct page slots, cycles
-  → ca65 assembly     commented, with source line directives
-  → ca65 + ld65       ROM + .dbg debug file
+  → assembly          ca65 source, commented, with source line directives
+  → assembler, linker ROM + .dbg debug file (dampf's own; ca65 and ld65 give the same ROM)
   → Mesen             runs and debugs at C source level
 ```
 
 As built, HIR is skipped: `dampf.mir.Lower` lowers the AST to MIR, `dampf.backend.MirCodeGen`
 selects LIR from it, and the LIR passes and printer write the ca65 assembly; `dampf.backend.NaiveCodeGen` goes from the
-AST to ca65 assembly. `dampf.snes.RomBuilder` runs ca65 and ld65, and `dampf.Compiler` ties the
-steps together.
+AST to ca65 assembly. `dampf.snes.RomBuilder` builds the ROM with dampf's assembler and linker
+(`dampf.asm`), or with ca65 and ld65 (`--assembler ca65`), and `dampf.Compiler` ties the steps
+together.
 
 The parser accepts more C than the subset on purpose: a construct outside the subset is better
 reported by the subset checker ("recursion is not supported: …") than by a parse error.
@@ -114,7 +115,7 @@ selection. SNES specifics live in one target module:
 
 Nothing is built for a second target, but the split keeps one possible.
 
-As built, the split is only partly there. The SNES side is `dampf.snes.RomBuilder` (ca65, ld65,
+As built, the split is only partly there. The SNES side is `dampf.snes.RomBuilder` (memory map,
 banks, header) and the runtime `src/main/resources/dampf/snes/runtime.s` (start-up, arithmetic
 routines, header, vectors); the 65816 cycle table is `dampf.target.Cycles65816`. The code
 generators still contain SNES facts themselves (DBR `$7E`, the RAM and frame addresses, long
@@ -124,11 +125,13 @@ are no intrinsics.
 
 ## Assembly output and debugging
 
-dampf emits ca65 assembly and links with ld65. For the code, an own assembler or linker would gain
-nothing: with whole-program compilation the compiler already knows every instruction size (so it
-decides branch distances itself) and controls placement through segments. They come in M6 only to
-drop the dependency on cc65 ([roadmap.md](roadmap.md)). ld65 also writes `.dbg` debug files,
-which Mesen reads. With source line directives (`.dbg line`) in the assembly, Mesen shows and
+dampf writes ca65 assembly and assembles and links it itself (`dampf.asm`, M6). For the code,
+its own assembler and linker gain nothing over ca65 and ld65: with whole-program compilation the
+compiler already knows every instruction size (so it decides branch distances itself) and
+controls placement through segments. They exist so that using dampf needs no cc65
+([roadmap.md](roadmap.md)); ca65 and ld65 stay the oracle in the tests, which build every program
+both ways and compare the ROMs and the debug files. dampf writes the `.dbg` debug file in ld65's
+format, which Mesen reads. With source line directives (`.dbg line`) in the assembly, Mesen shows and
 steps through the C source. This was the biggest pain in the earlier attempt, so it was verified
 first, in M1.
 

@@ -15,8 +15,16 @@ Phases A and B are done (2026-11-18, on the branch `lir`): LIR with text format,
 verifier; each function selected once, with branch relaxation, redundant loads, the index in Y
 and dead stores as LIR passes; `MirCodeGen` split by job. The measured steps are in
 [optimizations-log.md](optimizations-log.md), *The back end on LIR*. B5 needed no code:
-`NaiveCodeGen` writes LIR through `AsmWriter` since A3 and runs none of the passes. The section
-below describes the starting point.
+`NaiveCodeGen` writes LIR through `AsmWriter` since A3 and runs none of the passes.
+
+Phase C is done too (2026-11-18), ahead of M5 at the user's request: `dampf.asm` assembles the
+ca65 subset dampf writes and its runtime uses, links, and writes the label and debug files;
+`dampf build` uses it, `--assembler ca65` keeps ca65 and ld65. `BackendOutputTest` builds every
+program both ways: the ROMs are the same byte for byte, the label files name the same addresses,
+and the debug files say the same (ld65 leaves out the symbol of 9 static variables of the game
+whose label is in another module, dampf names it). C1 to C3 came as one step, since the test of
+all three is the ROM. Not done yet: the check by hand in Mesen that closes C4. The section below
+describes the starting point.
 
 ## Where we are
 

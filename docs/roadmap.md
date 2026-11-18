@@ -11,7 +11,7 @@ checksums, on the SNES and in a playable ROM. M3 is in progress, and its goal, f
 is reached. Parts of M4 have started early. During play the game takes 0.91 frames per tick
 against a goal of 0.6, so the compiler work goes on while the game reduces its own work in
 parallel. The current numbers are in [optimizations.md](optimizations.md#where-things-stand).
-M5 and M6 have not started.
+M5 has not started. M6 is done (2026-11-18): dampf assembles and links itself.
 
 ## Milestones
 
@@ -21,10 +21,10 @@ M5 and M6 have not started.
 | M1 | End to end | A small function is compiled, assembled with ca65, linked with ld65, runs automatically in a test, and Mesen shows its C source while stepping | Done 2026-11-17 |
 | M2 | Naive but complete | All of Blubber Blasen compiles with the naive code generator, the game's benchmark and replays give the same checksums as the PC, cycles are measured per tick and per function and compared with Calypsi, and the first reference assembly function gives the first dampf/reference ratio | Done 2026-11-17 |
 | Checkpoint | Decide whether the plan reaches the budget | See [History](#checkpoint-after-m2) | Decided 2026-11-17: compiler and game in parallel |
-| M3 | The big levers | Optimizations A–D ([optimizations.md](optimizations.md)), built on the three IR levels. Goal: faster than Calypsi (reached 2026-11-17). Also: static best/worst case per function and the timing report, `DAMPF_BUDGET` checked at build time ([timing.md](timing.md)), the remaining reference functions; inferred value ranges and pointer compression ([subrange-types.md](subrange-types.md)) | In progress: MIR, its passes and the code generator from MIR built; HIR, LIR and the rest open (below) |
+| M3 | The big levers | Optimizations A–D ([optimizations.md](optimizations.md)), built on the three IR levels. Goal: faster than Calypsi (reached 2026-11-17). Also: static best/worst case per function and the timing report, `DAMPF_BUDGET` checked at build time ([timing.md](timing.md)), the remaining reference functions; inferred value ranges and pointer compression ([subrange-types.md](subrange-types.md)) | In progress: MIR, its passes, LIR and the code generator from MIR built; HIR and the rest open (below) |
 | M4 | Fine tuning | Optimizations E–N until the frame budget is met, page-aligned arrays with 8-bit index registers. Also: profile-guided optimization from the replays, superoptimization of short hot sequences, `DAMPF_TABLE`, `DAMPF_PIN_X` and the other transforming hints | Started early: E, F, G, J, K and N in progress, block layout by a profile built |
 | M5 | Publishing | dampf can go public: own examples replace Blubber Blasen as test case and benchmark, dampf has its own preprocessor, the repository is hosted | Not started |
-| M6 | Standing alone | dampf has its own assembler and linker; using dampf needs nothing but Java | Not started; the very last step |
+| M6 | Standing alone | dampf has its own assembler and linker; using dampf needs nothing but Java | Done 2026-11-18, ahead of M5 ([transition-to-lir.md](transition-to-lir.md), phase C); gcc is still needed until M5's preprocessor |
 
 ## What is left in M3 and M4
 
@@ -54,11 +54,10 @@ after M2 concluded.
 
 Also open in M3:
 
-- **HIR and LIR.** MIR is lowered straight from the AST, and the code generator writes 65816 code
-  from MIR. Both are open and not scheduled. [architecture.md](architecture.md) places the split
-  of struct arrays (row 4) in HIR and the processor state across blocks (rows 3 and 5) in LIR.
-  The way to LIR, and from there to machine code without ca65 and ld65 (M6), is planned step by
-  step in [transition-to-lir.md](transition-to-lir.md).
+- **HIR.** MIR is lowered straight from the AST; HIR is open and not scheduled.
+  [architecture.md](architecture.md) places the split of struct arrays (row 4) there. LIR is built
+  ([transition-to-lir.md](transition-to-lir.md)); the processor state across blocks (rows 3 and
+  5) and peephole rules are its next passes.
 - **Master cycles per C line.** The assembly comments and the timing report count CPU cycles.
   Next: master cycles and the costliest path per C line in the report and in the budget errors.
 - **Unbounded loops.** 38 of the game's functions have no worst case yet; the report names the
@@ -142,8 +141,10 @@ memory map), so both stay as the oracle in the tests: the ROM dampf builds itsel
 byte-identical to the one ca65 and ld65 build from the same assembly, and the debug information
 must still let Mesen show the C source. This is deliberately the last step: it changes nothing in
 the code dampf generates, so it waits until everything else runs to our satisfaction. It was
-decided on 2026-11-18 that it comes: dampf should need nothing but Java. The steps are planned in
-[transition-to-lir.md](transition-to-lir.md) (phase C).
+decided on 2026-11-18 that it comes: dampf should need nothing but Java. It was done the same day,
+ahead of M5 ([transition-to-lir.md](transition-to-lir.md), phase C): `dampf build` uses its own
+assembler and linker, `--assembler ca65` keeps the old path, and the tests build every program
+both ways.
 
 ## Risks
 

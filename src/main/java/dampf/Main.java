@@ -18,8 +18,10 @@ import java.util.Locale;
  * <pre>
  * dampf parse [-I dir] [-D name[=value]] file.c ...                   preprocess and parse
  * dampf build [-I dir] [-D name[=value]] [--entry name] [--backend mir|naive] [--replace fn=file.s]
- *             [--block-counts file] [--slowrom] -o out.sfc file.c ...   compile to a ROM (block counts: dampf profile --blocks;
- *                                                                      --slowrom: no FastROM, for a SlowROM cartridge)
+ *             [--block-counts file] [--slowrom] [--assembler dampf|ca65] -o out.sfc file.c ...
+ *                                                                      compile to a ROM (block counts: dampf profile --blocks;
+ *                                                                      --slowrom: no FastROM, for a SlowROM cartridge;
+ *                                                                      --assembler ca65: ca65 and ld65 instead of dampf's own)
  * dampf check [-I dir] [-D name[=value]] file.c ...                   front end: first problem per file, then the
  *                                                                      files that pass together (recursion, calls of
  *                                                                      functions defined nowhere, double definitions)
@@ -57,10 +59,19 @@ public final class Main {
         Compiler.Backend backend = null;
         Path blockCounts = null;
         boolean fastRom = true;
+        boolean ca65 = false;
         for (int i = 1; i < args.length; i++) {
             String a = args[i];
             if (a.equals("--slowrom")) {
                 fastRom = false;
+            } else if (a.equals("--assembler") && i + 1 < args.length) {
+                String name = args[++i];
+                if (!name.equals("dampf") && !name.equals("ca65")) {
+                    System.err.println("unknown assembler '" + name + "' (dampf or ca65)");
+                    usage();
+                    System.exit(2);
+                }
+                ca65 = name.equals("ca65");
             } else if (a.equals("--block-counts") && i + 1 < args.length) {
                 blockCounts = Path.of(args[++i]);
             } else if (a.equals("--backend") && i + 1 < args.length) {
@@ -112,7 +123,7 @@ public final class Main {
             try {
                 Compiler.Result r = Compiler.compile(new Compiler.Options(files, includes, defines, entry, output, replacements,
                         backend != null ? backend : replacements.isEmpty() ? Compiler.Backend.MIR : Compiler.Backend.NAIVE,
-                        blockCounts == null ? null : Compiler.Options.readBlockCounts(blockCounts), fastRom));
+                        blockCounts == null ? null : Compiler.Options.readBlockCounts(blockCounts), fastRom, ca65));
                 r.warnings().forEach(System.err::println);
                 System.err.println("wrote " + r.rom().rom() + " and " + r.rom().dbg());
                 return;
@@ -178,7 +189,7 @@ public final class Main {
 
     private static void usage() {
         System.err.println("usage: dampf parse [-I dir] [-D name[=value]] file.c ...");
-        System.err.println("       dampf build [-I dir] [-D name[=value]] [--entry name] [--backend mir|naive] [--replace fn=file.s] [--block-counts file] [--slowrom] -o out.sfc file.c ...");
+        System.err.println("       dampf build [-I dir] [-D name[=value]] [--entry name] [--backend mir|naive] [--replace fn=file.s] [--block-counts file] [--slowrom] [--assembler dampf|ca65] -o out.sfc file.c ...");
         System.err.println("       dampf check [-I dir] [-D name[=value]] file.c ...");
         System.err.println("       dampf profile rom.sfc profile.txt [top] [--skip file.c ...] [--instructions] [--blocks file]");
     }

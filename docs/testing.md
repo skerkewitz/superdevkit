@@ -107,6 +107,17 @@ ticks. `GameTimingTest` (with `-Preplays`) checks the static timing on it.
   it runs them in dampf's emulator on WRAM addresses and compares with what C says);
   `BlubberBlasenParseTest` (every file of the snapshot parses, or of the live game with
   `-Pblubberblasen=<path>`).
+- **`BackendOutputTest`** freezes the back end's output: a hash of the assembly and the static
+  timing of every execution test, 20 random programs and the game (also with the hand-written
+  reference function), with both code generators. A step that only moves code must keep every
+  hash; one that changes code records new ones (`-PbackendOutput=update`, which also keeps a copy
+  of the assembly in `build/backend-output-ref/` for diffing) together with the game's numbers
+  ([transition-to-lir.md](transition-to-lir.md)). It also reads every assembly file back as LIR
+  (the same text again, and the LIR verifier passes), and builds every ROM with ca65 and ld65 and
+  with dampf's own assembler and linker: the images must be the same byte for byte, the label
+  files must name the same addresses, and the debug files must say the same (`DbgMeaning`: the
+  bytes of every line, symbols, segments, scopes, C symbols).
+- **`LirTest`**: blocks, printer, parser and verifier of LIR on small hand-written pieces.
 - **`BookSourcesTest`** fails when the spec or a source of a generated book page changed since
   the page was generated (see CLAUDE.md).
 - **Coverage and static analysis**, not part of `./gradlew build`: JaCoCo coverage
@@ -123,9 +134,10 @@ ticks. `GameTimingTest` (with `-Preplays`) checks the static timing on it.
 Every IR level ([architecture.md](architecture.md)) is to have a text format that parses back
 (pass tests as IR text in, IR text out, like LLVM's), a verifier run after every pass, and, for
 HIR and MIR, an interpreter, so a wrong result can be pinned to the lowering between two levels.
-MIR has all three; HIR and LIR are not built. In LIR the verifier would check the processor
-state at every instruction; the HIR interpreter would be a second definition of what the program
-means, next to gcc.
+MIR has all three; LIR has the text format and the verifier (`LVerifier`, after every code
+generation: labels, branch targets, known opcodes, the accumulator width on every path); its
+meaning is checked by running the code. HIR is not built; its interpreter would be a second
+definition of what the program means, next to gcc.
 
 ## When something hangs
 
@@ -133,7 +145,7 @@ A test must fail, not wait forever. Every program test (execution tests, random 
 the MIR round trips) runs under a hard time limit (`assertTimeoutPreemptively`: 3, 2, 15 (20
 through the platform layer) and 2 minutes per program, 10 minutes for `GameTimingTest`), because
 JUnit's default timeouts do not cover dynamic tests. External programs (gcc, the PC builds,
-ca65, ld65) run through `dampf.util.Processes` with a time limit and are killed when it runs
+and ca65 and ld65 where the tests use them) run through `dampf.util.Processes` with a time limit and are killed when it runs
 out. The emulator stops after 600 frames in the program tests and 200,000 frames in
 `dampf bench` and the replays; the MIR interpreter counts its steps. The Gradle test task has an
 overall limit of 2 hours as a last resort. A program that loops forever fails in about a minute

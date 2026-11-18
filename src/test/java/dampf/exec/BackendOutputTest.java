@@ -52,7 +52,9 @@ class BackendOutputTest {
         Map<String, String> now = new TreeMap<>();
         for (Case c : cases()) {
             for (Compiler.Backend b : Compiler.Backend.values()) {
-                record(now, c, b, false);
+                if (c.replacements.isEmpty() || b == Compiler.Backend.NAIVE) {
+                    record(now, c, b, false);
+                }
             }
             if (c.layout) {
                 record(now, c, Compiler.Backend.MIR, true);
@@ -90,7 +92,11 @@ class BackendOutputTest {
     }
 
     private record Case(String name, List<Path> sources, List<Path> includes, List<String> defines, String entry,
-                        boolean layout) {}
+                        boolean layout, Map<String, Path> replacements) {
+        Case(String name, List<Path> sources, List<Path> includes, List<String> defines, String entry, boolean layout) {
+            this(name, sources, includes, defines, entry, layout, Map.of());
+        }
+    }
 
     private static List<Case> cases() throws IOException, URISyntaxException {
         List<Case> cases = new ArrayList<>();
@@ -124,6 +130,9 @@ class BackendOutputTest {
             defines.add(f + "=bb_" + f);
         }
         cases.add(new Case("game", game, List.of(GAME.resolve("src"), GAME.resolve("generated")), defines, "main", false));
+        // a hand-written function linked in (the naive generator only)
+        cases.add(new Case("game_reference", game, List.of(GAME.resolve("src"), GAME.resolve("generated")), defines, "main", false,
+                Map.of("level_solid_px", Path.of("reference/level_solid_px.s"))));
         return cases;
     }
 
@@ -131,8 +140,8 @@ class BackendOutputTest {
             throws Exception {
         String key = c.name + "." + (layout ? "layout" : backend.name().toLowerCase());
         Path dir = Files.createDirectories(OUT.resolve(key));
-        Compiler.Options o = new Compiler.Options(c.sources, c.includes, c.defines, c.entry, dir.resolve("out.sfc"))
-                .withBackend(backend);
+        Compiler.Options o = new Compiler.Options(c.sources, c.includes, c.defines, c.entry, dir.resolve("out.sfc"), c.replacements)
+                .withBackend(backend).withCa65(true);
         if (layout) {
             o = o.withBlockCounts((function, block) -> (long) Math.floorMod((function + block).hashCode(), 3));
         }
@@ -140,6 +149,9 @@ class BackendOutputTest {
         List<String> asm = r.assembly();
         for (int i = 0; i < asm.size(); i++) {
             Files.writeString(dir.resolve("module" + i + ".s"), asm.get(i));
+            if (i >= asm.size() - c.replacements.size()) {
+                continue;   // hand-written assembly, appended as it is
+            }
             // the text is LIR: read back, it prints the same and passes the verifier
             LUnit parsed = LParser.parse(asm.get(i));
             assertEquals(asm.get(i), LPrinter.print(parsed), key + " module " + i + ": the LIR text does not read back the same");
