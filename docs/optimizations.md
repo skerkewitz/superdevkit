@@ -147,7 +147,12 @@ memory; induction variables for counters that count down, and an induction varia
 in Y (the range analysis cannot yet see that the offset never wraps); the transforming hints
 `DAMPF_TABLE`, `DAMPF_PIN_X` and `DAMPF_SPLIT` ([hints.md](hints.md); of the hints only
 `DAMPF_RANGE` and `DAMPF_BUDGET` are built, and neither transforms code); more profile-guided
-optimization and superoptimization (below). Which come next, by likely gain and effort, is in
+optimization and superoptimization (below); a tuning option (`--tune`, the user's idea of
+2026-11-18) that builds with several values of the parameters chosen today on one game (the
+inlining limit, the block order), runs the user's own workload (a benchmark or a replay, as
+`dampf profile` does) in dampf's emulator and keeps the fastest build, each candidate checked
+against a reference of the results (the PC build's checksums), since a larger inlining limit has
+already exposed a miscompilation ([roadmap.md](roadmap.md#open-questions)). Which come next, by likely gain and effort, is in
 [roadmap.md](roadmap.md#what-is-left-in-m3-and-m4).
 
 ## How close can dampf get to hand-written assembly?
