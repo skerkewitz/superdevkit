@@ -9,7 +9,7 @@ compiled together with the implementation of its platform; it calls nothing else
 | `include/snes/snes.h` | The console API: the PVSnesLib-shaped functions and the `snesXxx()` extensions, with their constants and the sprite table `oamMemory`. Its last section, the PC side (`snes_xxx()`), is the PC implementation's interface, not for games. |
 | `include/snes/loop.h` | The frame rhythm: the library's main loop calls `game_init`, then per frame `game_tick` and `game_vblank`, which every game defines; the pad bits `KEY_*`. |
 | `snes/` | The SNES: the API in C with registers as `volatile` pointers (`snes.c`, `hw.h`) and the main loop (`main.c`), compiled by dampf with the game. See its [README](snes/README.md). |
-| `pc/` | The PC, later: Blubber Blasen's pseudo SNES (its `src/snes`) implements the same API until it moves here. |
+| `pseudo/`, `desktop/`, `web/` | Windows, Linux and the web, later (M7 and M8, [the plan](../docs/superdevkit-transition.md)): the pseudo SNES from Blubber Blasen's `src/snes`, which implements the same API, and the frontends. Until then the game's pseudo SNES is the PC column of the table. |
 
 Build a game with `-I lib/include -I lib/snes` in front of its own include paths and
 `lib/snes/*.c` among its sources.

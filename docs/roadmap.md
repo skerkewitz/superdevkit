@@ -40,10 +40,12 @@ needs is an open question. The rule is ADR
 | M4 | Fine tuning, started early: block layout by a profile, peephole rules, loop and branch optimizations | 0.4.0 | Done 2026-11-18 |
 | M6 | Standing alone: dampf's own assembler and linker | 0.4.0 | Done 2026-11-18 |
 | M5 | Blubber Blasen builds its ROM with the dev kit, from its own repository | 0.5.0 | In work |
-| M7 | The optimizer: what was left of M3, register allocation first | 0.7.0 | Planned |
-| M8 | Language, platform and usability: C in interrupts, intrinsics, the open subset decisions, dampf's own preprocessor | 0.8.0 | Planned |
-| M9 | Timing and debugging: master cycles, bounds for more loops, locals and types in Mesen | 0.9.0 | Planned |
-| M10 | Fine tuning: what was left of M4, until the frame budget is met | 0.10.0 | Planned |
+| M7 | Windows and Linux: the pseudo SNES and the desktop frontend in the kit, the `superdevkit` command with `init`, `build`, `run`; the examples and Blubber Blasen run on the desktop from the kit | 0.7.0 | Planned |
+| M8 | The web: the same games in the browser; Blubber Blasen drops its own PC side | 0.8.0 | Planned |
+| M9 | The optimizer: what was left of M3, register allocation first | 0.9.0 | Planned |
+| M10 | Language, platform and usability: C in interrupts, intrinsics, the open subset decisions, dampf's own preprocessor | 0.10.0 | Planned |
+| M11 | Timing and debugging: master cycles, bounds for more loops, locals and types in Mesen | 0.11.0 | Planned |
+| M12 | Fine tuning: what was left of M4, until the frame budget is met | 0.12.0 | Planned |
 
 What each concluded milestone reached is in [History](#history). The order after M5 follows the
 likely gain and what each milestone needs from the one before; it is revised when M5 is done.
@@ -52,68 +54,35 @@ likely gain and what each milestone needs from the one before; it is revised whe
 
 Done when Blubber Blasen builds its SNES ROM from its own repository with a local install of the
 dev kit (no release is needed while the repository is private), and that ROM plays the game's
-recordings with the PC's checksums.
+recordings with the PC's checksums; and the examples (`hello`, CatchMe, Steinschlag) build for the
+SNES and play in Mesen.
 
-Correctness first, since the game will rely on the code:
+Done on the branch `m5`: `tools/` became `dev/` (nothing in it was for other games), the snapshot
+moved to `snapshots/blubberblasen`, `platform/snes` became `lib/snes`, and the console API
+(`lib/include/snes/snes.h`) and the main loop with its frame rhythm (`lib/include/snes/loop.h`)
+belong to the library ([lib/README.md](../lib/README.md)). The steps still to do, each with what
+makes it done, are in [superdevkit-transition.md](superdevkit-transition.md#m5-the-snes-050):
+dampf called by a game (argument files, all errors, `<string.h>`), the converter, the examples,
+correctness (the miscompilation, tests that reach the optimizer), the book, the handover to the
+game, and the playable ROM on a console.
 
-- **The miscompilation with inlining up to 80** found and fixed, with an execution test (see
-  [Open questions](#open-questions) for what is known). The limit of 60 only avoids the function
-  that shows it.
-- **Random programs that reach the optimizer:** loops over arrays of structs, pointers into
-  arrays, byte stores in a row, 8.8 values, fewer divisions. Today their cycles go to the
-  runtime's division routines, and the optimizations of 2026-11-18 did not move them at all.
-- **More execution tests** for the patterns the optimizer looks for (29 programs today).
-- **The playable ROM on a real console or flash cartridge** (needs the hardware), and the DMA
-  margin `SETUP_LINES` measured again: `snesDmaFits` leaves 8 lines for the code around a copy,
-  since a copy that starts after the vertical blank is lost.
+## M7: Windows and Linux (0.7.0)
 
-A compiler a game can call:
+The pseudo SNES from Blubber Blasen in the kit (`lib/pseudo`), sound, save RAM and the debug
+registrations in the console API (built on the desktop, stubs on the SNES; ADR
+[record 32](adr/0032-desktop-and-web-are-for-prototyping-with-sound.md)), the desktop frontend
+with raylib (`lib/desktop`), and the `superdevkit` command with `init`, `build` and `run` (ADR
+[record 31](adr/0031-the-superdevkit-command-builds-a-project-from-its.md)). Done when the
+examples and Blubber Blasen run on Windows and Linux from the kit. The steps are in
+[superdevkit-transition.md](superdevkit-transition.md#m7-windows-and-linux-070).
 
-- **All errors of a run reported**, not only the first.
-- **Options in an argument file**, `--config` or `@file`, with folders standing for their `.c`
-  files (ADR [record 28](adr/0028-options-can-be-kept-in-an-argument-file-given-by.md)); dampf's
-  own scripts for the game use one.
-- **`<string.h>` with `memset` and `memcpy`**, in C for now (as `MVN` or DMA in M10).
-- **The install** (`./gradlew installDist`) carries the library and the tools as well as the
-  compiler, and the game refers to it by its folder.
+## M8: the web (0.8.0)
 
-The dev kit in this repository (ADR
-[record 29](adr/0029-superdevkit-is-the-project-and-dampf-is-its.md)):
+The target `web` with Emscripten, save RAM in the browser, `superdevkit run web`; the examples
+and Blubber Blasen in the browser, after which the game drops its own PC side. The steps are in
+[superdevkit-transition.md](superdevkit-transition.md#m8-the-web-080).
 
-- **Done: the library.** `platform/snes` became `lib/snes`, and the console API the dev kit now
-  owns is `lib/include/snes/snes.h`, taken over from the game with the same declarations;
-  `dev/update_game_snapshot.sh` warns when the game's copy declares something else. The main
-  loop (`lib/snes/main.c`) is the library's, and the frame rhythm it calls (`game_init`,
-  `game_tick`, `game_vblank`, the pad bits) is declared in `lib/include/snes/loop.h`.
-  [lib/README.md](../lib/README.md) has the table of built and stub per function and platform,
-  and `LibApiTest` checks that every function of the API exists in `lib/snes` and in the table.
-- **Done: `tools/` became `dev/`**, for developing the dev kit (benchmarks, profiles, the
-  snapshot, the subset scan, the replay driver, the check of the playable ROM in Mesen). The
-  split into `tools/` and `dev/` that was planned found nothing for other games: the Mesen check
-  plays Blubber Blasen with scripted input, and the replay converter reads the game's format.
-  `tools/` comes back with the first tool for game developers (a graphics converter, say).
-- **Done: the snapshot** moved from `examples/blubberblasen` to `snapshots/blubberblasen`.
-- **Examples as projects:** `examples/<name>/` with a README, an argument file `<name>.args`,
-  `src/`, `assets/` and its own `build/`. The first is `examples/m1` turned into a project
-  (stepping through C in Mesen); the book's getting-started page uses it.
-
-The book (ADR [record 30](adr/0030-one-book-for-superdevkit-with-dampf-as-a-part-of.md)):
-
-- **One book for the dev kit.** First the existing pages move into folders for dampf's part
-  (`reference/compiler/`, `inside/compiler/`), with `doc-specs/` and its README following; then
-  the user guide becomes the dev kit's (introduction, getting started from the first example
-  project), and the reference gets the console API with its table of built and stub per
-  platform (`reference/api/`).
-
-For the game, through [game-findings.md](game-findings.md) (the game's own agent does the work
-there):
-
-- a build script for the dev kit next to the PVSnesLib one, with an argument file;
-- the data as plain C (`map2c` and `gfx2c` without `--snes`);
-- `BB_FAST` with a `__DAMPF__` branch;
-- an ADR of the game's own, since its ADR-0005 names PVSnesLib.
-
-## M7: the optimizer (0.7.0)
+## M9: the optimizer (0.9.0)
 
 What was left of M3. The rows are from the plan made on 2026-11-17 and keep its numbers; the
 gains are estimates from the profile's shares, not measurements, and several ideas that looked
@@ -130,7 +99,7 @@ FastROM, 12 hardware registers at constant addresses) are in [History](#history)
 | 7 | Calling convention (catalogue C): the first argument in A, `JMP` for tail calls | 1-3 % | medium | `ground_px` is called 12,000 times in 800 ticks. |
 | 9 | Value ranges from array bounds | 1-2 % | medium | More 8-bit narrowing, fewer masks. |
 
-Also in M7:
+Also in M9:
 
 - **16-bit pointers into RAM** ([subset.md](subset.md), decision 3), and enum objects in one byte
   (decision 2), each once its subset decision is taken.
@@ -142,7 +111,7 @@ is decided; then 3, 5 and 7. The rest has to come from the game doing less work:
 of `separate` (16 %) and the CPU partner ([game-findings.md](game-findings.md), finding 1), as
 the checkpoint after M2 concluded.
 
-## M8: language, platform and usability (0.8.0)
+## M10: language, platform and usability (0.10.0)
 
 - **C in interrupt handlers.** Frames have fixed places (ADR
   [record 6](adr/0006-no-recursion-no-free-function-pointers-and-no-heap.md)), so C called from
@@ -154,7 +123,7 @@ the checkpoint after M2 concluded.
 - **Intrinsics** for the hardware multipliers, the divider and DMA ([subset.md](subset.md),
   *Intrinsics*).
 - **The open subset decision** 1 (plain `char` for text only) in [subset.md](subset.md); 2 and
-  3 come with M7. Decision 4 is taken: `goto` stays rejected (ADR
+  3 come with M9. Decision 4 is taken: `goto` stays rejected (ADR
   [record 27](adr/0027-goto-and-labels-stay-rejected-and-a-forward-and.md)).
 - **Function pointers in constant tables**, allowed by design and not built.
 - **Hand-written assembly with the code generator from MIR:** `--replace` works only with the
@@ -170,7 +139,7 @@ the checkpoint after M2 concluded.
   addresses) into the target ([architecture.md](architecture.md#core-and-target)).
 - **`restrict`** or a no-alias hint of dampf's own (see [Open questions](#open-questions)).
 
-## M9: timing and debugging (0.9.0)
+## M11: timing and debugging (0.11.0)
 
 Timing ([timing.md](timing.md#not-built-yet)):
 
@@ -193,7 +162,7 @@ Mesen's author; NES developers who use cc65 would gain from it too. A patch from
 users is easier to argue for, so the patch waits until the dev kit is public. With it, the code from MIR
 writes the processor state line in the assembly as the naive code generator does.
 
-## M10: fine tuning (0.10.0)
+## M12: fine tuning (0.12.0)
 
 What was left of M4, until the frame budget is met:
 
@@ -203,7 +172,7 @@ What was left of M4, until the frame budget is met:
 | 10 | Superoptimizer for short hot sequences | 1-3 % | high | Gains spread thin. |
 | 11 | `<<8` as a byte store, `switch` as a jump table, `MVN` for copies (and `memcpy`), unrolling by hint | <1 % each | low to medium | Large locally, small on the whole game. |
 
-Also in M10:
+Also in M12:
 
 - profile-guided inlining, and code size spent for speed where the profile says it is hot;
 - a tuning option (`--tune`) that tries the parameters chosen today on one game (the inlining
@@ -216,15 +185,11 @@ Also in M10:
   dampf cannot infer ([subrange-types.md](subrange-types.md), ADR
   [record 23](adr/0023-value-ranges-are-inferred-first-and-subrange-types.md)).
 
-## The dev kit after M5 (not scheduled)
+## Not scheduled for the dev kit
 
-- **The PC side** moves from the game into `lib/pc`: the pseudo SNES (`src/snes`) and the generic
-  part of the raylib and web frontends. The game keeps its debug view (`debug_ui.cpp`) and
-  `map2c`, which are its own. Done together with the game's agent, since it changes its daily
-  work.
-- **The compiler into `compiler/`**, once the PC side brings a second build world (Gradle for the
-  compiler, something like CMake for the PC side).
-- **Converters** such as `gfx2c` into `tools/`, and `assets/` in the examples with them.
+macOS (raylib runs there; nobody can test it now), `superdevkit bundle` (one folder with every
+target, ready to publish), the desktop running the ROM in an emulator, Mesen as the desktop, and
+the compiler moved into `compiler/` once a second build world makes it worth it.
 
 ## Publishing (not scheduled)
 
@@ -280,7 +245,7 @@ naive code generator the vertical blank code is so slow that the room tiles neve
 minute of play, measured again on 2026-11-18) is in
 [optimizations.md](optimizations.md#where-things-stand).
 
-Open: the DMA margin is in M5, constant shifts longer than 8 in M7.
+Open: the DMA margin is in M5, constant shifts longer than 8 in M9.
 
 ## Risks
 
@@ -330,7 +295,7 @@ Open: the DMA margin is in M5, constant shifts longer than 8 in M7.
 - What 1.0 needs: the frame budget met, the subset decisions taken, C in interrupts, or a set of
   users.
 - How Mesen shows locals that live in fixed direct page places, several values sharing a place
-  (M9).
+  (M11).
 - Why Calypsi's results drift from the PC's from tick 596 on: a miscompile, RAM its start-up
   leaves uncleared, or a step of the game's own Calypsi build that `dev/bench_compilers.sh`
   lacks. Until then the comparison rests on 102 ticks.
@@ -378,6 +343,12 @@ Dates are 2026-11-17 unless a line says otherwise. The measurements are in [opti
   SNES games held in this repository (ADR
   [record 29](adr/0029-superdevkit-is-the-project-and-dampf-is-its.md)). M5 changed to the game
   building with the dev kit; publishing left M5 and is not scheduled.
+
+- **The targets** (2026-11-18). After a brainstorming session
+  ([summary](brainstorm/superdevkit-targets_2026-11-18.md)) the dev kit got its desktop and web
+  targets, split by target after M5: M7 Windows and Linux, M8 the web (ADR records 31 and 32;
+  the plan is [superdevkit-transition.md](superdevkit-transition.md)). The milestones planned
+  before moved from M7–M10 to M9–M12; the History above names them by their old numbers.
 
 ### M0 to M2
 

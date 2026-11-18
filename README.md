@@ -62,7 +62,7 @@ Goals:
 5. Correctness first: every optimization is checked automatically against a reference.
 6. In the end, nothing to install but Java. dampf assembles and links with its own assembler and
    linker (milestone M6); gcc is still needed for preprocessing until dampf has its own
-   preprocessor (M8).
+   preprocessor (M10).
 
 Non-goals:
 
@@ -90,6 +90,8 @@ working documents it is written from.
 - [docs/archive](docs/archive): finished plans and reviews, kept as they were (the way to LIR and to dampf's own assembler and linker, the status review of 2026-11-18).
 - [docs/memory-map.md](docs/memory-map.md): where code, data, variables and pointers live.
 - [docs/testing.md](docs/testing.md): the test layers and how they work.
+- [docs/superdevkit-transition.md](docs/superdevkit-transition.md): the plan from here to superdevkit with its SNES, desktop and web targets, step by step.
+- [docs/brainstorm](docs/brainstorm): summaries of brainstorming sessions, the options weighed before a decision.
 - [docs/roadmap.md](docs/roadmap.md): milestones and their state, risks, open questions, the relation to Blubber Blasen.
 - [docs/game-findings.md](docs/game-findings.md): things in Blubber Blasen's code worth changing, for whoever works on the game.
 - [dev/README.md](dev/README.md): the scripts in `dev/`, for developing dampf against the game.

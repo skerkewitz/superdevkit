@@ -152,8 +152,8 @@ inlining limit, the block order), runs the user's own workload (a benchmark or a
 `dampf profile` does) in dampf's emulator and keeps the fastest build, each candidate checked
 against a reference of the results (the PC build's checksums), since a larger inlining limit has
 already exposed a miscompilation ([roadmap.md](roadmap.md#open-questions)). Which come next, by likely gain and effort, is in
-[roadmap.md](roadmap.md#m7-the-optimizer-070) (M7) and
-[roadmap.md](roadmap.md#m10-fine-tuning-0100) (M10).
+[roadmap.md](roadmap.md#m9-the-optimizer-090) (M9) and
+[roadmap.md](roadmap.md#m12-fine-tuning-0120) (M12).
 
 ## How close can dampf get to hand-written assembly?
 
@@ -233,4 +233,4 @@ unnecessary.
 For short, very hot sequences (about 5–8 instructions), dampf can search instead of following
 rules: generate candidate sequences up to a length, run each in the cycle-counting emulator, and
 keep the fastest that gives the same result. With 8-bit inputs equivalence can be checked
-exhaustively (256 inputs for one byte, 65,536 for two). Optional and late (M10).
+exhaustively (256 inputs for one byte, 65,536 for two). Optional and late (M12).

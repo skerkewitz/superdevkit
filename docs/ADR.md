@@ -43,5 +43,7 @@ of its subject.
 | 26 | [Milestone N is version 0.N.0, and the first public version is an alpha](adr/0026-milestone-n-is-version-0n0-and-the-first-public.md) | Accepted; amended by 29 | 2026-11-18 |
 | 27 | [`goto` and labels stay rejected, and a forward and outward form is the most dampf will allow](adr/0027-goto-and-labels-stay-rejected-and-a-forward-and.md) | Accepted | 2026-11-18 |
 | 28 | [Options can be kept in an argument file, given by `--config` or `@file`](adr/0028-options-can-be-kept-in-an-argument-file-given-by.md) | Accepted | 2026-11-18 |
-| 29 | [superdevkit is the project, and dampf is its compiler](adr/0029-superdevkit-is-the-project-and-dampf-is-its.md) | Accepted | 2026-11-18 |
+| 29 | [superdevkit is the project, and dampf is its compiler](adr/0029-superdevkit-is-the-project-and-dampf-is-its.md) | Accepted; amended by 32 | 2026-11-18 |
 | 30 | [One book for superdevkit, with dampf as a part of its own](adr/0030-one-book-for-superdevkit-with-dampf-as-a-part-of.md) | Accepted | 2026-11-18 |
+| 31 | [The superdevkit command builds a project from its TOML file and calls the compilers itself](adr/0031-the-superdevkit-command-builds-a-project-from-its.md) | Accepted | 2026-11-18 |
+| 32 | [Desktop and web are for prototyping, with sound, save RAM and a debug view the game registers into](adr/0032-desktop-and-web-are-for-prototyping-with-sound.md) | Accepted | 2026-11-18 |

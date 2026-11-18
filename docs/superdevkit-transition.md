@@ -1,0 +1,206 @@
+# superdevkit: the plan
+
+The way from today's repository (dampf, its library for the SNES, a snapshot of Blubber Blasen) to
+superdevkit as the session of 2026-11-18 decided it
+([brainstorm](brainstorm/superdevkit-targets_2026-11-18.md)): a game is a folder with its code, its
+assets and a reference to superdevkit, and the kit builds it for the SNES, Windows, Linux and the
+web. This file holds what is decided and not built yet; a step that is built leaves it, and what
+was decided goes to the ADR. Milestones and their state are in [roadmap.md](roadmap.md).
+
+Every step ends with a commit on its branch (`m5`, later one per milestone) that passes
+`./gradlew build`; steps that touch the game's ROM also pass `-Preplays`, the game's benchmark
+with the PC's checksums, and `dev/check_game_rom.sh`.
+
+## The target
+
+```
+mygame/                        a game, created by superdevkit init
+├── superdevkit.toml           name, superdevkit version (or path), sources and assets per target
+├── src/                       the game code, written once, no platform #ifdef
+├── assets/                    PNG for graphics, WAV/OGG for sound and music
+└── build/<target>/            what superdevkit build <target> writes (not in git)
+```
+
+```
+superdevkit build snes|win64|linux|web [--verbose] [--dry-run] [--plan]
+superdevkit run [snes|web]     the machine's own desktop target by default
+superdevkit init <name> [--from <example>]
+```
+
+The kit:
+
+| Part | What |
+| --- | --- |
+| `compiler/` (today `src/`) | dampf |
+| `lib/include/snes/` | the console API (`snes.h`), the frame rhythm (`loop.h`), sound, save RAM and debug registrations |
+| `lib/snes/` | the SNES: the API in C, the main loop |
+| `lib/pseudo/` | the pseudo SNES for the desktop and the web: video memory, registers, the renderer, portable C (from Blubber Blasen's `src/snes`) |
+| `lib/desktop/` | the frontend of `win64` and `linux` (raylib): window, scaling, input, sound, save file, debug view, screenshots |
+| `lib/web/` | what the web build adds to it: the page, IndexedDB for save RAM, the click to start |
+| `tools/` | converters for game developers (`png2snes.py`, later sound) |
+| `cli/` | the `superdevkit` command (Java) |
+| `examples/` | `hello`, `catchme`, `steinschlag`: projects in the shape above |
+
+## The milestones
+
+| Milestone | Version | Goal |
+| --- | --- | --- |
+| M5 | 0.5.0 | Blubber Blasen builds its SNES ROM with the dev kit from its own repository; the examples build for the SNES |
+| M7 | 0.7.0 | Windows and Linux: the pseudo SNES and the desktop frontend in the kit, the CLI with `init`, `build`, `run`; the examples and Blubber Blasen run on the desktop from the kit |
+| M8 | 0.8.0 | The web: the same games in the browser; Blubber Blasen drops its own PC side |
+
+The milestones planned before (the optimizer, language and platform, timing and debugging, fine
+tuning) move from M7–M10 to M9–M12 (ADR record 26 on renumbering). macOS, `bundle`/`deploy`, the
+desktop running the ROM in an emulator and Mesen as the desktop are not scheduled.
+
+## M5: the SNES (0.5.0)
+
+Done so far on `m5`: the version 0.5.0; `dev/`, `snapshots/`, `lib/snes`; the console API and the
+main loop in the library (`lib/include/snes/`, `LibApiTest`).
+
+### 5.1 dampf can be called by a game
+
+- **Argument files** (ADR record 28): `--config <file>` and `@file`, one per call, folders standing
+  for their `.c` files, for `build`, `check` and `parse`; relative paths against the file's folder;
+  errors with file and line. Tests: comments, quotes, paths, folders, an option twice, the errors.
+  dampf's scripts for the game use one (`snapshots/blubberblasen.args`).
+- **All errors of a run**, not only the first: the front end collects the errors of a file and
+  reports them all; `check` and `build` print each with its place. Test: a file with three
+  violations gives three messages.
+- **`<string.h>` with `memset` and `memcpy`**, in C in dampf's include folder, with an execution
+  test.
+
+Done when: each with its tests; the book's command-line page regenerated.
+
+### 5.2 The converter
+
+`tools/png2snes.py` (Python for now; the language of the kit's tools is an open question of the
+roadmap): `tiles` (4 bits per pixel and the palette of an image of up to 16 colours, indexed or
+RGB(A)) and `palette` (the colours of a strip). Output `NAME.c` and `NAME.h` into a build folder.
+Tests: a round trip of tiles and colours (a Python test the Gradle build runs).
+
+Done when: the examples build their graphics with it.
+
+### 5.3 The examples on the SNES
+
+Each example is a project: `README.md`, `<name>.args` (until the CLI of M7, the call of dampf),
+`src/`, `assets/` (PNG, drawn for the example), `build/`; a `build.sh` that runs the converter and
+dampf, until the CLI replaces it. Each runs in Mesen with a script of scripted input
+(`dev/check_example.sh <name>`: screenshots, bytes lost outside the vertical blank).
+
+- **hello**: `examples/m1` as a project: a sprite and text on the screen, stepping through C in
+  Mesen. The book's getting-started page uses it.
+- **CatchMe**: a maze-chase game of its own (its own maze, characters and look): a mouse eats
+  crumbs in a maze, four cats with different ways of chasing, a chili that turns the tables for a
+  while, score, lives, levels that get faster. 8 x 8 background tiles for the maze, 16 x 16
+  sprites. A good first example for a new SNES developer: one screen, no scrolling.
+- **Steinschlag**: a dig-and-boulders game of its own: a miner digs through dirt, boulders and
+  gems fall and roll, gems open the exit, beetles follow the walls, caves larger than the screen.
+  Cells of 16 x 16 drawn from 2 x 2 background tiles; the cave is 40 x 22 cells (640 x 352 pixels),
+  so the camera scrolls in x and y; the background map holds 64 x 64 tiles (512 x 512 pixels), so
+  the columns that come into view are copied into it in the vertical blank (scrolling in x by
+  streaming, in y by the scroll register alone).
+
+Done when: the three build, play in Mesen with scripted input without losing a byte, and have a
+README; the screenshots look right.
+
+### 5.4 Correctness
+
+- **The miscompilation with inlining up to 80** found and fixed, with an execution test.
+- **Random programs that reach the optimizer**, and execution tests for its patterns.
+
+### 5.5 The book (ADR record 30)
+
+dampf's pages into `reference/compiler/` and `inside/compiler/`, `doc-specs/` following; the user
+guide becomes the dev kit's (getting started from `hello`); `reference/api/` for the console API.
+
+### 5.6 The handover to the game
+
+In [game-findings.md](game-findings.md), for the game's agent: a build of the SNES ROM with the
+dev kit next to the PVSnesLib one (an argument file in the game's repository, `-I lib/include`,
+`lib/snes/*.c`), the data as plain C (`map2c`, `gfx2c` without `--snes`), `BB_FAST` with a
+`__DAMPF__` branch, an ADR of the game's own.
+
+### 5.7 On a console (needs the hardware)
+
+The playable ROM on a real SNES or flash cartridge, and the DMA margin `SETUP_LINES` measured
+again.
+
+## M7: Windows and Linux (0.7.0)
+
+### 7.1 The pseudo SNES in the kit
+
+Blubber Blasen's `src/snes` (`ppu.c`, `render.c`, `snes_internal.h`, portable C99) into
+`lib/pseudo`. Its tests come with it (from the game's `tests/test_snes.c`, the parts that test the
+pseudo SNES). `dev/update_game_snapshot.sh` warns when the game's copy differs, until the game
+uses the kit's.
+
+### 7.2 Sound, save RAM and the debug registrations in the API
+
+New headers in `lib/include/snes/`, built in `lib/pseudo` and `lib/desktop`, stubs in `lib/snes`,
+rows in `lib/README.md`'s table:
+
+- `sound.h`: `sfxPlay(id)`, `musicPlay(track)`, `musicStop()`. The numbers come from the project
+  file (the converter writes `SFX_*` and `MUSIC_*` into a header); on the desktop the frontend
+  plays the files. On the SNES nothing yet; later a queue the main loop sends to the sound
+  processor in the vertical blank.
+- `sram.h`: `snesSram()` (the block) and `SNES_SRAM_SIZE` from the project file; the frontend
+  saves it when it changed and on exit.
+- `debug.h`: `debugToggle(name, &flag)`, `debugRange(name, &value, lo, hi)`,
+  `debugColor(name, &colour)`, `debugAction(name, function)` once at start;
+  `debugBox(x, y, w, h, kind)` per frame. Empty on the SNES; an execution test checks that dampf
+  removes the calls (cycles of a tick with and without them).
+
+Done when: `LibApiTest` covers the new headers; an execution test per stub on the SNES.
+
+### 7.3 The desktop frontend
+
+`lib/desktop` in C with raylib: the window (256 x 224 scaled to whole multiples), the frame
+rhythm of `loop.h` (`game_tick`, then `snes_vblank`, `game_vblank`, `snes_render`), keyboard and
+gamepad to `KEY_*`, sound and music from files, save RAM in a file next to the program, a
+screenshot key, the debug view (Dear ImGui through its C binding, or raylib's own immediate mode
+GUI, decided in the step): pause, step, slow motion, the registered switches, ranges, colours and
+actions, the boxes as overlays, views of VRAM, palettes and sprites. The CRT filter of Blubber
+Blasen's frontend as an option.
+
+Done when: CatchMe runs on Linux and Windows from a build of its own sources and the kit's.
+
+### 7.4 The CLI
+
+`cli/`, Java, in the same distribution as dampf, launcher `superdevkit`:
+
+- reads `superdevkit.toml` with a TOML reader of its own (the subset the project file uses);
+- `init <name> [--from <example>]` copies an example and sets its name;
+- `build <target>`: runs the converters for the assets, then dampf (`snes`) or the compiler of
+  the target (`linux`: gcc or clang; `win64`: MinGW's gcc or MSVC, decided in the step; `web`:
+  `emcc`, in M8) with fixed options per target, links raylib from the kit (ready-built per target,
+  pinned to one version); writes `compile_commands.json`;
+- `run [target]`: builds and starts the program (`snes`: Mesen with the ROM);
+- `--verbose` prints every step and call, `--dry-run` checks that everything is there and does
+  nothing, `--plan` is both;
+- checks the project's `superdevkit` version against its own, or uses the path the project names.
+
+Done when: `superdevkit init`, `build` and `run` work for the examples on Linux and Windows, with
+tests of the TOML reader and of the plan each command makes (`--plan` output).
+
+### 7.5 The examples and the game on the desktop
+
+The three examples get `superdevkit.toml` (their `build.sh` and `.args` go). The handover to the
+game: Blubber Blasen's desktop build from the kit (its sound calls from `game_sfx()` to
+`sfxPlay()`, its save RAM to `snesSram()`, its debug view to registrations; its recordings stay its
+own, reached through `debugAction`).
+
+## M8: the web (0.8.0)
+
+- `web` as a target of the CLI with `emcc` and raylib's web build; `lib/web`: the page, the click
+  to start (sound and keyboard focus need a click in the browser), save RAM in IndexedDB.
+- `superdevkit run web` serves the build on a local port and opens the browser.
+- The examples in the browser; Blubber Blasen's web build from the kit, and then the game drops
+  `src/snes`, `src/platform` and its web build: its folder holds its game, its assets, its debug
+  registrations and `superdevkit.toml`.
+
+## Not scheduled
+
+macOS (raylib runs there; nobody can test it now), `bundle`/`deploy` (one folder with every
+target), the desktop running the ROM in an emulator, Mesen as the desktop, SPC700 sound and SNES
+save RAM.

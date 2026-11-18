@@ -51,5 +51,5 @@ latest overall figure against the naive code and Calypsi.
 
 ## Out of scope
 
-- The optimizations not built yet (M7 and M10): one line linking [Roadmap](/inside/roadmap).
+- The optimizations not built yet (M9 and M12): one line linking [Roadmap](/inside/roadmap).
 - Exact timing: [Exact timing](/inside/timing).

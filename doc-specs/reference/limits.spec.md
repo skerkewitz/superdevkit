@@ -23,7 +23,7 @@ repeating plans: what is not built yet, and what will never be.
 
 1. **Not built yet** – what the SNES platform layer of the playable ROM leaves out (sound, save
    RAM), hints, intrinsics, timing in master cycles and outside the CPU (DMA, interrupts), an
-   own preprocessor (M8; gcc is needed until then), other planned items of the roadmap that a user would notice.
+   own preprocessor (M10; gcc is needed until then), other planned items of the roadmap that a user would notice.
    For each, a sentence on what it will do and what to do meanwhile, if the sources say.
    Also what a user must provide for a ROM of their own game: a
    [platform layer](/glossary#platform-layer) for the library its code calls (the one in

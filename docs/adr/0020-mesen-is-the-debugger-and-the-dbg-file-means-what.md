@@ -23,4 +23,4 @@ ld65's internals and help neither Mesen nor a user.
 **Consequences.** The test compares what the two files say, not their text. Mesen shows the
 source and the names of globals, not locals, C types or struct fields; better C debugging needs
 more than the format carries and Mesen reads, and comes after M5
-([roadmap.md](../roadmap.md#m9-timing-and-debugging-090)).
+([roadmap.md](../roadmap.md#m11-timing-and-debugging-0110)).

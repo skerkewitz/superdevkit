@@ -108,10 +108,10 @@ block layout, peephole rules, loop and branch optimizations) and M6 (an assemble
 its own) are concluded. M5, in which Blubber Blasen builds its ROM with the dev kit from its own
 repository, is in work as version 0.5.0. Publishing the dev kit is a step of its own and not
 scheduled yet. Every version before 1.0 is a pre-release, so the subset, the command line and
-the files dampf writes may change from one version to the next. After M5, the optimizer work
-that is left goes on in M7, language, platform and usability (among them a preprocessor of
-dampf's own) in M8, timing and debugging in M9, and fine tuning until the frame budget is met in
-M10.
+the files dampf writes may change from one version to the next. After M5, the dev kit comes to
+Windows and Linux in M7 and to the web in M8; the optimizer work that is left goes on in M9,
+language, platform and usability (among them a preprocessor of dampf's own) in M10, timing and
+debugging in M11, and fine tuning until the frame budget is met in M12.
 
 The game's benchmark runs the game code with a fixed input and every PVSnesLib call stubbed out.
 During play (the benchmark's ticks of the game itself, not title, story or round intro), Blubber
