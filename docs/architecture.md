@@ -31,7 +31,8 @@ removal (`DeadCode`), repeated until nothing changes; then parameter ranges from
 (`ParamRanges`), inlining (`Inline`) and pointer parameters as offsets (`PointerParams`), and the
 passes once more; last, the order of the instructions for the code generator (`Schedule`). The
 code generator itself first gives loop exits their own blocks (`ExitEdges`), copies return blocks
-into their predecessors (`Returns`) and takes out the checks of the hints (`Hints`). How values
+into their predecessors (`Returns`), computes pointer sums again where their value is needed
+(`PointerRemat`) and takes out the checks of the hints (`Hints`). How values
 get places, registers and frames is in [optimizations.md](optimizations.md).
 
 ## Pipeline

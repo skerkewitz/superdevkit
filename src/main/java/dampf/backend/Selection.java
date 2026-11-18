@@ -77,6 +77,7 @@ final class Selection {
         for (MFunction f : gen.module.functions()) {
             dampf.mir.ExitEdges.split(f);
             dampf.mir.Returns.duplicate(f);
+            dampf.mir.PointerRemat.run(f);
         }
         Map<MFunction, Ranges> hintRanges = dampf.mir.Hints.strip(gen.module);
         for (MFunction f : gen.module.functions()) {
