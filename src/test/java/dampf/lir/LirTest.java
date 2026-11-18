@@ -249,4 +249,32 @@ class LirTest {
         assertEquals(List.of("cmp #$0010", "bcs done", "adc #$0001", "clc", "adc #$0001", "sec", "rtl"),
                 f.instrs().stream().map(LInstr::toString).toList());
     }
+
+    private static List<String> stretches(String... lines) {
+        String[] all = new String[lines.length + 2];
+        all[0] = ".proc f";
+        System.arraycopy(lines, 0, all, 1, lines.length);
+        all[lines.length + 1] = ".endproc";
+        LUnit u = LParser.parse(text(all));
+        LFunction f = u.functions().getFirst();
+        ByteStretches.run(f);
+        assertEquals(List.of(), LVerifier.verify(u));
+        return f.instrs().stream().map(LInstr::toString).toList();
+    }
+
+    @Test
+    void aShortSixteenBitStretchBetweenByteStoresRunsInEightBits() {
+        assertEquals(List.of("sep #$20", "sta _o", "lda _x", "sec", "sbc #$01", "sta _o+1", "rep #$20", "lda #$0000", "rtl"),
+                stretches(ins("sep", "#$20"), ins8("sta", "_o"), ins8("rep", "#$20"), ins("lda", "_x"), ins("sec", null),
+                        ins("sbc", "#$0001"), ins("sep", "#$20"), ins8("sta", "_o+1"), ins8("rep", "#$20"),
+                        ins("lda", "#$0000"), ins("rtl", null)));
+        // a right shift brings bit 8 into the low byte: stays 16 bit
+        List<String> shift = stretches(ins("sep", "#$20"), ins8("rep", "#$20"), ins("lda", "_x"), ins("lsr", "a"),
+                ins("sep", "#$20"), ins8("sta", "_o"), ins8("rep", "#$20"), ins("lda", "#$0000"), ins("rtl", null));
+        assertTrue(shift.contains("lsr a") && shift.stream().filter(x -> x.equals("rep #$20")).count() == 2, shift.toString());
+        // the high byte of A is stored in 16 bits after the stretch: stays 16 bit
+        List<String> high = stretches(ins("sep", "#$20"), ins8("rep", "#$20"), ins("lda", "_x"), ins("sep", "#$20"),
+                ins8("sta", "_o"), ins8("rep", "#$20"), ins("sta", "_w"), ins("rtl", null));
+        assertTrue(high.stream().filter(x -> x.equals("rep #$20")).count() == 2, high.toString());
+    }
 }

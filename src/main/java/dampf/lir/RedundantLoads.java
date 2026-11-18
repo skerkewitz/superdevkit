@@ -109,7 +109,7 @@ public final class RedundantLoads {
     }
 
     /** The flags live at the end of each block. */
-    private static Map<LBlock, Integer> flagsLiveOut(LFunction f) {
+    static Map<LBlock, Integer> flagsLiveOut(LFunction f) {
         Map<LBlock, List<LBlock>> preds = new IdentityHashMap<>();
         for (LBlock b : f.blocks()) {
             for (LBlock s : b.successors()) {
