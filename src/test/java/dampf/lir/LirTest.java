@@ -229,4 +229,24 @@ class LirTest {
         assertEquals(List.of("lda a:dampf_frame+223", "and #$00FF", "rtl"),
                 peephole(ins("lda", "z:dampf_frame+222"), ins("xba", null), ins("and", "#$00FF")));
     }
+
+    @Test
+    void aClcGoesWhereTheCarryIsClearAlready() {
+        LUnit u = LParser.parse(text(
+                ".proc f",
+                ins("cmp", "#$0010"),
+                ins("bcs", "done"),
+                ins("clc", null),                // C = 0 after BCS not taken: goes
+                ins("adc", "#$0001"),
+                ins("clc", null),                // after ADC: unknown, stays
+                ins("adc", "#$0001"),
+                "done:",
+                ins("sec", null),                // from the BCS taken: set; falling in: unknown; stays
+                ins("rtl", null),
+                ".endproc"));
+        LFunction f = u.functions().getFirst();
+        assertEquals(1, KnownCarry.run(f));
+        assertEquals(List.of("cmp #$0010", "bcs done", "adc #$0001", "clc", "adc #$0001", "sec", "rtl"),
+                f.instrs().stream().map(LInstr::toString).toList());
+    }
 }
