@@ -19,7 +19,7 @@ import java.util.Map;
  * leaves first, then the functions that called them.
  */
 public final class Inline {
-    static final int SMALL = 30;
+    static final int SMALL = 60;
     static final int SINGLE = 150;
     static final int CALLER_LIMIT = 1500;
 
