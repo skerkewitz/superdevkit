@@ -1,0 +1,5 @@
+frames 400
+shot 30
+press 60 160 right
+press 160 260 down
+shot 300
