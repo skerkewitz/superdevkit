@@ -1,5 +1,5 @@
 /*
- * Pseudo SNES, PC side: the software renderer.
+ * Rachael, PC side: the software renderer.
  *
  * It draws the picture from VRAM, CGRAM, OAM and the registers one line at
  * a time, in the order the SNES does, so that what depends on lines comes
@@ -18,7 +18,7 @@
  * Colours are BGR 5:5:5 as in CGRAM.
  */
 
-#include "pseudo.h"
+#include "rachael.h"
 
 #include <string.h>
 
@@ -55,9 +55,9 @@ static void hdma_start(void)
     uint8_t c;
     for (c = 0; c < 8; c++) {
         HdmaRun *r = &hdma_run[c];
-        r->p = sdevkit__pseudo.hdma[c].table;
+        r->p = sdevkit__rachael.hdma[c].table;
         r->lines = 0;
-        r->done = (uint8_t)(!(sdevkit__pseudo.hdma_enabled & (1 << c)) || !r->p);
+        r->done = (uint8_t)(!(sdevkit__rachael.hdma_enabled & (1 << c)) || !r->p);
     }
 }
 
@@ -66,7 +66,7 @@ static void hdma_line(void)
     uint8_t c;
     for (c = 0; c < 8; c++) {
         HdmaRun *r = &hdma_run[c];
-        const sdevkit__hdma_channel *h = &sdevkit__pseudo.hdma[c];
+        const sdevkit__hdma_channel *h = &sdevkit__rachael.hdma[c];
         uint8_t size = (uint8_t)(h->two ? 2 : 1), write = 0;
         if (r->done) {
             continue;
@@ -100,11 +100,11 @@ static void hdma_line(void)
 /* Colour 0..15 (4 bpp) or 0..3 (2 bpp) of pixel (x, y) of the tile at this VRAM word. */
 static uint8_t tile_pixel(uint16_t addr, uint8_t bpp, uint8_t x, uint8_t y)
 {
-    uint16_t w0 = sdevkit__pseudo.vram[(uint16_t)(addr + y) & (SDEVKIT__VRAM_WORDS - 1)];
+    uint16_t w0 = sdevkit__rachael.vram[(uint16_t)(addr + y) & (SDEVKIT__VRAM_WORDS - 1)];
     uint8_t bit = (uint8_t)(7 - x);
     uint8_t c = (uint8_t)(((w0 >> bit) & 1) | (((w0 >> (8 + bit)) & 1) << 1));
     if (bpp == 4) {
-        uint16_t w1 = sdevkit__pseudo.vram[(uint16_t)(addr + 8 + y) & (SDEVKIT__VRAM_WORDS - 1)];
+        uint16_t w1 = sdevkit__rachael.vram[(uint16_t)(addr + 8 + y) & (SDEVKIT__VRAM_WORDS - 1)];
         c = (uint8_t)(c | (((w1 >> bit) & 1) << 2) | (((w1 >> (8 + bit)) & 1) << 3));
     }
     return c;
@@ -115,16 +115,16 @@ static void draw_bg(uint8_t bg, uint8_t line)
 {
     Line *out = &bg_line[bg];
     uint8_t bpp = (uint8_t)(bg < 2 ? 4 : 2);
-    uint8_t sc = sdevkit__pseudo.regs[SDEVKIT_PPU_BG1SC + bg];
+    uint8_t sc = sdevkit__rachael.regs[SDEVKIT_PPU_BG1SC + bg];
     uint16_t map = (uint16_t)((sc & 0xFC) << 8);
     uint16_t mapw = (uint16_t)((sc & 1) ? 64 : 32), maph = (uint16_t)((sc & 2) ? 64 : 32);
-    uint8_t nba = sdevkit__pseudo.regs[bg < 2 ? SDEVKIT_PPU_BG12NBA : SDEVKIT_PPU_BG34NBA];
+    uint8_t nba = sdevkit__rachael.regs[bg < 2 ? SDEVKIT_PPU_BG12NBA : SDEVKIT_PPU_BG34NBA];
     uint16_t chr = (uint16_t)(((bg & 1) ? nba >> 4 : nba & 0x0F) << 12);
-    uint16_t py = (uint16_t)((line + sdevkit__pseudo.vofs[bg]) & 0x3FF);
-    uint8_t big = (uint8_t)((sdevkit__pseudo.regs[SDEVKIT_PPU_BGMODE] >> (4 + bg)) & 1);   /* BGMODE: this layer has 16 x 16 tiles */
+    uint16_t py = (uint16_t)((line + sdevkit__rachael.vofs[bg]) & 0x3FF);
+    uint8_t big = (uint8_t)((sdevkit__rachael.regs[SDEVKIT_PPU_BGMODE] >> (4 + bg)) & 1);   /* BGMODE: this layer has 16 x 16 tiles */
     uint8_t shift = (uint8_t)(big ? 4 : 3);
     uint16_t ty = (uint16_t)((py >> shift) & (maph - 1));
-    uint16_t hofs = sdevkit__pseudo.hofs[bg];
+    uint16_t hofs = sdevkit__rachael.hofs[bg];
     int16_t x = (int16_t)-(hofs & 7);   /* the first tile may start left of the screen */
 
     /* one tile (8 pixels) at a time: its map entry and row are read once */
@@ -132,7 +132,7 @@ static void draw_bg(uint8_t bg, uint8_t line)
         uint16_t px = (uint16_t)((x + hofs) & 0x3FF);
         uint16_t tx = (uint16_t)((px >> shift) & (mapw - 1));
         uint16_t screen = (uint16_t)((tx >> 5) + (ty >> 5) * (mapw >> 5));
-        uint16_t entry = sdevkit__pseudo.vram[(uint16_t)(map + screen * 0x400 + (ty & 31) * 32 + (tx & 31)) & (SDEVKIT__VRAM_WORDS - 1)];
+        uint16_t entry = sdevkit__rachael.vram[(uint16_t)(map + screen * 0x400 + (ty & 31) * 32 + (tx & 31)) & (SDEVKIT__VRAM_WORDS - 1)];
         uint8_t fy = (uint8_t)(py & 7), pal = (uint8_t)((entry >> 10) & 7), prio = (uint8_t)((entry >> 13) & 1), i;
         uint16_t addr;
         uint16_t tile = (uint16_t)(entry & 0x3FF);
@@ -166,7 +166,7 @@ static const uint8_t obj_sizes[8][2] = {
 static void draw_sprites(uint8_t line)
 {
     uint8_t list[32], count = 0, tiles = 0, range_over = 0, time_over = 0;
-    uint8_t obsel = sdevkit__pseudo.regs[SDEVKIT_PPU_OBSEL];
+    uint8_t obsel = sdevkit__rachael.regs[SDEVKIT_PPU_OBSEL];
     uint16_t base = (uint16_t)((obsel & 7) << 13);
     uint16_t gap = (uint16_t)((((obsel >> 3) & 3) + 1) << 12);
     int i;
@@ -175,8 +175,8 @@ static void draw_sprites(uint8_t line)
 
     /* range: the first 32 sprites on this line */
     for (i = 0; i < 128; i++) {
-        const uint8_t *o = &sdevkit__pseudo.oam[i * 4];
-        uint8_t hi = (uint8_t)(sdevkit__pseudo.oam[512 + (i >> 2)] >> ((i & 3) * 2));
+        const uint8_t *o = &sdevkit__rachael.oam[i * 4];
+        uint8_t hi = (uint8_t)(sdevkit__rachael.oam[512 + (i >> 2)] >> ((i & 3) * 2));
         uint8_t size = obj_sizes[obsel >> 5][hi & 2 ? 1 : 0];
         int16_t x = (int16_t)(o[0] | ((hi & 1) << 8));
         uint8_t row = (uint8_t)(line - o[1] - 1);   /* drawn one line below y */
@@ -197,8 +197,8 @@ static void draw_sprites(uint8_t line)
         int k;
         memset(allowed, 0, sizeof allowed);
         for (k = count - 1; k >= 0; k--) {
-            const uint8_t *o = &sdevkit__pseudo.oam[list[k] * 4];
-            uint8_t hi = (uint8_t)(sdevkit__pseudo.oam[512 + (list[k] >> 2)] >> ((list[k] & 3) * 2));
+            const uint8_t *o = &sdevkit__rachael.oam[list[k] * 4];
+            uint8_t hi = (uint8_t)(sdevkit__rachael.oam[512 + (list[k] >> 2)] >> ((list[k] & 3) * 2));
             uint8_t size = obj_sizes[obsel >> 5][hi & 2 ? 1 : 0];
             int16_t x = (int16_t)(o[0] | ((hi & 1) << 8));
             uint8_t col;
@@ -219,8 +219,8 @@ static void draw_sprites(uint8_t line)
 
         /* draw from the last to the first: lower numbers end up in front */
         for (k = count - 1; k >= 0; k--) {
-            const uint8_t *o = &sdevkit__pseudo.oam[list[k] * 4];
-            uint8_t hi = (uint8_t)(sdevkit__pseudo.oam[512 + (list[k] >> 2)] >> ((list[k] & 3) * 2));
+            const uint8_t *o = &sdevkit__rachael.oam[list[k] * 4];
+            uint8_t hi = (uint8_t)(sdevkit__rachael.oam[512 + (list[k] >> 2)] >> ((list[k] & 3) * 2));
             uint8_t size = obj_sizes[obsel >> 5][hi & 2 ? 1 : 0];
             int16_t x = (int16_t)(o[0] | ((hi & 1) << 8));
             uint8_t attr = o[3];
@@ -250,10 +250,10 @@ static void draw_sprites(uint8_t line)
         }
     }
 
-    sdevkit__pseudo.stats.range_over_lines = (uint8_t)(sdevkit__pseudo.stats.range_over_lines + range_over);
-    sdevkit__pseudo.stats.time_over_lines = (uint8_t)(sdevkit__pseudo.stats.time_over_lines + time_over);
-    if (count > sdevkit__pseudo.stats.most_sprites) sdevkit__pseudo.stats.most_sprites = count;
-    if (tiles > sdevkit__pseudo.stats.most_tiles) sdevkit__pseudo.stats.most_tiles = tiles;
+    sdevkit__rachael.stats.range_over_lines = (uint8_t)(sdevkit__rachael.stats.range_over_lines + range_over);
+    sdevkit__rachael.stats.time_over_lines = (uint8_t)(sdevkit__rachael.stats.time_over_lines + time_over);
+    if (count > sdevkit__rachael.stats.most_sprites) sdevkit__rachael.stats.most_sprites = count;
+    if (tiles > sdevkit__rachael.stats.most_tiles) sdevkit__rachael.stats.most_tiles = tiles;
 }
 
 /* --- Windows ---------------------------------------------------------------------------------- */
@@ -277,20 +277,20 @@ static uint8_t in_area(uint8_t sel, uint8_t logic, uint16_t x)
 static uint8_t layer_sel(uint8_t layer)
 {
     switch (layer) {
-    case L_BG1: return (uint8_t)(sdevkit__pseudo.regs[SDEVKIT_PPU_W12SEL] & 0x0F);
-    case L_BG2: return (uint8_t)(sdevkit__pseudo.regs[SDEVKIT_PPU_W12SEL] >> 4);
-    case L_BG3: return (uint8_t)(sdevkit__pseudo.regs[SDEVKIT_PPU_W34SEL] & 0x0F);
-    case L_BG4: return (uint8_t)(sdevkit__pseudo.regs[SDEVKIT_PPU_W34SEL] >> 4);
-    case L_OBJ: return (uint8_t)(sdevkit__pseudo.regs[SDEVKIT_PPU_WOBJSEL] & 0x0F);
-    default:    return (uint8_t)(sdevkit__pseudo.regs[SDEVKIT_PPU_WOBJSEL] >> 4);   /* colour window */
+    case L_BG1: return (uint8_t)(sdevkit__rachael.regs[SDEVKIT_PPU_W12SEL] & 0x0F);
+    case L_BG2: return (uint8_t)(sdevkit__rachael.regs[SDEVKIT_PPU_W12SEL] >> 4);
+    case L_BG3: return (uint8_t)(sdevkit__rachael.regs[SDEVKIT_PPU_W34SEL] & 0x0F);
+    case L_BG4: return (uint8_t)(sdevkit__rachael.regs[SDEVKIT_PPU_W34SEL] >> 4);
+    case L_OBJ: return (uint8_t)(sdevkit__rachael.regs[SDEVKIT_PPU_WOBJSEL] & 0x0F);
+    default:    return (uint8_t)(sdevkit__rachael.regs[SDEVKIT_PPU_WOBJSEL] >> 4);   /* colour window */
     }
 }
 
 static uint8_t layer_logic(uint8_t layer)
 {
-    if (layer < L_OBJ) return (uint8_t)((sdevkit__pseudo.regs[SDEVKIT_PPU_WBGLOG] >> (layer * 2)) & 3);
-    if (layer == L_OBJ) return (uint8_t)(sdevkit__pseudo.regs[SDEVKIT_PPU_WOBJLOG] & 3);
-    return (uint8_t)((sdevkit__pseudo.regs[SDEVKIT_PPU_WOBJLOG] >> 2) & 3);
+    if (layer < L_OBJ) return (uint8_t)((sdevkit__rachael.regs[SDEVKIT_PPU_WBGLOG] >> (layer * 2)) & 3);
+    if (layer == L_OBJ) return (uint8_t)(sdevkit__rachael.regs[SDEVKIT_PPU_WOBJLOG] & 3);
+    return (uint8_t)((sdevkit__rachael.regs[SDEVKIT_PPU_WOBJLOG] >> 2) & 3);
 }
 
 /* --- Main and sub screen ---------------------------------------------------------------------- */
@@ -309,7 +309,7 @@ static const Slot order_normal[] = {
  * window masks (TMW or TSW). Returns the layer; *color is its CGRAM index. */
 static uint8_t front(uint16_t x, uint8_t shown, uint8_t masked, uint8_t *color)
 {
-    uint8_t high = (uint8_t)((sdevkit__pseudo.regs[SDEVKIT_PPU_BGMODE] & SDEVKIT_BG3_MODE1_PRIORITY_HIGH) != 0);
+    uint8_t high = (uint8_t)((sdevkit__rachael.regs[SDEVKIT_PPU_BGMODE] & SDEVKIT_BG3_MODE1_PRIORITY_HIGH) != 0);
     const Slot *order = high ? order_bg3_high : order_normal;
     uint8_t n = (uint8_t)(high ? sizeof order_bg3_high / sizeof order_bg3_high[0] : sizeof order_normal / sizeof order_normal[0]);
     uint8_t i;
@@ -370,8 +370,8 @@ void sdevkit__render(uint16_t *out)
 {
     uint16_t y, x;
 
-    memset(&sdevkit__pseudo.stats, 0, sizeof sdevkit__pseudo.stats);
-    sdevkit__pseudo.in_vblank = 0;   /* the picture is being drawn: VRAM and CGRAM are closed */
+    memset(&sdevkit__rachael.stats, 0, sizeof sdevkit__rachael.stats);
+    sdevkit__rachael.in_vblank = 0;   /* the picture is being drawn: VRAM and CGRAM are closed */
     hdma_start();
 
     /* Row y of the picture is scanline y + 1: the SNES never shows scanline 0, so a background
@@ -383,25 +383,25 @@ void sdevkit__render(uint16_t *out)
         uint16_t *row = &out[y * W];
 
         hdma_line();
-        inidisp = sdevkit__pseudo.regs[SDEVKIT_PPU_INIDISP];
+        inidisp = sdevkit__rachael.regs[SDEVKIT_PPU_INIDISP];
         if (inidisp & 0x80) {
             memset(row, 0, W * sizeof row[0]);
             continue;
         }
-        tm = sdevkit__pseudo.regs[SDEVKIT_PPU_TM];
-        ts = sdevkit__pseudo.regs[SDEVKIT_PPU_TS];
-        tmw = sdevkit__pseudo.regs[SDEVKIT_PPU_TMW];
-        tsw = sdevkit__pseudo.regs[SDEVKIT_PPU_TSW];
-        cgwsel = sdevkit__pseudo.regs[SDEVKIT_PPU_CGWSEL];
-        cgadsub = sdevkit__pseudo.regs[SDEVKIT_PPU_CGADSUB];
+        tm = sdevkit__rachael.regs[SDEVKIT_PPU_TM];
+        ts = sdevkit__rachael.regs[SDEVKIT_PPU_TS];
+        tmw = sdevkit__rachael.regs[SDEVKIT_PPU_TMW];
+        tsw = sdevkit__rachael.regs[SDEVKIT_PPU_TSW];
+        cgwsel = sdevkit__rachael.regs[SDEVKIT_PPU_CGWSEL];
+        cgadsub = sdevkit__rachael.regs[SDEVKIT_PPU_CGADSUB];
         cw_sel = layer_sel(L_BACK);
         cw_logic = layer_logic(L_BACK);
-        fixed = (uint16_t)(sdevkit__pseudo.fixed_r | (sdevkit__pseudo.fixed_g << 5) | (sdevkit__pseudo.fixed_b << 10));
+        fixed = (uint16_t)(sdevkit__rachael.fixed_r | (sdevkit__rachael.fixed_g << 5) | (sdevkit__rachael.fixed_b << 10));
 
-        wl1 = sdevkit__pseudo.regs[SDEVKIT_PPU_WH0];
-        wr1 = sdevkit__pseudo.regs[SDEVKIT_PPU_WH1];
-        wl2 = sdevkit__pseudo.regs[SDEVKIT_PPU_WH2];
-        wr2 = sdevkit__pseudo.regs[SDEVKIT_PPU_WH3];
+        wl1 = sdevkit__rachael.regs[SDEVKIT_PPU_WH0];
+        wr1 = sdevkit__rachael.regs[SDEVKIT_PPU_WH1];
+        wl2 = sdevkit__rachael.regs[SDEVKIT_PPU_WH2];
+        wr2 = sdevkit__rachael.regs[SDEVKIT_PPU_WH3];
         for (x = 0; x < W; x++) {
             win1[x] = (uint8_t)(x >= wl1 && x <= wr1);
             win2[x] = (uint8_t)(x >= wl2 && x <= wr2);
@@ -423,7 +423,7 @@ void sdevkit__render(uint16_t *out)
         for (x = 0; x < W; x++) {
             uint8_t mc, sc, cw = in_area(cw_sel, cw_logic, x);
             uint8_t ml = front(x, tm, tmw, &mc);
-            uint16_t color = sdevkit__pseudo.cgram[mc];
+            uint16_t color = sdevkit__rachael.cgram[mc];
             uint8_t clipped = region((uint8_t)(cgwsel >> 6), cw);
             uint8_t math_on = (uint8_t)!region((uint8_t)(cgwsel >> 4), cw);
             uint8_t layer_math = (uint8_t)(ml == L_BACK ? (cgadsub & SDEVKIT_CM_MSCR_BACK) != 0
@@ -440,7 +440,7 @@ void sdevkit__render(uint16_t *out)
                     if (sl == L_BACK) {
                         half = 0;                    /* empty sub screen: the fixed colour, not halved */
                     } else {
-                        sub = sdevkit__pseudo.cgram[sc];
+                        sub = sdevkit__rachael.cgram[sc];
                     }
                 }
                 color = add_sub(color, sub, (uint8_t)((cgadsub & SDEVKIT_CM_SUB_MAINSUB) != 0), half);

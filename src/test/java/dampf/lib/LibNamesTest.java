@@ -84,7 +84,7 @@ class LibNamesTest {
     void everyExternalDefinitionOfTheLibraryHasThePrefix() throws IOException {
         List<String> wrong = new ArrayList<>();
         List<Path> sources = new ArrayList<>();
-        for (String dir : List.of("lib/snes", "lib/pseudo", "lib/desktop")) {
+        for (String dir : List.of("lib/snes", "lib/rachael", "lib/desktop")) {
             // the frontend needs raylib's header (tools/fetch_raylib.sh), as DesktopExamplesTest does
             if (!dir.equals("lib/desktop") || Files.exists(Path.of("build/raylib/linux/include/raylib.h"))) {
                 sources.addAll(files(Path.of(dir), ".c"));
@@ -93,7 +93,7 @@ class LibNamesTest {
         for (Path c : sources) {
             Path o = tmp.resolve(c.getParent().getFileName() + "_" + c.getFileName() + ".o");
             Processes.check(Path.of("."), Duration.ofMinutes(1), List.of("gcc", "-std=c99", "-c", "-w", "-I", "lib/include",
-                    "-I", c.getParent().toString(), "-I", "build/raylib/linux/include", "-I", "lib/pseudo", c.toString(), "-o", o.toString()));
+                    "-I", c.getParent().toString(), "-I", "build/raylib/linux/include", "-I", "lib/rachael", c.toString(), "-o", o.toString()));
             String nm = Processes.check(Path.of("."), Duration.ofMinutes(1), List.of("nm", "--defined-only", "-g", o.toString()));
             for (String line : nm.split("\\R")) {
                 String[] parts = line.trim().split("\\s+");

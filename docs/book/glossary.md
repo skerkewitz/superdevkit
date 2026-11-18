@@ -55,8 +55,8 @@ at `$7E`, where all RAM objects live.
 ## Dev kit
 
 superdevkit, a development kit for SNES games: dampf as its compiler, a library with the console
-API for the SNES and later for the PC, and tools. It lives in dampf's repository until it is
-published. Its library for the SNES is the [platform layer](#platform-layer) that today sits in
+API for the SNES and, through [Rachael](#rachael), for the desktop, and tools. It lives in
+dampf's repository until it is published. Its library for the SNES is the [platform layer](#platform-layer) that today sits in
 `lib/snes`.
 
 ## Direct page
@@ -157,6 +157,16 @@ index the object with the X register instead of going through a full address.
 
 An SDK for SNES programming with the 816-tcc C compiler. Blubber Blasen uses its platform calls;
 the benchmark stubs them out.
+
+## Rachael
+
+The SNES rebuilt in portable C, in the dev kit's `lib/rachael`: video memory, registers, DMA and
+HDMA, and a renderer that draws the picture line by line as the PPU does. It runs no 65816 code:
+the game is compiled for the PC and calls the same console API, and gives the same picture as on
+the SNES, pixel for pixel. Rachael is the same on every PC target; what a target adds (the
+window, the input, the frame rhythm) is its frontend, `lib/desktop` now and `lib/web` later. The
+desktop build runs on it, the web build will. Named after the replicant of Blade Runner who can
+hardly be told from the real thing.
 
 ## Runtime
 

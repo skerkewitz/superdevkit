@@ -237,7 +237,7 @@ void sdevkit_oam_set_ex(uint16_t id, uint8_t size, uint8_t hide)
 
 void sdevkit_oam_set_visible(uint16_t id, uint8_t hide)
 {
-    /* hidden: y below the picture (SDEVKIT_ATTR2_DISABLED), as the console API and the pseudo SNES have
+    /* hidden: y below the picture (SDEVKIT_ATTR2_DISABLED), as the console API and Rachael have
      * it; shown: nothing, the next sdevkit_oam_set gives it its y. (It used to set bit 8 of x to hide and
      * clear it to show, which moved a sprite at a negative x to the right edge, and did not hide
      * one whose low byte of x was above 240.) */
@@ -250,7 +250,7 @@ void sdevkit_oam_clear(uint16_t first, uint8_t numEntries)
 {
     uint16_t id = first;
     uint16_t end = (uint16_t)(numEntries == 0 ? 512 : first + ((uint16_t)numEntries << 2));
-    for (; id < end && id < 512; id = (uint16_t)(id + 4)) {   /* as the pseudo SNES: x 0, hidden, small */
+    for (; id < end && id < 512; id = (uint16_t)(id + 4)) {   /* as Rachael: x 0, hidden, small */
         uint8_t *h = high_byte(id);
         sdevkit_oam_memory[id] = 0;
         sdevkit_oam_memory[id + 1] = SDEVKIT_ATTR2_DISABLED;
@@ -362,7 +362,7 @@ void sdevkit__wait_vblank(void)
     }
 }
 
-/* Only the pseudo SNES can read VRAM like memory (a debug check of the desktop); the SNES
+/* Only Rachael can read VRAM like memory (a debug check of the desktop); the SNES
  * cannot, so here it is a single zero word. */
 const uint16_t *sdevkit_dbg_vram(void)
 {

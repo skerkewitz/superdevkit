@@ -17,14 +17,14 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The console API of the dev kit (ADR records 29 and 34): every function
- * {@code lib/include/sdevkit/snes.h} declares exists in {@code lib/snes} and in {@code lib/pseudo}
+ * {@code lib/include/sdevkit/snes.h} declares exists in {@code lib/snes} and in {@code lib/rachael}
  * (the desktop), built or as a stub, and has its row in the table of {@code lib/README.md}.
  */
 class LibApiTest {
 
     private static final Path HEADER = Path.of("lib/include/sdevkit/snes.h");
     private static final Path SNES = Path.of("lib/snes");
-    private static final Path PSEUDO = Path.of("lib/pseudo");
+    private static final Path RACHAEL = Path.of("lib/rachael");
     private static final Path README = Path.of("lib/README.md");
 
     private static final Pattern DECLARATION = Pattern.compile("\\b(\\w+)\\s*\\([^(){};]*\\)\\s*;");
@@ -57,7 +57,7 @@ class LibApiTest {
 
     @Test
     void everyFunctionOfTheConsoleApiExistsOnTheDesktop() throws IOException {
-        assertDefinesAll(PSEUDO);
+        assertDefinesAll(RACHAEL);
     }
 
     private static void assertDefinesAll(Path platform) throws IOException {

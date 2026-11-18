@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Compares the screenshots of an example's check in Mesen (the SNES build, dampf) with those of
-its desktop build (gcc, the pseudo SNES), at the SNES's 5 bits per colour: the same game code must
+its desktop build (gcc, Rachael), at the SNES's 5 bits per colour: the same game code must
 give the same picture, pixel for pixel.
 
     python3 -I dev/compare_shots.py examples/<name>/build/check examples/<name>/build/desktop-check

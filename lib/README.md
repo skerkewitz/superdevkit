@@ -12,7 +12,7 @@ name it can use starts with `sdevkit_` or `SDEVKIT_`
 | `include/sdevkit/loop.h` | The frame rhythm: the library's main loop calls `game_init`, then per frame `game_tick` and `game_vblank`, which every game defines; the pad bits `SDEVKIT_KEY_*`. |
 | `include/snes/` | Deprecated: the old names (PVSnesLib's, `KEY_*`, `u8`...) mapped to the new ones, for the snapshot of Blubber Blasen until the game switches. Written by `tools/sdevkit_rename.py --write-compat`, which also converts a game. |
 | `snes/` | The SNES: the API in C with registers as `volatile` pointers (`snes.c`, `hw.h`) and the main loop (`main.c`), compiled by dampf with the game. See its [README](snes/README.md). |
-| `pseudo/` | The desktop: the pseudo SNES, taken over from Blubber Blasen's `src/snes`: the memories, the registers and the API in portable C, and a renderer that builds the picture line by line as the PPU does (`render.c`). `pseudo.h` is its interface to the frontend (`sdevkit__vblank`, `sdevkit__render`, ...), not for games. It counts every byte the SNES would lose (written outside the vertical blank, or more than a vertical blank can copy). New against the game's copy: 16 x 16 background tiles, and row y of the picture is scanline y + 1 as on the SNES. |
+| `rachael/` | The desktop (and the web, M8): [Rachael](#rachael), the SNES rebuilt in portable C (`ppu.c`, `render.c`). `rachael.h` is its interface to the frontends (`sdevkit__vblank`, `sdevkit__render`, ...), not for games. Taken over from Blubber Blasen's `src/snes`; new against the game's copy: 16 x 16 background tiles, and row y of the picture is scanline y + 1 as on the SNES. |
 | `desktop/` | The desktop's frontend (`main.c`, Linux now, Windows next): a window with raylib, the keyboard and a gamepad as the joypad, the frame rhythm of `loop.h`; `--check check.txt` plays without a window and writes screenshots. Built by `tools/build_desktop.sh`. |
 | `web/` | The web, later (M8, [the plan](../docs/superdevkit-transition.md)). |
 
@@ -20,8 +20,34 @@ On the SNES a game is built with `-I lib/include` in front of its own include pa
 `lib/snes/*.c` among its sources (dampf). On the desktop `tools/build_desktop.sh` compiles the
 game alone, without the host's headers (`-nostdinc`, dampf's include folder and `lib/include`),
 checks that it calls only the console API (`tools/check_game_symbols.py`), then links it with
-`lib/pseudo/*.c lib/desktop/*.c` and raylib. The same game code gives the same picture on both,
+`lib/rachael/*.c lib/desktop/*.c` and raylib. The same game code gives the same picture on both,
 pixel for pixel (`dev/compare_example.sh`).
+
+## Rachael
+
+Rachael is the SNES rebuilt in portable C: its video memory, CGRAM and OAM, its registers, DMA
+and HDMA, and a renderer that builds the picture line by line as the PPU does. It is not an
+emulator: it runs no 65816 code. The game is compiled for the PC with the system's C compiler
+and calls the same console API as on the SNES, so the same source runs on the desktop and, with
+M8, in the browser, and gives the same picture as the SNES, pixel for pixel
+(`dev/compare_example.sh` checks it). Rachael also counts every byte the SNES would lose (written
+outside the vertical blank, or more than a vertical blank can copy), so what fits on the desktop
+fits on the console.
+
+Three words, kept apart in all documents of the kit:
+
+| Word | What it is | Where |
+| --- | --- | --- |
+| Rachael | the console rebuilt in C, the same on every PC target | `rachael/` |
+| frontend | what one PC target adds to Rachael: the window, the keyboard and gamepad as the joypad, the frame rhythm of `loop.h`, the headless check | `desktop/` (Linux now, Windows next), `web/` (M8) |
+| target | what a game is built for: `snes` (dampf and `snes/`, no Rachael), `linux`, `win64` and `web` (the system's C compiler or `emcc`, Rachael and that target's frontend) | the build: `build.sh`, `tools/build_desktop.sh`, later the `superdevkit` command |
+
+So a game runs "on the SNES" or "on Rachael"; "the desktop" and "the web" name targets and their
+frontends, never Rachael itself. A difference in the picture between the SNES and a PC target is
+a bug in Rachael (or in `snes/`); a difference between two PC targets is a bug in a frontend.
+
+The name is the replicant of Blade Runner who is so close to the real thing that only a very
+long Voight-Kampff test gives her away; the name is [ADR record 35](../docs/adr/0035-the-pseudo-snes-is-called-rachael.md).
 
 ## Rules
 
@@ -35,13 +61,13 @@ pixel for pixel (`dev/compare_example.sh`).
 - The library is ordinary code for dampf: the subset, `<stdint.h>` and `<dampf.h>`.
 
 `LibApiTest` checks that every function of `sdevkit/snes.h` is defined in `snes/` and in
-`pseudo/`, and has its row here. `LibNamesTest` checks the names: every name of the public headers has the
+`rachael/`, and has its row here. `LibNamesTest` checks the names: every name of the public headers has the
 prefix, every external name in `lib/` is `sdevkit_*`, `sdevkit__*` or `main`, and the
 compatibility headers are what the rename script writes.
 
 ## Built and stub, per function and platform
 
-Desktop means `pseudo/` with `desktop/` (Linux now).
+Desktop means `rachael/` with `desktop/` (Linux now).
 
 | Function | SNES | desktop |
 | --- | --- | --- |

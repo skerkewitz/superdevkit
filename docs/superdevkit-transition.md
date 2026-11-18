@@ -34,7 +34,7 @@ The kit:
 | `compiler/` (today `src/`) | dampf |
 | `lib/include/sdevkit/` | the console API (`snes.h`), the frame rhythm (`loop.h`), sound, save RAM and debug registrations; every name `sdevkit_`/`SDEVKIT_` (ADR record 34). `lib/include/snes/` maps the old names until the game switches |
 | `lib/snes/` | the SNES: the API in C, the main loop |
-| `lib/pseudo/` | the pseudo SNES for the desktop and the web: video memory, registers, the renderer, portable C (from Blubber Blasen's `src/snes`) |
+| `lib/rachael/` | [Rachael](../lib/README.md#rachael), the pseudo SNES, for the desktop and the web: video memory, registers, the renderer, portable C (from Blubber Blasen's `src/snes`) |
 | `lib/desktop/` | the frontend of `win64` and `linux` (raylib): window, scaling, input, sound, save file, debug view, screenshots |
 | `lib/web/` | what the web build adds to it: the page, IndexedDB for save RAM, the click to start |
 | `tools/` | converters for game developers (`png2snes.py`, later sound) |
@@ -46,7 +46,7 @@ The kit:
 | Milestone | Version | Goal |
 | --- | --- | --- |
 | M5 | 0.5.0 | Blubber Blasen builds its SNES ROM with the dev kit from its own repository; the examples build for the SNES |
-| M7 | 0.7.0 | Windows and Linux: the pseudo SNES and the desktop frontend in the kit, the CLI with `init`, `build`, `run`; the examples and Blubber Blasen run on the desktop from the kit |
+| M7 | 0.7.0 | Windows and Linux: Rachael and the desktop frontend in the kit, the CLI with `init`, `build`, `run`; the examples and Blubber Blasen run on the desktop from the kit |
 | M8 | 0.8.0 | The web: the same games in the browser; Blubber Blasen drops its own PC side |
 
 The milestones planned before (the optimizer, language and platform, timing and debugging, fine
@@ -115,16 +115,16 @@ again.
 
 ## M7: Windows and Linux (0.7.0)
 
-### 7.1 The pseudo SNES in the kit
+### 7.1 Rachael, the pseudo SNES, in the kit
 
-Built (during M5): `lib/pseudo`, with 16 x 16 background tiles and the picture's rows as scanlines
+Built (during M5): `lib/rachael`, with 16 x 16 background tiles and the picture's rows as scanlines
 one on, so that it matches the SNES pixel for pixel. Still to do: its tests from the game's
-`tests/test_snes.c` (the parts that test the pseudo SNES); the game's copy now differs on purpose
+`tests/test_snes.c` (the parts that test its pseudo SNES); the game's copy now differs on purpose
 (the two changes), which the handover to the game has to say.
 
 ### 7.2 Sound, save RAM and the debug registrations in the API
 
-New headers in `lib/include/sdevkit/`, with the names of ADR record 34, built in `lib/pseudo` and
+New headers in `lib/include/sdevkit/`, with the names of ADR record 34, built in `lib/rachael` and
 `lib/desktop`, stubs in `lib/snes`, rows in `lib/README.md`'s table:
 
 - `sound.h`: `sdevkit_sfx_play(id)`, `sdevkit_music_play(track)`, `sdevkit_music_stop()`. The

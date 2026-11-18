@@ -5,8 +5,8 @@
  * The console API of superdevkit (ADR records 29 and 34): how a game draws on the SNES. Every
  * name a game can use starts with sdevkit_ or SDEVKIT_; nothing else of the kit is meant for it.
  *
- * lib/snes implements it on the console, compiled by dampf with the game; lib/pseudo, the pseudo
- * SNES, implements it on the desktop. Every function exists on every platform; lib/README.md
+ * lib/snes implements it on the console, compiled by dampf with the game; lib/rachael
+ * (Rachael, the SNES rebuilt in portable C) implements it on the desktop. Every function exists on every platform; lib/README.md
  * lists per function whether it is built or a stub.
  *
  * Three groups of functions:
@@ -70,7 +70,7 @@
 #define SDEVKIT_ATTR2_DISABLED 0xE8                /* y of a hidden sprite */
 
 /* The OAM shadow: sdevkit_oam_set() and friends write here; the vertical blank
- * copies it into the PPU's OAM (the pseudo SNES's vertical blank on the PC). 128 entries of
+ * copies it into the PPU's OAM (Rachael's vertical blank on the PC). 128 entries of
  * 4 bytes, then 32 bytes with 2 bits per sprite (x bit 8, size). */
 extern uint8_t sdevkit_oam_memory[128 * 4 + 8 * 4];
 
@@ -192,7 +192,7 @@ void sdevkit_hdma_enable(uint8_t channels);          /* HDMAEN: which channels r
 uint8_t   sdevkit_dma_fits(uint16_t bytes);
 
 /* --- Debug (sdevkit_dbg_*) --------------------------------------------------------------- */
-/* VRAM as 0x8000 words, for a debug check of the tile maps on the desktop. Only the pseudo SNES
+/* VRAM as 0x8000 words, for a debug check of the tile maps on the desktop. Only Rachael
  * can read VRAM like memory; on the SNES it returns a single zero word, so a check that uses it
  * runs only on the desktop. */
 const uint16_t *sdevkit_dbg_vram(void);

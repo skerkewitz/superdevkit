@@ -8,7 +8,7 @@ Every symbol the objects leave undefined (nm -u) must be
     headers, so the list cannot fall behind them;
   - defined by one of the game's own objects; or
   - one of COMPILER_SYMBOLS, which the C compiler calls on its own.
-Anything else (a raylib or libc function declared by hand, the pseudo SNES's internals) is an
+Anything else (a raylib or libc function declared by hand, Rachael's internals) is an
 error naming the symbol and the object; the exit status is then 1.
 """
 import os

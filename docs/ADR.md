@@ -49,3 +49,4 @@ of its subject.
 | 32 | [Desktop and web are for prototyping, with sound, save RAM and a debug view the game registers into](adr/0032-desktop-and-web-are-for-prototyping-with-sound.md) | Accepted; amended by 34 | 2026-11-18 |
 | 33 | [MesenCE is the emulator for the console checks and the debugger](adr/0033-mesence-is-the-emulator-for-the-console-checks.md) | Accepted | 2026-11-18 |
 | 34 | [Every name of the console API starts with `sdevkit_`, and a game reaches nothing else](adr/0034-every-name-of-the-console-api-starts-with.md) | Accepted | 2026-11-18 |
+| 35 | [The pseudo SNES is called Rachael](adr/0035-the-pseudo-snes-is-called-rachael.md) | Accepted | 2026-11-19 |

@@ -1,7 +1,7 @@
-#ifndef SDEVKIT__PSEUDO_H
-#define SDEVKIT__PSEUDO_H
+#ifndef SDEVKIT__RACHAEL_H
+#define SDEVKIT__RACHAEL_H
 
-/* The pseudo SNES's own interface (ADR record 34: internal names start with sdevkit__): what the
+/* Rachael's own interface (ADR record 34: internal names start with sdevkit__): what the
  * frontends (lib/desktop) and the tests call, and the state shared by ppu.c (memories, registers)
  * and render.c (the picture). Not for games: they see only sdevkit/snes.h. Taken over from
  * Blubber Blasen's src/snes (snes.h's PC side, snes_internal.h); 16 x 16 background tiles are new. */
@@ -60,10 +60,10 @@ typedef struct {
     uint16_t       dma_lost;               /* bytes that did not arrive since then */
     uint8_t        in_vblank;              /* between sdevkit__vblank() and sdevkit__render() */
     sdevkit__frame_stats stats;
-} sdevkit__pseudo_state;
+} sdevkit__rachael_state;
 
-extern sdevkit__pseudo_state sdevkit__pseudo;
+extern sdevkit__rachael_state sdevkit__rachael;
 
 void sdevkit__write_reg(uint8_t reg, uint8_t value);
 
-#endif /* SDEVKIT__PSEUDO_H */
+#endif /* SDEVKIT__RACHAEL_H */

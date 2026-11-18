@@ -1,17 +1,17 @@
 /*
- * Pseudo SNES, the desktop side of superdevkit's library: the memories, the picture registers
+ * Rachael, the SNES rebuilt in portable C for the desktop and the web (lib/README.md): the memories, the picture registers
  * and the functions of the console API that write them (sdevkit/snes.h). render.c draws the
- * picture from this state; pseudo.h is what the two share. Taken over from Blubber Blasen's src/snes.
+ * picture from this state; rachael.h is what the two share. Taken over from Blubber Blasen's src/snes.
  *
  * Portable C99: no raylib, no heap, no floating point. Everything is static, like
  * the console's memory.
  */
 
-#include "pseudo.h"
+#include "rachael.h"
 
 #include <string.h>
 
-sdevkit__pseudo_state sdevkit__pseudo;
+sdevkit__rachael_state sdevkit__rachael;
 uint8_t sdevkit_oam_memory[128 * 4 + 8 * 4];
 
 /* --- Registers ----------------------------------------------------------------------- */
@@ -22,25 +22,25 @@ void sdevkit__write_reg(uint8_t reg, uint8_t value)
          * shared latch (simplified from the SNES formula; same result for
          * two writes in a row). */
         uint8_t bg = (uint8_t)((reg - SDEVKIT_PPU_BG1HOFS) >> 1);
-        uint16_t v = (uint16_t)(((uint16_t)value << 8) | sdevkit__pseudo.scroll_latch);
+        uint16_t v = (uint16_t)(((uint16_t)value << 8) | sdevkit__rachael.scroll_latch);
         if ((reg - SDEVKIT_PPU_BG1HOFS) & 1) {
-            sdevkit__pseudo.vofs[bg] = (uint16_t)(v & 0x3FF);
+            sdevkit__rachael.vofs[bg] = (uint16_t)(v & 0x3FF);
         } else {
-            sdevkit__pseudo.hofs[bg] = (uint16_t)(v & 0x3FF);
+            sdevkit__rachael.hofs[bg] = (uint16_t)(v & 0x3FF);
         }
-        sdevkit__pseudo.scroll_latch = value;
+        sdevkit__rachael.scroll_latch = value;
     } else if (reg == SDEVKIT_PPU_COLDATA) {
         uint8_t i = (uint8_t)(value & 0x1F);
-        if (value & SDEVKIT_CM_APPLY_RED)   sdevkit__pseudo.fixed_r = i;
-        if (value & SDEVKIT_CM_APPLY_GREEN) sdevkit__pseudo.fixed_g = i;
-        if (value & SDEVKIT_CM_APPLY_BLUE)  sdevkit__pseudo.fixed_b = i;
+        if (value & SDEVKIT_CM_APPLY_RED)   sdevkit__rachael.fixed_r = i;
+        if (value & SDEVKIT_CM_APPLY_GREEN) sdevkit__rachael.fixed_g = i;
+        if (value & SDEVKIT_CM_APPLY_BLUE)  sdevkit__rachael.fixed_b = i;
     }
-    sdevkit__pseudo.regs[reg] = value;
+    sdevkit__rachael.regs[reg] = value;
 }
 
 uint8_t sdevkit__reg(uint8_t reg)
 {
-    return sdevkit__pseudo.regs[reg];
+    return sdevkit__rachael.regs[reg];
 }
 
 void sdevkit_reg_write(uint8_t reg, uint8_t value)
@@ -51,57 +51,57 @@ void sdevkit_reg_write(uint8_t reg, uint8_t value)
 /* --- Power on and vertical blank -------------------------------------------------------- */
 void sdevkit__reset(void)
 {
-    memset(&sdevkit__pseudo, 0, sizeof sdevkit__pseudo);
+    memset(&sdevkit__rachael, 0, sizeof sdevkit__rachael);
     memset(sdevkit_oam_memory, 0, sizeof sdevkit_oam_memory);
-    sdevkit__pseudo.regs[SDEVKIT_PPU_INIDISP] = 0x80;   /* forced blank until the game turns the screen on */
+    sdevkit__rachael.regs[SDEVKIT_PPU_INIDISP] = 0x80;   /* forced blank until the game turns the screen on */
 }
 
 void sdevkit__vblank(void)
 {
-    memcpy(sdevkit__pseudo.oam, sdevkit_oam_memory, sizeof sdevkit__pseudo.oam);
-    sdevkit__pseudo.dma_count = 0;
-    sdevkit__pseudo.dma_lost = 0;
-    sdevkit__pseudo.in_vblank = 1;
+    memcpy(sdevkit__rachael.oam, sdevkit_oam_memory, sizeof sdevkit__rachael.oam);
+    sdevkit__rachael.dma_count = 0;
+    sdevkit__rachael.dma_lost = 0;
+    sdevkit__rachael.in_vblank = 1;
 }
 
 void sdevkit__display(void)
 {
-    sdevkit__pseudo.in_vblank = 0;
+    sdevkit__rachael.in_vblank = 0;
 }
 
 /* May this many bytes go to VRAM / CGRAM now? Counts them either way. */
 static uint8_t dma_allowed(uint16_t size)
 {
-    uint8_t forced_blank = (uint8_t)((sdevkit__pseudo.regs[SDEVKIT_PPU_INIDISP] & 0x80) != 0);
-    if (forced_blank || (sdevkit__pseudo.in_vblank && sdevkit__pseudo.dma_count + size <= SDEVKIT__VBLANK_DMA_BYTES)) {
-        sdevkit__pseudo.dma_count = (uint16_t)(sdevkit__pseudo.dma_count + size);
+    uint8_t forced_blank = (uint8_t)((sdevkit__rachael.regs[SDEVKIT_PPU_INIDISP] & 0x80) != 0);
+    if (forced_blank || (sdevkit__rachael.in_vblank && sdevkit__rachael.dma_count + size <= SDEVKIT__VBLANK_DMA_BYTES)) {
+        sdevkit__rachael.dma_count = (uint16_t)(sdevkit__rachael.dma_count + size);
         return 1;
     }
-    sdevkit__pseudo.dma_lost = (uint16_t)(sdevkit__pseudo.dma_lost + size);
+    sdevkit__rachael.dma_lost = (uint16_t)(sdevkit__rachael.dma_lost + size);
     return 0;
 }
 
 sdevkit__frame_stats sdevkit__stats(void)
 {
-    sdevkit__frame_stats s = sdevkit__pseudo.stats;
-    s.dma_bytes = sdevkit__pseudo.dma_count;   /* of the current / last vertical blank */
-    s.dma_lost = sdevkit__pseudo.dma_lost;
+    sdevkit__frame_stats s = sdevkit__rachael.stats;
+    s.dma_bytes = sdevkit__rachael.dma_count;   /* of the current / last vertical blank */
+    s.dma_lost = sdevkit__rachael.dma_lost;
     return s;
 }
 
 const uint16_t *sdevkit_dbg_vram(void)
 {
-    return sdevkit__pseudo.vram;
+    return sdevkit__rachael.vram;
 }
 
 const uint16_t *sdevkit__cgram(void)
 {
-    return sdevkit__pseudo.cgram;
+    return sdevkit__rachael.cgram;
 }
 
 const uint8_t *sdevkit__oam(void)
 {
-    return sdevkit__pseudo.oam;
+    return sdevkit__rachael.oam;
 }
 
 /* --- video.h ------------------------------------------------------------------------------ */
@@ -124,7 +124,7 @@ void sdevkit_set_screen_on(void)
 
 void sdevkit_set_screen_off(void)
 {
-    sdevkit__write_reg(SDEVKIT_PPU_INIDISP, (uint8_t)(sdevkit__pseudo.regs[SDEVKIT_PPU_INIDISP] | 0x80));
+    sdevkit__write_reg(SDEVKIT_PPU_INIDISP, (uint8_t)(sdevkit__rachael.regs[SDEVKIT_PPU_INIDISP] | 0x80));
 }
 
 void sdevkit_set_color_effect(uint8_t colorMathA, uint8_t colorMathB)
@@ -141,7 +141,7 @@ void sdevkit_set_color_intensity(uint8_t colorApply, uint8_t intensity)
 void sdevkit_set_palette_color(uint16_t paletteEntry, uint16_t paletteColor)
 {
     if (dma_allowed(2)) {
-        sdevkit__pseudo.cgram[paletteEntry & 0xFF] = (uint16_t)(paletteColor & 0x7FFF);
+        sdevkit__rachael.cgram[paletteEntry & 0xFF] = (uint16_t)(paletteColor & 0x7FFF);
     }
 }
 
@@ -153,7 +153,7 @@ void sdevkit_dma_copy_vram(const uint8_t *source, uint16_t address, uint16_t siz
         return;
     }
     for (i = 0; i + 1 < size; i += 2) {
-        sdevkit__pseudo.vram[(uint16_t)(address + (i >> 1)) & (SDEVKIT__VRAM_WORDS - 1)] = (uint16_t)(source[i] | (source[i + 1] << 8));
+        sdevkit__rachael.vram[(uint16_t)(address + (i >> 1)) & (SDEVKIT__VRAM_WORDS - 1)] = (uint16_t)(source[i] | (source[i + 1] << 8));
     }
 }
 
@@ -164,14 +164,14 @@ void sdevkit_dma_copy_cgram(const uint8_t *source, uint16_t address, uint16_t si
         return;
     }
     for (i = 0; i + 1 < size; i += 2) {
-        sdevkit__pseudo.cgram[(uint16_t)(address + (i >> 1)) & 0xFF] = (uint16_t)((source[i] | (source[i + 1] << 8)) & 0x7FFF);
+        sdevkit__rachael.cgram[(uint16_t)(address + (i >> 1)) & 0xFF] = (uint16_t)((source[i] | (source[i + 1] << 8)) & 0x7FFF);
     }
 }
 
 void sdevkit_dma_clear_vram(void)
 {
-    if (dma_allowed(0) && (sdevkit__pseudo.regs[SDEVKIT_PPU_INIDISP] & 0x80)) {
-        memset(sdevkit__pseudo.vram, 0, sizeof sdevkit__pseudo.vram);
+    if (dma_allowed(0) && (sdevkit__rachael.regs[SDEVKIT_PPU_INIDISP] & 0x80)) {
+        memset(sdevkit__rachael.vram, 0, sizeof sdevkit__rachael.vram);
     }
 }
 
@@ -180,7 +180,7 @@ void sdevkit_bg_set_gfx_ptr(uint8_t bgNumber, uint16_t address)
 {
     uint8_t reg = (uint8_t)(bgNumber < 2 ? SDEVKIT_PPU_BG12NBA : SDEVKIT_PPU_BG34NBA);
     uint8_t n = (uint8_t)((address >> 12) & 0x0F);
-    uint8_t v = sdevkit__pseudo.regs[reg];
+    uint8_t v = sdevkit__rachael.regs[reg];
     v = (uint8_t)((bgNumber & 1) ? (v & 0x0F) | (n << 4) : (v & 0xF0) | n);
     sdevkit__write_reg(reg, v);
 }
@@ -192,28 +192,28 @@ void sdevkit_bg_set_map_ptr(uint8_t bgNumber, uint16_t address, uint8_t mapSize)
 
 void sdevkit_bg_set_scroll(uint8_t bgNumber, uint16_t x, uint16_t y)
 {
-    sdevkit__pseudo.hofs[bgNumber & 3] = (uint16_t)(x & 0x3FF);
-    sdevkit__pseudo.vofs[bgNumber & 3] = (uint16_t)(y & 0x3FF);
+    sdevkit__rachael.hofs[bgNumber & 3] = (uint16_t)(x & 0x3FF);
+    sdevkit__rachael.vofs[bgNumber & 3] = (uint16_t)(y & 0x3FF);
 }
 
 void sdevkit_bg_set_enable(uint8_t bgNumber)
 {
-    sdevkit__write_reg(SDEVKIT_PPU_TM, (uint8_t)(sdevkit__pseudo.regs[SDEVKIT_PPU_TM] | (1 << (bgNumber & 3))));
+    sdevkit__write_reg(SDEVKIT_PPU_TM, (uint8_t)(sdevkit__rachael.regs[SDEVKIT_PPU_TM] | (1 << (bgNumber & 3))));
 }
 
 void sdevkit_bg_set_disable(uint8_t bgNumber)
 {
-    sdevkit__write_reg(SDEVKIT_PPU_TM, (uint8_t)(sdevkit__pseudo.regs[SDEVKIT_PPU_TM] & ~(1 << (bgNumber & 3))));
+    sdevkit__write_reg(SDEVKIT_PPU_TM, (uint8_t)(sdevkit__rachael.regs[SDEVKIT_PPU_TM] & ~(1 << (bgNumber & 3))));
 }
 
 void sdevkit_bg_set_enable_sub(uint8_t bgNumber)
 {
-    sdevkit__write_reg(SDEVKIT_PPU_TS, (uint8_t)(sdevkit__pseudo.regs[SDEVKIT_PPU_TS] | (1 << (bgNumber & 3))));
+    sdevkit__write_reg(SDEVKIT_PPU_TS, (uint8_t)(sdevkit__rachael.regs[SDEVKIT_PPU_TS] | (1 << (bgNumber & 3))));
 }
 
 void sdevkit_bg_set_disable_sub(uint8_t bgNumber)
 {
-    sdevkit__write_reg(SDEVKIT_PPU_TS, (uint8_t)(sdevkit__pseudo.regs[SDEVKIT_PPU_TS] & ~(1 << (bgNumber & 3))));
+    sdevkit__write_reg(SDEVKIT_PPU_TS, (uint8_t)(sdevkit__rachael.regs[SDEVKIT_PPU_TS] & ~(1 << (bgNumber & 3))));
 }
 
 void sdevkit_bg_init_tile_set(uint8_t bgNumber, const uint8_t *tileSource, const uint8_t *tilePalette, uint8_t paletteEntry, uint16_t tileSize,
@@ -303,7 +303,7 @@ void sdevkit_oam_clear(uint16_t first, uint8_t numEntries)
 /* --- HDMA ----------------------------------------------------------------------------------- */
 void sdevkit_hdma_set(uint8_t channel, uint8_t reg, uint8_t twoRegs, const uint8_t *table)
 {
-    sdevkit__hdma_channel *h = &sdevkit__pseudo.hdma[channel & 7];
+    sdevkit__hdma_channel *h = &sdevkit__rachael.hdma[channel & 7];
     h->reg = reg;
     h->two = twoRegs;
     h->table = table;
@@ -311,13 +311,13 @@ void sdevkit_hdma_set(uint8_t channel, uint8_t reg, uint8_t twoRegs, const uint8
 
 uint8_t sdevkit_dma_fits(uint16_t bytes)
 {
-    if (sdevkit__pseudo.regs[SDEVKIT_PPU_INIDISP] & 0x80) {
+    if (sdevkit__rachael.regs[SDEVKIT_PPU_INIDISP] & 0x80) {
         return 1;
     }
-    return (uint8_t)(sdevkit__pseudo.in_vblank && sdevkit__pseudo.dma_count + bytes <= SDEVKIT__VBLANK_DMA_BYTES);
+    return (uint8_t)(sdevkit__rachael.in_vblank && sdevkit__rachael.dma_count + bytes <= SDEVKIT__VBLANK_DMA_BYTES);
 }
 
 void sdevkit_hdma_enable(uint8_t channels)
 {
-    sdevkit__pseudo.hdma_enabled = channels;
+    sdevkit__rachael.hdma_enabled = channels;
 }

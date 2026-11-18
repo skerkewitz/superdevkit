@@ -1,14 +1,14 @@
 /*
  * The desktop frontend of superdevkit (Linux now, Windows next; ADR record 32): a window with
  * raylib, the keyboard and a gamepad as the SNES joypad, and the frame rhythm of sdevkit/loop.h
- * on the pseudo SNES (lib/pseudo):
+ * on Rachael (lib/rachael):
  *
  *   game_tick(pads)     the picture is being drawn: VRAM and CGRAM take nothing now
  *   sdevkit__vblank()   the vertical blank begins: the sprite table is copied
  *   game_vblank()       the game's uploads
  *   sdevkit__render()   the picture of the frame, which ends the vertical blank
  *
- * The pseudo SNES counts every byte that would not arrive on the console (written outside the
+ * Rachael counts every byte that would not arrive on the console (written outside the
  * vertical blank, or more than one vertical blank can copy), so the desktop finds what the SNES
  * would lose.
  *
@@ -26,7 +26,7 @@
 
 #include "sdevkit/loop.h"
 #include "sdevkit/snes.h"
-#include "pseudo.h"
+#include "rachael.h"
 #include "raylib.h"
 
 #ifndef GAME_NAME
@@ -35,7 +35,7 @@
 
 static unsigned char rgba[SDEVKIT__W * SDEVKIT__H * 4];
 
-/* The picture of the pseudo SNES (BGR 5:5:5) as RGBA. */
+/* The picture of Rachael (BGR 5:5:5) as RGBA. */
 static void picture(void)
 {
     static uint16_t frame[SDEVKIT__W * SDEVKIT__H];

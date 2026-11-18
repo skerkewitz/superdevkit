@@ -50,7 +50,7 @@ released stay.
 | M4 | Fine tuning, started early: the block layout by a profile, peephole rules, loop and branch optimizations | 0.4.0 | Done 2026-11-18 |
 | M6 | Standing alone: dampf's own assembler and linker | 0.4.0 | Done 2026-11-18 |
 | M5 | Blubber Blasen builds its ROM with the dev kit, from its own repository | 0.5.0 | In work |
-| M7 | Windows and Linux: the pseudo SNES and the desktop frontend in the dev kit, the `superdevkit` command with `init`, `build` and `run`; the examples and Blubber Blasen run on the desktop from the dev kit | 0.7.0 | In work (started during M5) |
+| M7 | Windows and Linux: Rachael and the desktop frontend in the dev kit, the `superdevkit` command with `init`, `build` and `run`; the examples and Blubber Blasen run on the desktop from the dev kit | 0.7.0 | In work (started during M5) |
 | M8 | The web: the same games in the browser; Blubber Blasen drops its own PC side | 0.8.0 | Planned |
 | M9 | The optimizer: what was left of M3, register allocation first | 0.9.0 | Planned |
 | M10 | Language, platform and usability: C in interrupts, [intrinsics](/glossary#intrinsic), the open subset decisions, dampf's own preprocessor | 0.10.0 | Planned |
@@ -108,11 +108,12 @@ needed for that while the repository is private. Its work falls into five parts:
 
 **M7, Windows and Linux**, brings the dev kit to the desktop, for prototyping a game quickly. It
 started early, during M5, because prototyping and checking a game is much quicker on the
-desktop. The pseudo SNES, Blubber Blasen's implementation of the console API on the PC, is in
-the dev kit as `lib/pseudo`, with a desktop frontend for Linux built on raylib in `lib/desktop`,
-and the examples give the same picture on the SNES and on the desktop, pixel for pixel. Still to
-come are the pseudo SNES's tests from the game, the frontend on Windows, and the `superdevkit`
-command. The console API gains sound, save RAM and a debug view. A game plays sound by number
+desktop. [Rachael](/glossary#rachael), the SNES rebuilt in portable C from Blubber Blasen's
+implementation of the console API on the PC, is in the dev kit as `lib/rachael`, with a desktop
+frontend for Linux built on raylib in `lib/desktop`, and the examples give the same picture on
+the SNES and on the desktop, pixel for pixel. Still to come are Rachael's tests from the game,
+the frontend on Windows, and the `superdevkit` command. The console API gains sound, save RAM
+and a debug view. A game plays sound by number
 with `sdevkit_sfx_play(id)`, `sdevkit_music_play(track)` and `sdevkit_music_stop()`, the numbers
 taken from the assets its project file lists. Save RAM is a block of memory, `sdevkit_sram()`,
 as on a cartridge, and the dev kit saves it when it changed and on exit. The debug view has
