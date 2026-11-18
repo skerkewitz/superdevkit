@@ -30,7 +30,7 @@ names = "evaluate search_clear search_start search_run best_from best_to best_fl
 subprocess.run(["cc", "-std=c99", "-O2", *inc, *[f"-D{n}=w_{n}" for n in names], "-c",
                 os.path.join(EX, "src/search.c"), "-o", os.path.join(out, "w_search.o")], check=True)
 subprocess.run(["cc", "-std=c99", "-O2", *inc, os.path.join(HERE, "game_pc.c"),
-                *[os.path.join(EX, "src", f) for f in ("board.c", "book.c", "search.c")],
+                *[os.path.join(EX, "src", f) for f in ("board.c", "book.c", "book_data.c", "search.c")],
                 os.path.join(out, "w_search.o"), "-o", os.path.join(out, "game_pc")], check=True)
 # the seed of the book: the frame count when Start is pressed (game_tick counts before it reads)
 seed = START + 1

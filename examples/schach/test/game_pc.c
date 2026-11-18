@@ -1,7 +1,7 @@
 /*
  * Plays a game on the PC as the SNES plays it, for the check of a whole game (check.txt): black
- * is the console (search.c, book.c, the settings of schach.h, one search_run(STEPS) a tick, at
- * least MIN_THINK ticks), white another copy of the player (search.c with its names prefixed by
+ * is the console (search.c, book.c, the settings of schach.h at the default level, one
+ * search_run(STEPS) a tick, at least MIN_THINK ticks), white another copy of the player (search.c with its names prefixed by
  * w_, its own table) at a node limit of its own. Prints one line per half move:
  *   white e2e4               black e7e5 183     (the ticks the console's move took)
  * and at the end "end N" (chess.h: END_MATE ...). Built and run by make_check.py.
@@ -59,7 +59,7 @@ int main(int argc, char **argv)
                 from = book_from, to = book_to, flag = book_flag;
                 ticks = MIN_THINK;
             } else {
-                search_start(NODE_LIMIT, MAX_DEPTH);
+                search_start(NODES_NORMAL, MAX_DEPTH);
                 do {
                     ticks++;
                 } while (!search_run(STEPS));

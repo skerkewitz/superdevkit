@@ -1,6 +1,7 @@
 # Proposal: a chess game as an example of superdevkit
 
-Status: proposal, 2026-11-18. Nothing is built yet.
+Status: built, 2026-11-19, as [examples/schach](../examples/schach/README.md); what was measured
+there (speed, strength) and where it differs from this plan is in its README.
 
 A small chess game for the SNES, written in dampf's C subset like the other examples
 (`examples/hello`, `examples/catchme`, `examples/steinschlag`). The player is always white, the

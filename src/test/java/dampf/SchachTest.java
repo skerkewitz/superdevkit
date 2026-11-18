@@ -27,7 +27,8 @@ import org.junit.jupiter.api.io.TempDir;
  * build/schach/<name>.profile.txt}, the cycles per C line.
  *
  * test/perft_snes.c: perft over the five standard positions, the counts the known ones;
- * test/search_snes.c: searches with a node limit, the same moves, scores and node counts.
+ * test/search_snes.c: searches with a node limit, the same moves, scores and node counts;
+ * test/end_snes.c: the ends of games (mate, stalemate, 50 moves, repetition, material).
  */
 class SchachTest {
     private static final Path TEST = Path.of("examples/schach/test");
@@ -57,6 +58,14 @@ class SchachTest {
                     "total_nodes", 1, "given_back", 1), 3000);
             assertEquals("1", run.pc().get("given_back"), "the board after each search");
             run.print("search", Long.parseLong(run.pc().get("total_nodes")), "nodes", "node");
+        });
+    }
+
+    @Test
+    void theEndsOfAGameAreRightOnTheSnes() {
+        assertTimeoutPreemptively(Duration.ofMinutes(5), () -> {
+            Run run = run("end_snes.c", Map.of("ends", 18, "end_wrong", 1), 600);
+            assertEquals("0", run.pc().get("end_wrong"), "the ends on the PC: " + run.pc());
         });
     }
 

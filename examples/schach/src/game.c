@@ -67,6 +67,9 @@ static uint16_t timer;
 static uint16_t think_frames;
 static uint8_t shown_depth;
 static uint8_t from_book;              /* the console's move comes from the book */
+static uint8_t level = LEVEL_DEFAULT;
+static const uint16_t LEVEL_NODES[LEVELS] = { NODES_EASY, NODES_NORMAL, NODES_STRONG };
+static const char *const LEVEL_NAME[LEVELS] = { "Easy", "Normal", "Strong" };
 static uint16_t seed;
 
 /* The moves of the game as text, the last 32 half moves. */
@@ -297,7 +300,7 @@ static void console_turn(void)
     draw_board();
     from_book = book_find();
     if (!from_book) {
-        search_start(NODE_LIMIT, MAX_DEPTH);
+        search_start(LEVEL_NODES[level], MAX_DEPTH);
     }
 }
 
@@ -350,9 +353,27 @@ static void new_game(void)
     for (y = 3; y < 18; y++) {
         panel(y, "");
     }
+    panel(17, LEVEL_NAME[level]);
     draw_moves();
     list_legal();
     player_turn();
+}
+
+static void draw_level(void)
+{
+    char s[13];
+    const char *name = LEVEL_NAME[level];
+    uint8_t n = 0;
+
+    s[n++] = level > 0 ? '<' : ' ';
+    s[n++] = ' ';
+    while (*name != 0) {
+        s[n++] = *name++;
+    }
+    s[n++] = ' ';
+    s[n++] = level + 1 < LEVELS ? '>' : ' ';
+    s[n] = 0;
+    panel_yellow(12, s);
 }
 
 static void title(void)
@@ -366,9 +387,11 @@ static void title(void)
     for (y = 3; y < 18; y++) {
         panel(y, "");
     }
-    panel(9, "You: white");
-    panel(10, "Me: black");
-    panel_yellow(13, "Press START");
+    panel(7, "You: white");
+    panel(8, "Me: black");
+    panel(11, "Level:");
+    draw_level();
+    panel_yellow(15, "Press START");
     draw_board();
 }
 
@@ -596,6 +619,13 @@ void game_tick(const uint16_t pad[SNES_PADS])
     timer++;
     switch (state) {
     case ST_TITLE:
+        if ((pressed & KEY_LEFT) && level > 0) {
+            level--;
+            draw_level();
+        } else if ((pressed & KEY_RIGHT) && level + 1 < LEVELS) {
+            level++;
+            draw_level();
+        }
         if (pressed & KEY_START) {
             seed = (uint16_t)(seed + timer);
             new_game();
