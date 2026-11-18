@@ -1,8 +1,13 @@
 package dampf.exec;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dampf.Compiler;
+import dampf.lir.LParser;
+import dampf.lir.LPrinter;
+import dampf.lir.LUnit;
+import dampf.lir.LVerifier;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
@@ -24,6 +29,9 @@ import org.junit.jupiter.api.Test;
  * does must leave every hash as it was (docs/transition-to-lir.md, "How we keep from breaking
  * things"). A step that changes the code on purpose records new hashes with
  * {@code ./gradlew test --tests '*BackendOutputTest' -PbackendOutput=update}.
+ *
+ * <p>It also reads every assembly file back as LIR ({@link LParser}): printed again, it must be
+ * the same text, and it must pass {@link LVerifier}.
  *
  * <p>Every run writes the assembly to {@code build/backend-output/}; an update also copies it to
  * {@code build/backend-output-ref/}, so a changed hash can be followed with a plain {@code diff -r}.
@@ -128,6 +136,10 @@ class BackendOutputTest {
         List<String> asm = r.assembly();
         for (int i = 0; i < asm.size(); i++) {
             Files.writeString(dir.resolve("module" + i + ".s"), asm.get(i));
+            // the text is LIR: read back, it prints the same and passes the verifier
+            LUnit parsed = LParser.parse(asm.get(i));
+            assertEquals(asm.get(i), LPrinter.print(parsed), key + " module " + i + ": the LIR text does not read back the same");
+            assertEquals(List.of(), LVerifier.verify(parsed), key + " module " + i + ": the LIR read back");
             // the modification time of a source file (.dbg file) changes with every checkout
             hashes.put(key + ".s" + i, hash(asm.get(i).replaceAll("(\\.dbg\\s+file, \"[^\"]*\", \\d+, )\\d+", "$10")));
         }

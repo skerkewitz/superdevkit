@@ -156,6 +156,7 @@ public final class NaiveCodeGen {
                 w.append(banked.get(i));
                 w.blank();
             }
+            dampf.lir.LVerifier.check(w.unit());
             modules.add(w.toString());
         }
         return modules;
