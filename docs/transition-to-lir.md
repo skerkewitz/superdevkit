@@ -23,8 +23,8 @@ ca65 subset dampf writes and its runtime uses, links, and writes the label and d
 program both ways: the ROMs are the same byte for byte, the label files name the same addresses,
 and the debug files say the same (ld65 leaves out the symbol of 9 static variables of the game
 whose label is in another module, dampf names it). C1 to C3 came as one step, since the test of
-all three is the ROM. Not done yet: the check by hand in Mesen that closes C4. The section below
-describes the starting point.
+all three is the ROM. The check by hand closed C4: Mesen 2 shows the C source of the game from
+the debug file dampf writes. The section below describes the starting point.
 
 ## Where we are
 
