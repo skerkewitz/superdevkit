@@ -29,7 +29,7 @@ public final class Optimizer {
         }
         // inlining copies a callee's calls and stores into its callers, which already call it:
         // what may write memory stays the same
-        boolean again = inline && Inline.run(m);
+        boolean again = inline && Inline.run(m, f -> function(m, f, writes, verifyEach));
         again |= PointerParams.run(m);
         if (again) {
             if (verifyEach) {
@@ -56,56 +56,61 @@ public final class Optimizer {
 
     private static void functions(MModule m, java.util.Map<MFunction, Boolean> writes, boolean verifyEach) {
         for (MFunction f : m.functions()) {
-            boolean changed = true;
-            for (int round = 0; changed && round < 20; round++) {
-                changed = Simplify.run(f);
-                if (verifyEach) {
-                    Verifier.verify(m, f);
-                }
-                changed |= RangeChecks.run(f);
-                if (verifyEach) {
-                    Verifier.verify(m, f);
-                }
-                changed |= BitSelect.run(f);
-                if (verifyEach) {
-                    Verifier.verify(m, f);
-                }
-                changed |= ByteLoads.run(f);
-                if (verifyEach) {
-                    Verifier.verify(m, f);
-                }
-                changed |= Narrow.run(f);
-                if (verifyEach) {
-                    Verifier.verify(m, f);
-                }
-                changed |= RangeNarrow.run(f);
-                if (verifyEach) {
-                    Verifier.verify(m, f);
-                }
-                changed |= Licm.run(f);
-                if (verifyEach) {
-                    Verifier.verify(m, f);
-                }
-                changed |= Induction.run(f);
-                if (verifyEach) {
-                    Verifier.verify(m, f);
-                }
-                changed |= PointerOffsets.run(m, f);
-                if (verifyEach) {
-                    Verifier.verify(m, f);
-                }
-                changed |= StrengthReduce.run(f);
-                if (verifyEach) {
-                    Verifier.verify(m, f);
-                }
-                changed |= Gvn.run(m, f, writes);
-                if (verifyEach) {
-                    Verifier.verify(m, f);
-                }
-                changed |= DeadCode.run(f);
-                if (verifyEach) {
-                    Verifier.verify(m, f);
-                }
+            function(m, f, writes, verifyEach);
+        }
+    }
+
+    /** The passes on one function, until nothing changes. */
+    private static void function(MModule m, MFunction f, java.util.Map<MFunction, Boolean> writes, boolean verifyEach) {
+        boolean changed = true;
+        for (int round = 0; changed && round < 20; round++) {
+            changed = Simplify.run(f);
+            if (verifyEach) {
+                Verifier.verify(m, f);
+            }
+            changed |= RangeChecks.run(f);
+            if (verifyEach) {
+                Verifier.verify(m, f);
+            }
+            changed |= BitSelect.run(f);
+            if (verifyEach) {
+                Verifier.verify(m, f);
+            }
+            changed |= ByteLoads.run(f);
+            if (verifyEach) {
+                Verifier.verify(m, f);
+            }
+            changed |= Narrow.run(f);
+            if (verifyEach) {
+                Verifier.verify(m, f);
+            }
+            changed |= RangeNarrow.run(f);
+            if (verifyEach) {
+                Verifier.verify(m, f);
+            }
+            changed |= Licm.run(f);
+            if (verifyEach) {
+                Verifier.verify(m, f);
+            }
+            changed |= Induction.run(f);
+            if (verifyEach) {
+                Verifier.verify(m, f);
+            }
+            changed |= PointerOffsets.run(m, f);
+            if (verifyEach) {
+                Verifier.verify(m, f);
+            }
+            changed |= StrengthReduce.run(f);
+            if (verifyEach) {
+                Verifier.verify(m, f);
+            }
+            changed |= Gvn.run(m, f, writes);
+            if (verifyEach) {
+                Verifier.verify(m, f);
+            }
+            changed |= DeadCode.run(f);
+            if (verifyEach) {
+                Verifier.verify(m, f);
             }
         }
     }
