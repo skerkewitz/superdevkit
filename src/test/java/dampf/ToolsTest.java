@@ -12,7 +12,16 @@ class ToolsTest {
 
     @Test
     void png2snes() throws IOException, InterruptedException {
-        Process p = new ProcessBuilder("python3", "-I", "tools/test_png2snes.py").redirectErrorStream(true).start();
+        python("tools/test_png2snes.py");
+    }
+
+    @Test
+    void sdevkitRename() throws IOException, InterruptedException {
+        python("tools/test_sdevkit_rename.py");
+    }
+
+    private static void python(String test) throws IOException, InterruptedException {
+        Process p = new ProcessBuilder("python3", "-I", test).redirectErrorStream(true).start();
         String out = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         if (!p.waitFor(60, TimeUnit.SECONDS)) {
             p.destroyForcibly();
