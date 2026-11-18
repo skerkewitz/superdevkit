@@ -5,9 +5,7 @@ import dampf.frontend.SourcePos;
 import dampf.lir.BranchRelax;
 import dampf.lir.DeadStores;
 import dampf.lir.RedundantLoads;
-import dampf.lir.LBlock;
 import dampf.lir.LFunction;
-import dampf.lir.RegContents;
 import dampf.mir.Block;
 import dampf.mir.Instr;
 import dampf.mir.MFunction;
@@ -131,12 +129,10 @@ public final class MirCodeGen {
         }
         layout();
         for (MFunction f : module.functions()) {
-            trackEntries = false;
-            entryIn = Map.of();
-            skipStore = Set.of();
-            neverSkip.clear();
+            // selection writes the function once, assuming nothing about the registers where a
+            // block starts and every jump and branch in its long form
             AsmWriter code = new AsmWriter();
-            function(f, code);
+            List<Block> order = function(f, code);
             // loads of what a register holds on every way in, then stores no path reads; then the
             // code is shorter, so more branches may reach
             new RedundantLoads(FRAME).run(code.function());
@@ -145,7 +141,7 @@ public final class MirCodeGen {
             Map<String, String> renamed = dampf.lir.LocalLabels.renumber(code.function(), "@L");
             Map<String, Integer> bounds = new HashMap<>();
             code.loopBounds().forEach((label, rounds) -> bounds.put(renamed.getOrDefault(label, label), rounds));
-            written.put(f, new Written(code.function(), bounds, lastOrder, layout.ranges));
+            written.put(f, new Written(code.function(), bounds, order, layout.ranges));
             if (code.unknownInstructions() > 0) {
                 throw new IllegalStateException("the cycle table does not know an instruction in " + f.name());
             }
@@ -181,104 +177,16 @@ public final class MirCodeGen {
         return modules;
     }
 
-    /** At most this many passes per attempt. */
-    private static final int MAX_PASSES = 14;
-
-    /**
-     * What A, X and Y hold for sure, as aHolds, xHolds and yHolds do: the places (or immediate)
-     * each equals.
-     */
-    private record RegState(Set<String> a, String x, String y) {
-        static final RegState NONE = new RegState(Set.of(), null, null);
-
-        /** What both hold. */
-        RegState meet(RegState o) {
-            Set<String> both = new HashSet<>(a);
-            both.retainAll(o.a);
-            return new RegState(Set.copyOf(both), x != null && x.equals(o.x) ? x : null, y != null && y.equals(o.y) ? y : null);
-        }
-
-        /** Whether everything this says holds in o too. */
-        boolean within(RegState o) {
-            return o.a.containsAll(a) && (x == null || x.equals(o.x)) && (y == null || y.equals(o.y));
-        }
-    }
-
-    /**
-     * Dead stores: values whose every use took them from A in the pass before are not stored
-     * (skipStore); readValues are the values a written instruction read from their place in this
-     * pass (an operand of theirs reached the code), storedValues those stored. A skipped value
-     * that is read after all is stored again (neverSkip), and the pass that is kept reads none.
-     */
-    private Set<Instr> skipStore = Set.of();
-    private final Set<Instr> neverSkip = new HashSet<>();
-    private final Set<Instr> readValues = new HashSet<>();
-    private final Set<Instr> storedValues = new HashSet<>();
-    /** Operand strings handed out for values in this pass (one place may serve several values). */
-    private final Map<String, Instr> operandOf = new HashMap<>();
-    /** Values computed into a callee's parameter place (argumentsInPlace): always stored. */
-    private final Set<Instr> argumentPlaced = new HashSet<>();
-
-    /** Whether this pass may assume what the registers hold where a block starts. */
-    private boolean trackEntries;
-    /** The assumptions of this pass: what every way into a block brings (from the pass before). */
-    private Map<String, RegState> entryIn = Map.of();
-    /** What arrives at each block label in this pass, on all ways in so far. */
-    private final Map<String, RegState> arriving = new HashMap<>();
-    private Set<String> blockLabels = Set.of();
-    private String entryLabel;
     /** The last instruction written goes elsewhere for sure (JMP, BRA, RTL): nothing falls through. */
     private boolean lastTransfer;
     /** N and Z describe the value in A (set by the instruction that computed or loaded it). */
     private boolean nzFromA;
-    /** The states assumed at the labels inside blocks placed so far (this pass). */
-    private final Map<String, RegState> assumedAt = new HashMap<>();
-    /** A branch back to such a label brought less than was assumed there. */
-    private boolean internalBroken;
-
-    private void arrive(String label) {
-        RegState st = new RegState(Set.copyOf(aHolds), xHolds, yHolds);
-        arriving.merge(label, st, RegState::meet);
-    }
     /**
      * An unconditional jump to a block, in its long form (JMP); {@link BranchRelax} makes it a BRA
      * where that reaches (the same 3 cycles, one byte shorter, so other branches reach more often).
      */
     private void jumpTo(Block target) {
         ins("jmp", target.name(), true);
-    }
-
-    /**
-     * What the passes assumed A, X and Y hold where each block starts must hold in the code that
-     * is kept, as the data flow analysis over its LIR finds (values never stored, kept in A only,
-     * are left out: their place is not written).
-     */
-    private void checkEntries(LFunction code) {
-        Set<String> notStored = new HashSet<>();
-        for (Instr i : forward) {
-            if (place.containsKey(i)) {
-                notStored.add(dest(i, 0));
-            }
-        }
-        for (Instr i : skipStore) {
-            if (place.containsKey(i)) {
-                notStored.add(dest(i, 0));
-            }
-        }
-        Map<LBlock, RegContents.State> in = new RegContents(FRAME).entries(code);
-        for (Map.Entry<String, RegState> e : entryIn.entrySet()) {
-            LBlock b = code.block(e.getKey());
-            if (b == null || !in.containsKey(b)) {
-                continue;   // not reached
-            }
-            Set<String> a = new HashSet<>(e.getValue().a());
-            a.removeAll(notStored);
-            RegContents.State assumed = new RegContents.State(Set.copyOf(a), e.getValue().x(), e.getValue().y());
-            if (!assumed.within(in.get(b))) {
-                throw new IllegalStateException("in " + code.name() + " at " + e.getKey() + " the passes assumed " + assumed
-                        + ", the analysis of the code finds " + in.get(b));
-            }
-        }
     }
 
     /**
@@ -352,7 +260,6 @@ public final class MirCodeGen {
     private record Written(LFunction code, Map<String, Integer> loopBounds, List<Block> order, Ranges ranges) {}
 
     private final Map<MFunction, Written> written = new HashMap<>();
-    private List<Block> lastOrder;
     private final Map<String, Timing.Bound> bounds = new HashMap<>();
 
     /** How often each block ran, (function, block) → count or null, from a profile; null without one. */
@@ -515,7 +422,6 @@ public final class MirCodeGen {
                         Value.Param p = callee.params().get(k);
                         if (!callBetween && place.containsKey(p) && words(p.type()) == words(v.type())) {
                             place.put(v, place.get(p));
-                            argumentPlaced.add(v);
                         }
                     }
                 }
@@ -619,21 +525,11 @@ public final class MirCodeGen {
 
     // ---------------------------------------------------------------- functions
 
-    private void function(MFunction f, AsmWriter code) {
+    /** Writes f's code; returns the order of its blocks. */
+    private List<Block> function(MFunction f, AsmWriter code) {
         out = code;
         SourcePos lastPos = null;
-        arriving.clear();
-        readValues.clear();
-        storedValues.clear();
-        operandOf.clear();
-        assumedAt.clear();
-        internalBroken = false;
         lastTransfer = false;
-        blockLabels = new HashSet<>();
-        for (Block b : f.blocks()) {
-            blockLabels.add(b.name());
-        }
-        entryLabel = f.entry().name();
         aHolds.clear();
         yHolds = null;
         xHolds = null;
@@ -662,7 +558,6 @@ public final class MirCodeGen {
         findForwards(f);
         forward.removeAll(xSteps.keySet());
         List<Block> blocks = layoutOrder(f, blockCounts == null ? null : blockName -> blockCounts.apply(f.name(), blockName));
-        lastOrder = blocks;
         for (int k = 0; k < blocks.size(); k++) {
             Block b = blocks.get(k);
             Block next = k + 1 < blocks.size() ? blocks.get(k + 1) : null;
@@ -699,6 +594,7 @@ public final class MirCodeGen {
         }
         flushHeld();
         out.raw(".endproc");
+        return blocks;
     }
 
     /**
@@ -982,9 +878,6 @@ public final class MirCodeGen {
                 int to = direct.contains(s) ? place.get(p) : incoming.get(p);
                 for (int w = 0; w < words(p.type()); w++) {
                     if (operand(v, w).equals(at(to + 2 * w))) {
-                        if (v instanceof Instr iv) {
-                            readValues.add(iv);   // the φ reads v's place: v must be stored
-                        }
                         continue;   // the operand shares the φ's place
                     }
                     if (operand(v, w).equals(imm(0)) && !aHolds.contains(imm(0))) {
@@ -1017,7 +910,7 @@ public final class MirCodeGen {
             case Value.SlotAddr s -> w == 0 ? "#.loword(" + FRAME + "+" + place.get(s.slot()) + ")" : imm(0x7E);
             case Value.Param p -> w >= words(p.type()) ? imm(0) : at(place.get(p) + 2 * w);
             case Instr i when FrameLayout.transparent(i) -> w >= words(i.type()) ? imm(0) : operand(i.op(0), w);
-            case Instr i -> w >= words(i.type()) ? imm(0) : noteOperand(i, at(place.get(i) + 2 * w));
+            case Instr i -> w >= words(i.type()) ? imm(0) : at(place.get(i) + 2 * w);
         };
     }
 
@@ -1031,39 +924,7 @@ public final class MirCodeGen {
             aHolds.add(dest(i, 0));
             return;
         }
-        if (w == 0 && words(i.type()) == 1 && skipStore.contains(i)) {
-            track("sta", dest(i, 0));   // A holds it as if stored; every use takes it from A
-            return;
-        }
-        if (w == 0 && words(i.type()) == 1) {
-            storedValues.add(i);
-        }
-        ins("sta", dest(i, w));
-    }
-
-    private String noteOperand(Instr i, String operand) {
-        operandOf.put(operand, i);
-        return operand;
-    }
-
-    /**
-     * A written instruction that reads its operand: the value that operand was last handed out for
-     * counts as read. (Every read of a place follows the operand() call for the value read there;
-     * values that share a place are not live at the same time.)
-     */
-    private void noteRead(String mnemonic, String operand) {
-        if (operand == null || operandOf.isEmpty()) {
-            return;
-        }
-        switch (mnemonic) {
-            case "sta", "stx", "sty", "stz" -> { }
-            default -> {
-                Instr v = operandOf.get(operand);
-                if (v != null) {
-                    readValues.add(v);
-                }
-            }
-        }
+        ins("sta", dest(i, w));   // (DeadStores takes it out if no path reads it)
     }
 
     private String dest(Instr i, int w) {
@@ -1343,7 +1204,7 @@ public final class MirCodeGen {
     /** Whether an instruction's result is written to its place (not only handed on in A, folded or in X). */
     private boolean stored(Instr x) {
         return !forward.contains(x) && !folded.contains(x) && !fused.contains(x) && !xSteps.containsKey(x)
-                && !xResident.containsKey(x) && !skipStore.contains(x);
+                && !xResident.containsKey(x);
     }
 
     private void bin(Instr.Bin b) {
@@ -1571,7 +1432,7 @@ public final class MirCodeGen {
             }
             ins("cpx", imm(0));
             ins("beq", done);
-            placeLoopHead(loop);
+            place(loop);
             out.loopBound(loop, bits);   // X counts down from at most the width
             switch (b.op) {
                 case SHL -> ins("asl", "a");
@@ -1592,7 +1453,7 @@ public final class MirCodeGen {
             to32(x, lo, hi);
             ins("cpx", imm(0));
             ins("beq", done);
-            placeLoopHead(loop);
+            place(loop);
             out.loopBound(loop, bits);   // X counts down from at most the width
             switch (b.op) {
                 case SHL -> {
@@ -2079,7 +1940,7 @@ public final class MirCodeGen {
         if (size >= 2) {
             String loop = label();
             ins("ldy", imm((size & ~1) - 2));
-            placeLoopHead(loop);
+            place(loop);
             out.loopBound(loop, size / 2);   // Y counts down two bytes a round
             ins("lda", VIA_P);
             ins("sta", VIA_Q);
@@ -2200,21 +2061,6 @@ public final class MirCodeGen {
         if (mnemonic.equals("ldx") && operand != null && operand.equals(xHolds)) {
             return;
         }
-        if (operand != null && (mnemonic.startsWith("b") && !mnemonic.equals("bit") || mnemonic.equals("jmp")
-                || mnemonic.equals("brl"))) {
-            if (blockLabels.contains(operand)) {
-                arrive(operand);
-            } else if (operand.startsWith("@L") && trackEntries) {
-                RegState assumed = assumedAt.get(operand);
-                if (assumed != null) {
-                    // back to a label placed already: it must bring what was assumed there
-                    internalBroken |= !assumed.within(new RegState(Set.copyOf(aHolds), xHolds, yHolds));
-                } else {
-                    arrive(operand);
-                }
-            }
-        }
-        noteRead(mnemonic, operand);
         out.ins(mnemonic, operand, null, relax);
         track(mnemonic, operand);
     }
@@ -2445,7 +2291,6 @@ public final class MirCodeGen {
     /** A load that always happens, for code that branches on the flags it sets. */
     private void load(String operand) {
         flushHeld();
-        noteRead("lda", operand);
         out.ins("lda", operand, null);
         track("lda", operand);
     }
@@ -2564,45 +2409,19 @@ public final class MirCodeGen {
 
     private void place(String label) {
         flushHeld();
-        boolean block = blockLabels.contains(label);
-        boolean lastFallsThrough = !lastTransfer;
-        if (block && !lastTransfer) {
-            arrive(label);   // the code before falls through
-        }
         out.label(label);
-        // something may jump here: what holds is what every way in brings (for a block, as the
-        // pass before found it; for a label inside a block, nothing)
-        RegState in;
-        if (block) {
-            in = trackEntries && !label.equals(entryLabel) ? entryIn.getOrDefault(label, RegState.NONE) : RegState.NONE;
-        } else if (trackEntries && !loopHeads.contains(label)) {
-            // a label inside a block: what the branches to it written so far and the code that
-            // falls through bring (a branch back to it later is checked against this)
-            RegState here = new RegState(Set.copyOf(aHolds), xHolds, yHolds);
-            RegState branches = arriving.get(label);
-            in = branches == null ? (lastFallsThrough ? here : RegState.NONE) : lastFallsThrough ? branches.meet(here) : branches;
-            assumedAt.put(label, in);
-        } else {
-            in = RegState.NONE;
-        }
+        // something may jump here: nothing is known about the registers (the LIR passes find
+        // what every way in brings)
         aHolds.clear();
-        aHolds.addAll(in.a());
-        xHolds = in.x();
-        yHolds = in.y();
+        xHolds = null;
+        yHolds = null;
         ptrP = null;
         ptrQ = null;
         m8 = false;
         lastTransfer = false;
-        nzFromA = false;   // something may jump here
+        nzFromA = false;
     }
 
-    /** The label of one of the code generator's small loops: a branch comes back to it, so nothing is assumed there. */
-    private void placeLoopHead(String label) {
-        loopHeads.add(label);
-        place(label);
-    }
-
-    private final Set<String> loopHeads = new HashSet<>();
 
     private String label() {
         return "@L" + (labels++);
