@@ -531,6 +531,14 @@ public final class MirCodeGen {
      * code that runs stays together and its branches reach.
      */
     static List<Block> layoutOrder(MFunction f, java.util.function.Function<String, Long> counts) {
+        // the latches of each block's loops: the way to the next round is the likely one (a
+        // filter loop's continue), as in Ball and Larus' loop heuristic
+        Map<Block, Set<Block>> latchesOf = new HashMap<>();
+        for (dampf.mir.Loops.Loop loop : dampf.mir.Loops.find(f)) {
+            for (Block x : loop.blocks()) {
+                latchesOf.computeIfAbsent(x, k -> new HashSet<>()).addAll(loop.latches());
+            }
+        }
         List<Block> order = new ArrayList<>();
         Set<Block> placed = new HashSet<>();
         int scan = 0;
@@ -551,11 +559,20 @@ public final class MirCodeGen {
                     if (placed.contains(s)) {
                         continue;
                     }
-                    // with a profile: the successor that ran more often; without: one only this block
-                    // reaches (the next test of an ||), since a block with other ways in needs a
-                    // jump from somewhere anyway
-                    boolean better = next == null || (counts != null ? count(counts, s) > count(counts, next)
-                            : s.preds().size() == 1 && next.preds().size() > 1);
+                    // with a profile: the successor that ran more often; without: the way to the next
+                    // round of a loop, then one only this block reaches (the next test of an ||),
+                    // since a block with other ways in needs a jump from somewhere anyway
+                    boolean better;
+                    if (next == null) {
+                        better = true;
+                    } else if (counts != null) {
+                        better = count(counts, s) > count(counts, next);
+                    } else {
+                        Set<Block> latches = latchesOf.getOrDefault(b, Set.of());
+                        int rs = latches.contains(s) ? 2 : s.preds().size() == 1 ? 1 : 0;
+                        int rn = latches.contains(next) ? 2 : next.preds().size() == 1 ? 1 : 0;
+                        better = rs > rn;
+                    }
                     if (better) {
                         next = s;
                     }
