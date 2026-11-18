@@ -27,20 +27,6 @@
 #include "sdevkit/loop.h"
 #include "sdevkit/snes.h"
 #include "pseudo.h"
-/* raylib names its keyboard keys KEY_UP, KEY_A ...: the joypad bits of loop.h go, this file
- * writes them as numbers */
-#undef KEY_B
-#undef KEY_Y
-#undef KEY_SELECT
-#undef KEY_START
-#undef KEY_UP
-#undef KEY_DOWN
-#undef KEY_LEFT
-#undef KEY_RIGHT
-#undef KEY_A
-#undef KEY_X
-#undef KEY_L
-#undef KEY_R
 #include "raylib.h"
 
 #ifndef GAME_NAME
