@@ -7,7 +7,8 @@
 --   shot F                      a screenshot after frame F (example_shot_F.png)
 --   press F1 F2 BUTTON ...      hold the buttons (a b x y l r start select up down left right)
 --                               on pad 1 from frame F1 to frame F2 - 1
--- Writes example_check.txt: lost bytes per frame, then "frames N lost L".
+-- Writes example_check.txt: lost bytes per frame, then "frames N ticks T lost L" (a tick is one
+-- copy of the sprite table, which the library's main loop makes after each game_tick).
 local ok, err = pcall(function()
   local frames, shots, presses = 600, {}, {}
   for line in io.lines("example_input.txt") do
@@ -22,7 +23,14 @@ local ok, err = pcall(function()
     end
   end
   local out = io.open("example_check.txt", "w")
-  local frame, lost = 0, 0
+  local frame, lost, ticks = 0, 0, 0
+  emu.addMemoryCallback(function(addr, value)
+    for ch = 0, 7 do
+      if (value >> ch) & 1 == 1 and emu.read(0x4301 + ch * 16, emu.memType.snesMemory) == 0x04 then
+        ticks = ticks + 1
+      end
+    end
+  end, emu.callbackType.write, 0x420B, 0x420B)
   local ports = { [0x2104] = "OAM", [0x2118] = "VRAM", [0x2119] = "VRAM", [0x2122] = "CGRAM" }
   local lostNow = {}
   emu.addMemoryCallback(function(addr, value)
@@ -54,7 +62,7 @@ local ok, err = pcall(function()
       png:write(emu.takeScreenshot()); png:close()
     end
     if frame >= frames then
-      out:write(string.format("frames %d lost %d\n", frame, lost))
+      out:write(string.format("frames %d ticks %d lost %d\n", frame, ticks, lost))
       out:close()
       emu.stop(0)
     end
