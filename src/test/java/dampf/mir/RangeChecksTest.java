@@ -65,6 +65,7 @@ class RangeChecksTest {
         same(or("i8", 254, 255), all8(), true);
         same(or("i8", 2, 3, 4), all8(), true);
         same(or("i8", 4, 2, 3), all8(), true);
+        same(or("i8", 4, 5, 6, 7), all8(), true);   // {4, 5} as a mask, then {4..6}, then {4..7} as a mask
         same(and("i8", 2, 3), all8(), true);
         long[] wide = {0, 1, 2, 99, 100, 101, 102, 103, 0x7FFF, 0x8000, 0xFFFF};
         same(or("i16", 100, 101), wide, true);

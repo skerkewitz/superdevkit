@@ -4,7 +4,8 @@ import java.util.List;
 
 /**
  * Tests of one value against neighbouring constants in a chain of branches become one range
- * check, as in LLVM's InstCombine: {@code x == 2 || x == 3} is {@code (x - 2) <u 2}. In MIR the
+ * check, as in LLVM's InstCombine: {@code x == 2 || x == 3} is {@code (x - 2) <u 2}, or, where the
+ * values are an aligned block of a power of two, {@code (x & ~1) == 2}. In MIR the
  * {@code ||} is control flow: block A branches on {@code x == 2} to T, else to B, which does
  * nothing but branch on {@code x == 3} to T, else to F. A then branches on the range check to T
  * or F, and B goes. On the 65816 that is one load, subtraction and compare instead of a second
@@ -81,15 +82,24 @@ public final class RangeChecks {
                 return false;
             }
         }
-        // the range check in a: (x - lo) <u count
-        Value v = ta.x;
         Instr.Branch old = br;
-        if (lo != 0) {
-            Instr.Bin sub = new Instr.Bin(Instr.BinOp.SUB, v, new Value.Const(t, lo), old.pos());
-            a.insertBefore(old, sub);
-            v = sub;
+        Instr.Cmp check;
+        if (Long.bitCount(count) == 1 && lo % count == 0) {
+            // an aligned block of a power of two values: (x & ~(count - 1)) == lo, without the
+            // subtraction ({2, 3}: x & ~1 == 2)
+            Instr.Bin and = new Instr.Bin(Instr.BinOp.AND, ta.x, new Value.Const(t, ~(count - 1)), old.pos());
+            a.insertBefore(old, and);
+            check = new Instr.Cmp(Instr.Pred.EQ, and, new Value.Const(t, lo), old.pos());
+        } else {
+            // (x - lo) <u count
+            Value v = ta.x;
+            if (lo != 0) {
+                Instr.Bin sub = new Instr.Bin(Instr.BinOp.SUB, v, new Value.Const(t, lo), old.pos());
+                a.insertBefore(old, sub);
+                v = sub;
+            }
+            check = new Instr.Cmp(Instr.Pred.ULT, v, new Value.Const(t, count), old.pos());
         }
-        Instr.Cmp check = new Instr.Cmp(Instr.Pred.ULT, v, new Value.Const(t, count), old.pos());
         a.insertBefore(old, check);
         Cfg.removeEdge(a, b);
         a.instrs().set(a.instrs().size() - 1, new Instr.Branch(check, in, out, old.pos()));
@@ -125,7 +135,17 @@ public final class RangeChecks {
         }
         switch (cmp.pred) {
             case EQ, NE -> {
-                return new Test(x, kc.bits(), kc.bits(), cmp.pred == Instr.Pred.EQ);
+                boolean inside = cmp.pred == Instr.Pred.EQ;
+                // (y & ~(n - 1)) == lo, n a power of two, lo a multiple of it: y in [lo, lo + n - 1]
+                if (x instanceof Instr.Bin m && m.op == Instr.BinOp.AND && m.op(1) instanceof Value.Const mask
+                        && !(m.op(0) instanceof Value.Const)) {
+                    long width = 1L << x.type().bits();
+                    long n = width - mask.bits();
+                    if (Long.bitCount(n) == 1 && n > 1 && kc.bits() % n == 0) {
+                        return new Test(m.op(0), kc.bits(), kc.bits() + n - 1, inside);
+                    }
+                }
+                return new Test(x, kc.bits(), kc.bits(), inside);
             }
             case ULT, UGE -> {
                 // (y - lo) <u n: y in [lo, lo + n - 1], or y itself (lo = 0)
