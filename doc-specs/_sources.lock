@@ -22,7 +22,7 @@ guide/getting-started src/main/java/dampf/Main.java e9e3e68397d8
 guide/getting-started src/main/resources/dampf/snes/runtime.s e19e32708511
 guide/introduction README.md ef3b0626174d
 guide/introduction doc-specs/guide/introduction.spec.md 02510d4b2aba
-guide/introduction docs/ADR.md 703a1c99daaa
+guide/introduction docs/ADR.md 25a54b2c8997
 guide/introduction docs/adr/0001-dampf-is-a-compiler-of-its-own-for-one-target-the.md 411bd59d1e0c
 guide/introduction docs/adr/0002-java-25-antlr-with-the-grammars-v4-c-grammar-and.md 0b346bf3df8b
 guide/introduction docs/adr/0003-dampf-compiles-a-subset-of-c-enforced-by-a-checker.md 2c0037bdd56e
@@ -52,11 +52,12 @@ guide/introduction docs/adr/0026-milestone-n-is-version-0n0-and-the-first-public
 guide/introduction docs/adr/0027-goto-and-labels-stay-rejected-and-a-forward-and.md ba529479ab58
 guide/introduction docs/adr/0028-options-can-be-kept-in-an-argument-file-given-by.md 2982dcd866e7
 guide/introduction docs/adr/0029-superdevkit-is-the-project-and-dampf-is-its.md be4018363a43
+guide/introduction docs/adr/0030-one-book-for-superdevkit-with-dampf-as-a-part-of.md 37ad45f88b47
 guide/introduction docs/optimizations.md f226a9133ade
-guide/introduction docs/roadmap.md 3a41c70bf72e
+guide/introduction docs/roadmap.md 268307042342
 guide/introduction platform/snes/README.md c4d96ec2ce72
 guide/writing-c doc-specs/guide/writing-c.spec.md a3f3c5355905
-guide/writing-c docs/ADR.md 703a1c99daaa
+guide/writing-c docs/ADR.md 25a54b2c8997
 guide/writing-c docs/adr/0001-dampf-is-a-compiler-of-its-own-for-one-target-the.md 411bd59d1e0c
 guide/writing-c docs/adr/0002-java-25-antlr-with-the-grammars-v4-c-grammar-and.md 0b346bf3df8b
 guide/writing-c docs/adr/0003-dampf-compiles-a-subset-of-c-enforced-by-a-checker.md 2c0037bdd56e
@@ -86,6 +87,7 @@ guide/writing-c docs/adr/0026-milestone-n-is-version-0n0-and-the-first-public.md
 guide/writing-c docs/adr/0027-goto-and-labels-stay-rejected-and-a-forward-and.md ba529479ab58
 guide/writing-c docs/adr/0028-options-can-be-kept-in-an-argument-file-given-by.md 2982dcd866e7
 guide/writing-c docs/adr/0029-superdevkit-is-the-project-and-dampf-is-its.md be4018363a43
+guide/writing-c docs/adr/0030-one-book-for-superdevkit-with-dampf-as-a-part-of.md 37ad45f88b47
 guide/writing-c docs/subset.md 6f18122f3f28
 guide/writing-c src/main/java/dampf/Main.java e9e3e68397d8
 guide/writing-c src/main/java/dampf/check/CallGraph.java 1f480e8e97b7
@@ -94,7 +96,7 @@ guide/writing-c src/main/java/dampf/frontend/SystemHeaders.java ff22ddbc973c
 guide/writing-c src/main/resources/dampf/include/dampf.h ef60b85b2ab7
 guide/writing-c src/main/resources/dampf/include/stdint.h 2c47a6b93ede
 inside/how-a-compile-works doc-specs/inside/how-a-compile-works.spec.md ff587f67de96
-inside/how-a-compile-works docs/ADR.md 703a1c99daaa
+inside/how-a-compile-works docs/ADR.md 25a54b2c8997
 inside/how-a-compile-works docs/adr/0001-dampf-is-a-compiler-of-its-own-for-one-target-the.md 411bd59d1e0c
 inside/how-a-compile-works docs/adr/0002-java-25-antlr-with-the-grammars-v4-c-grammar-and.md 0b346bf3df8b
 inside/how-a-compile-works docs/adr/0003-dampf-compiles-a-subset-of-c-enforced-by-a-checker.md 2c0037bdd56e
@@ -124,6 +126,7 @@ inside/how-a-compile-works docs/adr/0026-milestone-n-is-version-0n0-and-the-firs
 inside/how-a-compile-works docs/adr/0027-goto-and-labels-stay-rejected-and-a-forward-and.md ba529479ab58
 inside/how-a-compile-works docs/adr/0028-options-can-be-kept-in-an-argument-file-given-by.md 2982dcd866e7
 inside/how-a-compile-works docs/adr/0029-superdevkit-is-the-project-and-dampf-is-its.md be4018363a43
+inside/how-a-compile-works docs/adr/0030-one-book-for-superdevkit-with-dampf-as-a-part-of.md 37ad45f88b47
 inside/how-a-compile-works docs/architecture.md 09ce4c89900a
 inside/how-a-compile-works src/main/antlr/dampf/parser/README.md 45d7fdf1170c
 inside/how-a-compile-works src/main/java/dampf/Compiler.java af2797845833
@@ -137,7 +140,7 @@ inside/how-a-compile-works src/main/java/dampf/frontend/Preprocessor.java 6f1fe4
 inside/how-a-compile-works src/main/java/dampf/mir/Optimizer.java c68a961b08db
 inside/how-a-compile-works src/main/java/dampf/snes/RomBuilder.java bfb4c0b92aee
 inside/mir doc-specs/inside/mir.spec.md ccaea59e8cb0
-inside/mir docs/ADR.md 703a1c99daaa
+inside/mir docs/ADR.md 25a54b2c8997
 inside/mir docs/adr/0001-dampf-is-a-compiler-of-its-own-for-one-target-the.md 411bd59d1e0c
 inside/mir docs/adr/0002-java-25-antlr-with-the-grammars-v4-c-grammar-and.md 0b346bf3df8b
 inside/mir docs/adr/0003-dampf-compiles-a-subset-of-c-enforced-by-a-checker.md 2c0037bdd56e
@@ -167,6 +170,7 @@ inside/mir docs/adr/0026-milestone-n-is-version-0n0-and-the-first-public.md c7ac
 inside/mir docs/adr/0027-goto-and-labels-stay-rejected-and-a-forward-and.md ba529479ab58
 inside/mir docs/adr/0028-options-can-be-kept-in-an-argument-file-given-by.md 2982dcd866e7
 inside/mir docs/adr/0029-superdevkit-is-the-project-and-dampf-is-its.md be4018363a43
+inside/mir docs/adr/0030-one-book-for-superdevkit-with-dampf-as-a-part-of.md 37ad45f88b47
 inside/mir docs/architecture.md 09ce4c89900a
 inside/mir docs/testing.md e960fc814a0a
 inside/mir src/main/java/dampf/mir/Instr.java 7c4f924e88f7
@@ -176,7 +180,7 @@ inside/mir src/main/java/dampf/mir/Printer.java 7d05bbd4506e
 inside/mir src/main/java/dampf/mir/Verifier.java aee9edab008c
 inside/mir src/test/java/dampf/mir/MirTextTest.java 7e8cf05bb301
 inside/optimizations doc-specs/inside/optimizations.spec.md 878314710300
-inside/optimizations docs/ADR.md 703a1c99daaa
+inside/optimizations docs/ADR.md 25a54b2c8997
 inside/optimizations docs/adr/0001-dampf-is-a-compiler-of-its-own-for-one-target-the.md 411bd59d1e0c
 inside/optimizations docs/adr/0002-java-25-antlr-with-the-grammars-v4-c-grammar-and.md 0b346bf3df8b
 inside/optimizations docs/adr/0003-dampf-compiles-a-subset-of-c-enforced-by-a-checker.md 2c0037bdd56e
@@ -206,6 +210,7 @@ inside/optimizations docs/adr/0026-milestone-n-is-version-0n0-and-the-first-publ
 inside/optimizations docs/adr/0027-goto-and-labels-stay-rejected-and-a-forward-and.md ba529479ab58
 inside/optimizations docs/adr/0028-options-can-be-kept-in-an-argument-file-given-by.md 2982dcd866e7
 inside/optimizations docs/adr/0029-superdevkit-is-the-project-and-dampf-is-its.md be4018363a43
+inside/optimizations docs/adr/0030-one-book-for-superdevkit-with-dampf-as-a-part-of.md 37ad45f88b47
 inside/optimizations docs/architecture.md 09ce4c89900a
 inside/optimizations docs/optimizations-log.md 72e4bbee0ce9
 inside/optimizations docs/optimizations.md f226a9133ade
@@ -277,7 +282,7 @@ inside/optimizations src/main/java/dampf/mir/Value.java b6879c997a90
 inside/optimizations src/main/java/dampf/mir/Verifier.java aee9edab008c
 inside/roadmap README.md ef3b0626174d
 inside/roadmap doc-specs/inside/roadmap.spec.md 796d44cb66a8
-inside/roadmap docs/ADR.md 703a1c99daaa
+inside/roadmap docs/ADR.md 25a54b2c8997
 inside/roadmap docs/adr/0001-dampf-is-a-compiler-of-its-own-for-one-target-the.md 411bd59d1e0c
 inside/roadmap docs/adr/0002-java-25-antlr-with-the-grammars-v4-c-grammar-and.md 0b346bf3df8b
 inside/roadmap docs/adr/0003-dampf-compiles-a-subset-of-c-enforced-by-a-checker.md 2c0037bdd56e
@@ -307,7 +312,8 @@ inside/roadmap docs/adr/0026-milestone-n-is-version-0n0-and-the-first-public.md 
 inside/roadmap docs/adr/0027-goto-and-labels-stay-rejected-and-a-forward-and.md ba529479ab58
 inside/roadmap docs/adr/0028-options-can-be-kept-in-an-argument-file-given-by.md 2982dcd866e7
 inside/roadmap docs/adr/0029-superdevkit-is-the-project-and-dampf-is-its.md be4018363a43
-inside/roadmap docs/roadmap.md 3a41c70bf72e
+inside/roadmap docs/adr/0030-one-book-for-superdevkit-with-dampf-as-a-part-of.md 37ad45f88b47
+inside/roadmap docs/roadmap.md 268307042342
 inside/testing README.md ef3b0626174d
 inside/testing build.gradle.kts 6891722c1e3c
 inside/testing doc-specs/inside/testing.spec.md c7f660cc0897
@@ -341,7 +347,7 @@ inside/timing src/test/java/dampf/BudgetTest.java 7ab99f5df2b0
 inside/timing src/test/java/dampf/exec/GameTimingTest.java 0c657d1e9ed1
 inside/timing src/test/java/dampf/exec/Timing.java c29c1caa941d
 reference/c-subset doc-specs/reference/c-subset.spec.md e2ef0e7faadf
-reference/c-subset docs/ADR.md 703a1c99daaa
+reference/c-subset docs/ADR.md 25a54b2c8997
 reference/c-subset docs/adr/0001-dampf-is-a-compiler-of-its-own-for-one-target-the.md 411bd59d1e0c
 reference/c-subset docs/adr/0002-java-25-antlr-with-the-grammars-v4-c-grammar-and.md 0b346bf3df8b
 reference/c-subset docs/adr/0003-dampf-compiles-a-subset-of-c-enforced-by-a-checker.md 2c0037bdd56e
@@ -371,6 +377,7 @@ reference/c-subset docs/adr/0026-milestone-n-is-version-0n0-and-the-first-public
 reference/c-subset docs/adr/0027-goto-and-labels-stay-rejected-and-a-forward-and.md ba529479ab58
 reference/c-subset docs/adr/0028-options-can-be-kept-in-an-argument-file-given-by.md 2982dcd866e7
 reference/c-subset docs/adr/0029-superdevkit-is-the-project-and-dampf-is-its.md be4018363a43
+reference/c-subset docs/adr/0030-one-book-for-superdevkit-with-dampf-as-a-part-of.md 37ad45f88b47
 reference/c-subset docs/subset.md 6f18122f3f28
 reference/c-subset src/main/java/dampf/check/CallGraph.java 1f480e8e97b7
 reference/c-subset src/main/java/dampf/frontend/AstBuilder.java 8deba47efb6f
@@ -390,7 +397,7 @@ reference/command-line src/main/java/dampf/tools/Bench.java 4c665d8e976e
 reference/command-line src/main/java/dampf/tools/Mir.java 70e7f360ddc3
 reference/command-line src/main/java/dampf/tools/Profile.java 8ce08c0cbd84
 reference/hints doc-specs/reference/hints.spec.md af802a542a89
-reference/hints docs/ADR.md 703a1c99daaa
+reference/hints docs/ADR.md 25a54b2c8997
 reference/hints docs/adr/0001-dampf-is-a-compiler-of-its-own-for-one-target-the.md 411bd59d1e0c
 reference/hints docs/adr/0002-java-25-antlr-with-the-grammars-v4-c-grammar-and.md 0b346bf3df8b
 reference/hints docs/adr/0003-dampf-compiles-a-subset-of-c-enforced-by-a-checker.md 2c0037bdd56e
@@ -420,6 +427,7 @@ reference/hints docs/adr/0026-milestone-n-is-version-0n0-and-the-first-public.md
 reference/hints docs/adr/0027-goto-and-labels-stay-rejected-and-a-forward-and.md ba529479ab58
 reference/hints docs/adr/0028-options-can-be-kept-in-an-argument-file-given-by.md 2982dcd866e7
 reference/hints docs/adr/0029-superdevkit-is-the-project-and-dampf-is-its.md be4018363a43
+reference/hints docs/adr/0030-one-book-for-superdevkit-with-dampf-as-a-part-of.md 37ad45f88b47
 reference/hints docs/hints.md 385e5701f6b1
 reference/hints docs/subrange-types.md 2d0f851fb0a9
 reference/hints docs/timing.md ce5dfbe3b13c
@@ -430,7 +438,7 @@ reference/hints src/test/java/dampf/BudgetTest.java 7ab99f5df2b0
 reference/hints src/test/resources/exec/hint_range.c 6d1dcc6be9e1
 reference/limits README.md ef3b0626174d
 reference/limits doc-specs/reference/limits.spec.md 3484344f12a2
-reference/limits docs/ADR.md 703a1c99daaa
+reference/limits docs/ADR.md 25a54b2c8997
 reference/limits docs/adr/0001-dampf-is-a-compiler-of-its-own-for-one-target-the.md 411bd59d1e0c
 reference/limits docs/adr/0002-java-25-antlr-with-the-grammars-v4-c-grammar-and.md 0b346bf3df8b
 reference/limits docs/adr/0003-dampf-compiles-a-subset-of-c-enforced-by-a-checker.md 2c0037bdd56e
@@ -460,9 +468,10 @@ reference/limits docs/adr/0026-milestone-n-is-version-0n0-and-the-first-public.m
 reference/limits docs/adr/0027-goto-and-labels-stay-rejected-and-a-forward-and.md ba529479ab58
 reference/limits docs/adr/0028-options-can-be-kept-in-an-argument-file-given-by.md 2982dcd866e7
 reference/limits docs/adr/0029-superdevkit-is-the-project-and-dampf-is-its.md be4018363a43
+reference/limits docs/adr/0030-one-book-for-superdevkit-with-dampf-as-a-part-of.md 37ad45f88b47
 reference/limits docs/hints.md 385e5701f6b1
 reference/limits docs/optimizations.md f226a9133ade
-reference/limits docs/roadmap.md 3a41c70bf72e
+reference/limits docs/roadmap.md 268307042342
 reference/limits docs/subset.md 6f18122f3f28
 reference/limits docs/timing.md ce5dfbe3b13c
 reference/limits platform/snes/README.md c4d96ec2ce72
@@ -476,7 +485,7 @@ reference/output-files src/main/java/dampf/snes/RomBuilder.java bfb4c0b92aee
 reference/output-files src/main/java/dampf/target/Cycles65816.java 8698afa0f4ad
 reference/runtime-and-memory README.md ef3b0626174d
 reference/runtime-and-memory doc-specs/reference/runtime-and-memory.spec.md 36d7c62c1041
-reference/runtime-and-memory docs/ADR.md 703a1c99daaa
+reference/runtime-and-memory docs/ADR.md 25a54b2c8997
 reference/runtime-and-memory docs/adr/0001-dampf-is-a-compiler-of-its-own-for-one-target-the.md 411bd59d1e0c
 reference/runtime-and-memory docs/adr/0002-java-25-antlr-with-the-grammars-v4-c-grammar-and.md 0b346bf3df8b
 reference/runtime-and-memory docs/adr/0003-dampf-compiles-a-subset-of-c-enforced-by-a-checker.md 2c0037bdd56e
@@ -506,6 +515,7 @@ reference/runtime-and-memory docs/adr/0026-milestone-n-is-version-0n0-and-the-fi
 reference/runtime-and-memory docs/adr/0027-goto-and-labels-stay-rejected-and-a-forward-and.md ba529479ab58
 reference/runtime-and-memory docs/adr/0028-options-can-be-kept-in-an-argument-file-given-by.md 2982dcd866e7
 reference/runtime-and-memory docs/adr/0029-superdevkit-is-the-project-and-dampf-is-its.md be4018363a43
+reference/runtime-and-memory docs/adr/0030-one-book-for-superdevkit-with-dampf-as-a-part-of.md 37ad45f88b47
 reference/runtime-and-memory docs/memory-map.md 9b7849144c45
 reference/runtime-and-memory docs/optimizations.md f226a9133ade
 reference/runtime-and-memory src/main/java/dampf/backend/FrameLayout.java 4b380f377e64

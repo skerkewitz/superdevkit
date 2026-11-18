@@ -64,7 +64,7 @@ when M5 is done.
 
 M5 is done when Blubber Blasen builds its SNES ROM from its own repository with a local install
 of the dev kit, and that ROM plays the game's recordings with the PC's checksums. No release is
-needed for that while the repository is private. Its work falls into four parts:
+needed for that while the repository is private. Its work falls into five parts:
 
 - **Correctness first**, since the game will rely on the code. The miscompilation described
   under [Risks and open questions](#risks-and-open-questions) is found and fixed, with an
@@ -89,6 +89,10 @@ needed for that while the repository is private. Its work falls into four parts:
   `tools/`, for game developers, and `dev/`, for developing the dev kit; the snapshot of Blubber
   Blasen moves to `snapshots/blubberblasen`. Examples become projects of their own, each with a
   README, an argument file, its sources and its own build folder; the first is `examples/m1`.
+- **The book.** One book serves the whole dev kit. First the existing pages move into folders
+  for dampf's part, `reference/compiler/` and `inside/compiler/`; then the user guide becomes
+  the dev kit's, with getting started from the first example project, and the reference gets
+  the console API with its table of built and stub per platform, in `reference/api/`.
 - **The game's side**, done in the game's own repository: a build script for the dev kit next to
   the PVSnesLib one, with an argument file, and the game's data as plain C.
 

@@ -93,6 +93,14 @@ The dev kit in this repository (ADR
   `src/`, `assets/` and its own `build/`. The first is `examples/m1` turned into a project
   (stepping through C in Mesen); the book's getting-started page uses it.
 
+The book (ADR [record 30](adr/0030-one-book-for-superdevkit-with-dampf-as-a-part-of.md)):
+
+- **One book for the dev kit.** First the existing pages move into folders for dampf's part
+  (`reference/compiler/`, `inside/compiler/`), with `doc-specs/` and its README following; then
+  the user guide becomes the dev kit's (introduction, getting started from the first example
+  project), and the reference gets the console API with its table of built and stub per
+  platform (`reference/api/`).
+
 For the game, through [game-findings.md](game-findings.md) (the game's own agent does the work
 there):
 
