@@ -7,6 +7,7 @@ import dampf.lir.DeadStores;
 import dampf.lir.IndexInY;
 import dampf.lir.RedundantLoads;
 import dampf.lir.LFunction;
+import dampf.lir.Peephole;
 import dampf.mir.Block;
 import dampf.mir.Instr;
 import dampf.mir.MFunction;
@@ -121,6 +122,7 @@ public final class MirCodeGen {
             // code is shorter, so more branches may reach
             new RedundantLoads(Selection.FRAME).run(code.function());
             new IndexInY(Selection.FRAME).run(code.function());
+            Peephole.run(code.function());
             new DeadStores(Selection.FRAME, ownValueBytes(f)).run(code.function());
             BranchRelax.run(code.function());
             Map<String, String> renamed = dampf.lir.LocalLabels.renumber(code.function(), "@L");

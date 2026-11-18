@@ -14,8 +14,8 @@ blocks with the accumulator width each runs in, whose text is the ca65 source da
 once struct splitting needs it. The code generator from MIR (`dampf.backend.MirCodeGen`, the
 default of `dampf build`) selects instructions once per function (`Selection` and the classes per
 kind of instruction, with `FrameLayout` for the places); the LIR passes then remove loads of what a
-register holds (`RedundantLoads`, `IndexInY`, on `RegContents`) and stores nobody reads
-(`DeadStores`), choose the branch forms (`BranchRelax`) and number the local labels
+register holds (`RedundantLoads`, `IndexInY`, on `RegContents`), apply peephole rules
+(`Peephole`) and remove stores nobody reads (`DeadStores`), choose the branch forms (`BranchRelax`) and number the local labels
 (`LocalLabels`); `Timing` gives the best and worst case on the LIR. The way there is in
 [transition-to-lir.md](transition-to-lir.md). The naive code generator works on the AST and stays the reference for optimized
 builds (`--backend naive`; `--replace` works only with it; see [testing.md](testing.md)).

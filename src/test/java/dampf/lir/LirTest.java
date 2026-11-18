@@ -166,4 +166,25 @@ class LirTest {
         assertEquals(List.of("cmp #$0001", "beq case1", "cmp #$0002", "rtl", "rtl"), code);
         assertEquals(List.of(), LVerifier.verify(u));
     }
+
+    @Test
+    void aStoreAndLoadIntoXBecomesTax() {
+        LUnit u = LParser.parse(text(
+                ".proc f",
+                ins("sta", "z:dampf_frame+4"),
+                ins("ldx", "z:dampf_frame+4"),
+                ins("sta", "z:dampf_frame+6"),
+                ins("ldy", "z:dampf_frame+6"),
+                ins("sep", "#$20"),
+                ins8("sta", "z:dampf_frame+8"),
+                ins8("ldx", "z:dampf_frame+8"),   // 8-bit A: TAX would copy the high byte B
+                ins8("rep", "#$20"),
+                ins("rtl", null),
+                ".endproc"));
+        LFunction f = u.functions().getFirst();
+        Peephole.run(f);
+        List<String> code = f.instrs().stream().map(LInstr::toString).toList();
+        assertEquals(List.of("sta z:dampf_frame+4", "tax", "sta z:dampf_frame+6", "tay", "sep #$20",
+                "sta z:dampf_frame+8", "ldx z:dampf_frame+8", "rep #$20", "rtl"), code);
+    }
 }
