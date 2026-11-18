@@ -160,6 +160,18 @@ both ways.
 
 ## Open questions
 
+- **A miscompilation in the code generator, not yet found** (2026-11-18). With functions of up to
+  80 instructions inlined (the limit is 60), the game's benchmark differs from the PC in 56 of
+  3,610 ticks, from tick 32 on. What is known: the optimized MIR is right (the interpreter gives
+  the PC's checksums, every value within its range); ca65 and dampf's assembler build the same
+  ROM; it stays with every LIR pass, `PointerRemat`, branch relaxation, the new block order,
+  loop counters in X, indexes in Y, values handed on in A and arguments computed in place
+  switched off. `main` before the branch `optimise` with the same limit is right, but there the
+  limit counts unsimplified bodies and fewer functions are inlined. So an older part of the code
+  generator (selection, `FrameLayout`, the masks) goes wrong on a function the larger inlining
+  makes. Next step: find the function by comparing the emulator's globals with the
+  interpreter's at tick 32, then reduce it to an execution test.
+
 - How Mesen shows locals that live in fixed direct page slots. The code generator from MIR keeps
   the game's values in the direct page, several values sharing a place; the `.dbg` file names the
   source files and lines (and, from the naive generator, the functions), not the locals.

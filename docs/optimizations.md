@@ -129,6 +129,10 @@ allowed (the platform layer uses them); this form does not need the rule against
 - Block order, the loop exit heuristic (2026-11-18): after the latch, preferring a successor inside
   the loop over one that leaves it changed nothing measurable (284,286 → 284,347); the true side
   of a loop's test is the inside already.
+- Inlining up to 80 instructions (2026-11-18): play 282,246 master clocks per tick (from
+  282,498), but the benchmark's checksums differ from the PC: the larger inlining makes a
+  function the code generator gets wrong. The limit stays at 60 until that bug is found
+  ([roadmap.md](roadmap.md#open-questions)).
 - Jump tables for `switch` (considered, 2026-11-18): a table dispatch (subtract, range check,
   `ASL`, `TAX`, `JMP (table,X)`) costs about 24 cycles, as much as the chain of compares over three
   to four cases, needs X, and gives the timing analysis an indirect jump. The game's switches are
