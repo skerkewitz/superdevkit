@@ -368,9 +368,16 @@ public final class Ranges {
         if (i instanceof Instr.Phi p) {
             Range r = null;
             for (int k = 0; k < p.from.size(); k++) {
-                Range o = at(p.op(k), p.from.get(k));
+                Block pred = p.from.get(k);
+                Range o = at(p.op(k), pred);
                 if (o != null) {
-                    r = o.join(r);
+                    // what the edge pred -> b adds: the condition of pred's branch that leads here
+                    // (abs: x on the edge where x < 0 is false is not negative)
+                    Map<Value, Range> edge = new HashMap<>();
+                    conditions(pred, b, edge);
+                    Range e = edge.get(p.op(k));
+                    Range both = e == null ? null : o.meet(e);
+                    r = (both != null ? both : o).join(r);
                 }
             }
             if (p.known != null) {
