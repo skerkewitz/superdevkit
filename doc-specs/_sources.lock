@@ -63,7 +63,7 @@ guide/introduction docs/adr/0034-every-name-of-the-console-api-starts-with.md e7
 guide/introduction docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
 guide/introduction docs/optimizations.md 647f94a894cd
 guide/introduction docs/roadmap.md ac479e982ee0
-guide/introduction lib/README.md b9480958c8b8
+guide/introduction lib/README.md 171df6bfa665
 guide/introduction lib/snes/README.md 2386650af21f
 guide/writing-c doc-specs/guide/writing-c.spec.md 487df1ba795b
 guide/writing-c docs/ADR.md af258cfa3af7
@@ -349,7 +349,7 @@ inside/roadmap docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md 5
 inside/roadmap docs/adr/0034-every-name-of-the-console-api-starts-with.md e719f3a2fb26
 inside/roadmap docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
 inside/roadmap docs/roadmap.md ac479e982ee0
-inside/roadmap lib/README.md b9480958c8b8
+inside/roadmap lib/README.md 171df6bfa665
 inside/testing README.md 7a2f2177bf74
 inside/testing build.gradle.kts 88f5fb2832a4
 inside/testing dev/README.md 1bcbdaa61783
@@ -529,7 +529,7 @@ reference/limits docs/optimizations.md 647f94a894cd
 reference/limits docs/roadmap.md ac479e982ee0
 reference/limits docs/subset.md 91c2e2a5019a
 reference/limits docs/timing.md ce5dfbe3b13c
-reference/limits lib/README.md b9480958c8b8
+reference/limits lib/README.md 171df6bfa665
 reference/limits lib/snes/README.md 2386650af21f
 reference/output-files README.md 7a2f2177bf74
 reference/output-files doc-specs/reference/output-files.spec.md a0a6a169b3b0

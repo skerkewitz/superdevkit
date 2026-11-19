@@ -165,8 +165,10 @@ HDMA, and a renderer that draws the picture line by line as the PPU does. It run
 the game is compiled for the PC and calls the same console API, and gives the same picture as on
 the SNES, pixel for pixel. Rachael is the same on every PC target; what a target adds (the
 window, the input, the frame rhythm) is its frontend, `lib/desktop` now and `lib/web` later. The
-desktop build runs on it, the web build will. Named after the replicant of Blade Runner who can
-hardly be told from the real thing.
+desktop build runs on it, the web build will. It is to the SNES what Winelib is to Windows: the
+game's source is compiled against an implementation of its API on the PC, and nothing is
+emulated, so it runs at the PC's speed, not the console's. Named after the replicant of Blade
+Runner who can hardly be told from the real thing.
 
 ## Runtime
 

@@ -34,6 +34,27 @@ M8, in the browser, and gives the same picture as the SNES, pixel for pixel
 outside the vertical blank, or more than a vertical blank can copy), so what fits on the desktop
 fits on the console.
 
+If you know Wine, Rachael is to the SNES what Winelib is to Windows. Wine runs Windows programs on
+Linux without emulating a PC: it implements the Windows API on Linux ("Wine Is Not an Emulator").
+Winelib goes one step further: the program's source is compiled on Linux against Wine's API, and
+the result is an ordinary Linux program. Rachael does the same for a SNES game. Its source is
+compiled by the PC's C compiler against the console API (`sdevkit/snes.h`), Rachael implements
+that API, and the result is an ordinary program for the PC. No 65816 runs, no ROM is loaded,
+nothing is translated at run time.
+
+The difference to Winelib lies under the API. Wine can hand most calls to Linux (a window, a
+file); the SNES's API only writes to video memory and registers, and nothing on the PC does what
+they do. So Rachael also rebuilds the hardware behind the API: the memories, the registers, DMA
+and the PPU that turns them into a picture. That is why the picture is the console's, pixel for
+pixel.
+
+What Rachael does not give, because it is no emulator, is the console's time. The game runs at
+the PC's speed: a tick that takes two frames on the SNES takes one on Rachael, and code too slow
+for the console is never too slow there. dampf's timing report and the runs in Mesen
+(`dev/check_example.sh`) say how fast a game is on the SNES. A game must also reach the console
+only through the API: the desktop build checks that what a game's objects call is the kit's
+(`tools/check_game_symbols.py`), since Rachael cannot see a write that goes around it.
+
 Three words, kept apart in all documents of the kit:
 
 | Word | What it is | Where |
