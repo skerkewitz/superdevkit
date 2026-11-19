@@ -34,6 +34,7 @@
 
 /* --- Modes and layers (background.h) -------------------------------------------- */
 #define SDEVKIT_BG_MODE1                1
+#define SDEVKIT_BG_MODE7                7    /* one layer (BG1), rotated and scaled: sdevkit_mode7_* */
 #define SDEVKIT_BG3_MODE1_PRIORITY_HIGH (1 << 3)   /* BG3 tiles with priority 1 above everything */
 #define SDEVKIT_BG1_ENABLE (1 << 0)
 #define SDEVKIT_BG2_ENABLE (1 << 1)
@@ -121,6 +122,13 @@ extern uint8_t sdevkit_oam_memory[128 * 4 + 8 * 4];
 #define SDEVKIT_PPU_BG34NBA 0x0C
 #define SDEVKIT_PPU_BG1HOFS 0x0D   /* BGnHOFS = 0x0D + 2(n-1), BGnVOFS = 0x0E + 2(n-1); written twice, low then high */
 #define SDEVKIT_PPU_BG1VOFS 0x0E
+#define SDEVKIT_PPU_M7SEL   0x1A   /* mode 7: written by sdevkit_mode7_set_select */
+#define SDEVKIT_PPU_M7A     0x1B   /* M7A..M7D, M7X, M7Y = 0x1B..0x20: written twice, low then high */
+#define SDEVKIT_PPU_M7B     0x1C
+#define SDEVKIT_PPU_M7C     0x1D
+#define SDEVKIT_PPU_M7D     0x1E
+#define SDEVKIT_PPU_M7X     0x1F
+#define SDEVKIT_PPU_M7Y     0x20
 #define SDEVKIT_PPU_W12SEL  0x23
 #define SDEVKIT_PPU_W34SEL  0x24
 #define SDEVKIT_PPU_WOBJSEL 0x25
@@ -190,6 +198,30 @@ void sdevkit_hdma_enable(uint8_t channels);          /* HDMAEN: which channels r
  * around the copies counts too; with the screen off the caller does not ask.
  * What does not fit waits for the next vertical blank instead of being lost. */
 uint8_t   sdevkit_dma_fits(uint16_t bytes);
+
+/* --- Mode 7 (sdevkit_mode7_*) ------------------------------------------------------------ */
+/* With sdevkit_set_mode(SDEVKIT_BG_MODE7, 0) the screen has one background, BG1: a map of
+ * 128 x 128 tiles (1024 x 1024 pixels, one byte a tile) and 256 tiles of 8 x 8 pixels with a
+ * byte a pixel (an index into all 256 colours of CGRAM, 0 transparent), rotated, scaled and
+ * sheared by a matrix. Both fill the first 32 KB of VRAM, the map the low byte of each word and
+ * the tiles the high byte; nothing else of a game may be there. Sprites stay as in mode 1: those
+ * of priority 1 to 3 in front of the layer, priority 0 behind it.
+ * A screen pixel (x, y) shows the map pixel
+ *     (a b; c d) * (x + hscroll - cx, y + vscroll - cy) + (cx, cy)
+ * with a, b, c, d in 8.8 fixed point (0x0100 is 1.0) and the centre (cx, cy) and the scroll
+ * (sdevkit_bg_set_scroll(0, ...)) in pixels, 13 bits with sign. */
+#define SDEVKIT_M7_WRAP        0x00   /* sdevkit_mode7_set_select: outside the map, it repeats */
+#define SDEVKIT_M7_TRANSPARENT 0x80   /* ... outside the map, nothing (the backdrop) */
+#define SDEVKIT_M7_TILE0       0xC0   /* ... outside the map, tile 0 everywhere */
+#define SDEVKIT_M7_FLIPX       0x01   /* the whole screen mirrored */
+#define SDEVKIT_M7_FLIPY       0x02
+/* Map bytes from map entry address on (entry = row * 128 + column), tile bytes from byte address
+ * of the tiles (tile * 64 + row * 8 + column). DMA: in a vertical blank or with the screen off. */
+void sdevkit_mode7_load_map(const uint8_t *map, uint16_t address, uint16_t size);
+void sdevkit_mode7_load_tiles(const uint8_t *tiles, uint16_t address, uint16_t size);
+void sdevkit_mode7_set_matrix(int16_t a, int16_t b, int16_t c, int16_t d);
+void sdevkit_mode7_set_center(int16_t x, int16_t y);
+void sdevkit_mode7_set_select(uint8_t select);       /* SDEVKIT_M7_*: outside the map, flips */
 
 /* --- Debug (sdevkit_dbg_*) --------------------------------------------------------------- */
 /* VRAM as 0x8000 words, for a debug check of the tile maps on the desktop. Only Rachael

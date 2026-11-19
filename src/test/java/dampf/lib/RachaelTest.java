@@ -37,7 +37,7 @@ class RachaelTest {
                     show("drawn");
                     sdevkit_reg_write(0x06, 0x31);                   /* mosaic of size 3 on BG1 */
                     show("mosaic");
-                    sdevkit_reg_write(SDEVKIT_PPU_BGMODE, 0x07);     /* mode 7 */
+                    sdevkit_reg_write(SDEVKIT_PPU_BGMODE, 0x03);     /* mode 3 */
                     show("mode");
                     sdevkit_reg_write(0x33, 0x01);                   /* SETINI: interlace */
                     sdevkit_reg_write(0x18, 0x55);                   /* VMDATAL: VRAM around her memories */

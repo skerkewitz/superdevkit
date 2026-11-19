@@ -19,7 +19,9 @@ uint8_t sdevkit__undrawn(uint8_t reg, uint8_t value)
 {
     switch (reg) {
     case SDEVKIT_PPU_BGMODE:
-        return (uint8_t)((value & 7) != 1);           /* only mode 1 is drawn */
+        return (uint8_t)((value & 7) != 1 && (value & 7) != 7);   /* modes 1 and 7 are drawn */
+    case SDEVKIT_PPU_CGWSEL:
+        return (uint8_t)(value & 1);                  /* direct colour */
     case 0x06:                                         /* MOSAIC: a size and a layer */
         return (uint8_t)((value & 0xF0) != 0 && (value & 0x0F) != 0);
     case 0x33:                                         /* SETINI */
@@ -41,6 +43,19 @@ void sdevkit__write_reg(uint8_t reg, uint8_t value)
             sdevkit__rachael.undrawn_value = value;
         }
         sdevkit__rachael.undrawn++;
+    }
+    /* Mode 7's registers, and BG1's scroll as mode 7 reads it, share a latch: each write is the
+     * high byte, the byte written before it the low one. */
+    if (reg == SDEVKIT_PPU_BG1HOFS || reg == SDEVKIT_PPU_BG1VOFS || (reg >= SDEVKIT_PPU_M7A && reg <= SDEVKIT_PPU_M7Y)) {
+        uint16_t v = (uint16_t)(((uint16_t)value << 8) | sdevkit__rachael.m7_latch);
+        if (reg == SDEVKIT_PPU_BG1HOFS) {
+            sdevkit__rachael.m7hofs = (uint16_t)(v & 0x1FFF);
+        } else if (reg == SDEVKIT_PPU_BG1VOFS) {
+            sdevkit__rachael.m7vofs = (uint16_t)(v & 0x1FFF);
+        } else {
+            sdevkit__rachael.m7[reg - SDEVKIT_PPU_M7A] = v;
+        }
+        sdevkit__rachael.m7_latch = value;
     }
     if (reg >= SDEVKIT_PPU_BG1HOFS && reg <= SDEVKIT_PPU_BG1HOFS + 7) {
         /* BGnHOFS / BGnVOFS: written twice, low byte then high byte, through a
@@ -217,8 +232,64 @@ void sdevkit_bg_set_map_ptr(uint8_t bgNumber, uint16_t address, uint8_t mapSize)
 
 void sdevkit_bg_set_scroll(uint8_t bgNumber, uint16_t x, uint16_t y)
 {
+    if ((bgNumber & 3) == 0) {          /* the same register pair as on the SNES: also mode 7's */
+        sdevkit__write_reg(SDEVKIT_PPU_BG1HOFS, (uint8_t)x);
+        sdevkit__write_reg(SDEVKIT_PPU_BG1HOFS, (uint8_t)(x >> 8));
+        sdevkit__write_reg(SDEVKIT_PPU_BG1VOFS, (uint8_t)y);
+        sdevkit__write_reg(SDEVKIT_PPU_BG1VOFS, (uint8_t)(y >> 8));
+    }
     sdevkit__rachael.hofs[bgNumber & 3] = (uint16_t)(x & 0x3FF);
     sdevkit__rachael.vofs[bgNumber & 3] = (uint16_t)(y & 0x3FF);
+}
+
+/* --- Mode 7 ----------------------------------------------------------------------------- */
+void sdevkit_mode7_load_map(const uint8_t *map, uint16_t address, uint16_t size)
+{
+    uint16_t i;
+    if (!dma_allowed(size)) {
+        return;
+    }
+    for (i = 0; i < size; i++) {
+        uint16_t *w = &sdevkit__rachael.vram[(uint16_t)(address + i) & (SDEVKIT__VRAM_WORDS - 1)];
+        *w = (uint16_t)((*w & 0xFF00) | map[i]);
+    }
+}
+
+void sdevkit_mode7_load_tiles(const uint8_t *tiles, uint16_t address, uint16_t size)
+{
+    uint16_t i;
+    if (!dma_allowed(size)) {
+        return;
+    }
+    for (i = 0; i < size; i++) {
+        uint16_t *w = &sdevkit__rachael.vram[(uint16_t)(address + i) & (SDEVKIT__VRAM_WORDS - 1)];
+        *w = (uint16_t)((*w & 0x00FF) | (tiles[i] << 8));
+    }
+}
+
+static void write_twice(uint8_t reg, int16_t v)
+{
+    sdevkit__write_reg(reg, (uint8_t)v);
+    sdevkit__write_reg(reg, (uint8_t)((uint16_t)v >> 8));
+}
+
+void sdevkit_mode7_set_matrix(int16_t a, int16_t b, int16_t c, int16_t d)
+{
+    write_twice(SDEVKIT_PPU_M7A, a);
+    write_twice(SDEVKIT_PPU_M7B, b);
+    write_twice(SDEVKIT_PPU_M7C, c);
+    write_twice(SDEVKIT_PPU_M7D, d);
+}
+
+void sdevkit_mode7_set_center(int16_t x, int16_t y)
+{
+    write_twice(SDEVKIT_PPU_M7X, x);
+    write_twice(SDEVKIT_PPU_M7Y, y);
+}
+
+void sdevkit_mode7_set_select(uint8_t select)
+{
+    sdevkit__write_reg(SDEVKIT_PPU_M7SEL, select);
 }
 
 void sdevkit_bg_set_enable(uint8_t bgNumber)

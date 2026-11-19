@@ -35,7 +35,8 @@ M8, in the browser, and gives the same picture as the SNES, pixel for pixel
 (`dev/compare_example.sh` checks it). Rachael also counts every byte the SNES would lose (written
 outside the vertical blank, or more than a vertical blank can copy), so what fits on the desktop
 fits on the console. She also counts every register write she does not draw (a mode other than
-1, mosaic, `SETINI`, the ports of VRAM, CGRAM and OAM, which would go around her memories;
+1 and 7, mosaic, `SETINI`, direct colour, the ports of VRAM, CGRAM and OAM, which would go around
+her memories;
 `sdevkit__undrawn`): the SNES would show something else there, and the desktop check fails on it
 as on a lost byte.
 
@@ -132,4 +133,9 @@ main loop's copy of the sprite table takes 544 of them each frame.
 | `sdevkit_hdma_set` | built | built | 83 |
 | `sdevkit_hdma_enable` | built | built | 21 |
 | `sdevkit_dma_fits` | built | built | 87 to 92 |
+| `sdevkit_mode7_load_map` | built | built | 116 |
+| `sdevkit_mode7_load_tiles` | built | built | 116 |
+| `sdevkit_mode7_set_matrix` | built | built | 117 |
+| `sdevkit_mode7_set_center` | built | built | 65 |
+| `sdevkit_mode7_set_select` | built | built | 21 |
 | `sdevkit_dbg_vram` | built (a single zero word: the SNES cannot read VRAM) | built | 14 |

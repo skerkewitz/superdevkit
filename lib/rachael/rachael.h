@@ -53,6 +53,9 @@ typedef struct {
     uint8_t        regs[0x40];             /* last value written, by SDEVKIT_PPU_* */
     uint16_t       hofs[4], vofs[4];       /* background scroll, 10 bits */
     uint8_t        scroll_latch;
+    uint16_t       m7[6];                  /* M7A, M7B, M7C, M7D, M7X, M7Y as written (16 bits) */
+    uint16_t       m7hofs, m7vofs;         /* BG1's scroll as mode 7 reads it (13 bits with sign) */
+    uint8_t        m7_latch;               /* the previous byte written to $210D/E or $211B..$2120 */
     uint8_t        fixed_r, fixed_g, fixed_b;   /* COLDATA, 5 bits each */
     sdevkit__hdma_channel  hdma[8];
     uint8_t        hdma_enabled;
@@ -69,8 +72,9 @@ extern sdevkit__rachael_state sdevkit__rachael;
 void sdevkit__write_reg(uint8_t reg, uint8_t value);
 
 /* A register write whose effect Rachael does not draw, so the SNES would show something else:
- * a mode other than 1, mosaic, SETINI (interlace, high resolution, overscan), and the ports of
- * VRAM, CGRAM and OAM, which would go around her memories (the API's DMA functions do not).
+ * a mode other than 1 and 7, mosaic, SETINI (interlace, high resolution, overscan, EXTBG),
+ * direct colour (CGWSEL bit 0), and the ports of VRAM, CGRAM and OAM, which would go around her
+ * memories (the API's DMA functions do not).
  * Counted in sdevkit__rachael.undrawn; the frontends report it as they report lost bytes. */
 uint8_t sdevkit__undrawn(uint8_t reg, uint8_t value);
 

@@ -26,17 +26,18 @@ both has its functions in `lib/snes` and in `lib/rachael`.
 | HDMA in direct mode | built | built | `sdevkit_hdma_set`, `sdevkit_hdma_enable` |
 | DMA to VRAM and CGRAM, within the vertical blank's budget | built | built, lost bytes counted | `sdevkit_dma_copy_vram`, `sdevkit_dma_copy_cgram`, `sdevkit_dma_fits` |
 | Modes 0 and 2 to 6 | not built | not built, reported | |
-| Mode 7, and its multiplier at `$2134`-`$2136` | not built | not built, reported | |
+| Mode 7: one layer of 1024 x 1024 pixels, rotated, scaled and mirrored, and what lies outside it | built | built | `sdevkit_mode7_load_map`, `sdevkit_mode7_load_tiles`, `sdevkit_mode7_set_matrix`, `sdevkit_mode7_set_center`, `sdevkit_mode7_set_select` |
+| Mode 7's second layer (EXTBG), direct colour | not built | not built, reported | |
 | Mosaic, high resolution, interlace | not built | not built, reported | |
 | Raster interrupts (H/V IRQ), the timers | not built: the game is never interrupted (`sdevkit/loop.h`) | not built | |
 | Sound (SPC700, DSP) | not built | not built | |
 | Save RAM | not built | not built | |
 | Mouse, multitap, Super Scope | not built | not built | |
-| The CPU's multiplier and divider (`$4202`-`$4206`) | not used: dampf's runtime multiplies in software | not needed: the game is compiled for the PC | |
+| The CPU's multiplier and divider (`$4202`-`$4206`), mode 7's multiplier (`$2134`-`$2136`) | not used: dampf's runtime multiplies in software | not needed: the game is compiled for the PC | |
 
 "Reported": `sdevkit_reg_write` can set any PPU register, and Rachael counts every write she
-does not draw (a mode other than 1, mosaic, `SETINI` for interlace and high resolution, and the
-ports of VRAM, CGRAM and OAM, which go around her memories). The desktop check prints
+does not draw (a mode other than 1 and 7, mosaic, `SETINI` for interlace, high resolution and
+EXTBG, direct colour, and the ports of VRAM, CGRAM and OAM, which go around her memories). The desktop check prints
 `undrawn N` and fails on it, as on a lost byte (*enforced*).
 
 What each function costs on the SNES, in CPU cycles, is the last column of the table in
@@ -99,7 +100,7 @@ What each function costs on the SNES, in CPU cycles, is the last column of the t
 
 ## Not usable yet
 
-Mode 7, sound, save RAM, raster effects by interrupt, the mouse: each waits for its feature in
+Sound, save RAM, raster effects by interrupt, the mouse: each waits for its feature in
 both columns of the table. Many raster effects work today with HDMA (a value per line for a
 register: scrolling, colours, windows).
 

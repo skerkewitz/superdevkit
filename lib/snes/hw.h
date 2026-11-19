@@ -23,6 +23,13 @@
 #define BG34NBA  REG8(0x210C)
 #define VMAIN    REG8(0x2115)
 #define VMADD    REG16(0x2116)
+#define M7SEL    REG8(0x211A)
+#define M7A      REG8(0x211B)   /* M7A..M7Y: each written twice, low byte then high byte */
+#define M7B      REG8(0x211C)
+#define M7C      REG8(0x211D)
+#define M7D      REG8(0x211E)
+#define M7X      REG8(0x211F)
+#define M7Y      REG8(0x2120)
 #define CGADD    REG8(0x2121)
 #define CGDATA   REG8(0x2122)
 #define TM       REG8(0x212C)

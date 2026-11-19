@@ -10,8 +10,9 @@
  *      last sprite to the first, and after 34 tiles the rest is dropped
  *      ("time over"), which hits the sprites with the lowest numbers.
  *      Sprites are drawn one line below their y, as on the SNES.
- *   3. Backgrounds of mode 1: BG1 and BG2 with 16 colours, BG3 with 4.
- *   4. Main and sub screen: the frontmost pixel of each, by the mode 1
+ *   3. Backgrounds of mode 1: BG1 and BG2 with 16 colours, BG3 with 4; or
+ *      mode 7's one layer, rotated and scaled (draw_mode7).
+ *   4. Main and sub screen: the frontmost pixel of each, by the mode's
  *      priority order, minus what the windows mask (TMW, TSW).
  *   5. Colour math against the fixed colour or the sub screen, limited by
  *      the colour window; then brightness.
@@ -159,6 +160,54 @@ static void draw_bg(uint8_t bg, uint8_t line)
 }
 
 /* --- Sprites -------------------------------------------------------------------------------- */
+/* --- Mode 7 ----------------------------------------------------------------------------- */
+/* A 13-bit value with its sign, as the PPU reads the centre and the scroll. */
+static int32_t sign13(uint16_t v)
+{
+    return (int32_t)((v & 0x1FFF) ^ 0x1000) - 0x1000;
+}
+
+/* scroll - centre as the PPU takes it: 10 bits, or all ones above them when bit 13 is set */
+static int32_t m7_clip(int32_t n)
+{
+    return (n & 0x2000) ? (n | ~(int32_t)0x3FF) : (n & 0x3FF);
+}
+
+/* BG1 of mode 7 on one line, with the PPU's arithmetic: the start of the line from the matrix,
+ * the centre and the scroll, each product cut to whole 1/4 pixels (& ~63), then a step of (a, c)
+ * per pixel, the map position the sum >> 8. The map is the low byte of VRAM words 0..0x3FFF, the
+ * pixels of tile t the high bytes of words t * 64 ... */
+static void draw_mode7(uint8_t line)
+{
+    Line *out = &bg_line[0];
+    const uint16_t *m = sdevkit__rachael.m7;
+    int32_t a = (int16_t)m[0], b = (int16_t)m[1], c = (int16_t)m[2], d = (int16_t)m[3];
+    int32_t cx = sign13(m[4]), cy = sign13(m[5]);
+    int32_t h = m7_clip(sign13(sdevkit__rachael.m7hofs) - cx), v = m7_clip(sign13(sdevkit__rachael.m7vofs) - cy);
+    uint8_t sel = sdevkit__rachael.regs[SDEVKIT_PPU_M7SEL];
+    uint8_t outside = (uint8_t)(sel >> 6);
+    int32_t y = (sel & SDEVKIT_M7_FLIPY) ? 255 - line : line;
+    int32_t ox = ((a * h) & ~63) + ((b * v) & ~63) + ((b * y) & ~63) + (cx * 256);
+    int32_t oy = ((c * h) & ~63) + ((d * v) & ~63) + ((d * y) & ~63) + (cy * 256);
+    uint16_t sx;
+
+    for (sx = 0; sx < W; sx++) {
+        int32_t x = (sel & SDEVKIT_M7_FLIPX) ? 255 - sx : sx;
+        int32_t px = (ox + a * x) >> 8, py = (oy + c * x) >> 8;
+        uint8_t off = (uint8_t)(((px | py) & ~1023) != 0);
+        uint16_t tile = 0, pixel = 0;
+        if (!(off && outside == 3)) {
+            tile = (uint16_t)(sdevkit__rachael.vram[((py >> 3) & 127) * 128 + ((px >> 3) & 127)] & 0xFF);
+        }
+        if (!(off && outside == 2)) {
+            pixel = (uint16_t)(sdevkit__rachael.vram[(tile << 6) | ((py & 7) << 3) | (px & 7)] >> 8);
+        }
+        out->opaque[sx] = (uint8_t)(pixel != 0);
+        out->color[sx] = (uint8_t)pixel;
+        out->prio[sx] = 0;
+    }
+}
+
 static const uint8_t obj_sizes[8][2] = {
     { 8, 16 }, { 8, 32 }, { 8, 64 }, { 16, 32 }, { 16, 64 }, { 32, 64 }, { 16, 32 }, { 16, 32 }
 };
@@ -304,14 +353,20 @@ static const Slot order_normal[] = {
     { L_OBJ, 3 }, { L_BG1, 1 }, { L_BG2, 1 }, { L_OBJ, 2 }, { L_BG1, 0 }, { L_BG2, 0 },
     { L_OBJ, 1 }, { L_BG3, 1 }, { L_OBJ, 0 }, { L_BG3, 0 }
 };
+/* Mode 7: sprites of priority 1 to 3 in front of its one layer, 0 behind it. */
+static const Slot order_mode7[] = {
+    { L_OBJ, 3 }, { L_OBJ, 2 }, { L_OBJ, 1 }, { L_BG1, 0 }, { L_OBJ, 0 }
+};
 
 /* The frontmost layer at x on a screen with these layers (TM or TS) and
  * window masks (TMW or TSW). Returns the layer; *color is its CGRAM index. */
 static uint8_t front(uint16_t x, uint8_t shown, uint8_t masked, uint8_t *color)
 {
-    uint8_t high = (uint8_t)((sdevkit__rachael.regs[SDEVKIT_PPU_BGMODE] & SDEVKIT_BG3_MODE1_PRIORITY_HIGH) != 0);
-    const Slot *order = high ? order_bg3_high : order_normal;
-    uint8_t n = (uint8_t)(high ? sizeof order_bg3_high / sizeof order_bg3_high[0] : sizeof order_normal / sizeof order_normal[0]);
+    uint8_t mode7 = (uint8_t)((sdevkit__rachael.regs[SDEVKIT_PPU_BGMODE] & 7) == 7);
+    uint8_t high = (uint8_t)(!mode7 && (sdevkit__rachael.regs[SDEVKIT_PPU_BGMODE] & SDEVKIT_BG3_MODE1_PRIORITY_HIGH) != 0);
+    const Slot *order = mode7 ? order_mode7 : high ? order_bg3_high : order_normal;
+    uint8_t n = (uint8_t)(mode7 ? sizeof order_mode7 / sizeof order_mode7[0]
+                        : high ? sizeof order_bg3_high / sizeof order_bg3_high[0] : sizeof order_normal / sizeof order_normal[0]);
     uint8_t i;
     for (i = 0; i < n; i++) {
         uint8_t layer = order[i].layer;
@@ -408,8 +463,13 @@ void sdevkit__render(uint16_t *out)
         }
 
         for (x = 0; x < 3; x++) {
-            if ((tm | ts) & (1 << x)) {
-                draw_bg((uint8_t)x, (uint8_t)(y + 1));
+            uint8_t mode7 = (uint8_t)((sdevkit__rachael.regs[SDEVKIT_PPU_BGMODE] & 7) == 7);
+            if (((tm | ts) & (1 << x)) && (!mode7 || x == 0)) {
+                if (mode7) {
+                    draw_mode7((uint8_t)(y + 1));
+                } else {
+                    draw_bg((uint8_t)x, (uint8_t)(y + 1));
+                }
             } else {
                 memset(bg_line[x].opaque, 0, sizeof bg_line[x].opaque);
             }

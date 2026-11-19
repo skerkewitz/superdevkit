@@ -108,6 +108,49 @@ void sdevkit_dma_clear_vram(void)
     dma0(0x09, 0x18, (const uint8_t *)&zero_word, 0);   /* fixed source; size 0 is 64 KB */
 }
 
+/* --- Mode 7 ----------------------------------------------------------------------------- */
+/* The map is the low byte of each VRAM word from word 0, the tiles the high byte: VMAIN 0x00
+ * steps the address after a write of $2118 (low), 0x80 after $2119 (high), so a DMA of single
+ * bytes to one of the two fills only that half of each word. */
+void sdevkit_mode7_load_map(const uint8_t *map, uint16_t address, uint16_t size)
+{
+    VMAIN = 0x00;
+    VMADD = address;
+    dma0(0x00, 0x18, map, size);
+}
+
+void sdevkit_mode7_load_tiles(const uint8_t *tiles, uint16_t address, uint16_t size)
+{
+    VMAIN = 0x80;
+    VMADD = address;
+    dma0(0x00, 0x19, tiles, size);
+}
+
+void sdevkit_mode7_set_matrix(int16_t a, int16_t b, int16_t c, int16_t d)
+{
+    M7A = (uint8_t)a;
+    M7A = (uint8_t)((uint16_t)a >> 8);
+    M7B = (uint8_t)b;
+    M7B = (uint8_t)((uint16_t)b >> 8);
+    M7C = (uint8_t)c;
+    M7C = (uint8_t)((uint16_t)c >> 8);
+    M7D = (uint8_t)d;
+    M7D = (uint8_t)((uint16_t)d >> 8);
+}
+
+void sdevkit_mode7_set_center(int16_t x, int16_t y)
+{
+    M7X = (uint8_t)x;
+    M7X = (uint8_t)((uint16_t)x >> 8);
+    M7Y = (uint8_t)y;
+    M7Y = (uint8_t)((uint16_t)y >> 8);
+}
+
+void sdevkit_mode7_set_select(uint8_t select)
+{
+    M7SEL = select;
+}
+
 /* --- background.h ------------------------------------------------------------------------ */
 void sdevkit_bg_set_gfx_ptr(uint8_t bgNumber, uint16_t address)
 {
