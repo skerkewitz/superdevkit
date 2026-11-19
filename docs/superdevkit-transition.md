@@ -141,7 +141,9 @@ New headers in `lib/include/sdevkit/`, with the names of ADR record 34, built in
   ([sound.md](sound.md), ADR record 44): `sdevkit_sfx_init` and `sdevkit_sfx_play` in
   `sdevkit/snes.h`, the effects from `assets/sfx/sfx.json` through `superdevkit sfx`, an SPC700
   driver on the SNES and Rachael's DSP on the desktop, both playing the same BRR. Music
-  (`sdevkit_music_play(track)`, `sdevkit_music_stop()`) is still to do.
+  (`sdevkit_music_play(track)`, `sdevkit_music_stop()`): built on the desktop the same day, from
+  the files `superdevkit.toml` lists (`[sound] music`, `music.h`), a stub on the SNES
+  ([sound.md](sound.md#music)).
 - Save RAM: built on 2026-11-19, in `sdevkit/snes.h` rather than a header of its own:
   `sdevkit_sram()` (the block) and `SDEVKIT_SRAM_SIZE`, from `dampf --sram BYTES` on the SNES
   (the cartridge's battery RAM at `$70:0000`, announced in the header) and `-DSDEVKIT_SRAM_SIZE`
@@ -158,7 +160,7 @@ New headers in `lib/include/sdevkit/`, with the names of ADR record 34, built in
   three and draws its actors' boxes.
 
 Done when: `LibApiTest` covers the new functions; a test that the stubs cost nothing on the SNES.
-Music is what is left of 7.2.
+Done 2026-11-19, with music on the SNES left for later.
 
 ### 7.3 The desktop frontend
 
@@ -170,7 +172,7 @@ played on the SNES side by `dev/replay.sh` (and `dev/replay_example.sh` for an e
 Built during M7: sound effects (Rachael's DSP through raylib's audio stream), save RAM
 (`<game>.srm`), and the debug view (`lib/desktop/view.c`: F1, beside the picture; drawn with raylib
 alone, no GUI library: the registrations, the boxes, pause, a tick, slow motion, fast, CGRAM, VRAM's
-tiles, the sprites). Still to do: music. The plan as it was:
+tiles, the sprites), and music from files. The plan as it was:
 
 `lib/desktop` in C with raylib: the window (256 x 224 scaled to whole multiples), the frame
 rhythm of `loop.h` (`game_tick`, then `sdevkit__vblank`, `game_vblank`, `sdevkit__render`),

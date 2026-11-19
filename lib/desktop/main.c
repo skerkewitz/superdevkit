@@ -10,7 +10,10 @@
  *   sdevkit__render()   the picture of the frame, which ends the vertical blank
  *
  * Each tick also makes a frame's samples of Rachael's DSP (32 kHz, stereo): in the window they
- * play through raylib's audio stream; a check writes them to a WAV file with --wav file.
+ * play through raylib's audio stream; a check writes them to a WAV file with --wav file. The music
+ * the game asks for (sdevkit_music_play) plays in the window from its file, music/<file> next to
+ * the program (sdevkit__music_files, which the build writes), over and over; it pauses with the
+ * run. A check plays no music.
  * Before game_init, as on the SNES, the splash screen (lib/splash/splash.h): its frames are drawn
  * and shown like the game's, then the console is reset again.
  *
@@ -193,6 +196,48 @@ static void audio_feed(void)
     }
 }
 
+
+/* --- the music ------------------------------------------------------------------------------- */
+static Music music;
+static int music_loaded;
+
+/* The track the game asked for: the old one stops, the new one starts from its file. */
+static void music_step(int paused)
+{
+    if (sdevkit__music.changed) {
+        sdevkit__music.changed = 0;
+        if (music_loaded) {
+            StopMusicStream(music);
+            UnloadMusicStream(music);
+            music_loaded = 0;
+        }
+        if (audio_on && sdevkit__music.track >= 0) {
+            if (sdevkit__music.track >= sdevkit__music_count) {
+                fprintf(stderr, "%s: music track %d, but the project lists %d\n", GAME_NAME, sdevkit__music.track,
+                        sdevkit__music_count);
+            } else {
+                char path[1024];
+                snprintf(path, sizeof path, "%s%s", GetApplicationDirectory(), sdevkit__music_files[sdevkit__music.track]);
+                music = LoadMusicStream(path);
+                if (IsMusicValid(music)) {
+                    music.looping = true;
+                    PlayMusicStream(music);
+                    music_loaded = 1;
+                } else {
+                    fprintf(stderr, "%s: cannot play %s\n", GAME_NAME, path);
+                }
+            }
+        }
+    }
+    if (music_loaded) {
+        if (paused && IsMusicStreamPlaying(music)) {
+            PauseMusicStream(music);
+        } else if (!paused && !IsMusicStreamPlaying(music)) {
+            ResumeMusicStream(music);
+        }
+        UpdateMusicStream(music);
+    }
+}
 
 /* --- recordings ------------------------------------------------------------------------------- */
 static const struct { const char *name; uint16_t bit; } BUTTONS[] = {
@@ -527,6 +572,7 @@ static void start(const uint8_t *sram)
     sdevkit__splash();
     sdevkit__reset();
     sdevkit__dbg_reset();
+    sdevkit__music_reset();
     game_init(0);
 }
 
@@ -798,6 +844,7 @@ static int window(int scale, int no_crt, const char *replay_file)
             }
         }
         audio_feed();
+        music_step(run.paused);
         run.tick = tick_count;
         run.lost = lost;
         changed = show(tex, &run);
@@ -832,6 +879,9 @@ static int window(int scale, int no_crt, const char *replay_file)
     sdevkit__debug_unload();
     sdevkit__crt_unload();
     UnloadTexture(tex);
+    if (music_loaded) {
+        UnloadMusicStream(music);
+    }
     if (audio_on) {
         UnloadAudioStream(stream);
         CloseAudioDevice();

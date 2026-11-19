@@ -28,13 +28,18 @@ import superdevkit.gfx.Png2Snes;
  *
  * [sound]
  * sfx = "assets/sfx/sfx.json"   # the sound effects (superdevkit sfx): build/gen/sfx.c and sfx.h
+ * music = ["assets/music/title.ogg", { file = "assets/music/x.xm", name = "boss" }]
+ *                               # the tracks: build/gen/music.h, MUSIC_TITLE ... MUSIC_COUNT
  * </pre>
  *
- * A picture's C name is its file name without ".png" unless {@code name} gives one. Paths are
- * relative to the folder of superdevkit.toml.
+ * A picture's C name is its file name without ".png" unless {@code name} gives one, a track's its
+ * file name without the extension. Paths are relative to the folder of superdevkit.toml.
  */
 public record Project(Path dir, String name, String version, String kit, int sram, List<String> sources,
-                      List<String> include, List<Graphic> graphics, String sfx) {
+                      List<String> include, List<Graphic> graphics, String sfx, List<Track> music) {
+
+    /** A track of music: its file and its name (MUSIC_ and the name in capitals). */
+    public record Track(String file, String name) {}
 
     public static final String FILE = "superdevkit.toml";
 
@@ -51,7 +56,7 @@ public record Project(Path dir, String name, String version, String kit, int sra
     private static final Set<String> TOP = Set.of("name", "superdevkit", "kit", "sram", "sources", "include",
             "graphics", "sound");
     private static final Set<String> GRAPHICS = Set.of("tiles", "tiles2", "palette", "mode7");
-    private static final Set<String> SOUND = Set.of("sfx");
+    private static final Set<String> SOUND = Set.of("sfx", "music");
 
     /** Reads dir/superdevkit.toml. */
     public static Project read(Path dir) throws Error, IOException {
@@ -108,6 +113,51 @@ public record Project(Path dir, String name, String version, String kit, int sra
         Map<String, Object> s = table(t, "sound");
         unknown(s, SOUND, "[sound] ");
         String sfx = string(s, "sfx", null);
+        List<Track> music = new ArrayList<>();
+        if (s.containsKey("music")) {
+            if (!(s.get("music") instanceof List<?> list)) {
+                throw new Error(FILE + ": [sound] music is an array of files");
+            }
+            for (Object o : list) {
+                String tfile;
+                String tname = null;
+                if (o instanceof String f) {
+                    tfile = f;
+                } else if (o instanceof Map<?, ?> m) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> e = (Map<String, Object>) m;
+                    unknown(e, Set.of("file", "name"), "[sound] music: ");
+                    tfile = string(e, "file", null);
+                    tname = string(e, "name", null);
+                    if (tfile == null) {
+                        throw new Error(FILE + ": [sound] music: an entry without 'file'");
+                    }
+                } else {
+                    throw new Error(FILE + ": [sound] music: a file or { file = ..., name = ... }");
+                }
+                if (tname == null) {
+                    String f = Path.of(tfile).getFileName().toString();
+                    tname = f.contains(".") ? f.substring(0, f.lastIndexOf('.')) : f;
+                }
+                if (!tname.matches("[A-Za-z_][A-Za-z0-9_]*")) {
+                    throw new Error(FILE + ": [sound] music: '" + tname + "' is no C name; give one: { file = \"" + tfile
+                            + "\", name = \"...\" }");
+                }
+                for (Track other : music) {
+                    if (other.name().equalsIgnoreCase(tname)) {
+                        throw new Error(FILE + ": [sound] music: two tracks are called " + tname);
+                    }
+                    if (Path.of(other.file()).getFileName().equals(Path.of(tfile).getFileName())) {
+                        throw new Error(FILE + ": [sound] music: two files are called " + Path.of(tfile).getFileName()
+                                + " (they go into one folder next to the program)");
+                    }
+                }
+                music.add(new Track(tfile, tname));
+            }
+            if (music.size() > 255) {
+                throw new Error(FILE + ": [sound] music: at most 255 tracks");
+            }
+        }
         List<String> names = new ArrayList<>();
         for (Graphic x : graphics) {
             if (names.contains(x.name())) {
@@ -119,7 +169,7 @@ public record Project(Path dir, String name, String version, String kit, int sra
             throw new Error(FILE + ": a picture is called sfx, as the sound effects' files are");
         }
         return new Project(dir, name, version, kit, (int) sram, List.copyOf(sources),
-                include == null ? null : List.copyOf(include), List.copyOf(graphics), sfx);
+                include == null ? null : List.copyOf(include), List.copyOf(graphics), sfx, List.copyOf(music));
     }
 
     /** The order the build converts in: tiles, tiles2, palette, mode7 (as in the old build scripts). */
@@ -264,6 +314,6 @@ public record Project(Path dir, String name, String version, String kit, int sra
 
     /** Whether the build writes anything into build/gen. */
     public boolean generates() {
-        return !graphics.isEmpty() || sfx != null;
+        return !graphics.isEmpty() || sfx != null || !music.isEmpty();
     }
 }

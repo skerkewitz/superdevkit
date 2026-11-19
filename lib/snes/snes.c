@@ -442,6 +442,17 @@ void sdevkit_dbg_hash(const void *data, uint16_t bytes)
     DBG_HASH = (uint8_t)(bytes >> 8);
 }
 
+/* Music is not built on the SNES yet (docs/sound.md): the calls do nothing, and dampf inlines them
+ * away, so a game that plays music on the desktop builds unchanged. */
+void sdevkit_music_play(uint8_t track)
+{
+    (void)track;
+}
+
+void sdevkit_music_stop(void)
+{
+}
+
 /* The debug view exists on the desktop only: here the registrations and the boxes do nothing, and
  * dampf inlines the empty functions away (DebugCallsTest). */
 void sdevkit_dbg_toggle(const char *name, uint8_t *flag)

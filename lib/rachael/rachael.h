@@ -104,6 +104,21 @@ void sdevkit__sfx_frame(void);
  * Counted in sdevkit__rachael.undrawn; the frontends report it as they report lost bytes. */
 uint8_t sdevkit__undrawn(uint8_t reg, uint8_t value);
 
+/* --- Music (music.c; ADR record 32) --------------------------------------------------------- */
+/* The track the game asked for (-1: none), and whether it changed since the frontend looked. The
+ * frontend plays it from sdevkit__music_files, which the build writes (music_files.c next to the
+ * program): the files of superdevkit.toml's [sound] music, in their order. */
+typedef struct {
+    int16_t track;
+    uint8_t changed;
+} sdevkit__music_state;
+
+extern sdevkit__music_state sdevkit__music;
+extern const char *const sdevkit__music_files[];
+extern const int sdevkit__music_count;
+
+void sdevkit__music_reset(void);   /* power on: no music */
+
 /* --- The debug registrations (debug.c; ADR record 32) --------------------------------------- */
 /* What the game registered with sdevkit_dbg_toggle, _range, _color and _action, for the desktop's
  * debug view, and the boxes sdevkit_dbg_box drew in the current tick. */

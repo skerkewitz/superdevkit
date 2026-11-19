@@ -1,7 +1,8 @@
 # Sound effects
 
 How a game gets sound effects, from the WAV files to the voices of the S-DSP. Built from the
-[proposal](archive/sound-effects-proposal.md). Music is not part of it.
+[proposal](archive/sound-effects-proposal.md). Music, so far on the desktop only, is at the end
+([Music](#music)).
 
 ## The file: `assets/sfx/sfx.json`
 
@@ -189,8 +190,33 @@ the line `aram H`, the FNV-1a of the bytes uploaded from `$0200` on, each with i
 protocol and the driver's bytes are checked against the real SPC700 (Mesen) and against Rachael.
 What the DSP makes of the writes is not compared with Mesen yet.
 
+## Music
+
+A project lists its tracks in `superdevkit.toml`:
+
+```toml
+[sound]
+music = ["assets/music/title.ogg", { file = "assets/music/boss-2.xm", name = "boss" }]
+```
+
+The build writes `build/gen/music.h` with a number per track, its place in the list
+(`MUSIC_TITLE 0`, `MUSIC_BOSS 1`, `MUSIC_COUNT 2`; the name is the file's without its extension,
+unless `name` gives one), and the game calls `sdevkit_music_play(MUSIC_TITLE)` and
+`sdevkit_music_stop()` (ADR record 32: numbers, never file names). On the desktop the track plays
+from its file, over and over, until another one or the stop; the same track again goes on
+playing, and the music pauses with the run. A desktop build copies the files into
+`build/<target>/music/` and compiles their list (`music_files.c`) with the frontend, so the game's
+code holds no file name. Any format raylib reads: OGG, MP3, WAV, QOA, and the trackers' XM and
+MOD. CatchMe plays a chase loop (`dev/art/music.py` made it) from a level's start to the game's
+end.
+
+On the SNES the calls do nothing yet (and dampf removes them, `DebugCallsTest`): music there
+needs a driver of its own on the SPC700, which plays a sequence (notes of samples, as a tracker
+does) beside the effects, not a file. The checks play no music on the desktop either, so the
+sound they compare is the effects', which both have.
+
 ## Not built
 
-Music; ADSR envelopes; echo; a volume or a pan per call of `sdevkit_sfx_play` (the file's
+Music on the SNES; ADSR envelopes; echo; a volume or a pan per call of `sdevkit_sfx_play` (the file's
 volume is the one); a jingle with the splash screen; comparing Rachael's DSP output with Mesen's
 recording sample for sample; a faster upload.

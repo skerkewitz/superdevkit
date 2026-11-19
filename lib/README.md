@@ -143,6 +143,8 @@ today's). A DMA function also uses as many bytes of the vertical blank's 5,700 a
 | `sdevkit_mode7_set_select` | built | built | 21 |
 | `sdevkit_sfx_init` | built | built | 51 to unbounded |
 | `sdevkit_sfx_play` | built | built | 39 to 167 |
+| `sdevkit_music_play` | empty, not built yet: dampf removes the calls (`DebugCallsTest`) | built (the track's file, over and over, in the window) | 6 |
+| `sdevkit_music_stop` | empty, not built yet: dampf removes the calls | built | 6 |
 | `sdevkit_sram` | built (the cartridge's battery RAM at $70:0000, `dampf --sram`) | built (`<game>.srm` next to the program) | 14 |
 | `sdevkit_dbg_vram` | built (a single zero word: the SNES cannot read VRAM) | built | 14 |
 | `sdevkit_dbg_hash` | built (the address and size to a port; the checker hashes) | built | 79 |

@@ -260,6 +260,16 @@ void sdevkit_sfx_init(const sdevkit_sfx_bank *bank);
  * without an active sample, or before sdevkit_sfx_init, does nothing. */
 void sdevkit_sfx_play(uint8_t id);
 
+/* --- Music (sdevkit_music_*, ADR record 32) ---------------------------------------------- */
+/* A game's music is listed in its superdevkit.toml ([sound] music = ["assets/music/title.ogg",
+ * ...]); the build writes music.h with a number per track (MUSIC_TITLE, ..., MUSIC_COUNT), never a
+ * file name. On the desktop the track plays from its file (OGG, MP3, WAV, QOA, XM, MOD), over
+ * and over, until another one or sdevkit_music_stop; the same track again goes on playing. On the
+ * SNES music is not built yet: the calls do nothing (and dampf removes them), so a game can call
+ * them already. The checks play no music. */
+void sdevkit_music_play(uint8_t track);
+void sdevkit_music_stop(void);
+
 /* --- Save RAM (sdevkit_sram, ADR record 32) ---------------------------------------------- */
 /* Battery-backed RAM on the cartridge, kept while the console is off: high scores, settings, a
  * saved game. A game asks for it in its build (dampf --sram BYTES, which defines

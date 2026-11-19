@@ -77,9 +77,10 @@ the SNES, where dampf removes the calls); and the `superdevkit` command with `in
 on a project file, `superdevkit.toml`, which every example has instead of its build script; the
 converters are Java in it, so building needs nothing but Java and a C compiler; `init` writes a
 `CLAUDE.md` into the new project that points to the kit's guides, `lib/C_STYLE.md` and
-`lib/SNES_HARDWARE.md`. Still to do in M7: music (built on the desktop, a stub on the SNES; ADR
-[record 32](adr/0032-desktop-and-web-are-for-prototyping-with-sound.md), with the names of
-[record 34](adr/0034-every-name-of-the-console-api-starts-with.md)), and the handover to the game. Done
+`lib/SNES_HARDWARE.md`; and music on the desktop from the files the project lists, a stub on the
+SNES (ADR [record 32](adr/0032-desktop-and-web-are-for-prototyping-with-sound.md), with the names
+of [record 34](adr/0034-every-name-of-the-console-api-starts-with.md); [sound.md](sound.md#music)).
+Still to do in M7: the handover to the game. Done
 when the examples and Blubber Blasen run on Windows and Linux from the kit. The steps are in
 [superdevkit-transition.md](superdevkit-transition.md#m7-windows-and-linux-070).
 

@@ -9,7 +9,9 @@
  * the sprite tiles at 0x4000. CGRAM: background palette 0 (colours 0..15), sprite palettes 0..6
  * (colours 128..239): the mouse, the four cats, the scared cats, the mouse after a chili.
  *
- * The high score is kept in the cartridge's save RAM (sdevkit_sram, catchme.args: --sram 8).
+ * The high score is kept in the cartridge's save RAM (sdevkit_sram, superdevkit.toml: sram = 8).
+ * The chase music plays from a level's start to the game's end (on the desktop; on the SNES the
+ * calls do nothing yet).
  * On the desktop, the debug view (F1) can freeze the cats, clear a level and pick the level a new
  * game starts with, and shows the actors' boxes; on the SNES these calls are empty.
  */
@@ -22,6 +24,7 @@
 #include "pal_brown.h"
 #include "pal_scared.h"
 #include "pal_hot.h"
+#include "music.h"
 
 enum { ST_TITLE, ST_READY, ST_PLAY, ST_DYING, ST_CLEAR, ST_OVER };
 
@@ -197,6 +200,7 @@ static void title_parade(void)
 /* --- levels and lives ------------------------------------------------------------------------ */
 static void ready(void)
 {
+    sdevkit_music_play(MUSIC_CHASE);
     state = ST_READY;
     timer = 120;
     actors_reset();
@@ -373,6 +377,7 @@ void game_tick(const uint16_t pad[SDEVKIT_PADS])
             hud();
             if (lives == 0) {
                 state = ST_OVER;
+                sdevkit_music_stop();
                 timer = 180;
                 actors_hide();
                 text(11, 19, "GAME OVER", 1);

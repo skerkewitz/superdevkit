@@ -46,6 +46,7 @@ class ProjectTest {
                 palette = ["a/pal.png"]
                 [sound]
                 sfx = "a/sfx/sfx.json"
+                music = ["a/music/title.ogg", { file = "a/music/1-boss.xm", name = "boss" }]
                 """);
         assertEquals("game", p.name());
         assertEquals(16, p.sram());
@@ -54,6 +55,8 @@ class ProjectTest {
                 new Project.Graphic(Png2Snes.Mode.PALETTE, "a/pal.png", "pal", 1),
                 new Project.Graphic(Png2Snes.Mode.MODE7, "a/m7.png", "m7", 33)), p.graphics());
         assertEquals("a/sfx/sfx.json", p.sfx());
+        assertEquals(List.of(new Project.Track("a/music/title.ogg", "title"), new Project.Track("a/music/1-boss.xm", "boss")),
+                p.music());
         assertEquals(List.of(tmp.resolve("src"), tmp.resolve("extra")), p.includeDirs());
     }
 
@@ -68,7 +71,10 @@ class ProjectTest {
         assertTrue(error(base + "[graphics]\ntiles = [\"a/x-y.png\"]\n").contains("no C name"));
         assertTrue(error(base + "[graphics]\ntiles = [\"a/x.png\"]\npalette = [\"b/x.png\"]\n").contains("two pictures are called x"));
         assertTrue(error(base + "[graphics]\nmode7 = [{ png = \"m.png\", first = 0 }]\n").contains("1 to 255"));
-        assertTrue(error(base + "[sound]\nmusic = 1\n").contains("unknown key 'music'"));
+        assertTrue(error(base + "[sound]\nmusic = 1\n").contains("music is an array"));
+        assertTrue(error(base + "[sound]\nmusic = [\"a/x.ogg\", \"b/x.wav\"]\n").contains("two tracks are called x"));
+        assertTrue(error(base + "[sound]\nmusic = [\"a/1.ogg\"]\n").contains("no C name"));
+        assertTrue(error(base + "[sound]\nvoices = 2\n").contains("unknown key 'voices'"));
         assertTrue(error("name = \"g g\"\n").contains("'name'"));
     }
 
@@ -86,6 +92,7 @@ class ProjectTest {
         assertTrue(plan.contains("png    palette assets/pal_hot.png pal_hot build/gen"), plan);
         assertTrue(plan.contains("--entry main --sram 8 -o build/snes/catchme.sfc src build/gen/"), plan);
         assertTrue(plan.contains("write  build/compile_commands.json"), plan);
+        assertTrue(plan.contains("music  1 tracks: build/gen/music.h"), plan);
         assertTrue(plan.contains("everything the build needs is there"), plan);
         assertTrue(plan.indexOf("png    tiles") < plan.indexOf("dampf  build"), plan);
     }
@@ -100,6 +107,8 @@ class ProjectTest {
         assertTrue(plan.contains("check  the game's objects call nothing but lib/include/sdevkit"), plan);
         assertTrue(plan.contains("-DGAME_NAME=\"catchme\""), plan);
         assertTrue(plan.contains("-o build/linux/catchme"), plan);
+        assertTrue(plan.contains("music  1 tracks into build/linux/music"), plan);
+        assertTrue(plan.contains("build/linux/obj/music_files.c"), plan);
         String run = run("run", "linux", "examples/catchme", "--plan");
         assertTrue(run.contains("start  ") && run.contains("examples/catchme/build/linux/catchme"), run);
         String snes = run("run", "snes", "examples/catchme", "--plan");

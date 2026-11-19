@@ -11,3 +11,6 @@ palette = [
     "assets/pal_ginger.png", "assets/pal_black.png", "assets/pal_white.png",
     "assets/pal_brown.png", "assets/pal_scared.png", "assets/pal_hot.png",
 ]
+
+[sound]
+music = ["assets/music/chase.wav"]   # MUSIC_CHASE (dev/art/music.py made it)
