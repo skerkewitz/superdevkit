@@ -2,53 +2,57 @@
 title: Compiling a game
 sources:
   - src/main/java/dampf/ConfigFile.java
-  - snapshots/blubberblasen.args
+  - examples/ertuep/ertuep.args
+  - examples/ertuep/build.sh
+  - examples/ertuep/README.md
   - docs/adr/0028-options-can-be-kept-in-an-argument-file-given-by.md
   - README.md
   - src/main/java/dampf/Main.java
   - src/main/java/dampf/Compiler.java
-  - src/main/java/dampf/tools/Profile.java
-  - snapshots/blubberblasen/SNAPSHOT.md
-  - dev/bench_game.sh
-  - dev/profile_game.sh
+  - src/main/java/dampf/emu/ExampleProfile.java
+  - reference/README.md
   - lib/snes/README.md
 audience: Users moving from one example file to the many files of a real game
 ---
 
 ## Purpose
 
-Show how a game of many files is compiled with dampf, with the snapshot of Blubber Blasen as the
-example: include directories, defines, the entry function, finding what does not fit the subset,
-and measuring where the cycles go.
+Show how a game of many files is compiled with dampf, with Er-Tüp (`examples/ertuep`, the dev
+kit's largest example) as the example: an argument file with include directories and the
+entry function, the converted graphics, finding what does not fit the subset, and measuring where
+the cycles go.
 
 ## Sections
 
 1. **Many files, one call** – all `.c` files on one command line, `-I` for include directories
-   and `-D` for defines, the entry function. A `dampf build` call for the snapshot's benchmark
-   (as `dev/bench_game.sh` builds it), and what it prints. Before it, the shortest call for
-   a game of the reader's own (its `.c` files, `-I`, `-o`, the entry function by default
-   `main`), with the launcher from [Getting started](/guide/getting-started).
+   and `-D` for defines, the entry function; then the same kept in an argument file
+   (`@ertuep.args`, ADR record 28): its lines, folders standing for their `.c` files, and the
+   `dampf build` call Er-Tüp's `build.sh` makes after converting its PNG files, and what it
+   prints. Before it, the shortest call for a game of the reader's own (its `.c` files, `-I`,
+   `-o`, the entry function by default `main`), with the launcher from
+   [Getting started](/guide/getting-started).
 2. **Find what does not fit first** – `dampf check` over the game's files before the first
-   build, and what to do with each report (change the code, keeping the PC build working).
-3. **Where the time goes** – `dampf profile`: what it reads and what it prints, cycles per
-   function, with a short excerpt of real output. Mention that `dev/profile_game.sh` does the
-   whole round for the snapshot.
+   build (`dampf check @ertuep.args`), and what to do with each report (change the code, keeping
+   the PC build working).
+3. **Where the time goes** – `dampf.emu.ExampleProfile`: it plays the ROM with the input of a
+   `check.txt` in dampf's emulator and charges the cycles of a range of ticks to functions and,
+   with the `.dbg` file, to C lines; the call, and a short excerpt of real output on Er-Tüp.
 4. **Replacing a function with assembly** – `--replace fn=file.s`, what it is for (comparing a
-   hand-written function with dampf's, as `reference/` does), and that it switches to the naive
-   code generator unless `--backend` says otherwise.
+   hand-written function with dampf's, as `reference/` does with Er-Tüp's `random16`), and that
+   it works with the naive code generator only.
 
 ## Pay attention to
 
-- Commands run from the top of the repository on `snapshots/blubberblasen`; run them and copy
-  what they print, cut where long.
-- The snapshot is not edited; say that a reader compiling their own game passes its paths.
-- The game's own build and its PVSnesLib calls are not part of this page; the benchmark stubs
-  them out (`SNAPSHOT.md`). Say in one sentence that a ROM of a game needs a
-  [platform layer](/glossary#platform-layer) for the library it calls, compiled with it.
+- Commands run as Er-Tüp's README and `build.sh` show (from the example's folder for the
+  argument file's relative paths, or from the top with `@examples/ertuep/ertuep.args`); run them
+  and copy what they print, cut where long.
+- A reader compiling their own game passes its paths; say so.
+- Say in one sentence that a ROM of a game needs a [platform layer](/glossary#platform-layer)
+  for the library it calls, compiled with it (`lib/snes` in Er-Tüp's argument file).
 - Budgets and the timing file come from the code generator from MIR; say so where `--replace`
-  switches to the naive one.
+  needs the naive one.
 
 ## Out of scope
 
 - Every option: [Command line](/reference/command-line).
-- How the benchmark and the replays check dampf against the PC: [Testing](/inside/testing).
+- How the examples check dampf against the PC: [Testing](/inside/testing).

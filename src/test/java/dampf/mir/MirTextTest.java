@@ -32,30 +32,12 @@ class MirTextTest {
         }, "took too long: hangs?")));
     }
 
-    @Test
-    void theWholeGameRoundTrips() throws Exception {
-        Path bb = Path.of("snapshots/blubberblasen");
-        List<Path> sources = new ArrayList<>();
-        try (Stream<Path> s = Files.list(bb.resolve("src/game"))) {
-            s.filter(p -> p.toString().endsWith(".c")).sorted().forEach(sources::add);
-        }
-        try (Stream<Path> s = Files.list(bb.resolve("generated"))) {
-            s.filter(p -> p.toString().endsWith(".c")).sorted().forEach(sources::add);
-        }
-        sources.add(bb.resolve("bench/bench.c"));
-        // as dev/bench_game.sh: every PVSnesLib call goes to bench.c's empty stub
-        List<String> defines = new ArrayList<>();
-        for (String f : List.of("setMode", "setBrightness", "setScreenOn", "setScreenOff", "setColorEffect",
-                "setColorIntensity", "setPaletteColor", "dmaCopyVram", "dmaCopyCGram", "dmaClearVram", "bgSetGfxPtr",
-                "bgSetMapPtr", "bgSetScroll", "bgSetEnable", "bgSetDisable", "bgSetEnableSub", "bgSetDisableSub",
-                "bgInitTileSet", "bgInitMapSet", "oamInit", "oamInitGfxSet", "oamInitGfxAttr", "oamSet", "oamSetXY",
-                "oamSetEx", "oamSetVisible", "oamClear", "snesRegWrite", "snesHdmaSet", "snesHdmaEnable", "snesDmaFits",
-                "oamMemory")) {
-            defines.add(f + "=bb_" + f);
-        }
-        Program p = Compiler.frontEnd(new Compiler.Options(sources, List.of(bb.resolve("src"), bb.resolve("generated")),
-                defines, "main", Path.of("x.sfc")));
-        roundTrip(Lower.lower(p));
+    @TestFactory
+    Stream<DynamicTest> everyExampleRoundTrips() throws IOException {
+        return dampf.ExamplesTest.examples().stream().map(ex -> DynamicTest.dynamicTest(ex.getFileName().toString(), () -> {
+            Compiler.Options o = dampf.ExamplesTest.options(ex, Path.of("x.sfc"));
+            roundTrip(Lower.lower(Compiler.frontEnd(o)));
+        }));
     }
 
     private static void roundTrip(MModule m) {

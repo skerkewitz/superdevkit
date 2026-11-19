@@ -19,7 +19,7 @@ public final class Bench {
             System.exit(2);
         }
         Snes snes = Snes.load(Path.of(args[0]));
-        // the profile: how often each instruction in ROM ran between two ticks, as dev/profile.lua writes it
+        // the profile: how often each instruction in ROM ran between two ticks, for dampf profile
         long[] counts = args.length == 5 ? new long[0x400000] : null;
         int from = args.length == 5 ? Integer.parseInt(args[3]) : 0;
         int to = args.length == 5 ? Integer.parseInt(args[4]) : 0;

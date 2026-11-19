@@ -8,8 +8,8 @@ web. This file holds what is decided and not built yet; a step that is built lea
 was decided goes to the ADR. Milestones and their state are in [roadmap.md](roadmap.md).
 
 Every step ends with a commit on its branch (`m5`, later one per milestone) that passes
-`./gradlew build`; steps that touch the game's ROM also pass `-Preplays`, the game's benchmark
-with the PC's checksums, and `dev/check_game_rom.sh`.
+`./gradlew build`, which plays every example on the SNES side and the desktop; steps that touch
+the console also pass `dev/compare_example.sh` in Mesen.
 
 ## The target
 
@@ -55,7 +55,7 @@ desktop running the ROM in an emulator and Mesen as the desktop are not schedule
 
 ## M5: the SNES (0.5.0)
 
-Done so far on `m5`: the version 0.5.0; `dev/`, `snapshots/`, `lib/snes`; the console API and the
+Done so far on `m5`: the version 0.5.0; `dev/`, `lib/snes`; the console API and the
 main loop in the library (`lib/include/sdevkit/`, `LibApiTest`, `LibNamesTest`); steps 5.1 and 5.2; the three examples.
 
 ### 5.1 dampf can be called by a game

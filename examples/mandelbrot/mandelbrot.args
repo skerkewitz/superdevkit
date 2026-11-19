@@ -1,0 +1,7 @@
+# Mandelbrot for the SNES: the example and the dev kit's library. Paths are relative to this file
+# (ADR record 28).
+-I ../../lib/include
+-I src
+--entry main
+src/
+../../lib/snes/

@@ -1,0 +1,14 @@
+ticks 13000
+budget 1 13000
+shot 1
+shot 2000
+shot 6000
+shot 11000
+shot 11700
+shot 11800
+shot 12000
+shot 12300
+press 12500 12502 a
+shot 12800
+press 12850 12852 b
+shot 12999

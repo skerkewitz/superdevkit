@@ -2,8 +2,9 @@
 
 # Roadmap
 
-dampf is built in milestones, each measured against [Blubber Blasen](/glossary#blubber-blasen),
-the game it is developed for. The goal of the whole project is that the game logic of the
+dampf is built in milestones for [Blubber Blasen](/glossary#blubber-blasen), the game it is
+developed for. Until 2026-11-19 each was measured against a copy of the game's code, since then
+against the dev kit's examples. The goal of the whole project is that the game logic of the
 game's busiest scene fits in at most 60 % of a [frame](/glossary#frame). This page says where
 dampf stands, what comes next and what is still open. Unlike the other pages of the book, it
 also describes plans. What is not built yet, listed for users, is on
@@ -11,12 +12,13 @@ also describes plans. What is not built yet, listed for users, is on
 
 ## Where dampf stands
 
-dampf is at version 0.5.0, in work; M0 to M4 and M6 were concluded with 0.4.0 on 2026-11-18. It
-compiles all of Blubber Blasen, gives the results of the [PC build](/glossary#pc-build) in the
-game's benchmark and replays, on the SNES and in a playable ROM, and assembles and links the ROM
-itself. While the game is played it takes 0.79 frames per [tick](/glossary#tick) against a goal
-of 0.6, and on the same scene dampf's code is 2.14 times as fast as
-[Calypsi](/glossary#calypsi)'s.
+dampf is at version 0.5.0, in work; M0 to M4 and M6 were concluded with 0.4.0 on 2026-11-18.
+dampf compiles all of Blubber Blasen and assembles and links the ROM itself. At 0.4.0 it gave
+the results of the [PC build](/glossary#pc-build) in the game's benchmark and replays, on the
+SNES and in a playable ROM. While the game was played it took 0.79 frames per
+[tick](/glossary#tick) against a goal of 0.6, and on the same scene dampf's code was 2.14 times
+as fast as [Calypsi](/glossary#calypsi)'s. Since 2026-11-19 the dev kit's own examples are
+dampf's test cases and its benchmark, and the game's code is no longer in this repository.
 
 dampf is the compiler of superdevkit, a [development kit](/glossary#dev-kit) for SNES games that
 this repository
@@ -105,9 +107,10 @@ needed for that while the repository is private. Its work falls into five parts:
   the desktop build checks that a game calls nothing else. `tools/sdevkit_rename.py` converts
   code from the old names, and a deprecated header, `lib/include/snes/`, keeps them for Blubber
   Blasen until the game switches. Done: the scripts are now in `dev/`, for developing the dev
-  kit, since nothing in them was for other games. Done: the snapshot of Blubber Blasen has moved
-  to `snapshots/blubberblasen`. Examples become projects of their own, each with a README, an
-  argument file, its sources and assets and its own build folder.
+  kit, since nothing in them was for other games. Done: the snapshot of Blubber Blasen moved to
+  `snapshots/blubberblasen`, and on 2026-11-19 it left the repository (see
+  [Publishing](#publishing-not-scheduled)). Examples become projects of their own, each with a
+  README, an argument file, its sources and assets and its own build folder.
 - **The book.** One book serves the whole dev kit. First the existing pages move into folders
   for dampf's part, `reference/compiler/` and `inside/compiler/`; then the user guide becomes
   the dev kit's, with getting started from an example project, and the reference gets the
@@ -123,12 +126,12 @@ desktop. [Rachael](/glossary#rachael), the SNES rebuilt in portable C from Blubb
 implementation of the console API on the PC, is in the dev kit as `lib/rachael`, with a desktop
 frontend built on raylib in `lib/desktop`, and the examples give the same picture on
 the SNES and on the desktop, pixel for pixel. The frontend is built for Linux with gcc and for
-Windows with MSVC, both from WSL; the Windows build plays with the gamepads WSL does not see, and
-gives the same checksums and pictures as the Linux build. Rachael counts every byte the SNES would lose and
-every register write she does not draw, such as a mode other than 1 or mosaic, where the SNES
-would show something else; the desktop check fails on either. Every build also plays each
-example's check in dampf's emulator and on the desktop and compares a checksum of the game's
-state after every tick, so a difference shows with the first tick it appears in, without
+Windows with MSVC, both from WSL; the Windows build plays with the gamepads WSL does not see,
+and gives the same checksums and pictures as the Linux build. Rachael counts every byte the SNES
+would lose and every register write she does not draw, such as a mode other than 1 or mosaic,
+where the SNES would show something else; the desktop check fails on either. Every build also
+plays each example's check in dampf's emulator and on the desktop and compares a checksum of the
+game's state after every tick, so a difference shows with the first tick it appears in, without
 Mesen. The checksum covers the sprite table and the bytes a game names with
 `sdevkit_dbg_hash`, which on the SNES only hands the address and size to the checker, about 80
 cycles a call.
@@ -195,7 +198,7 @@ saves is open. M10 also brings intrinsics for the hardware multipliers, the divi
 open decision on the subset whether plain `char` is for text only, function pointers in
 constant tables, hand-written assembly with the code generator from MIR (`--replace` works only
 with the [naive code generator](/glossary#naive-code-generator) today), and less memory for a
-compile, which takes 1.8 GB for the game. dampf is to warn where gcc warns by default, first on
+compile, which took 1.8 GB for Blubber Blasen. dampf is to warn where gcc warns by default, first on
 a constant that does not fit the type it initializes or is assigned to
 (`uint8_t w[] = { 420 }`): dampf truncates it as gcc does, but silently, and that hid a bug in
 CatchMe, a cat's wait of 420 that became 164, which only the desktop build's `-Woverflow`
@@ -246,16 +249,20 @@ against gcc's result on the PC.
 ### Publishing (not scheduled)
 
 The dev kit goes public as superdevkit when it is useful to someone other than Blubber Blasen.
-For that, the snapshot of Blubber Blasen, its replays and the hand-written reference function
-leave the repository, and dampf's own examples take over their jobs as test case and benchmark.
-They are also in the git history, so either the history is cleaned or the public repository
-starts without it. The examples become a set of benchmarks in different styles rather than one
-busy scene, because every speed decision so far was measured on one game: the optimizations of
-2026-11-18 made play of Blubber Blasen 13 % faster, but the execution tests only 0.9 %, and part
-of the gain comes from parameters chosen on this one game, such as the inlining limit and the
-block order. Each optimization is then measured on all of them, and a tuned parameter is chosen
-on the whole set. The repository is renamed to superdevkit, with dampf as its compiler, and
-moves to GitHub, with a release there, a build on GitHub Actions and the book on GitHub Pages.
+The first step is done: on 2026-11-19 the snapshot of Blubber Blasen, its replays and the
+hand-written reference function left the repository, and the dev kit's examples took over their
+jobs. They are still in the git history, so either the history is cleaned or the public
+repository starts without it. Er-Tüp is a test case of a whole game's size, the reference
+functions are functions of the examples, and `dev/bench_examples.sh` measures the work per tick
+of all examples against a baseline. The examples are a set of benchmarks in different styles
+rather than one busy scene: many small calls (Schach), 16- and 32-bit arithmetic (Mandelbrot),
+arrays and bytes (Steinschlag), fixed point, particles, a pair loop and state machines (Er-Tüp),
+and the small ones. Until then every speed decision was measured on one game: the optimizations
+of 2026-11-18 made play of Blubber Blasen 13 % faster, but the execution tests only 0.9 %, and
+part of the gain comes from parameters chosen on this one game, such as the inlining limit and
+the block order. Those parameters are still to be checked on the whole set. The repository is
+renamed to superdevkit, with dampf as its compiler, and moves to GitHub, with a release there,
+a build on GitHub Actions and the book on GitHub Pages.
 The licence is decided already: dampf is under the Apache License 2.0 with LLVM Exceptions, the
 same as LLVM, so code dampf puts into a ROM carries no licence conditions and games built with
 dampf can use any licence.
@@ -280,24 +287,27 @@ bubbles in `separate`, the game's function that pushes bubbles apart (16 % of th
 play). Relaxing the requirement stays as a fallback, decided on measured numbers if rare worst
 ticks still do not fit.
 
-The game changes in its own repository. dampf follows by refreshing its snapshot of the game's
-code in `snapshots/blubberblasen` and measuring again with the benchmark, the replays and the
-profile. Whether the budget is met therefore depends on work outside dampf.
+The game changes in its own repository. Until 2026-11-19 dampf followed by refreshing a copy of
+the game's code and measuring again with the benchmark, the replays and the profile; since then
+the game builds with the dev kit from its own repository, and dampf is measured on its examples.
+Whether the budget is met therefore depends on work outside dampf.
 
 ## Risks and open questions
 
 The main risks and how they are met:
 
 - **Miscompilation.** The layers of tests, the naive code generator as an independent
-  reference, and the game's replays as the oracle catch wrong code. One miscompilation is known
+  reference, and the examples' checks as the oracle, a checksum every tick against the PC,
+  catch wrong code. One miscompilation is known
   and not found yet; it is described below.
-- **The optimizer is tested by one game.** Each build runs 31 execution tests and 50 random
-  programs, and the random programs barely reach the optimizer's patterns, so in practice the
-  optimizer is tested by Blubber Blasen's benchmark and one replay recording. M5 adds random
-  programs and execution tests for the patterns.
+- **The optimizer is tested by whole programs.** Each build runs 31 execution tests and 50
+  random programs, and the random programs barely reach the optimizer's patterns, so in practice
+  the optimizer was tested by Blubber Blasen's benchmark and one replay recording, and since
+  2026-11-19 by the examples' checks. More examples, and random programs and execution tests
+  for the patterns, would help.
 - **Tuned on one game.** The inlining limit, the block order and the idioms the optimizer looks
-  for come from Blubber Blasen. The set of benchmarks that publishing brings is meant to
-  correct that.
+  for came from Blubber Blasen. The examples' benchmark, a set of programs in different styles,
+  is meant to correct that; the parameters are still to be checked on it.
 - **Never run on a console.** Everything is checked in dampf's emulator and in Mesen;
   [FastROM](/glossary#fastrom-and-slowrom), the DMA margin and timing at the edges have not run
   on hardware yet, which M5 changes.
@@ -314,7 +324,7 @@ The main risks and how they are met:
 - **Gains smaller than hoped.** Each optimization is measured, and the order of the remaining
   ones follows the profile.
 - **A wrong hint silently produces wrong code.** Every hint that states a fact is checked as an
-  assertion in the PC build, with the replays running against it.
+  assertion in the PC build, with the examples' checks running against it.
 
 Open questions a user may run into:
 
@@ -324,7 +334,9 @@ Open questions a user may run into:
   generator, on a function that the larger inlining makes: the optimized MIR is right, since its
   interpreter gives the PC's checksums; dampf's assembler and [ca65](/glossary#ca65-and-ld65)
   build the same ROM; and the difference stays with every LIR pass switched off. The next step
-  is to find that function and reduce it to an execution test; fixing it is part of M5.
+  is to find that function and reduce it to an execution test; fixing it is part of M5. The
+  game's code has left the repository, so the search needs it from the game's own repository,
+  or an example that the limit of 80 breaks too.
 - **The language of the dev kit's tools.** The first tool, the PNG converter for the
   examples, is written in Python for now. Java would keep the dev kit to nothing but Java to
   install and can read PNG files itself; Python is quicker to write but is one more thing to
@@ -333,8 +345,8 @@ Open questions a user may run into:
   set of users: which of them is open.
 - **Calypsi's drift.** Calypsi's results drift away from the PC's from tick 596 on. Whether
   that is a miscompilation, RAM that Calypsi's start-up leaves uncleared, or a step of the
-  game's own Calypsi build that dampf's comparison lacks, is open. Until then the comparison
-  rests on 102 ticks.
+  game's own Calypsi build that dampf's comparison lacked, is open. The comparison rests on
+  102 ticks.
 - **Locals in Mesen.** How Mesen shows locals that live in fixed direct page places, several
   values sharing a place (M11).
 - **`restrict`.** Whether a no-alias hint of dampf's own is clearer than `restrict`, and how
@@ -343,5 +355,5 @@ Open questions a user may run into:
   bounds turn out too pessimistic, and how much HDMA the game uses (DMA transfers the SNES
   makes line by line while it draws), which changes the budget of a frame.
 - **Reference functions.** Which functions become the hand-written yardsticks for dampf's code.
-  `level_solid_px` is still the only one, and it leaves the repository with the game at
-  publishing.
+  So far they are Er-Tüp's `random16` and `sine`; candidates are the pair loop, Mandelbrot's
+  iteration and Steinschlag's cave.

@@ -24,8 +24,9 @@ built by dampf.
 
 ## Blubber Blasen
 
-The game dampf is developed for and tested on. Its game logic is C that also builds and is
-tested on the PC. A snapshot of its code is in `snapshots/blubberblasen`.
+The game dampf was developed for, and its first user. Its game logic is C that also builds and is
+tested on the PC. Until 2026-11-19 a copy of its code was dampf's main test case and benchmark;
+since then the dev kit's examples are.
 
 ## ca65 and ld65
 
@@ -45,7 +46,7 @@ dampf's main code generator (`--backend mir`, the default): it translates optimi
 ## CPU partner
 
 The computer-controlled second player of Blubber Blasen. It plans by simulating moves ahead
-every tick, which makes *play with the CPU partner* the hardest part of the game's benchmark.
+every tick, which made *play with the CPU partner* the hardest part of the game's benchmark.
 
 ## DBR
 
@@ -150,8 +151,9 @@ computes on the SNES must match it bit for bit.
 
 The C code that implements a game's console API on the real SNES: setting up the hardware, the
 main loop and waiting for the [vertical blank](#vertical-blank). dampf compiles it together with
-the game. Blubber Blasen's platform layer implements its PVSnesLib-shaped calls; a game that
-calls another library needs a platform layer for that library.
+the game. The dev kit's is `lib/snes`, for the console API `sdevkit/snes.h` (PVSnesLib's calls,
+renamed, and the main loop); a game that calls another library needs a platform layer for that
+library.
 
 ## Pointer compression
 
@@ -194,8 +196,10 @@ The part of C that dampf accepts. Anything outside it is rejected with a message
 
 ## Tick
 
-One step of Blubber Blasen's game logic. Its speed is measured in [frames](#frame) per tick:
-the goal is that the game logic of a tick fits in 60 % of a frame.
+One step of a game's logic: the main loop calls `game_tick` once a tick, normally once a
+[frame](#frame). A game's speed is measured in frames per tick, or in the work of a tick
+(`dev/bench_examples.sh`); a tick that takes more than a frame makes the game slower. For
+Blubber Blasen the goal was that the game logic of a tick fits in 60 % of a frame.
 
 ## Timing report
 

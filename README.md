@@ -16,11 +16,13 @@ work.
 dampf is the compiler of a development kit for SNES games, superdevkit, which this repository
 holds until it is published ([ADR record 29](docs/adr/0029-superdevkit-is-the-project-and-dampf-is-its.md)).
 The milestones and versions are in [docs/roadmap.md](docs/roadmap.md). dampf compiles all of Blubber Blasen and
-builds a playable ROM of it, with the game's console API written in C in
+built a playable ROM of it, with the console API written in C in
 [lib/snes](lib/snes/README.md) (sound and save RAM are not built yet). During play the
-game takes 0.79 frames per tick, and dampf's code is 2.14 times as fast as Calypsi's on the
-same scene; the current figures are in
-[docs/optimizations.md](docs/optimizations.md#where-things-stand). dampf computes a best and a
+game took 0.79 frames per tick, and dampf's code was 2.14 times as fast as Calypsi's on the
+same scene ([docs/optimizations.md](docs/optimizations.md#where-things-stand)). Since
+2026-11-19 the dev kit's own examples (`examples/`) are dampf's test cases and its benchmark
+(`dev/bench_examples.sh`), and the game's code is no longer in this repository
+([ADR record 40](docs/adr/0040-the-examples-replace-blubber-blasen-s-snapshot-as.md)). dampf computes a best and a
 worst case in CPU cycles for every function, and a function over its cycle budget
 (`DAMPF_BUDGET`) fails the build ([docs/timing.md](docs/timing.md)). The naive code generator,
 straight from the AST, stays as an independent reference (`--backend naive`): every test program
@@ -94,14 +96,13 @@ working documents it is written from.
 - [docs/brainstorm](docs/brainstorm): summaries of brainstorming sessions, the options weighed before a decision.
 - [docs/roadmap.md](docs/roadmap.md): milestones and their state, risks, open questions, the relation to Blubber Blasen.
 - [docs/game-findings.md](docs/game-findings.md): things in Blubber Blasen's code worth changing, for whoever works on the game.
-- [dev/README.md](dev/README.md): the scripts in `dev/`, for developing dampf against the game.
-- [snapshots/blubberblasen/SNAPSHOT.md](snapshots/blubberblasen/SNAPSHOT.md): the snapshot of the game dampf is developed against.
+- [dev/README.md](dev/README.md): the scripts in `dev/`, for developing dampf against the examples.
 
 ## Prerequisites
 
 To use dampf: JDK 25 or newer and gcc. To develop it, also ca65 and ld65 from cc65 2.19
-(`BackendOutputTest` builds the execution tests, 20 random programs and the game with them as
-well and compares the ROMs) and Python 3. Mesen (MesenCE) is
+(`BackendOutputTest` builds the execution tests, 20 random programs and the examples with them
+as well and compares the ROMs) and Python 3. Mesen (MesenCE) is
 optional (the tests then also run there), clang is needed only for `dev/subset_scan.py`,
 Node.js only for the book. Gradle comes with the wrapper. The book's
 [getting started](docs/book/guide/getting-started.md) page has what a user needs.
@@ -118,13 +119,11 @@ cd cc65 && make bin && sudo make install PREFIX=/usr/local
 ```bash
 ./gradlew build                          # compile and run the tests
 ./gradlew installDist                    # the launcher: build/install/dampf/bin/dampf
-./gradlew test -Preplays                 # also play the game's replays
 ./gradlew test -Prandom=500 -PrandomSeed=1   # more random programs, from a given seed
 ./gradlew test -Pcoverage                # JaCoCo: build/reports/jacoco/test/html/index.html
 ./gradlew pmdMain pmdTest                # PMD: build/reports/pmd/ (not a gate)
 ./gradlew cpd                            # copied code: build/reports/cpd/main.txt
-dev/bench_game.sh                      # the game's benchmark: checksums and cycles
-dev/build_game_rom.sh                  # the playable ROM: build/game/blubberblasen.sfc
+dev/bench_examples.sh                  # the benchmark: the work per tick of every example
 ```
 
 The tests run in dampf's own emulator (`dampf.emu`) and, when `.mesen/` holds a Mesen (not in
@@ -137,9 +136,8 @@ The Linux build is taken when it is there; from WSL the Windows `Mesen.exe` work
 
 ```bash
 dampf build --entry test_main -o build/examples/m1/calls.sfc examples/m1/calls.c
-dampf parse -I $BB/src -I $BB/build/generated $BB/src/game/*.c
-dampf check -I $BB/src -I $BB/build/generated $BB/src/game/*.c
-dampf build @snapshots/blubberblasen.args -o build/game/blubberblasen.sfc
+dampf check @examples/ertuep/ertuep.args
+dampf build @examples/ertuep/ertuep.args -o build/ertuep.sfc
 ```
 
 The launcher is `build/install/dampf/bin/dampf` (`./gradlew installDist`).
@@ -158,7 +156,8 @@ file alone, then on all of them together (recursion, functions defined nowhere o
 error of a run is reported, one per top-level declaration at most. `@file` (or `--config file`)
 reads options from an argument file: one per line, paths relative to the file, and a folder
 stands for the `.c` files in it ([ADR record 28](docs/adr/0028-options-can-be-kept-in-an-argument-file-given-by.md)).
-`dampf mir`, `dampf profile` and `dampf bench` are the tools behind the scripts in `dev/`.
+`dampf mir`, `dampf profile` and `dampf bench` are tools for working on dampf with a benchmark
+ROM that reports through their ports, such as Blubber Blasen's `bench.c` in the game's repository.
 
 ## Debugging in Mesen
 
@@ -188,15 +187,14 @@ src/main/java/dampf/tools/     dampf mir, dampf bench, dampf profile
 src/main/java/dampf/util/      running external programs
 src/main/resources/dampf/include/  dampf's own <stdint.h> and <dampf.h>
 src/main/resources/dampf/snes/     SNES runtime (start-up, header, vectors)
-src/test/java/dampf/           unit, execution, random, replay and emulator tests; book source checks
+src/test/java/dampf/           unit, execution, random, example and emulator tests; book source checks
 src/test/resources/exec/       execution test programs
 examples/m1/                   example for stepping through C in Mesen
-snapshots/blubberblasen/       snapshot of the game's code (do not edit; refresh with dev/update_game_snapshot.sh)
+examples/                      the dev kit's examples: test cases and the benchmark (each has its README.md)
 lib/                           the dev kit's library: the console API (include/), on the SNES (snes/); see its README.md
-reference/                     hand-written assembly of hot functions, the yardstick for dampf's code
+reference/                     hand-written assembly of the examples' functions, the yardstick for dampf's code
 tools/                         tools for game developers: png2snes.py, PNG to SNES graphics (see its README.md)
-dev/                           scripts for developing dampf: benchmark, profile, playable ROM, snapshot (see its README.md)
-dev/replay/                    the driver that plays the game's recordings (ReplayTest)
+dev/                           scripts for developing dampf: benchmark, checks in Mesen, Mesen (see its README.md)
 dev/subset_scan.py             M0 scanner: which C constructs a code base uses
 config/pmd/                    PMD rules (./gradlew pmdMain pmdTest)
 assets/                        the logo

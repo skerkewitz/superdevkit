@@ -104,7 +104,7 @@ public final class ExampleProfile {
      * The C line of every ROM address, from the debug file: "seg" gives a segment's address, "span"
      * a range of it, and a "line" of type 1 (C, not assembly) its file, its number and its spans.
      */
-    private static Map<Integer, String> cLines(Path dbg) throws IOException {
+    static Map<Integer, String> cLines(Path dbg) throws IOException {
         Map<Integer, Integer> segStart = new HashMap<>();
         Map<Integer, int[]> spans = new HashMap<>();
         Map<Integer, String> files = new HashMap<>();
@@ -153,9 +153,15 @@ public final class ExampleProfile {
         return at;
     }
 
-    /** The functions of the ROM, from the timing report dampf writes beside it ({@code rom.timing.txt}). */
-    private static java.util.Set<String> functions(Path rom) throws IOException {
+    /**
+     * The functions of the ROM, from the timing report dampf writes beside it ({@code rom.timing.txt});
+     * null without one (the naive code generator writes none), and then every C label counts.
+     */
+    static java.util.Set<String> functions(Path rom) throws IOException {
         Path timing = rom.resolveSibling(rom.getFileName().toString().replaceFirst("\\.sfc$", ".timing.txt"));
+        if (!Files.exists(timing)) {
+            return null;
+        }
         java.util.Set<String> names = new java.util.HashSet<>();
         for (String line : Files.readAllLines(timing)) {
             String[] w = line.strip().split("\\s+");
@@ -167,12 +173,12 @@ public final class ExampleProfile {
     }
 
     /** "al 80C218 ._name": the start address of each function (data labels are left out). */
-    private static TreeMap<Integer, String> labels(Path lbl, java.util.Set<String> functions) throws IOException {
+    static TreeMap<Integer, String> labels(Path lbl, java.util.Set<String> functions) throws IOException {
         TreeMap<Integer, String> m = new TreeMap<>();
         for (String line : Files.readAllLines(lbl)) {
             String[] w = line.strip().split("\\s+");
             if (w.length == 3 && w[0].equals("al") && w[2].startsWith(".")
-                    && (functions.contains(w[2].substring(1)) || w[2].startsWith(".dampf_"))) {   /* the runtime's routines too */
+                    && (functions == null ? w[2].startsWith("._") : functions.contains(w[2].substring(1)) || w[2].startsWith(".dampf_"))) {   /* the runtime's routines too */
                 m.put(Integer.parseInt(w[1], 16), w[2].substring(w[2].startsWith("._") ? 2 : 1));
             }
         }

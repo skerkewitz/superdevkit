@@ -18,9 +18,25 @@ perfect assembly.
 
 ## Where things stand
 
-The game's benchmark (`tools/snesbench` in the game repository, built with
-`dev/bench_game.sh`) runs the game code with a fixed input, every PVSnesLib call stubbed out; all
-3,610 ticks give the PC's checksums. One NTSC frame is 357,366 master clocks.
+Since 2026-11-19 dampf is measured on its examples: `dev/bench_examples.sh` gives the work per
+tick of each (master cycles without the main loop's waiting; it counts a frame as 262 lines of
+1,364, 357,368) and compares a
+change with a baseline on all of them ([testing.md](testing.md)). Code from MIR, FastROM:
+
+| Example | Work per tick, average | Busiest 60 ticks | In dampf's runtime |
+| --- | --- | --- | --- |
+| Er-Tüp | 152,423 | 291,129 | 2.6 % |
+| Schach | 415,317 | 589,575 | 1.0 % |
+| Steinschlag | 110,616 | 194,152 | 1.0 % |
+| Mandelbrot | 247,208 | 317,282 | 81.4 % |
+| Catchme | 51,523 | 159,723 | 19.1 % |
+
+The naive code generator does 3.0 times the work on the geometric mean of all seven examples, from
+1.26 times (Mandelbrot, whose time is the runtime's 32-bit multiplication) to 6.4 times (Er-Tüp).
+
+Before, dampf was measured on Blubber Blasen's benchmark (`tools/snesbench` in the game
+repository), which ran the game code with a fixed input, every PVSnesLib call stubbed out; all
+3,610 ticks gave the PC's checksums. Its last figures follow.
 Code from MIR with all passes, FastROM (the default). All figures measured on 2026-11-18; all
 after the optimizations on the branch `optimise`
 ([log](optimizations-log.md#optimizations-on-the-branch-optimise-2026-11-18)):
@@ -32,9 +48,9 @@ after the optimizations on the branch `optimise`
 | Title, story, round intro | 0.37, 0.16, 1.41 |
 | The whole benchmark | 0.81 |
 | dampf's naive code generator | play 4.37 (worst 7.26), with the CPU partner 5.58 (worst 10.53), also FastROM; 5.5 times as slow in play |
-| Against Calypsi | 2.14 times as fast: in the play ticks where both play the same scene (102 ticks, up to 812), FastROM for both, Calypsi 1.42 frames per tick, dampf 0.66 (`dev/bench_compilers.sh`; Calypsi drifts from the PC from tick 596 on, see [roadmap.md](roadmap.md#open-questions)) |
-| Against hand-written `level_solid_px` | 1.14 times the cycles: 827 against 724 master clocks per call, both FastROM (`REPLACE=` in `dev/bench_game.sh`) |
-| On the console (playable ROM) | 1.16 frames per tick during a minute of play (3,600 frames, 3,098 ticks), no byte lost in the vertical blank (`dev/check_game_rom.sh`). This includes waiting for the vertical blank and the platform layer, so it is not comparable with the benchmark |
+| Against Calypsi | 2.14 times as fast: in the play ticks where both play the same scene (102 ticks, up to 812), FastROM for both, Calypsi 1.42 frames per tick, dampf 0.66 (Calypsi drifts from the PC from tick 596 on, see [roadmap.md](roadmap.md#open-questions)) |
+| Against hand-written `level_solid_px` | 1.14 times the cycles: 827 against 724 master clocks per call, both FastROM |
+| On the console (playable ROM) | 1.16 frames per tick during a minute of play (3,600 frames, 3,098 ticks), no byte lost in the vertical blank. This includes waiting for the vertical blank and the platform layer, so it is not comparable with the benchmark |
 
 Play is not yet within the budget. With the CPU partner, the worst tick is where it is hardest
 to meet. The numbers are measured without block counts from a profile unless they say so.
@@ -185,13 +201,14 @@ output; and it can search exhaustively for short sequences.
 
 ### Reference assembly benchmarks
 
-3–5 hot functions of the game are written by hand in 65816 assembly as reference versions, the
-yardstick and not the game's code. Candidates: bubble movement and pushing, the chain reaction
-when bubbles pop, collision against tiles, building the sprite table; the first profile of the
-Calypsi build points the same way ([game-findings.md](game-findings.md)). The first is
-`reference/level_solid_px.s`, linked with `dampf build --replace`; with it all benchmark ticks
-still match the PC. Its first version was wrong, and the benchmark's checksums caught it:
-hand-written code needs the same oracle as compiled code.
+Hot functions are written by hand in 65816 assembly as reference versions, the yardstick and not
+the programs' code ([reference/README.md](../reference/README.md)). The first was Blubber Blasen's
+`level_solid_px`; its first version was wrong, and the benchmark's checksums caught it:
+hand-written code needs the same oracle as compiled code. Since the game's code left, they are
+functions of the examples, checked by the examples' checksums (`ReferenceFunctionsTest`): Er-Tüp's
+`random16` and `sine`, 2.3 and 1.4 times faster than the naive code generator's (the one from MIR
+inlines both). Candidates for more: Er-Tüp's pair loop, Mandelbrot's iteration with its products,
+Steinschlag's cave scan.
 
 Each reference and dampf's version of the same function run in the cycle-counting emulator on the
 same inputs, which gives a ratio per function, tracked over the milestones. Where the reference is

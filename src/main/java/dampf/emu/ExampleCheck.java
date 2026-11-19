@@ -59,7 +59,11 @@ public final class ExampleCheck {
      * the splash screen), the master cycles of the slowest tick, and the master clock at the end
      * of each tick.
      */
-    public record Result(List<Long> hashes, long frames, long slowestTick, List<Long> tickEnds) {
+    /**
+     * {@code vblankAtEnd}: for each tick, how many vertical blanks had begun when it ended, times
+     * two, plus one when it ended inside one.
+     */
+    public record Result(List<Long> hashes, long frames, long slowestTick, List<Long> tickEnds, List<Long> vblankAtEnd) {
         public double framesPerTick() {
             return hashes.isEmpty() ? 0 : (double) frames / hashes.size();
         }
@@ -79,14 +83,18 @@ public final class ExampleCheck {
         }
 
         /**
-         * The ticks of a budget that took more than a frame: a tick that misses its vertical blank
-         * ends at least a frame and a half after the one before (a tick that fits ends within one
-         * frame and the jitter of where in the frame it ends).
+         * The ticks of a budget that took more than a frame. A tick starts at the first vertical
+         * blank after the tick before it ended (the main loop waits for one to begin; if that tick
+         * ended inside one, it waits for the next), and it missed its frame when another one began
+         * before it ended. (Measured from the tick before, a short tick, which ends early in its
+         * frame, makes the next normal one look a frame and a half long.)
          */
         public List<Long> overBudget(Budget b) {
             List<Long> over = new ArrayList<>();
-            for (long t = Math.max(1, b.from()); t < b.to() && t < tickEnds.size(); t++) {
-                if (tickEnds.get((int) t) - tickEnds.get((int) t - 1) > FRAME * 3 / 2) {
+            for (long t = Math.max(1, b.from()); t < b.to() && t < vblankAtEnd.size(); t++) {
+                long before = vblankAtEnd.get((int) t - 1), end = vblankAtEnd.get((int) t);
+                long start = (before >> 1) + ((before & 1) != 0 ? 2 : 1);   /* the vertical blank it began at */
+                if ((end >> 1) > start) {
                     over.add(t);
                 }
             }
@@ -136,6 +144,7 @@ public final class ExampleCheck {
         Snes snes = new Snes(rom);
         List<Long> hashes = new ArrayList<>();
         List<Long> ends = new ArrayList<>();
+        List<Long> vblankAtEnd = new ArrayList<>();
         long[] hash = { FNV_START };
         int[] bytes = new int[5];
         int[] count = { 0 };
@@ -163,6 +172,7 @@ public final class ExampleCheck {
                 } else if (started[0] >= 0) {
                     hashes.add(hash[0]);
                     ends.add(clock);
+                    vblankAtEnd.add(snes.vblanks() * 2 + (snes.inVblank() ? 1 : 0));
                     hash[0] = FNV_START;
                     slowest[0] = Math.max(slowest[0], clock - tickStart[0]);
                     tickStart[0] = clock;
@@ -178,6 +188,7 @@ public final class ExampleCheck {
             throw new IOException("played " + hashes.size() + " of " + input.ticks() + " ticks within " + limitFrames
                     + " frames" + (started[0] < 0 ? " (game_init never returned: the splash screen or the game hangs?)" : ""));
         }
-        return new Result(List.copyOf(hashes), (snes.masterClock() - started[0]) / FRAME, slowest[0], List.copyOf(ends));
+        return new Result(List.copyOf(hashes), (snes.masterClock() - started[0]) / FRAME, slowest[0], List.copyOf(ends),
+                List.copyOf(vblankAtEnd));
     }
 }

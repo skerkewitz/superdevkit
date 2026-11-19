@@ -9,7 +9,7 @@ sources:
   - src/main/resources/dampf/include/dampf.h
   - src/test/java/dampf/BudgetTest.java
   - src/test/java/dampf/exec/Timing.java
-  - src/test/java/dampf/exec/GameTimingTest.java
+  - src/test/java/dampf/exec/ExamplesTimingTest.java
 audience: Readers who want cycle-exact bounds for their code
 ---
 

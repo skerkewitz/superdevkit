@@ -6,26 +6,33 @@ The game logic of [Blubber Blasen](/glossary#blubber-blasen) has a budget: in it
 it may use at most 60 % of an NTSC [frame](/glossary#frame), about 0.6 frames per
 [tick](/glossary#tick). A frame is 357,366 [master clocks](/glossary#master-clock) (the SNES's
 21.477 MHz clock), and the work in the [vertical blank](/glossary#vertical-blank) and a safety
-margin come off that; how many CPU cycles that leaves is on [Exact timing](/inside/timing). The
-game's benchmark runs the same game code with a fixed input for 3,610 ticks and measures every
-tick. Most figures on this page are from *play*, the ticks in which the game is played, as
-opposed to the title screen, the story and the round intro.
+margin come off that; how many CPU cycles that leaves is on [Exact timing](/inside/timing).
 
-During play, the code dampf now generates takes 0.79 frames per tick (worst tick 1.42) with
-[FastROM](/glossary#fastrom-and-slowrom), which is the default: the ROM read at 3.58 MHz instead
-of 2.68 MHz. These figures were measured on 2026-11-18. dampf's own
-[naive code generator](/glossary#naive-code-generator) takes 4.37 frames per tick (worst 7.26)
-for the same code, also FastROM, about 5.5 times as long. Against [Calypsi](/glossary#calypsi),
-on the same version of the game and with FastROM for both, dampf is 2.14 times as fast: in the
-102 play ticks where both play the same scene, Calypsi takes 1.42 frames per tick and dampf
-0.66. dampf is past Calypsi, but still about 1.3 times away from the budget. This page explains,
-pass by pass, where that speed comes from.
+Since 2026-11-19 dampf is measured on the examples of the [dev kit](/glossary#dev-kit), such
+as Er-Tüp, Schach and Mandelbrot: `dev/bench_examples.sh` gives the work per tick of each, in
+master clocks without the main loop's waiting, and compares a change with a baseline on all of
+them. dampf's own [naive code generator](/glossary#naive-code-generator) does 3.0 times the
+work of the code from MIR on the geometric mean of all seven examples, from 1.26 times for
+Mandelbrot, whose time goes to the runtime's 32-bit multiplication, to 6.4 times for Er-Tüp.
+The figures of each example are under [The measurements](#the-measurements).
 
-The figures below come from different times and in two units. Until FastROM came, every step
-was measured at SlowROM speed, in frames per tick; dampf's code from MIR took 1.31 (worst 2.25)
-then. FastROM took play from 1.31 to 1.10 frames per tick, and every step after it is FastROM.
-So a step's figure in frames per tick is SlowROM down to 1.31 and FastROM from 1.10 on. The
-steps of 2026-11-18 were measured in master clocks per tick, all with FastROM; the few
+Before that, every step was measured on the game's benchmark, which ran the same game code with
+a fixed input for 3,610 ticks and measured every tick. Most figures on this page are from
+*play*, the ticks in which the game is played, as opposed to the title screen, the story and
+the round intro. In its last run, during play, the code dampf generated took 0.79 frames per
+tick (worst tick 1.42) with [FastROM](/glossary#fastrom-and-slowrom), which is the default: the
+ROM read at 3.58 MHz instead of 2.68 MHz. These figures were measured on 2026-11-18. The naive
+code generator took 4.37 frames per tick (worst 7.26) for the same code, also FastROM, about 5.5
+times as long. Against [Calypsi](/glossary#calypsi), on the same version of the game and with
+FastROM for both, dampf was 2.14 times as fast: in the 102 play ticks where both play the same
+scene, Calypsi took 1.42 frames per tick and dampf 0.66. dampf was past Calypsi, but still about
+1.3 times away from the budget. This page explains, pass by pass, where that speed comes from.
+
+The game's figures below come from different times and in two units. Until FastROM came, every
+step was measured at SlowROM speed, in frames per tick; dampf's code from MIR took 1.31 (worst
+2.25) then. FastROM took play from 1.31 to 1.10 frames per tick, and every step after it is
+FastROM. So a step's figure in frames per tick is SlowROM down to 1.31 and FastROM from 1.10 on.
+The steps of 2026-11-18 were measured in master clocks per tick, all with FastROM; the few
 master-clock figures from before them say so where they appear.
 
 ## Why the 65816 needs a different optimizer
@@ -843,8 +850,8 @@ Several parts of dampf use the ranges:
 
 A wrong range would give wrong code without any sign. The tests therefore check the analysis
 itself: the interpreter reports every value it computes and every parameter it receives, and
-each must lie in its inferred interval, in all execution tests, the random programs, the replay
-of the game, and `dampf mir -O --check-ranges --bench`.
+each must lie in its inferred interval, in all execution tests, the random programs and
+`dampf mir -O --check-ranges --bench`.
 
 [Pointer compression](/glossary#pointer-compression) is the other use of C's rules about
 ranges. A pointer must stay within its object or point one past its end, so an offset into
@@ -954,14 +961,13 @@ steps took the execution tests from 6,223,446 to 6,164,334 (−0.9 %) and left t
 programs where they were: their cycles go to the runtime's division routines, which no step
 touched. The general steps help elsewhere too, much less than in the game.
 
-The current state, measured on 2026-11-18 after these steps: play takes 0.79 frames per tick
-(worst 1.42), play with the CPU partner 1.36 (worst 3.03). The other parts of the benchmark take
-0.37 frames per tick on the title screen, 0.16 in the story and 1.41 in the round intro, and the
-whole benchmark 0.81, all FastROM. On the console, the playable ROM took 1.16 frames per tick
-during a minute of play (3,600 frames, 3,098 ticks), also after these steps, with no byte lost
-in the vertical blank; that includes waiting for the vertical
-blank and the [platform layer](/glossary#platform-layer), so it is not comparable with the
-benchmark.
+The game's last figures, measured on 2026-11-18 after these steps: play took 0.79 frames per
+tick (worst 1.42), play with the CPU partner 1.36 (worst 3.03). The other parts of the benchmark
+took 0.37 frames per tick on the title screen, 0.16 in the story and 1.41 in the round intro,
+and the whole benchmark 0.81, all FastROM. On the console, the playable ROM took 1.16 frames per
+tick during a minute of play (3,600 frames, 3,098 ticks), also after these steps, with no byte
+lost in the vertical blank; that includes waiting for the vertical blank and the [platform
+layer](/glossary#platform-layer), so it is not comparable with the benchmark.
 
 The steps are cumulative: each row includes everything above it. The first loop rotation, of
 2026-11-17, is not a row of its own in the first table; it brought about 0.5 %, measured on the
@@ -979,9 +985,25 @@ reach its target because a large loop body lies between them; placing the rarely
 the end of the function needs to know which are rare, which block counts from a profile tell
 (see *Block layout* above).
 
+Since 2026-11-19 the examples are the benchmark. `dev/bench_examples.sh` measures the work per
+tick of each, in master clocks without the main loop's waiting, and compares a change with a
+baseline on all of them. Code from MIR, FastROM:
+
+| Example | Work per tick, average | Busiest 60 ticks | In dampf's runtime |
+| --- | --- | --- | --- |
+| Er-Tüp | 152,423 | 291,129 | 2.6 % |
+| Schach | 415,317 | 589,575 | 1.0 % |
+| Steinschlag | 110,616 | 194,152 | 1.0 % |
+| Mandelbrot | 247,208 | 317,282 | 81.4 % |
+| Catchme | 51,523 | 159,723 | 19.1 % |
+
+The naive code generator does 3.0 times the work on the geometric mean of all seven examples,
+from 1.26 times for Mandelbrot to 6.4 times for Er-Tüp. Mandelbrot spends its time in the
+runtime's 32-bit multiplication, which neither code generator changes.
+
 ## How far it can go
 
-One function has been written by hand in 65816 assembly as a yardstick: `level_solid_px`, a
+The first function written by hand in 65816 assembly as a yardstick was `level_solid_px`, a
 tile collision test of the game. Measured in master clocks per call, from the benchmark's micro
 part, at SlowROM speed:
 
@@ -998,6 +1020,11 @@ this function. With FastROM, measured on 2026-11-18 after the steps under
 [The measurements](#the-measurements), dampf's code takes 827 master clocks per call and the
 hand-written code 724: 1.14 times. On a small function like this one, Calypsi already came
 close to hand-written code at SlowROM speed.
+
+Since the game's code left the repository, the reference functions are functions of the
+examples, and the examples' checksums check them: Er-Tüp's `random16` and `sine`. The
+hand-written versions are 2.3 and 1.4 times faster than the naive code generator's; the code
+generator from MIR inlines both into their callers.
 
 A gap remains because a skilled assembly programmer knows things about the program that are not
 in the C code:

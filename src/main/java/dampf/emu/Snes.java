@@ -48,6 +48,7 @@ public final class Snes implements Bus {
     private static final int LINES = 262;
     private static final int VBLANK_FIRST_LINE = 225;
     private int scanline;
+    private long vblanks;
     private int latchedLine;
     private boolean opvctHigh;
     private boolean autoJoypad;
@@ -96,6 +97,16 @@ public final class Snes implements Bus {
     /** The line the picture is at, 0..261. */
     public int scanline() {
         return scanline;
+    }
+
+    /** How many vertical blanks have begun since power-on. */
+    public long vblanks() {
+        return vblanks;
+    }
+
+    /** Whether the picture is in its vertical blank now. */
+    public boolean inVblank() {
+        return scanline >= VBLANK_FIRST_LINE;
     }
 
     /** A byte of the address space as the CPU sees it, without time passing or side effects. */
@@ -166,6 +177,9 @@ public final class Snes implements Bus {
             master += REFRESH;
             lineClock -= LINE - REFRESH;
             scanline = scanline + 1 == LINES ? 0 : scanline + 1;
+            if (scanline == VBLANK_FIRST_LINE) {
+                vblanks++;
+            }
         }
     }
 

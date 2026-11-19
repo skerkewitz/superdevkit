@@ -21,9 +21,11 @@ catches, and how to run them.
 
 1. **The principle** – every program built with both code generators and compared with gcc on
    the PC; UBSan on the PC side (explain it in a few words).
-2. **The layers** – execution tests, random programs, the game's replays, the game's benchmark;
-   for each, what it runs, where, and what it compares. The replay through the SNES platform
-   layer in Mesen (lost PPU bytes), and `dev/check_game_rom.sh` for the playable ROM.
+2. **The layers** – execution tests, random programs, the examples (a checksum per tick on the
+   SNES and the desktop), the static timing on the examples, the reference functions, the
+   examples' benchmark; for each, what it runs, where, and what it compares. The examples in
+   Mesen (`dev/check_example.sh`, `dev/compare_example.sh`: lost PPU bytes, the pictures). One
+   sentence that Blubber Blasen's code was a layer of its own until the examples replaced it.
 3. **dampf's emulator and Mesen** – why dampf has its own emulator, how it is validated (the
    SingleStepTests suite, Mesen), when Mesen runs.
 4. **Running the tests** – the Gradle calls with their properties, as a table.

@@ -11,9 +11,6 @@
  * gives the same timing without that.
  *
  * Not done here: sound and save RAM.
- *
- * sdevkit__start() and sdevkit__frame() are also what the replay test plays a recording with
- * (dev/replay/driver.c, REPLAY_PLATFORM), so it runs the same code as the ROM you play.
  */
 #include "sdevkit/loop.h"
 #include "sdevkit/snes.h"

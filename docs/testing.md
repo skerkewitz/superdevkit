@@ -33,14 +33,13 @@ scalar elements (`a[2]`, `s.x`), must have the same values on both sides. Pointe
 | Unit tests | One pass or component against expected output | JVM | Milliseconds |
 | Execution tests | `src/test/resources/exec/*.c` against gcc | dampf's emulator, and Mesen when there is one | Seconds |
 | Random programs | Generated programs against gcc | dampf's emulator | Minutes for many |
-| Replays | The whole game against its recorded checksums and the PC | dampf's emulator; Mesen for the platform layer | Minutes; only with `-Preplays` |
-| Game benchmark | 3,610 ticks against a PC build, plus cycles per tick | dampf's emulator, Mesen, the MIR interpreter | About a minute |
 | Examples | Each example's `check.txt` played on the SNES and on the desktop, a checksum per tick | dampf's emulator and Rachael; Mesen in `dev/compare_example.sh` | Under a minute |
+| Timing on the examples | Every call of every example against its static bounds | dampf's emulator | 20 seconds |
 
 **Unit tests** cover the front end (`PreprocessorTest`, `ParserTest`, `AstBuilderTest`), MIR
 passes written as MIR text (`NarrowTest`, `GvnTest`, `InlineTest`, `LicmTest`, `RangesTest`,
 ...), timing and budgets (`TimingTest`, `BudgetTest`) and the cycle table (`Cycles65816Test`).
-`MirTextTest` prints the MIR of every execution program and of the whole game, parses it back
+`MirTextTest` prints the MIR of every execution program and of every example, parses it back
 and checks that it verifies and prints to the same text. `StrengthReduceTest` compares every
 reduced multiplication and division with the original in the interpreter (all 8-bit inputs,
 many constants).
@@ -68,26 +67,6 @@ the block counts and without Mesen. The generator makes programs free of undefin
 made odd, shift counts masked, wide arithmetic in `uint32_t`) and favours boundary values like
 −32768, where sign and overflow handling go wrong.
 
-**Replays.** The game records a play session as a `.bbr` file: the start (seed, save RAM, round,
-options), the joypad words whenever they change, and a checksum of everything the game shows
-every 60 ticks. `dev/replay_to_c.py` turns a recording into C tables in ROM, and
-`dev/replay/driver.c` plays them exactly like the game's own `replay_run()` (the game's
-`replay.c` is host code with stdio and `malloc`, so the driver is written in dampf's subset).
-`ReplayTest` builds the driver with the game in its debug configuration (`BB_DEBUG`) with gcc
-and with dampf, and requires both to match every recorded checksum and each other; the build
-from MIR and the optimized MIR in the interpreter must match too.
-
-With a Mesen, `ReplayTest` also plays each recording through the SNES platform layer
-(`lib/snes`, the code of the playable ROM) instead of the stubs: the driver, built with
-`REPLAY_PLATFORM`, starts the console before `game_init` and after every tick waits for the
-vertical blank, copies the OAM shadow and runs `game_vblank`'s uploads. This needs Mesen, since
-dampf's emulator has no PPU. The checksums must match the PC, and `MesenRunner` (with its PPU
-check) counts every byte written to VRAM, CGRAM or OAM outside a vertical blank with the screen
-on, which must be none. Lua runs for every one of those bytes; with flags kept by the frame
-events instead of the PPU state read per byte, the test takes about a minute (ADR record 33). The playable ROM has a quicker check, `dev/check_game_rom.sh`: a minute of scripted
-play in Mesen with the same count of lost bytes, the frames per tick, and screenshots. It found
-the first platform bug (a map row copied after the vertical blank had ended).
-
 **The examples** (`ExamplesTest`, ADR record 38) build each example in `examples/` for the SNES
 and play the input of its `check.txt` in dampf's emulator, through the kit's own main loop; where
 raylib was fetched, the same input is played on the desktop (Rachael). After every tick both
@@ -105,16 +84,33 @@ cycles of a range of ticks to the functions of the ROM, and with the ROM's `.dbg
 its C lines, which shows where in a function, and in the functions dampf inlined, the time goes. `dev/compare_example.sh` compares Mesen's checksums with the desktop's too,
 with the pictures.
 
-**The game's benchmark** (`dev/bench_game.sh`) runs 3,610 ticks with three checksums per tick
-against a PC build of the same program, plus the cycles per tick. It also runs in the MIR
-interpreter (`dampf mir --bench main ...`, 11 seconds) and gives the PC's checksums on all
-ticks. `GameTimingTest` (with `-Preplays`) checks the static timing on it.
+**The examples' benchmark** (`dev/bench_examples.sh`) plays every example's `check.txt` and
+measures the work of each tick: its master cycles without the main loop's waiting, so an example
+that does the same work every tick (Mandelbrot) shows a faster compiler as less work, not as
+fewer frames. Its table has one line an example (on average, in the busiest 60 ticks, the share
+of dampf's runtime), and with `BASELINE=` the ratio to an earlier table and their geometric
+mean: an optimization or a tuned parameter is judged on all examples, not on one program. The
+naive code generator, for example, does three times the work on the geometric mean, between 1.3
+times (Mandelbrot, whose time is the runtime's multiplication) and 6.4 times (Er-Tüp).
+
+**The static timing on the examples** (`ExamplesTimingTest`) runs every example for 3,000 frames
+without input in dampf's emulator (the titles' demos, Mandelbrot computing, Schach playing) and
+measures every call of every function, from its first instruction to the instruction after the
+JSL that called it: each must lie within the function's static bounds ([timing.md](timing.md)).
+
+**The reference functions** (`ReferenceFunctionsTest`): an example with hand-written functions in
+`reference/` is built with them in place of the compiled ones, plays its `check.txt`, and every
+tick's checksum must be the normal build's.
+
+Until 2026-11-19 a copy of Blubber Blasen's code was a layer of its own: its benchmark of 3,610
+ticks against a PC build, its recorded games played on both sides and through the platform layer
+in Mesen, the static timing checked on every call of the benchmark. The examples took those jobs
+over when it left ([ADR record 40](adr/0040-the-examples-replace-blubber-blasen-s-snapshot-as.md)).
 
 ## Supporting pieces
 
 - **dampf's emulator** (`dampf.emu`: 65816 CPU, LoROM, WRAM, no graphics, DMA or sound) runs the
-  execution, random-program and replay tests, the examples and the game's benchmark inside the
-  JVM, and counts master cycles with the memory speeds of the SNES (WRAM and SlowROM 8, I/O 6,
+  execution and random-program tests and the examples inside the JVM, and counts master cycles with the memory speeds of the SNES (WRAM and SlowROM 8, I/O 6,
   internal cycles 6, DRAM refresh 40 per scanline). Of the picture it has the timing the kit's
   main loop polls: the line counter, the vertical blank flag, the automatic joypad read and the
   joypads. It is validated
@@ -122,10 +118,11 @@ ticks. `GameTimingTest` (with `-Preplays`) checks the static timing on it.
     `CpuSingleStepTest`, `-PcpuTests`): native mode, all 256 opcodes, about 300 random tests
     each (76,059 in all); registers, flags, memory, CPU cycles and the number of memory accesses
     match. Emulation mode is only modelled as far as the start-up needs it;
-  - against Mesen on the game's benchmark: the same checksums on all 3,610 ticks, and the same
-    master cycles per tick within a few cycles out of millions (`dampf bench`).
-- **Mesen** (MesenCE in `.mesen/`, from `dev/fetch_mesen.sh`, or `-Pmesen=<path>`) runs the execution tests and the replay
-  through the platform layer; the random programs and the other replays run in dampf's emulator
+  - against Mesen on Blubber Blasen's benchmark, while it was here: the same checksums on all
+    3,610 ticks, and the same master cycles per tick within a few cycles out of millions
+    (`dampf bench`); and on every example's check, the same checksums every tick.
+- **Mesen** (MesenCE in `.mesen/`, from `dev/fetch_mesen.sh`, or `-Pmesen=<path>`) runs the execution
+  tests, and the examples in `dev/compare_example.sh`; the random programs run in dampf's emulator
   only.
 - **Cycle table:** `CycleTableAgainstEmulatorTest` checks the cost model
   (`dampf.target.Cycles65816`) against the emulator for every opcode in dampf's processor state;
@@ -134,15 +131,13 @@ ticks. `GameTimingTest` (with `-Preplays`) checks the static timing on it.
   not (a 32-bit arithmetic shift whose high bits no test observed), a test was added.
 - **Smaller tests:** `MappingTest` (where the cartridge's ROM appears, LoROM and HiROM);
   `ConstAddressTest` (pointers made from numbers, `REG8(0x210B + i)`, cannot run on the PC, so
-  it runs them in dampf's emulator on WRAM addresses and compares with what C says);
-  `BlubberBlasenParseTest` (every file of the snapshot parses, or of the live game with
-  `-Pblubberblasen=<path>`).
+  it runs them in dampf's emulator on WRAM addresses and compares with what C says).
 - **`BackendOutputTest`** freezes the back end's output: a hash of the assembly and the static
-  timing of every execution test, 20 random programs and the game (also with the hand-written
-  reference function), with both code generators. A step that only moves code must keep every
+  timing of every execution test, 20 random programs and every example (Er-Tüp also with its
+  hand-written reference functions), with both code generators. A step that only moves code must keep every
   hash; one that changes code records new ones (`-PbackendOutput=update`, which also keeps a copy
-  of the assembly in `build/backend-output-ref/` for diffing) together with the game's numbers
-  in [optimizations-log.md](optimizations-log.md), and never in the same step as a move (ADR
+  of the assembly in `build/backend-output-ref/` for diffing) together with the examples'
+  benchmark (`dev/bench_examples.sh`) in [optimizations-log.md](optimizations-log.md), and never in the same step as a move (ADR
   [record 24](adr/0024-a-refactoring-step-may-cost-about-1-speed-if-the.md)). It also reads every assembly file back as LIR
   (the same text again, and the LIR verifier passes), and builds every ROM with ca65 and ld65 and
   with dampf's own assembler and linker: the images must be the same byte for byte, the label
@@ -154,9 +149,9 @@ ticks. `GameTimingTest` (with `-Preplays`) checks the static timing on it.
 - **Coverage and static analysis**, not part of `./gradlew build`: JaCoCo coverage
   (`-Pcoverage`, off by default because it slows the emulator), PMD (findings do not fail the
   build) and CPD for copied code.
-- **Reference assembly benchmarks:** hand-written versions of hot functions as the yardstick
-  ([optimizations.md](optimizations.md)); one so far, `reference/level_solid_px.s`, linked with
-  `--replace`.
+- **Reference assembly benchmarks:** hand-written versions of the examples' functions as the
+  yardstick ([optimizations.md](optimizations.md), [reference/README.md](../reference/README.md)):
+  Er-Tüp's `random16` and `sine`, linked with `--replace`.
 - **Performance tracking** per commit is planned; today the numbers are written down by hand in
   [optimizations.md](optimizations.md).
 
@@ -172,12 +167,12 @@ definition of what the program means, next to gcc.
 
 ## When something hangs
 
-A test must fail, not wait forever. Every program test (execution tests, random programs, replays,
-the MIR round trips) runs under a hard time limit (`assertTimeoutPreemptively`: 3, 2, 15 (20
-through the platform layer) and 2 minutes per program, 10 minutes for `GameTimingTest`), because
+A test must fail, not wait forever. Every program test (execution tests, random programs, the
+MIR round trips) runs under a hard time limit (`assertTimeoutPreemptively`: 3, 2 and 2 minutes
+per program), because
 JUnit's default timeouts do not cover dynamic tests. External programs (gcc, the PC builds,
 and ca65 and ld65 where the tests use them) run through `dampf.util.Processes` with a time limit and are killed when it runs
-out. The emulator stops after 600 frames in the program tests and 200,000 frames in
-`dampf bench` and the replays; the MIR interpreter counts its steps. The Gradle test task has an
+out. The emulator stops after 600 frames in the program tests, after a limit per example in its
+checks, and after 200,000 frames in `dampf bench`; the MIR interpreter counts its steps. The Gradle test task has an
 overall limit of 2 hours as a last resort. A program that loops forever fails in about a minute
 with "did not finish within 60 s and was stopped (does it hang?)".

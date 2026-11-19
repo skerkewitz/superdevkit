@@ -159,24 +159,25 @@ base name.
 
 A build of a whole game needs several include directories, an entry and many source files. To
 keep them in a file you can check in, name an argument file with `@file` or `--config file`.
-`build`, `check` and `parse` take it, once per call. The snapshot of Blubber Blasen comes with
-one:
+`build`, `check` and `parse` take it, once per call. Er-Tüp, the example game, comes with one:
 
-```text [snapshots/blubberblasen.args]
-# Blubber Blasen's playable ROM with the dev kit (dev/build_game_rom.sh): the game, its graphics,
-# and the library on the SNES. Paths are relative to this file (ADR record 28).
--I ../lib/include
--I blubberblasen/src
--I blubberblasen/generated
--I ../lib/snes
+```text [examples/ertuep/ertuep.args]
+# Er-Tüp for the SNES: the game, its converted graphics (build/gen, written by build.sh) and the
+# dev kit's library. Paths are relative to this file (ADR record 28).
+-I ../../lib/include
+-I src
+-I build/gen
 --entry main
-blubberblasen/src/game/
-blubberblasen/generated/
-../lib/snes/
+src/
+build/gen/
+../../lib/snes/
 ```
 
+The folder `build/gen` holds the graphics converted to C, so the example's `build.sh` has to
+have written it before this build:
+
 ```sh
-dampf build @snapshots/blubberblasen.args -o build/game/blubberblasen.sfc
+dampf build @examples/ertuep/ertuep.args -o build/ertuep.sfc
 ```
 
 Each line holds one option with its value, or one source file or folder. A `#` at the start of
@@ -251,7 +252,7 @@ Use `check` to find out which files of a code base dampf accepts, before you try
 of them:
 
 ```sh
-dampf check -I snapshots/blubberblasen/src -I snapshots/blubberblasen/generated snapshots/blubberblasen/src/game/*.c
+dampf check @examples/ertuep/ertuep.args
 ```
 
 It runs only the front end (preprocessor, parser and the checks of the subset) and handles
@@ -333,9 +334,8 @@ usage: dampf profile <rom.sfc> <profile.txt> [top N] [--skip file.c ...] [--inst
 - **`profile.txt`** is the profile: how often each instruction in the ROM ran, one line per
   instruction with its offset in the ROM file and its count, and optionally a line
   `clocks N` with the master clocks (the SNES's base clock, 357,366 per frame) of the measured
-  stretch. [Mesen](/glossary#mesen) writes it with the Lua
-  script `dev/profile.lua`; [`dampf bench --profile`](#bench-profile) writes the same format
-  from dampf's own emulator.
+  stretch. [`dampf bench --profile`](#bench-profile) writes it from dampf's own emulator; a
+  Lua script for [Mesen](/glossary#mesen) can write the same format.
 - **`top`** is a number: how many functions the table shows, the most expensive first. The
   default is 40. It also limits the rows of the table that `--instructions` adds.
 - **`--skip file.c`** leaves the functions defined in that C file out of the table and the
@@ -392,9 +392,10 @@ With `--bench`, checks every value the interpreter computes against the
 
 ## bench
 
-Use `bench` to run the benchmark ROM of [Blubber Blasen](/glossary#blubber-blasen), built from
-the game's `bench.c` with `build`, in dampf's own emulator. It is a tool for working on dampf
-and on the benchmark:
+Use `bench` to run a benchmark ROM in dampf's own emulator: a ROM built with `build` that
+reports its ticks and measurements through the ports below, as the benchmark of
+[Blubber Blasen](/glossary#blubber-blasen), built from the game's `bench.c`, does. It is a tool
+for working on dampf and on the benchmark:
 
 ```
 usage: dampf bench <bench.sfc> [--profile counts.txt fromTick toTick]
@@ -402,8 +403,8 @@ usage: dampf bench <bench.sfc> [--profile counts.txt fromTick toTick]
 
 It prints what the game's Mesen script `bench.lua` writes: one line per tick with the tick
 number, the state, the master clocks between the start and end markers (writes to `$21FC` and
-`$21FF`) and the checksums (pairs of writes to `$21FD` and `$21FE`). The output can go straight
-into the game's `report.py`.
+`$21FF`) and the checksums (pairs of writes to `$21FD` and `$21FE`); a write to `$21FA` ends
+the tick's line. The output can go straight into the game's `report.py`.
 
 The emulator stops after 200,000 [frames](/glossary#frame), far more than the benchmark needs,
 so a program that hangs fails: `bench` then prints `the benchmark did not finish` and exits
@@ -510,6 +511,6 @@ column 1 of the file, and its text starts with `preprocessing failed:` and gcc's
 
 A usage error is a missing command or one dampf does not know, an option without its value at
 the end of the command line, a mistake in an [argument file](#argument-file), and for `build`
-also a missing `-o`, no C file or an unknown `--backend` or `--assembler` value. A missing C file or header is an error in the program. Any
-other unexpected failure, such as a missing `.s` file for `--replace` or a missing profile file,
-ends dampf with a Java exception and status 1.
+also a missing `-o`, no C file or an unknown `--backend` or `--assembler` value. A missing C
+file or header is an error in the program. Any other unexpected failure, such as a missing `.s`
+file for `--replace` or a missing profile file, ends dampf with a Java exception and status 1.

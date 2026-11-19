@@ -76,13 +76,14 @@ about 8 per CPU cycle.
 
 Every execution test and random program measures `test_main` and every call of every function
 and runtime routine on the way (from its first instruction to the instruction after the `JSL`)
-and checks best ≤ measured ≤ worst (`Timing.check`); with `-Preplays`, `GameTimingTest` does the
-same for the 180,000 calls of the game's benchmark. A runtime bound set too low on purpose
+and checks best ≤ measured ≤ worst (`Timing.check`); `ExamplesTimingTest` does the same for every
+call of every example in its first 3,000 frames (and did for the 180,000 calls of Blubber
+Blasen's benchmark while the game's code was here). A runtime bound set too low on purpose
 (`dampf_mul16` worst 300 instead of 367) failed 94 tests at once; the measured maximum was 362.
 
 ### In the game
 
-In the game's benchmark build (2026-11-18, after the LIR passes), 294 functions get a bound and
+In Blubber Blasen's benchmark build (2026-11-18, after the LIR passes), 294 functions got a bound and
 37 do not. The loops
 left are those that run over memory (`while (s[n]) n++;`, a queue,
 `while (stage_next < stage_count)`), whose counter is not stepped by a constant, or that could
@@ -136,8 +137,9 @@ PC ([hints.md](hints.md)).
 
 The worst case may count paths that never occur together (two branches never both taken). The
 report is meant to show the costliest path line by line so a human can judge it; annotations
-that exclude impossible combinations can come later. The replays add the measured cost in real
-game situations, and comparing it with the static worst case shows how pessimistic the bound is.
+that exclude impossible combinations can come later. The examples' checks add the measured cost
+in real game situations (`dampf.emu.ExampleProfile`), and comparing it with the static worst case
+shows how pessimistic the bound is.
 
 ### Level 3: what happens outside the CPU (not built)
 

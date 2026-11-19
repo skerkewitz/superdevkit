@@ -298,10 +298,10 @@ The tests hold every bound against a measurement in dampf's own emulator
 ([Testing](/inside/testing)). Every execution test and every random program built with the code
 generator from MIR measures `test_main` and every call of every function and runtime routine on
 the way, from the function's first instruction to the instruction after the `JSL` that called
-it, and checks that best ≤ measured ≤ worst. With the
-Gradle property `-Preplays`, `GameTimingTest` does the same for the benchmark of Blubber Blasen:
-the whole game runs in the emulator and each of its calls, about 180,000, must lie within the
-bounds of its function.
+it, and checks that best ≤ measured ≤ worst. `ExamplesTimingTest` does the same for every
+example: each runs its first 3,000 frames without input in the emulator, and each of its calls
+must lie within the bounds of its function. (While Blubber Blasen's code was in the repository,
+the same test ran on the game's benchmark, about 180,000 calls.)
 
 The check catches a wrong bound at once. A bound of `dampf_mul16` set too low on purpose, a
 worst case of 300 instead of 367, failed 94 tests; the largest measured call took 362 cycles.
@@ -317,9 +317,9 @@ loops*)
 
 **A worst case that may be too high.** The worst case adds up the costliest way through every
 branch, also where two branches can never both be taken. Annotations that exclude impossible
-combinations were left for later; the cost is a bound that may be pessimistic, and the replays
-show how far: they measure the cost in real game situations, which can be compared with the
-static worst case. (`docs/timing.md`, *Level 2: exact bounds for branches and loops*)
+combinations were left for later; the cost is a bound that may be pessimistic, and the examples'
+checks show how far: they measure the cost in real game situations (`dampf.emu.ExampleProfile`),
+which can be compared with the static worst case. (`docs/timing.md`, *Level 2: exact bounds for branches and loops*)
 
 **Budgets as build errors.** An overrun of a frame could be found by playing the game and
 watching for flicker or slowdown. dampf checks budgets at build time instead, so the build

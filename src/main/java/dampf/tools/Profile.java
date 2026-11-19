@@ -13,8 +13,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Cycles per function from an execution profile: Mesen counts how often each instruction ran
- * (dev/profile.lua), dampf knows what each instruction costs ({@link Cycles65816}).
+ * Cycles per function from an execution profile: how often each instruction ran (dampf bench
+ * --profile, or a Mesen script in the same format), dampf knows what each instruction costs ({@link Cycles65816}).
  *
  * <p>Instructions are assigned to the function whose code contains them (the nearest function
  * label below; functions are the {@code .proc}s of the generated assembly and the runtime's

@@ -274,7 +274,7 @@ globals with the [PC build](/glossary#pc-build), once straight after the lowerin
 the passes. A wrong lowering shows up there before any 65816 code exists for it. Its memory is a
 flat array: the globals lie one after another from `$10000`, and every call gets fresh frame
 slots from `$400000`. Stores to addresses below `$10000` go to a listener, as I/O does on the
-SNES; the [runtime](/glossary#runtime) and the game's benchmark mark events there, such as the
+SNES; the [runtime](/glossary#runtime) and benchmark programs mark events there, such as the
 write to `$21FB` when the entry function returns. Loads from there read 0. Reaching an
 `unreachable` stops the interpreter with an error that starts with `a hint does not hold`,
 naming the hint, its source position and the function. A division by zero stops it with an
@@ -283,12 +283,10 @@ instead of hanging the tests.
 
 The interpreter also checks the range analysis: every value it computes, and every parameter on
 entry to its function, must lie in the [value range](/glossary#value-range) dampf inferred for
-it. The execution tests, the random programs and the replay run with that check. The game's
-benchmark runs in the interpreter too, and gives the checksums of the PC build on all 3,610
-[ticks](/glossary#tick).
+it. The execution tests and the random programs run with that check.
 
-The text format parses back. `MirTextTest` prints the MIR of every execution test and of the
-whole of [Blubber Blasen](/glossary#blubber-blasen), parses the text, verifies the result and
+The text format parses back. `MirTextTest` prints the MIR of every execution test and of every
+example of the dev kit, parses the text, verifies the result and
 prints it again; the second text must equal the first. Pass tests can therefore start from MIR
 text, as `NarrowTest`, `GvnTest` and `InlineTest` do. The test also runs hand-written MIR, a
 loop that sums 1 to 100, in the interpreter, and checks that the verifier rejects a use before

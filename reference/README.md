@@ -1,7 +1,7 @@
 # Reference functions
 
-Hot functions of Blubber Blasen written by hand in 65816 assembly. They are not part of the game;
-they are the yardstick for dampf's code: the same function, compiled by dampf and written by hand,
+Functions of the examples written by hand in 65816 assembly. They are not
+part of the programs; they are the yardstick for dampf's code: the same function, compiled by dampf and written by hand,
 run on the same inputs, and the ratio of their cycles says how far dampf is from good assembly
 ([docs/optimizations.md](../docs/optimizations.md), "Reference assembly benchmarks"). Where a
 reference is faster, the reason becomes a hint or an optimization rule.
@@ -9,8 +9,8 @@ reference is faster, the reason becomes a hint or an optimization rule.
 ## Linking a reference function
 
 ```bash
-dampf build ... --replace level_solid_px=reference/level_solid_px.s
-REPLACE="level_solid_px=reference/level_solid_px.s" dev/bench_game.sh
+cd examples/ertuep
+dampf build @ertuep.args --backend naive --replace random16=../../reference/ertuep_random16.s -o build/ref.sfc
 ```
 
 `--replace` keeps the function's parameters and frame and emits no code for it; the assembly file
@@ -26,10 +26,18 @@ provides the code under the function's label. The file has to follow dampf's cal
   function.
 
 A reference function must compute exactly what the C does, for every input, not only for the
-ones the game uses: the benchmark's checksums against the PC check that.
+ones the program uses. A reference of an example is named `<example>_<function>.s`;
+`ReferenceFunctionsTest` builds each example with all its references (naive code generator),
+plays its `check.txt` in dampf's emulator and compares every tick's checksum with the normal
+build. Their cycles: `dampf.emu.ExampleProfile` on both builds (the same input makes the same
+calls, so the ratio of the totals is the ratio per call).
 
 ## The functions
 
-| Function | File | What it does |
-| --- | --- | --- |
-| `level_solid_px` | `src/game/level.c` | Is a pixel position inside a solid tile of the room? |
+| Function | File | What it does | Cycles: naive, by hand |
+| --- | --- | --- | --- |
+| `random16` (Er-Tüp) | `examples/ertuep/src/objects.c` | A 16-bit xorshift | 94 : 41 master cycles a tick, 2.3 times |
+| `sine` (Er-Tüp) | `examples/ertuep/src/objects.c` | A signed byte from a table in ROM | 14 : 10, 1.4 times |
+
+The code generator from MIR inlines both of Er-Tüp's functions into their callers; the naive one
+calls them, and its code is the comparison.

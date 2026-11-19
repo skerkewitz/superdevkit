@@ -24,7 +24,7 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The back end's output, frozen: a hash of the assembly dampf writes (and of the static timing)
- * for every execution test, a fixed set of random programs and the whole game, with both code
+ * for every execution test, a fixed set of random programs and every example, with both code
  * generators. A refactoring of the back end that is meant to move code without changing what it
  * does must leave every hash as it was (docs/testing.md, ADR record 24). A step that changes the code on purpose records new hashes with
  * {@code ./gradlew test --tests '*BackendOutputTest' -PbackendOutput=update}.
@@ -43,7 +43,6 @@ class BackendOutputTest {
     private static final Path HASHES = Path.of("src/test/resources/backend-output.txt");
     private static final Path OUT = Path.of("build/backend-output");
     private static final Path REF = Path.of("build/backend-output-ref");
-    private static final Path GAME = Path.of("snapshots/blubberblasen");
     static final int RANDOM_PROGRAMS = 20;
 
     @Test
@@ -112,26 +111,25 @@ class BackendOutputTest {
             Files.writeString(src, new RandomProgram(seed).generate(10, 30));
             cases.add(new Case("random" + seed, List.of(src), List.of(), List.of(), "test_main", false));
         }
-        List<Path> game = new ArrayList<>();
-        for (String dir : List.of("src/game", "generated")) {
-            try (Stream<Path> s = Files.list(GAME.resolve(dir))) {
-                s.filter(p -> p.toString().endsWith(".c")).sorted().forEach(game::add);
+        for (Path ex : dampf.ExamplesTest.examples()) {   /* every example, as its build has it */
+            String name = ex.getFileName().toString();
+            Compiler.Options o;
+            try {
+                o = dampf.ExamplesTest.options(ex, OUT.resolve("example_" + name + ".sfc"));
+            } catch (InterruptedException e) {
+                throw new IOException(e);
+            }
+            cases.add(new Case("example_" + name, o.sources(), o.includeDirs(), o.defines(), o.entry(), false));
+            Map<String, Path> refs = new TreeMap<>();
+            try (Stream<Path> s = Files.list(Path.of("reference"))) {
+                s.filter(f -> f.getFileName().toString().startsWith(name + "_") && f.toString().endsWith(".s")).sorted()
+                        .forEach(f -> refs.put(f.getFileName().toString().substring(name.length() + 1).replace(".s", ""), f));
+            }
+            if (!refs.isEmpty()) {                       /* hand-written functions linked in (the naive generator only) */
+                cases.add(new Case("example_" + name + "_reference", o.sources(), o.includeDirs(), o.defines(), o.entry(),
+                        false, refs));
             }
         }
-        game.add(GAME.resolve("bench/bench.c"));
-        List<String> defines = new ArrayList<>();
-        for (String f : List.of("setMode", "setBrightness", "setScreenOn", "setScreenOff", "setColorEffect",
-                "setColorIntensity", "setPaletteColor", "dmaCopyVram", "dmaCopyCGram", "dmaClearVram", "bgSetGfxPtr",
-                "bgSetMapPtr", "bgSetScroll", "bgSetEnable", "bgSetDisable", "bgSetEnableSub", "bgSetDisableSub",
-                "bgInitTileSet", "bgInitMapSet", "oamInit", "oamInitGfxSet", "oamInitGfxAttr", "oamSet", "oamSetXY",
-                "oamSetEx", "oamSetVisible", "oamClear", "snesRegWrite", "snesHdmaSet", "snesHdmaEnable", "snesDmaFits",
-                "oamMemory")) {
-            defines.add(f + "=bb_" + f);
-        }
-        cases.add(new Case("game", game, List.of(GAME.resolve("src"), GAME.resolve("generated")), defines, "main", false));
-        // a hand-written function linked in (the naive generator only)
-        cases.add(new Case("game_reference", game, List.of(GAME.resolve("src"), GAME.resolve("generated")), defines, "main", false,
-                Map.of("level_solid_px", Path.of("reference/level_solid_px.s"))));
         return cases;
     }
 

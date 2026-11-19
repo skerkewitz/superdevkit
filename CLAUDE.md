@@ -13,9 +13,9 @@ from the README.
   dampf; its speed rules are tests, `StyleGuideTest`) and `lib/SNES_HARDWARE.md` (the hardware
   and what the kit has). A change to dampf that breaks a rule of the C guide changes the rule in
   the same commit.
-- dampf works on the snapshot `snapshots/blubberblasen` (never edit it; refresh with
-  `dev/update_game_snapshot.sh /mnt/d/Develop/AiProject/BlubberBlasen`). Never run Mesen or write
-  files inside the game's own folders: another agent is working there.
+- dampf is tested and measured on its examples (`examples/`, `dev/bench_examples.sh`); the game's
+  code is not in this repository (ADR record 40). Never run Mesen or write files inside the
+  game's own folders: another agent is working there.
 - Why a decision was taken is in `docs/ADR.md` (the table of all records with their status) and
   `docs/adr/NNNN-<start-of-title>.md` (one file per record: `# N. Title`, then **Context.**,
   **Decision.**, **Alternatives.** where there were any, **Consequences.**). A decision made or

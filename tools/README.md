@@ -17,5 +17,3 @@ scripts for developing the dev kit itself are in [dev/](../dev/README.md).
 
 `test_png2snes.py` tests the converter (round trips of tiles and colours) and
 `test_sdevkit_rename.py` the rename script; `ToolsTest` runs both in the Gradle build.
-`RenameScriptTest` renames a copy of the Blubber Blasen snapshot, which must then build the same
-ROM with `sdevkit/` alone.

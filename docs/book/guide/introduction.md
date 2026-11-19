@@ -115,10 +115,10 @@ Windows and Linux in M7 and to the web in M8; the optimizer work that is left go
 language, platform and usability (among them a preprocessor of dampf's own) in M10, timing and
 debugging in M11, and fine tuning until the frame budget is met in M12.
 
-The game's benchmark runs the game code with a fixed input and every PVSnesLib call stubbed out.
-During play (the benchmark's ticks of the game itself, not title, story or round intro), Blubber
-Blasen's game logic takes 0.79 frames per tick with dampf, against 4.37 with the naive code
-generator.
+Until 2026-11-19 dampf was measured on Blubber Blasen's benchmark, which ran the game code with
+a fixed input and every PVSnesLib call stubbed out. During play (the benchmark's ticks of the
+game itself, not title, story or round intro), the game logic took 0.79 frames per tick with
+dampf, against 4.37 with the naive code generator.
 Calypsi's 2.72 came from an older version of the game. On the same version, in the play ticks
 where both compilers play the same scene, both with [FastROM](/glossary#fastrom-and-slowrom),
 Calypsi takes 1.42 frames per tick and dampf 0.66: dampf is 2.14 times as fast, so M3's goal of
@@ -126,18 +126,19 @@ beating Calypsi is reached. These figures were measured on 2026-11-18. The goal 
 tick is not reached yet in play, and the compiler alone is not expected to reach it: the game is
 being made to do less work at the same time.
 
-dampf builds a playable ROM of the game. The dev kit's library, written in C, implements the
+dampf built a playable ROM of the game. The dev kit's library, written in C, implements the
 console API `lib/include/sdevkit/snes.h`, taken over from the game and renamed so that every name
 a game can use starts with `sdevkit_` or `SDEVKIT_` (`setMode` is `sdevkit_set_mode`): the
 PVSnesLib-shaped calls the game makes, and the main loop of `sdevkit/loop.h`. Until the game
 switches to the new names, a deprecated compatibility header, `lib/include/snes/`, maps the old
-ones for the snapshot of Blubber Blasen; `tools/sdevkit_rename.py` converts a game. On the
+ones for Blubber Blasen; `tools/sdevkit_rename.py` converts a game. On the
 console the game ran at 1.16 frames per tick during a minute of play (3,600 frames, 3,098
 ticks), measured on 2026-11-18 after the latest optimizations. That figure includes waiting for the
 [vertical blank](/glossary#vertical-blank) and the platform layer, so it is not comparable with
 the benchmark: a tick that needs more than one frame waits for the next vertical blank, and the
-benchmark leaves out what the game's video code costs on the hardware. Sound and save RAM are
-not built. Most of the hints are not built either. dampf computes a best and a worst case in CPU
+benchmark leaves out what the game's video code costs on the hardware. Since 2026-11-19 the dev
+kit's own examples are dampf's test cases and its benchmark, and the game's code is no longer in
+the repository. Sound and save RAM are not built. Most of the hints are not built either. dampf computes a best and a worst case in CPU
 cycles for every function, and a function marked with `DAMPF_BUDGET` that goes over its cycle
 budget fails the build. The [Roadmap](/inside/roadmap) has the plan, and
 [Limits](/reference/limits) lists what dampf does not do yet.

@@ -181,7 +181,7 @@ the checkpoint after M2 concluded.
   initialises or is assigned to (`uint8_t w[] = { 420 }`): dampf truncates it as gcc does, but
   silently. It hid a bug in CatchMe (a cat's wait of 420 became 164) that only the desktop
   build's `-Woverflow` showed.
-- **Less memory for a compile:** the game takes 1.8 GB.
+- **Less memory for a compile:** Blubber Blasen took 1.8 GB.
 - **The SNES facts out of the code generators** (DBR `$7E`, the frame addresses, long I/O
   addresses) into the target ([architecture.md](architecture.md#core-and-target)).
 - **`restrict`** or a no-alias hint of dampf's own (see [Open questions](#open-questions)).
@@ -221,7 +221,7 @@ What was left of M4, until the frame budget is met:
 
 | # | Idea | Likely gain | Effort | Notes |
 | --- | --- | --- | --- | --- |
-| 8 | The block layout by a profile by default (from the replays) | ~1 % | low | Built (`--block-counts`), opt-in; needs a profile in the game's build. |
+| 8 | The block layout by a profile by default | ~1 % | low | Built (`--block-counts`), opt-in; needs a profile of the program (`dampf bench --profile`). |
 | 10 | Superoptimizer for short hot sequences | 1-3 % | high | Gains spread thin. |
 | 11 | `<<8` as a byte store, `switch` as a jump table, `MVN` for copies (and `memcpy`), unrolling by hint | <1 % each | low to medium | Large locally, small on the whole game. |
 
@@ -249,23 +249,22 @@ the compiler moved into `compiler/` once a second build world makes it worth it.
 The dev kit goes public as superdevkit when it is useful to someone other than Blubber Blasen.
 What it takes:
 
-- **Own examples instead of Blubber Blasen.** The snapshot, its replays and the hand-written
-  benchmark in `reference/` leave the repository. They are in the git history, so either the
-  history is cleaned (`git filter-repo`) or the public repository starts without it. Own
-  examples take over their jobs: a program large enough to be a test case, new hand-written
-  reference functions, and a set of benchmarks in different styles rather than one busy scene.
-  So far every speed decision was measured on one game: the optimizations of 2026-11-18 made
-  Blubber Blasen's play 13 % faster but the execution tests only 0.9 % (median 0.6 %), and part
-  of the 13 % comes from parameters chosen on this one game (the inlining limit, the block
-  order) and from its idioms
-  ([optimizations-log.md](optimizations-log.md#optimizations-on-the-branch-optimise-2026-11-18)).
-  The set: code with many small calls, code that computes mostly in 16 and 32 bits, code with
-  little access to structs (plain arrays, pointer walks), a fixed-point physics or particle loop,
-  a table- and switch-driven state machine, text or tile work on bytes. Each optimization is
-  measured on all of them, a tuned parameter is chosen on the whole set, and the docs say which
-  set a measurement comes from.
-- **The game's own findings** ([game-findings.md](game-findings.md)) go to the game's repository
-  with the snapshot; `docs/game-guide.md` is written from them there.
+- **Own examples instead of Blubber Blasen.** Done on 2026-11-19 (ADR record 40): the snapshot,
+  its replays and its hand-written function left the repository; they are still in the git
+  history, so either the history is cleaned (`git filter-repo`) or the public repository starts
+  without it. The examples took over their jobs: Er-Tüp is a test case of a whole game's size,
+  `reference/` holds functions of the examples, and `dev/bench_examples.sh` measures the work per
+  tick of all of them against a baseline: many small calls (Schach), 16- and 32-bit arithmetic
+  (Mandelbrot), arrays and bytes (Steinschlag), fixed point, particles, a pair loop and state
+  machines (Er-Tüp), and the small ones. Still open: until then every speed decision was measured
+  on one game (the optimizations of 2026-11-18 made Blubber Blasen's play 13 % faster but the
+  execution tests only 0.9 %, part of it from parameters chosen on that game, the inlining limit
+  and the block order:
+  [optimizations-log.md](optimizations-log.md#optimizations-on-the-branch-optimise-2026-11-18));
+  those parameters are to be checked on the set, and the docs say which set a measurement comes
+  from.
+- **The game's own findings** ([game-findings.md](game-findings.md)) go to the game's repository;
+  `docs/game-guide.md` is written from them there.
 - **The documents** say nothing that only holds for the private repository.
 - **The repository renamed** to superdevkit, with dampf as its compiler.
 - **Hosting:** a release on GitHub, a build on GitHub Actions (cc65 installed for the tests that
@@ -302,11 +301,11 @@ and the toolchain is tested on what only the console shows.
   of the code it interrupted, since dampf keeps them at fixed places.
 - **Not built:** sound (the game has none yet), save RAM (the high scores start empty at every
   power-on).
-- **Building and checking:** `dev/build_game_rom.sh` writes `build/game/blubberblasen.sfc`.
-  `dev/check_game_rom.sh` plays it in Mesen for a minute with scripted input, saves screenshots,
-  and fails if any byte reaches VRAM, CGRAM or OAM outside a vertical blank. `ReplayTest`
-  (`-Preplays`, with a Mesen) plays the recording through the platform layer: the same checksums
-  as the PC, and no byte lost.
+- **Building and checking:** while the game's code was here, a script built its playable ROM and
+  another played it in Mesen for a minute with scripted input (screenshots; no byte may reach
+  VRAM, CGRAM or OAM outside a vertical blank), and the replay test played a recording through
+  the platform layer. The examples' checks do the same for every example now (ADR
+  [record 40](adr/0040-the-examples-replace-blubber-blasen-s-snapshot-as.md)).
 
 The console showed things the benchmark could not. A tick that needs more than one frame waits for
 the next vertical blank, and the benchmark leaves out what `video.c` costs on the hardware. With the
@@ -319,15 +318,16 @@ Open: the DMA margin is in M5, constant shifts longer than 8 in M9.
 
 ## Risks
 
-- **Miscompilation.** Mitigated by the test layers, the naive reference and the replays as
-  oracle ([testing.md](testing.md)). One is known and not found yet (M5).
-- **The optimizer is tested by one game.** 31 execution tests and 50 random programs per build,
-  and the random programs barely reach the optimizer's patterns; in practice the optimizer is
-  tested by Blubber Blasen's benchmark and one replay recording. M5 adds random programs and
-  execution tests for the patterns, and more recordings would help
-  ([game-findings.md](game-findings.md), finding 5).
+- **Miscompilation.** Mitigated by the test layers, the naive reference and the examples' checks
+  as oracle, a checksum every tick against the PC ([testing.md](testing.md)). One is known and not found yet (M5).
+- **The optimizer is tested by whole programs only in a few.** The execution tests and 50 random
+  programs per build barely reach the optimizer's patterns; in practice the optimizer is tested
+  by whole programs: Blubber Blasen's benchmark and one replay until 2026-11-19, since then the
+  examples' checks, a checksum every tick. More examples, and random programs and execution
+  tests for the patterns, would help.
 - **Tuned on one game.** The inlining limit, the block order and the idioms the optimizer looks
-  for come from Blubber Blasen. Mitigated by the set of benchmarks that publishing brings.
+  for came from Blubber Blasen. Mitigated by the examples' benchmark (`dev/bench_examples.sh`),
+  on which they are still to be checked.
 - **Never run on a console.** Everything is checked in dampf's emulator and in Mesen; FastROM,
   the DMA margin and timing at the edges have not run on hardware (M5).
 - **Different behaviour on PC and SNES.** Mitigated by fixed-width types only, exact promotion
@@ -343,7 +343,7 @@ Open: the DMA margin is in M5, constant shifts longer than 8 in M9.
 - **Gains smaller than hoped.** Each optimization is measured; the catalogue was re-prioritised
   after M2.
 - **A wrong hint silently produces wrong code.** Mitigated by checking every fact hint as an
-  assertion on the PC, with the replays running against them ([hints.md](hints.md)).
+  assertion on the PC, with the examples' checks running against them ([hints.md](hints.md)).
 
 ## Open questions
 
@@ -363,7 +363,10 @@ Open: the DMA margin is in M5, constant shifts longer than 8 in M9.
   limit is right, but there the limit counts unsimplified bodies and fewer functions are inlined.
   So an older part of the code generator (selection, `FrameLayout`, the masks) goes wrong on a
   function the larger inlining makes. Next step: find the function by comparing the emulator's
-  globals with the interpreter's at tick 32, then reduce it to an execution test.
+  globals with the interpreter's at tick 32, then reduce it to an execution test. The game's code
+  has left the repository (ADR record 40): the search needs it from the game's own repository, or
+  an example that the limit of 80 breaks too (`dev/bench_examples.sh` and the examples' checks
+  with the limit raised).
 - **In which language the dev kit's tools are written.** The first one, the PNG converter for
   the examples, is Python for now (`tools/`). Java would keep using the dev kit to nothing but
   Java (goal 6 of the README) and could read PNG with `javax.imageio`; Python is quicker to
@@ -373,14 +376,14 @@ Open: the DMA margin is in M5, constant shifts longer than 8 in M9.
 - How Mesen shows locals that live in fixed direct page places, several values sharing a place
   (M11).
 - Why Calypsi's results drift from the PC's from tick 596 on: a miscompile, RAM its start-up
-  leaves uncleared, or a step of the game's own Calypsi build that `dev/bench_compilers.sh`
-  lacks. Until then the comparison rests on 102 ticks.
+  leaves uncleared, or a step of the game's own Calypsi build that dampf's comparison script
+  lacked. The comparison rests on 102 ticks.
 - How to express impossible path combinations, should the worst-case bounds turn out too
   pessimistic in practice ([timing.md](timing.md)).
 - How `restrict` is checked on the PC in practice, and whether a dampf-specific no-alias hint is
   clearer than `restrict` ([hints.md](hints.md)).
-- Which functions become reference benchmarks. `level_solid_px` is still the only one
-  (`reference/`), and it leaves the repository with the game at publishing.
+- Which functions become reference benchmarks. Er-Tüp's `random16` and `sine` so far
+  (`reference/`); candidates are the pair loop, Mandelbrot's iteration and Steinschlag's cave.
 - How much HDMA the game uses, since it changes the frame-level budget ([timing.md](timing.md)).
 
 ## History
@@ -519,9 +522,10 @@ both ways.
 
 ## Relation to Blubber Blasen
 
-Blubber Blasen is dampf's first user and its main test case. Its deterministic replays are the
-oracle for correctness, and its busiest scene is the benchmark for speed. dampf works on a snapshot
-in `snapshots/blubberblasen` (refreshed with `dev/update_game_snapshot.sh`), so a change in the
-game that dampf cannot handle yet never breaks it. What dampf finds worth changing in the game goes
+Blubber Blasen is dampf's first user and was its main test case: its deterministic replays were
+the oracle for correctness, and its busiest scene the benchmark for speed, on a copy of its code
+in this repository. Since 2026-11-19 the dev kit's examples are both, and the game's code is no
+longer here ([ADR record 40](adr/0040-the-examples-replace-blubber-blasen-s-snapshot-as.md)); the
+game builds with the kit from its own repository. What dampf finds worth changing in the game goes
 to [game-findings.md](game-findings.md); when dampf is finished, `docs/game-guide.md` explains how
 to write game code that dampf compiles well.

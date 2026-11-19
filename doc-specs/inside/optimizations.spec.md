@@ -1,6 +1,7 @@
 ---
 title: Optimizations
 sources:
+  - reference/README.md
   - docs/ADR.md
   - docs/adr/*.md
   - docs/optimizations.md
@@ -38,7 +39,7 @@ latest overall figure against the naive code and Calypsi.
 5. **The measurements** – a table of the steps with frames per tick during play, from
    `docs/optimizations-log.md`; the current figures from *Where things stand* in
    `docs/optimizations.md`.
-6. **How far it can go** – the comparison with hand-written assembly (`level_solid_px`), and
+6. **How far it can go** – the comparison with hand-written assembly (`level_solid_px` first, now the examples' functions in `reference/`), and
    where a gap remains.
 
 ## Pay attention to

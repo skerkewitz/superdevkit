@@ -39,29 +39,16 @@ import org.junit.jupiter.api.TestFactory;
  * The picture is compared by dev/compare_example.sh (Mesen), which also compares Mesen's
  * checksums with the desktop's.
  */
-class ExamplesTest {
+public class ExamplesTest {
 
     @TestFactory
     Stream<DynamicTest> everyExampleBuildsAndPlaysTheSameOnBoth() throws IOException {
-        List<Path> examples;
-        try (Stream<Path> s = Files.list(Path.of("examples"))) {
-            examples = s.filter(d -> Files.isRegularFile(d.resolve(d.getFileName() + ".args"))).sorted().toList();
-        }
+        List<Path> examples = examples();
         assertTrue(!examples.isEmpty(), "no examples with an argument file");
         boolean desktop = Files.isRegularFile(Path.of("build/raylib/linux/lib/libraylib.a"));
         return examples.stream().map(ex -> DynamicTest.dynamicTest(ex.getFileName().toString(), () -> {
             String name = ex.getFileName().toString();
-            if (Files.isRegularFile(ex.resolve("build.sh"))) {
-                ProcessBuilder pb = new ProcessBuilder("sh", ex.resolve("build.sh").toString()).redirectErrorStream(true);
-                pb.environment().put("CONVERT_ONLY", "1");
-                Process p = pb.start();
-                String out = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-                p.waitFor(120, TimeUnit.SECONDS);
-                assertEquals(0, p.exitValue(), out);
-            }
-            List<String> args = new ArrayList<>(ConfigFile.expand(List.of("build", "@" + ex.resolve(name + ".args"))));
-            Compiler.Options o = options(args, ex.resolve("build/" + name + "_test.sfc"));
-            Compiler.Result r = Compiler.compile(o.withBackend(Compiler.Backend.MIR));
+            Compiler.Result r = compile(ex, ex.resolve("build/" + name + "_test.sfc"));
             assertTrue(Files.size(r.rom().rom()) >= 32 * 1024, "no ROM written");
 
             Path check = ex.resolve("check.txt");
@@ -105,6 +92,33 @@ class ExamplesTest {
             }
             assertEquals(pc.size(), sn.size(), name + ": ticks played");
         }));
+    }
+
+    /** The examples: the folders of examples/ with an argument file of their name. */
+    public static List<Path> examples() throws IOException {
+        try (Stream<Path> s = Files.list(Path.of("examples"))) {
+            return s.filter(d -> Files.isRegularFile(d.resolve(d.getFileName() + ".args"))).sorted().toList();
+        }
+    }
+
+    /** An example built as its build.sh does: the assets converted, then compiled with dampf (MIR). */
+    public static Compiler.Result compile(Path ex, Path out) throws IOException, InterruptedException, dampf.frontend.CompileError {
+        return Compiler.compile(options(ex, out).withBackend(Compiler.Backend.MIR));
+    }
+
+    /** The options of an example's build (its argument file), after its assets are converted. */
+    public static Compiler.Options options(Path ex, Path out) throws IOException, InterruptedException {
+        String name = ex.getFileName().toString();
+        if (Files.isRegularFile(ex.resolve("build.sh"))) {
+            ProcessBuilder pb = new ProcessBuilder("sh", ex.resolve("build.sh").toString()).redirectErrorStream(true);
+            pb.environment().put("CONVERT_ONLY", "1");
+            Process p = pb.start();
+            String log = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            p.waitFor(120, TimeUnit.SECONDS);
+            assertEquals(0, p.exitValue(), log);
+        }
+        List<String> args = new ArrayList<>(ConfigFile.expand(List.of("build", "@" + ex.resolve(name + ".args"))));
+        return options(args, out);
     }
 
     /** The options dampf build takes from these arguments (-I, --entry, sources). */

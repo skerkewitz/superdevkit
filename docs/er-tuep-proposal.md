@@ -116,7 +116,7 @@ game of this size, the rule changes, as the loop counter rule did after Schach.
 - **The pictures:** `check.txt` plays the stages with the joypad, and `dev/compare_example.sh`
   compares the SNES and the desktop pixel for pixel, as for the other examples.
 - **A replay with checksums:** after each tick a checksum of the game's state, on the PC and on
-  the SNES, the same; the examples' counterpart of Blubber Blasen's `ReplayTest`. Built for all
+  the SNES, the same; the examples' counterpart of Blubber Blasen's replay test. Built for all
   examples in step 1.
 
 ## Steps

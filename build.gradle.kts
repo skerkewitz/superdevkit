@@ -59,8 +59,6 @@ tasks.test {
         fileTree("doc-specs"), fileTree("examples"), fileTree("reference"), fileTree("tools"),
         fileTree("dev"), fileTree("snapshots"), fileTree("lib"), "README.md", "CLAUDE.md",
     ).withPathSensitivity(PathSensitivity.RELATIVE).withPropertyName("documentsAndExamples")
-    // Tests that need the Blubber Blasen sources read their location from this property.
-    providers.gradleProperty("blubberblasen").orNull?.let { systemProperty("dampf.blubberblasen", it) }
     // Execution tests run ROMs in Mesen too (MesenCE, ADR record 33): -Pmesen=<path>, or the one in
     // .mesen/ (dev/fetch_mesen.sh), the Linux build before the Windows one
     val mesen = providers.gradleProperty("mesen").orNull
@@ -70,8 +68,6 @@ tasks.test {
     // Random programs: -Prandom=<count> (default 50), -PrandomSeed=<first seed>
     providers.gradleProperty("random").orNull?.let { systemProperty("dampf.random.count", it) }
     providers.gradleProperty("randomSeed").orNull?.let { systemProperty("dampf.random.seed", it) }
-    // Replays of the game and its timing check (minutes, in dampf's emulator): -Preplays
-    providers.gradleProperty("replays").orNull?.let { systemProperty("dampf.replays", "true") }
     // Records new hashes of the back end's output (BackendOutputTest): -PbackendOutput=update
     providers.gradleProperty("backendOutput").orNull?.let { systemProperty("dampf.backendOutput", it) }
     // The 65816 emulator against the SingleStepTests suite (downloads ~50 MB once): -PcpuTests

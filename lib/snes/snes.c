@@ -340,7 +340,7 @@ static uint16_t vcount(void)
 /* A DMA moves one byte per 8 master cycles, a line has 1364: 170 bytes. Kept to 160 a line. A copy
  * that starts after the last line of the vertical blank is lost, and the code between this check
  * and the copy runs first: so the line it is in now does not count, nor SETUP_LINES more. Measured
- * in Mesen (dev/check_game_rom.sh): from the check to the start of a tileset copy in video.c
+ * in Mesen on Blubber Blasen's ROM: from the check to the start of a tileset copy in its video.c
  * takes 3.5 lines, the setup of the palette copy after it (video.c asks once for both) 1.5 more.
  * The setup is that slow because dampf writes each register through a pointer today; when it
  * writes them directly, this margin can shrink. */

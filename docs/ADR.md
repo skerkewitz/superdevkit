@@ -36,14 +36,14 @@ of its subject.
 | 19 | [dampf assembles and links itself, with ca65 and ld65 as the oracle](adr/0019-dampf-assembles-and-links-itself-with-ca65-and.md) | Accepted | 2026-11-18 |
 | 20 | [Mesen is the debugger, and the `.dbg` file means what ld65's means](adr/0020-mesen-is-the-debugger-and-the-dbg-file-means-what.md) | Accepted; amended by 33 | 2026-11-18 |
 | 21 | [The platform layer is C with `volatile` pointers, and the main loop waits for the vertical blank](adr/0021-the-platform-layer-is-c-with-volatile-pointers-and.md) | Accepted | 2026-11-17 |
-| 22 | [The compiler and the game work in parallel towards the frame budget](adr/0022-the-compiler-and-the-game-work-in-parallel-towards.md) | Accepted | 2026-11-17 |
+| 22 | [The compiler and the game work in parallel towards the frame budget](adr/0022-the-compiler-and-the-game-work-in-parallel-towards.md) | Accepted; amended by 40 | 2026-11-17 |
 | 23 | [Value ranges are inferred first, and subrange types wait for a profile](adr/0023-value-ranges-are-inferred-first-and-subrange-types.md) | Accepted | 2026-11-17 |
 | 24 | [A refactoring step may cost about 1 % speed if the back end gets much cleaner](adr/0024-a-refactoring-step-may-cost-about-1-speed-if-the.md) | Accepted | 2026-11-18 |
 | 25 | [dampf is under the Apache License 2.0 with LLVM Exceptions](adr/0025-dampf-is-under-the-apache-license-20-with-llvm.md) | Accepted | 2026-11-17 |
 | 26 | [Milestone N is version 0.N.0, and the first public version is an alpha](adr/0026-milestone-n-is-version-0n0-and-the-first-public.md) | Accepted; amended by 29 | 2026-11-18 |
 | 27 | [`goto` and labels stay rejected, and a forward and outward form is the most dampf will allow](adr/0027-goto-and-labels-stay-rejected-and-a-forward-and.md) | Accepted | 2026-11-18 |
 | 28 | [Options can be kept in an argument file, given by `--config` or `@file`](adr/0028-options-can-be-kept-in-an-argument-file-given-by.md) | Accepted | 2026-11-18 |
-| 29 | [superdevkit is the project, and dampf is its compiler](adr/0029-superdevkit-is-the-project-and-dampf-is-its.md) | Accepted; amended by 32, 34 | 2026-11-18 |
+| 29 | [superdevkit is the project, and dampf is its compiler](adr/0029-superdevkit-is-the-project-and-dampf-is-its.md) | Accepted; amended by 32, 34, 40 | 2026-11-18 |
 | 30 | [One book for superdevkit, with dampf as a part of its own](adr/0030-one-book-for-superdevkit-with-dampf-as-a-part-of.md) | Accepted | 2026-11-18 |
 | 31 | [The superdevkit command builds a project from its TOML file and calls the compilers itself](adr/0031-the-superdevkit-command-builds-a-project-from-its.md) | Accepted; amended by 39 | 2026-11-18 |
 | 32 | [Desktop and web are for prototyping, with sound, save RAM and a debug view the game registers into](adr/0032-desktop-and-web-are-for-prototyping-with-sound.md) | Accepted; amended by 34 | 2026-11-18 |
@@ -54,3 +54,4 @@ of its subject.
 | 37 | [Every game starts with the kit's splash screen, and a button shortens it](adr/0037-every-game-starts-with-the-kit-s-splash-screen.md) | Accepted | 2026-11-19 |
 | 38 | [The examples compare a checksum per tick on the SNES and the desktop, and the game names its state](adr/0038-the-examples-compare-a-checksum-per-tick-on-the.md) | Accepted | 2026-11-19 |
 | 39 | [win64 is built with MSVC, for now from WSL](adr/0039-win64-is-built-with-msvc-for-now-from-wsl.md) | Accepted | 2026-11-19 |
+| 40 | [The examples replace Blubber Blasen's snapshot as test case and benchmark](adr/0040-the-examples-replace-blubber-blasen-s-snapshot-as.md) | Accepted | 2026-11-19 |
