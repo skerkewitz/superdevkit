@@ -148,6 +148,14 @@ dev kit's library, and checks their best and worst cases against the table in `l
 `lib/rachael`. `RachaelTest` checks that Rachael counts the register writes she does not draw.
 Like `StyleGuideTest`, each fails when its document is no longer true.
 
+`SplashTest` checks the course of the splash screen every game of the dev kit starts with, the
+same code on every platform (`lib/splash/splash.h`). Without a button it fades in for 31
+frames, stays for three seconds (180 frames) and fades out for 31. A button pressed while it
+fades in or stays ends it once it has faded in, without the fade out. The test builds a small
+program on Rachael with gcc that presses A in a given frame and checks how many frames the
+splash lasted and the brightness of its last frame: a press in frame 5 ends it after 31 frames
+at full brightness, a press in frame 212, when the fade out has begun, changes nothing.
+
 ## dampf's emulator and Mesen
 
 The SNES side of the tests runs in `dampf.emu`, a 65816 emulator in Java with LoROM, work RAM and

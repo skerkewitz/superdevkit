@@ -96,7 +96,10 @@ needed for that while the repository is private. Its work falls into five parts:
   dampf, whose speed rules are measurements a test checks, and `lib/SNES_HARDWARE.md`, what the
   SNES allows and punishes and which of it the dev kit has. The main loop (`lib/snes/main.c`)
   is the library's, and the frame rhythm it calls (`game_init`, `game_tick`, `game_vblank`, the
-  pad bits) is declared in `lib/include/sdevkit/loop.h`. Done: every name a game can use starts
+  pad bits) is declared in `lib/include/sdevkit/loop.h`. Done: every game starts with the dev
+  kit's splash screen (`lib/splash`), which the main loop shows before `game_init`, on the SNES
+  and on the desktop: the logo fades in, stays three seconds and fades out, and a button ends it
+  once it has faded in. Done: every name a game can use starts
   with `sdevkit_` or `SDEVKIT_` (`oamSetXY` became `sdevkit_oam_set_xy`, `KEY_A` became
   `SDEVKIT_KEY_A`), so that it cannot clash with raylib, libc or the library's own helpers, and
   the desktop build checks that a game calls nothing else. `tools/sdevkit_rename.py` converts

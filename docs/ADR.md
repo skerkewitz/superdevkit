@@ -51,3 +51,4 @@ of its subject.
 | 34 | [Every name of the console API starts with `sdevkit_`, and a game reaches nothing else](adr/0034-every-name-of-the-console-api-starts-with.md) | Accepted | 2026-11-18 |
 | 35 | [The pseudo SNES is called Rachael](adr/0035-the-pseudo-snes-is-called-rachael.md) | Accepted | 2026-11-19 |
 | 36 | [One ROM for NTSC and PAL, with NTSC's limits, and PAL a sixth slower for now](adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md) | Accepted | 2026-11-19 |
+| 37 | [Every game starts with the kit's splash screen, and a button shortens it](adr/0037-every-game-starts-with-the-kit-s-splash-screen.md) | Accepted | 2026-11-19 |

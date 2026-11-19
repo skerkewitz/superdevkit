@@ -1,6 +1,9 @@
 # Proposal: a splash screen in every game made with superdevkit
 
-Status: proposal, 2026-11-19. Nothing is built yet.
+Status: built, 2026-11-19 (ADR record 37), with two changes by the user: no movement besides the
+fades, and the logo stays three seconds; a button pressed while it fades in or stays ends it once
+it has faded in. "Movement" below and the open question on switching it off are therefore not
+built.
 
 ## What
 
