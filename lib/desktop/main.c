@@ -18,6 +18,15 @@
  * The window shows the picture through the retro TV filter (crt.c); Tab turns it off and on,
  * --no-crt starts without it. Screenshots (F12, --check) are Rachael's picture, unfiltered.
  *
+ * Every session in the window is recorded: the joypad and the checksum of every tick. F11 flags
+ * the moment (a mark) and saves the session so far as <game>_rec_<n>.txt, a file in the format of
+ * check.txt ("ticks", "press", and "mark T" and "hash T H", which the other players skip), so
+ * the same file plays on the SNES too (dev/replay_example.sh). --replay file plays one in the
+ * window: it pauses at the first mark, and at the first tick whose checksum is not the recorded
+ * one; after its last tick the keyboard takes over (and the recording goes on). F5 pauses and
+ * goes on, F6 steps one tick while paused, F7 runs eight ticks a frame. With --check,
+ * --record file writes the recording of the check's run.
+ *
  * With --check <file> it runs without a window, with the input of the file (the format of the
  * examples' check.txt: "ticks N", "press T1 T2 buttons...", "shot T", "splash N"; on the desktop
  * every frame is one tick, and the splash comes before them, without input), writes the screenshots it
@@ -68,6 +77,184 @@ static unsigned sprite_lines;
 /* The checksum of each tick (sdevkit_dbg_hash), written by a check to hashes.txt. */
 static FILE *hashes;
 static long tick_count;
+static uint32_t last_hash;                 /* the checksum of the last tick */
+
+/* --- recordings ------------------------------------------------------------------------------- */
+static const struct { const char *name; uint16_t bit; } BUTTONS[] = {
+    { "b", 0x8000u }, { "y", 0x4000u }, { "select", 0x2000u }, { "start", 0x1000u },
+    { "up", 0x0800u }, { "down", 0x0400u }, { "left", 0x0200u }, { "right", 0x0100u },
+    { "a", 0x0080u }, { "x", 0x0040u }, { "l", 0x0020u }, { "r", 0x0010u },
+};
+#define NBUTTONS (sizeof BUTTONS / sizeof BUTTONS[0])
+#define MAX_MARKS 64
+
+/* The session being recorded: pad 1 and the checksum of every tick, and the marks. */
+static struct {
+    int on;
+    uint16_t *pad;
+    uint32_t *hash;
+    long n, cap;
+    long marks[MAX_MARKS];
+    int nmarks;
+} rec;
+
+static void *grow(void *p, size_t size)
+{
+    void *q = realloc(p, size);
+    if (q == NULL) {
+        fprintf(stderr, "%s: out of memory\n", GAME_NAME);
+        exit(2);
+    }
+    return q;
+}
+
+static void rec_tick(uint16_t pad, uint32_t hash)
+{
+    if (rec.n == rec.cap) {
+        rec.cap = rec.cap ? rec.cap * 2 : 4096;
+        rec.pad = grow(rec.pad, (size_t)rec.cap * sizeof rec.pad[0]);
+        rec.hash = grow(rec.hash, (size_t)rec.cap * sizeof rec.hash[0]);
+    }
+    rec.pad[rec.n] = pad;
+    rec.hash[rec.n] = hash;
+    rec.n++;
+}
+
+/* The session as a check.txt: a press line for every run of ticks with the same buttons held,
+ * the marks, and the checksum of every tick. */
+static int rec_save(const char *path)
+{
+    FILE *f = fopen(path, "wb");
+    long t, start;
+    int i;
+
+    if (f == NULL) {
+        fprintf(stderr, "%s: cannot write %s\n", GAME_NAME, path);
+        return 0;
+    }
+    fprintf(f, "# a recording of %s (lib/desktop): pad 1 and the checksum of every tick\n", GAME_NAME);
+    fprintf(f, "ticks %ld\n", rec.n);
+    for (start = 0; start < rec.n; start = t) {
+        uint16_t p = rec.pad[start];
+        for (t = start + 1; t < rec.n && rec.pad[t] == p; t++) {
+        }
+        if (p != 0) {
+            size_t b;
+            fprintf(f, "press %ld %ld", start, t);
+            for (b = 0; b < NBUTTONS; b++) {
+                if (p & BUTTONS[b].bit) {
+                    fprintf(f, " %s", BUTTONS[b].name);
+                }
+            }
+            fprintf(f, "\n");
+        }
+    }
+    for (i = 0; i < rec.nmarks; i++) {
+        fprintf(f, "mark %ld\n", rec.marks[i]);
+    }
+    for (t = 0; t < rec.n; t++) {
+        fprintf(f, "hash %ld %08x\n", t, (unsigned)rec.hash[t]);
+    }
+    fclose(f);
+    return 1;
+}
+
+/* A check.txt or a recording, read: pad 1 for every tick, the recorded checksums, the marks and
+ * the screenshots asked for. */
+typedef struct {
+    long ticks;
+    uint16_t *pad;
+    uint32_t *hash;
+    uint8_t *has_hash;
+    long *shots;
+    int nshots;
+    long marks[MAX_MARKS];
+    int nmarks;
+} Input;
+
+static uint16_t button(const char *name);
+static long splash_shots[64];
+static int splash_nshot;
+
+static long number(const char *path, const char *w)
+{
+    if (w == NULL) {
+        fprintf(stderr, "%s: a line ends too early\n", path);
+        exit(2);
+    }
+    return atol(w);
+}
+
+static int load_input(const char *path, Input *in, long default_ticks)
+{
+    char line[512];
+    long size;
+    FILE *f = fopen(path, "r");
+
+    memset(in, 0, sizeof *in);
+    in->ticks = default_ticks;
+    if (f == NULL) {
+        fprintf(stderr, "%s: no file %s\n", GAME_NAME, path);
+        return 0;
+    }
+    size = 0;                                       /* first: how many ticks the file speaks of */
+    while (fgets(line, sizeof line, f) != NULL) {
+        char *w = strtok(line, " \t\r\n");
+        if (w != NULL && strcmp(w, "ticks") == 0) {
+            in->ticks = number(path, strtok(NULL, " \t\r\n"));
+        } else if (w != NULL && strcmp(w, "press") == 0) {
+            long to;
+            number(path, strtok(NULL, " \t\r\n"));
+            to = number(path, strtok(NULL, " \t\r\n"));
+            if (to > size) {
+                size = to;
+            }
+        }
+    }
+    if (in->ticks > size) {
+        size = in->ticks;
+    }
+    in->pad = calloc((size_t)size + 1, sizeof in->pad[0]);
+    in->hash = calloc((size_t)size + 1, sizeof in->hash[0]);
+    in->has_hash = calloc((size_t)size + 1, 1);
+    in->shots = calloc((size_t)size + 1, sizeof in->shots[0]);
+    if (in->pad == NULL || in->hash == NULL || in->has_hash == NULL || in->shots == NULL) {
+        fprintf(stderr, "%s: out of memory\n", GAME_NAME);
+        exit(2);
+    }
+    rewind(f);
+    while (fgets(line, sizeof line, f) != NULL) {
+        char *w = strtok(line, " \t\r\n");
+        if (w == NULL || w[0] == '#') {
+            continue;
+        }
+        if (strcmp(w, "press") == 0) {
+            long from = number(path, strtok(NULL, " \t\r\n")), to = number(path, strtok(NULL, " \t\r\n")), t;
+            uint16_t bits = 0;
+            while ((w = strtok(NULL, " \t\r\n")) != NULL) {
+                bits |= button(w);
+            }
+            for (t = from < 0 ? 0 : from; t < to; t++) {
+                in->pad[t] |= bits;
+            }
+        } else if (strcmp(w, "hash") == 0) {
+            long t = number(path, strtok(NULL, " \t\r\n"));
+            const char *h = strtok(NULL, " \t\r\n");
+            if (t >= 0 && t < size && h != NULL) {
+                in->hash[t] = (uint32_t)strtoul(h, NULL, 16);
+                in->has_hash[t] = 1;
+            }
+        } else if (strcmp(w, "mark") == 0 && in->nmarks < MAX_MARKS) {
+            in->marks[in->nmarks++] = number(path, strtok(NULL, " \t\r\n"));
+        } else if (strcmp(w, "shot") == 0 && in->nshots < size) {
+            in->shots[in->nshots++] = number(path, strtok(NULL, " \t\r\n"));
+        } else if (strcmp(w, "splash") == 0 && splash_nshot < 64) {
+            splash_shots[splash_nshot++] = number(path, strtok(NULL, " \t\r\n"));
+        }
+    }
+    fclose(f);
+    return 1;
+}
 
 /* One frame of the console; returns the bytes lost in it: those written during the picture
  * (in game_tick, which the vertical blank would otherwise forget) and those over the vertical
@@ -83,6 +270,10 @@ static unsigned frame_step(const uint16_t pad[SDEVKIT_PADS])
         if (hashes != NULL) {
             fprintf(hashes, "%ld %08x\n", tick_count, (unsigned)h);
         }
+        if (rec.on) {
+            rec_tick(pad[0], h);
+        }
+        last_hash = h;
         tick_count++;
     }
     lost = sdevkit__stats().dma_lost;
@@ -108,8 +299,6 @@ static int splash_scale;                /* the window's first scale; 0: a check,
 static Texture2D splash_texture;
 static long splash_count;               /* frames of the splash so far */
 static const char *splash_out = ".";
-static long splash_shots[64];
-static int splash_nshot;
 
 static uint16_t keyboard(void);
 static void show(Texture2D tex);
@@ -223,12 +412,58 @@ static void report_undrawn(FILE *out)
     }
 }
 
-static int window(int scale, int no_crt)
+/* The window's title: the game, the tick, and what the debugger does. */
+static void title(int paused, int fast, int replaying)
+{
+    char t[160];
+
+    snprintf(t, sizeof t, "%s (superdevkit) - tick %ld%s%s%s", GAME_NAME, tick_count,
+             replaying ? " - replay" : "", paused ? " - paused (F5 on, F6 a tick)" : "", fast ? " - fast" : "");
+    SetWindowTitle(t);
+}
+
+/* F11: a mark at this tick, and the session so far into the next free <game>_rec_<n>.txt. */
+static void flag(void)
+{
+    char name[64];
+    int n;
+    FILE *f;
+
+    if (rec.nmarks < MAX_MARKS) {
+        rec.marks[rec.nmarks++] = tick_count;
+    }
+    for (n = 0; n < 1000; n++) {
+        snprintf(name, sizeof name, "%s_rec_%d.txt", GAME_NAME, n);
+        f = fopen(name, "r");
+        if (f == NULL) {
+            break;
+        }
+        fclose(f);
+    }
+    if (rec_save(name)) {
+        fprintf(stderr, "%s: tick %ld flagged, the recording is %s\n", GAME_NAME, tick_count, name);
+    }
+}
+
+static int window(int scale, int no_crt, const char *replay_file)
 {
     Texture2D tex;
     unsigned lost = 0;
     int shots = 0;
+    Input replay;
+    int replaying = 0, paused = 0, fast = 0, reported = 0, next_mark = 0;
+    long shown_tick = -1;
 
+    if (replay_file != NULL) {
+        int m;
+        if (!load_input(replay_file, &replay, 0)) {
+            return 2;
+        }
+        replaying = 1;
+        for (m = 0; m < replay.nmarks && rec.nmarks < MAX_MARKS; m++) {
+            rec.marks[rec.nmarks++] = replay.marks[m];   /* a new recording keeps the old marks */
+        }
+    }
     SetTraceLogLevel(LOG_WARNING);
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(SDEVKIT__W * scale, SDEVKIT__H * scale, GAME_NAME " (superdevkit)");
@@ -241,12 +476,51 @@ static int window(int scale, int no_crt)
     crt_on = crt_ok && !no_crt;
     splash_texture = tex;
     splash_scale = scale;
+    rec.on = 1;
     start();
     while (!WindowShouldClose()) {
-        uint16_t pad[SDEVKIT_PADS] = { 0, 0 };
-        pad[0] = keyboard();
-        lost += frame_step(pad);
+        int steps = paused ? (IsKeyPressed(KEY_F6) ? 1 : 0) : fast ? 8 : 1;
+        int k;
+        if (IsKeyPressed(KEY_F5)) {
+            paused = !paused;
+        }
+        if (IsKeyPressed(KEY_F7)) {
+            fast = !fast;
+        }
+        if (IsKeyPressed(KEY_F11)) {
+            flag();
+        }
+        for (k = 0; k < steps; k++) {
+            uint16_t pad[SDEVKIT_PADS] = { 0, 0 };
+            long t = tick_count;
+            if (replaying && t >= replay.ticks) {
+                replaying = 0;                      /* the recording is over: the keyboard plays on */
+                fprintf(stderr, "%s: the replay ended at tick %ld\n", GAME_NAME, t);
+            }
+            pad[0] = replaying ? replay.pad[t] : keyboard();
+            lost += frame_step(pad);
+            if (replaying && replay.has_hash[t] && replay.hash[t] != last_hash && !reported) {
+                fprintf(stderr, "%s: tick %ld has checksum %08x, the recording %08x: from here it plays "
+                                "another game\n", GAME_NAME, t, (unsigned)last_hash, (unsigned)replay.hash[t]);
+                reported = 1;
+                paused = 1;
+            }
+            if (replaying && next_mark < replay.nmarks && tick_count == replay.marks[next_mark]) {
+                fprintf(stderr, "%s: the mark at tick %ld\n", GAME_NAME, tick_count);
+                next_mark++;
+                paused = 1;
+            }
+            if (paused) {
+                break;
+            }
+        }
         show(tex);
+        if (tick_count != shown_tick || IsKeyPressed(KEY_F5) || IsKeyPressed(KEY_F7)) {
+            if ((tick_count & 15) == 0 || paused || fast || tick_count - shown_tick != 1) {
+                title(paused, fast, replaying);
+            }
+            shown_tick = tick_count;
+        }
         if (IsKeyPressed(KEY_F12)) {
             char name[64];
             snprintf(name, sizeof name, "%s_%d.png", GAME_NAME, shots++);
@@ -264,71 +538,30 @@ static int window(int scale, int no_crt)
 }
 
 /* --- without a window: a check ---------------------------------------------------------------- */
-typedef struct {
-    long from, to;
-    uint16_t buttons;
-} Press;
-
 static uint16_t button(const char *name)
 {
-    static const struct { const char *name; uint16_t bit; } names[] = {
-        { "b", 0x8000u }, { "y", 0x4000u }, { "select", 0x2000u }, { "start", 0x1000u },
-        { "up", 0x0800u }, { "down", 0x0400u }, { "left", 0x0200u }, { "right", 0x0100u },
-        { "a", 0x0080u }, { "x", 0x0040u }, { "l", 0x0020u }, { "r", 0x0010u },
-    };
     size_t i;
 
-    for (i = 0; i < sizeof names / sizeof names[0]; i++) {
-        if (strcmp(names[i].name, name) == 0) {
-            return names[i].bit;
+    for (i = 0; i < NBUTTONS; i++) {
+        if (strcmp(BUTTONS[i].name, name) == 0) {
+            return BUTTONS[i].bit;
         }
     }
     fprintf(stderr, "check: unknown button '%s'\n", name);
     exit(2);
 }
 
-#define CHECK_LINES 4096                /* press and shot lines a check may have, each */
-
-static int check(const char *path, const char *out)
+/* Plays the input of a check.txt (or a recording) without a window. With a recording's
+ * checksums, a tick that differs is reported, and the exit status is 1. */
+static int check(const char *path, const char *out, const char *record)
 {
-    static Press presses[CHECK_LINES];
-    static long shots[CHECK_LINES];
-    int npress = 0, nshot = 0;
-    long frames = 600, f;
+    Input in;
+    long f, differs = -1;
     unsigned lost = 0;
-    char line[256];
-    FILE *in = fopen(path, "r");
 
-    if (in == NULL) {
-        fprintf(stderr, "check: no file %s\n", path);
+    if (!load_input(path, &in, 600)) {
         return 2;
     }
-    while (fgets(line, sizeof line, in) != NULL) {
-        char *w = strtok(line, " \t\r\n");
-        if (w == NULL) {
-            continue;
-        }
-        if (strcmp(w, "ticks") == 0) {
-            frames = atol(strtok(NULL, " \t\r\n"));
-        } else if ((strcmp(w, "shot") == 0 && nshot == CHECK_LINES) || (strcmp(w, "press") == 0 && npress == CHECK_LINES)) {
-            fprintf(stderr, "check: %s has more than %d %s lines\n", path, CHECK_LINES, w);
-            fclose(in);
-            return 2;
-        } else if (strcmp(w, "shot") == 0) {
-            shots[nshot++] = atol(strtok(NULL, " \t\r\n"));
-        } else if (strcmp(w, "splash") == 0 && splash_nshot < 64) {
-            splash_shots[splash_nshot++] = atol(strtok(NULL, " \t\r\n"));
-        } else if (strcmp(w, "press") == 0) {
-            Press *p = &presses[npress++];
-            p->from = atol(strtok(NULL, " \t\r\n"));
-            p->to = atol(strtok(NULL, " \t\r\n"));
-            p->buttons = 0;
-            while ((w = strtok(NULL, " \t\r\n")) != NULL) {
-                p->buttons |= button(w);
-            }
-        }
-    }
-    fclose(in);
     splash_out = out;
     {
         char name[512];
@@ -339,23 +572,24 @@ static int check(const char *path, const char *out)
             return 2;
         }
     }
+    rec.on = record != NULL;
     start();
-    for (f = 0; f < frames; f++) {
+    for (f = 0; f < in.ticks; f++) {
         uint16_t pad[SDEVKIT_PADS] = { 0, 0 };
         unsigned l;
         int i;
-        for (i = 0; i < npress; i++) {
-            if (f >= presses[i].from && f < presses[i].to) {
-                pad[0] |= presses[i].buttons;
-            }
-        }
+        pad[0] = in.pad[f];
         l = frame_step(pad);
         if (l > 0) {
             printf("lost frame %ld: %u bytes\n", f + 1, l);
         }
         lost += l;
-        for (i = 0; i < nshot; i++) {
-            if (shots[i] == f + 1) {
+        if (differs < 0 && in.has_hash[f] && in.hash[f] != last_hash) {
+            differs = f;
+            printf("tick %ld has checksum %08x, the recording %08x\n", f, (unsigned)last_hash, (unsigned)in.hash[f]);
+        }
+        for (i = 0; i < in.nshots; i++) {
+            if (in.shots[i] == f + 1) {
                 char name[512];
                 snprintf(name, sizeof name, "%s/example_shot_%ld.png", out, f + 1);
                 save_png(name);
@@ -364,15 +598,26 @@ static int check(const char *path, const char *out)
     }
     fclose(hashes);
     hashes = NULL;
+    if (record != NULL) {
+        int i;
+        for (i = 0; i < in.nmarks && rec.nmarks < MAX_MARKS; i++) {
+            rec.marks[rec.nmarks++] = in.marks[i];
+        }
+        if (!rec_save(record)) {
+            return 2;
+        }
+    }
     report_undrawn(stdout);
-    printf("frames %ld ticks %ld lost %u undrawn %u sprites %u\n", frames, frames, lost, sdevkit__rachael.undrawn,
+    printf("frames %ld ticks %ld lost %u undrawn %u sprites %u\n", in.ticks, in.ticks, lost, sdevkit__rachael.undrawn,
            sprite_lines);
-    return lost > 0 || sdevkit__rachael.undrawn > 0 ? 1 : 0;
+    return lost > 0 || sdevkit__rachael.undrawn > 0 || differs >= 0 ? 1 : 0;
 }
 
 int main(int argc, char **argv)
 {
     const char *check_file = NULL;
+    const char *replay_file = NULL;
+    const char *record_file = NULL;
     const char *out = ".";
     int scale = 3;
     int no_crt = 0;
@@ -381,6 +626,10 @@ int main(int argc, char **argv)
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--check") == 0 && i + 1 < argc) {
             check_file = argv[++i];
+        } else if (strcmp(argv[i], "--replay") == 0 && i + 1 < argc) {
+            replay_file = argv[++i];
+        } else if (strcmp(argv[i], "--record") == 0 && i + 1 < argc) {
+            record_file = argv[++i];
         } else if (strcmp(argv[i], "--out") == 0 && i + 1 < argc) {
             out = argv[++i];
         } else if (strcmp(argv[i], "--scale") == 0 && i + 1 < argc) {
@@ -388,13 +637,14 @@ int main(int argc, char **argv)
         } else if (strcmp(argv[i], "--no-crt") == 0) {
             no_crt = 1;
         } else {
-            fprintf(stderr, "usage: %s [--scale N] [--no-crt] [--check check.txt [--out dir]]\n", argv[0]);
+            fprintf(stderr, "usage: %s [--scale N] [--no-crt] [--replay recording.txt]\n"
+                            "       %s --check check.txt [--out dir] [--record recording.txt]\n", argv[0], argv[0]);
             return 2;
         }
     }
     if (check_file != NULL) {
         SetTraceLogLevel(LOG_WARNING);
-        return check(check_file, out);
+        return check(check_file, out, record_file);
     }
-    return window(scale < 1 ? 1 : scale, no_crt);
+    return window(scale < 1 ? 1 : scale, no_crt, replay_file);
 }

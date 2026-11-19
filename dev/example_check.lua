@@ -30,9 +30,14 @@ local ok, err = pcall(function()
     elseif w[1] == "shot" then shots[tonumber(w[2])] = true
     elseif w[1] == "splash" then splash[tonumber(w[2])] = true
     elseif w[1] == "press" then
-      local p = { from = tonumber(w[2]), to = tonumber(w[3]), buttons = {} }
-      for i = 4, #w do p.buttons[w[i]] = true end
-      presses[#presses + 1] = p
+      -- the buttons of every tick, worked out once: a recording of the desktop (lib/desktop,
+      -- F11) has thousands of press lines; its "hash" and "mark" lines are not read here
+      local from, to = tonumber(w[2]), tonumber(w[3])
+      for t = math.max(from, 0), to - 1 do
+        local held = presses[t]
+        if not held then held = {}; presses[t] = held end
+        for i = 4, #w do held[w[i]] = true end
+      end
     end
   end
   local out = io.open("example_check.txt", "w")
@@ -90,14 +95,10 @@ local ok, err = pcall(function()
     lostNow[what] = (lostNow[what] or 0) + 1
   end, emu.callbackType.write, 0x2104, 0x2122)
   emu.addEventCallback(function()
+    -- the joypad is read at the start of the vertical blank, before the copy that ends the
+    -- running tick: what is set now is what the next tick reads
     local input = {}
-    for _, p in ipairs(presses) do
-      -- the joypad is read at the start of the vertical blank, before the copy that ends the
-      -- running tick: what is set now is what the next tick reads
-      if ticks + 1 >= p.from and ticks + 1 < p.to then
-        for b in pairs(p.buttons) do input[b] = true end
-      end
-    end
+    for b in pairs(presses[ticks + 1] or {}) do input[b] = true end
     emu.setInput(input, 0)
   end, emu.eventType.inputPolled)
   emu.addEventCallback(function()

@@ -4,6 +4,7 @@
 # screenshots it asks for go to examples/<name>/build/check/.
 #   dev/check_example.sh catchme             builds the example first (its build.sh)
 #   NOBUILD=1 dev/check_example.sh catchme   checks the ROM as it is
+#   INPUT=rec.txt dev/check_example.sh ertuep with another input than check.txt (a recording)
 # MESEN=<path> picks Mesen (default: MesenCE in .mesen/, dev/mesen.sh).
 set -e
 cd "$(dirname "$0")/.."
@@ -15,7 +16,7 @@ OUT=$EX/build/check
 rm -rf "$OUT" && mkdir -p "$OUT"
 cp "$EX/build/$NAME.sfc" "$MESEN_DIR/example_check.sfc"
 cp dev/example_check.lua "$MESEN_DIR/example_check.lua"
-cp "$EX/check.txt" "$MESEN_DIR/example_input.txt"
+cp "${INPUT:-$EX/check.txt}" "$MESEN_DIR/example_input.txt"
 rm -f "$MESEN_DIR/example_check.txt" "$MESEN_DIR/example_hashes.txt" "$MESEN_DIR"/example_shot_*.png "$MESEN_DIR"/example_splash_*.png
 mesen_run 600 example_check.sfc example_check.lua
 [ -f "$MESEN_DIR/example_check.txt" ] || { echo "check: Mesen wrote no example_check.txt"; exit 1; }

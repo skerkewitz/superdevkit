@@ -41,27 +41,46 @@ public final class ExampleCheck {
     /** A {@code budget FROM TO} line: no tick from {@code from} to {@code to - 1} may take more than a frame. */
     public record Budget(long from, long to) {}
 
-    /** The input of a check: how many ticks to play, what is pressed when, and the budgets. */
-    public record Input(long ticks, List<Press> presses, List<Budget> budgets) {
-        public int pad(long tick) {
-            int p = 0;
-            for (Press press : presses) {
-                if (tick >= press.from && tick < press.to) {
-                    p |= press.buttons;
+    /**
+     * The input of a check: how many ticks to play, what is pressed when, and the budgets; and of
+     * a recording (lib/desktop), the checksum it recorded for each tick ({@code hash T H} lines,
+     * -1 where there is none) and its marks ({@code mark T}). The joypad of every tick is worked
+     * out once: a recording has thousands of press lines.
+     */
+    public record Input(long ticks, List<Press> presses, List<Budget> budgets, long[] recorded, List<Long> marks, int[] pads) {
+        public Input(long ticks, List<Press> presses, List<Budget> budgets) {
+            this(ticks, presses, budgets, new long[0], List.of(), pads(ticks, presses));
+        }
+
+        private static int[] pads(long ticks, List<Press> presses) {
+            long n = ticks;
+            for (Press p : presses) {
+                n = Math.max(n, p.to);
+            }
+            int[] pads = new int[(int) n];
+            for (Press p : presses) {
+                for (long t = Math.max(0, p.from); t < p.to; t++) {
+                    pads[(int) t] |= p.buttons;
                 }
             }
-            return p;
+            return pads;
+        }
+
+        public int pad(long tick) {
+            return tick >= 0 && tick < pads.length ? pads[(int) tick] : 0;
+        }
+
+        /** The checksum recorded for this tick, or -1. */
+        public long recorded(long tick) {
+            return tick >= 0 && tick < recorded.length ? recorded[(int) tick] : -1;
         }
     }
 
     /**
      * What a run gave: the checksum after each tick, the frames the ticks took (from the end of
-     * the splash screen), the master cycles of the slowest tick, and the master clock at the end
-     * of each tick.
-     */
-    /**
-     * {@code vblankAtEnd}: for each tick, how many vertical blanks had begun when it ended, times
-     * two, plus one when it ended inside one.
+     * the splash screen), the master cycles of the slowest tick, the master clock at the end of
+     * each tick, and for each tick how many vertical blanks had begun when it ended, times two,
+     * plus one when it ended inside one ({@code vblankAtEnd}).
      */
     public record Result(List<Long> hashes, long frames, long slowestTick, List<Long> tickEnds, List<Long> vblankAtEnd) {
         public double framesPerTick() {
@@ -114,13 +133,53 @@ public final class ExampleCheck {
     private ExampleCheck() {
     }
 
+    /**
+     * Plays a check.txt or a recording of the desktop (lib/desktop, F11) in dampf's emulator and
+     * compares the checksum of every tick with the one recorded:
+     * <pre>
+     *   java -cp 'build/install/dampf/lib/*' dampf.emu.ExampleCheck rom.sfc recording.txt [hashes.txt]
+     * </pre>
+     * prints the first tick that differs (exit status 1) or how many ticks were the same, and writes
+     * the checksums in the desktop's format to hashes.txt when one is named.
+     */
+    public static void main(String[] args) throws IOException {
+        if (args.length < 2 || args.length > 3) {
+            System.err.println("usage: ExampleCheck rom.sfc recording.txt [hashes.txt]");
+            System.exit(2);
+        }
+        Input input = parse(Path.of(args[1]));
+        Result r = run(Files.readAllBytes(Path.of(args[0])), input, 40 * input.ticks() + 2000);
+        if (args.length == 3) {
+            Files.write(Path.of(args[2]), r.lines());
+        }
+        long compared = 0;
+        for (int t = 0; t < r.hashes().size(); t++) {
+            long want = input.recorded(t);
+            if (want < 0) {
+                continue;
+            }
+            compared++;
+            if (want != r.hashes().get(t)) {
+                System.out.printf("tick %d has checksum %08x on the SNES, the recording %08x%n", t, r.hashes().get(t), want);
+                System.exit(1);
+            }
+        }
+        System.out.printf("%d ticks played, %d checksums the same as the recording%n", r.hashes().size(), compared);
+    }
+
     public static Input parse(Path checkTxt) throws IOException {
         long ticks = 600;
         List<Press> presses = new ArrayList<>();
         List<Budget> budgets = new ArrayList<>();
+        Map<Long, Long> recorded = new java.util.HashMap<>();
+        List<Long> marks = new ArrayList<>();
         for (String line : Files.readAllLines(checkTxt)) {
             String[] w = line.strip().split("\\s+");
-            if (w[0].equals("ticks")) {
+            if (w[0].equals("hash")) {
+                recorded.put(Long.parseLong(w[1]), Long.parseLong(w[2], 16));
+            } else if (w[0].equals("mark")) {
+                marks.add(Long.parseLong(w[1]));
+            } else if (w[0].equals("ticks")) {
                 ticks = Long.parseLong(w[1]);
             } else if (w[0].equals("budget")) {
                 budgets.add(new Budget(Long.parseLong(w[1]), Long.parseLong(w[2])));
@@ -136,7 +195,11 @@ public final class ExampleCheck {
                 presses.add(new Press(Long.parseLong(w[1]), Long.parseLong(w[2]), b));
             }
         }
-        return new Input(ticks, List.copyOf(presses), List.copyOf(budgets));
+        long[] byTick = new long[recorded.isEmpty() ? 0 : (int) (java.util.Collections.max(recorded.keySet()) + 1)];
+        java.util.Arrays.fill(byTick, -1);
+        recorded.forEach((t, h) -> byTick[t.intValue()] = h);
+        Input plain = new Input(ticks, List.copyOf(presses), List.copyOf(budgets));
+        return new Input(ticks, plain.presses(), plain.budgets(), byTick, List.copyOf(marks), plain.pads());
     }
 
     /** Plays {@code rom} until {@code input.ticks()} ticks are done or {@code limitFrames} frames passed. */

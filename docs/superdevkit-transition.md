@@ -149,7 +149,9 @@ Done when: `LibApiTest` covers the new headers; an execution test per stub on th
 Built for Linux (during M5): `lib/desktop/main.c` with a window, the keyboard and a gamepad, the
 frame rhythm, F12 for a screenshot, and `--check` without a window; `tools/build_desktop.sh` and
 `tools/fetch_raylib.sh` until the CLI; Windows with MSVC from WSL, `tools/build_desktop_windows.sh`
-(ADR record 39); the CRT filter of Blubber Blasen's frontend (`lib/desktop/crt.c`, Tab, `--no-crt`).
+(ADR record 39); the CRT filter of Blubber Blasen's frontend (`lib/desktop/crt.c`, Tab, `--no-crt`);
+every session recorded, F11 saves it, `--replay` with pause and single steps, the recording
+played on the SNES side by `dev/replay_example.sh`.
 Still to do: sound and music, save RAM, the debug view. The plan as it was:
 
 `lib/desktop` in C with raylib: the window (256 x 224 scaled to whole multiples), the frame

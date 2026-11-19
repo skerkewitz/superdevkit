@@ -84,6 +84,14 @@ cycles of a range of ticks to the functions of the ROM, and with the ROM's `.dbg
 its C lines, which shows where in a function, and in the functions dampf inlined, the time goes. `dev/compare_example.sh` compares Mesen's checksums with the desktop's too,
 with the pictures.
 
+**Recordings.** Every session in the desktop's window is recorded, the joypad and the checksum of
+every tick; F11 saves it in the format of `check.txt` (with `mark` and `hash` lines, which the
+other players skip), so a bug seen on the desktop can be played again: in the window
+(`--replay`, which pauses at the marks and at the first tick whose checksum differs from the
+recorded one), and on the SNES side (`dev/replay_example.sh`: dampf's emulator, and Mesen).
+`ExamplesTest` has every example's check written as a recording too (`--record`) and requires the
+same buttons and the SNES's checksum for every tick in it.
+
 **The examples' benchmark** (`dev/bench_examples.sh`) plays every example's `check.txt` and
 measures the work of each tick: its master cycles without the main loop's waiting, so an example
 that does the same work every tick (Mandelbrot) shows a faster compiler as less work, not as

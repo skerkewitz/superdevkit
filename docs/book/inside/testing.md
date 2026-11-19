@@ -92,6 +92,14 @@ budget covers its busiest waves. To see where that time goes,
 range of ticks to the functions of the ROM, and, with the ROM's `.dbg` file beside it, to its C
 lines, including the lines of functions dampf inlined.
 
+**Recordings.** Every session in the desktop's window is recorded: the joypad and the checksum
+of every [tick](/glossary#tick). F11 saves it in the format of `check.txt`, with `mark` and
+`hash` lines that the other players skip, so a bug seen on the desktop can be played again: in
+the window with `--replay`, which pauses at the marks and at the first tick whose checksum is not
+the recorded one, and on the SNES side with `dev/replay_example.sh`, in dampf's emulator and in
+Mesen. `ExamplesTest` writes every example's check as a recording too (`--record`) and requires
+the same buttons and the SNES's checksum for every tick in it.
+
 **The static timing on the examples** is checked by `ExamplesTimingTest`. It builds every
 example with the code generator from MIR and runs it for 3,000 frames without input in dampf's
 emulator: the titles' demos play, Mandelbrot computes, Schach plays. Every
@@ -248,6 +256,7 @@ Gradle properties:
 | `BASELINE=<table> dev/bench_examples.sh` | the same, and the ratio to an earlier table, per example and as the geometric mean |
 | `dev/check_example.sh <name>` | an example in Mesen: lost bytes, screenshots, checksums of every tick |
 | `dev/compare_example.sh <name>` | an example in Mesen and on the desktop: checksums of every tick and screenshots compared |
+| `dev/replay_example.sh <name> <recording>` | a recording of the desktop on the SNES side, in dampf's emulator (`WITH_MESEN=1`: in Mesen too): the first tick whose checksum differs |
 
 The first run with `-PcpuTests` downloads the start of each opcode's file of the suite, about
 50 MB, into `~/.cache/dampf/65816-tests`; later runs use the copy. Without a property, the tests

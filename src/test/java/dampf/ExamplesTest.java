@@ -31,7 +31,9 @@ import org.junit.jupiter.api.TestFactory;
  *   <li>the desktop (where raylib was fetched, tools/fetch_raylib.sh linux: the tests download
  *       nothing): tools/build_desktop.sh, then the same check without a window, without a byte
  *       the SNES would lose and without a register write Rachael does not draw, its checksums
- *       into {@code build/desktop-check/hashes.txt};</li>
+ *       into {@code build/desktop-check/hashes.txt}, and the run's recording ({@code --record}:
+ *       the format a session in the window is saved in with F11) must have the same buttons and
+ *       the SNES's checksum for every tick;</li>
  *   <li>both lists the same: dampf's code and gcc's, lib/snes and Rachael computed the same game.
  *       The first tick that differs is named.</li>
  * </ol>
@@ -79,7 +81,9 @@ public class ExamplesTest {
             }
             run("sh", "tools/build_desktop.sh", ex.toString());
             Path out = Files.createDirectories(ex.resolve("build/desktop-check"));
-            String result = run(ex.resolve("build/linux/" + name).toString(), "--check", check.toString(), "--out", out.toString());
+            Path recording = out.resolve("recording.txt");
+            String result = run(ex.resolve("build/linux/" + name).toString(), "--check", check.toString(), "--out", out.toString(),
+                    "--record", recording.toString());
             assertTrue(result.contains(" lost 0"), result);
             assertTrue(result.contains(" undrawn 0"), result);
             List<String> pc = Files.readAllLines(out.resolve("hashes.txt"));
@@ -91,6 +95,15 @@ public class ExamplesTest {
                 }
             }
             assertEquals(pc.size(), sn.size(), name + ": ticks played");
+
+            // the desktop's recording of the same run (lib/desktop, F11 in the window) is a check.txt
+            // of its own: the same buttons every tick, and the SNES's checksums
+            ExampleCheck.Input rec = ExampleCheck.parse(recording);
+            assertEquals(input.ticks(), rec.ticks(), name + ": ticks recorded");
+            for (long t = 0; t < input.ticks(); t++) {
+                assertEquals(input.pad(t), rec.pad(t), name + ": the recorded buttons of tick " + t);
+                assertEquals(snes.hashes().get((int) t), rec.recorded(t), name + ": the recorded checksum of tick " + t);
+            }
         }));
     }
 
