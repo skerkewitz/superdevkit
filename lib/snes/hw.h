@@ -38,6 +38,11 @@
 #define OPVCT    REG8(0x213D)   /* latched V counter: low byte, then bit 8 */
 #define STAT78   REG8(0x213F)   /* reading it resets the OPHCT/OPVCT byte order */
 
+/* Ports no hardware uses, for the checks (dampf's emulator, dev/example_check.lua). $21FA and
+ * $21FB are the benchmark's and the tests' (a tick of the benchmark, the end of a test). */
+#define DBG_HASH REG8(0x21FC)   /* sdevkit_dbg_hash: five bytes, address and size */
+#define DBG_TICK REG8(0x21FD)   /* the main loop: 1 after game_init, 0 after each game_tick */
+
 /* CPU */
 #define NMITIMEN REG8(0x4200)
 #define WRIO     REG8(0x4201)

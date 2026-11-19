@@ -649,6 +649,13 @@ void game_tick(const uint16_t pad[SDEVKIT_PADS])
         break;
     }
     draw_sprites();
+    /* the state for the checks, which compare the SNES and the PC after every tick
+     * (sdevkit_dbg_hash): the position, its key, and where the game is */
+    sdevkit_dbg_hash(board, sizeof board);
+    sdevkit_dbg_hash(&hash_lo, sizeof hash_lo);
+    sdevkit_dbg_hash(&hash_hi, sizeof hash_hi);
+    sdevkit_dbg_hash(&state, sizeof state);
+    sdevkit_dbg_hash(&plies, sizeof plies);
 }
 
 void game_vblank(void)

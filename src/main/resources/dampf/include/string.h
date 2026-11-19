@@ -14,6 +14,11 @@
 
 #include <stdint.h>
 
+#ifdef _MSC_VER
+/* MSVC knows these two as intrinsics and refuses a definition of them; this makes them functions */
+#pragma function(memset, memcpy)
+#endif
+
 static void *memset(void *s, uint8_t c, uint16_t n)
 {
     uint8_t *p = (uint8_t *)s;

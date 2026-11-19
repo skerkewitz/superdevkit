@@ -32,15 +32,19 @@
 /* one unsigned comparison: no "always true" warning for an unsigned v and lo 0 (-Wextra) */
 #define DAMPF_RANGE_HOLDS(v, lo, hi) \
     ((unsigned long long)(v) - (unsigned long long)(lo) <= (unsigned long long)(hi) - (unsigned long long)(lo))
-#if __STDC_HOSTED__
+#if __STDC_HOSTED__ && !defined(_MSC_VER)
 #include <assert.h>
 #define DAMPF_RANGE(v, lo, hi) assert(DAMPF_RANGE_HOLDS(v, lo, hi) && "DAMPF_RANGE(" #v ", " #lo ", " #hi ")")
 #elif defined(NDEBUG)
 #define DAMPF_RANGE(v, lo, hi) ((void)0)
 #else
-/* without the host's headers (the desktop build of a game: -nostdinc -ffreestanding), no <assert.h>:
- * a wrong hint stops the program all the same */
+/* without the host's headers (the desktop build of a game: -nostdinc -ffreestanding, or MSVC's
+ * /X, which still calls itself hosted), no <assert.h>: a wrong hint stops the program all the same */
+#ifdef _MSC_VER
+#define DAMPF_RANGE(v, lo, hi) (DAMPF_RANGE_HOLDS(v, lo, hi) ? (void)0 : __debugbreak())
+#else
 #define DAMPF_RANGE(v, lo, hi) (DAMPF_RANGE_HOLDS(v, lo, hi) ? (void)0 : __builtin_trap())
+#endif
 #endif
 /* checked by dampf at build time; the emulator tests measure it */
 #define DAMPF_BUDGET(cycles)

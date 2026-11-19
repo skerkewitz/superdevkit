@@ -9,6 +9,7 @@ does not say. This is the agreed design; where the hints fit into the milestones
 | `DAMPF_RANGE` | yes |
 | `DAMPF_BUDGET` | yes ([timing.md](timing.md)) |
 | `DAMPF_TRIPS` | no, postponed (see "As built") |
+| `DAMPF_AT_MOST` | no, to be looked into ([roadmap.md](roadmap.md), M11) |
 | `restrict` | no, rejected by the front end ("not supported yet") |
 | `DAMPF_LIKELY` / `DAMPF_UNLIKELY`, unroll hint, `DAMPF_PIN_X`, `DAMPF_SPLIT`, `DAMPF_TABLE`, `DAMPF_DP` | no |
 | subrange types (`DAMPF_RANGED`, `DAMPF_AS`) | no ([subrange-types.md](subrange-types.md)) |
@@ -40,6 +41,7 @@ The working names are the names.
 | "store this array of structs as one array per field" | `DAMPF_SPLIT` on the array | One array per field, accessed as `lda bub_x,x` |
 | "this function only ever gets 256 different inputs" | `DAMPF_TABLE` on the function | dampf evaluates the function for every input **at compile time** and places the results as a table in ROM. At run time the call becomes one indexed read. |
 | "this variable belongs in the direct page" | `DAMPF_DP` | A fixed direct page slot |
+| "this branch runs at most 4 times per call of the function, however often the loop around it runs" | `DAMPF_AT_MOST(4)` at the start of the branch | The timing analysis counts the branch's cost 4 times per call instead of once per iteration: a pair loop's rare hit (an enemy killed, an item collected) no longer makes its worst case a hundred frames. On the PC a counter per call checks it |
 | "this function must finish within N cycles" | `DAMPF_BUDGET(n)` | A compile error if its worst case is higher ([timing.md](timing.md)) |
 
 `DAMPF_TABLE` shows how far this goes: with a known input range, the compiler can do what a human

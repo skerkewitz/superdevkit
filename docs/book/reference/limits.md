@@ -82,9 +82,14 @@ carry the CPU cycles of each instruction, and each straight-line C line their su
 branches does not show its best and worst case yet, and neither the report nor a budget error
 shows the costliest path line by line. A loop whose bound dampf cannot find in the code makes a
 worst case "unbounded", which is so for 37 functions of Blubber Blasen; such a loop needs a
-hint, as described above. All of this is M11: master clocks in the report, the comments and the
-budgets, the costliest path per C line, bounds for more loops, the measured cycles checked, and
-DRAM refresh, HDMA and interrupts at frame level. For measured cycles per function, use
+hint, as described above. A loop over pairs of objects gets a worst case far above what play
+takes, because a path that is rare in every pair, such as a hit that kills or drops an item, is
+counted in every pair: the `collide` function of Er-Tüp, one of the kit's examples, is
+5.4 million CPU cycles at worst and a few thousand in play, so a `DAMPF_BUDGET` is of no use
+there. Er-Tüp guards that frame with a budget measured in its check instead. All of this is M11:
+master clocks in the report, the comments and the budgets, the costliest path per C line, bounds
+for more loops, a hint for how often a path runs or a bound per call chain for pair loops, the
+measured cycles checked, and DRAM refresh, HDMA and interrupts at frame level. For measured cycles per function, use
 `dampf profile` ([Command line](/reference/command-line)).
 
 **An own preprocessor.** dampf preprocesses the C source with `gcc -E`, so you need gcc

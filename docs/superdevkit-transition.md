@@ -148,8 +148,9 @@ Done when: `LibApiTest` covers the new headers; an execution test per stub on th
 
 Built for Linux (during M5): `lib/desktop/main.c` with a window, the keyboard and a gamepad, the
 frame rhythm, F12 for a screenshot, and `--check` without a window; `tools/build_desktop.sh` and
-`tools/fetch_raylib.sh` until the CLI. Still to do: Windows (built natively on Windows), sound and
-music, save RAM, the debug view, the CRT filter. The plan as it was:
+`tools/fetch_raylib.sh` until the CLI; Windows with MSVC from WSL, `tools/build_desktop_windows.sh`
+(ADR record 39); the CRT filter of Blubber Blasen's frontend (`lib/desktop/crt.c`, Tab, `--no-crt`).
+Still to do: sound and music, save RAM, the debug view. The plan as it was:
 
 `lib/desktop` in C with raylib: the window (256 x 224 scaled to whole multiples), the frame
 rhythm of `loop.h` (`game_tick`, then `sdevkit__vblank`, `game_vblank`, `sdevkit__render`),
@@ -168,7 +169,7 @@ Done when: CatchMe runs on Linux and Windows from a build of its own sources and
 - reads `superdevkit.toml` with a TOML reader of its own (the subset the project file uses);
 - `init <name> [--from <example>]` copies an example and sets its name;
 - `build <target>`: runs the converters for the assets, then dampf (`snes`) or the compiler of
-  the target (`linux`: gcc or clang; `win64`: MinGW's gcc or MSVC, decided in the step; `web`:
+  the target (`linux`: gcc or clang; `win64`: MSVC, ADR record 39; `web`:
   `emcc`, in M8) with fixed options per target, links raylib from the kit (ready-built per target,
   pinned to one version); writes `compile_commands.json`;
 - `run [target]`: builds and starts the program (`snes`: Mesen with the ROM);

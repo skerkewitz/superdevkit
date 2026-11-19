@@ -1,5 +1,5 @@
 /*
- * The desktop frontend of superdevkit (Linux now, Windows next; ADR record 32): a window with
+ * The desktop frontend of superdevkit (Linux and Windows; ADR records 32 and 39): a window with
  * raylib, the keyboard and a gamepad as the SNES joypad, and the frame rhythm of sdevkit/loop.h
  * on Rachael (lib/rachael):
  *
@@ -15,10 +15,14 @@
  * vertical blank, or more than one vertical blank can copy), so the desktop finds what the SNES
  * would lose.
  *
+ * The window shows the picture through the retro TV filter (crt.c); Tab turns it off and on,
+ * --no-crt starts without it. Screenshots (F12, --check) are Rachael's picture, unfiltered.
+ *
  * With --check <file> it runs without a window, with the input of the file (the format of the
  * examples' check.txt: "ticks N", "press T1 T2 buttons...", "shot T", "splash N"; on the desktop
  * every frame is one tick, and the splash comes before them, without input), writes the screenshots it
- * asks for as PNG into the folder of --out (default .), and prints "frames N ticks N lost L
+ * asks for as PNG into the folder of --out (default .), the checksum of every tick
+ * (sdevkit_dbg_hash: "tick hash" in hex, one a line) into hashes.txt there, and prints "frames N ticks N lost L
  * undrawn U sprites S"; the exit status is 1 when a byte was lost or a register write was one
  * Rachael does not draw (sdevkit__undrawn). S counts the lines over the sprite limits (32 sprites,
  * 34 tiles); a game may mean that (flicker), so it does not fail the check.
@@ -33,6 +37,7 @@
 #include "sdevkit/snes.h"
 #include "rachael.h"
 #include "raylib.h"
+#include "crt.h"
 
 #ifndef GAME_NAME
 #define GAME_NAME "superdevkit"
@@ -60,6 +65,10 @@ static void picture(void)
 /* Lines of the frames so far with more sprites or sprite tiles than the SNES draws. */
 static unsigned sprite_lines;
 
+/* The checksum of each tick (sdevkit_dbg_hash), written by a check to hashes.txt. */
+static FILE *hashes;
+static long tick_count;
+
 /* One frame of the console; returns the bytes lost in it: those written during the picture
  * (in game_tick, which the vertical blank would otherwise forget) and those over the vertical
  * blank's budget (in game_vblank). */
@@ -69,6 +78,13 @@ static unsigned frame_step(const uint16_t pad[SDEVKIT_PADS])
     unsigned lost;
 
     game_tick(pad);
+    {
+        uint32_t h = sdevkit__tick_hash();
+        if (hashes != NULL) {
+            fprintf(hashes, "%ld %08x\n", tick_count, (unsigned)h);
+        }
+        tick_count++;
+    }
     lost = sdevkit__stats().dma_lost;
     sdevkit__vblank();
     game_vblank();
@@ -87,7 +103,8 @@ static void save_png(const char *path)
 }
 
 /* --- the splash screen ------------------------------------------------------------------------ */
-static int splash_scale;                /* the window's scale; 0: a check, no window */
+static int crt_ok, crt_on;              /* the filter compiled; it is shown */
+static int splash_scale;                /* the window's first scale; 0: a check, no window */
 static Texture2D splash_texture;
 static long splash_count;               /* frames of the splash so far */
 static const char *splash_out = ".";
@@ -95,7 +112,7 @@ static long splash_shots[64];
 static int splash_nshot;
 
 static uint16_t keyboard(void);
-static void show(Texture2D tex, int scale);
+static void show(Texture2D tex);
 
 /* One frame of the splash (lib/splash/splash.h): the brightness written in the vertical blank,
  * the picture drawn; in the window shown, with the keyboard as pad 1; in a check, the screenshots
@@ -113,7 +130,7 @@ static uint16_t sdevkit__splash_frame(uint8_t brightness)
             CloseWindow();
             exit(0);
         }
-        show(splash_texture, splash_scale);
+        show(splash_texture);
         return keyboard();
     }
     for (i = 0; i < splash_nshot; i++) {
@@ -138,14 +155,29 @@ static void start(void)
 }
 
 /* --- the window ------------------------------------------------------------------------------ */
-static void show(Texture2D tex, int scale)
+static void show(Texture2D tex)
 {
+    /* The picture fills the window as far as its shape allows, centred; the rest stays black. */
+    float w = (float)GetScreenWidth(), h = (float)GetScreenHeight();
+    float s = w / SDEVKIT__W < h / SDEVKIT__H ? w / SDEVKIT__W : h / SDEVKIT__H;
+    float dw = SDEVKIT__W * s, dh = SDEVKIT__H * s;
+    Rectangle dst = { (w - dw) / 2, (h - dh) / 2, dw, dh };
+
     UpdateTexture(tex, rgba);
+    if (crt_on) {
+        sdevkit__crt_prepare(tex, s);
+    }
     BeginDrawing();
     ClearBackground(BLACK);
-    DrawTexturePro(tex, (Rectangle){ 0, 0, SDEVKIT__W, SDEVKIT__H },
-                   (Rectangle){ 0, 0, (float)(SDEVKIT__W * scale), (float)(SDEVKIT__H * scale) }, (Vector2){ 0, 0 }, 0, WHITE);
+    if (crt_on) {
+        sdevkit__crt_draw(dst, s);
+    } else {
+        DrawTexturePro(tex, (Rectangle){ 0, 0, SDEVKIT__W, SDEVKIT__H }, dst, (Vector2){ 0, 0 }, 0, WHITE);
+    }
     EndDrawing();
+    if (IsKeyPressed(KEY_TAB) && crt_ok) {
+        crt_on = !crt_on;
+    }
 }
 
 static uint16_t keyboard(void)
@@ -191,19 +223,22 @@ static void report_undrawn(FILE *out)
     }
 }
 
-static int window(int scale)
+static int window(int scale, int no_crt)
 {
     Texture2D tex;
     unsigned lost = 0;
     int shots = 0;
 
     SetTraceLogLevel(LOG_WARNING);
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(SDEVKIT__W * scale, SDEVKIT__H * scale, GAME_NAME " (superdevkit)");
     SetTargetFPS(60);
     {
         Image img = { rgba, SDEVKIT__W, SDEVKIT__H, 1, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 };
         tex = LoadTextureFromImage(img);
     }
+    crt_ok = sdevkit__crt_load();
+    crt_on = crt_ok && !no_crt;
     splash_texture = tex;
     splash_scale = scale;
     start();
@@ -211,13 +246,14 @@ static int window(int scale)
         uint16_t pad[SDEVKIT_PADS] = { 0, 0 };
         pad[0] = keyboard();
         lost += frame_step(pad);
-        show(tex, scale);
+        show(tex);
         if (IsKeyPressed(KEY_F12)) {
             char name[64];
             snprintf(name, sizeof name, "%s_%d.png", GAME_NAME, shots++);
             save_png(name);
         }
     }
+    sdevkit__crt_unload();
     UnloadTexture(tex);
     CloseWindow();
     if (lost > 0) {
@@ -294,6 +330,15 @@ static int check(const char *path, const char *out)
     }
     fclose(in);
     splash_out = out;
+    {
+        char name[512];
+        snprintf(name, sizeof name, "%s/hashes.txt", out);
+        hashes = fopen(name, "wb");   /* "b": the same bytes on Windows, without CR */
+        if (hashes == NULL) {
+            fprintf(stderr, "check: cannot write %s\n", name);
+            return 2;
+        }
+    }
     start();
     for (f = 0; f < frames; f++) {
         uint16_t pad[SDEVKIT_PADS] = { 0, 0 };
@@ -317,6 +362,8 @@ static int check(const char *path, const char *out)
             }
         }
     }
+    fclose(hashes);
+    hashes = NULL;
     report_undrawn(stdout);
     printf("frames %ld ticks %ld lost %u undrawn %u sprites %u\n", frames, frames, lost, sdevkit__rachael.undrawn,
            sprite_lines);
@@ -328,6 +375,7 @@ int main(int argc, char **argv)
     const char *check_file = NULL;
     const char *out = ".";
     int scale = 3;
+    int no_crt = 0;
     int i;
 
     for (i = 1; i < argc; i++) {
@@ -337,8 +385,10 @@ int main(int argc, char **argv)
             out = argv[++i];
         } else if (strcmp(argv[i], "--scale") == 0 && i + 1 < argc) {
             scale = atoi(argv[++i]);
+        } else if (strcmp(argv[i], "--no-crt") == 0) {
+            no_crt = 1;
         } else {
-            fprintf(stderr, "usage: %s [--scale N] [--check check.txt [--out dir]]\n", argv[0]);
+            fprintf(stderr, "usage: %s [--scale N] [--no-crt] [--check check.txt [--out dir]]\n", argv[0]);
             return 2;
         }
     }
@@ -346,5 +396,5 @@ int main(int argc, char **argv)
         SetTraceLogLevel(LOG_WARNING);
         return check(check_file, out);
     }
-    return window(scale < 1 ? 1 : scale);
+    return window(scale < 1 ? 1 : scale, no_crt);
 }

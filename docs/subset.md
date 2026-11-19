@@ -100,8 +100,8 @@ in `game.h`. These are the roots of the call graph.
 ## The subset
 
 **Types.** `int8_t`, `uint8_t`, `int16_t`, `uint16_t`, `int32_t`, `uint32_t`, `char` (text
-only, see below), `void`, pointers, arrays (also multi-dimensional), structs, enums and
-`typedef`s of these. `const`, `static` and `extern` as in C99. Plain `int`, `short`, `long`,
+only, see below), `void`, pointers, arrays (also multi-dimensional), pointers to arrays
+(`const uint8_t (*rows)[16]`), structs, enums and `typedef`s of these. `const`, `static` and `extern` as in C99. Plain `int`, `short`, `long`,
 `unsigned`, `signed`, `long long`, `float`, `double`, `_Bool`, unions and bit fields are rejected, in casts as
 well; the one exception is `int main(void)`, which the PC build needs (on the SNES the return value
 is ignored). There are no 64-bit types (`<stdint.h>` has no `uint64_t`). Also rejected today:
@@ -134,7 +134,11 @@ known at compile time.
 **Statements.** Everything in C99 except `goto`, labels, `setjmp`/`longjmp` and variable-length
 arrays (`goto` is decision 4 below, decided). Inline assembly is rejected too.
 
-**Expressions.** Everything in C99 except compound literals. Struct assignment is allowed (it is
+**Expressions.** Everything in C99 except compound literals and the comma operator outside the
+first and third part of a `for`. A compound assignment whose left side has side effects
+(`a[next()] |= bit`) is accepted as a statement of its own, where its address is taken once into a
+hidden local; inside a larger expression it is rejected. `++` and `--` work on such a left side
+anywhere. Struct assignment is allowed (it is
 a copy of known size, a candidate for `MVN`), although the release build does not use it today.
 Designated initializers are not used and stay out for now; they are easy to add if the game
 wants them. The C11 additions (`_Static_assert`, `_Alignof`, `_Generic`) are rejected.

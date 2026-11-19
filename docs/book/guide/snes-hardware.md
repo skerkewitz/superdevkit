@@ -26,10 +26,10 @@ Use what is built in both columns of this table:
 | Mode 1 (BG1 and BG2 with 16 colours, BG3 with 4), 8 x 8 and 16 x 16 tiles, scrolling | built | built | `sdevkit_set_mode`, `sdevkit_bg_init_tile_set`, `sdevkit_bg_set_map_ptr`, `sdevkit_bg_set_scroll` |
 | Sprites, at most 32 and 34 tiles a line | built | built, and counted | `sdevkit_oam_init_gfx_set`, `sdevkit_oam_set`, `sdevkit_oam_set_ex`, `sdevkit_oam_clear` |
 | Windows, main and sub screen, colour math, brightness | built | built | `sdevkit_set_color_effect`, `sdevkit_set_color_intensity`, `sdevkit_bg_set_enable_sub`, `sdevkit_set_brightness`, `sdevkit_reg_write` |
-| HDMA in direct mode | built | built | `sdevkit_hdma_set`, `sdevkit_hdma_enable` |
-| DMA to VRAM and CGRAM, within the vertical blank's budget | built | built, lost bytes counted | `sdevkit_dma_copy_vram`, `sdevkit_dma_copy_cgram`, `sdevkit_dma_fits` |
+| HDMA in direct mode: one register, two, or one written twice (a scroll register: a wave down the screen) | built | built | `sdevkit_hdma_set`, `sdevkit_hdma_enable` |
+| DMA to VRAM and CGRAM, within the vertical blank's budget; down a column of a map | built | built, lost bytes counted | `sdevkit_dma_copy_vram`, `sdevkit_dma_copy_vram_column`, `sdevkit_dma_copy_cgram`, `sdevkit_dma_fits` |
 | Modes 0 and 2 to 6 | not built | not built, reported | |
-| Mode 7: one layer of 1024 x 1024 pixels, rotated, scaled and mirrored, and what lies outside it | built | built | `sdevkit_mode7_load_map`, `sdevkit_mode7_load_tiles`, `sdevkit_mode7_set_matrix`, `sdevkit_mode7_set_center`, `sdevkit_mode7_set_select` |
+| Mode 7: one layer of 1024 x 1024 pixels, rotated, scaled and mirrored, and what lies outside it; with HDMA on BGMODE and TM, mode 1 above it (a status line on BG3) | built | built | `sdevkit_mode7_load_map`, `sdevkit_mode7_load_tiles`, `sdevkit_mode7_set_matrix`, `sdevkit_mode7_set_center`, `sdevkit_mode7_set_select` |
 | Mode 7's second layer (EXTBG), direct colour | not built | not built, reported | |
 | Mosaic, high resolution, interlace | not built | not built, reported | |
 | Raster interrupts (H/V IRQ), the timers | not built: the game is never interrupted | not built | |

@@ -14,9 +14,16 @@ import java.nio.file.Path;
  * MEMSEL is set), 12 for the old joypad registers at $4000-$41FF; an internal CPU cycle costs 6.
  * DRAM refresh halts the CPU for 40 master cycles per scanline of 1364.
  *
+ * <p>Of the picture only its timing: 262 lines a frame (NTSC), the vertical blank from line 225
+ * ({@code HVBJOY} bit 7), the automatic joypad read in its first three lines (bit 0, when
+ * {@code NMITIMEN} bit 0 is set), the line counter latched by {@code SLHV} and read at
+ * {@code OPVCT}, and the joypads at {@code $4218}-{@code $421B} from {@link #setPads}. Enough for
+ * the kit's main loop (lib/snes/main.c), which waits for the vertical blank by polling.
+ *
  * <p>Writes to the B-bus ports $21FA-$21FF, which no hardware uses, are passed to a
- * {@link PortListener}: dampf's runtime writes 1 to $21FB when the program is done, and the
- * game's benchmark marks its ticks there.
+ * {@link PortListener}: dampf's runtime writes 1 to $21FB when the program is done, the game's
+ * benchmark marks its ticks at $21FA, and the kit's checks use $21FC and $21FD
+ * ({@link ExampleCheck}).
  */
 public final class Snes implements Bus {
     /** NTSC: master cycles per scanline, of which the CPU loses 40 to DRAM refresh. */
@@ -36,6 +43,15 @@ public final class Snes implements Bus {
     private boolean fastRom;
     private long master;
     private long lineClock;
+
+    // the picture's timing (NTSC): the line the PPU is at, the counter latched by SLHV
+    private static final int LINES = 262;
+    private static final int VBLANK_FIRST_LINE = 225;
+    private int scanline;
+    private int latchedLine;
+    private boolean opvctHigh;
+    private boolean autoJoypad;
+    private final int[] pads = new int[2];
 
     // the CPU's multiplier and divider ($4202-$4206 -> $4214-$4217), results without the hardware's delay
     private int mulA = 0xFF;
@@ -71,6 +87,36 @@ public final class Snes implements Bus {
         this.ports = listener;
     }
 
+    /** The joypads from now on, in the SNES's bit layout ($4218 is pad 1). */
+    public void setPads(int pad1, int pad2) {
+        pads[0] = pad1 & 0xFFFF;
+        pads[1] = pad2 & 0xFFFF;
+    }
+
+    /** The line the picture is at, 0..261. */
+    public int scanline() {
+        return scanline;
+    }
+
+    /** A byte of the address space as the CPU sees it, without time passing or side effects. */
+    public int peek(int address) {
+        int bank = (address >> 16) & 0xFF;
+        int offset = address & 0xFFFF;
+        if (bank == 0x7E || bank == 0x7F) {
+            return wram[(bank - 0x7E) << 16 | offset] & 0xFF;
+        }
+        if (hiRom && ((bank & 0x40) != 0 || offset >= 0x8000)) {
+            return rom[(((bank & 0x3F) << 16) | offset) % rom.length] & 0xFF;
+        }
+        if (offset >= 0x8000) {
+            return rom[(((bank & 0x7F) << 15) | (offset & 0x7FFF)) % rom.length] & 0xFF;
+        }
+        if ((bank & 0x40) == 0 && offset < 0x2000) {
+            return wram[offset] & 0xFF;
+        }
+        return 0;
+    }
+
     /** Master cycles since power-on. */
     public long masterClock() {
         return master;
@@ -78,6 +124,11 @@ public final class Snes implements Bus {
 
     public boolean done() {
         return done;
+    }
+
+    /** Ends {@link #run} after the current instruction (a check that has seen enough). */
+    public void stop() {
+        done = true;
     }
 
     /** WRAM, bank $7E and $7F as one array ($7E0000 is index 0). */
@@ -114,6 +165,7 @@ public final class Snes implements Bus {
         if (lineClock >= LINE - REFRESH) {
             master += REFRESH;
             lineClock -= LINE - REFRESH;
+            scanline = scanline + 1 == LINES ? 0 : scanline + 1;
         }
     }
 
@@ -166,6 +218,25 @@ public final class Snes implements Bus {
 
     private int io(int offset) {
         return switch (offset) {
+            case 0x2137 -> {
+                latchedLine = scanline;     // SLHV: latch the counters
+                yield 0;
+            }
+            case 0x213D -> {
+                int v = opvctHigh ? latchedLine >> 8 : latchedLine & 0xFF;
+                opvctHigh = !opvctHigh;
+                yield v;
+            }
+            case 0x213F -> {
+                opvctHigh = false;          // STAT78: the byte order starts again
+                yield 0;
+            }
+            case 0x4212 -> (scanline >= VBLANK_FIRST_LINE ? 0x80 : 0)
+                    | (autoJoypad && scanline >= VBLANK_FIRST_LINE && scanline < VBLANK_FIRST_LINE + 3 ? 1 : 0);
+            case 0x4218 -> pads[0] & 0xFF;
+            case 0x4219 -> pads[0] >> 8;
+            case 0x421A -> pads[1] & 0xFF;
+            case 0x421B -> pads[1] >> 8;
             case 0x4214 -> quotient & 0xFF;
             case 0x4215 -> quotient >> 8;
             case 0x4216 -> product & 0xFF;
@@ -199,6 +270,7 @@ public final class Snes implements Bus {
         }
         switch (offset) {
             case 0x420D -> fastRom = (value & 1) != 0;
+            case 0x4200 -> autoJoypad = (value & 1) != 0;
             case 0x4202 -> mulA = value;
             case 0x4203 -> {
                 product = mulA * value;

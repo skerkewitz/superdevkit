@@ -94,6 +94,7 @@ void sdevkit__reset(void)
     memset(&sdevkit__rachael, 0, sizeof sdevkit__rachael);
     memset(sdevkit_oam_memory, 0, sizeof sdevkit_oam_memory);
     sdevkit__rachael.regs[SDEVKIT_PPU_INIDISP] = 0x80;   /* forced blank until the game turns the screen on */
+    sdevkit__rachael.tick_hash = SDEVKIT__HASH_START;
 }
 
 void sdevkit__vblank(void)
@@ -132,6 +133,29 @@ sdevkit__frame_stats sdevkit__stats(void)
 const uint16_t *sdevkit_dbg_vram(void)
 {
     return sdevkit__rachael.vram;
+}
+
+/* FNV-1a over the bytes the game names during a tick (sdevkit__tick_hash closes it). */
+void sdevkit_dbg_hash(const void *data, uint16_t bytes)
+{
+    const uint8_t *p = (const uint8_t *)data;
+    uint32_t h = sdevkit__rachael.tick_hash;
+    uint16_t i;
+
+    for (i = 0; i < bytes; i++) {
+        h = (h ^ p[i]) * 16777619u;
+    }
+    sdevkit__rachael.tick_hash = h;
+}
+
+uint32_t sdevkit__tick_hash(void)
+{
+    uint32_t h;
+
+    sdevkit_dbg_hash(sdevkit_oam_memory, sizeof sdevkit_oam_memory);
+    h = sdevkit__rachael.tick_hash;
+    sdevkit__rachael.tick_hash = SDEVKIT__HASH_START;
+    return h;
 }
 
 const uint16_t *sdevkit__cgram(void)
@@ -194,6 +218,17 @@ void sdevkit_dma_copy_vram(const uint8_t *source, uint16_t address, uint16_t siz
     }
     for (i = 0; i + 1 < size; i += 2) {
         sdevkit__rachael.vram[(uint16_t)(address + (i >> 1)) & (SDEVKIT__VRAM_WORDS - 1)] = (uint16_t)(source[i] | (source[i + 1] << 8));
+    }
+}
+
+void sdevkit_dma_copy_vram_column(const uint8_t *source, uint16_t address, uint16_t size)
+{
+    uint16_t i;
+    if (!dma_allowed(size)) {
+        return;
+    }
+    for (i = 0; i + 1 < size; i += 2) {
+        sdevkit__rachael.vram[(uint16_t)(address + (i >> 1) * 32) & (SDEVKIT__VRAM_WORDS - 1)] = (uint16_t)(source[i] | (source[i + 1] << 8));
     }
 }
 

@@ -39,10 +39,14 @@ sdevkit__frame_stats sdevkit__stats(void);              /* of the last sdevkit__
 const uint16_t      *sdevkit__cgram(void);              /* 256 colours */
 const uint8_t       *sdevkit__oam(void);                /* 544 bytes, as copied at the last vertical blank */
 uint8_t              sdevkit__reg(uint8_t reg);         /* last value written to a PPU register */
+/* The checksum of the tick that just ended (the main loop calls it after game_tick): the bytes the
+ * game named with sdevkit_dbg_hash, then the sprite table; the next tick starts afresh. */
+#define SDEVKIT__HASH_START 2166136261u
+uint32_t             sdevkit__tick_hash(void);
 
 typedef struct {
     uint8_t        reg;          /* SDEVKIT_PPU_* the channel writes */
-    uint8_t        two;          /* also reg + 1 */
+    uint8_t        two;          /* SDEVKIT_HDMA_*: one byte, reg and reg + 1, or reg twice */
     const uint8_t *table;
 } sdevkit__hdma_channel;
 
@@ -65,6 +69,7 @@ typedef struct {
     uint16_t       undrawn;                /* register writes Rachael does not draw, since power on */
     uint8_t        undrawn_reg, undrawn_value;   /* the first of them */
     sdevkit__frame_stats stats;
+    uint32_t       tick_hash;              /* sdevkit_dbg_hash: FNV-1a of the bytes named this tick */
 } sdevkit__rachael_state;
 
 extern sdevkit__rachael_state sdevkit__rachael;

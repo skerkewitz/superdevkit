@@ -68,7 +68,9 @@ are widened to `int` before arithmetic) and the wrap-around of fixed-width types
 
 The tests hold dampf to that. Every test program is built with dampf and with gcc on the PC and
 the results are compared, and Blubber Blasen's own benchmark gives the PC's checksums on every
-one of its 3,610 ticks. When dampf's code looks different from what you expected, the reason is
+one of its 3,610 ticks. The kit's example games are played with a fixed input in dampf's own
+emulator and as a PC build, and a checksum of their state is compared after every tick, in
+every build. When dampf's code looks different from what you expected, the reason is
 often this rule. [Writing C for dampf](/guide/writing-c) shows how to write code that stays
 within it.
 

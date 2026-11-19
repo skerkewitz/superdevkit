@@ -34,9 +34,12 @@ void sdevkit__start(void)
     NMITIMEN = 0x01;    /* automatic joypad read, no interrupts */
 }
 
-/* After each game_tick: the next vertical blank, the OAM shadow, the game's uploads. */
+/* After each game_tick: the tick's checksum closed (the sprite table named last, then the mark
+ * the checks count ticks by), the next vertical blank, the OAM shadow, the game's uploads. */
 void sdevkit__frame(void)
 {
+    sdevkit_dbg_hash(sdevkit_oam_memory, sizeof sdevkit_oam_memory);
+    DBG_TICK = 0;
     sdevkit__wait_vblank();
     sdevkit__oam_upload();
     game_vblank();
@@ -64,6 +67,7 @@ int main(void)
     sdevkit__splash();
     sdevkit__reset_ppu();               /* as before the splash; the sprite table was not touched */
     game_init(0);
+    DBG_TICK = 1;                       /* the checks: the splash is over, the first tick comes */
     for (;;) {
         sdevkit__read_pads(&pad[0], &pad[1]);
         game_tick(pad);

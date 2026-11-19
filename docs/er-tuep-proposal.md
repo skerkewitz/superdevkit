@@ -1,7 +1,20 @@
 # Proposal: Er-Tüp, a side-scrolling shooter as an example of superdevkit
 
-Status: proposal, 2026-11-19. Nothing of the game is built yet; mode 7, which its third stage
-needs, is in the kit since 2026-11-19 (`sdevkit_mode7_*`, `examples/mode7`).
+Status: built (2026-11-19): the checks compare a checksum per tick (ADR record 38), and all three
+stages play with their bosses, the third in mode 7, and end the game (`examples/ertuep`, its
+README says what is in it). Open: sound, which waits for the kit's (sound-effects-proposal.md).
+
+What the building changed against the text below: positions are 12.4 fixed point, not 8.8 (the
+screen is 256 pixels wide, and objects live beside it); the frame is guarded by a measured budget
+in `check.txt`, not by `DAMPF_BUDGET`, whose static worst case of the pair loop is a thousand
+times what play takes (roadmap, M11); the title has a demo that flies the busiest waves, which is
+the benchmark; the kit got `sdevkit_dma_copy_vram_column`, `tiles2` and `mode7` in `png2snes.py`,
+a profile per C line, and dampf pointers to arrays and compound assignments to an lvalue with side
+effects. Stage 3 is seen from above and flown as a loop through the tent, the floor turning at the
+corners; the boss turns with its picture as planned. The densest waves of stage 2 had never been
+measured: they took two frames a tick, and a wave of twelve flies broke a hint (`DAMPF_RANGE`) and
+stopped the desktop build there. The pair loop now sorts the shots into buckets by x, the
+densest waves have eight flies, and the demos cover them.
 
 ## Why this game
 

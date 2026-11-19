@@ -84,16 +84,18 @@ quicker on the desktop: the pseudo SNES is in the kit as [Rachael](../lib/README
 tiles, and row y of the picture as scanline y + 1 like the SNES), with a desktop frontend for
 Linux (`lib/desktop`, raylib 5.5 fetched by `tools/fetch_raylib.sh`, built by
 `tools/build_desktop.sh`) and a headless check that plays an example's `check.txt` in a second
-(`DesktopExamplesTest`). The examples give the same picture on the SNES and on the desktop,
+(`ExamplesTest`, which also plays every example's check in dampf's emulator and compares a
+checksum per tick with the desktop). The examples give the same picture on the SNES and on the desktop,
 pixel for pixel (`dev/compare_example.sh`); that comparison found a bug in `lib/snes`, whose
 `oamSetVisible` (now `sdevkit_oam_set_visible`) moved a sprite at a negative x to the right
-edge. Linux is built on WSL, Windows will be built natively on Windows.
+edge. Both are built on WSL: Linux with gcc, Windows with the MSVC of the Windows side
+(`tools/build_desktop_windows.sh`, ADR [record 39](adr/0039-win64-is-built-with-msvc-for-now-from-wsl.md)), which plays with the gamepads WSL does not
+see and gives the same checksums and pictures as Linux.
 
 Still to do in M7: Rachael's tests from the game, sound, save RAM and the debug
 registrations in the console API (built on the desktop, stubs on the SNES; ADR [record
 32](adr/0032-desktop-and-web-are-for-prototyping-with-sound.md), with the names of [record
-34](adr/0034-every-name-of-the-console-api-starts-with.md)), the desktop frontend on Windows and
-with sound, save RAM and the debug view, and the `superdevkit` command with `init`, `build` and
+34](adr/0034-every-name-of-the-console-api-starts-with.md)), the desktop frontend with sound, save RAM and the debug view, and the `superdevkit` command with `init`, `build` and
 `run` (ADR [record 31](adr/0031-the-superdevkit-command-builds-a-project-from-its.md)); `init`
 writes a line into the new project's `CLAUDE.md` or `AGENTS.md` that points to the kit's guides,
 `lib/C_STYLE.md` and `lib/SNES_HARDWARE.md`. Done
@@ -194,6 +196,12 @@ Timing ([timing.md](timing.md#not-built-yet)):
 - bounds for more loops: 37 of the game's functions have none; `DAMPF_TRIPS` for loops without
   a counter (postponed, [hints.md](hints.md));
 - the measured cycles of budgeted functions checked in the emulator tests;
+- worst cases of pair loops: a path that is rare in every pair (a hit that kills, drops an item,
+  is collected) is counted in every pair, so Er-Tüp's `collide` is 5.4 million cycles at worst
+  and a few thousand in play; its frame is guarded by a measured budget in `check.txt` instead
+  (`budget T1 T2`, ExamplesTest). To be looked into: a hint for how often a path runs per call
+  (`DAMPF_AT_MOST`, [hints.md](hints.md)), or a bound per call chain, would make budgets usable
+  there;
 - level 3: DRAM refresh, HDMA and interrupts at frame level.
 
 Better C debugging in Mesen: Mesen shows the C source and the names of global variables from

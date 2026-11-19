@@ -461,6 +461,35 @@ public final class AstBuilder {
             throw unsupported(d, "volatile variables (only pointers to volatile memory)");
         }
         CParser.DirectDeclaratorContext dd = d.directDeclarator();
+        if (dd.getChildCount() >= 3 && dd.getChild(0) instanceof TerminalNode open && open.getText().equals("(")
+                && dd.getChild(1) instanceof CParser.DeclaratorContext inner) {
+            // T (*p)[N]: the suffixes after the parentheses apply first (an array of N T), then the
+            // inner declarator to that (a pointer to it). A parameter list there is a function pointer.
+            List<Integer> outer = new ArrayList<>();
+            for (int i = 3; i < dd.getChildCount(); i++) {
+                ParseTree c = dd.getChild(i);
+                if (c instanceof TerminalNode tn && tn.getText().equals("(")) {
+                    throw unsupported(dd, "this kind of declarator (function pointers, bit fields)");
+                }
+                if (c instanceof TerminalNode tn && tn.getText().equals("[")) {
+                    if (!(dd.getChild(i + 1) instanceof CParser.AssignmentExpressionContext size)) {
+                        throw unsupported(dd, "this kind of array declarator");
+                    }
+                    Long n = fold(rvalue(assignment(size)));
+                    if (n == null || n <= 0) {
+                        throw error(size, "an array size must be a positive integer constant");
+                    }
+                    outer.add(n.intValue());
+                } else if (c instanceof CParser.AttributeSpecifierSequenceContext) {
+                    throw unsupported(dd, "attributes");
+                }
+            }
+            Type inside = t;
+            for (int i = outer.size() - 1; i >= 0; i--) {
+                inside = new Type.Array(inside, outer.get(i));
+            }
+            return declare(inside, outer.isEmpty() ? objectConst : constElements(inside, baseConst, objectConst), false, inner);
+        }
         if (dd.Identifier() == null || dd.getChildCount() > 1 && dd.getChild(1) instanceof TerminalNode tn && tn.getText().equals(":")) {
             throw unsupported(dd, "this kind of declarator (function pointers, bit fields)");
         }
@@ -1153,7 +1182,11 @@ public final class AstBuilder {
                 return null;
             }
             Stmt hint = hint(es.expression());
-            return hint != null ? hint : new Stmt.ExprStmt(discarded(expression(es.expression())), pos(st));
+            if (hint != null) {
+                return hint;
+            }
+            Stmt compound = compoundWithSideEffects(es.expression());
+            return compound != null ? compound : new Stmt.ExprStmt(discarded(expression(es.expression())), pos(st));
         }
         if (st.jumpStatement() != null) {
             CParser.JumpStatementContext js = st.jumpStatement();
@@ -1218,6 +1251,38 @@ public final class AstBuilder {
         Expr c = rvalue(expression(e));
         scalar(c, e);
         return c;
+    }
+
+    /**
+     * A statement {@code E1 op= E2} whose E1 has side effects ({@code a[next()] |= bit}): E1 must be
+     * evaluated once, so its address goes into a hidden local first, then {@code *t = *t op E2}.
+     * Null for any other statement. (Inside a larger expression such an assignment is still
+     * rejected: there is no expression for "evaluate this first".)
+     */
+    private Stmt compoundWithSideEffects(CParser.ExpressionContext e) throws CompileError {
+        if (e.assignmentExpression().size() != 1) {
+            return null;
+        }
+        CParser.AssignmentExpressionContext a = e.assignmentExpression(0);
+        if (a.assignementOperator == null || a.assignementOperator.getText().equals("=")) {
+            return null;
+        }
+        Expr target = unary(a.unaryExpression());
+        if (!hasSideEffects(target)) {
+            return null;
+        }
+        checkAssignable(target, a.unaryExpression());
+        SourcePos p = pos(a.assignementOperator);
+        Type.Pointer pt = new Type.Pointer(target.type());
+        Variable address = new Variable("(the address of the left side)", uniqueLabel(current.label() + "__lhs" + (anonymous++)),
+                pt, Variable.Kind.LOCAL, p);
+        currentLocals.add(address);
+        Stmt first = new Stmt.ExprStmt(new Expr.Assign(new Expr.Var(address, p), new Expr.AddressOf(target, pt, p), p), p);
+        Expr lvalue = new Expr.Deref(new Expr.Var(address, p), target.type(), p);
+        Expr rhs = rvalue(assignment(a.assignmentExpression()));
+        String bin = a.assignementOperator.getText().substring(0, a.assignementOperator.getText().length() - 1);
+        Stmt second = new Stmt.ExprStmt(new Expr.Assign(lvalue, assignConvert(binaryOp(bin, lvalue, rhs, p), target.type(), p), p), p);
+        return new Stmt.Block(List.of(first, second), pos(e), pos(e));
     }
 
     /** An expression whose value is not used: x++ becomes ++x, which is simpler to compile. */
@@ -1620,10 +1685,20 @@ public final class AstBuilder {
                 }
                 default -> {
                     checkAssignable(e, u);
+                    boolean increment = op.getText().equals("++");
                     if (hasSideEffects(e)) {
-                        throw unsupported(u, "'" + op.getText() + "' on an lvalue with side effects");
+                        /* ++E with an E of side effects: E is evaluated once by E++ (whose value
+                         * is the old one), and the value of ++E is that plus one, in E's type */
+                        Type t = e.type();
+                        if (!Type.isScalar(t)) {
+                            throw new CompileError(pos(op), "'" + op.getText() + "' needs a number or a pointer");
+                        }
+                        int step = t instanceof Type.Pointer ? elementSize(e, pos(op)) : 1;
+                        Expr old = new Expr.PostIncDec(e, increment, step, pos(op));
+                        e = assignConvert(binaryOp(increment ? "+" : "-", old, new Expr.Const(1, Type.I32, pos(op)), pos(op)), t, pos(op));
+                    } else {
+                        e = incremented(e, increment, pos(op));
                     }
-                    e = incremented(e, op.getText().equals("++"), pos(op));
                 }
             }
         }

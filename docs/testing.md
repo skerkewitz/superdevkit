@@ -35,6 +35,7 @@ scalar elements (`a[2]`, `s.x`), must have the same values on both sides. Pointe
 | Random programs | Generated programs against gcc | dampf's emulator | Minutes for many |
 | Replays | The whole game against its recorded checksums and the PC | dampf's emulator; Mesen for the platform layer | Minutes; only with `-Preplays` |
 | Game benchmark | 3,610 ticks against a PC build, plus cycles per tick | dampf's emulator, Mesen, the MIR interpreter | About a minute |
+| Examples | Each example's `check.txt` played on the SNES and on the desktop, a checksum per tick | dampf's emulator and Rachael; Mesen in `dev/compare_example.sh` | Under a minute |
 
 **Unit tests** cover the front end (`PreprocessorTest`, `ParserTest`, `AstBuilderTest`), MIR
 passes written as MIR text (`NarrowTest`, `GvnTest`, `InlineTest`, `LicmTest`, `RangesTest`,
@@ -87,6 +88,23 @@ events instead of the PPU state read per byte, the test takes about a minute (AD
 play in Mesen with the same count of lost bytes, the frames per tick, and screenshots. It found
 the first platform bug (a map row copied after the vertical blank had ended).
 
+**The examples** (`ExamplesTest`, ADR record 38) build each example in `examples/` for the SNES
+and play the input of its `check.txt` in dampf's emulator, through the kit's own main loop; where
+raylib was fetched, the same input is played on the desktop (Rachael). After every tick both
+compute a checksum of the game's state: the bytes the game names with `sdevkit_dbg_hash`, then
+the sprite table. The lists must be the same, so dampf's code and gcc's, `lib/snes` and Rachael
+computed the same game, tick for tick; the test names the first tick that differs. On the SNES
+the call only writes the address and size of the memory to a port (`$21FC`), and the checker
+reads it, so the check costs the game about 80 cycles a call. The emulator's run also writes the
+frames per tick (`build/emu-check/frames.txt`: on average and over the slowest 60 ticks;
+`ticks.txt`: the cycles of every tick), close to Mesen's but not equal, since a DMA takes no CPU
+time there. A line `budget T1 T2` in `check.txt` makes it a measured budget: the test fails when
+a tick from T1 to T2 - 1 took more than a frame (Er-Tüp's covers its busiest waves). Where the
+time goes, the emulator says too: `dampf.emu.ExampleProfile` plays the same input and charges the
+cycles of a range of ticks to the functions of the ROM, and with the ROM's `.dbg` beside it to
+its C lines, which shows where in a function, and in the functions dampf inlined, the time goes. `dev/compare_example.sh` compares Mesen's checksums with the desktop's too,
+with the pictures.
+
 **The game's benchmark** (`dev/bench_game.sh`) runs 3,610 ticks with three checksums per tick
 against a PC build of the same program, plus the cycles per tick. It also runs in the MIR
 interpreter (`dampf mir --bench main ...`, 11 seconds) and gives the PC's checksums on all
@@ -94,10 +112,12 @@ ticks. `GameTimingTest` (with `-Preplays`) checks the static timing on it.
 
 ## Supporting pieces
 
-- **dampf's emulator** (`dampf.emu`: 65816 CPU, LoROM, WRAM, no graphics or sound) runs the
-  execution, random-program and replay tests and the game's benchmark inside the JVM, and counts
-  master cycles with the memory speeds of the SNES (WRAM and SlowROM 8, I/O 6, internal cycles
-  6, DRAM refresh 40 per scanline). It is validated
+- **dampf's emulator** (`dampf.emu`: 65816 CPU, LoROM, WRAM, no graphics, DMA or sound) runs the
+  execution, random-program and replay tests, the examples and the game's benchmark inside the
+  JVM, and counts master cycles with the memory speeds of the SNES (WRAM and SlowROM 8, I/O 6,
+  internal cycles 6, DRAM refresh 40 per scanline). Of the picture it has the timing the kit's
+  main loop polls: the line counter, the vertical blank flag, the automatic joypad read and the
+  joypads. It is validated
   - against the SingleStepTests 65816 suite (github.com/SingleStepTests/65816,
     `CpuSingleStepTest`, `-PcpuTests`): native mode, all 256 opcodes, about 300 random tests
     each (76,059 in all); registers, flags, memory, CPU cycles and the number of memory accesses

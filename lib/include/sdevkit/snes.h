@@ -186,11 +186,17 @@ void sdevkit_oam_clear(uint16_t first, uint8_t numEntries);   /* hides numEntrie
  * programs write the REG_* variables for this. */
 void sdevkit_reg_write(uint8_t reg, uint8_t value);
 /* HDMA in direct mode: from the next frame on, the channel writes table
- * data into reg (and reg + 1 when twoRegs) at the start of every line.
+ * data into reg at the start of every line; twoRegs is the transfer mode:
+ * SDEVKIT_HDMA_ONE one byte to reg, SDEVKIT_HDMA_TWO_REGS two bytes to reg and
+ * reg + 1, SDEVKIT_HDMA_TWICE two bytes to reg (the scroll registers, which are
+ * written twice: a wave down the screen with BG1HOFS).
  * Table format as on the SNES: a line count byte, then the data; count
  * 1..127 = data once, then hold for that many lines; 129..255 = new data on
  * each of (count - 128) lines; 0 ends the table. The table is read when the
  * frame is drawn, so it must stay valid (a static or ROM array). */
+#define SDEVKIT_HDMA_ONE      0
+#define SDEVKIT_HDMA_TWO_REGS 1
+#define SDEVKIT_HDMA_TWICE    2
 void sdevkit_hdma_set(uint8_t channel, uint8_t reg, uint8_t twoRegs, const uint8_t *table);
 void sdevkit_hdma_enable(uint8_t channels);          /* HDMAEN: which channels run */
 /* 1 if a copy of this many bytes to VRAM or CGRAM still ends inside the
@@ -198,6 +204,10 @@ void sdevkit_hdma_enable(uint8_t channels);          /* HDMAEN: which channels r
  * around the copies counts too; with the screen off the caller does not ask.
  * What does not fit waits for the next vertical blank instead of being lost. */
 uint8_t   sdevkit_dma_fits(uint16_t bytes);
+/* Like sdevkit_dma_copy_vram, but the VRAM address steps by 32 words after each word: the words
+ * go down a column of a 32 x 32 map, which is how a game that scrolls sideways writes the column
+ * coming into view. size in bytes; a column of a 32 x 32 map is at most 64. */
+void sdevkit_dma_copy_vram_column(const uint8_t *source, uint16_t address, uint16_t size);
 
 /* --- Mode 7 (sdevkit_mode7_*) ------------------------------------------------------------ */
 /* With sdevkit_set_mode(SDEVKIT_BG_MODE7, 0) the screen has one background, BG1: a map of
@@ -228,5 +238,14 @@ void sdevkit_mode7_set_select(uint8_t select);       /* SDEVKIT_M7_*: outside th
  * can read VRAM like memory; on the SNES it returns a single zero word, so a check that uses it
  * runs only on the desktop. */
 const uint16_t *sdevkit_dbg_vram(void);
+/* Names memory that makes up the game's state, for the checks that play a game on the SNES and on
+ * the PC with the same input and compare a checksum after every tick (dev/compare_example.sh,
+ * ExampleChecksumsTest): the bytes named during a tick are hashed (FNV-1a, 32 bits) in the order
+ * named, after the sprite table, which the main loop names after every game_tick itself. Call it
+ * in game_tick, on data whose bytes are the same on both: arrays of uint8_t and uint16_t (both
+ * are little endian), structs only when they have no padding on the PC, nothing with pointers.
+ * On the SNES it costs a few port writes ($21FC, which no hardware uses); the checker reads the
+ * memory itself. On Rachael it hashes. */
+void sdevkit_dbg_hash(const void *data, uint16_t bytes);
 
 #endif /* SDEVKIT_SNES_H */

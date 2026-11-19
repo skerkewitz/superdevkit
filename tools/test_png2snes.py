@@ -64,6 +64,27 @@ class Png2SnesTest(unittest.TestCase):
                     for x in range(8):
                         self.assertEqual(decode(t, x, y), rows[ty * 8 + y][tx * 8 + x])
 
+    def test_two_bit_tiles(self):
+        random.seed(2)
+        rows = [[random.randrange(4) for _ in range(8)] for _ in range(8)]
+        pal = [(i * 60, 0, 0) for i in range(4)] + [(0, 0, 0)] * 12
+        path = os.path.join(self.dir, "t2.png")
+        png(path, 8, rows, 3, pal)
+        _, _, px, _ = png2snes.indexed(path)
+        t = png2snes.tile_bytes(px, 0, 0, 2)
+        self.assertEqual(len(t), 16)
+        for y in range(8):
+            for x in range(8):
+                self.assertEqual(decode(t + bytes(16), x, y), rows[y][x])
+        png2snes.main(["png2snes.py", "tiles2", path, "t2", self.dir])
+        c = open(os.path.join(self.dir, "t2.c")).read()
+        self.assertIn("t2_tiles[16]", c)
+        self.assertIn("t2_pal[8]", c)
+        rows[3][3] = 4
+        png(path, 8, rows, 3, pal)
+        with self.assertRaises(SystemExit):
+            png2snes.main(["png2snes.py", "tiles2", path, "t2", self.dir])
+
     def test_rgba_gets_its_colours_in_order_of_appearance(self):
         red, blue = (255, 0, 0, 255), (0, 0, 255, 255)
         clear = (9, 9, 9, 0)
@@ -99,6 +120,50 @@ class Png2SnesTest(unittest.TestCase):
         png(path, 12, [[1] * 12] * 8, 3, [(0, 0, 0)] * 16)
         with self.assertRaises(SystemExit):
             png2snes.main(["png2snes", "tiles", path, "e", self.dir])
+
+    def test_mode7_map_tiles_and_first_colour(self):
+        # 1024 x 16: tile row 0 has a pattern in tiles 0 and 2 (the same) and 1 (another), the rest
+        # colour 1; row 1 all colour 2
+        rows = [[1] * 1024 for _ in range(16)]
+        for y in range(8):
+            for x in range(8):
+                rows[y][x] = rows[y][16 + x] = (x + y) % 3 + 1
+                rows[y][8 + x] = 3 if x == y else 1
+        for y in range(8, 16):
+            rows[y] = [2] * 1024
+        pal = [(0, 0, 0), (248, 0, 0), (0, 248, 0), (0, 0, 248)]
+        path = os.path.join(self.dir, "m7.png")
+        png(path, 1024, rows, 3, pal)
+        tmap, tiles, colours, count = png2snes.mode7(path, 33)
+        self.assertEqual(count, 4)                       # pattern, diagonal, all 1, all 2
+        self.assertEqual(len(tmap), 256)
+        self.assertEqual(list(tmap[:4]), [0, 1, 0, 2])
+        self.assertEqual(set(tmap[128:]), {3})
+        self.assertEqual(tiles[0], 33 + (0 % 3))         # index 1 -> CGRAM 33
+        self.assertEqual(tiles[64 + 9], 32 + 3)          # the diagonal: index 3 at (1, 1)
+        self.assertEqual(len(colours), 6)                # indices 1..3
+        png2snes.main(["png2snes", "mode7", path, "m7", self.dir, "33"])
+        h = open(os.path.join(self.dir, "m7.h")).read()
+        self.assertIn("#define M7_PAL_FIRST 33", h)
+        self.assertIn("#define M7_MAP_SIZE 256", h)
+        self.assertIn("#define M7_TILES_SIZE 256", h)
+
+    def test_mode7_limits(self):
+        pal = [(i, i, i) for i in range(256)]
+        path = os.path.join(self.dir, "m7b.png")
+        png(path, 1024, [[200] * 1024] * 8, 3, pal)
+        with self.assertRaises(SystemExit):                 # 200 from colour 100 on: past 255
+            png2snes.mode7(path, 100)
+        rows = [[1] * 1024 for _ in range(24)]
+        for k in range(384):                                # 384 tiles, all different
+            rows[(k // 128) * 8][(k % 128) * 8] = k // 32 + 1
+            rows[(k // 128) * 8][(k % 128) * 8 + 1] = k % 32 + 1
+        png(path, 1024, rows, 3, pal)
+        with self.assertRaises(SystemExit):                 # more than 256 tiles
+            png2snes.mode7(path, 1)
+        png(path, 512, [[1] * 512] * 8, 3, pal)
+        with self.assertRaises(SystemExit):                 # not 1024 wide
+            png2snes.mode7(path, 1)
 
 
 if __name__ == "__main__":

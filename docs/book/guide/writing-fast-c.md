@@ -235,6 +235,32 @@ void xor_16_halves(void)
 }
 ```
 
+**`slow-compare-sum`: compare with `(int16_t)(y + 32)` where the sum fits.** C adds an
+`int16_t` and a constant in `int`, which has 32 bits, so a comparison with the sum is a 32-bit
+comparison: the sum may not fit 16 bits. Where it does, a cast to `int16_t` says so, and the
+comparison becomes a 16-bit one: 162 cycles without the casts, 96 with them. Two `uint8_t`
+added stay 16-bit, because dampf sees that they cannot overflow.
+
+```c [src/test/resources/style/slow-compare-sum.c]
+void compare_sum(void)
+{
+    if (ship_y > enemy_y + 32) {
+        steer = 4;
+    } else if (ship_y < enemy_y - 32) {
+        steer = -4;
+    }
+}
+
+void compare_sum_narrowed(void)
+{
+    if (ship_y > (int16_t)(enemy_y + 32)) {
+        steer = 4;
+    } else if (ship_y < (int16_t)(enemy_y - 32)) {
+        steer = -4;
+    }
+}
+```
+
 ## Fast
 
 These forms are cheaper than the one you would write first. Use them in hot code.

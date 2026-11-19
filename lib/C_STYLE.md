@@ -44,7 +44,14 @@ the console only through `sdevkit/snes.h` and `sdevkit/loop.h`.
 All of these pass `dampf check` and cost nothing extra: declarations anywhere, also in the `for`
 (`for (uint8_t i = 0; ...)`); struct assignment (`b = a;`, the way to copy a struct); `static`
 locals; `const` tables, also multi-dimensional (they stay in ROM); `switch`; `?:`; enums as
-constants; `memset` and `memcpy`; the hints `DAMPF_RANGE` and `DAMPF_BUDGET` (part 6).
+constants; `memset` and `memcpy`; the hints `DAMPF_RANGE` and `DAMPF_BUDGET` (part 6);
+pointers to arrays (`const uint8_t (*rows)[16]`).
+
+One rule of C that the checks find the hard way: **the order in which a call's arguments are
+evaluated is open**, and dampf need not choose gcc's. Two calls with side effects in one call's
+arguments (`spawn(random16() & 31, random16() & 15)`) may run in another order on the SNES than
+on the PC, and the game the checks compare (ADR record 38) is no longer the same. Give each such
+call its own statement.
 
 ## 3. Slow
 
@@ -76,6 +83,10 @@ constants; `memset` and `memcpy`; the hints `DAMPF_RANGE` and `DAMPF_BUDGET` (pa
 - **`slow-32-bit`** Keep 32-bit values out of hot code: every operation on one goes through
   memory, more than twice the cost of a 16-bit one. A value only combined bit by bit (a hash) can
   be two `uint16_t` halves.
+- **`slow-compare-sum`** Compare with `(int16_t)(y + 32)`, not `y + 32`, where the sum fits: C adds
+  an `int16_t` and a constant in `int`, which has 32 bits, so the comparison is a 32-bit one, as the
+  sum may not fit 16 bits. The cast says it does. (Two `uint8_t` added stay 16-bit: dampf sees that
+  they cannot overflow.)
 
 ## 4. Fast
 
@@ -131,6 +142,7 @@ Measured 2026-11-19 (worst case of the timing report, code generator from MIR).
 | `same-multiply-width` | `multiply_bytes` | 417 | same | `multiply_words` | 411 |
 | `same-named-temporary` | `with_temporary` | 45 | same | `inline_expression` | 45 |
 | `slow-32-bit` | `xor_32` | 84 | slower | `xor_16_halves` | 36 |
+| `slow-compare-sum` | `compare_sum` | 162 | slower | `compare_sum_narrowed` | 96 |
 | `slow-divide-variable` | `divide_variables` | 816 | slower | `divide_constant` | 17 |
 | `slow-hand-shifts` | `times_40_by_shifts` | 45 | slower | `times_40` | 31 |
 | `slow-multiply-variable` | `multiply_variables` | 411 | slower | `multiply_constant` | 31 |

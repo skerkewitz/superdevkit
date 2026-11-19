@@ -22,6 +22,10 @@ COMPILER_SYMBOLS = {
     "memcpy", "memset", "memmove",
     # gcc on distributions that turn on -fstack-protector by default (Arch, Debian, Ubuntu, Fedora)
     "__stack_chk_fail",
+    # MSVC (tools/build_desktop_windows.sh): the linker's base address of the program, which /O2
+    # uses to reach tables, and the reports and cookies of its buffer checks (/GS, on by default)
+    "__ImageBase", "__report_rangecheckfailure", "__security_check_cookie", "__security_cookie",
+    "__GSHandlerCheck", "_fltused",
 }
 
 DECLARATION = re.compile(r"\b(\w+)\s*\([^(){};]*\)\s*;")

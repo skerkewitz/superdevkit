@@ -16,7 +16,11 @@
 --                               blank, where everything before it only switches the screen off,
 --                               so frame N is the Nth write with bit 7 clear; its picture is
 --                               taken two frame ends on, as a tick's
--- Writes example_check.txt: lost bytes per frame, then "frames F ticks T lost L".
+-- Writes example_check.txt: lost bytes per frame, then "frames F ticks T lost L"; and
+-- example_hashes.txt: the checksum of every tick, "tick hash" (hex), as the desktop's check writes
+-- hashes.txt. The kit's main loop writes 0 to $21FD after each game_tick (1 once after game_init);
+-- sdevkit_dbg_hash writes the address and size of what it names to $21FC (five bytes), and the
+-- memory is read and hashed here (FNV-1a, 32 bits).
 local ok, err = pcall(function()
   local total, shots, presses, splash = 600, {}, {}, {}
   for line in io.lines("example_input.txt") do
@@ -32,6 +36,28 @@ local ok, err = pcall(function()
     end
   end
   local out = io.open("example_check.txt", "w")
+  local hashes = io.open("example_hashes.txt", "w")
+  local hash, hashBytes, hashTicks = 2166136261, {}, 0
+  emu.addMemoryCallback(function(addr, value)
+    hashBytes[#hashBytes + 1] = value
+    if #hashBytes == 5 then
+      local a = hashBytes[1] | (hashBytes[2] << 8) | (hashBytes[3] << 16)
+      local n = hashBytes[4] | (hashBytes[5] << 8)
+      local h = hash
+      for i = 0, n - 1 do
+        h = ((h ~ emu.read(a + i, emu.memType.snesMemory)) * 16777619) & 0xFFFFFFFF
+      end
+      hash = h
+      hashBytes = {}
+    end
+  end, emu.callbackType.write, 0x21FC, 0x21FC)
+  emu.addMemoryCallback(function(addr, value)
+    if value == 0 and hashTicks < total then
+      hashes:write(string.format("%d %08x\n", hashTicks, hash))
+      hashTicks = hashTicks + 1
+    end
+    hash = 2166136261
+  end, emu.callbackType.write, 0x21FD, 0x21FD)
   -- the library copies the sprite table once at power-on, before the first tick: not a tick
   local frame, lost, ticks, shot_due, shot_wait = 0, 0, -1, nil, 0
   local brightness_writes, splash_due, splash_wait = 0, nil, 0
@@ -100,6 +126,7 @@ local ok, err = pcall(function()
     if ticks >= total and not shot_due then
       out:write(string.format("frames %d ticks %d lost %d\n", frame, ticks, lost))
       out:close()
+      hashes:close()
       emu.stop(0)
     end
   end, emu.eventType.endFrame)

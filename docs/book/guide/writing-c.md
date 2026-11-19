@@ -80,7 +80,8 @@ The constructs the subset rejects most often:
 
 Recursion is reported with the cycle of calls, for example
 `recursion is not supported: count_down → count_down`. Struct assignment is allowed: it is a
-copy of known size.
+copy of known size. A pointer to an array, such as `const uint8_t (*rows)[16]` for a table of
+16-byte rows, is allowed as well; only a pointer to a function is rejected.
 
 The one library header is dampf's `<string.h>`, with `memset` and `memcpy` for clearing and
 copying memory. Their value is a byte and their size a 16-bit number, since there is no plain

@@ -108,6 +108,28 @@ emulator as part of the tests, measures every call of every function, 180,000 ca
 checks that each lies between the best and the worst case dampf computes for that function, as
 the execution tests do for their programs.
 
+**The examples** are the small games of the [dev kit](/glossary#dev-kit) in `examples/`.
+`ExamplesTest` builds each one for the SNES with the code generator from MIR and plays the input
+of its `check.txt` in dampf's emulator, through the kit's own main loop. Where raylib was
+fetched, the same input is played on the desktop as well, on [Rachael](/glossary#rachael) with
+gcc's code. After every tick both sides compute a checksum of the game's state: the bytes the
+game names with `sdevkit_dbg_hash`, then the sprite table. The two lists must be the same, so
+dampf's code and gcc's, `lib/snes` and Rachael computed the same game tick for tick; the test
+names the first tick that differs. On the SNES the call only writes the address and size of the
+memory to a port (`$21FC`), and the emulator reads and hashes it, so the check costs the game
+about 80 cycles a call.
+
+The emulator's run also writes the frames per tick to the example's `build/emu-check/frames.txt`
+(on average and over the slowest 60 ticks) and the master cycles of every tick to `ticks.txt`
+there. They come close to Mesen's figures but are not equal, because a DMA takes no CPU time in
+dampf's emulator. A line `budget T1 T2` in `check.txt` turns this into a measured budget: the
+test fails when a tick from T1 to T2 - 1 took more than a frame. To see where that time goes,
+`dampf.emu.ExampleProfile` plays the same input in dampf's emulator and charges the cycles of a
+range of ticks to the functions of the ROM, and, with the ROM's `.dbg` file beside it, to its C
+lines, including the lines of functions dampf inlined. `dev/compare_example.sh` plays
+an example in Mesen and on the desktop with the same input and compares the checksums of every
+tick and the screenshots, pixel for pixel.
+
 Next to these layers are tests of single parts: front-end tests such as `ParserTest` and
 `AstBuilderTest`, and pass tests written as MIR text, such as `NarrowTest`, `GvnTest` and
 `InlineTest`. The text format they use is described on [MIR](/inside/mir). `MirTextTest` prints
@@ -158,9 +180,11 @@ at full brightness, a press in frame 212, when the fade out has begun, changes n
 
 ## dampf's emulator and Mesen
 
-The SNES side of the tests runs in `dampf.emu`, a 65816 emulator in Java with LoROM, work RAM and
-nothing else: no graphics and no sound. It exists for two reasons. It runs inside the JVM, so a
-test needs no external program and runs much faster than a ROM started in
+The SNES side of the tests runs in `dampf.emu`, a 65816 emulator in Java with LoROM and work
+RAM, but no graphics, DMA or sound. Of the picture it has only the timing that the kit's main
+loop polls: the line counter, the vertical blank flag and the automatic joypad read, and it has
+the joypads. It exists for two reasons. It runs inside the JVM, so a test needs no external
+program and runs much faster than a ROM started in
 [Mesen](/glossary#mesen); that is what makes 50 random programs on every build affordable. And
 it counts master cycles with the memory speeds of the SNES (work RAM and SlowROM 8 per access,
 I/O 6, internal cycles 6, DRAM refresh 40 per scanline), so the same run that checks the results
@@ -185,7 +209,8 @@ Windows build `Mesen.exe`, both portable and with the settings the tests need; G
 (`--testrunner`) with a Lua script that waits for the write to `$21FB`, reads the globals and
 writes them to a file. It works with the Linux build, whose libraries it takes from
 `.mesen/lib` when that folder exists, and from WSL with the Windows build. In the tests, the
-random programs, the other replays and the benchmark run in dampf's emulator only.
+random programs, the other replays, the examples and the benchmark run in dampf's emulator
+only.
 
 Outside the Gradle tests, `dev/check_game_rom.sh` starts Mesen on its own, and
 `dev/bench_game.sh` and `dev/profile_game.sh` run their ROM in it with `WITH_MESEN=1`.
@@ -195,9 +220,9 @@ Each takes the Mesen that `MESEN` names, else `.mesen/Mesen`, else `.mesen/Mesen
 ## Running the tests
 
 `./gradlew build` compiles dampf and runs every test that needs no property: the unit tests, the
-execution tests (in Mesen too, when `.mesen/` exists), 50 random programs, the check of the
-back end's output and the tests of the guides. The rest is
-switched on with Gradle properties:
+execution tests (in Mesen too, when `.mesen/` exists), 50 random programs, the examples, the
+check of the back end's output and the tests of the guides. The rest is switched on with
+Gradle properties:
 
 | Call | What it does |
 | --- | --- |
@@ -220,6 +245,7 @@ switched on with Gradle properties:
 | `./gradlew cpd -PcpdTokens=<N>` | the same from N tokens on |
 | `dev/bench_game.sh` | the game's benchmark: checksums and cycles |
 | `dev/check_game_rom.sh` | the playable ROM for a minute in Mesen: lost bytes, frames per tick, screenshots |
+| `dev/compare_example.sh <name>` | an example in Mesen and on the desktop: checksums of every tick and screenshots compared |
 
 The first run with `-PcpuTests` downloads the start of each opcode's file of the suite, about
 50 MB, into `~/.cache/dampf/65816-tests`; later runs use the copy. Without a property, the tests

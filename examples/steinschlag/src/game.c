@@ -437,6 +437,11 @@ void game_tick(const uint16_t pad[SDEVKIT_PADS])
         }
         break;
     }
+    /* the state for the checks, which compare the SNES and the PC after every tick
+     * (sdevkit_dbg_hash): the cave and the score */
+    sdevkit_dbg_hash(cave, sizeof cave);
+    sdevkit_dbg_hash(&score, sizeof score);
+    sdevkit_dbg_hash(&time_left, sizeof time_left);
 }
 
 void game_vblank(void)

@@ -45,10 +45,12 @@ of its subject.
 | 28 | [Options can be kept in an argument file, given by `--config` or `@file`](adr/0028-options-can-be-kept-in-an-argument-file-given-by.md) | Accepted | 2026-11-18 |
 | 29 | [superdevkit is the project, and dampf is its compiler](adr/0029-superdevkit-is-the-project-and-dampf-is-its.md) | Accepted; amended by 32, 34 | 2026-11-18 |
 | 30 | [One book for superdevkit, with dampf as a part of its own](adr/0030-one-book-for-superdevkit-with-dampf-as-a-part-of.md) | Accepted | 2026-11-18 |
-| 31 | [The superdevkit command builds a project from its TOML file and calls the compilers itself](adr/0031-the-superdevkit-command-builds-a-project-from-its.md) | Accepted | 2026-11-18 |
+| 31 | [The superdevkit command builds a project from its TOML file and calls the compilers itself](adr/0031-the-superdevkit-command-builds-a-project-from-its.md) | Accepted; amended by 39 | 2026-11-18 |
 | 32 | [Desktop and web are for prototyping, with sound, save RAM and a debug view the game registers into](adr/0032-desktop-and-web-are-for-prototyping-with-sound.md) | Accepted; amended by 34 | 2026-11-18 |
 | 33 | [MesenCE is the emulator for the console checks and the debugger](adr/0033-mesence-is-the-emulator-for-the-console-checks.md) | Accepted | 2026-11-18 |
 | 34 | [Every name of the console API starts with `sdevkit_`, and a game reaches nothing else](adr/0034-every-name-of-the-console-api-starts-with.md) | Accepted | 2026-11-18 |
 | 35 | [The pseudo SNES is called Rachael](adr/0035-the-pseudo-snes-is-called-rachael.md) | Accepted | 2026-11-19 |
 | 36 | [One ROM for NTSC and PAL, with NTSC's limits, and PAL a sixth slower for now](adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md) | Accepted | 2026-11-19 |
 | 37 | [Every game starts with the kit's splash screen, and a button shortens it](adr/0037-every-game-starts-with-the-kit-s-splash-screen.md) | Accepted | 2026-11-19 |
+| 38 | [The examples compare a checksum per tick on the SNES and the desktop, and the game names its state](adr/0038-the-examples-compare-a-checksum-per-tick-on-the.md) | Accepted | 2026-11-19 |
+| 39 | [win64 is built with MSVC, for now from WSL](adr/0039-win64-is-built-with-msvc-for-now-from-wsl.md) | Accepted | 2026-11-19 |

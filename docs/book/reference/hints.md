@@ -212,6 +212,8 @@ The other hints of the design are not built:
 - `DAMPF_PIN_X`, `DAMPF_SPLIT`, `DAMPF_DP` and `DAMPF_TABLE`, which ask for a transformation;
 - a hint that two pointers never overlap;
 - subrange types, `DAMPF_RANGED`, a type with a range of its own.
+- `DAMPF_AT_MOST(n)`, for a branch that runs at most n times per call of its function, however
+  often the loop around it runs; it would give pair loops a usable worst case.
 
 A bound on how often a loop runs, `DAMPF_TRIPS(n)`, is postponed: on the PC it would have to
 count the rounds of each entry into the loop, and a macro cannot see when a loop is entered or

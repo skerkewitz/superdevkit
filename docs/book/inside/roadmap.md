@@ -121,12 +121,19 @@ needed for that while the repository is private. Its work falls into five parts:
 started early, during M5, because prototyping and checking a game is much quicker on the
 desktop. [Rachael](/glossary#rachael), the SNES rebuilt in portable C from Blubber Blasen's
 implementation of the console API on the PC, is in the dev kit as `lib/rachael`, with a desktop
-frontend for Linux built on raylib in `lib/desktop`, and the examples give the same picture on
-the SNES and on the desktop, pixel for pixel. Rachael counts every byte the SNES would lose and
+frontend built on raylib in `lib/desktop`, and the examples give the same picture on
+the SNES and on the desktop, pixel for pixel. The frontend is built for Linux with gcc and for
+Windows with MSVC, both from WSL; the Windows build plays with the gamepads WSL does not see, and
+gives the same checksums and pictures as the Linux build. Rachael counts every byte the SNES would lose and
 every register write she does not draw, such as a mode other than 1 or mosaic, where the SNES
-would show something else; the desktop check fails on either.
-Still to come are Rachael's tests from the game,
-the frontend on Windows, and the `superdevkit` command. The console API gains sound, save RAM
+would show something else; the desktop check fails on either. Every build also plays each
+example's check in dampf's emulator and on the desktop and compares a checksum of the game's
+state after every tick, so a difference shows with the first tick it appears in, without
+Mesen. The checksum covers the sprite table and the bytes a game names with
+`sdevkit_dbg_hash`, which on the SNES only hands the address and size to the checker, about 80
+cycles a call.
+Still to come are Rachael's tests from the game
+and the `superdevkit` command. The console API gains sound, save RAM
 and a debug view. A game plays sound by number
 with `sdevkit_sfx_play(id)`, `sdevkit_music_play(track)` and `sdevkit_music_stop()`, the numbers
 taken from the assets its project file lists. Save RAM is a block of memory, `sdevkit_sram()`,
@@ -198,8 +205,13 @@ on Windows install MinGW or MSYS only for `gcc -E`, which stays in the tests as 
 **M11, timing and debugging**, counts the timing report, the assembly comments and the budgets
 in master clocks instead of CPU cycles, names the costliest path per C line in the report and in
 budget errors, and finds bounds for more loops: 37 of the game's functions have no worst case
-today. Frame-level timing adds DRAM refresh, HDMA and interrupts. Mesen shows the C source and
-the names of global variables from dampf's debug file, and nothing more; dampf's users would
+today. Worst cases of pair loops are far too high: a path that is rare in every pair, such as
+a hit that kills, is counted in every pair, so the `collide` function of the example Er-Tüp is
+5.4 million cycles at worst and a few thousand in play. Its frame is guarded by a budget
+measured in its check instead; a hint for how often a path runs, or a bound per call chain,
+would make budgets usable there. Frame-level timing adds DRAM refresh, HDMA and interrupts.
+Mesen shows the C source and the names of global variables from dampf's debug file, and
+nothing more; dampf's users would
 gain from variables shown with their C type, struct fields, and the locals of a function in
 their direct page places. dampf first fills what the debug file's format already has room for,
 then a small patch teaches Mesen to read it, offered to Mesen's author. The patch waits until

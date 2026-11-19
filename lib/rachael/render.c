@@ -68,7 +68,7 @@ static void hdma_line(void)
     for (c = 0; c < 8; c++) {
         HdmaRun *r = &hdma_run[c];
         const sdevkit__hdma_channel *h = &sdevkit__rachael.hdma[c];
-        uint8_t size = (uint8_t)(h->two ? 2 : 1), write = 0;
+        uint8_t size = (uint8_t)(h->two != SDEVKIT_HDMA_ONE ? 2 : 1), write = 0;
         if (r->done) {
             continue;
         }
@@ -89,8 +89,10 @@ static void hdma_line(void)
         }
         if (write) {
             sdevkit__write_reg(h->reg, r->data[0]);
-            if (h->two) {
+            if (h->two == SDEVKIT_HDMA_TWO_REGS) {
                 sdevkit__write_reg((uint8_t)(h->reg + 1), r->data[1]);
+            } else if (h->two == SDEVKIT_HDMA_TWICE) {
+                sdevkit__write_reg(h->reg, r->data[1]);
             }
         }
         r->lines--;

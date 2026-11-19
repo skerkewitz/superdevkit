@@ -95,6 +95,13 @@ void sdevkit_dma_copy_vram(const uint8_t *source, uint16_t address, uint16_t siz
     dma0(0x01, 0x18, source, size); /* two registers, $2118/$2119 */
 }
 
+void sdevkit_dma_copy_vram_column(const uint8_t *source, uint16_t address, uint16_t size)
+{
+    VMAIN = 0x81;                   /* step 32 words after the high byte */
+    VMADD = address;
+    dma0(0x01, 0x18, source, size);
+}
+
 void sdevkit_dma_copy_cgram(const uint8_t *source, uint16_t address, uint16_t size)
 {
     CGADD = (uint8_t)address;
@@ -309,7 +316,7 @@ void sdevkit_reg_write(uint8_t reg, uint8_t value)
 
 void sdevkit_hdma_set(uint8_t channel, uint8_t reg, uint8_t twoRegs, const uint8_t *table)
 {
-    DMAP(channel) = (uint8_t)(twoRegs ? 0x01 : 0x00);   /* direct, CPU to PPU, one or two registers */
+    DMAP(channel) = (uint8_t)(twoRegs & 3);   /* direct, CPU to PPU: the transfer mode is DMAP's */
     BBAD(channel) = reg;
     dma_source(channel, table);
 }
@@ -420,6 +427,19 @@ const uint16_t *sdevkit_dbg_vram(void)
 {
     static const uint16_t none[1];
     return none;
+}
+
+/* The address and the size go to port $21FC, five bytes (address low, high, bank, size low,
+ * high); the checker (dev/example_check.lua, dampf's emulator) reads and hashes the memory. */
+void sdevkit_dbg_hash(const void *data, uint16_t bytes)
+{
+    uint32_t a = (uint32_t)data;
+    const uint8_t *b = (const uint8_t *)&a;
+    DBG_HASH = b[0];
+    DBG_HASH = b[1];
+    DBG_HASH = b[2];
+    DBG_HASH = (uint8_t)bytes;
+    DBG_HASH = (uint8_t)(bytes >> 8);
 }
 
 /* Both joypads, SNES bit layout (game.h). The automatic read runs in the first lines of the

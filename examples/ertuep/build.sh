@@ -1,0 +1,25 @@
+#!/bin/sh
+# Builds Er-Tüp for the SNES: converts the PNG files of assets/ into C (tools/png2snes.py),
+# then compiles everything with dampf. Until the superdevkit command comes (roadmap M7), this
+# script is the build.
+#   examples/ertuep/build.sh                  -> examples/ertuep/build/ertuep.sfc
+#   CONVERT_ONLY=1 examples/ertuep/build.sh   only the assets into build/gen
+set -e
+cd "$(dirname "$0")"
+KIT=../..
+GEN=build/gen
+mkdir -p "$GEN"
+for s in stage_bar stage_cellar stage_kitchen stage_brew stage_mett wall_bar wall_cellar wall_kitchen wall_brew sprites_a sprites_b; do
+    python3 -I "$KIT/tools/png2snes.py" tiles "assets/$s.png" "$s" "$GEN"
+done
+python3 -I "$KIT/tools/png2snes.py" tiles2 assets/hud.png hud "$GEN"
+python3 -I "$KIT/tools/png2snes.py" tiles assets/boss.png boss_gfx "$GEN"
+python3 -I "$KIT/tools/png2snes.py" tiles assets/boss2.png boss2_gfx "$GEN"
+python3 -I "$KIT/tools/png2snes.py" tiles assets/sprites_c.png sprites_c "$GEN"
+for m in festzelt karussell; do                # stage 3 in mode 7: colours from CGRAM 33 on
+    python3 -I "$KIT/tools/png2snes.py" mode7 "assets/$m.png" "$m" "$GEN" 33
+done
+[ "${CONVERT_ONLY:-0}" = 1 ] && exit 0      # the tests convert, then compile in the JVM (ExamplesTest)
+DAMPF=${DAMPF:-$KIT/build/install/dampf/bin/dampf}
+[ -x "$DAMPF" ] || (cd "$KIT" && ./gradlew -q installDist)
+"$DAMPF" build @ertuep.args -o build/ertuep.sfc "$@"

@@ -30,8 +30,8 @@ The subset has these types:
   `uint16_t`, `int32_t`, `uint32_t`.
 - **`char`**, meant for text: string tables, names, small buffers. It is a signed 8-bit type,
   as on x86-64 (see [Open decisions](#open-decisions)).
-- **`void`**, **pointers**, **arrays** (also multi-dimensional), **structs**, **enums**, and
-  `typedef`s of these.
+- **`void`**, **pointers**, **arrays** (also multi-dimensional), **pointers to arrays** such
+  as `const uint8_t (*rows)[16]`, **structs**, **enums**, and `typedef`s of these.
 - **`const`**, **`static`** and **`extern`** as in C99. `volatile` is accepted on what a
   pointer points to, such as a hardware register: `*(volatile uint8_t *)0x2100 = 0x0F;` (see
   [Hardware access](#hardware-access)).
@@ -274,12 +274,16 @@ Every expression of C99 is accepted except these:
 | compound literals | `not supported yet: compound literals` |
 | designated initializers | `not supported yet: designated initializers` |
 | the comma operator outside the first and third part of a `for` | `not supported yet: the comma operator` |
-| `+=`, `++` and the like on an lvalue with side effects, such as `buf[i++] += 1` | `not supported yet: compound assignment to an lvalue with side effects` |
+| `+=` and the like on an lvalue with side effects inside a larger expression, such as `x = (buf[i++] += 1)` | `not supported yet: compound assignment to an lvalue with side effects` |
 | `_Alignof` | `not supported yet: '_Alignof'` |
 | `_Generic` | `not supported yet: this expression` |
 
 The comma operator is accepted where loops use it, as in
 `for (i = 0, j = 3; i < j; i++, j--)`.
+
+A compound assignment to an lvalue with side effects is accepted as a statement of its own, such
+as `table[next()] |= bit;`: the lvalue is evaluated once. `++` and `--` before or after such an
+lvalue are accepted anywhere.
 
 Struct assignment is accepted: `bubbles[1] = bubbles[0];` copies the whole struct. A local array
 or struct with an initializer is accepted too; it is copied from a constant copy in ROM.
