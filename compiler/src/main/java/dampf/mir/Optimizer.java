@@ -31,6 +31,7 @@ public final class Optimizer {
         // what may write memory stays the same
         boolean again = inline && Inline.run(m, f -> function(m, f, writes, verifyEach));
         again |= PointerParams.run(m);
+        again |= IndexParams.run(m);
         if (again) {
             if (verifyEach) {
                 Verifier.verify(m);

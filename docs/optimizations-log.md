@@ -960,3 +960,24 @@ uses it, after value numbering, so compare and branch fuse (`LDA dx / BMI`).
 The examples (`dev/bench_examples.sh`): Steinschlag -1.3 %, Er-Tüp -0.1 %, Schach +0.02 %, the
 rest the same; geometric mean -0.2 %.
 
+## Scaled index parameters (2026-11-20, on the pair loops and the examples)
+
+The pair function of the benchmark is too large to inline at its two call sites, so it took the
+indexes i and j as bytes and multiplied both by 23 (the struct's size) in every call, about 44
+cycles a pair, although the counted loop steps that offset already. `IndexParams` makes such a
+parameter the 16-bit product when the function uses it only as `zext` then `mul` by one constant
+(255 times it within 16 bits), or in unsigned comparisons with a constant or another parameter
+scaled alike; the callers multiply instead, and in the loop value numbering finds the stepped
+offset.
+
+| | Before | After |
+| --- | ---: | ---: |
+| A counter, struct array | 239,556 | 193,421 (-19.3 %) |
+| B sorted list, struct array | 214,099 | 211,955 (-1.0 %) |
+| C counter, one array per field | 187,116 | 187,116 |
+| D sorted list, one array per field | 196,866 | 196,866 |
+
+B gains little: its caller loads the index from the list and multiplies it there. C and D index
+arrays of different sizes, so their parameters stay bytes. The examples are the same (none passes
+an index into an array of structs to a function that is not inlined).
+
