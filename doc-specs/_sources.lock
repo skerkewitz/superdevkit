@@ -25,7 +25,7 @@ guide/getting-started src/main/java/dampf/Main.java b19bb0c88acd
 guide/getting-started src/main/resources/dampf/snes/runtime.s e19e32708511
 guide/introduction README.md 7a2f2177bf74
 guide/introduction doc-specs/guide/introduction.spec.md cfeaa417bef3
-guide/introduction docs/ADR.md af258cfa3af7
+guide/introduction docs/ADR.md be8d11486b23
 guide/introduction docs/adr/0001-dampf-is-a-compiler-of-its-own-for-one-target-the.md 411bd59d1e0c
 guide/introduction docs/adr/0002-java-25-antlr-with-the-grammars-v4-c-grammar-and.md 0b346bf3df8b
 guide/introduction docs/adr/0003-dampf-compiles-a-subset-of-c-enforced-by-a-checker.md 2c0037bdd56e
@@ -61,20 +61,21 @@ guide/introduction docs/adr/0032-desktop-and-web-are-for-prototyping-with-sound.
 guide/introduction docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md 5ad51480af48
 guide/introduction docs/adr/0034-every-name-of-the-console-api-starts-with.md e719f3a2fb26
 guide/introduction docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
+guide/introduction docs/adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md 92353ab17311
 guide/introduction docs/optimizations.md 647f94a894cd
 guide/introduction docs/roadmap.md eaef93132a3c
 guide/introduction lib/README.md 35f6fe3e98a1
 guide/introduction lib/snes/README.md 2386650af21f
 guide/snes-hardware doc-specs/guide/snes-hardware.spec.md 610e1e516c15
 guide/snes-hardware lib/README.md 35f6fe3e98a1
-guide/snes-hardware lib/SNES_HARDWARE.md 30e14318ab8e
+guide/snes-hardware lib/SNES_HARDWARE.md d0edf310fc2e
 guide/snes-hardware lib/desktop/main.c 7c4989f076be
 guide/snes-hardware lib/rachael/ppu.c f7be9f9b9397
 guide/snes-hardware lib/rachael/rachael.h 88b62e6fda2e
 guide/snes-hardware src/test/java/dampf/lib/LibCostTest.java cccb62d8a908
 guide/snes-hardware src/test/java/dampf/lib/SnesHardwareGuideTest.java 7753c0c39fe2
 guide/writing-c doc-specs/guide/writing-c.spec.md 487df1ba795b
-guide/writing-c docs/ADR.md af258cfa3af7
+guide/writing-c docs/ADR.md be8d11486b23
 guide/writing-c docs/adr/0001-dampf-is-a-compiler-of-its-own-for-one-target-the.md 411bd59d1e0c
 guide/writing-c docs/adr/0002-java-25-antlr-with-the-grammars-v4-c-grammar-and.md 0b346bf3df8b
 guide/writing-c docs/adr/0003-dampf-compiles-a-subset-of-c-enforced-by-a-checker.md 2c0037bdd56e
@@ -110,6 +111,7 @@ guide/writing-c docs/adr/0032-desktop-and-web-are-for-prototyping-with-sound.md 
 guide/writing-c docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md 5ad51480af48
 guide/writing-c docs/adr/0034-every-name-of-the-console-api-starts-with.md e719f3a2fb26
 guide/writing-c docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
+guide/writing-c docs/adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md 92353ab17311
 guide/writing-c docs/subset.md 91c2e2a5019a
 guide/writing-c src/main/java/dampf/Main.java b19bb0c88acd
 guide/writing-c src/main/java/dampf/check/CallGraph.java 1f480e8e97b7
@@ -139,7 +141,7 @@ guide/writing-fast-c src/test/resources/style/slow-signed-divide.c 45b7574aee2d
 guide/writing-fast-c src/test/resources/style/slow-u8-counter.c 885fe9da6319
 guide/writing-fast-c src/test/resources/style/slow-word-array.c eb69aed1194e
 inside/how-a-compile-works doc-specs/inside/how-a-compile-works.spec.md ff587f67de96
-inside/how-a-compile-works docs/ADR.md af258cfa3af7
+inside/how-a-compile-works docs/ADR.md be8d11486b23
 inside/how-a-compile-works docs/adr/0001-dampf-is-a-compiler-of-its-own-for-one-target-the.md 411bd59d1e0c
 inside/how-a-compile-works docs/adr/0002-java-25-antlr-with-the-grammars-v4-c-grammar-and.md 0b346bf3df8b
 inside/how-a-compile-works docs/adr/0003-dampf-compiles-a-subset-of-c-enforced-by-a-checker.md 2c0037bdd56e
@@ -175,6 +177,7 @@ inside/how-a-compile-works docs/adr/0032-desktop-and-web-are-for-prototyping-wit
 inside/how-a-compile-works docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md 5ad51480af48
 inside/how-a-compile-works docs/adr/0034-every-name-of-the-console-api-starts-with.md e719f3a2fb26
 inside/how-a-compile-works docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
+inside/how-a-compile-works docs/adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md 92353ab17311
 inside/how-a-compile-works docs/architecture.md 09ce4c89900a
 inside/how-a-compile-works src/main/antlr/dampf/parser/README.md 45d7fdf1170c
 inside/how-a-compile-works src/main/java/dampf/Compiler.java 27002cdf7153
@@ -188,7 +191,7 @@ inside/how-a-compile-works src/main/java/dampf/frontend/Preprocessor.java 6f1fe4
 inside/how-a-compile-works src/main/java/dampf/mir/Optimizer.java c68a961b08db
 inside/how-a-compile-works src/main/java/dampf/snes/RomBuilder.java bfb4c0b92aee
 inside/mir doc-specs/inside/mir.spec.md ccaea59e8cb0
-inside/mir docs/ADR.md af258cfa3af7
+inside/mir docs/ADR.md be8d11486b23
 inside/mir docs/adr/0001-dampf-is-a-compiler-of-its-own-for-one-target-the.md 411bd59d1e0c
 inside/mir docs/adr/0002-java-25-antlr-with-the-grammars-v4-c-grammar-and.md 0b346bf3df8b
 inside/mir docs/adr/0003-dampf-compiles-a-subset-of-c-enforced-by-a-checker.md 2c0037bdd56e
@@ -224,6 +227,7 @@ inside/mir docs/adr/0032-desktop-and-web-are-for-prototyping-with-sound.md 7e978
 inside/mir docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md 5ad51480af48
 inside/mir docs/adr/0034-every-name-of-the-console-api-starts-with.md e719f3a2fb26
 inside/mir docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
+inside/mir docs/adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md 92353ab17311
 inside/mir docs/architecture.md 09ce4c89900a
 inside/mir docs/testing.md 028cc22e5018
 inside/mir src/main/java/dampf/mir/Instr.java 7c4f924e88f7
@@ -233,7 +237,7 @@ inside/mir src/main/java/dampf/mir/Printer.java 7d05bbd4506e
 inside/mir src/main/java/dampf/mir/Verifier.java aee9edab008c
 inside/mir src/test/java/dampf/mir/MirTextTest.java d8f2cda51677
 inside/optimizations doc-specs/inside/optimizations.spec.md c2b454a2aa08
-inside/optimizations docs/ADR.md af258cfa3af7
+inside/optimizations docs/ADR.md be8d11486b23
 inside/optimizations docs/adr/0001-dampf-is-a-compiler-of-its-own-for-one-target-the.md 411bd59d1e0c
 inside/optimizations docs/adr/0002-java-25-antlr-with-the-grammars-v4-c-grammar-and.md 0b346bf3df8b
 inside/optimizations docs/adr/0003-dampf-compiles-a-subset-of-c-enforced-by-a-checker.md 2c0037bdd56e
@@ -269,6 +273,7 @@ inside/optimizations docs/adr/0032-desktop-and-web-are-for-prototyping-with-soun
 inside/optimizations docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md 5ad51480af48
 inside/optimizations docs/adr/0034-every-name-of-the-console-api-starts-with.md e719f3a2fb26
 inside/optimizations docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
+inside/optimizations docs/adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md 92353ab17311
 inside/optimizations docs/architecture.md 09ce4c89900a
 inside/optimizations docs/optimizations-log.md aa804c6b80ab
 inside/optimizations docs/optimizations.md 647f94a894cd
@@ -340,7 +345,7 @@ inside/optimizations src/main/java/dampf/mir/Value.java b6879c997a90
 inside/optimizations src/main/java/dampf/mir/Verifier.java aee9edab008c
 inside/roadmap README.md 7a2f2177bf74
 inside/roadmap doc-specs/inside/roadmap.spec.md 0c84ca4a62e3
-inside/roadmap docs/ADR.md af258cfa3af7
+inside/roadmap docs/ADR.md be8d11486b23
 inside/roadmap docs/adr/0001-dampf-is-a-compiler-of-its-own-for-one-target-the.md 411bd59d1e0c
 inside/roadmap docs/adr/0002-java-25-antlr-with-the-grammars-v4-c-grammar-and.md 0b346bf3df8b
 inside/roadmap docs/adr/0003-dampf-compiles-a-subset-of-c-enforced-by-a-checker.md 2c0037bdd56e
@@ -376,6 +381,7 @@ inside/roadmap docs/adr/0032-desktop-and-web-are-for-prototyping-with-sound.md 7
 inside/roadmap docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md 5ad51480af48
 inside/roadmap docs/adr/0034-every-name-of-the-console-api-starts-with.md e719f3a2fb26
 inside/roadmap docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
+inside/roadmap docs/adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md 92353ab17311
 inside/roadmap docs/roadmap.md eaef93132a3c
 inside/roadmap lib/README.md 35f6fe3e98a1
 inside/testing README.md 7a2f2177bf74
@@ -418,7 +424,7 @@ inside/timing src/test/java/dampf/BudgetTest.java 7ab99f5df2b0
 inside/timing src/test/java/dampf/exec/GameTimingTest.java 58a045abfd9a
 inside/timing src/test/java/dampf/exec/Timing.java c29c1caa941d
 reference/c-subset doc-specs/reference/c-subset.spec.md 23befa58fac1
-reference/c-subset docs/ADR.md af258cfa3af7
+reference/c-subset docs/ADR.md be8d11486b23
 reference/c-subset docs/adr/0001-dampf-is-a-compiler-of-its-own-for-one-target-the.md 411bd59d1e0c
 reference/c-subset docs/adr/0002-java-25-antlr-with-the-grammars-v4-c-grammar-and.md 0b346bf3df8b
 reference/c-subset docs/adr/0003-dampf-compiles-a-subset-of-c-enforced-by-a-checker.md 2c0037bdd56e
@@ -454,6 +460,7 @@ reference/c-subset docs/adr/0032-desktop-and-web-are-for-prototyping-with-sound.
 reference/c-subset docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md 5ad51480af48
 reference/c-subset docs/adr/0034-every-name-of-the-console-api-starts-with.md e719f3a2fb26
 reference/c-subset docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
+reference/c-subset docs/adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md 92353ab17311
 reference/c-subset docs/subset.md 91c2e2a5019a
 reference/c-subset src/main/java/dampf/check/CallGraph.java 1f480e8e97b7
 reference/c-subset src/main/java/dampf/frontend/AstBuilder.java 8bb4e33c67d1
@@ -477,7 +484,7 @@ reference/command-line src/main/java/dampf/tools/Bench.java 53b21f0f7598
 reference/command-line src/main/java/dampf/tools/Mir.java 70e7f360ddc3
 reference/command-line src/main/java/dampf/tools/Profile.java 23a0f543d260
 reference/hints doc-specs/reference/hints.spec.md 1aaea5aba588
-reference/hints docs/ADR.md af258cfa3af7
+reference/hints docs/ADR.md be8d11486b23
 reference/hints docs/adr/0001-dampf-is-a-compiler-of-its-own-for-one-target-the.md 411bd59d1e0c
 reference/hints docs/adr/0002-java-25-antlr-with-the-grammars-v4-c-grammar-and.md 0b346bf3df8b
 reference/hints docs/adr/0003-dampf-compiles-a-subset-of-c-enforced-by-a-checker.md 2c0037bdd56e
@@ -513,6 +520,7 @@ reference/hints docs/adr/0032-desktop-and-web-are-for-prototyping-with-sound.md 
 reference/hints docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md 5ad51480af48
 reference/hints docs/adr/0034-every-name-of-the-console-api-starts-with.md e719f3a2fb26
 reference/hints docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
+reference/hints docs/adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md 92353ab17311
 reference/hints docs/hints.md 385e5701f6b1
 reference/hints docs/subrange-types.md 36b327590609
 reference/hints docs/timing.md 2c50d5c61005
@@ -524,7 +532,7 @@ reference/hints src/test/resources/exec/hint_range.c 6d1dcc6be9e1
 reference/hints tools/build_desktop.sh 2a1363910740
 reference/limits README.md 7a2f2177bf74
 reference/limits doc-specs/reference/limits.spec.md f9f2ab703e6f
-reference/limits docs/ADR.md af258cfa3af7
+reference/limits docs/ADR.md be8d11486b23
 reference/limits docs/adr/0001-dampf-is-a-compiler-of-its-own-for-one-target-the.md 411bd59d1e0c
 reference/limits docs/adr/0002-java-25-antlr-with-the-grammars-v4-c-grammar-and.md 0b346bf3df8b
 reference/limits docs/adr/0003-dampf-compiles-a-subset-of-c-enforced-by-a-checker.md 2c0037bdd56e
@@ -560,6 +568,7 @@ reference/limits docs/adr/0032-desktop-and-web-are-for-prototyping-with-sound.md
 reference/limits docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md 5ad51480af48
 reference/limits docs/adr/0034-every-name-of-the-console-api-starts-with.md e719f3a2fb26
 reference/limits docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
+reference/limits docs/adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md 92353ab17311
 reference/limits docs/hints.md 385e5701f6b1
 reference/limits docs/optimizations.md 647f94a894cd
 reference/limits docs/roadmap.md eaef93132a3c
@@ -577,7 +586,7 @@ reference/output-files src/main/java/dampf/snes/RomBuilder.java bfb4c0b92aee
 reference/output-files src/main/java/dampf/target/Cycles65816.java 8698afa0f4ad
 reference/runtime-and-memory README.md 7a2f2177bf74
 reference/runtime-and-memory doc-specs/reference/runtime-and-memory.spec.md 05d92b7efbb2
-reference/runtime-and-memory docs/ADR.md af258cfa3af7
+reference/runtime-and-memory docs/ADR.md be8d11486b23
 reference/runtime-and-memory docs/adr/0001-dampf-is-a-compiler-of-its-own-for-one-target-the.md 411bd59d1e0c
 reference/runtime-and-memory docs/adr/0002-java-25-antlr-with-the-grammars-v4-c-grammar-and.md 0b346bf3df8b
 reference/runtime-and-memory docs/adr/0003-dampf-compiles-a-subset-of-c-enforced-by-a-checker.md 2c0037bdd56e
@@ -613,6 +622,7 @@ reference/runtime-and-memory docs/adr/0032-desktop-and-web-are-for-prototyping-w
 reference/runtime-and-memory docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md 5ad51480af48
 reference/runtime-and-memory docs/adr/0034-every-name-of-the-console-api-starts-with.md e719f3a2fb26
 reference/runtime-and-memory docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
+reference/runtime-and-memory docs/adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md 92353ab17311
 reference/runtime-and-memory docs/memory-map.md f314d1a27652
 reference/runtime-and-memory docs/optimizations.md 647f94a894cd
 reference/runtime-and-memory src/main/java/dampf/backend/FrameLayout.java 4b380f377e64
