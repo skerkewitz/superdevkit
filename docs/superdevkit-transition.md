@@ -113,6 +113,21 @@ finding 8: `tools/sdevkit_rename.py`), after which the kit drops `lib/include/sn
 The playable ROM on a real SNES or flash cartridge, and the DMA margin `SETUP_LINES` measured
 again.
 
+On a PAL console too (decided with the user 2026-11-19: the consoles at hand are PAL ones). One
+ROM for both: the region is the console's, not the ROM's, and a game reads it from bit 4 of
+`STAT78` (`$213F`). NTSC's limits stay the limits of the design (the shorter vertical blank,
+`SDEVKIT__VBLANK_DMA_BYTES`), so the ROM loses no byte on either. On PAL the picture comes 50
+times a second instead of 60, so with one tick per frame the game runs a sixth slower. Open is
+whether `lib/snes` makes up for it, and how:
+
+- Accept it, as many PAL games of the time did. Nothing to build.
+- Six ticks in five frames: every fifth frame runs `game_tick` twice; the game still counts only
+  ticks and stays deterministic. But two ticks must fit in one PAL frame (20 ms), and Blubber
+  Blasen takes 0.79 NTSC frames (13.2 ms) per tick on average, so the double tick overruns and
+  that frame's picture is shown twice. To be measured before it is chosen.
+
+Checked in Mesen with the region set to PAL before the console: the speed, and no byte lost.
+
 ## M7: Windows and Linux (0.7.0)
 
 ### 7.1 Rachael, the pseudo SNES, in the kit
