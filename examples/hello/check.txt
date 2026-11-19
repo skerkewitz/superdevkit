@@ -1,4 +1,9 @@
 ticks 400
+splash 1
+splash 16
+splash 31
+splash 120
+splash 230
 shot 30
 press 60 160 right
 press 160 260 down

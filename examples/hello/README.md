@@ -11,7 +11,8 @@ tools/build_desktop.sh examples/hello   # the desktop (Linux): examples/hello/bu
 
 On the desktop the keyboard is the joypad: the arrows, Z (B), X (A), A (Y), S (X), Q and W (L and
 R), Enter (Start). `dev/compare_example.sh hello` plays it on both with the input of `check.txt`
-and compares the pictures, pixel for pixel.
+and compares the pictures, pixel for pixel. Its check also takes five pictures of the splash
+screen every game starts with (ADR record 37), in the middle of the fades too.
 
 Open `build/hello.sfc` in Mesen with `build/hello.dbg` next to it, and step through
 `src/hello.c` in its debugger. `dev/check_example.sh hello` plays it headless with the input of

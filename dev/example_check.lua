@@ -10,14 +10,21 @@
 --   shot T                      a screenshot of the picture after tick T (example_shot_T.png)
 --   press T1 T2 BUTTON ...      hold the buttons (a b x y l r start select up down left right)
 --                               on pad 1 for the ticks T1 to T2 - 1 (counted from 0)
+--   splash N                    a screenshot of frame N (from 1) of the splash screen, before
+--                               the first tick (example_splash_N.png): the splash writes the
+--                               brightness ($2100, the screen on) once a frame in the vertical
+--                               blank, where everything before it only switches the screen off,
+--                               so frame N is the Nth write with bit 7 clear; its picture is
+--                               taken two frame ends on, as a tick's
 -- Writes example_check.txt: lost bytes per frame, then "frames F ticks T lost L".
 local ok, err = pcall(function()
-  local total, shots, presses = 600, {}, {}
+  local total, shots, presses, splash = 600, {}, {}, {}
   for line in io.lines("example_input.txt") do
     local w = {}
     for word in line:gmatch("%S+") do w[#w + 1] = word end
     if w[1] == "ticks" then total = tonumber(w[2])
     elseif w[1] == "shot" then shots[tonumber(w[2])] = true
+    elseif w[1] == "splash" then splash[tonumber(w[2])] = true
     elseif w[1] == "press" then
       local p = { from = tonumber(w[2]), to = tonumber(w[3]), buttons = {} }
       for i = 4, #w do p.buttons[w[i]] = true end
@@ -27,6 +34,7 @@ local ok, err = pcall(function()
   local out = io.open("example_check.txt", "w")
   -- the library copies the sprite table once at power-on, before the first tick: not a tick
   local frame, lost, ticks, shot_due, shot_wait = 0, 0, -1, nil, 0
+  local brightness_writes, splash_due, splash_wait = 0, nil, 0
   emu.addMemoryCallback(function(addr, value)
     for ch = 0, 7 do
       if (value >> ch) & 1 == 1 and emu.read(0x4301 + ch * 16, emu.memType.snesMemory) == 0x04 then
@@ -40,8 +48,13 @@ local ok, err = pcall(function()
   -- for every byte written made the check about fifty times slower.
   local vblank, screenOff = false, emu.getState()["ppu.forcedBlank"]
   emu.addEventCallback(function() vblank = false end, emu.eventType.startFrame)
-  emu.addMemoryCallback(function(addr, value) screenOff = (value & 0x80) ~= 0 end,
-    emu.callbackType.write, 0x2100, 0x2100)
+  emu.addMemoryCallback(function(addr, value)
+    screenOff = (value & 0x80) ~= 0
+    if (value & 0x80) == 0 and ticks <= 0 then
+      brightness_writes = brightness_writes + 1
+      if splash[brightness_writes] then splash_due = brightness_writes; splash_wait = 2 end
+    end
+  end, emu.callbackType.write, 0x2100, 0x2100)
   local ports = { [0x2104] = "OAM", [0x2118] = "VRAM", [0x2119] = "VRAM", [0x2122] = "CGRAM" }
   local lostNow = {}
   emu.addMemoryCallback(function(addr, value)
@@ -68,6 +81,14 @@ local ok, err = pcall(function()
     end
     lostNow = {}
     frame = frame + 1
+    if splash_due then                    -- the frame drawn with the splash's Nth brightness
+      splash_wait = splash_wait - 1
+      if splash_wait == 0 then
+        local png = io.open(string.format("example_splash_%d.png", splash_due), "wb")
+        png:write(emu.takeScreenshot()); png:close()
+        splash_due = nil
+      end
+    end
     if shot_due then                      -- the frame drawn after tick T's vertical blank
       shot_wait = shot_wait - 1
       if shot_wait == 0 then

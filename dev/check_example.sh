@@ -16,10 +16,10 @@ rm -rf "$OUT" && mkdir -p "$OUT"
 cp "$EX/build/$NAME.sfc" "$MESEN_DIR/example_check.sfc"
 cp dev/example_check.lua "$MESEN_DIR/example_check.lua"
 cp "$EX/check.txt" "$MESEN_DIR/example_input.txt"
-rm -f "$MESEN_DIR/example_check.txt" "$MESEN_DIR"/example_shot_*.png
+rm -f "$MESEN_DIR/example_check.txt" "$MESEN_DIR"/example_shot_*.png "$MESEN_DIR"/example_splash_*.png
 mesen_run 600 example_check.sfc example_check.lua
 [ -f "$MESEN_DIR/example_check.txt" ] || { echo "check: Mesen wrote no example_check.txt"; exit 1; }
 mv "$MESEN_DIR/example_check.txt" "$OUT/check.txt"
-for f in "$MESEN_DIR"/example_shot_*.png; do [ -f "$f" ] && mv "$f" "$OUT/"; done
+for f in "$MESEN_DIR"/example_shot_*.png "$MESEN_DIR"/example_splash_*.png; do [ -f "$f" ] && mv "$f" "$OUT/"; done
 tail -1 "$OUT/check.txt"
 tr -d "\r" < "$OUT/check.txt" | grep -q "lost 0$" || { echo "check: bytes lost outside the vertical blank (see $OUT/check.txt)"; exit 1; }

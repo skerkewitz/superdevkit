@@ -15,6 +15,7 @@ name it can use starts with `sdevkit_` or `SDEVKIT_`
 | `rachael/` | The desktop (and the web, M8): [Rachael](#rachael), the SNES rebuilt in portable C (`ppu.c`, `render.c`). `rachael.h` is its interface to the frontends (`sdevkit__vblank`, `sdevkit__render`, ...), not for games. Taken over from Blubber Blasen's `src/snes`; new against the game's copy: 16 x 16 background tiles, and row y of the picture is scanline y + 1 as on the SNES. |
 | `desktop/` | The desktop's frontend (`main.c`, Linux now, Windows next): a window with raylib, the keyboard and a gamepad as the joypad, the frame rhythm of `loop.h`; `--check check.txt` plays without a window and writes screenshots. Built by `tools/build_desktop.sh`. |
 | `web/` | The web, later (M8, [the plan](../docs/superdevkit-transition.md)). |
+| `splash/` | The splash screen every game starts with (ADR record 37): its course (`splash.h`, included by both main loops) and the logo (`splash_logo.h`, made by `dev/art/splash.py` from `assets/splash/logo_source.png`). |
 | `C_STYLE.md` | How to write a game's C for dampf: rejected, allowed, slow, fast, no difference; its speed rules are measurements (`StyleGuideTest`). |
 | `SNES_HARDWARE.md` | What the SNES allows and punishes, which of it the kit has, and how each rule is checked. |
 

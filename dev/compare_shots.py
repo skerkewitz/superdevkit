@@ -19,7 +19,8 @@ def five(px):
 
 def main(snes_dir, desktop_dir):
     bad = 0
-    shots = sorted(glob.glob(os.path.join(snes_dir, "example_shot_*.png")), key=lambda p: int(p.rsplit("_", 1)[1][:-4]))
+    shots = sorted(glob.glob(os.path.join(snes_dir, "example_splash_*.png")), key=lambda p: int(p.rsplit("_", 1)[1][:-4]))
+    shots += sorted(glob.glob(os.path.join(snes_dir, "example_shot_*.png")), key=lambda p: int(p.rsplit("_", 1)[1][:-4]))
     if not shots:
         print(f"compare: no screenshots in {snes_dir}")
         return 1

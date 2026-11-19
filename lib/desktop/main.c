@@ -8,13 +8,16 @@
  *   game_vblank()       the game's uploads
  *   sdevkit__render()   the picture of the frame, which ends the vertical blank
  *
+ * Before game_init, as on the SNES, the splash screen (lib/splash/splash.h): its frames are drawn
+ * and shown like the game's, then the console is reset again.
+ *
  * Rachael counts every byte that would not arrive on the console (written outside the
  * vertical blank, or more than one vertical blank can copy), so the desktop finds what the SNES
  * would lose.
  *
  * With --check <file> it runs without a window, with the input of the file (the format of the
- * examples' check.txt: "ticks N", "press T1 T2 buttons...", "shot T"; on the desktop every frame is
- * one tick), writes the screenshots it
+ * examples' check.txt: "ticks N", "press T1 T2 buttons...", "shot T", "splash N"; on the desktop
+ * every frame is one tick, and the splash comes before them, without input), writes the screenshots it
  * asks for as PNG into the folder of --out (default .), and prints "frames N ticks N lost L
  * undrawn U sprites S"; the exit status is 1 when a byte was lost or a register write was one
  * Rachael does not draw (sdevkit__undrawn). S counts the lines over the sprite limits (32 sprites,
@@ -83,7 +86,68 @@ static void save_png(const char *path)
     ExportImage(img, path);
 }
 
+/* --- the splash screen ------------------------------------------------------------------------ */
+static int splash_scale;                /* the window's scale; 0: a check, no window */
+static Texture2D splash_texture;
+static long splash_count;               /* frames of the splash so far */
+static const char *splash_out = ".";
+static long splash_shots[64];
+static int splash_nshot;
+
+static uint16_t keyboard(void);
+static void show(Texture2D tex, int scale);
+
+/* One frame of the splash (lib/splash/splash.h): the brightness written in the vertical blank,
+ * the picture drawn; in the window shown, with the keyboard as pad 1; in a check, the screenshots
+ * of the splash it asks for. */
+static uint16_t sdevkit__splash_frame(uint8_t brightness)
+{
+    int i;
+
+    sdevkit__vblank();
+    sdevkit__write_reg(SDEVKIT_PPU_INIDISP, brightness);
+    picture();
+    splash_count++;
+    if (splash_scale > 0) {
+        if (WindowShouldClose()) {
+            CloseWindow();
+            exit(0);
+        }
+        show(splash_texture, splash_scale);
+        return keyboard();
+    }
+    for (i = 0; i < splash_nshot; i++) {
+        if (splash_shots[i] == splash_count) {
+            char name[512];
+            snprintf(name, sizeof name, "%s/example_splash_%ld.png", splash_out, splash_count);
+            save_png(name);
+        }
+    }
+    return 0;
+}
+
+#include "../splash/splash.h"
+
+/* Power on: the splash, the console reset again, then the game. */
+static void start(void)
+{
+    sdevkit__reset();
+    sdevkit__splash();
+    sdevkit__reset();
+    game_init(0);
+}
+
 /* --- the window ------------------------------------------------------------------------------ */
+static void show(Texture2D tex, int scale)
+{
+    UpdateTexture(tex, rgba);
+    BeginDrawing();
+    ClearBackground(BLACK);
+    DrawTexturePro(tex, (Rectangle){ 0, 0, SDEVKIT__W, SDEVKIT__H },
+                   (Rectangle){ 0, 0, (float)(SDEVKIT__W * scale), (float)(SDEVKIT__H * scale) }, (Vector2){ 0, 0 }, 0, WHITE);
+    EndDrawing();
+}
+
 static uint16_t keyboard(void)
 {
     uint16_t p = 0;
@@ -140,16 +204,14 @@ static int window(int scale)
         Image img = { rgba, SDEVKIT__W, SDEVKIT__H, 1, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 };
         tex = LoadTextureFromImage(img);
     }
+    splash_texture = tex;
+    splash_scale = scale;
+    start();
     while (!WindowShouldClose()) {
         uint16_t pad[SDEVKIT_PADS] = { 0, 0 };
         pad[0] = keyboard();
         lost += frame_step(pad);
-        UpdateTexture(tex, rgba);
-        BeginDrawing();
-        ClearBackground(BLACK);
-        DrawTexturePro(tex, (Rectangle){ 0, 0, SDEVKIT__W, SDEVKIT__H },
-                       (Rectangle){ 0, 0, (float)(SDEVKIT__W * scale), (float)(SDEVKIT__H * scale) }, (Vector2){ 0, 0 }, 0, WHITE);
-        EndDrawing();
+        show(tex, scale);
         if (IsKeyPressed(KEY_F12)) {
             char name[64];
             snprintf(name, sizeof name, "%s_%d.png", GAME_NAME, shots++);
@@ -218,6 +280,8 @@ static int check(const char *path, const char *out)
             return 2;
         } else if (strcmp(w, "shot") == 0) {
             shots[nshot++] = atol(strtok(NULL, " \t\r\n"));
+        } else if (strcmp(w, "splash") == 0 && splash_nshot < 64) {
+            splash_shots[splash_nshot++] = atol(strtok(NULL, " \t\r\n"));
         } else if (strcmp(w, "press") == 0) {
             Press *p = &presses[npress++];
             p->from = atol(strtok(NULL, " \t\r\n"));
@@ -229,6 +293,8 @@ static int check(const char *path, const char *out)
         }
     }
     fclose(in);
+    splash_out = out;
+    start();
     for (f = 0; f < frames; f++) {
         uint16_t pad[SDEVKIT_PADS] = { 0, 0 };
         unsigned l;
@@ -276,8 +342,6 @@ int main(int argc, char **argv)
             return 2;
         }
     }
-    sdevkit__reset();
-    game_init(0);
     if (check_file != NULL) {
         SetTraceLogLevel(LOG_WARNING);
         return check(check_file, out);

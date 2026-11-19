@@ -359,7 +359,9 @@ void sdevkit__oam_upload(void)
 }
 
 /* Power-on state: all PPU registers that start undefined are cleared, VRAM, CGRAM and OAM too. */
-void sdevkit__reset_video(void)
+/* The PPU as at power-on, the screen off: registers, VRAM, CGRAM. The sprite table is left alone,
+ * so this also serves after the splash, where a copy of it would count as a tick in the checks. */
+void sdevkit__reset_ppu(void)
 {
     uint8_t r;
     INIDISP = 0x80;
@@ -388,6 +390,13 @@ void sdevkit__reset_video(void)
     CGDATA = 0;
     tm_shadow = ts_shadow = 0;
     nba_shadow[0] = nba_shadow[1] = 0;
+}
+
+/* The PPU and the sprite table as at power-on. */
+void sdevkit__reset_video(void)
+{
+    uint8_t r;
+    sdevkit__reset_ppu();
     sdevkit_oam_clear(0, 0);
     for (r = 0; r < 32; r++) {
         sdevkit_oam_memory[512 + r] = 0;

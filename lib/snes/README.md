@@ -8,7 +8,7 @@ ROM you can play (`build/game/blubberblasen.sfc`, for Mesen or real hardware).
 | --- | --- |
 | `hw.h` | The registers, as pointers to `volatile` memory |
 | `snes.c` | The functions of `sdevkit/snes.h`, and what `main.c` needs from the hardware (`sdevkit__oam_upload`, `sdevkit__wait_vblank`, ...) |
-| `main.c` | Start-up and the main loop of `sdevkit/loop.h`: joypads, `game_tick`, then in the vertical blank the OAM copy and `game_vblank` |
+| `main.c` | Start-up, the splash screen (`../splash/splash.h`, ADR record 37), and the main loop of `sdevkit/loop.h`: joypads, `game_tick`, then in the vertical blank the OAM copy and `game_vblank` |
 
 There is no interrupt handler: the main loop waits for the vertical blank itself, because C code
 called from an NMI in the middle of a tick would overwrite the frames of the code it interrupted

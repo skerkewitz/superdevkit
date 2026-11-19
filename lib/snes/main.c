@@ -20,6 +20,7 @@
 #include "hw.h"
 
 void sdevkit__reset_video(void);
+void sdevkit__reset_ppu(void);
 void sdevkit__oam_upload(void);
 void sdevkit__wait_vblank(void);
 void sdevkit__read_pads(uint16_t *pad1, uint16_t *pad2);
@@ -41,11 +42,27 @@ void sdevkit__frame(void)
     game_vblank();
 }
 
+/* One frame of the splash screen (lib/splash/splash.h): the next vertical blank, the brightness
+ * set in it, the pads read. */
+static uint16_t sdevkit__splash_frame(uint8_t brightness)
+{
+    uint16_t pad1, pad2;
+
+    sdevkit__wait_vblank();
+    INIDISP = brightness;
+    sdevkit__read_pads(&pad1, &pad2);
+    return pad1;
+}
+
+#include "../splash/splash.h"
+
 int main(void)
 {
     uint16_t pad[SDEVKIT_PADS];
 
     sdevkit__start();
+    sdevkit__splash();
+    sdevkit__reset_ppu();               /* as before the splash; the sprite table was not touched */
     game_init(0);
     for (;;) {
         sdevkit__read_pads(&pad[0], &pad[1]);
