@@ -50,9 +50,12 @@ line is removed and the page generated.
 
 ## Keeping the book current
 
-`./gradlew build` runs `BookSourcesTest`, which fails when a source of a generated page changed
-after the page was written. Run `/docs-gen stale` to regenerate those pages, or, when a change
-does not touch what a page says, stamp it without regenerating:
+The book is brought in step before a release, not with every change (ADR
+[record 43](../docs/adr/0043-the-book-is-brought-in-step-before-a-release-not.md)); between
+releases it may lag behind the code. `./gradlew checkBook` lists the generated pages whose spec
+or sources changed after the page was written, and fails if there are any; it is not part of
+`./gradlew build`. Before a release, run `/docs-gen stale` to regenerate those pages, or, when a
+change does not touch what a page says, stamp it without regenerating:
 `./gradlew stampBook -Pspecs=doc-specs/<page>.spec.md`.
 
 In `docs/book`: `npm install` once, then `npm run docs:dev` serves the book locally and

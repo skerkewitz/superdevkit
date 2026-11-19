@@ -23,8 +23,10 @@ that produces fast code for the 65816, with the Super Nintendo as its only targe
 source compiles and behaves bit for bit the same with gcc on the PC.
 
 1. **Why another C compiler** – the existing options for C on the SNES and why they were not
-   enough (the README's table, in prose or as a table), and the narrower problem dampf solves
-   instead: fast SNES game code, not general C.
+   enough: the README's sentence on the compilers (Calypsi makes faster code than 816-tcc,
+   PVSnesLib's compiler, and dampf's is faster than Calypsi's) and its table of the other ways,
+   in prose or as a table; then the narrower problem dampf solves instead: fast SNES game code,
+   not general C.
 2. **What dampf assumes** – the assumptions no general compiler can make: one CPU, a subset it
    defines and checks, the whole program at once, hints in the source, C as the contract with
    the PC build. For each, one sentence on what it buys.
@@ -34,7 +36,7 @@ source compiles and behaves bit for bit the same with gcc on the PC.
 4. **Goals and non-goals** – both lists from the README, the goals with a sentence each.
 5. **Where it stands** – what is done and what is not, from the README's status and the
    roadmap's milestones, with the latest frames-per-tick figure for Blubber Blasen against the
-   naive code and Calypsi. Link [Roadmap](/inside/roadmap) and [Limits](/reference/limits).
+   naive code. Link [Roadmap](/inside/roadmap) and [Limits](/reference/limits).
 6. **Where to go next** – one line each to [Getting started](/guide/getting-started), the
    [reference](/reference/command-line) and the [inside guide](/inside/how-a-compile-works).
 
@@ -50,6 +52,9 @@ source compiles and behaves bit for bit the same with gcc on the PC.
   [platform layer](/glossary#platform-layer) written in C, as Blubber Blasen's is. Say both
   plainly, in *What dampf assumes* or *Where it stands*.
 - Give the unit with the first figure (frames per tick), before or in the table.
+- Calypsi and 816-tcc get that one sentence and nothing more: no figure of theirs (frames per
+  tick, cycles, "times as fast"), even where the sources still have one. The kit no longer uses
+  or measures them.
 
 ## Out of scope
 

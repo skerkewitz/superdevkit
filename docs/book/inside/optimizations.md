@@ -23,10 +23,7 @@ the round intro. In its last run, during play, the code dampf generated took 0.7
 tick (worst tick 1.42) with [FastROM](/glossary#fastrom-and-slowrom), which is the default: the
 ROM read at 3.58 MHz instead of 2.68 MHz. These figures were measured on 2026-11-18. The naive
 code generator took 4.37 frames per tick (worst 7.26) for the same code, also FastROM, about 5.5
-times as long. Against [Calypsi](/glossary#calypsi), on the same version of the game and with
-FastROM for both, dampf was 2.14 times as fast: in the 102 play ticks where both play the same
-scene, Calypsi took 1.42 frames per tick and dampf 0.66. dampf was past Calypsi, but still about
-1.3 times away from the budget. This page explains, pass by pass, where that speed comes from.
+times as long. dampf was still about 1.3 times away from the budget. This page explains, pass by pass, where that speed comes from.
 
 The game's figures below come from different times and in two units. Until FastROM came, every
 step was measured at SlowROM speed, in frames per tick; dampf's code from MIR took 1.31 (worst
@@ -1010,16 +1007,12 @@ part, at SlowROM speed:
 | Code | Clocks per call | Times the hand-written code |
 | --- | --- | --- |
 | dampf, naive code generator | 3,849 | 4.5 |
-| 816-tcc | 2,449 | 2.9 |
-| Calypsi | 931 | 1.1 |
 | dampf, code from MIR | 1,149 | 1.34 |
 | hand-written | 856 | 1.0 |
 
-The 816-tcc and Calypsi figures come from older runs; no FastROM figure of either exists for
-this function. With FastROM, measured on 2026-11-18 after the steps under
+With FastROM, measured on 2026-11-18 after the steps under
 [The measurements](#the-measurements), dampf's code takes 827 master clocks per call and the
-hand-written code 724: 1.14 times. On a small function like this one, Calypsi already came
-close to hand-written code at SlowROM speed.
+hand-written code 724: 1.14 times.
 
 Since the game's code left the repository, the reference functions are functions of the
 examples, and the examples' checksums check them: Er-Tüp's `random16` and `sine`. The

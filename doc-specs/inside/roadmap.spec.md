@@ -32,6 +32,9 @@ working history of `docs/roadmap.md`.
 - Leave out the step-by-step history; keep what is decided and what is open. The concluded
   milestones get their row in the table, not a section.
 - Plans are allowed here, unlike on the other pages.
+- No figures of Calypsi or 816-tcc (frames per tick, cycles, "times as fast"), and no open
+  question about them (Calypsi's drift): the kit no longer uses or measures them. A milestone's
+  goal may still name Calypsi in words, as the roadmap's table does.
 
 ## Out of scope
 

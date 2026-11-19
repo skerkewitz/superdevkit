@@ -333,6 +333,14 @@ static uint16_t sdevkit__splash_frame(uint8_t brightness)
     return 0;
 }
 
+/* The splash's sprites (lib/splash/splash.h): into the sprite table's copy, which Rachael's vertical
+ * blank shows; the reset after the splash clears it again. */
+static void sdevkit__splash_sprites(const uint8_t *low, uint16_t bytes, const uint8_t *high)
+{
+    memcpy(sdevkit_oam_memory, low, bytes);
+    memcpy(sdevkit_oam_memory + 512, high, 32);
+}
+
 #include "../splash/splash.h"
 
 /* Power on: the splash, the console reset again, then the game. */

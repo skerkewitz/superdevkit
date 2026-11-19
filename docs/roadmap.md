@@ -274,7 +274,8 @@ What it takes:
   needs nothing but the download.
 - **Hosting:** a release on GitHub, a zip per system with a Java runtime (jlink) and raylib (ADR
   record 41), a build on GitHub Actions (cc65 installed for the tests that
-  compare with ca65 and ld65; no Mesen), the book on GitHub Pages.
+  compare with ca65 and ld65; no Mesen; `checkBook` after `build`, ADR record 43), the book on
+  GitHub Pages.
 
 ## Future ideas
 

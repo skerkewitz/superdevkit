@@ -16,8 +16,8 @@ dampf is at version 0.5.0, in work; M0 to M4 and M6 were concluded with 0.4.0 on
 dampf compiles all of Blubber Blasen and assembles and links the ROM itself. At 0.4.0 it gave
 the results of the [PC build](/glossary#pc-build) in the game's benchmark and replays, on the
 SNES and in a playable ROM. While the game was played it took 0.79 frames per
-[tick](/glossary#tick) against a goal of 0.6, and on the same scene dampf's code was 2.14 times
-as fast as [Calypsi](/glossary#calypsi)'s. Since 2026-11-19 the dev kit's own examples are
+[tick](/glossary#tick) against a goal of 0.6, and dampf's code was faster than
+[Calypsi](/glossary#calypsi)'s. Since 2026-11-19 the dev kit's own examples are
 dampf's test cases and its benchmark, and the game's code is no longer in this repository.
 
 dampf is the compiler of superdevkit, a [development kit](/glossary#dev-kit) for SNES games, and
@@ -343,10 +343,6 @@ Open questions a user may run into:
   install. This is to be looked at before more tools come.
 - **What 1.0 needs.** The frame budget met, the subset decisions taken, C in interrupts, or a
   set of users: which of them is open.
-- **Calypsi's drift.** Calypsi's results drift away from the PC's from tick 596 on. Whether
-  that is a miscompilation, RAM that Calypsi's start-up leaves uncleared, or a step of the
-  game's own Calypsi build that dampf's comparison lacked, is open. The comparison rests on
-  102 ticks.
 - **Locals in Mesen.** How Mesen shows locals that live in fixed direct page places, several
   values sharing a place (M11).
 - **`restrict`.** Whether a no-alias hint of dampf's own is clearer than `restrict`, and how

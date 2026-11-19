@@ -25,7 +25,7 @@ What dampf's optimizer does, pass by pass and in the code generator, why each ma
 ## Sections
 
 The page opens, before the first H2, with the budget (game logic in 60 % of a frame) and the
-latest overall figure against the naive code and Calypsi.
+latest overall figure against the naive code.
 
 1. **Why the 65816 needs a different optimizer** – 8 and 16-bit mode as processor state, few
    registers, the direct page; why C's 32-bit `int` promotions make naive code slow.
@@ -49,6 +49,9 @@ latest overall figure against the naive code and Calypsi.
 - Name the catalogue letters (A, B, H, I, ...) of `docs/optimizations.md` once in a table, so
   that a reader can find each in the document.
 - Before/after examples from `dampf mir` and `dampf mir -O`, run.
+- No figures of Calypsi or 816-tcc, in the text or in a table, even where the sources still have
+  them: the kit no longer uses or measures them. dampf is compared with the naive code and with
+  hand-written assembly only.
 
 ## Out of scope
 

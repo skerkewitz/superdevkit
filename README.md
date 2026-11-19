@@ -34,8 +34,7 @@ the steam factory of Blubber Blasen.
 
 dampf compiles all of Blubber Blasen and built a playable ROM of it, with the console API written
 in C in [lib/snes](lib/snes/README.md) (sound and save RAM are not built yet). During play the
-game took 0.79 frames per tick, and dampf's code was 2.14 times as fast as Calypsi's on the
-same scene ([docs/optimizations.md](docs/optimizations.md#where-things-stand)). Since
+game took 0.79 frames per tick ([docs/optimizations.md](docs/optimizations.md#where-things-stand)). Since
 2026-11-19 the kit's own examples (`examples/`) are dampf's test cases and its benchmark
 (`dev/bench_examples.sh`), and the game's code is no longer in this repository
 ([ADR record 40](docs/adr/0040-the-examples-replace-blubber-blasen-s-snapshot-as.md)). dampf computes a best and a
@@ -46,12 +45,12 @@ is built with both and compared with gcc on the PC.
 
 ### Why
 
-The game's stage 3 needs a C compiler for the 65816, and the existing ones are not good enough:
+The game's stage 3 needs a C compiler for the 65816 that makes fast code. Of the existing ones,
+Calypsi makes faster code than 816-tcc, PVSnesLib's compiler, and dampf's code is faster than
+Calypsi's. The other ways were no better:
 
-| Compiler | Result |
+| Way | Result |
 | --- | --- |
-| PVSnesLib with 816-tcc | Very slow code. The data layout needed workarounds because the compiler throws errors on ordinary code. |
-| Calypsi | Works as intended, but the code is still too slow: 2.72 frames per tick during play on an older version of the game. The comparison with dampf on today's version is in [docs/optimizations.md](docs/optimizations.md#where-things-stand). |
 | llvm-mos | Good 6502 code, but no native 16-bit 65816 code generation. LLVM is a poor fit: it assumes many uniform registers and fixed-width values, while on the 65816 the operand width (8 or 16 bit) is processor state set by `REP`/`SEP`. |
 | Hand-written assembly for the whole game | Tried years ago and failed. Hand-written assembly for a few hot functions stays possible later, but should not be the plan. |
 

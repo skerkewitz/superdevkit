@@ -15,9 +15,10 @@
   Not modelled: envelopes (ADSR/GAIN), voice and master volume, echo, and the console's analog
   output filter. So it is the sample as the DSP's voice produces it, at full volume.
 
-  Sources: the BRR decoding and the interpolation follow Mesen 2's S-DSP (Core/SNES/DSP,
-  DspVoice.cpp and DspInterpolation.h), which follows blargg's snes_spc and Anomie's notes. The
-  512 values of GAUSS are the S-DSP's table, read from the chip.
+  Sources: the BRR decoding and the interpolation are the S-DSP's behaviour as Anomie's S-DSP
+  notes describe it (the four filter formulas, the clamp to 16 bits and the clip to 15, the
+  wrap of the first three Gaussian taps). The 512 values of GAUSS are the S-DSP's table, read
+  from the chip. The encoder is the kit's own.
 
   Self-contained: no network, no libraries. Open the file in a browser.
 -->

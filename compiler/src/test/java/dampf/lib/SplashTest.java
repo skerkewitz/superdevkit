@@ -35,6 +35,9 @@ class SplashTest {
                     last_brightness = brightness;
                     return frames == press_at ? SDEVKIT_KEY_A : 0;
                 }
+                static void sdevkit__splash_sprites(const uint8_t *low, uint16_t bytes, const uint8_t *high)
+                {
+                }
                 #include "splash.h"
                 int main(void)
                 {

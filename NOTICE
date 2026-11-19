@@ -10,10 +10,104 @@ Entertainment System and SNES are trademarks of Nintendo; they are used here onl
 console the kit is for. superdevkit contains no code or data of Nintendo's, and the games made with
 it are their authors' own.
 
+
+Thanks to PVSnesLib
+-------------------
+
+The kit's console API (lib/include/sdevkit/snes.h) took the interface of PVSnesLib
+(https://github.com/alekmaul/pvsneslib, MIT licence, Copyright (c) 2012-2026 alekmaul) as its
+model: the functions, their parameters and their meaning follow PVSnesLib's, under names of the
+kit's own. superdevkit contains no code of PVSnesLib; the implementation is the kit's own. We are
+grateful to alekmaul and PVSnesLib's contributors for the work this builds on.
+
+
+Images
+------
+
+The picture docs/assets/Dampf.jpg and the design of the splash logo (dev/art/LogoLarge.png)
+were generated with Google's Nano Banana image model (Gemini image generation). The splash logo
+is made from dev/art/splash/logo_source.png, a version of that design the author edited by hand.
+
+
+Software from third parties
+---------------------------
+
 This product includes software from third parties:
 
-- The C grammar compiler/src/main/antlr/dampf/parser/CLexer.g4 and CParser.g4 and the
-  parser support classes in compiler/src/main/java/dampf/parser/ (CParserBase, Symbol,
-  SymbolTable, TypeClassification), from antlr/grammars-v4, commit
-  754339a6bf1e8e622fdce4e26dc846baee603ff4.
-  Copyright (c) 2013 Sam Harwell. BSD licence, see the file headers.
+- The ANTLR 4 runtime (org.antlr:antlr4-runtime 4.13.2), shipped in the distribution as
+  java/antlr4-runtime-4.13.2.jar, and the code ANTLR generates into dampf's parser.
+  Copyright (c) 2012-2022 The ANTLR Project. BSD licence, text below.
+
+- The C grammar compiler/src/main/antlr/dampf/parser/CLexer.g4 and CParser.g4, from
+  antlr/grammars-v4 (https://github.com/antlr/grammars-v4), commit
+  754339a6bf1e8e622fdce4e26dc846baee603ff4, and the parser dampf's jar contains that is generated
+  from it. Copyright (c) 2013 Sam Harwell. BSD licence, text below.
+
+- The parser support classes in compiler/src/main/java/dampf/parser/ (CLexerBase, adapted,
+  and CParserBase, Symbol, SymbolTable, TypeClassification), from the same commit of
+  antlr/grammars-v4 (c/Java/), written by Ken Domino and the other contributors of grammars-v4.
+  At that commit these files carry no licence notice of their own. The changes to them are
+  listed in compiler/src/main/antlr/dampf/parser/README.md.
+
+
+ANTLR 4 runtime licence
+-----------------------
+
+Copyright (c) 2012-2022 The ANTLR Project. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+
+1. Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+
+3. Neither name of copyright holders nor the names of its contributors
+may be used to endorse or promote products derived from this software
+without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR
+CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+C grammar licence (grammars-v4, CLexer.g4 and CParser.g4)
+---------------------------------------------------------
+
+[The "BSD licence"]
+Copyright (c) 2013 Sam Harwell
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+3. The name of the author may not be used to endorse or promote products
+   derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.

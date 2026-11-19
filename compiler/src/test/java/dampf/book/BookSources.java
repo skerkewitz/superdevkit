@@ -14,14 +14,17 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.stream.Stream;
 
 /**
  * The files each generated page of the book is written from: its spec and the files the spec
  * lists under {@code sources}, each with a hash of its content. The lock file records them as
- * they were when the page was last written, so that {@code BookSourcesTest} can tell which
- * pages a change has left behind. Run as a program ({@code ./gradlew stampBook}), it records the
- * current state for the specs it is given, or for {@code all}.
+ * they were when the page was last written, so that {@link #stale} can tell which pages a change
+ * has left behind. Run as a program ({@code ./gradlew stampBook}), it records the current state
+ * for the specs it is given, or for {@code all}; with {@code check} ({@code ./gradlew checkBook})
+ * it lists the stale pages and fails if there are any. The book is brought in step before a
+ * release, not with every change (ADR record 43).
  */
 public final class BookSources {
 
@@ -37,6 +40,20 @@ public final class BookSources {
     }
 
     public static void main(String[] args) throws IOException {
+        if (args.length == 1 && args[0].equals("check")) {
+            List<String> stale = stale(readLock());
+            if (stale.isEmpty()) {
+                System.out.println("every generated page is current");
+                return;
+            }
+            System.out.println("These pages of the book were written from older versions of the files named:");
+            stale.forEach(line -> System.out.println("  " + line));
+            System.out.println("""
+                    Run /docs-gen stale, which regenerates and stamps them. If a change does not touch
+                    what a page says, stamp it without regenerating:
+                        ./gradlew stampBook -Pspecs=doc-specs/<page>.spec.md""");
+            System.exit(1);
+        }
         Map<String, Map<String, String>> lock = readLock();
         boolean all = args.length == 1 && args[0].equals("all");
         if (all) {
@@ -48,6 +65,34 @@ public final class BookSources {
             System.out.println("stamped " + page(spec));
         }
         writeLock(lock);
+    }
+
+    /**
+     * Returns the pages whose spec or sources differ from the lock, each as {@code <page>: <files>}
+     * with the files added, changed or gone since the page was stamped, in page order.
+     */
+    static List<String> stale(Map<String, Map<String, String>> lock) {
+        List<String> stale = new ArrayList<>();
+        for (Path spec : specs()) {
+            String page = page(spec);
+            Map<String, String> recorded = lock.get(page);
+            if (recorded == null) {
+                stale.add(page + ": not stamped yet");
+                continue;
+            }
+            Map<String, String> current = current(spec);
+            TreeSet<String> changed = new TreeSet<>();
+            current.forEach((file, hash) -> {
+                if (!hash.equals(recorded.get(file))) {
+                    changed.add(file);
+                }
+            });
+            recorded.keySet().stream().filter(f -> !current.containsKey(f)).forEach(changed::add);
+            if (!changed.isEmpty()) {
+                stale.add(page + ": " + String.join(", ", changed));
+            }
+        }
+        return stale;
     }
 
     /** Returns every spec below {@code doc-specs} that has a page, in path order. */

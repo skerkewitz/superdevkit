@@ -54,6 +54,22 @@ static uint16_t sdevkit__splash_frame(uint8_t brightness)
     return pad1;
 }
 
+/* The splash's sprites (lib/splash/splash.h), with the screen off: written to OAM by the CPU, not
+ * by DMA, which the checks count ticks by. Also puts the game's sprite table back after the splash. */
+static void sdevkit__splash_sprites(const uint8_t *low, uint16_t bytes, const uint8_t *high)
+{
+    uint16_t i;
+
+    OAMADD = 0;
+    for (i = 0; i < bytes; i++) {
+        OAMDATA = low[i];
+    }
+    OAMADD = 0x100;                     /* the high table */
+    for (i = 0; i < 32; i++) {
+        OAMDATA = high[i];
+    }
+}
+
 #include "../splash/splash.h"
 
 int main(void)
@@ -62,7 +78,8 @@ int main(void)
 
     sdevkit__start();
     sdevkit__splash();
-    sdevkit__reset_ppu();               /* as before the splash; the sprite table was not touched */
+    sdevkit__reset_ppu();               /* as before the splash, the screen off */
+    sdevkit__splash_sprites(sdevkit_oam_memory, 512, sdevkit_oam_memory + 512);   /* the game's sprite table */
     game_init(0);
     DBG_TICK = 1;                       /* the checks: the splash is over, the first tick comes */
     for (;;) {

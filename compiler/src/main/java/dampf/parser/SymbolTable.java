@@ -1,4 +1,4 @@
-// From grammars-v4 c/Java (commit 754339a6), BSD licence; see compiler/src/main/antlr/dampf/parser/README.md.
+// From grammars-v4 c/Java (commit 754339a6), by Ken Domino and the contributors of grammars-v4; see NOTICE and compiler/src/main/antlr/dampf/parser/README.md.
 package dampf.parser;
 
 import java.util.HashSet;

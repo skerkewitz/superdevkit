@@ -152,8 +152,9 @@ over when it left ([ADR record 40](adr/0040-the-examples-replace-blubber-blasen-
   files must name the same addresses, and the debug files must say the same (`DbgMeaning`: the
   bytes of every line, symbols, segments, scopes, C symbols).
 - **`LirTest`**: blocks, printer, parser and verifier of LIR on small hand-written pieces.
-- **`BookSourcesTest`** fails when the spec or a source of a generated book page changed since
-  the page was generated (see CLAUDE.md).
+- **`BookSourcesTest`** checks the bookkeeping of the generated book pages: the lock, the
+  specs' sources, the pages' markers. Whether the pages are current is `./gradlew checkBook`,
+  run before a release and not part of `build` (ADR record 43).
 - **Coverage and static analysis**, not part of `./gradlew build`: JaCoCo coverage
   (`-Pcoverage`, off by default because it slows the emulator), PMD (findings do not fail the
   build) and CPD for copied code.

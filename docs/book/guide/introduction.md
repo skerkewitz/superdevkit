@@ -13,23 +13,24 @@ game whose logic is C that also builds and is tested on the PC.
 
 ## Why another C compiler
 
-Blubber Blasen's SNES port needs a C compiler for the 65816, and the existing ones were not good
-enough for it. Their speed is given in [frames](/glossary#frame) per [tick](/glossary#tick): a
-tick is one step of the game logic, a frame one picture on the screen, 60 a second. The game
-logic has to fit in 60 % of a frame, about 0.6 frames per tick.
+Blubber Blasen's SNES port needs a C compiler for the 65816 that makes fast code. Speed is given
+in [frames](/glossary#frame) per [tick](/glossary#tick): a tick is one step of the game logic, a
+frame one picture on the screen, 60 a second. The game logic has to fit in 60 % of a frame,
+about 0.6 frames per tick.
 
-| Option | Result |
+Of the existing compilers, [Calypsi](/glossary#calypsi) makes faster code than 816-tcc, the
+compiler of [PVSnesLib](/glossary#pvsneslib), and dampf's code is faster than Calypsi's. The
+other ways were no better:
+
+| Way | Result |
 | --- | --- |
-| [PVSnesLib](/glossary#pvsneslib) with its C compiler 816-tcc | Very slow code; the data layout needed workarounds because the compiler rejects ordinary code. |
-| [Calypsi](/glossary#calypsi) | Works as intended, but the code is still too slow: 2.72 frames per tick during play, on an older version of the game. |
 | llvm-mos | Good 6502 code, but no native 16-bit 65816 code generation. |
 | Hand-written assembly for the whole game | Tried years ago, and it failed. |
 
 LLVM fits the 65816 poorly: it assumes many uniform registers and values of a fixed width, while
 on the 65816 the width of an operand is processor state, switched between
 [8-bit and 16-bit mode](/glossary#_8-bit-and-16-bit-mode) with `REP` and `SEP`. Hand-written
-assembly stays possible later for a few hot functions, but it is not the plan. Calypsi's 2.72
-frames per tick is far from the 0.6 the game needs.
+assembly stays possible later for a few hot functions, but it is not the plan.
 
 So dampf does not try to be a general C compiler. It solves a much smaller problem: making the
 game code of SNES games fast.
@@ -118,12 +119,8 @@ debugging in M11, and fine tuning until the frame budget is met in M12.
 Until 2026-11-19 dampf was measured on Blubber Blasen's benchmark, which ran the game code with
 a fixed input and every PVSnesLib call stubbed out. During play (the benchmark's ticks of the
 game itself, not title, story or round intro), the game logic took 0.79 frames per tick with
-dampf, against 4.37 with the naive code generator.
-Calypsi's 2.72 came from an older version of the game. On the same version, in the play ticks
-where both compilers play the same scene, both with [FastROM](/glossary#fastrom-and-slowrom),
-Calypsi takes 1.42 frames per tick and dampf 0.66: dampf is 2.14 times as fast, so M3's goal of
-beating Calypsi is reached. These figures were measured on 2026-11-18. The goal of 0.6 frames per
-tick is not reached yet in play, and the compiler alone is not expected to reach it: the game is
+dampf, against 4.37 with the naive code generator, measured on 2026-11-18. The goal of 0.6
+frames per tick is not reached yet in play, and the compiler alone is not expected to reach it: the game is
 being made to do less work at the same time.
 
 dampf built a playable ROM of the game. The dev kit's library, written in C, implements the

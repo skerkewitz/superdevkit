@@ -9,48 +9,33 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.TreeSet;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * A generated page of the book is only as current as the last run of {@code /docs-gen} on it.
- * These tests fail when a page's spec or one of its sources has changed since then, so that a
- * change to a document or the code cannot leave the book behind unnoticed.
+ * The bookkeeping of the generated pages: the lock, the specs' sources and the pages' markers.
+ * Whether the pages are current is not checked here, since the book is brought in step before a
+ * release, not with every change ({@code ./gradlew checkBook}, ADR record 43).
  */
 class BookSourcesTest {
 
     private static final Path BOOK = Path.of("docs/book");
 
     @Test
-    void everyGeneratedPageWasWrittenFromItsCurrentSources() throws IOException {
-        Map<String, Map<String, String>> lock = BookSources.readLock();
-        List<String> stale = new ArrayList<>();
-        for (Path spec : BookSources.specs()) {
-            String page = BookSources.page(spec);
-            Map<String, String> recorded = lock.get(page);
-            if (recorded == null) {
-                stale.add(page + ": not stamped yet");
-                continue;
-            }
-            Map<String, String> current = BookSources.current(spec);
-            TreeSet<String> changed = new TreeSet<>();
-            current.forEach((file, hash) -> {
-                if (!hash.equals(recorded.get(file))) {
-                    changed.add(file);
-                }
-            });
-            recorded.keySet().stream().filter(f -> !current.containsKey(f)).forEach(changed::add);
-            if (!changed.isEmpty()) {
-                stale.add(page + ": " + String.join(", ", changed));
-            }
-        }
-        assertEquals(List.of(), stale, """
-                These pages of the book were written from older versions of the files named.
-                Run /docs-gen for each spec, which also stamps it. If a change does not touch what
-                a page says, stamp it without regenerating:
-                    ./gradlew stampBook -Pspecs=doc-specs/<page>.spec.md
-                """);
+    void aPageIsStaleWhenASourceChangedOrIsNew() {
+        Path spec = BookSources.specs().getFirst();
+        String page = BookSources.page(spec);
+        Map<String, String> recorded = new TreeMap<>(BookSources.current(spec));
+        String source = recorded.keySet().iterator().next();
+        recorded.put(source, "000000000000");
+        recorded.put("gone.md", "000000000000");
+        List<String> stale = BookSources.stale(Map.of(page, recorded));
+        assertEquals(page + ": " + String.join(", ", new TreeSet<>(List.of(source, "gone.md"))),
+                stale.getFirst());
+        // Every other page is not in the lock given, so it is not stamped yet.
+        assertEquals(BookSources.specs().size(), stale.size());
     }
 
     @Test

@@ -187,5 +187,16 @@ tasks.register<JavaExec>("stampBook") {
     args((findProperty("specs") as String? ?: "all").split(","))
 }
 
+// Lists the generated book pages older than their sources and fails if there are any. Not part
+// of `build`: the book is brought in step before a release (ADR record 43).
+tasks.register<JavaExec>("checkBook") {
+    group = "verification"
+    description = "Fails when a generated book page is older than its spec or sources"
+    classpath = sourceSets.test.get().runtimeClasspath
+    mainClass = "dampf.book.BookSources"
+    workingDir = rootProject.projectDir
+    args("check")
+}
+
 // The jar is dampf's, whatever the subproject is called
 tasks.jar { archiveBaseName = "dampf" }

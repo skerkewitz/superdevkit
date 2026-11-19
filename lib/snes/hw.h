@@ -18,6 +18,7 @@
 #define INIDISP  REG8(0x2100)
 #define OBSEL    REG8(0x2101)
 #define OAMADD   REG16(0x2102)
+#define OAMDATA  REG8(0x2104)
 #define BGMODE   REG8(0x2105)
 #define BG12NBA  REG8(0x210B)
 #define BG34NBA  REG8(0x210C)

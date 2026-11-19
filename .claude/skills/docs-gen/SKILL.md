@@ -12,9 +12,9 @@ under `sources` say what is true. You write the page.
 
 - `/docs-gen doc-specs/<path>.spec.md` – generate or update that one page.
 - `/docs-gen all` – every spec in `doc-specs/`.
-- `/docs-gen stale` – every page that `BookSourcesTest` reports as older than its sources. Run
-  `./gradlew test --tests dampf.book.BookSourcesTest` and take the pages from its failure
-  message (`<path>: <files>` stands for `doc-specs/<path>.spec.md`).
+- `/docs-gen stale` – every page that is older than its sources, usually before a release (ADR
+  record 43). Run `./gradlew checkBook` and take the pages from what it lists
+  (`<path>: <files>` stands for `doc-specs/<path>.spec.md`).
 - `/docs-gen fresh doc-specs/<path>.spec.md <out-file>` – write the page from scratch to
   `<out-file>`, without reading the existing page. Used to test whether a spec carries enough
   intent: compare the result with the existing page. Writes nothing in the repository.
@@ -57,8 +57,8 @@ is written once what it describes is built and the line is removed.
    pages only.
 5. Unless in `fresh` mode, record the sources the pages were written from:
    `./gradlew stampBook -Pspecs=doc-specs/<path>.spec.md,...` with every spec processed, also
-   those whose page did not change. Then run `./gradlew test --tests 'dampf.book.*'`;
-   `BookSourcesTest` must pass for them.
+   those whose page did not change. Then run `./gradlew test --tests 'dampf.book.*'`, which
+   must pass, and, for `stale` or `all`, `./gradlew checkBook`, which must pass as well.
 6. Report to the user: pages written, TODO containers added, source patterns without matches,
    examples that could not be checked, anything in the spec you could not fulfil, and any
    contradiction between sources (for example a document and the code disagreeing). Unless in

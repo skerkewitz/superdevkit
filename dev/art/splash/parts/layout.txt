@@ -1,0 +1,5 @@
+design 230 174
+locomotive 123 102
+text 8 23
+sticker 34 105
+stars 0 0
