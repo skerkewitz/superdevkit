@@ -147,9 +147,11 @@ expect:
   and constant shifts by a multiple of 8 as byte moves (a 32-bit shift by 16 is a loop of 16
   steps today, about 600 cycles). M9 also closes the gaps that
   [Writing fast C](/guide/writing-fast-c) measures, each of which is a rule there until its
-  change retires or changes it: an 8-bit loop counter costs more than a 16-bit one, an array
-  with a 16-bit index goes through a 24-bit pointer unless a `DAMPF_RANGE` bounds the index, a
-  pointer walk costs more than indexing, a multiplication of two bytes calls `dampf_mul16`
+  change retires or changes it: the width of a loop counter changes the cost of the loop, and
+  which width is cheaper depends on the array it indexes (over bytes an 8-bit counter costs
+  more, over words a 16-bit one), an array with a 16-bit index goes through a 24-bit pointer
+  unless a `DAMPF_RANGE` bounds the index, a pointer walk costs more than indexing, a
+  multiplication of two bytes calls `dampf_mul16`
   instead of the SNES's 8 x 8 multiplier at `$4202`, a signed division by a power of two keeps
   its rounding correction even where a `DAMPF_RANGE` proves the value is not negative, 32-bit
   operands are copied through frame slots, and a constant shift by more than 8 is a loop. Until

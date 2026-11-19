@@ -1,7 +1,7 @@
 /* rule: slow-word-array
  * claim: sum_words slower sum_bytes
  * An element of uint16_t costs more to reach than one of uint8_t: the index is doubled first. Use
- * the narrowest type the values fit, for arrays (not for loop counters, slow-u8-counter). */
+ * the narrowest type the values fit. */
 #include <stdint.h>
 
 uint8_t bytes[200];

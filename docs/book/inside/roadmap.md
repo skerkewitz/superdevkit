@@ -163,7 +163,8 @@ convention that passes the first argument in A. 16-bit pointers into RAM and enu
 byte follow once their subset decisions are taken, and constant shifts by a multiple of 8
 become byte moves: a 32-bit shift by 16 is a loop of 16 steps today, about 600 cycles. M9 also
 closes the gaps that the dev kit's C style guide measures, where one way of writing C is slower
-than another: 8-bit loop counters cost more than 16-bit ones; an array with a 16-bit index goes
+than another: which width of loop counter is cheaper depends on the array it indexes, an 8-bit
+counter costing more over bytes and a 16-bit one over words; an array with a 16-bit index goes
 through a 24-bit pointer unless a `DAMPF_RANGE` hint bounds the index; a pointer walk costs more
 than indexing; a multiplication of two bytes calls a routine instead of using the SNES's 8 x 8
 multiplier; a signed division by a power of two keeps its rounding correction even when the

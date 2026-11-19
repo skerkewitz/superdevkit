@@ -23,10 +23,10 @@ return with calls included, as the timing report gives it for the
 These forms cost more than the alternative that computes the same result. Each pair shows the
 two functions of the rule's test file.
 
-**`slow-u8-counter`: count loops with `uint16_t`, not `uint8_t`.** An 8-bit `i++` switches the
-accumulator to [8 bits and back](/glossary#_8-bit-and-16-bit-mode), and the counter is masked
-again for the compare. Summing a `uint8_t data[200]` takes 8,430 cycles with the `uint8_t`
-counter and 5,025 with the `uint16_t` one.
+**`slow-u8-counter`: in a loop over an array of bytes, count with `uint16_t`, not `uint8_t`.**
+An 8-bit `i++` switches the accumulator to [8 bits and back](/glossary#_8-bit-and-16-bit-mode),
+and the counter is masked again for the compare. Summing a `uint8_t data[200]` takes 8,430
+cycles with the `uint8_t` counter and 5,025 with the `uint16_t` one.
 
 ```c [src/test/resources/style/slow-u8-counter.c]
 uint16_t sum_u8_counter(void)
@@ -50,10 +50,38 @@ uint16_t sum_u16_counter(void)
 }
 ```
 
+**`slow-u16-counter-words`: in a loop over an array of `uint16_t`, count with `uint8_t`.** Here
+it is the other way round, as long as the count fits in a byte: with an 8-bit counter dampf
+drops the counter and steps the index register by 2, while it keeps a 16-bit counter in memory
+beside it. Filling 64 `uint16_t` elements takes 1,945 cycles with the `uint16_t` counter and
+1,233 with the `uint8_t` one.
+
+```c [src/test/resources/style/slow-u16-counter-words.c]
+void fill_u8_counter(void)
+{
+    uint8_t i;
+    for (i = 0; i < 64; i++) {
+        a[i] = (uint16_t)(1 | (3 << 10));
+    }
+}
+
+void fill_u16_counter(void)
+{
+    uint16_t i;
+    for (i = 0; i < 64; i++) {
+        b[i] = (uint16_t)(1 | (3 << 10));
+    }
+}
+```
+
+These two rules are a gap in dampf, not in the 65816: both forms should cost the same. In other
+loops, such as one over a table of two dimensions or one that uses the counter in 8-bit
+arithmetic, the difference is small and goes either way. Keep the form that reads better there,
+and in a hot loop measure both with the timing report.
+
 **`slow-word-array`: store values in the narrowest type they fit.** An element of `uint16_t`
 costs a doubling of the index on every access. Summing 200 `uint16_t` elements takes 7,033
-cycles, summing 200 `uint8_t` elements 5,025. The rule is for arrays; loop counters stay 16
-bits, as the rule before says.
+cycles, summing 200 `uint8_t` elements 5,025.
 
 ```c [src/test/resources/style/slow-word-array.c]
 uint16_t sum_bytes(void)

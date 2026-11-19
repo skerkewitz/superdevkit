@@ -63,7 +63,7 @@ guide/introduction docs/adr/0034-every-name-of-the-console-api-starts-with.md e7
 guide/introduction docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
 guide/introduction docs/adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md 92353ab17311
 guide/introduction docs/optimizations.md 647f94a894cd
-guide/introduction docs/roadmap.md eaef93132a3c
+guide/introduction docs/roadmap.md 9c6edb3ec827
 guide/introduction lib/README.md 35f6fe3e98a1
 guide/introduction lib/snes/README.md 2386650af21f
 guide/snes-hardware doc-specs/guide/snes-hardware.spec.md 610e1e516c15
@@ -121,7 +121,7 @@ guide/writing-c src/main/resources/dampf/include/dampf.h b018ea4983eb
 guide/writing-c src/main/resources/dampf/include/stdint.h 2c47a6b93ede
 guide/writing-c src/main/resources/dampf/include/string.h 42e94587dde9
 guide/writing-fast-c doc-specs/guide/writing-fast-c.spec.md 000efb21ee01
-guide/writing-fast-c lib/C_STYLE.md 3b35966634fe
+guide/writing-fast-c lib/C_STYLE.md caef1c45fc63
 guide/writing-fast-c src/test/java/dampf/exec/StyleGuideTest.java 6ddd9ceebc78
 guide/writing-fast-c src/test/resources/style/fast-array-per-field.c 907d04315db9
 guide/writing-fast-c src/test/resources/style/fast-range-index.c f71b4eb1b4d9
@@ -138,8 +138,9 @@ guide/writing-fast-c src/test/resources/style/slow-multiply-variable.c e8e1fb2cd
 guide/writing-fast-c src/test/resources/style/slow-pointer-walk.c 4dbfbce59f77
 guide/writing-fast-c src/test/resources/style/slow-shift-above-8.c db2c0be2bcb6
 guide/writing-fast-c src/test/resources/style/slow-signed-divide.c 45b7574aee2d
-guide/writing-fast-c src/test/resources/style/slow-u8-counter.c 885fe9da6319
-guide/writing-fast-c src/test/resources/style/slow-word-array.c eb69aed1194e
+guide/writing-fast-c src/test/resources/style/slow-u16-counter-words.c d5bb1fcee0ae
+guide/writing-fast-c src/test/resources/style/slow-u8-counter.c 909d23cf2842
+guide/writing-fast-c src/test/resources/style/slow-word-array.c 537f3eca6629
 inside/how-a-compile-works doc-specs/inside/how-a-compile-works.spec.md ff587f67de96
 inside/how-a-compile-works docs/ADR.md be8d11486b23
 inside/how-a-compile-works docs/adr/0001-dampf-is-a-compiler-of-its-own-for-one-target-the.md 411bd59d1e0c
@@ -382,7 +383,7 @@ inside/roadmap docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md 5
 inside/roadmap docs/adr/0034-every-name-of-the-console-api-starts-with.md e719f3a2fb26
 inside/roadmap docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
 inside/roadmap docs/adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md 92353ab17311
-inside/roadmap docs/roadmap.md eaef93132a3c
+inside/roadmap docs/roadmap.md 9c6edb3ec827
 inside/roadmap lib/README.md 35f6fe3e98a1
 inside/testing README.md 7a2f2177bf74
 inside/testing build.gradle.kts 88f5fb2832a4
@@ -571,7 +572,7 @@ reference/limits docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
 reference/limits docs/adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md 92353ab17311
 reference/limits docs/hints.md 385e5701f6b1
 reference/limits docs/optimizations.md 647f94a894cd
-reference/limits docs/roadmap.md eaef93132a3c
+reference/limits docs/roadmap.md 9c6edb3ec827
 reference/limits docs/subset.md 91c2e2a5019a
 reference/limits docs/timing.md 2c50d5c61005
 reference/limits lib/README.md 35f6fe3e98a1

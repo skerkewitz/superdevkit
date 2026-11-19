@@ -48,11 +48,17 @@ constants; `memset` and `memcpy`; the hints `DAMPF_RANGE` and `DAMPF_BUDGET` (pa
 
 ## 3. Slow
 
-- **`slow-u8-counter`** Count loops with `uint16_t`, not `uint8_t`: an 8-bit `i++` switches the
-  accumulator to 8 bits and back, and the counter is masked again for the compare.
-  `for (uint16_t i = 0; i < 200; i++)`, not `for (uint8_t i = ...)`.
+- **`slow-u8-counter`** In a loop over an array of bytes, count with `uint16_t`, not `uint8_t`: an
+  8-bit `i++` switches the accumulator to 8 bits and back, and the counter is masked again for
+  the compare. `for (uint16_t i = 0; i < 200; i++) s += bytes[i];`
+- **`slow-u16-counter-words`** In a loop over an array of `uint16_t`, count with `uint8_t` (if the
+  count fits): dampf then drops the counter and steps the index register by 2, where it keeps a
+  16-bit counter in memory beside it. These two rules are a gap in dampf, not the 65816: both
+  forms should cost the same. Elsewhere (a loop over a table of two dimensions, a counter used
+  in 8-bit arithmetic) the difference is small and goes either way: keep what reads better, and
+  measure a hot loop in both forms with the timing report.
 - **`slow-word-array`** Store values in the narrowest type they fit: an element of `uint16_t`
-  costs a doubling of the index on every access. This is for arrays; counters stay 16 bit.
+  costs a doubling of the index on every access.
 - **`slow-pointer-walk`** Index an array (`a[i].x`) instead of walking it with a pointer
   (`o->x; o++`).
 - **`slow-multiply-variable`** Multiply by a constant where the factor is one: `va * vb` calls
@@ -131,6 +137,7 @@ Measured 2026-11-19 (worst case of the timing report, code generator from MIR).
 | `slow-pointer-walk` | `move_by_pointer` | 1,943 | slower | `move_by_index` | 1,881 |
 | `slow-shift-above-8` | `shift_by_9` | 130 | slower | `shift_by_8_then_1` | 19 |
 | `slow-signed-divide` | `divide_signed` | 265 | slower | `divide_unsigned` | 17 |
+| `slow-u16-counter-words` | `fill_u16_counter` | 1,945 | slower | `fill_u8_counter` | 1,233 |
 | `slow-u8-counter` | `sum_u8_counter` | 8,430 | slower | `sum_u16_counter` | 5,025 |
 | `slow-word-array` | `sum_words` | 7,033 | slower | `sum_bytes` | 5,025 |
 <!-- end of measurements -->
