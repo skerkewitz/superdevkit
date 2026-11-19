@@ -4,8 +4,8 @@
 dampf is a compiler for a [subset](/glossary#subset) of C that produces fast code for the WDC
 65816, and it has exactly one target: the Super Nintendo. The same source also compiles with gcc
 on the PC, and what dampf's code computes on the SNES matches that [PC build](/glossary#pc-build)
-bit for bit. dampf is the compiler of superdevkit, a development kit for SNES games that is not
-published yet.
+bit for bit. dampf is the compiler of superdevkit, a [development kit](/glossary#dev-kit) for
+SNES games that also holds a library with the console API, tools, examples and this book.
 
 The name comes from German: *Dampf machen* ("make steam") means to get things moving fast. It
 also fits the steam factory of [Blubber Blasen](/glossary#blubber-blasen), dampf's first user, a
@@ -108,11 +108,11 @@ checksums), M3 (the optimizer: dampf lowers the program to [MIR](/glossary#mir),
 intermediate representation, optimizes it and generates 65816 code from it), M4 (fine tuning:
 block layout, peephole rules, loop and branch optimizations) and M6 (an assembler and linker of
 its own) are concluded. M5, in which Blubber Blasen builds its ROM with the dev kit from its own
-repository, is in work as version 0.5.0. Publishing the dev kit is a step of its own and not
-scheduled yet. Every version before 1.0 is a pre-release, so the subset, the command line and
-the files dampf writes may change from one version to the next. After M5, the dev kit comes to
-Windows and Linux in M7 and to the web in M8; the optimizer work that is left goes on in M9,
-language, platform and usability (among them a preprocessor of dampf's own) in M10, timing and
+repository, is in work as version 0.5.0, and so is M7, which brings the dev kit to Windows and
+Linux. Publishing the dev kit is a step of its own and not scheduled yet. Every version before
+1.0 is a pre-release, so the subset, the command line and the files dampf writes may change
+from one version to the next. After M5, the dev kit comes to the web in M8; the optimizer work
+that is left goes on in M9, language, platform and usability (among them a preprocessor of dampf's own) in M10, timing and
 debugging in M11, and fine tuning until the frame budget is met in M12.
 
 Until 2026-11-19 dampf was measured on Blubber Blasen's benchmark, which ran the game code with

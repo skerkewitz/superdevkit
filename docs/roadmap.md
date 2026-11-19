@@ -13,8 +13,8 @@ game takes 0.79 frames per tick against a goal of 0.6, so the compiler work goes
 game reduces its own work in parallel; the current numbers are in
 [optimizations.md](optimizations.md#where-things-stand).
 
-dampf is the compiler of a development kit for SNES games, superdevkit, which this repository
-holds until it is published (ADR
+dampf is the compiler of a development kit for SNES games, superdevkit; this repository is
+superdevkit's (ADR
 [record 29](adr/0029-superdevkit-is-the-project-and-dampf-is-its.md)). M5 is in work, as
 version 0.5.0: Blubber Blasen builds its ROM with the dev kit, from its own repository.
 
@@ -267,7 +267,8 @@ What it takes:
 - **The game's own findings** went to the game on 2026-11-19 and left this repository;
   `docs/game-guide.md` is written from them there.
 - **The documents** say nothing that only holds for the private repository.
-- **The repository renamed** to superdevkit, with dampf as its compiler.
+- **The repository renamed** to superdevkit, with dampf as its compiler: done on 2026-11-19 (on
+  GitHub, still private), the README and the documents follow it.
 - **Before the first release** (ADR [record 41](adr/0041-the-release-is-a-zip-per-system-with-a-java.md)): dampf's own
   preprocessor (M10) and the graphics converter in Java in the CLI, so building for the SNES
   needs nothing but the download.

@@ -1,7 +1,7 @@
-# dampf
+# superdevkit
 
-C-subset compiler for the 65816 / SNES, written in Java, the compiler of superdevkit, a development
-kit for SNES games. Two Gradle subprojects: `compiler/` (dampf, its emulator and the tests of the
+The repository of superdevkit, a development kit for SNES games, and of dampf, its compiler: a
+C-subset compiler for the 65816 / SNES, written in Java. Two Gradle subprojects: `compiler/` (dampf, its emulator and the tests of the
 whole kit, which run in the repository's top folder) and `cli/` (the `superdevkit` command, M7);
 `./gradlew installDist` writes the distribution to `build/install/superdevkit` (ADR record 41), a
 superdevkit home that a game outside the repository uses (the book's Getting started).

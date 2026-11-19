@@ -75,8 +75,8 @@ at `$7E`, where all RAM objects live.
 ## Dev kit
 
 superdevkit, a development kit for SNES games: dampf as its compiler, a library with the console
-API for the SNES and, through [Rachael](#rachael), for the desktop, and tools. It lives in
-dampf's repository until it is published. Its library for the SNES is the [platform layer](#platform-layer) that today sits in
+API for the SNES and, through [Rachael](#rachael), for the desktop, and tools, all in
+superdevkit's repository. Its library for the SNES is the [platform layer](#platform-layer) that today sits in
 `lib/snes`.
 
 ## Direct page

@@ -20,9 +20,8 @@ SNES and in a playable ROM. While the game was played it took 0.79 frames per
 as fast as [Calypsi](/glossary#calypsi)'s. Since 2026-11-19 the dev kit's own examples are
 dampf's test cases and its benchmark, and the game's code is no longer in this repository.
 
-dampf is the compiler of superdevkit, a [development kit](/glossary#dev-kit) for SNES games that
-this repository
-holds until it is published. M5 is in work, as version 0.5.0: Blubber Blasen builds its ROM
+dampf is the compiler of superdevkit, a [development kit](/glossary#dev-kit) for SNES games, and
+this repository is superdevkit's. M5 is in work, as version 0.5.0: Blubber Blasen builds its ROM
 with the dev kit, from its own repository.
 
 ## Versions
@@ -260,12 +259,13 @@ arrays and bytes (Steinschlag), fixed point, particles, a pair loop and state ma
 and the small ones. Until then every speed decision was measured on one game: the optimizations
 of 2026-11-18 made play of Blubber Blasen 13 % faster, but the execution tests only 0.9 %, and
 part of the gain comes from parameters chosen on this one game, such as the inlining limit and
-the block order. Those parameters are still to be checked on the whole set. The repository is
-renamed to superdevkit, with dampf as its compiler, and moves to GitHub, with a release there,
-a build on GitHub Actions and the book on GitHub Pages.
-The licence is decided already: dampf is under the Apache License 2.0 with LLVM Exceptions, the
-same as LLVM, so code dampf puts into a ROM carries no licence conditions and games built with
-dampf can use any licence.
+the block order. Those parameters are still to be checked on the whole set. The repository was
+renamed to superdevkit, with dampf as its compiler, on 2026-11-19; it is on GitHub, still
+private. Still to come there are a release, a build on GitHub Actions and the book on GitHub
+Pages.
+The licence is decided already: superdevkit, dampf included, is under the Apache License 2.0
+with LLVM Exceptions, the same as LLVM, so code dampf and the library put into a ROM carries no
+licence conditions and games built with the dev kit can use any licence.
 
 ## The checkpoint after M2
 

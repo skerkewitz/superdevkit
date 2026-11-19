@@ -1,26 +1,42 @@
-# dampf
+# superdevkit
+
+A development kit for SNES games written in C. A game is written once, against the kit's console
+API, and runs on the Super Nintendo and, with the same picture pixel for pixel, as a program for
+Linux and Windows; the browser comes later. The kit holds:
+
+- **dampf**, the compiler: a subset of C to fast code for the WDC 65816, with the SNES as its one
+  target (see [dampf](#dampf) below);
+- the **library** ([lib](lib/README.md)): the console API in C for the SNES, and
+  [Rachael](lib/README.md#rachael), the SNES rebuilt in portable C, with a desktop frontend
+  (a window, the keyboard and gamepads, recordings and replays);
+- the **tools** ([tools](tools/README.md)): graphics from PNG files, sound effects to try;
+- **examples** ([examples](examples/)): games and programs, from `hello` to the shooter
+  Er-Tüp, which are also the kit's test cases and its benchmark;
+- the **book** ([docs/book](docs/book)): the user guide and the reference.
+
+Status: version 0.5.0, in work. Milestones M0 to M4 and M6 (dampf's own assembler and linker)
+are done; M5, in which Blubber Blasen (the kit's first user, a game in its own repository) builds
+its ROM with the kit, is in work, and so is M7, the desktop and the `superdevkit` command. The
+milestones and versions are in [docs/roadmap.md](docs/roadmap.md), why the kit is the project and
+dampf its compiler in [ADR record 29](docs/adr/0029-superdevkit-is-the-project-and-dampf-is-its.md).
+
+`./gradlew installDist` writes a superdevkit home to `build/install/superdevkit`: the compiler,
+the library, the tools, the examples, the desktop build and the book, all a game needs. A game
+lives in a folder of its own and names the home; the book's
+[Getting started](docs/book/guide/getting-started.md) shows how.
+
+## dampf
 
 ![dampf](docs/assets/Dampf.jpg)
-
-A compiler for a subset of C that produces fast code for the WDC 65816, with exactly one target:
-the Super Nintendo. Its first user is Blubber Blasen (the game's stage 3, the SNES port), whose
-game logic is C that also builds and is tested on the PC with gcc and clang. dampf runs as a
-separate project in parallel with the game.
 
 The name: in German, *Dampf machen* ("make steam") means to get things moving fast. It also fits
 the steam factory of Blubber Blasen.
 
-Status: version 0.5.0, in work. Milestones M0 to M4 and M6 (dampf's own assembler and linker)
-are done; M5, in which Blubber Blasen builds its ROM with dampf from its own repository, is in
-work.
-dampf is the compiler of a development kit for SNES games, superdevkit, which this repository
-holds until it is published ([ADR record 29](docs/adr/0029-superdevkit-is-the-project-and-dampf-is-its.md)).
-The milestones and versions are in [docs/roadmap.md](docs/roadmap.md). dampf compiles all of Blubber Blasen and
-built a playable ROM of it, with the console API written in C in
-[lib/snes](lib/snes/README.md) (sound and save RAM are not built yet). During play the
+dampf compiles all of Blubber Blasen and built a playable ROM of it, with the console API written
+in C in [lib/snes](lib/snes/README.md) (sound and save RAM are not built yet). During play the
 game took 0.79 frames per tick, and dampf's code was 2.14 times as fast as Calypsi's on the
 same scene ([docs/optimizations.md](docs/optimizations.md#where-things-stand)). Since
-2026-11-19 the dev kit's own examples (`examples/`) are dampf's test cases and its benchmark
+2026-11-19 the kit's own examples (`examples/`) are dampf's test cases and its benchmark
 (`dev/bench_examples.sh`), and the game's code is no longer in this repository
 ([ADR record 40](docs/adr/0040-the-examples-replace-blubber-blasen-s-snapshot-as.md)). dampf computes a best and a
 worst case in CPU cycles for every function, and a function over its cycle budget
@@ -28,7 +44,7 @@ worst case in CPU cycles for every function, and a function over its cycle budge
 straight from the AST, stays as an independent reference (`--backend naive`): every test program
 is built with both and compared with gcc on the PC.
 
-## Why
+### Why
 
 The game's stage 3 needs a C compiler for the 65816, and the existing ones are not good enough:
 
@@ -51,7 +67,7 @@ smaller and more focused problem, and it lets dampf make assumptions no general 
 - C is only the contract that keeps the same source compiling on the PC with gcc or clang. That is
   what makes the code testable.
 
-## Goals and non-goals
+### Goals and non-goals
 
 Goals:
 
@@ -95,11 +111,12 @@ working documents it is written from.
 - [docs/superdevkit-transition.md](docs/superdevkit-transition.md): the plan from here to superdevkit with its SNES, desktop and web targets, step by step.
 - [docs/brainstorm](docs/brainstorm): summaries of brainstorming sessions, the options weighed before a decision.
 - [docs/roadmap.md](docs/roadmap.md): milestones and their state, risks, open questions, the relation to Blubber Blasen.
-- [dev/README.md](dev/README.md): the scripts in `dev/`, for developing dampf against the examples.
+- [dev/README.md](dev/README.md): the scripts in `dev/`, for developing the kit against the examples.
 
 ## Prerequisites
 
-To use dampf: JDK 25 or newer and gcc. To develop it, also ca65 and ld65 from cc65 2.19
+To use the kit: JDK 25 or newer, gcc (dampf's preprocessor) and Python 3 (the tools); for the
+desktop build also a C compiler and curl (raylib is fetched on the first build). To develop it, also ca65 and ld65 from cc65 2.19
 (`BackendOutputTest` builds the execution tests, 20 random programs and the examples with them
 as well and compares the ROMs) and Python 3. Mesen (MesenCE) is
 optional (the tests then also run there), clang is needed only for `dev/subset_scan.py`,
@@ -131,7 +148,7 @@ Windows build, with the settings the tests need ([ADR record 33](docs/adr/0033-m
 The Linux build is taken when it is there; from WSL the Windows `Mesen.exe` works too. All Gradle switches are listed in the book's
 [testing](docs/book/inside/testing.md) page, the scripts in [dev/README.md](dev/README.md).
 
-## Using it
+## Using dampf
 
 ```bash
 dampf build --entry test_main -o build/examples/m1/calls.sfc examples/m1/calls.c
@@ -218,8 +235,8 @@ test/python/                   the tests of tools/ (ToolsTest runs them)
 
 ## Licence
 
-dampf is under the Apache License v2.0 with LLVM Exceptions, the same licence as LLVM
-(SPDX: `Apache-2.0 WITH LLVM-exception`); see [LICENSE](LICENSE) and [NOTICE](NOTICE). The
-exception means that code dampf puts into a compiled program carries no licence conditions: games
-built with dampf can use any licence. Third-party parts (the C grammar from grammars-v4) keep their
+superdevkit, dampf included, is under the Apache License v2.0 with LLVM Exceptions, the same
+licence as LLVM (SPDX: `Apache-2.0 WITH LLVM-exception`); see [LICENSE](LICENSE) and
+[NOTICE](NOTICE). The exception means that code dampf and the library put into a compiled program
+carry no licence conditions: games built with the kit can use any licence. Third-party parts (the C grammar from grammars-v4) keep their
 own licence, listed in NOTICE.

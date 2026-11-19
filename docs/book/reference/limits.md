@@ -2,11 +2,11 @@
 # Limits
 
 dampf is at version 0.5.0, in work: milestones M0 to M4 and M6 are concluded. dampf is the
-compiler of superdevkit, a development kit for SNES games that is held in dampf's repository
-until it is published. The milestones named on this page are the open ones: M5, in which Blubber
-Blasen builds its ROM with the dev kit from its own repository (0.5.0, in work), M7 for Windows
-and Linux, M8 for the web, M9 for the optimizer, M10 for language, platform and usability, M11
-for timing and debugging, and M12 for fine tuning. Publishing is a step of its own and not
+compiler of superdevkit, a [development kit](/glossary#dev-kit) for SNES games. The milestones
+named on this page are the open ones: M5, in which Blubber Blasen builds its ROM with the dev
+kit from its own repository (0.5.0, in work), M7 for Windows and Linux (0.7.0, in work as
+well), M8 for the web, M9 for the optimizer, M10 for language, platform and usability, M11 for
+timing and debugging, and M12 for fine tuning. Publishing is a step of its own and not
 scheduled yet. They are on the [Roadmap](/inside/roadmap), which also has their state and their
 order; nothing here goes beyond it. Every version before 1.0 is a pre-release, so the subset,
 the command line and the files dampf writes may change from one version to the next.
