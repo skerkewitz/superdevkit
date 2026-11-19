@@ -77,14 +77,14 @@ buttons and the shine together one second, holding a second, fading out half a s
 of it is the same on the SNES and on Rachael, so a check can take screenshots in the middle of
 each movement.
 
-## One thing to settle before publishing
+## Nintendo's names and logos stay out
 
-**The pad and the cartridge are Nintendo's design.** The shape of the SNES pad, its four coloured
-buttons and the cartridge's outline are recognisable as Nintendo's, and the splash is in every
-game made with the kit once it is published. That can read as Nintendo endorsing the kit, which a
-homebrew tool should avoid. Before publishing, either a pad and a cartridge of our own shape
-(rounded like a pad, but not that pad: other button colours, no lilac), or advice on whether the
-picture as it is is fine. For the private repository it does not matter yet.
+The pad and the cartridge show what the kit is for, as the many SNES-style pads sold without a
+licence from Nintendo do: the design protection of the 1990 pad ran out long ago, and the shape
+alone is hard to claim as a trademark. What those pads avoid is Nintendo's names and logos, and so
+does the splash: our own pixel art of a pad and a cartridge, and no "Super Nintendo", "Super
+Famicom" or "SNES" logo, no Nintendo logo, nothing that reads as official or licensed. This is a
+judgement, not legal advice.
 
 ## Open questions
 
