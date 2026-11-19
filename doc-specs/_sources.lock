@@ -1,6 +1,6 @@
 # The files each generated page of the book was last written from, with a hash of each.
 # Written by ./gradlew stampBook, read by BookSourcesTest. Do not edit by hand.
-guide/compiling-a-game README.md dd8a776f9110
+guide/compiling-a-game README.md a03889fcba38
 guide/compiling-a-game compiler/src/main/java/dampf/Compiler.java 27002cdf7153
 guide/compiling-a-game compiler/src/main/java/dampf/ConfigFile.java 73077240c3bf
 guide/compiling-a-game compiler/src/main/java/dampf/Main.java 9912b3ebacd1
@@ -12,12 +12,12 @@ guide/compiling-a-game examples/ertuep/build.sh 84958d8d4738
 guide/compiling-a-game examples/ertuep/ertuep.args 2ef69648f295
 guide/compiling-a-game lib/snes/README.md 3f02b2f4ecbe
 guide/compiling-a-game reference/README.md 5283cf4a2d6c
-guide/debugging README.md dd8a776f9110
+guide/debugging README.md a03889fcba38
 guide/debugging compiler/src/main/java/dampf/backend/AsmWriter.java db8459c802e8
 guide/debugging doc-specs/guide/debugging.spec.md abe8fe5c8ae6
 guide/debugging docs/architecture.md 3b0269f2011a
 guide/debugging examples/m1/calls.c 00878c7fd711
-guide/getting-started README.md dd8a776f9110
+guide/getting-started README.md a03889fcba38
 guide/getting-started cli/build.gradle.kts 06466d808d84
 guide/getting-started compiler/src/main/java/dampf/ConfigFile.java 73077240c3bf
 guide/getting-started compiler/src/main/java/dampf/Main.java 9912b3ebacd1
@@ -42,7 +42,7 @@ guide/graphics-and-sound lib/include/sdevkit/snes.h 4c5bc4fcfd20
 guide/graphics-and-sound tools/README.md c527dcb5e71f
 guide/graphics-and-sound tools/brr_lab.html 9eb59aabd6fb
 guide/graphics-and-sound tools/png2snes.py 84021b55e0d4
-guide/introduction README.md dd8a776f9110
+guide/introduction README.md a03889fcba38
 guide/introduction doc-specs/guide/introduction.spec.md cfeaa417bef3
 guide/introduction docs/ADR.md 12c7f565dc15
 guide/introduction docs/adr/0001-dampf-is-a-compiler-of-its-own-for-one-target-the.md 411bd59d1e0c
@@ -401,7 +401,7 @@ inside/optimizations docs/optimizations-log.md aa804c6b80ab
 inside/optimizations docs/optimizations.md 9838fb926d07
 inside/optimizations docs/subrange-types.md 36b327590609
 inside/optimizations reference/README.md 5283cf4a2d6c
-inside/roadmap README.md dd8a776f9110
+inside/roadmap README.md a03889fcba38
 inside/roadmap doc-specs/inside/roadmap.spec.md 0c84ca4a62e3
 inside/roadmap docs/ADR.md 12c7f565dc15
 inside/roadmap docs/adr/0001-dampf-is-a-compiler-of-its-own-for-one-target-the.md 411bd59d1e0c
@@ -447,7 +447,7 @@ inside/roadmap docs/adr/0040-the-examples-replace-blubber-blasen-s-snapshot-as.m
 inside/roadmap docs/adr/0041-the-release-is-a-zip-per-system-with-a-java.md 57de44577058
 inside/roadmap docs/roadmap.md ba57f0277810
 inside/roadmap lib/README.md 3da50610b612
-inside/testing README.md dd8a776f9110
+inside/testing README.md a03889fcba38
 inside/testing build.gradle.kts fd11dfdd102c
 inside/testing compiler/src/test/java/dampf/emu/CpuSingleStepTest.java 9a60b4765ac7
 inside/testing compiler/src/test/java/dampf/emu/MappingTest.java a1cdf54d47e3
@@ -540,7 +540,7 @@ reference/c-subset docs/adr/0039-win64-is-built-with-msvc-for-now-from-wsl.md f1
 reference/c-subset docs/adr/0040-the-examples-replace-blubber-blasen-s-snapshot-as.md 6c5c207acb12
 reference/c-subset docs/adr/0041-the-release-is-a-zip-per-system-with-a-java.md 57de44577058
 reference/c-subset docs/subset.md ddde4362a59a
-reference/command-line README.md dd8a776f9110
+reference/command-line README.md a03889fcba38
 reference/command-line compiler/src/main/java/dampf/Compiler.java 27002cdf7153
 reference/command-line compiler/src/main/java/dampf/ConfigFile.java 73077240c3bf
 reference/command-line compiler/src/main/java/dampf/Main.java 9912b3ebacd1
@@ -618,7 +618,7 @@ reference/hints docs/adr/0041-the-release-is-a-zip-per-system-with-a-java.md 57d
 reference/hints docs/hints.md e5b1e4933631
 reference/hints docs/subrange-types.md 36b327590609
 reference/hints docs/timing.md 5d119d7916f5
-reference/limits README.md dd8a776f9110
+reference/limits README.md a03889fcba38
 reference/limits doc-specs/reference/limits.spec.md f9f2ab703e6f
 reference/limits docs/ADR.md 12c7f565dc15
 reference/limits docs/adr/0001-dampf-is-a-compiler-of-its-own-for-one-target-the.md 411bd59d1e0c
@@ -669,7 +669,7 @@ reference/limits docs/subset.md ddde4362a59a
 reference/limits docs/timing.md 5d119d7916f5
 reference/limits lib/README.md 3da50610b612
 reference/limits lib/snes/README.md 3f02b2f4ecbe
-reference/output-files README.md dd8a776f9110
+reference/output-files README.md a03889fcba38
 reference/output-files compiler/src/main/java/dampf/Compiler.java 27002cdf7153
 reference/output-files compiler/src/main/java/dampf/asm/DbgWriter.java a2950d25e94b
 reference/output-files compiler/src/main/java/dampf/backend/AsmWriter.java db8459c802e8
@@ -677,7 +677,7 @@ reference/output-files compiler/src/main/java/dampf/snes/RomBuilder.java bfb4c0b
 reference/output-files compiler/src/main/java/dampf/target/Cycles65816.java 8698afa0f4ad
 reference/output-files doc-specs/reference/output-files.spec.md ddfddc730dde
 reference/output-files docs/architecture.md 3b0269f2011a
-reference/runtime-and-memory README.md dd8a776f9110
+reference/runtime-and-memory README.md a03889fcba38
 reference/runtime-and-memory compiler/src/main/java/dampf/backend/FrameLayout.java 4b380f377e64
 reference/runtime-and-memory compiler/src/main/java/dampf/mir/PointerOffsets.java 045a8e78c659
 reference/runtime-and-memory compiler/src/main/java/dampf/mir/PointerParams.java 93a0c69472be
