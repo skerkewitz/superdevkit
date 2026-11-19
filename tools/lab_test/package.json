@@ -1,0 +1,11 @@
+{
+  "name": "brr-lab-test",
+  "private": true,
+  "description": "Playwright tests of tools/brr_lab.html",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.1"
+  }
+}

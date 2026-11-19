@@ -34,6 +34,7 @@ scalar elements (`a[2]`, `s.x`), must have the same values on both sides. Pointe
 | Execution tests | `compiler/src/test/resources/exec/*.c` against gcc | dampf's emulator, and Mesen when there is one | Seconds |
 | Random programs | Generated programs against gcc | dampf's emulator | Minutes for many |
 | Examples | Each example's `check.txt` played on the SNES and on the desktop, a checksum per tick, and the same DSP writes in the same ticks ([docs/sound.md](sound.md#the-checks)) | dampf's emulator and Rachael; Mesen in `dev/compare_example.sh` | Under a minute |
+| The BRR Lab | Every use of `tools/brr_lab.html`, and its bytes against `superdevkit sfx` ([tools/lab_test](../tools/lab_test/README.md)) | Headless Chromium (Playwright), when installed | 10 seconds |
 | Timing on the examples | Every call of every example against its static bounds | dampf's emulator | 20 seconds |
 
 **Unit tests** cover the front end (`PreprocessorTest`, `ParserTest`, `AstBuilderTest`), MIR

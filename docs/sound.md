@@ -93,14 +93,26 @@ free: the 32 kHz samples it plays (`blocks * 16 * 4096 / pitch`, rounded up) in 
 
 [`tools/brr_lab.html`](../tools/brr_lab.html) opens the folder `assets/sfx` and saves `sfx.json`
 back into it through the browser's File System Access API (Chrome and Edge); other browsers load
-the folder's files and offer the changed `sfx.json` as a download. The list of the effects is on
-one side, the settings of the chosen one on the other: the id and the priority, and per sample
-the file, which one is active, rate, treble, gain, trim and volume. Each sample plays as the
+the folder's files and offer the changed `sfx.json` as a download. With a folder open, WAV files
+loaded or dropped from elsewhere are copied into it, so that the build finds them (a different
+file of the same name is replaced only after asking). A folder without `sfx.json` starts with one
+effect per WAV file (the id from the file's name, in the order of the names), and WAV files that
+no effect names are listed below the effects, to add one by one or all at once.
+
+The effects are cards: the number, the id, the priority, Up, Down and Remove, the active sample's
+file, the sizes of the WAV and the BRR, the BRR's size in percent of the WAV's, and the length in
+ms. They sort by number, id, file name, WAV size or BRR size, either way; a sorted view changes no
+number until "Use this order" makes it the file's order. One row of buttons sets the rate of all
+samples at once (8 to 32 kHz), the start after a first import. The chosen effect's samples are on
+the other side: per sample the file, which one is active, rate, treble, gain, trim and volume. Each sample plays as the
 original or as the SNES plays it (the S-DSP's BRR decoding, the Gaussian interpolation with the
 chip's table, the fixed envelope and the voice's volume); the variants of an effect play one
 after the other. The total of the active samples against the audio RAM is always in view, with
 the errors the build would stop on, and a row of buttons plays the effects with the voices and
 priorities of the file, so one hears which cuts which off.
+
+The Lab's tests run it in a browser with Playwright ([tools/lab_test](../tools/lab_test/README.md)),
+and the last one compares what it plays and saves with what `superdevkit sfx` builds.
 
 ## What a game writes
 

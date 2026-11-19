@@ -27,6 +27,8 @@ tasks.test {
     workingDir = rootProject.projectDir   // the tests read tools/ and write their files as the compiler's do
     environment("SFX_GOLDEN", System.getenv("SFX_GOLDEN") ?: "")
     inputs.file(rootProject.file("tools/brr_lab.html"))
+    inputs.files(rootProject.fileTree("tools/lab_test") { include("*.js", "package*.json") })
+    dependsOn(tasks.installDist)   // BrrLabTest compares the Lab with the installed superdevkit sfx
     filter { isFailOnNoMatchingTests = false }   // `./gradlew test --tests X`: X may be the compiler's
     timeout.set(Duration.ofMinutes(10))
 }
@@ -56,7 +58,7 @@ distributions {
             // the kit, so that the installation is a superdevkit home with all a game needs
             // (ADR record 41): the library, the tools, the examples, the desktop's build scripts
             from(rootProject.file("lib")) { into("lib") }
-            from(rootProject.file("tools")) { into("tools"); exclude("**/__pycache__/**") }
+            from(rootProject.file("tools")) { into("tools"); exclude("**/__pycache__/**", "lab_test/**") }
             from(rootProject.file("examples")) { into("examples"); exclude("*/build/**", "**/__pycache__/**") }
             from(rootProject.file("dev")) {
                 into("dev")
