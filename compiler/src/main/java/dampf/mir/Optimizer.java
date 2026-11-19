@@ -47,8 +47,10 @@ public final class Optimizer {
                 functions(m, writes, verifyEach);
             }
         }
-        // last: the order of the instructions for the code generator
+        // last: comparisons next to the branches that use them, after value numbering merged equal
+        // ones; then the order of the instructions for the code generator
         for (MFunction f : m.functions()) {
+            SinkCompares.run(f);
             Schedule.run(f);
         }
         Verifier.verify(m);

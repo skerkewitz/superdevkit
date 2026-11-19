@@ -935,3 +935,28 @@ Measured with `dev/bench_examples.sh`, without the pass against with it: CatchMe
 master cycles per tick (-0.8 %), the six other examples the same to the cycle; none of the
 execution tests and random programs changed its code (`BackendOutputTest`). `DebugCallsTest`
 checks that a tick with the registrations and a box loop costs the same as one without them.
+
+## Comparisons next to their branches (2026-11-19, on the pair loops and the examples)
+
+The pair loops' benchmark (`exec/pair_loops.c`, `PairLoopsBench`) is a case of the kit's own for
+the game's finding 9: a counted pair loop or a list sorted by x, over a 23-byte struct array or
+one array per field. Its baseline with 0.7.0, master cycles per frame of data: A (counter,
+struct array) 271,055, B (list, struct array) 232,098, C (counter, fields) 218,615, D (list,
+fields) 214,867.
+
+In its pair function `dx < 0` was a truth value: value numbering merged the test of the inlined
+`abs16` with the same test of the shove, and the one comparison then fed two branches in other
+blocks, so the code generator computed 0 or 1 (`EOR #\$8000 / CMP / ROL / EOR #1`), stored it and
+tested it later. `SinkCompares` computes such a comparison again right before each branch that
+uses it, after value numbering, so compare and branch fuse (`LDA dx / BMI`).
+
+| | Before | After |
+| --- | ---: | ---: |
+| A counter, struct array | 271,055 | 239,556 (-11.6 %) |
+| B sorted list, struct array | 232,098 | 214,099 (-7.8 %) |
+| C counter, one array per field | 218,615 | 187,116 (-14.4 %) |
+| D sorted list, one array per field | 214,867 | 196,866 (-8.4 %) |
+
+The examples (`dev/bench_examples.sh`): Steinschlag -1.3 %, Er-Tüp -0.1 %, Schach +0.02 %, the
+rest the same; geometric mean -0.2 %.
+
