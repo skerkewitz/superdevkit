@@ -11,7 +11,7 @@ sources:
   - src/main/java/dampf/Compiler.java
   - src/test/resources/exec/hint_range.c
   - src/test/java/dampf/BudgetTest.java
-  - tools/build_desktop.sh
+  - dev/build_desktop.sh
 audience: Users who want to tell dampf what it cannot infer
 ---
 
@@ -22,7 +22,7 @@ The hint macros, what each tells dampf, and how each is checked in the PC build.
 ## Sections
 
 1. **How hints work** – the header `<dampf.h>` and how a game's PC build reaches it
-   (`-idirafter`), and how the kit's desktop build does (`tools/build_desktop.sh`: `-nostdinc
+   (`-idirafter`), and how the kit's desktop build does (`dev/build_desktop.sh`: `-nostdinc
    -ffreestanding`, dampf's include folder with `-isystem`, so `<stdint.h>` is dampf's there too,
    and a wrong hint traps instead of asserting); macros that become built-ins with dampf, checked
    assertions on the PC (and `NDEBUG`); that dampf trusts a hint and never checks it on the SNES,

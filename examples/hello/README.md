@@ -6,7 +6,7 @@ superdevkit game is put together and for stepping through C in Mesen.
 
 ```bash
 examples/hello/build.sh            # the SNES: examples/hello/build/hello.sfc
-tools/build_desktop.sh examples/hello   # the desktop (Linux): examples/hello/build/linux/hello
+dev/build_desktop.sh examples/hello   # the desktop (Linux): examples/hello/build/linux/hello
 ```
 
 On the desktop the keyboard is the joypad: the arrows, Z (B), X (A), A (Y), S (X), Q and W (L and

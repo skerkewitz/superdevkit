@@ -27,7 +27,7 @@ a hint that states a fact therefore becomes an `assert`, so the PC build checks 
 tests reach; defining `NDEBUG` switches the checks off, as for any `assert`. A hint that only
 asks for a check at build time, such as `DAMPF_BUDGET`, expands to nothing on the PC.
 
-The kit's desktop build, `tools/build_desktop.sh`, compiles a game without the host's headers
+The kit's desktop build, `dev/build_desktop.sh`, compiles a game without the host's headers
 (gcc's `-nostdinc -ffreestanding`) and gives gcc dampf's include folder with `-isystem`, so
 there `<stdint.h>` is dampf's as well. Such a build has no `<assert.h>`. There a wrong hint calls
 `__builtin_trap()` instead, which stops the program without a message; `NDEBUG` switches this

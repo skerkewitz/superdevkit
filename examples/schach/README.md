@@ -7,7 +7,7 @@ all four of its steps are built.
 
 ```bash
 examples/schach/build.sh                 # the SNES: examples/schach/build/schach.sfc
-tools/build_desktop.sh examples/schach   # the desktop (Linux): examples/schach/build/linux/schach
+dev/build_desktop.sh examples/schach   # the desktop (Linux): examples/schach/build/linux/schach
 ```
 
 On the desktop the keyboard is the joypad: the arrows, X (A), Z (B), Enter (Start).

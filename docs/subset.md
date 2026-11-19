@@ -224,7 +224,7 @@ Very little:
 
 1. `video.c`, lines 339 and 340, cast with plain `(unsigned)`. The scan above only looked at
    declarations and missed these casts; dampf's front end found them. Use `uint32_t` (or a
-   narrower type). See `docs/game-findings.md`, finding 5. Done: the snapshot has `(uint8_t)`
+   narrower type). See the game's finding 5 (forwarded to it). Done: the snapshot has `(uint8_t)`
    there.
 2. `BB_FAST` in `internal.h` expands to `__attribute__((tiny))` for Calypsi and to nothing
    otherwise. It needs a `__DAMPF__` branch that expands to `DAMPF_DP` ([hints.md](hints.md))

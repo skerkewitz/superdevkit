@@ -7,7 +7,7 @@ the time runs out. An example of superdevkit that scrolls: the cave is larger th
 
 ```bash
 examples/steinschlag/build.sh            # the SNES: examples/steinschlag/build/steinschlag.sfc
-tools/build_desktop.sh examples/steinschlag   # the desktop (Linux): examples/steinschlag/build/linux/steinschlag
+dev/build_desktop.sh examples/steinschlag   # the desktop (Linux): examples/steinschlag/build/linux/steinschlag
 ```
 
 On the desktop the keyboard is the joypad: the arrows, Z (B), X (A), A (Y), S (X), Q and W (L and

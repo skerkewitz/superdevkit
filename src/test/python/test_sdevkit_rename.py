@@ -2,14 +2,14 @@
 """Tests of sdevkit_rename.py: identifiers change, strings and comments do not, files are
 rewritten in place, the compatibility headers come from the table.
 
-    python3 -I tools/test_sdevkit_rename.py      (the Gradle build runs it, ToolsTest)
+    python3 -I src/test/python/test_sdevkit_rename.py      (the Gradle build runs it, ToolsTest)
 """
 import os
 import sys
 import tempfile
 import unittest
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "tools"))
 import sdevkit_rename as r  # noqa: E402
 
 

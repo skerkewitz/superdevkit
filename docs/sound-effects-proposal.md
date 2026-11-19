@@ -148,7 +148,7 @@ The examples get sound first, Blubber Blasen after them:
 2. **Steinschlag**: digging, taking a gem, a boulder landing, a beetle, the miner crushed, the exit
    opening. Much happens at once, so with two voices it shows whether the priorities work: digging
    must not cut off the exit opening.
-3. **Blubber Blasen**, through [game-findings.md](game-findings.md), once the kit has it. Its 19
+3. **Blubber Blasen**, through a finding for the game, once the kit has it. Its 19
    effects and its 32-bit mask `game_sfx()` become an `sfx.json` and calls of
    `sdevkit_sfx_play`.
 

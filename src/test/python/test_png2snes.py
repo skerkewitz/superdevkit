@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tests of png2snes.py: tiles and colours survive the round trip, for indexed and RGBA images.
 
-    python3 -I tools/test_png2snes.py      (the Gradle build runs it, ToolsTest)
+    python3 -I src/test/python/test_png2snes.py      (the Gradle build runs it, ToolsTest)
 """
 import os
 import random
@@ -11,7 +11,7 @@ import tempfile
 import unittest
 import zlib
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "tools"))
 import png2snes  # noqa: E402
 
 

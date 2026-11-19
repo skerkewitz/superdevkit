@@ -82,14 +82,14 @@ game, and the playable ROM on a console.
 Started early, during M5 (2026-11-18), because prototyping and checking a game is so much
 quicker on the desktop: the pseudo SNES is in the kit as [Rachael](../lib/README.md#rachael) (`lib/rachael`, with 16 x 16 background
 tiles, and row y of the picture as scanline y + 1 like the SNES), with a desktop frontend for
-Linux (`lib/desktop`, raylib 5.5 fetched by `tools/fetch_raylib.sh`, built by
-`tools/build_desktop.sh`) and a headless check that plays an example's `check.txt` in a second
+Linux (`lib/desktop`, raylib 5.5 fetched by `dev/fetch_raylib.sh`, built by
+`dev/build_desktop.sh`) and a headless check that plays an example's `check.txt` in a second
 (`ExamplesTest`, which also plays every example's check in dampf's emulator and compares a
 checksum per tick with the desktop). The examples give the same picture on the SNES and on the desktop,
 pixel for pixel (`dev/compare_example.sh`); that comparison found a bug in `lib/snes`, whose
 `oamSetVisible` (now `sdevkit_oam_set_visible`) moved a sprite at a negative x to the right
 edge. Both are built on WSL: Linux with gcc, Windows with the MSVC of the Windows side
-(`tools/build_desktop_windows.sh`, ADR [record 39](adr/0039-win64-is-built-with-msvc-for-now-from-wsl.md)), which plays with the gamepads WSL does not
+(`dev/build_desktop_windows.sh`, ADR [record 39](adr/0039-win64-is-built-with-msvc-for-now-from-wsl.md)), which plays with the gamepads WSL does not
 see and gives the same checksums and pictures as Linux.
 
 Still to do in M7: Rachael's tests from the game, sound, save RAM and the debug
@@ -151,7 +151,7 @@ Also in M9:
 
 The order: register allocation (2), or the split of struct arrays (4) once its subset question
 is decided; then 3, 5 and 7. The rest has to come from the game doing less work: the pair loop
-of `separate` (16 %) and the CPU partner ([game-findings.md](game-findings.md), finding 1), as
+of `separate` (16 %) and the CPU partner (the game's finding 1, forwarded to it), as
 the checkpoint after M2 concluded.
 
 ## M10: language, platform and usability (0.10.0)
@@ -172,7 +172,8 @@ the checkpoint after M2 concluded.
 - **Hand-written assembly with the code generator from MIR:** `--replace` works only with the
   naive one, and a linked-in function has no way to declare its calling convention, direct page
   use and cycles for the timing analysis.
-- **dampf's own preprocessor**, so that using dampf needs nothing but Java: macro expansion
+- **dampf's own preprocessor**, so that using dampf needs nothing but Java (needed before the
+  first public release, ADR record 41): macro expansion
   following Prosser's algorithm, `#` and `##`, variadic macros with `__VA_OPT__`, `#if`
   arithmetic in `intmax_t`, line markers for the debug information. `gcc -E` stays in the tests
   as the oracle, on every test program, every example and generated macro cases. Today users on
@@ -263,11 +264,15 @@ What it takes:
   [optimizations-log.md](optimizations-log.md#optimizations-on-the-branch-optimise-2026-11-18));
   those parameters are to be checked on the set, and the docs say which set a measurement comes
   from.
-- **The game's own findings** ([game-findings.md](game-findings.md)) go to the game's repository;
+- **The game's own findings** went to the game on 2026-11-19 and left this repository;
   `docs/game-guide.md` is written from them there.
 - **The documents** say nothing that only holds for the private repository.
 - **The repository renamed** to superdevkit, with dampf as its compiler.
-- **Hosting:** a release on GitHub, a build on GitHub Actions (cc65 installed for the tests that
+- **Before the first release** (ADR [record 41](adr/0041-the-release-is-a-zip-per-system-with-a-java.md)): dampf's own
+  preprocessor (M10) and the graphics converter in Java in the CLI, so building for the SNES
+  needs nothing but the download.
+- **Hosting:** a release on GitHub, a zip per system with a Java runtime (jlink) and raylib (ADR
+  record 41), a build on GitHub Actions (cc65 installed for the tests that
   compare with ca65 and ld65; no Mesen), the book on GitHub Pages.
 
 ## Future ideas
@@ -310,7 +315,7 @@ and the toolchain is tested on what only the console shows.
 The console showed things the benchmark could not. A tick that needs more than one frame waits for
 the next vertical blank, and the benchmark leaves out what `video.c` costs on the hardware. With the
 naive code generator the vertical blank code is so slow that the room tiles never fit
-([game-findings.md](game-findings.md), finding 2). The console figure (frames per tick during a
+(the game's finding 2, forwarded to it). The console figure (frames per tick during a
 minute of play, measured again on 2026-11-18) is in
 [optimizations.md](optimizations.md#where-things-stand).
 
@@ -367,10 +372,6 @@ Open: the DMA margin is in M5, constant shifts longer than 8 in M9.
   has left the repository (ADR record 40): the search needs it from the game's own repository, or
   an example that the limit of 80 breaks too (`dev/bench_examples.sh` and the examples' checks
   with the limit raised).
-- **In which language the dev kit's tools are written.** The first one, the PNG converter for
-  the examples, is Python for now (`tools/`). Java would keep using the dev kit to nothing but
-  Java (goal 6 of the README) and could read PNG with `javax.imageio`; Python is quicker to
-  write but is one more thing to install. To be looked at more closely before more tools come.
 - What 1.0 needs: the frame budget met, the subset decisions taken, C in interrupts, or a set of
   users.
 - How Mesen shows locals that live in fixed direct page places, several values sharing a place
@@ -452,7 +453,7 @@ The question was whether the optimizations reach the budget or the game also has
 work. **Decided: compiler and game in parallel**, with 30 Hz game logic on the heaviest ticks as
 the fallback; the numbers and the options weighed are in ADR
 [record 22](adr/0022-the-compiler-and-the-game-work-in-parallel-towards.md). The request to the
-game is finding 1 in [game-findings.md](game-findings.md).
+game is the game's finding 1 (forwarded to it).
 
 ### M3 and M4
 
@@ -527,5 +528,5 @@ the oracle for correctness, and its busiest scene the benchmark for speed, on a 
 in this repository. Since 2026-11-19 the dev kit's examples are both, and the game's code is no
 longer here ([ADR record 40](adr/0040-the-examples-replace-blubber-blasen-s-snapshot-as.md)); the
 game builds with the kit from its own repository. What dampf finds worth changing in the game goes
-to [game-findings.md](game-findings.md); when dampf is finished, `docs/game-guide.md` explains how
+to a findings file the user forwards (`docs/game-findings.md`, created when there is one); when dampf is finished, `docs/game-guide.md` explains how
 to write game code that dampf compiles well.

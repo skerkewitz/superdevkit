@@ -9,8 +9,8 @@ a power-up nobody wants. The idea is in [docs/er-tuep-proposal.md](../../docs/er
 
 ```bash
 examples/ertuep/build.sh                  # the SNES: examples/ertuep/build/ertuep.sfc
-tools/build_desktop.sh examples/ertuep    # the desktop (Linux): examples/ertuep/build/linux/ertuep
-tools/build_desktop_windows.sh examples/ertuep   # Windows, with a gamepad: build/windows/ertuep.exe
+dev/build_desktop.sh examples/ertuep    # the desktop (Linux): examples/ertuep/build/linux/ertuep
+dev/build_desktop_windows.sh examples/ertuep   # Windows, with a gamepad: build/windows/ertuep.exe
 ```
 
 On the desktop the keyboard is the joypad: the arrows, Z (B), X (A), Enter (Start); on Windows a

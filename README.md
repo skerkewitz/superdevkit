@@ -1,6 +1,6 @@
 # dampf
 
-![dampf](assets/Dampf.jpg)
+![dampf](docs/assets/Dampf.jpg)
 
 A compiler for a subset of C that produces fast code for the WDC 65816, with exactly one target:
 the Super Nintendo. Its first user is Blubber Blasen (the game's stage 3, the SNES port), whose
@@ -77,7 +77,7 @@ Non-goals:
 
 ## Documents
 
-The user book is in [docs/book](docs/book) (`npm install`, then `npm run docs:dev`); its pages
+The user book is in [docs/book](docs/book) (there `npm install`, then `npm run docs:dev`); its pages
 are generated from the specs in [doc-specs](doc-specs/README.md). The documents below are the
 working documents it is written from.
 
@@ -95,7 +95,6 @@ working documents it is written from.
 - [docs/superdevkit-transition.md](docs/superdevkit-transition.md): the plan from here to superdevkit with its SNES, desktop and web targets, step by step.
 - [docs/brainstorm](docs/brainstorm): summaries of brainstorming sessions, the options weighed before a decision.
 - [docs/roadmap.md](docs/roadmap.md): milestones and their state, risks, open questions, the relation to Blubber Blasen.
-- [docs/game-findings.md](docs/game-findings.md): things in Blubber Blasen's code worth changing, for whoever works on the game.
 - [dev/README.md](dev/README.md): the scripts in `dev/`, for developing dampf against the examples.
 
 ## Prerequisites
@@ -189,17 +188,18 @@ src/main/resources/dampf/include/  dampf's own <stdint.h> and <dampf.h>
 src/main/resources/dampf/snes/     SNES runtime (start-up, header, vectors)
 src/test/java/dampf/           unit, execution, random, example and emulator tests; book source checks
 src/test/resources/exec/       execution test programs
+src/test/python/               the tests of tools/ (ToolsTest runs them)
 examples/m1/                   example for stepping through C in Mesen
 examples/                      the dev kit's examples: test cases and the benchmark (each has its README.md)
 lib/                           the dev kit's library: the console API (include/), on the SNES (snes/); see its README.md
 reference/                     hand-written assembly of the examples' functions, the yardstick for dampf's code
-tools/                         tools for game developers: png2snes.py, PNG to SNES graphics (see its README.md)
-dev/                           scripts for developing dampf: benchmark, checks in Mesen, Mesen (see its README.md)
+tools/                         tools for game developers: png2snes.py, brr_lab.html, sdevkit_rename.py (see its README.md)
+dev/                           scripts for developing dampf: benchmark, checks in Mesen, the desktop's build (see its README.md)
 dev/subset_scan.py             M0 scanner: which C constructs a code base uses
 config/pmd/                    PMD rules (./gradlew pmdMain pmdTest)
-assets/                        the logo
 docs/                          the working documents (see Documents)
-docs/book/                     the user book (VitePress), mostly generated from doc-specs/
+docs/book/                     the user book (VitePress, with its package.json), mostly generated from doc-specs/
+docs/assets/                   the logo
 doc-specs/                     what each page of the book covers, and its sources
 ```
 

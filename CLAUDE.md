@@ -24,7 +24,8 @@ from the README.
   when it is decided. Cite records by number ("ADR record 6"); a record of another project with its name in front
   ("gosu-flint's record 32"). `AdrTest` checks table and files.
 - Anything worth changing in the game goes into `docs/game-findings.md` (written for the AI working
-  on the game; the user forwards it). After dampf is finished: write `docs/game-guide.md` from it.
+  on the game; the user forwards it). The findings so far were forwarded on 2026-11-19 and the file
+  deleted: start it anew when there is a new one.
 - Blubber Blasen (the first user and test case) is at `/mnt/d/Develop/AiProject/BlubberBlasen`
   (Windows `D:\Develop\AiProject\BlubberBlasen`). Its `tools/snesbench` is the benchmark that
   compares compilers in Mesen headless (`Mesen.exe --testrunner` with a Lua script).

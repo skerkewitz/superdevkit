@@ -9,7 +9,7 @@ cd "$(dirname "$0")/.."
 NAME=${1:?usage: dev/compare_example.sh <example>}
 EX=examples/$NAME
 dev/check_example.sh "$NAME"
-tools/build_desktop.sh "$EX" > /dev/null
+dev/build_desktop.sh "$EX" > /dev/null
 rm -rf "$EX/build/desktop-check" && mkdir -p "$EX/build/desktop-check"
 "$EX/build/linux/$NAME" --check "$EX/check.txt" --out "$EX/build/desktop-check"
 python3 -I dev/compare_shots.py "$EX/build/check" "$EX/build/desktop-check"

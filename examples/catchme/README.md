@@ -8,7 +8,7 @@ screen, no scrolling, one background layer and a handful of sprites.
 
 ```bash
 examples/catchme/build.sh            # the SNES: examples/catchme/build/catchme.sfc
-tools/build_desktop.sh examples/catchme   # the desktop (Linux): examples/catchme/build/linux/catchme
+dev/build_desktop.sh examples/catchme   # the desktop (Linux): examples/catchme/build/linux/catchme
 ```
 
 On the desktop the keyboard is the joypad: the arrows, Z (B), X (A), A (Y), S (X), Q and W (L and

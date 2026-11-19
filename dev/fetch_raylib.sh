@@ -1,13 +1,13 @@
 #!/bin/sh
 # Fetches raylib, ready-built, for a desktop target of the dev kit (ADR record 31: raylib is
 # pinned to one version and not built by the kit). Writes into build/raylib/<target>/ (not in git).
-#   tools/fetch_raylib.sh linux      (gcc)
-#   tools/fetch_raylib.sh windows    (MSVC, for tools/build_desktop_windows.sh)
+#   dev/fetch_raylib.sh linux      (gcc)
+#   dev/fetch_raylib.sh windows    (MSVC, for dev/build_desktop_windows.sh)
 # Needs curl, and tar or unzip.
 set -e
 cd "$(dirname "$0")/.."
 VERSION=5.5
-TARGET=${1:?usage: tools/fetch_raylib.sh linux}
+TARGET=${1:?usage: dev/fetch_raylib.sh linux}
 case "$TARGET" in
     linux) PACKAGE=raylib-${VERSION}_linux_amd64.tar.gz ;;
     windows) PACKAGE=raylib-${VERSION}_win64_msvc16.zip ;;

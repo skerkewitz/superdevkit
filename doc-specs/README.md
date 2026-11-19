@@ -55,5 +55,5 @@ after the page was written. Run `/docs-gen stale` to regenerate those pages, or,
 does not touch what a page says, stamp it without regenerating:
 `./gradlew stampBook -Pspecs=doc-specs/<page>.spec.md`.
 
-`npm install` once, then `npm run docs:dev` serves the book locally and `npm run docs:build`
-builds it and checks its links.
+In `docs/book`: `npm install` once, then `npm run docs:dev` serves the book locally and
+`npm run docs:build` builds it and checks its links.

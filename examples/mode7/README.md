@@ -6,7 +6,7 @@ it. It is there to show that the SNES and the desktop draw mode 7 the same, pixe
 
 ```bash
 examples/mode7/build.sh               # the SNES: examples/mode7/build/mode7.sfc
-tools/build_desktop.sh examples/mode7   # the desktop (Linux): examples/mode7/build/linux/mode7
+dev/build_desktop.sh examples/mode7   # the desktop (Linux): examples/mode7/build/linux/mode7
 dev/compare_example.sh mode7          # both with the input of check.txt, the pictures compared
 ```
 

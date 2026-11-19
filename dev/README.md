@@ -1,7 +1,8 @@
 # dev
 
 Scripts for developing dampf and the dev kit: the examples' benchmark, the examples in Mesen,
-Mesen itself, the examples' art. Run them from anywhere; each changes to the repository root
+Mesen itself, the examples' art, and the desktop's build until the `superdevkit` command
+(roadmap M7) takes its place. Run them from anywhere; each changes to the repository root
 first. The shell scripts that compile call `./gradlew -q installDist` and use
 `build/install/dampf/bin/dampf`. (Blubber Blasen's benchmark, playable ROM, replays and snapshot
 left with the game's code, ADR record 40.)
@@ -15,6 +16,10 @@ moves the result into `build/`.
 | Script | What it does | Arguments and variables | Needs | Writes |
 | --- | --- | --- | --- | --- |
 | `bench_examples.sh` | The examples' benchmark: builds every example that has a `check.txt` with dampf, with the options given (a code generator option, a tuned parameter), plays its check in dampf's emulator (`dampf.emu.ExampleBench`) and prints a table: ticks, frames per tick, the work per tick (master cycles without the main loop's waiting) on average and in the busiest 60 ticks, and the share of dampf's runtime. With `BASELINE=<an earlier table>` also the ratio of the work to it, per example and as the geometric mean. | options for `dampf build`; `BASELINE` | Python 3 (the examples' converters) | `build/bench-examples/examples.txt`, the ROMs beside it |
+| `fetch_raylib.sh` | Fetches raylib, ready-built and pinned to one version (5.5), for a desktop target (ADR record 31). | `dev/fetch_raylib.sh linux`, `dev/fetch_raylib.sh windows` (MSVC) | `build/raylib/<target>/` (not in git) |
+| `build_desktop.sh` | Builds an example for the desktop with the system's C compiler and raylib, on [Rachael](../lib/README.md#rachael): the same game code as on the SNES. Until the `superdevkit` command (roadmap M7). | `dev/build_desktop.sh examples/<name>`; `CC` picks the compiler | `examples/<name>/build/linux/<name>`: run it for a window, or with `--check check.txt --out dir` |
+| `build_desktop_windows.sh` | The same for Windows, from WSL, with the Visual Studio of the Windows side (MSVC, ADR record 39): for playing with a gamepad, which WSL does not see. | `dev/build_desktop_windows.sh examples/<name>` | `examples/<name>/build/windows/<name>.exe`: start it from Windows, or from WSL with `--check` |
+| `check_game_symbols.py` | The check of `build_desktop.sh` (ADR record 34): every symbol a game's objects leave undefined must be declared in `lib/include/sdevkit`, defined by the game, or one the compiler emits on its own (`memcpy`, `memset`, `memmove`, `__stack_chk_fail`, MSVC's `__ImageBase` and buffer checks); anything else stops the build with its name. | `dev/check_game_symbols.py lib/include/sdevkit game_objects...` | nothing; exit status 1 and the names on an error |
 | `fetch_mesen.sh` | Puts MesenCE (a pinned version) into `.mesen/`: the Linux and the Windows build, portable, with the settings the scripts and tests need (SNES joypads, Lua file access, no frame skipping); on Arch also the libraries the Linux build needs, into `.mesen/lib`. | | curl, unzip, Python 3 | `.mesen/`, `build/mesen/` |
 | `mesen.sh` | Sourced by the scripts that run Mesen: picks `MESEN` and runs the test runner in its folder (`mesen_run`). | `MESEN` | | |
 | `check_example.sh` | Plays an example (`examples/<name>`) headless in Mesen with the input of its `check.txt` (`example_check.lua`): bytes written to VRAM, CGRAM or OAM outside a vertical blank, screenshots, the checksum of every tick (`hashes.txt`). Fails when a byte is lost. | `<name>`; `NOBUILD=1` skips the example's `build.sh`; `INPUT=<file>` plays another input than `check.txt` (a recording); `MESEN` | Mesen, Python 3 | `examples/<name>/build/check/` |

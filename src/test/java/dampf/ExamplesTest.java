@@ -28,8 +28,8 @@ import org.junit.jupiter.api.TestFactory;
  *       a row), and the master cycles from the end of each tick to the end of the next into
  *       {@code ticks.txt}; a {@code budget T1 T2} line of {@code check.txt} fails the test when a tick
  *       from T1 to T2 - 1 took more than a frame;</li>
- *   <li>the desktop (where raylib was fetched, tools/fetch_raylib.sh linux: the tests download
- *       nothing): tools/build_desktop.sh, then the same check without a window, without a byte
+ *   <li>the desktop (where raylib was fetched, dev/fetch_raylib.sh linux: the tests download
+ *       nothing): dev/build_desktop.sh, then the same check without a window, without a byte
  *       the SNES would lose and without a register write Rachael does not draw, its checksums
  *       into {@code build/desktop-check/hashes.txt}, and the run's recording ({@code --record}:
  *       the format a session in the window is saved in with F11) must have the same buttons and
@@ -79,7 +79,7 @@ public class ExamplesTest {
             if (!desktop) {
                 return;
             }
-            run("sh", "tools/build_desktop.sh", ex.toString());
+            run("sh", "dev/build_desktop.sh", ex.toString());
             Path out = Files.createDirectories(ex.resolve("build/desktop-check"));
             Path recording = out.resolve("recording.txt");
             String result = run(ex.resolve("build/linux/" + name).toString(), "--check", check.toString(), "--out", out.toString(),

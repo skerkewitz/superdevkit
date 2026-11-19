@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Checks that a game's object files reach nothing but superdevkit's console API (ADR record 34).
 
-    python3 -I tools/check_game_symbols.py HEADER_DIR OBJECT...
+    python3 -I dev/check_game_symbols.py HEADER_DIR OBJECT...
 
 Every symbol the objects leave undefined (nm -u) must be
   - a function or variable declared in HEADER_DIR/*.h (lib/include/sdevkit), read from the
@@ -22,7 +22,7 @@ COMPILER_SYMBOLS = {
     "memcpy", "memset", "memmove",
     # gcc on distributions that turn on -fstack-protector by default (Arch, Debian, Ubuntu, Fedora)
     "__stack_chk_fail",
-    # MSVC (tools/build_desktop_windows.sh): the linker's base address of the program, which /O2
+    # MSVC (dev/build_desktop_windows.sh): the linker's base address of the program, which /O2
     # uses to reach tables, and the reports and cookies of its buffer checks (/GS, on by default)
     "__ImageBase", "__report_rangecheckfailure", "__security_check_cookie", "__security_cookie",
     "__GSHandlerCheck", "_fltused",

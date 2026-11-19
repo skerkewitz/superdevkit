@@ -7,17 +7,17 @@ import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
-/** The tests of the dev kit's tools for game developers (tools/), which are Python for now. */
+/** The tests of the dev kit's tools for game developers (tools/, Python for now), in src/test/python. */
 class ToolsTest {
 
     @Test
     void png2snes() throws IOException, InterruptedException {
-        python("tools/test_png2snes.py");
+        python("src/test/python/test_png2snes.py");
     }
 
     @Test
     void sdevkitRename() throws IOException, InterruptedException {
-        python("tools/test_sdevkit_rename.py");
+        python("src/test/python/test_sdevkit_rename.py");
     }
 
     private static void python(String test) throws IOException, InterruptedException {

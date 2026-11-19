@@ -15,9 +15,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * The desktop build lets a game reach only the console API (ADR record 34, tools/build_desktop.sh):
+ * The desktop build lets a game reach only the console API (ADR record 34, dev/build_desktop.sh):
  * the host's headers are not there, and a function of raylib or libc declared by hand stops the
- * build. Skipped where raylib was not fetched (tools/fetch_raylib.sh linux).
+ * build. Skipped where raylib was not fetched (dev/fetch_raylib.sh linux).
  */
 class DesktopIsolationTest {
 
@@ -82,7 +82,7 @@ class DesktopIsolationTest {
                     if (!ok) { sdevkit_dma_copy_vram(b.bytes, 0, 16); }
                 }
                 """);
-        Run build = run("sh", "tools/build_desktop.sh", dir.toString());
+        Run build = run("sh", "dev/build_desktop.sh", dir.toString());
         assertEquals(0, build.exit(), build.out());
         Files.writeString(dir.resolve("check.txt"), "ticks 3\n");
         Run check = run(dir.resolve("build/linux/good").toString(), "--check", dir.resolve("check.txt").toString(), "--out", tmp.toString());
@@ -99,7 +99,7 @@ class DesktopIsolationTest {
                 """ + CALLBACKS + """
                 void game_tick(const uint16_t pad[SDEVKIT_PADS]) { (void)pad; printf("hi\\n"); }
                 """);
-        Run build = run("sh", "tools/build_desktop.sh", dir.toString());
+        Run build = run("sh", "dev/build_desktop.sh", dir.toString());
         assertNotEquals(0, build.exit(), build.out());
         assertTrue(build.out().contains("stdio.h"), build.out());
     }
@@ -113,7 +113,7 @@ class DesktopIsolationTest {
                 """ + CALLBACKS + """
                 void game_tick(const uint16_t pad[SDEVKIT_PADS]) { (void)pad; DrawText("hi", 0, 0, 10, 0); }
                 """);
-        Run build = run("sh", "tools/build_desktop.sh", dir.toString());
+        Run build = run("sh", "dev/build_desktop.sh", dir.toString());
         assertNotEquals(0, build.exit(), build.out());
         assertTrue(build.out().contains("uses DrawText, which is not part of superdevkit's console API"), build.out());
     }

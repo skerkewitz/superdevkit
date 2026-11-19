@@ -2,7 +2,7 @@
 # Builds an example for the desktop (Linux now) with the system's C compiler and raylib, on
 # Rachael (lib/rachael, the SNES rebuilt in portable C): the same game code as on the SNES. Until the superdevkit command
 # (roadmap M7), this script is the desktop build.
-#   tools/build_desktop.sh examples/catchme         -> examples/catchme/build/linux/catchme
+#   dev/build_desktop.sh examples/catchme         -> examples/catchme/build/linux/catchme
 #   examples/catchme/build/linux/catchme             plays it in a window
 #   examples/catchme/build/linux/catchme --check examples/catchme/check.txt --out DIR
 # CC picks the compiler (default cc).
@@ -12,15 +12,15 @@
 #      dampf's include folder (<stdint.h>, <string.h>) and the kit's public headers only;
 #      -ffreestanding and -fno-tree-loop-distribute-patterns keep gcc from turning the byte loop
 #      of dampf's static memcpy into a call of memcpy, which in that file is the loop itself;
-#   2. tools/check_game_symbols.py: what the game's objects call must be the kit's;
+#   2. dev/check_game_symbols.py: what the game's objects call must be the kit's;
 #   3. the link with Rachael, the frontend and raylib.
 set -e
 cd "$(dirname "$0")/.."
-EX=${1:?usage: tools/build_desktop.sh examples/<name>}
+EX=${1:?usage: dev/build_desktop.sh examples/<name>}
 EX=${EX%/}
 NAME=$(basename "$EX")
 CONVERT_ONLY=1 sh "$EX/build.sh"
-tools/fetch_raylib.sh linux
+dev/fetch_raylib.sh linux
 OUT=$EX/build/linux
 OBJ=$OUT/obj
 rm -rf "$OBJ" && mkdir -p "$OBJ"
@@ -40,7 +40,7 @@ for src in "$EX"/src/*.c "$EX"/build/gen/*.c; do
 done
 [ -n "$GAME_OBJECTS" ] || { echo "build_desktop: no C sources in $EX/src"; exit 1; }
 # shellcheck disable=SC2086
-python3 -I tools/check_game_symbols.py lib/include/sdevkit $GAME_OBJECTS
+python3 -I dev/check_game_symbols.py lib/include/sdevkit $GAME_OBJECTS
 
 # shellcheck disable=SC2086
 $CC -std=c99 -O2 $WARN -I lib/include -I lib/rachael -I "$R/include" -DGAME_NAME="\"$NAME\"" \

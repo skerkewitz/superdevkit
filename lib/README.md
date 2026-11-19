@@ -13,16 +13,16 @@ name it can use starts with `sdevkit_` or `SDEVKIT_`
 | `include/snes/` | Deprecated: the old names (PVSnesLib's, `KEY_*`, `u8`...) mapped to the new ones, for Blubber Blasen until the game switches. Written by `tools/sdevkit_rename.py --write-compat`, which also converts a game. |
 | `snes/` | The SNES: the API in C with registers as `volatile` pointers (`snes.c`, `hw.h`) and the main loop (`main.c`), compiled by dampf with the game. See its [README](snes/README.md). |
 | `rachael/` | The desktop (and the web, M8): [Rachael](#rachael), the SNES rebuilt in portable C (`ppu.c`, `render.c`). `rachael.h` is its interface to the frontends (`sdevkit__vblank`, `sdevkit__render`, ...), not for games. Taken over from Blubber Blasen's `src/snes`; new against the game's copy: 16 x 16 background tiles, and row y of the picture is scanline y + 1 as on the SNES. |
-| `desktop/` | The desktop's frontend (`main.c`, Linux and Windows): a window with raylib and the retro TV filter (`crt.c`, [RETRO-EFFECT.md](desktop/RETRO-EFFECT.md); Tab, `--no-crt`), the keyboard and a gamepad as the joypad, the frame rhythm of `loop.h`; `--check check.txt` plays without a window and writes screenshots. Every session in the window is recorded (the joypad and the checksum of every tick): F11 flags the moment and saves it as `<game>_rec_<n>.txt`, in the format of `check.txt`; `--replay file` plays it in the window, pausing at its marks and at the first tick whose checksum differs, with F5 (pause), F6 (a tick) and F7 (fast); `dev/replay_example.sh` plays it on the SNES side. Built by `tools/build_desktop.sh` (Linux) and `tools/build_desktop_windows.sh` (Windows, MSVC). |
+| `desktop/` | The desktop's frontend (`main.c`, Linux and Windows): a window with raylib and the retro TV filter (`crt.c`, [RETRO-EFFECT.md](desktop/RETRO-EFFECT.md); Tab, `--no-crt`), the keyboard and a gamepad as the joypad, the frame rhythm of `loop.h`; `--check check.txt` plays without a window and writes screenshots. Every session in the window is recorded (the joypad and the checksum of every tick): F11 flags the moment and saves it as `<game>_rec_<n>.txt`, in the format of `check.txt`; `--replay file` plays it in the window, pausing at its marks and at the first tick whose checksum differs, with F5 (pause), F6 (a tick) and F7 (fast); `dev/replay_example.sh` plays it on the SNES side. Built by `dev/build_desktop.sh` (Linux) and `dev/build_desktop_windows.sh` (Windows, MSVC). |
 | `web/` | The web, later (M8, [the plan](../docs/superdevkit-transition.md)). |
-| `splash/` | The splash screen every game starts with (ADR record 37): its course (`splash.h`, included by both main loops) and the logo (`splash_logo.h`, made by `dev/art/splash.py` from `assets/splash/logo_source.png`). |
+| `splash/` | The splash screen every game starts with (ADR record 37): its course (`splash.h`, included by both main loops) and the logo (`splash_logo.h`, made by `dev/art/splash.py` from `dev/art/splash/logo_source.png`). |
 | `C_STYLE.md` | How to write a game's C for dampf: rejected, allowed, slow, fast, no difference; its speed rules are measurements (`StyleGuideTest`). |
 | `SNES_HARDWARE.md` | What the SNES allows and punishes, which of it the kit has, and how each rule is checked. |
 
 On the SNES a game is built with `-I lib/include` in front of its own include paths and
-`lib/snes/*.c` among its sources (dampf). On the desktop `tools/build_desktop.sh` compiles the
+`lib/snes/*.c` among its sources (dampf). On the desktop `dev/build_desktop.sh` compiles the
 game alone, without the host's headers (`-nostdinc`, dampf's include folder and `lib/include`),
-checks that it calls only the console API (`tools/check_game_symbols.py`), then links it with
+checks that it calls only the console API (`dev/check_game_symbols.py`), then links it with
 `lib/rachael/*.c lib/desktop/*.c` and raylib. The same game code gives the same picture on both,
 pixel for pixel (`dev/compare_example.sh`).
 
@@ -60,7 +60,7 @@ the PC's speed: a tick that takes two frames on the SNES takes one on Rachael, a
 for the console is never too slow there. dampf's timing report and the runs in Mesen
 (`dev/check_example.sh`) say how fast a game is on the SNES. A game must also reach the console
 only through the API: the desktop build checks that what a game's objects call is the kit's
-(`tools/check_game_symbols.py`), since Rachael cannot see a write that goes around it.
+(`dev/check_game_symbols.py`), since Rachael cannot see a write that goes around it.
 
 Three words, kept apart in all documents of the kit:
 
@@ -68,7 +68,7 @@ Three words, kept apart in all documents of the kit:
 | --- | --- | --- |
 | Rachael | the console rebuilt in C, the same on every PC target | `rachael/` |
 | frontend | what one PC target adds to Rachael: the window, the keyboard and gamepad as the joypad, the frame rhythm of `loop.h`, the headless check | `desktop/` (Linux and Windows), `web/` (M8) |
-| target | what a game is built for: `snes` (dampf and `snes/`, no Rachael), `linux`, `win64` and `web` (the system's C compiler or `emcc`, Rachael and that target's frontend) | the build: `build.sh`, `tools/build_desktop.sh`, later the `superdevkit` command |
+| target | what a game is built for: `snes` (dampf and `snes/`, no Rachael), `linux`, `win64` and `web` (the system's C compiler or `emcc`, Rachael and that target's frontend) | the build: `build.sh`, `dev/build_desktop.sh`, later the `superdevkit` command |
 
 So a game runs "on the SNES" or "on Rachael"; "the desktop" and "the web" name targets and their
 frontends, never Rachael itself. A difference in the picture between the SNES and a PC target is

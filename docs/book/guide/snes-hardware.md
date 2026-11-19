@@ -52,7 +52,7 @@ something else there, so the desktop check fails on such a write as it fails on 
 (*enforced*). The check runs the game without a window, with the input of a `check.txt`:
 
 ```sh
-tools/build_desktop.sh examples/hello
+dev/build_desktop.sh examples/hello
 examples/hello/build/linux/hello --check examples/hello/check.txt --out examples/hello/build/linux
 ```
 

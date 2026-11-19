@@ -102,7 +102,7 @@ guide becomes the dev kit's (getting started from `hello`); `reference/api/` for
 
 ### 5.6 The handover to the game
 
-In [game-findings.md](game-findings.md), for the game's agent: a build of the SNES ROM with the
+In the game's findings (forwarded to it), for the game's agent: a build of the SNES ROM with the
 dev kit next to the PVSnesLib one (an argument file in the game's repository, `-I lib/include`,
 `lib/snes/*.c`), the data as plain C (`map2c`, `gfx2c` without `--snes`), `BB_FAST` with a
 `__DAMPF__` branch, an ADR of the game's own; the console API's new names (ADR record 34,
@@ -147,8 +147,8 @@ Done when: `LibApiTest` covers the new headers; an execution test per stub on th
 ### 7.3 The desktop frontend
 
 Built for Linux (during M5): `lib/desktop/main.c` with a window, the keyboard and a gamepad, the
-frame rhythm, F12 for a screenshot, and `--check` without a window; `tools/build_desktop.sh` and
-`tools/fetch_raylib.sh` until the CLI; Windows with MSVC from WSL, `tools/build_desktop_windows.sh`
+frame rhythm, F12 for a screenshot, and `--check` without a window; `dev/build_desktop.sh` and
+`dev/fetch_raylib.sh` until the CLI; Windows with MSVC from WSL, `dev/build_desktop_windows.sh`
 (ADR record 39); the CRT filter of Blubber Blasen's frontend (`lib/desktop/crt.c`, Tab, `--no-crt`);
 every session recorded, F11 saves it, `--replay` with pause and single steps, the recording
 played on the SNES side by `dev/replay_example.sh`.
@@ -170,7 +170,8 @@ Done when: CatchMe runs on Linux and Windows from a build of its own sources and
 
 - reads `superdevkit.toml` with a TOML reader of its own (the subset the project file uses);
 - `init <name> [--from <example>]` copies an example and sets its name;
-- `build <target>`: runs the converters for the assets, then dampf (`snes`) or the compiler of
+- `build <target>`: runs the converters for the assets (in Java, part of the CLI, before the
+  first public release: ADR record 41), then dampf (`snes`) or the compiler of
   the target (`linux`: gcc or clang; `win64`: MSVC, ADR record 39; `web`:
   `emcc`, in M8) with fixed options per target, links raylib from the kit (ready-built per target,
   pinned to one version); writes `compile_commands.json`;
@@ -193,8 +194,8 @@ recordings stay its own, reached through `sdevkit_dbg_action`).
 
 - `web` as a target of the CLI with `emcc` and raylib's web build; `lib/web`: the page, the click
   to start (sound and keyboard focus need a click in the browser), save RAM in IndexedDB.
-- The game is compiled on its own as on the desktop (ADR record 34, `tools/build_desktop.sh`):
-  `-nostdinc` with dampf's include folder, then `tools/check_game_symbols.py` on its objects
+- The game is compiled on its own as on the desktop (ADR record 34, `dev/build_desktop.sh`):
+  `-nostdinc` with dampf's include folder, then `dev/check_game_symbols.py` on its objects
   (`emcc` writes LLVM objects; `llvm-nm` reads them) before the link.
 - `superdevkit run web` serves the build on a local port and opens the browser.
 - The examples in the browser; Blubber Blasen's web build from the kit, and then the game drops

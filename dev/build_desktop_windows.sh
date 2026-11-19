@@ -1,22 +1,22 @@
 #!/bin/sh
 # Builds an example for the desktop on Windows, from WSL, with the Visual Studio on the Windows
 # side (MSVC, found with vswhere) and raylib's MSVC package: the same three steps as
-# tools/build_desktop.sh, which builds for Linux and whose checks are the reference.
-#   tools/build_desktop_windows.sh examples/ertuep   -> examples/ertuep/build/windows/ertuep.exe
+# dev/build_desktop.sh, which builds for Linux and whose checks are the reference.
+#   dev/build_desktop_windows.sh examples/ertuep   -> examples/ertuep/build/windows/ertuep.exe
 # Started from Windows (Explorer, or \\wsl.localhost\<distribution>\...\ertuep.exe), it plays the
 # game with the keyboard and with the gamepads Windows knows, which WSL does not see.
 #
 #   1. the game's sources alone, without the host's headers (/X instead of -nostdinc), with
 #      dampf's include folder and the kit's public headers;
-#   2. tools/check_game_symbols.py on the objects (nm reads MSVC's COFF objects);
+#   2. dev/check_game_symbols.py on the objects (nm reads MSVC's COFF objects);
 #   3. the link with Rachael, the frontend and raylib, as a Windows program without a console.
 set -e
 cd "$(dirname "$0")/.."
-EX=${1:?usage: tools/build_desktop_windows.sh examples/<name>}
+EX=${1:?usage: dev/build_desktop_windows.sh examples/<name>}
 EX=${EX%/}
 NAME=$(basename "$EX")
 CONVERT_ONLY=1 sh "$EX/build.sh"
-tools/fetch_raylib.sh windows
+dev/fetch_raylib.sh windows
 OUT=$EX/build/windows
 OBJ=$OUT/obj
 rm -rf "$OBJ" && mkdir -p "$OBJ"
@@ -58,7 +58,7 @@ for obj in $GAME_OBJECTS; do
     [ -f "$obj" ] || { echo "build_desktop_windows: $obj was not compiled" >&2; exit 1; }
 done
 # shellcheck disable=SC2086
-python3 -I tools/check_game_symbols.py lib/include/sdevkit $GAME_OBJECTS
+python3 -I dev/check_game_symbols.py lib/include/sdevkit $GAME_OBJECTS
 
 R=build/raylib/windows
 rm -f "$OUT/$NAME.exe"

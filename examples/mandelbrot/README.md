@@ -7,7 +7,7 @@ next view at once, B to the one before.
 
 ```bash
 examples/mandelbrot/build.sh                  # the SNES: examples/mandelbrot/build/mandelbrot.sfc
-tools/build_desktop.sh examples/mandelbrot    # the desktop (Linux): examples/mandelbrot/build/linux/mandelbrot
+dev/build_desktop.sh examples/mandelbrot    # the desktop (Linux): examples/mandelbrot/build/linux/mandelbrot
 ```
 
 It is the dev kit's example of code that computes. Its inner loop is `z = z * z + c` in fixed

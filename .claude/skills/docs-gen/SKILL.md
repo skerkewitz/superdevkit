@@ -52,8 +52,8 @@ is written once what it describes is built and the line is removed.
    6. Read the page once more for two rules of the style guide that pages often break: the
       first use of every term the glossary has is linked to it or explained, and no line
       outside code blocks and tables is longer than about 96 characters.
-4. Unless in `fresh` mode, run `npm run docs:build` (after `npm install` if `node_modules` is
-   missing) to check the site still builds and has no dead links. Fix problems in the generated
+4. Unless in `fresh` mode, run `npm run docs:build` in `docs/book` (after `npm install` there if
+   `docs/book/node_modules` is missing) to check the site still builds and has no dead links. Fix problems in the generated
    pages only.
 5. Unless in `fresh` mode, record the sources the pages were written from:
    `./gradlew stampBook -Pspecs=doc-specs/<path>.spec.md,...` with every spec processed, also
