@@ -29,13 +29,14 @@ Use what is built in both columns of this table:
 | HDMA in direct mode | built | built | `sdevkit_hdma_set`, `sdevkit_hdma_enable` |
 | DMA to VRAM and CGRAM, within the vertical blank's budget | built | built, lost bytes counted | `sdevkit_dma_copy_vram`, `sdevkit_dma_copy_cgram`, `sdevkit_dma_fits` |
 | Modes 0 and 2 to 6 | not built | not built, reported | |
-| Mode 7, and its multiplier at `$2134`-`$2136` | not built | not built, reported | |
+| Mode 7: one layer of 1024 x 1024 pixels, rotated, scaled and mirrored, and what lies outside it | built | built | `sdevkit_mode7_load_map`, `sdevkit_mode7_load_tiles`, `sdevkit_mode7_set_matrix`, `sdevkit_mode7_set_center`, `sdevkit_mode7_set_select` |
+| Mode 7's second layer (EXTBG), direct colour | not built | not built, reported | |
 | Mosaic, high resolution, interlace | not built | not built, reported | |
 | Raster interrupts (H/V IRQ), the timers | not built: the game is never interrupted | not built | |
 | Sound (SPC700, DSP) | not built | not built | |
 | Save RAM | not built | not built | |
 | Mouse, multitap, Super Scope | not built | not built | |
-| The CPU's multiplier and divider (`$4202`-`$4206`) | not used: dampf's runtime multiplies in software | not needed: the game is compiled for the PC | |
+| The CPU's multiplier and divider (`$4202`-`$4206`), mode 7's multiplier (`$2134`-`$2136`) | not used: dampf's runtime multiplies in software | not needed: the game is compiled for the PC | |
 
 DMA (direct memory access) copies a block of memory without the CPU; HDMA writes a value to a
 register at the start of every line of the picture. VRAM holds the tiles and maps, CGRAM the
@@ -44,8 +45,9 @@ built on both platforms exists in `lib/snes` and in `lib/rachael`.
 
 "Reported" covers the features a game could reach anyway: `sdevkit_reg_write` sets any register
 of the PPU, the SNES's picture processing unit. Rachael counts every write she does not draw: a
-mode other than 1, mosaic, `SETINI` (`$2133`, interlace and high resolution), and the ports of
-VRAM, CGRAM and OAM, because writes there would go around her memories. The SNES would show
+mode other than 1 and 7, mosaic, `SETINI` (`$2133`, interlace, high resolution and EXTBG),
+direct colour, and the ports of VRAM, CGRAM and OAM, because writes there would go around her
+memories. The SNES would show
 something else there, so the desktop check fails on such a write as it fails on a lost byte
 (*enforced*). The check runs the game without a window, with the input of a `check.txt`:
 
@@ -61,11 +63,11 @@ over the sprite limits, and exits with 1 when the lost bytes or the undrawn writ
 frames 400 ticks 400 lost 0 undrawn 0 sprites 0
 ```
 
-A game called `mode7` that calls `sdevkit_reg_write(SDEVKIT_PPU_BGMODE, 7)` gets, before that
+A game called `mode3` that calls `sdevkit_reg_write(SDEVKIT_PPU_BGMODE, 3)` gets, before that
 line:
 
 ```
-mode7: 1 register writes Rachael does not draw, the first $2105 = $07 (the SNES would show something else)
+mode3: 1 register writes Rachael does not draw, the first $2105 = $03 (the SNES would show something else)
 frames 3 ticks 3 lost 0 undrawn 1 sprites 0
 ```
 
@@ -143,7 +145,7 @@ slower on PAL (*documented*).
 
 ## Not usable yet
 
-Mode 7, sound, save RAM, raster effects by interrupt and the mouse each wait until their
+Sound, save RAM, raster effects by interrupt and the mouse each wait until their
 feature is built in both columns of the table; [Limits](/reference/limits) says what is planned.
 Many raster effects work today with HDMA, which writes a value per line to a register:
 scrolling, colours and windows that change down the screen.
