@@ -107,10 +107,12 @@ Everything else is C in `lib/snes`, the same code on Rachael:
 
 The examples get sound first, Blubber Blasen after them:
 
-1. **Schach**: three effects, "your move" when the console has made its move (the player need not
-   watch the screen while it thinks) and two for a move (a piece put down, a piece taken). Few
-   effects that never overlap much: the shortest complete path, file, converter, header,
-   `sdevkit_sfx_play`, driver, Rachael, in a game that is played.
+1. **Schach**: five effects. "Your move" when the console has made its move (the player need not
+   watch the screen while it thinks), two for a move (a piece put down, a piece taken), "check"
+   and "checkmate". The shortest complete path, file, converter, header, `sdevkit_sfx_play`,
+   driver, Rachael, in a game that is played; and a first small test of the priorities, since a
+   move that gives check or mate also puts a piece down or takes one in the same frame, and
+   "check" and "checkmate" must win.
 2. **Steinschlag**: digging, taking a gem, a boulder landing, a beetle, the miner crushed, the exit
    opening. Much happens at once, so with two voices it shows whether the priorities work: digging
    must not cut off the exit opening.
@@ -130,7 +132,7 @@ need no licence and can be made again. Their settings are then chosen in the Lab
    and the converter give the same bytes.
 3. Rachael's DSP, and the desktop frontend's audio output (raylib's audio stream, 32 kHz).
 4. The forwarding driver, the upload at start and the voices in `lib/snes`; the check in Mesen.
-5. Schach with its three effects; then Steinschlag with its effects and two voices.
+5. Schach with its five effects; then Steinschlag with its effects and two voices.
 6. The new record (it changes record 32), the rows in `lib/README.md`, the hardware guide's sound
    section, and the finding for Blubber Blasen.
 
