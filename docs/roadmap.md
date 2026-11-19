@@ -297,6 +297,19 @@ Ideas without a milestone; one becomes a step of a milestone when it is decided.
   by side, and running the code in `dampf.emu` with its result and cycles against gcc's result
   on the PC. A few days for a first version; worth it once the cycle column is missed in
   Compiler Explorer.
+- **`superdevkit studio`.** The CLI serves the labs (BRR Lab first, later graphics, tilemaps,
+  sprites) from a small local server (the JDK's own, no dependencies) and opens them in a
+  browser window in app mode (`--app=` of Chrome and Edge), which looks like an app without
+  Electron or Tauri. A REST API reads and writes the files of the game's folder, so uploading and
+  downloading go away, and it runs the kit's own conversions: the lab plays the BRR bytes of
+  `superdevkit sfx` instead of its own JavaScript encoder, so what is heard is what the SNES
+  plays. A lab only edits the files the CLI reads, so a human in the lab and an agent in the
+  files work on the same source; changes on disk reach the open page by server-sent events.
+  Needed from the start: listen on `127.0.0.1` only, a random token in the opened URL, every
+  path confined to the project folder. The labs stay usable as plain pages. Under WSL the
+  browser is started through `wslview` or `cmd.exe /c start`. Tauri is the step after, if a
+  native app is wanted, since it wraps the same pages; `dampf explore` could share the server.
+  A decision about the kit's shape, so an ADR record when it is taken.
 
 ## The playable ROM
 
