@@ -109,7 +109,7 @@ fewer nodes.
 
 ## How it is checked
 
-On the PC, with gcc and the sanitizers (`-idirafter src/main/resources/dampf/include` finds
+On the PC, with gcc and the sanitizers (`-idirafter compiler/src/main/resources/dampf/include` finds
 `<dampf.h>`):
 
 | Program | What |
@@ -121,7 +121,7 @@ On the PC, with gcc and the sanitizers (`-idirafter src/main/resources/dampf/inc
 | `test/vs_stockfish.sh` | the console against Stockfish at a limited strength (`test/vs_stockfish.c`, UCI over a pipe): `vs_stockfish.sh elo games [movetime_ms [nodes]]`; `test/fetch_stockfish.sh` puts Stockfish into `build/stockfish/` (not in git) |
 
 ```bash
-cc -std=c99 -O2 -Wall -Wextra -fsanitize=undefined,address -idirafter src/main/resources/dampf/include \
+cc -std=c99 -O2 -Wall -Wextra -fsanitize=undefined,address -idirafter compiler/src/main/resources/dampf/include \
     -I examples/schach/src examples/schach/test/perft_pc.c examples/schach/src/board.c -o build/perft
 build/perft 4                     # depth 5 takes 8 s without the sanitizers
 ```

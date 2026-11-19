@@ -2,8 +2,8 @@
 title: Writing fast C
 sources:
   - lib/C_STYLE.md
-  - src/test/resources/style/*.c
-  - src/test/java/dampf/exec/StyleGuideTest.java
+  - compiler/src/test/resources/style/*.c
+  - compiler/src/test/java/dampf/exec/StyleGuideTest.java
 audience: Game programmers who write C for dampf and want to know what costs time on the 65816 with it
 ---
 
@@ -25,7 +25,7 @@ today's and change with dampf.
    to use as a short C pair, and the measured cycles of both from the guide's table.
 2. **Fast** – part 4, the same way.
 3. **No difference** – part 5, as a short list with the cycles.
-4. **How the rules are checked** – one file per rule in `src/test/resources/style/`, the `claim`
+4. **How the rules are checked** – one file per rule in `compiler/src/test/resources/style/`, the `claim`
    line, what `StyleGuideTest` checks (the claim on the timing report's worst cases, the same
    results on the PC and the SNES, the guide's table), what happens when dampf changes and a
    claim no longer holds, and how to write a new rule.
@@ -33,7 +33,7 @@ today's and change with dampf.
 ## Pay attention to
 
 - The cycles only from the guide's table of measurements, with its date; never other figures.
-- Show each pair as it is in its file in `src/test/resources/style/`, cut to the two functions.
+- Show each pair as it is in its file in `compiler/src/test/resources/style/`, cut to the two functions.
 
 ## Out of scope
 

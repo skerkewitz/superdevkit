@@ -4,17 +4,17 @@ sources:
   - docs/ADR.md
   - docs/adr/*.md
   - docs/architecture.md
-  - src/main/java/dampf/Compiler.java
-  - src/main/java/dampf/frontend/Preprocessor.java
-  - src/main/java/dampf/frontend/Parser.java
-  - src/main/java/dampf/snes/RomBuilder.java
-  - src/main/java/dampf/asm/Assembler.java
-  - src/main/java/dampf/asm/Linker.java
-  - src/main/antlr/dampf/parser/README.md
-  - src/main/java/dampf/mir/Optimizer.java
-  - src/main/java/dampf/Main.java
-  - src/main/java/dampf/frontend/AstBuilder.java
-  - src/main/java/dampf/check/CallGraph.java
+  - compiler/src/main/java/dampf/Compiler.java
+  - compiler/src/main/java/dampf/frontend/Preprocessor.java
+  - compiler/src/main/java/dampf/frontend/Parser.java
+  - compiler/src/main/java/dampf/snes/RomBuilder.java
+  - compiler/src/main/java/dampf/asm/Assembler.java
+  - compiler/src/main/java/dampf/asm/Linker.java
+  - compiler/src/main/antlr/dampf/parser/README.md
+  - compiler/src/main/java/dampf/mir/Optimizer.java
+  - compiler/src/main/java/dampf/Main.java
+  - compiler/src/main/java/dampf/frontend/AstBuilder.java
+  - compiler/src/main/java/dampf/check/CallGraph.java
 audience: Readers who want to know what happens between the C files and the ROM, and new contributors
 ---
 

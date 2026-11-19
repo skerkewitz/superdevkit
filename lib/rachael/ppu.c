@@ -89,8 +89,19 @@ void sdevkit_reg_write(uint8_t reg, uint8_t value)
 }
 
 /* --- Power on and vertical blank -------------------------------------------------------- */
+/* The layers on the main and the sub screen and the tile bases as the library last set them, kept
+ * as lib/snes/snes.c keeps them (the SNES cannot read its registers back): the functions that
+ * change one field start from these, not from the register, so a game's own sdevkit_reg_write of
+ * TM, TS, BG12NBA or BG34NBA is undone by the next of them on both platforms alike. Zeroed with
+ * the console, as sdevkit__reset_ppu zeroes the SNES's. */
+static uint8_t tm_shadow;
+static uint8_t ts_shadow;
+static uint8_t nba_shadow[2];
+
 void sdevkit__reset(void)
 {
+    tm_shadow = ts_shadow = 0;
+    nba_shadow[0] = nba_shadow[1] = 0;
     memset(&sdevkit__rachael, 0, sizeof sdevkit__rachael);
     memset(sdevkit_oam_memory, 0, sizeof sdevkit_oam_memory);
     sdevkit__rachael.regs[SDEVKIT_PPU_INIDISP] = 0x80;   /* forced blank until the game turns the screen on */
@@ -169,10 +180,12 @@ const uint8_t *sdevkit__oam(void)
 }
 
 /* --- video.h ------------------------------------------------------------------------------ */
+
 void sdevkit_set_mode(uint8_t mode, uint8_t size)
 {
     sdevkit__write_reg(SDEVKIT_PPU_BGMODE, (uint8_t)(mode | size));
-    sdevkit__write_reg(SDEVKIT_PPU_TM, SDEVKIT_BG1_ENABLE | SDEVKIT_BG2_ENABLE | SDEVKIT_BG3_ENABLE | SDEVKIT_OBJ_ENABLE);
+    tm_shadow = SDEVKIT_BG1_ENABLE | SDEVKIT_BG2_ENABLE | SDEVKIT_BG3_ENABLE | SDEVKIT_OBJ_ENABLE;
+    sdevkit__write_reg(SDEVKIT_PPU_TM, tm_shadow);
 }
 
 /* As in PVSnesLib: 0 switches the screen off (forced blank), 1..15 on. */
@@ -253,11 +266,11 @@ void sdevkit_dma_clear_vram(void)
 /* --- background.h ------------------------------------------------------------------------------ */
 void sdevkit_bg_set_gfx_ptr(uint8_t bgNumber, uint16_t address)
 {
-    uint8_t reg = (uint8_t)(bgNumber < 2 ? SDEVKIT_PPU_BG12NBA : SDEVKIT_PPU_BG34NBA);
+    uint8_t i = (uint8_t)(bgNumber >> 1);
     uint8_t n = (uint8_t)((address >> 12) & 0x0F);
-    uint8_t v = sdevkit__rachael.regs[reg];
-    v = (uint8_t)((bgNumber & 1) ? (v & 0x0F) | (n << 4) : (v & 0xF0) | n);
-    sdevkit__write_reg(reg, v);
+    uint8_t v = nba_shadow[i];
+    nba_shadow[i] = (uint8_t)((bgNumber & 1) ? (v & 0x0F) | (n << 4) : (v & 0xF0) | n);
+    sdevkit__write_reg((uint8_t)(SDEVKIT_PPU_BG12NBA + i), nba_shadow[i]);
 }
 
 void sdevkit_bg_set_map_ptr(uint8_t bgNumber, uint16_t address, uint8_t mapSize)
@@ -329,22 +342,26 @@ void sdevkit_mode7_set_select(uint8_t select)
 
 void sdevkit_bg_set_enable(uint8_t bgNumber)
 {
-    sdevkit__write_reg(SDEVKIT_PPU_TM, (uint8_t)(sdevkit__rachael.regs[SDEVKIT_PPU_TM] | (1 << (bgNumber & 3))));
+    tm_shadow = (uint8_t)(tm_shadow | (1 << bgNumber));
+    sdevkit__write_reg(SDEVKIT_PPU_TM, tm_shadow);
 }
 
 void sdevkit_bg_set_disable(uint8_t bgNumber)
 {
-    sdevkit__write_reg(SDEVKIT_PPU_TM, (uint8_t)(sdevkit__rachael.regs[SDEVKIT_PPU_TM] & ~(1 << (bgNumber & 3))));
+    tm_shadow = (uint8_t)(tm_shadow & ~(1 << bgNumber));
+    sdevkit__write_reg(SDEVKIT_PPU_TM, tm_shadow);
 }
 
 void sdevkit_bg_set_enable_sub(uint8_t bgNumber)
 {
-    sdevkit__write_reg(SDEVKIT_PPU_TS, (uint8_t)(sdevkit__rachael.regs[SDEVKIT_PPU_TS] | (1 << (bgNumber & 3))));
+    ts_shadow = (uint8_t)(ts_shadow | (1 << bgNumber));
+    sdevkit__write_reg(SDEVKIT_PPU_TS, ts_shadow);
 }
 
 void sdevkit_bg_set_disable_sub(uint8_t bgNumber)
 {
-    sdevkit__write_reg(SDEVKIT_PPU_TS, (uint8_t)(sdevkit__rachael.regs[SDEVKIT_PPU_TS] & ~(1 << (bgNumber & 3))));
+    ts_shadow = (uint8_t)(ts_shadow & ~(1 << bgNumber));
+    sdevkit__write_reg(SDEVKIT_PPU_TS, ts_shadow);
 }
 
 void sdevkit_bg_init_tile_set(uint8_t bgNumber, const uint8_t *tileSource, const uint8_t *tilePalette, uint8_t paletteEntry, uint16_t tileSize,

@@ -1,13 +1,13 @@
 ---
 title: Command line
 sources:
-  - src/main/java/dampf/ConfigFile.java
+  - compiler/src/main/java/dampf/ConfigFile.java
   - docs/adr/0028-options-can-be-kept-in-an-argument-file-given-by.md
-  - src/main/java/dampf/Main.java
-  - src/main/java/dampf/Compiler.java
-  - src/main/java/dampf/tools/*.java
-  - src/main/java/dampf/frontend/Diagnostic.java
-  - src/main/java/dampf/frontend/Preprocessor.java
+  - compiler/src/main/java/dampf/Main.java
+  - compiler/src/main/java/dampf/Compiler.java
+  - compiler/src/main/java/dampf/tools/*.java
+  - compiler/src/main/java/dampf/frontend/Diagnostic.java
+  - compiler/src/main/java/dampf/frontend/Preprocessor.java
   - README.md
 audience: Users looking up a command or an option
 ---

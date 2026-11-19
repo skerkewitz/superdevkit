@@ -6,8 +6,8 @@ sources:
   - lib/rachael/rachael.h
   - lib/rachael/ppu.c
   - lib/desktop/main.c
-  - src/test/java/dampf/lib/SnesHardwareGuideTest.java
-  - src/test/java/dampf/lib/LibCostTest.java
+  - compiler/src/test/java/dampf/lib/SnesHardwareGuideTest.java
+  - compiler/src/test/java/dampf/lib/LibCostTest.java
 audience: Game programmers who write a game with the dev kit and test it on the desktop and in Mesen
 ---
 
@@ -41,5 +41,5 @@ it, and the three kinds of rule (enforced, measured, documented).
 ## Out of scope
 
 - How dampf compiles C, and what is slow there: [Writing fast C](/guide/writing-fast-c).
-- The console API function by function: it has no page of its own; `lib/README.md` and the
-  header are the reference.
+- The console API function by function: [The console API](/reference/console-api); the table
+  of features links its functions there.

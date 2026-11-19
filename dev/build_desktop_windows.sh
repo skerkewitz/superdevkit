@@ -38,7 +38,9 @@ run() {
         | grep -v -e '^UNC paths are not supported' -e '^CMD.EXE was started' -e "^'\\\\\\\\wsl" \
               -e '^Defaulting to Windows directory' || true
 }
-CL="cl /nologo /std:c11 /O2 /W3 /utf-8 /MD"   # /MD: the C runtime raylib's package was built with
+DAMPF_INCLUDE=include                       # dampf's headers: in a superdevkit home include/,
+[ -d "$DAMPF_INCLUDE" ] || DAMPF_INCLUDE=compiler/src/main/resources/dampf/include   # in the repository the sources
+CL="cl /nologo /std:c11 /O2 /Z7 /W3 /utf-8 /MD"   # /MD: the C runtime raylib's package was built with; /Z7: debug information
 
 GAME_SOURCES=""
 GAME_OBJECTS=""
@@ -51,7 +53,7 @@ done
 for src in $GAME_SOURCES; do
     obj=$OBJ/$(basename "$(dirname "$src")")_$(basename "$src" .c).obj
     printf '%s /X /I "%s" /I "%s" /I "%s" /I "%s" /c "%s" /Fo"%s" || exit /b 1\r\n' "$CL" \
-        "$(w src/main/resources/dampf/include)" "$(w lib/include)" "$(w "$EX/src")" "$(w "$EX/build")\\gen" \
+        "$(w "$DAMPF_INCLUDE")" "$(w lib/include)" "$(w "$EX/src")" "$(w "$EX/build")\\gen" \
         "$(w "$src")" "$(w "$obj")"
 done | run
 for obj in $GAME_OBJECTS; do
@@ -70,7 +72,7 @@ rm -f "$OUT/$NAME.exe"
     done
     printf ' "%s" opengl32.lib gdi32.lib winmm.lib user32.lib shell32.lib /Fe"%s"' \
         "$(w "$R/lib/raylib.lib")" "$(w "$OUT")\\$NAME.exe"
-    printf '  /link /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup || exit /b 1\r\n'
+    printf '  /link /DEBUG /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup || exit /b 1\r\n'
 } | run
 [ -f "$OUT/$NAME.exe" ] || { echo "build_desktop_windows: the link failed" >&2; exit 1; }
 chmod +x "$OUT/$NAME.exe"   # so WSL can start it too, as the checks do

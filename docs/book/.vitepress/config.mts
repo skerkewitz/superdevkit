@@ -11,6 +11,8 @@ const userGuide = [
       { text: 'Writing C for dampf', link: '/guide/writing-c' },
       { text: 'Writing fast C', link: '/guide/writing-fast-c' },
       { text: 'The SNES hardware', link: '/guide/snes-hardware' },
+      { text: 'Graphics and sound', link: '/guide/graphics-and-sound' },
+      { text: 'The desktop', link: '/guide/the-desktop' },
       { text: 'Compiling a game', link: '/guide/compiling-a-game' },
       { text: 'Debugging in Mesen', link: '/guide/debugging' }
     ]
@@ -23,6 +25,7 @@ const reference = [
     items: [
       { text: 'Command line', link: '/reference/command-line' },
       { text: 'The C subset', link: '/reference/c-subset' },
+      { text: 'The console API', link: '/reference/console-api' },
       { text: 'Hints', link: '/reference/hints' },
       { text: 'Runtime and memory', link: '/reference/runtime-and-memory' },
       { text: 'The generated files', link: '/reference/output-files' },

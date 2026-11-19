@@ -4,7 +4,8 @@ Scripts for developing dampf and the dev kit: the examples' benchmark, the examp
 Mesen itself, the examples' art, and the desktop's build until the `superdevkit` command
 (roadmap M7) takes its place. Run them from anywhere; each changes to the repository root
 first. The shell scripts that compile call `./gradlew -q installDist` and use
-`build/install/dampf/bin/dampf`. (Blubber Blasen's benchmark, playable ROM, replays and snapshot
+`build/install/superdevkit/bin/dampf`; in an installed home (where the desktop build scripts are
+copied to `dev/`) they use its `bin/dampf` and `include/`. (Blubber Blasen's benchmark, playable ROM, replays and snapshot
 left with the game's code, ADR record 40.)
 
 The scripts that run Mesen take `MESEN=<path>` for the
@@ -23,6 +24,7 @@ moves the result into `build/`.
 | `fetch_mesen.sh` | Puts MesenCE (a pinned version) into `.mesen/`: the Linux and the Windows build, portable, with the settings the scripts and tests need (SNES joypads, Lua file access, no frame skipping); on Arch also the libraries the Linux build needs, into `.mesen/lib`. | | curl, unzip, Python 3 | `.mesen/`, `build/mesen/` |
 | `mesen.sh` | Sourced by the scripts that run Mesen: picks `MESEN` and runs the test runner in its folder (`mesen_run`). | `MESEN` | | |
 | `check_example.sh` | Plays an example (`examples/<name>`) headless in Mesen with the input of its `check.txt` (`example_check.lua`): bytes written to VRAM, CGRAM or OAM outside a vertical blank, screenshots, the checksum of every tick (`hashes.txt`). Fails when a byte is lost. | `<name>`; `NOBUILD=1` skips the example's `build.sh`; `INPUT=<file>` plays another input than `check.txt` (a recording); `MESEN` | Mesen, Python 3 | `examples/<name>/build/check/` |
+| `replay.sh` | Plays a recording of the desktop on the SNES side in dampf's emulator (`dampf.emu.ExampleCheck`) and compares the checksum of every tick with the one recorded; names the first tick that differs. Ships in a superdevkit home, for any game. | `<rom.sfc> <recording>`; `JAVA_HOME` | Java | nothing |
 | `replay_example.sh` | Plays a recording of the desktop (F11 in the window, `<game>_rec_<n>.txt`) on the SNES side: in dampf's emulator (`dampf.emu.ExampleCheck`), with `WITH_MESEN=1` in Mesen too, and compares the checksum of every tick with the one recorded; names the first tick that differs. | `<name> <recording>`; `NOBUILD=1`; `WITH_MESEN`, `MESEN` | Mesen with `WITH_MESEN=1` | `examples/<name>/build/check/` with Mesen |
 | `compare_example.sh` | Plays an example on the SNES (Mesen, `check_example.sh`) and on the desktop (its headless check) with the same input and compares the screenshots pixel for pixel (`compare_shots.py`) and the checksums of every tick (`sdevkit_dbg_hash`): dampf's code and gcc's, `lib/snes` and [Rachael](../lib/README.md#rachael) must compute and show the same. | `<name>` | Mesen, gcc, raylib, Python 3 | `examples/<name>/build/check/`, `build/desktop-check/` |
 | `compare_shots.py` | Compares two folders of screenshots at the SNES's 5 bits per colour. | `snes_dir desktop_dir` | Python 3 | standard output |

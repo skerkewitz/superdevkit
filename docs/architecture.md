@@ -119,7 +119,7 @@ selection. SNES specifics live in one target module:
 Nothing is built for a second target, but the split keeps one possible.
 
 As built, the split is only partly there. The SNES side is `dampf.snes.RomBuilder` (memory map,
-banks, header) and the runtime `src/main/resources/dampf/snes/runtime.s` (start-up, arithmetic
+banks, header) and the runtime `compiler/src/main/resources/dampf/snes/runtime.s` (start-up, arithmetic
 routines, header, vectors); the 65816 cycle table is `dampf.target.Cycles65816`. The code
 generators still contain SNES facts themselves (DBR `$7E`, the RAM and frame addresses, long
 addresses for I/O registers). Of the list above only the memory map is built: the cost model
@@ -166,5 +166,5 @@ touches, are not computed yet ([timing.md](timing.md)).
 ## Implementation
 
 Java 25, ANTLR 4 with the vendored C grammar from grammars-v4
-(`src/main/antlr/dampf/parser/README.md`), and Gradle with the wrapper; the reasons are in ADR
+(`compiler/src/main/antlr/dampf/parser/README.md`), and Gradle with the wrapper; the reasons are in ADR
 [record 2](adr/0002-java-25-antlr-with-the-grammars-v4-c-grammar-and.md).

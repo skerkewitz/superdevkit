@@ -10,7 +10,7 @@ shift 2
 HERE=$(cd "$(dirname "$0")" && pwd)
 SRC=$HERE/../src
 OUT=$HERE/../build/match
-INC="-idirafter $HERE/../../../src/main/resources/dampf/include -I $SRC"
+INC="-idirafter $HERE/../../../compiler/src/main/resources/dampf/include -I $SRC"
 mkdir -p "$OUT"
 NAMES="evaluate search_clear search_start search_run best_from best_to best_flag best_score best_depth nodes"
 for v in a b; do

@@ -5,12 +5,12 @@ sources:
   - docs/adr/*.md
   - docs/architecture.md
   - docs/testing.md
-  - src/main/java/dampf/mir/Instr.java
-  - src/main/java/dampf/mir/Printer.java
-  - src/main/java/dampf/mir/Lower.java
-  - src/main/java/dampf/mir/Verifier.java
-  - src/main/java/dampf/mir/Interpreter.java
-  - src/test/java/dampf/mir/MirTextTest.java
+  - compiler/src/main/java/dampf/mir/Instr.java
+  - compiler/src/main/java/dampf/mir/Printer.java
+  - compiler/src/main/java/dampf/mir/Lower.java
+  - compiler/src/main/java/dampf/mir/Verifier.java
+  - compiler/src/main/java/dampf/mir/Interpreter.java
+  - compiler/src/test/java/dampf/mir/MirTextTest.java
 audience: Readers who want to read dampf's MIR, with `dampf mir`, or work on a pass
 ---
 

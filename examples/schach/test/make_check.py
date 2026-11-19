@@ -25,7 +25,7 @@ MARGIN = 6                  # ticks after the console's move before the next inp
 # build game_pc: board.c, book.c and search.c for black, a second search.c as w_ for white
 out = os.path.join(EX, "build", "check_game")
 os.makedirs(out, exist_ok=True)
-inc = ["-idirafter", os.path.join(KIT, "src/main/resources/dampf/include"), "-I", os.path.join(EX, "src")]
+inc = ["-idirafter", os.path.join(KIT, "compiler/src/main/resources/dampf/include"), "-I", os.path.join(EX, "src")]
 names = "evaluate search_clear search_start search_run best_from best_to best_flag best_score best_depth nodes".split()
 subprocess.run(["cc", "-std=c99", "-O2", *inc, *[f"-D{n}=w_{n}" for n in names], "-c",
                 os.path.join(EX, "src/search.c"), "-o", os.path.join(out, "w_search.o")], check=True)

@@ -12,7 +12,9 @@ mkdir -p "$GEN"
 for s in board_gfx sprites_gfx font_gfx; do
     python3 -I "$KIT/tools/png2snes.py" tiles "assets/$s.png" "$s" "$GEN"
 done
-[ "${CONVERT_ONLY:-0}" = 1 ] && exit 0      # the tests convert, then compile in the JVM (ExamplesTest)
-DAMPF=${DAMPF:-$KIT/build/install/dampf/bin/dampf}
+[ "${CONVERT_ONLY:-0}" = 1 ] && exit 0      # the tests (ExamplesTest) and the desktop build convert only
+# dampf: in a superdevkit home bin/dampf, in the kit's repository its installation
+if [ -z "$DAMPF" ] && [ -x "$KIT/bin/dampf" ]; then DAMPF=$KIT/bin/dampf; fi
+DAMPF=${DAMPF:-$KIT/build/install/superdevkit/bin/dampf}
 [ -x "$DAMPF" ] || (cd "$KIT" && ./gradlew -q installDist)
 "$DAMPF" build @schach.args -o build/schach.sfc "$@"

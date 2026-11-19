@@ -6,6 +6,6 @@ set -e
 HERE=$(cd "$(dirname "$0")" && pwd)
 EX=$HERE/..
 mkdir -p "$EX/build"
-cc -std=c99 -O2 -Wall -Wextra -idirafter "$EX/../../src/main/resources/dampf/include" -I "$EX/src" \
+cc -std=c99 -O2 -Wall -Wextra -idirafter "$EX/../../compiler/src/main/resources/dampf/include" -I "$EX/src" \
     "$HERE/book_gen.c" "$EX/src/board.c" -o "$EX/build/book_gen"
 "$EX/build/book_gen" "$HERE/lines.txt" "$EX/src/book_data.c" "$EX/src/book_data.h"

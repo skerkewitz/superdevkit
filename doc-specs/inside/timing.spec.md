@@ -2,14 +2,14 @@
 title: Exact timing
 sources:
   - docs/timing.md
-  - src/main/java/dampf/backend/Timing.java
-  - src/main/java/dampf/target/Cycles65816.java
-  - src/main/java/dampf/backend/AsmWriter.java
-  - src/main/java/dampf/Compiler.java
-  - src/main/resources/dampf/include/dampf.h
-  - src/test/java/dampf/BudgetTest.java
-  - src/test/java/dampf/exec/Timing.java
-  - src/test/java/dampf/exec/ExamplesTimingTest.java
+  - compiler/src/main/java/dampf/backend/Timing.java
+  - compiler/src/main/java/dampf/target/Cycles65816.java
+  - compiler/src/main/java/dampf/backend/AsmWriter.java
+  - compiler/src/main/java/dampf/Compiler.java
+  - compiler/src/main/resources/dampf/include/dampf.h
+  - compiler/src/test/java/dampf/BudgetTest.java
+  - compiler/src/test/java/dampf/exec/Timing.java
+  - compiler/src/test/java/dampf/exec/ExamplesTimingTest.java
 audience: Readers who want cycle-exact bounds for their code
 ---
 

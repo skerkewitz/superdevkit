@@ -9,7 +9,7 @@ assembles and links with its own assembler and linker; with `--assembler ca65` i
 behind. The examples on this page come from building the M1 example:
 
 ```sh
-build/install/dampf/bin/dampf build --entry test_main -o build/examples/m1/calls.sfc examples/m1/calls.c
+build/install/superdevkit/bin/dampf build --entry test_main -o build/examples/m1/calls.sfc examples/m1/calls.c
 ```
 
 dampf creates the output directory if it does not exist yet. The options of `dampf build` are

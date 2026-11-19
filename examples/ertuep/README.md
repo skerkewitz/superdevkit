@@ -115,7 +115,7 @@ Things worth looking at:
   (C_STYLE.md, `slow-signed-divide`), and the kettle's fight took two frames a tick. A table each,
   a counter instead of a remainder by a variable and a multiplication by a constant instead of
   one by a variable brought it to one frame with a fifth to spare. The profile that showed it
-  comes from dampf's emulator: `java -cp 'build/install/dampf/lib/*' dampf.emu.ExampleProfile
+  comes from dampf's emulator: `java -cp 'build/install/superdevkit/java/*' dampf.emu.ExampleProfile
   examples/ertuep/build/ertuep.sfc examples/ertuep/build/ertuep.lbl examples/ertuep/check.txt
   5700 5732` (the cycles per function and per C line over those ticks).
 - **Mode 7 under a status line.** Mode 7 has one layer, and the status line is BG3 of mode 1: two

@@ -6,8 +6,8 @@ SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 This product includes software from third parties:
 
-- The C grammar src/main/antlr/dampf/parser/CLexer.g4 and CParser.g4 and the
-  parser support classes in src/main/java/dampf/parser/ (CParserBase, Symbol,
+- The C grammar compiler/src/main/antlr/dampf/parser/CLexer.g4 and CParser.g4 and the
+  parser support classes in compiler/src/main/java/dampf/parser/ (CParserBase, Symbol,
   SymbolTable, TypeClassification), from antlr/grammars-v4, commit
   754339a6bf1e8e622fdce4e26dc846baee603ff4.
   Copyright (c) 2013 Sam Harwell. BSD licence, see the file headers.

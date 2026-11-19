@@ -14,7 +14,7 @@ usage: dampf --version
 ```
 
 Two more commands, `mir` and `bench`, are not in this list; they are described below. After
-`./gradlew installDist` the launcher is `build/install/dampf/bin/dampf`.
+`./gradlew installDist` the launcher is `build/install/superdevkit/bin/dampf`.
 
 Use `dampf --version`, or `dampf version`, to see which dampf you have. It prints one line on
 the standard output and exits with status 0:
@@ -40,6 +40,14 @@ A folder among the arguments stands for the `.c` files directly in it, in sorted
 in its subfolders are not included, so a folder such as `src/game/debug/` does not end up in the
 ROM unasked. The same holds for `check` and `parse`.
 
+Every file or folder named as a source must exist. dampf checks that before it runs gcc, which
+would only call a missing folder an unused input of the linker, and otherwise prints one line
+and exits with status 2:
+
+```
+dampf: no such file or folder: src
+```
+
 At least one C file and `-o` are required; without them dampf prints the usage and exits with
 status 2. So it does, for `build`, `check` and `parse`, when `-I`, `-D`, `--entry` or `-o` is
 the last argument and has no value.
@@ -63,7 +71,8 @@ Use `-I dir` to add a directory to the search path of `#include`. The option may
 than once and also written joined, as `-Idir`. Each directory is passed on to the preprocessor,
 `gcc -E`, which dampf runs with `-std=c99 -nostdinc -undef -D__DAMPF__=1`: the host's headers
 and predefined macros stay out, so the program cannot depend on them. dampf's own include
-directory, which provides `<stdint.h>`, comes before the directories you give.
+directory, which provides `<stdint.h>`, comes before the directories you give. dampf does not
+check that a directory given with `-I` exists.
 
 ### -D {#option-d}
 
@@ -494,8 +503,15 @@ position, as for a missing header:
 hdr.c:1:10: error: missing.h: No such file or directory
 ```
 
-Where gcc gives no position, as for a C file that does not exist, the message is at line 1,
-column 1 of the file, and its text starts with `preprocessing failed:` and gcc's first line.
+Where gcc gives no position, the message is at line 1, column 1 of the file, and its text starts
+with `preprocessing failed:` and gcc's first line.
+
+dampf needs gcc for this step. If it cannot start gcc, because gcc is not installed or not on
+the `PATH`, every file gets this message, and dampf exits with status 1:
+
+```
+game.c:1:1: error: cannot run gcc, the preprocessor dampf needs: is it installed and on the PATH?
+```
 
 ## Exit status
 
@@ -510,7 +526,8 @@ column 1 of the file, and its text starts with `preprocessing failed:` and gcc's
 | `bench` | benchmark finished | benchmark did not finish | wrong arguments |
 
 A usage error is a missing command or one dampf does not know, an option without its value at
-the end of the command line, a mistake in an [argument file](#argument-file), and for `build`
-also a missing `-o`, no C file or an unknown `--backend` or `--assembler` value. A missing C
-file or header is an error in the program. Any other unexpected failure, such as a missing `.s`
+the end of the command line, a mistake in an [argument file](#argument-file), a source file or
+folder that does not exist, and for `build` also a missing `-o`, no C file or an unknown
+`--backend` or `--assembler` value. A missing header is an error in the program, and so is a
+gcc that cannot be started. Any other unexpected failure, such as a missing `.s`
 file for `--replace` or a missing profile file, ends dampf with a Java exception and status 1.

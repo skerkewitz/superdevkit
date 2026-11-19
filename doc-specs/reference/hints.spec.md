@@ -6,11 +6,11 @@ sources:
   - docs/hints.md
   - docs/timing.md
   - docs/subrange-types.md
-  - src/main/resources/dampf/include/dampf.h
-  - src/main/java/dampf/frontend/AstBuilder.java
-  - src/main/java/dampf/Compiler.java
-  - src/test/resources/exec/hint_range.c
-  - src/test/java/dampf/BudgetTest.java
+  - compiler/src/main/resources/dampf/include/dampf.h
+  - compiler/src/main/java/dampf/frontend/AstBuilder.java
+  - compiler/src/main/java/dampf/Compiler.java
+  - compiler/src/test/resources/exec/hint_range.c
+  - compiler/src/test/java/dampf/BudgetTest.java
   - dev/build_desktop.sh
 audience: Users who want to tell dampf what it cannot infer
 ---

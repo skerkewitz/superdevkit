@@ -4,12 +4,12 @@ sources:
   - docs/ADR.md
   - docs/adr/*.md
   - docs/memory-map.md
-  - src/main/resources/dampf/snes/runtime.s
-  - src/main/java/dampf/snes/RomBuilder.java
-  - src/main/java/dampf/backend/FrameLayout.java
+  - compiler/src/main/resources/dampf/snes/runtime.s
+  - compiler/src/main/java/dampf/snes/RomBuilder.java
+  - compiler/src/main/java/dampf/backend/FrameLayout.java
   - README.md
-  - src/main/java/dampf/mir/PointerOffsets.java
-  - src/main/java/dampf/mir/PointerParams.java
+  - compiler/src/main/java/dampf/mir/PointerOffsets.java
+  - compiler/src/main/java/dampf/mir/PointerParams.java
   - docs/optimizations.md
 audience: Users who need to know where their code and data end up, and what runs before their entry function
 ---

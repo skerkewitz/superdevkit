@@ -14,7 +14,7 @@ repository keeps for exactly this purpose; its [entry function](/glossary#entry-
 `test_main`:
 
 ```sh
-build/install/dampf/bin/dampf build --entry test_main -o build/examples/m1/calls.sfc examples/m1/calls.c
+build/install/superdevkit/bin/dampf build --entry test_main -o build/examples/m1/calls.sfc examples/m1/calls.c
 ```
 
 Next to the ROM `calls.sfc`, dampf writes the generated assembly `calls.s` and the debug file

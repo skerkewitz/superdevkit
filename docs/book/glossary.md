@@ -10,11 +10,23 @@ processor state, set with `REP` and `SEP`, not part of the instruction: the same
 byte or two depending on the [`M` flag](#m-and-x-flags). A compiler for the 65816 has to know
 the mode at every instruction, and switching it costs cycles.
 
+## Args file
+
+A file of command-line arguments that dampf reads when the command line names it with `@`:
+`dampf build @game.args`. Its paths are relative to the file, so a game's build names its
+sources, include folders and the superdevkit home once. See
+[Command line](/reference/command-line).
+
 ## AST
 
 Abstract syntax tree: the program as a tree of declarations, statements and expressions, built
 from the parse. dampf's AST is typed and covers the whole program; the naive code generator
 works directly on it, the optimizer lowers it to [MIR](#mir) first.
+
+## Backdrop
+
+The colour the SNES shows where no background layer and no sprite draws a pixel: colour 0 of
+[CGRAM](#cgram).
 
 ## Bank
 
@@ -37,6 +49,13 @@ and ld65 instead, which give the same ROM. The debug file Mesen reads is in ld65
 ## Calypsi
 
 Another C compiler for the 65816. dampf's speed on Blubber Blasen is measured against it.
+
+## CGRAM
+
+The SNES's colour memory: 256 colours of 15 bits (5 bits each of blue, green and red, written
+BGR 5:5:5), 512 bytes. Background layers and sprites take their colours from it in palettes of
+16 or 4 colours. Like [VRAM](#vram) it is written only in the [vertical blank](#vertical-blank)
+or with the screen off.
 
 ## Code generator from MIR
 
@@ -66,6 +85,12 @@ A 256-byte window of bank 0 that the 65816 reaches with one-byte addresses, fast
 than full addresses. Its position is set by the `D` register. dampf places the frames of
 functions there.
 
+## DMA
+
+Direct memory access: the SNES copies bytes from memory into [VRAM](#vram), [CGRAM](#cgram) or
+[OAM](#oam) without the CPU, at 8 [master clocks](#master-clock) a byte. A vertical blank has
+room for about 5,700 bytes of it. The kit's `sdevkit_dma_copy_*` functions use it.
+
 ## Entry function
 
 The C function the [runtime](#runtime) calls after start-up, `main` unless `--entry` names
@@ -89,6 +114,12 @@ The part of dampf that reads C: it preprocesses a file with `gcc -E`, parses it,
 against the [subset](#subset) and reports what is outside it. `dampf check` runs only the front
 end. A [hint](#hint) becomes a built-in there, a name only the front end knows.
 
+## HDMA
+
+DMA during the picture: at the start of each line, a channel writes a few bytes from a table
+into a [PPU](#ppu) register, so a scroll value or a colour can change from line to line (a wave,
+a gradient). The kit's `sdevkit_hdma_set` and `sdevkit_hdma_enable` set it up.
+
 ## Hint
 
 A macro from dampf's header `<dampf.h>` that tells dampf something it cannot infer, such as a
@@ -99,6 +130,12 @@ checked assertion or nothing. Two hints are built; see [Hints](/reference/hints)
 
 A function that gives C code access to SNES hardware, such as the hardware multiplier or DMA. In
 the PC build it is a plain function. Not built yet.
+
+## Joypad
+
+The SNES's controller: a cross, A, B, X, Y, L, R, Start and Select. A game gets the state of each
+joypad once a [tick](#tick) as 16 bits, one per button (`SDEVKIT_KEY_*`); on the desktop the
+keyboard and a gamepad stand in for joypad 1.
 
 ## LIR
 
@@ -137,6 +174,12 @@ The first code generator of dampf (`--backend naive`): it translates the [AST](#
 doing almost everything in 32-bit `int` as C's promotions say. It stays as an independent
 reference that the tests compare the [code generator from MIR](#code-generator-from-mir) with.
 
+## OAM
+
+The SNES's sprite table: position, tile, palette, priority and size of 128 sprites, 544 bytes. A
+game writes the kit's copy (`sdevkit_oam_memory`, through the `sdevkit_oam_*` functions), and the
+main loop copies it into OAM in every [vertical blank](#vertical-blank).
+
 ## Pass
 
 One step of the optimizer that reads [MIR](#mir) and writes better MIR, such as narrowing values
@@ -160,6 +203,12 @@ library.
 Replacing a pointer by a 16-bit offset into the one object it always points into, where dampf
 can see that every value of the pointer points into the same object. Accesses through it then
 index the object with the X register instead of going through a full address.
+
+## PPU
+
+The SNES's picture processing unit: it draws each picture line by line from [VRAM](#vram),
+[CGRAM](#cgram), [OAM](#oam) and its registers (`$2100` to `$213F`), which a game sets through the
+console API.
 
 ## PVSnesLib
 
@@ -194,6 +243,12 @@ SSA makes it simple for a pass to see where a value comes from.
 The part of C that dampf accepts. Anything outside it is rejected with a message; see
 [The C subset](/reference/c-subset).
 
+## Superdevkit home
+
+The folder superdevkit is installed in: `bin/dampf`, the kit's library (`lib/`), the tools, the
+examples, the desktop build and this book (`docs/`). A game lives in a folder of its own and names
+the home in its [args file](#args-file). See [Getting started](/guide/getting-started).
+
 ## Tick
 
 One step of a game's logic: the main loop calls `game_tick` once a tick, normally once a
@@ -221,7 +276,15 @@ that fits 8 or 16 bits lets dampf use the cheaper mode and instructions.
 ## Vertical blank
 
 The time between two pictures when the SNES does not draw, about 60 times a second. Graphics
-memory may only be written then, so a game waits for it at the end of every frame.
+memory ([VRAM](#vram), [CGRAM](#cgram), [OAM](#oam)) may only be written then, or while the
+screen is off. The kit's main loop waits for it after every tick and calls `game_vblank` in it.
+
+## VRAM
+
+The SNES's video memory: 64 KB, addressed as 32,768 words of 16 bits, which hold the tiles of the
+background layers and sprites and the maps of the layers. The [PPU](#ppu) reads it while it draws,
+so a game writes it only in the [vertical blank](#vertical-blank) or with the screen off, with
+[DMA](#dma).
 
 ## Whole program
 

@@ -14,7 +14,9 @@ python3 -I "$KIT/tools/png2snes.py" tiles assets/sprites_gfx.png sprites_gfx "$G
 for p in ginger black white brown scared hot; do
     python3 -I "$KIT/tools/png2snes.py" palette "assets/pal_$p.png" "pal_$p" "$GEN"
 done
-[ "${CONVERT_ONLY:-0}" = 1 ] && exit 0      # the tests convert, then compile in the JVM (ExamplesTest)
-DAMPF=${DAMPF:-$KIT/build/install/dampf/bin/dampf}
+[ "${CONVERT_ONLY:-0}" = 1 ] && exit 0      # the tests (ExamplesTest) and the desktop build convert only
+# dampf: in a superdevkit home bin/dampf, in the kit's repository its installation
+if [ -z "$DAMPF" ] && [ -x "$KIT/bin/dampf" ]; then DAMPF=$KIT/bin/dampf; fi
+DAMPF=${DAMPF:-$KIT/build/install/superdevkit/bin/dampf}
 [ -x "$DAMPF" ] || (cd "$KIT" && ./gradlew -q installDist)
 "$DAMPF" build @catchme.args -o build/catchme.sfc "$@"

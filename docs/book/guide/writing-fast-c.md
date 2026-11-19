@@ -28,7 +28,7 @@ An 8-bit `i++` switches the accumulator to [8 bits and back](/glossary#_8-bit-an
 and the counter is masked again for the compare. Summing a `uint8_t data[200]` takes 8,430
 cycles with the `uint8_t` counter and 5,025 with the `uint16_t` one.
 
-```c [src/test/resources/style/slow-u8-counter.c]
+```c [compiler/src/test/resources/style/slow-u8-counter.c]
 uint16_t sum_u8_counter(void)
 {
     uint16_t s = 0;
@@ -56,7 +56,7 @@ drops the counter and steps the index register by 2, while it keeps a 16-bit cou
 beside it. Filling 64 `uint16_t` elements takes 1,945 cycles with the `uint16_t` counter and
 1,233 with the `uint8_t` one.
 
-```c [src/test/resources/style/slow-u16-counter-words.c]
+```c [compiler/src/test/resources/style/slow-u16-counter-words.c]
 void fill_u8_counter(void)
 {
     uint8_t i;
@@ -83,7 +83,7 @@ and in a hot loop measure both with the timing report.
 costs a doubling of the index on every access. Summing 200 `uint16_t` elements takes 7,033
 cycles, summing 200 `uint8_t` elements 5,025.
 
-```c [src/test/resources/style/slow-word-array.c]
+```c [compiler/src/test/resources/style/slow-word-array.c]
 uint16_t sum_bytes(void)
 {
     uint16_t s = 0;
@@ -109,7 +109,7 @@ uint16_t sum_words(void)
 structs of two `int16_t` fields through `o->x` and `o++` takes 1,943 cycles, with `a[i].x`
 1,881.
 
-```c [src/test/resources/style/slow-pointer-walk.c]
+```c [compiler/src/test/resources/style/slow-pointer-walk.c]
 void move_by_index(void)
 {
     uint16_t i;
@@ -135,7 +135,7 @@ void move_by_pointer(void)
 variables calls a routine of the [runtime](/glossary#runtime); a product with a constant
 becomes shifts and adds. `va * vb` takes 411 cycles, `va * 40` takes 31.
 
-```c [src/test/resources/style/slow-multiply-variable.c]
+```c [compiler/src/test/resources/style/slow-multiply-variable.c]
 uint16_t multiply_variables(void)
 {
     return (uint16_t)(va * vb);
@@ -151,7 +151,7 @@ uint16_t multiply_constant(void)
 variable calls the runtime too, while an unsigned division by a power of two is a shift.
 `va / vb` takes 816 cycles, `va / 8` takes 17.
 
-```c [src/test/resources/style/slow-divide-variable.c]
+```c [compiler/src/test/resources/style/slow-divide-variable.c]
 uint16_t divide_variables(void)
 {
     return (uint16_t)(va / vb);
@@ -168,7 +168,7 @@ signed division towards zero, so `v / 8` on an `int16_t` computes a correction f
 values. A `DAMPF_RANGE` that proves `v` is not negative does not remove it today; the cast to
 `uint16_t` does. The signed form takes 265 cycles, the unsigned one 17.
 
-```c [src/test/resources/style/slow-signed-divide.c]
+```c [compiler/src/test/resources/style/slow-signed-divide.c]
 int16_t divide_signed(void)
 {
     int16_t v = sv;
@@ -188,7 +188,7 @@ int16_t divide_unsigned(void)
 the shifts itself, and better than by hand: `(va << 5) + (va << 3)` takes 45 cycles,
 `va * 40` takes 31.
 
-```c [src/test/resources/style/slow-hand-shifts.c]
+```c [compiler/src/test/resources/style/slow-hand-shifts.c]
 uint16_t times_40(void)
 {
     return (uint16_t)(va * 40);
@@ -205,7 +205,7 @@ while a shift by a constant above 8 is a loop of single shifts. Where a row of a
 bytes, write `(uint16_t)(v << 8) << 1` instead of `v << 9`: `v << 9` takes 130 cycles, the split
 form 19.
 
-```c [src/test/resources/style/slow-shift-above-8.c]
+```c [compiler/src/test/resources/style/slow-shift-above-8.c]
 uint16_t shift_by_9(void)
 {
     return (uint16_t)(v << 9);
@@ -222,7 +222,7 @@ through memory and costs more than twice a 16-bit one. A value that is only comb
 bit, such as a hash, can be kept as two `uint16_t` halves: the 32-bit XOR takes 84 cycles, the
 two 16-bit ones 36.
 
-```c [src/test/resources/style/slow-32-bit.c]
+```c [compiler/src/test/resources/style/slow-32-bit.c]
 void xor_32(void)
 {
     hash32 ^= key32;
@@ -241,7 +241,7 @@ comparison: the sum may not fit 16 bits. Where it does, a cast to `int16_t` says
 comparison becomes a 16-bit one: 162 cycles without the casts, 96 with them. Two `uint8_t`
 added stay 16-bit, because dampf sees that they cannot overflow.
 
-```c [src/test/resources/style/slow-compare-sum.c]
+```c [compiler/src/test/resources/style/slow-compare-sum.c]
 void compare_sum(void)
 {
     if (ship_y > enemy_y + 32) {
@@ -270,7 +270,7 @@ and `py[i]` are a little cheaper than an array of structs (`objs[i].x`), because
 is reached without the struct's size in the index. Moving 32 objects takes 1,721 cycles with
 two arrays and 1,881 with an array of structs. The gain is small: keep the struct elsewhere.
 
-```c [src/test/resources/style/fast-array-per-field.c]
+```c [compiler/src/test/resources/style/fast-array-per-field.c]
 void move_array_of_structs(void)
 {
     uint16_t i;
@@ -296,7 +296,7 @@ index stays inside the array. A `DAMPF_RANGE` on the index tells it, and the sto
 direct indexed access. With four `uint8_t` arrays of 1,000 elements, storing one pair of
 values takes 103 cycles without the hint and 56 with it.
 
-```c [src/test/resources/style/fast-range-index.c]
+```c [compiler/src/test/resources/style/fast-range-index.c]
 void store_without_range(uint8_t f, uint8_t t)
 {
     uint16_t n = count_a;
@@ -338,12 +338,12 @@ Write whichever reads better; these pairs cost the same, within 5 %:
 
 ## How the rules are checked
 
-Each rule is one file in `src/test/resources/style/`, named after the rule. The file holds a
+Each rule is one file in `compiler/src/test/resources/style/`, named after the rule. The file holds a
 pair of functions that compute the same thing in two ways, and a `test_main` that calls both.
 Its first comment names the rule and states the claim, the relation of the two functions'
 worst cases, as `slower`, `faster` or `same`:
 
-```c [src/test/resources/style/slow-hand-shifts.c]
+```c [compiler/src/test/resources/style/slow-hand-shifts.c]
 /* rule: slow-hand-shifts
  * claim: times_40_by_shifts slower times_40
  * Writing a multiplication by a constant as shifts by hand costs more than writing * 40: dampf
@@ -368,7 +368,7 @@ STYLE_GUIDE=update ./gradlew test --tests dampf.exec.StyleGuideTest
 
 which also puts the new date in it.
 
-To add a rule, write its file in `src/test/resources/style/` with the `rule:` and `claim:`
+To add a rule, write its file in `compiler/src/test/resources/style/` with the `rule:` and `claim:`
 lines and a `test_main` that calls both functions, add the rule to its part of `lib/C_STYLE.md`
 as an entry that starts with its name in bold, `` **`slow-u8-counter`** ``, and run the
 command above to add its row to the table.

@@ -104,7 +104,7 @@ int main(void)
 }
 ```
 
-Build it (`dampf` is the launcher `build/install/dampf/bin/dampf`;
+Build it (`dampf` is the launcher `build/install/superdevkit/bin/dampf`;
 [Command line](/reference/command-line) has the options):
 
 ```sh

@@ -31,7 +31,7 @@ scalar elements (`a[2]`, `s.x`), must have the same values on both sides. Pointe
 | Layer | What it compares | Runs in | Time |
 | --- | --- | --- | --- |
 | Unit tests | One pass or component against expected output | JVM | Milliseconds |
-| Execution tests | `src/test/resources/exec/*.c` against gcc | dampf's emulator, and Mesen when there is one | Seconds |
+| Execution tests | `compiler/src/test/resources/exec/*.c` against gcc | dampf's emulator, and Mesen when there is one | Seconds |
 | Random programs | Generated programs against gcc | dampf's emulator | Minutes for many |
 | Examples | Each example's `check.txt` played on the SNES and on the desktop, a checksum per tick | dampf's emulator and Rachael; Mesen in `dev/compare_example.sh` | Under a minute |
 | Timing on the examples | Every call of every example against its static bounds | dampf's emulator | 20 seconds |
@@ -53,7 +53,7 @@ order of the blocks. The ROMs from MIR also check the static timing against the 
 ([timing.md](timing.md), "Checked against the emulator").
 
 **The guides' tests.** `StyleGuideTest` checks the speed rules of the C style guide
-(`lib/C_STYLE.md`): one file per rule in `src/test/resources/style/`, two functions that compute
+(`lib/C_STYLE.md`): one file per rule in `compiler/src/test/resources/style/`, two functions that compute
 the same thing and a `claim:` line (`slower`, `faster`, `same` within 5 %); it checks the claim on
 the timing report's worst cases, runs the program like an execution test, and compares the guide's
 table of measurements (`STYLE_GUIDE=update` writes it). `LibCostTest` builds a program that calls
@@ -88,7 +88,7 @@ with the pictures.
 every tick; F11 saves it in the format of `check.txt` (with `mark` and `hash` lines, which the
 other players skip), so a bug seen on the desktop can be played again: in the window
 (`--replay`, which pauses at the marks and at the first tick whose checksum differs from the
-recorded one), and on the SNES side (`dev/replay_example.sh`: dampf's emulator, and Mesen).
+recorded one), and on the SNES side (`dev/replay.sh` in dampf's emulator for any ROM, `dev/replay_example.sh` for an example, also in Mesen).
 `ExamplesTest` has every example's check written as a recording too (`--record`) and requires the
 same buttons and the SNES's checksum for every tick in it.
 

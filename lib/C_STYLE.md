@@ -6,7 +6,7 @@ difference. Written for whoever writes the code, an AI first: follow it as writt
 
 **Two kinds of rule.** The rules in parts 1 and 2 are the language: they hold until the subset
 changes ([docs/subset.md](../docs/subset.md)). The rules in parts 3 to 5 are measurements of
-today's dampf. Each is a test (`StyleGuideTest`, the pairs in `src/test/resources/style/`, one
+today's dampf. Each is a test (`StyleGuideTest`, the pairs in `compiler/src/test/resources/style/`, one
 file per rule); the table at the end is written by it. When dampf changes and a claim no longer
 holds, the build fails and the rule changes or goes in the same commit.
 

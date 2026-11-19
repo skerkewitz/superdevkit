@@ -151,7 +151,7 @@ frame rhythm, F12 for a screenshot, and `--check` without a window; `dev/build_d
 `dev/fetch_raylib.sh` until the CLI; Windows with MSVC from WSL, `dev/build_desktop_windows.sh`
 (ADR record 39); the CRT filter of Blubber Blasen's frontend (`lib/desktop/crt.c`, Tab, `--no-crt`);
 every session recorded, F11 saves it, `--replay` with pause and single steps, the recording
-played on the SNES side by `dev/replay_example.sh`.
+played on the SNES side by `dev/replay.sh` (and `dev/replay_example.sh` for an example, with Mesen).
 Still to do: sound and music, save RAM, the debug view. The plan as it was:
 
 `lib/desktop` in C with raylib: the window (256 x 224 scaled to whole multiples), the frame
@@ -166,7 +166,9 @@ Done when: CatchMe runs on Linux and Windows from a build of its own sources and
 
 ### 7.4 The CLI
 
-`cli/`, Java, in the same distribution as dampf, launcher `superdevkit`:
+`cli/`, Java, in the same distribution as dampf, launcher `superdevkit` (the Gradle subproject and
+the distribution in the shape of a release, ADR record 41, exist since 2026-11-19; the command
+gives its version so far):
 
 - reads `superdevkit.toml` with a TOML reader of its own (the subset the project file uses);
 - `init <name> [--from <example>]` copies an example and sets its name;

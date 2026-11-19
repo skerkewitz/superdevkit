@@ -6,9 +6,9 @@ sources:
   - dev/README.md
   - README.md
   - build.gradle.kts
-  - src/test/java/dampf/exec/*.java
-  - src/test/java/dampf/emu/*.java
-  - src/test/java/dampf/lib/*.java
+  - compiler/src/test/java/dampf/exec/*.java
+  - compiler/src/test/java/dampf/emu/*.java
+  - compiler/src/test/java/dampf/lib/*.java
 audience: Contributors, and users who want to know why they can trust dampf's output
 ---
 
@@ -29,7 +29,7 @@ catches, and how to run them.
 3. **dampf's emulator and Mesen** – why dampf has its own emulator, how it is validated (the
    SingleStepTests suite, Mesen), when Mesen runs.
 4. **Running the tests** – the Gradle calls with their properties, as a table.
-5. **Adding an execution test** – what a test program in `src/test/resources/exec/` looks like
+5. **Adding an execution test** – what a test program in `compiler/src/test/resources/exec/` looks like
    and what makes it pass.
 6. **When something hangs** – from `docs/testing.md`.
 

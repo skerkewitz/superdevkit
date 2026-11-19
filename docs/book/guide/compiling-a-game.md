@@ -24,7 +24,7 @@ For a game of your own in `mygame/src`, with its headers next to the `.c` files 
 the shortest call with the launcher from [Getting started](/guide/getting-started) is:
 
 ```sh
-build/install/dampf/bin/dampf build -I mygame/src -o build/mygame/mygame.sfc mygame/src/*.c
+build/install/superdevkit/bin/dampf build -I mygame/src -o build/mygame/mygame.sfc mygame/src/*.c
 ```
 
 Er-Tüp has three include directories: `lib/include` with the headers of the console API,
@@ -35,7 +35,7 @@ converts with `tools/png2snes.py` before it compiles (`CONVERT_ONLY=1` stops aft
 conversion). With the graphics converted, the whole build on one command line is:
 
 ```sh
-build/install/dampf/bin/dampf build \
+build/install/superdevkit/bin/dampf build \
     -I lib/include -I examples/ertuep/src -I examples/ertuep/build/gen \
     --entry main -o build/ertuep/ertuep.sfc \
     examples/ertuep/src/*.c examples/ertuep/build/gen/*.c lib/snes/*.c
@@ -73,7 +73,7 @@ call, where `-o` is taken from the current folder as on any command line:
 
 ```sh
 cd examples/ertuep
-../../build/install/dampf/bin/dampf build @ertuep.args -o build/ertuep.sfc
+../../build/install/superdevkit/bin/dampf build @ertuep.args -o build/ertuep.sfc
 ```
 
 From the top of the repository, the same file is `@examples/ertuep/ertuep.args`; either way the
@@ -116,7 +116,7 @@ names the folder of the converted graphics, so convert them first
 every file passes, alone and together (cut):
 
 ```sh
-build/install/dampf/bin/dampf check @examples/ertuep/ertuep.args
+build/install/superdevkit/bin/dampf check @examples/ertuep/ertuep.args
 ```
 
 ```
@@ -145,7 +145,7 @@ void move_player(int16_t *player_x)
 ```
 
 ```sh
-build/install/dampf/bin/dampf check -I mygame/src mygame/src/*.c
+build/install/superdevkit/bin/dampf check -I mygame/src mygame/src/*.c
 ```
 
 ```
@@ -205,7 +205,7 @@ its label file, the input, the first tick and the tick after the last. Er-Tüp's
 ticks 5,700 to 5,731, the fight against the brew kettle of stage 2:
 
 ```sh
-java -cp 'build/install/dampf/lib/*' dampf.emu.ExampleProfile \
+java -cp 'build/install/superdevkit/java/*' dampf.emu.ExampleProfile \
     examples/ertuep/build/ertuep.sfc examples/ertuep/build/ertuep.lbl \
     examples/ertuep/check.txt 5700 5732
 ```
@@ -251,7 +251,7 @@ file:
 
 ```sh
 cd examples/ertuep
-../../build/install/dampf/bin/dampf build @ertuep.args --backend naive \
+../../build/install/superdevkit/bin/dampf build @ertuep.args --backend naive \
     --replace random16=../../reference/ertuep_random16.s -o build/ref.sfc
 ```
 

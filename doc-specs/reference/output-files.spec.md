@@ -3,11 +3,11 @@ title: The generated files
 sources:
   - README.md
   - docs/architecture.md
-  - src/main/java/dampf/Compiler.java
-  - src/main/java/dampf/snes/RomBuilder.java
-  - src/main/java/dampf/asm/DbgWriter.java
-  - src/main/java/dampf/backend/AsmWriter.java
-  - src/main/java/dampf/target/Cycles65816.java
+  - compiler/src/main/java/dampf/Compiler.java
+  - compiler/src/main/java/dampf/snes/RomBuilder.java
+  - compiler/src/main/java/dampf/asm/DbgWriter.java
+  - compiler/src/main/java/dampf/backend/AsmWriter.java
+  - compiler/src/main/java/dampf/target/Cycles65816.java
 audience: Users who open the files dampf writes next to the ROM
 ---
 

@@ -1,16 +1,16 @@
 ---
 title: Writing C for dampf
 sources:
-  - src/main/resources/dampf/include/string.h
+  - compiler/src/main/resources/dampf/include/string.h
   - docs/ADR.md
   - docs/adr/*.md
   - docs/subset.md
-  - src/main/resources/dampf/include/stdint.h
-  - src/main/resources/dampf/include/dampf.h
-  - src/main/java/dampf/frontend/Preprocessor.java
-  - src/main/java/dampf/frontend/SystemHeaders.java
-  - src/main/java/dampf/check/CallGraph.java
-  - src/main/java/dampf/Main.java
+  - compiler/src/main/resources/dampf/include/stdint.h
+  - compiler/src/main/resources/dampf/include/dampf.h
+  - compiler/src/main/java/dampf/frontend/Preprocessor.java
+  - compiler/src/main/java/dampf/frontend/SystemHeaders.java
+  - compiler/src/main/java/dampf/check/CallGraph.java
+  - compiler/src/main/java/dampf/Main.java
 audience: Game programmers who write C and want it to compile with dampf and gcc alike
 ---
 

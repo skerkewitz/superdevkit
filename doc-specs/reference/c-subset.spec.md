@@ -1,16 +1,16 @@
 ---
 title: The C subset
 sources:
-  - src/main/resources/dampf/include/string.h
+  - compiler/src/main/resources/dampf/include/string.h
   - docs/ADR.md
   - docs/adr/*.md
   - docs/subset.md
-  - src/main/resources/dampf/include/stdint.h
-  - src/main/resources/dampf/include/dampf.h
-  - src/main/java/dampf/frontend/AstBuilder.java
-  - src/test/resources/exec/pointer_to_int.c
-  - src/main/java/dampf/check/CallGraph.java
-  - src/test/java/dampf/frontend/*.java
+  - compiler/src/main/resources/dampf/include/stdint.h
+  - compiler/src/main/resources/dampf/include/dampf.h
+  - compiler/src/main/java/dampf/frontend/AstBuilder.java
+  - compiler/src/test/resources/exec/pointer_to_int.c
+  - compiler/src/main/java/dampf/check/CallGraph.java
+  - compiler/src/test/java/dampf/frontend/*.java
 audience: Users who need to know whether a construct is accepted, and what it means
 ---
 

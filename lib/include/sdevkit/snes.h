@@ -15,7 +15,7 @@
  *     sdevkit_set_mode). One deliberate difference: sources are const uint8_t * (ROM data);
  *     PVSnesLib takes u8 *.
  *   - Extensions that PVSnesLib has no function for. On the SNES each is a few register writes.
- *   - sdevkit_dbg_*: for debug checks and the debug view of the desktop. They exist on every
+ *   - sdevkit_dbg_*: for the debug checks on the desktop and the SNES. They exist on every
  *     platform and never change what the game computes.
  *
  * Addresses are SNES addresses: VRAM addresses count 16-bit words (0x0000..0x7FFF), CGRAM
@@ -193,7 +193,8 @@ void sdevkit_reg_write(uint8_t reg, uint8_t value);
  * Table format as on the SNES: a line count byte, then the data; count
  * 1..127 = data once, then hold for that many lines; 129..255 = new data on
  * each of (count - 128) lines; 0 ends the table. The table is read when the
- * frame is drawn, so it must stay valid (a static or ROM array). */
+ * frame is drawn, so it must stay valid (a static or ROM array). channel is a number, 1 to 7:
+ * general DMA uses channel 0. sdevkit_hdma_enable takes a mask of SDEVKIT_HDMA_CHANNELn. */
 #define SDEVKIT_HDMA_ONE      0
 #define SDEVKIT_HDMA_TWO_REGS 1
 #define SDEVKIT_HDMA_TWICE    2
@@ -241,7 +242,7 @@ const uint16_t *sdevkit_dbg_vram(void);
 /* Names memory that makes up the game's state, for the checks that play a game on the SNES and on
  * the PC with the same input and compare a checksum after every tick (dev/compare_example.sh,
  * ExampleChecksumsTest): the bytes named during a tick are hashed (FNV-1a, 32 bits) in the order
- * named, after the sprite table, which the main loop names after every game_tick itself. Call it
+ * named, then the sprite table, which the main loop names last after every game_tick. Call it
  * in game_tick, on data whose bytes are the same on both: arrays of uint8_t and uint16_t (both
  * are little endian), structs only when they have no padding on the PC, nothing with pointers.
  * On the SNES it costs a few port writes ($21FC, which no hardware uses); the checker reads the

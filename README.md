@@ -117,7 +117,7 @@ cd cc65 && make bin && sudo make install PREFIX=/usr/local
 
 ```bash
 ./gradlew build                          # compile and run the tests
-./gradlew installDist                    # the launcher: build/install/dampf/bin/dampf
+./gradlew installDist                    # the launcher: build/install/superdevkit/bin/dampf
 ./gradlew test -Prandom=500 -PrandomSeed=1   # more random programs, from a given seed
 ./gradlew test -Pcoverage                # JaCoCo: build/reports/jacoco/test/html/index.html
 ./gradlew pmdMain pmdTest                # PMD: build/reports/pmd/ (not a gate)
@@ -139,7 +139,7 @@ dampf check @examples/ertuep/ertuep.args
 dampf build @examples/ertuep/ertuep.args -o build/ertuep.sfc
 ```
 
-The launcher is `build/install/dampf/bin/dampf` (`./gradlew installDist`).
+The launcher is `build/install/superdevkit/bin/dampf` (`./gradlew installDist`).
 
 `build` writes the ROM and next to it the generated assembly (`.s`, with the C source line and a
 comment for each instruction; the naive code also shows the processor state), the debug file
@@ -168,39 +168,52 @@ step through C.
 
 ## Repository layout
 
+The top level shows what a release of superdevkit holds (ADR
+[record 41](docs/adr/0041-the-release-is-a-zip-per-system-with-a-java.md)), and the folders for
+developing it. `./gradlew installDist` writes the distribution in that shape to
+`build/install/superdevkit`: a superdevkit home with all a game needs (`bin/`, `java/`,
+`include/`, `lib/`, `tools/`, `examples/`, the desktop build in `dev/`), so a game outside this
+repository points at it. The book's [Getting started](docs/book/guide/getting-started.md) shows how;
+jre/ and raylib/ come with the release zips.
+
 ```
-src/main/antlr/dampf/parser/   C grammar from grammars-v4 (see its README.md)
-src/main/java/dampf/           Main (the command line) and Compiler (the pipeline)
-src/main/java/dampf/parser/    support classes for the grammar (symbol table for typedef names)
-src/main/java/dampf/frontend/  preprocessor call, source positions, parsing, AST builder
-src/main/java/dampf/ast/       typed AST of the whole program
-src/main/java/dampf/check/     subset checks (call graph, no recursion)
-src/main/java/dampf/mir/       MIR: lowering from the AST, the passes, the interpreter
-src/main/java/dampf/backend/   code generators (from MIR, and the naive one from the AST), timing
-src/main/java/dampf/lir/       LIR: 65816 code in basic blocks, its text (ca65 source), verifier, passes
-src/main/java/dampf/asm/       dampf's assembler and linker, and the debug file
-src/main/java/dampf/target/    the 65816's cycle table
-src/main/java/dampf/snes/      ROM build (memory map, bank packing, header; with dampf's linker or ld65)
-src/main/java/dampf/emu/       dampf's own 65816 and SNES emulator
-src/main/java/dampf/tools/     dampf mir, dampf bench, dampf profile
-src/main/java/dampf/util/      running external programs
-src/main/resources/dampf/include/  dampf's own <stdint.h> and <dampf.h>
-src/main/resources/dampf/snes/     SNES runtime (start-up, header, vectors)
-src/test/java/dampf/           unit, execution, random, example and emulator tests; book source checks
-src/test/resources/exec/       execution test programs
-src/test/python/               the tests of tools/ (ToolsTest runs them)
-examples/m1/                   example for stepping through C in Mesen
-examples/                      the dev kit's examples: test cases and the benchmark (each has its README.md)
-lib/                           the dev kit's library: the console API (include/), on the SNES (snes/); see its README.md
-reference/                     hand-written assembly of the examples' functions, the yardstick for dampf's code
-tools/                         tools for game developers: png2snes.py, brr_lab.html, sdevkit_rename.py (see its README.md)
-dev/                           scripts for developing dampf: benchmark, checks in Mesen, the desktop's build (see its README.md)
-dev/subset_scan.py             M0 scanner: which C constructs a code base uses
-config/pmd/                    PMD rules (./gradlew pmdMain pmdTest)
-docs/                          the working documents (see Documents)
-docs/book/                     the user book (VitePress, with its package.json), mostly generated from doc-specs/
-docs/assets/                   the logo
-doc-specs/                     what each page of the book covers, and its sources
+compiler/      dampf, the compiler, with its emulator and the tests of the whole kit (Gradle subproject)
+cli/           the superdevkit command: init, build and run come with M7 (Gradle subproject)
+lib/           the dev kit's library: the console API (include/), the SNES (snes/), Rachael, the
+               desktop; see its README.md
+tools/         tools for game developers: png2snes.py, brr_lab.html, sdevkit_rename.py
+examples/      the dev kit's examples: test cases and the benchmark (each has its README.md)
+reference/     hand-written assembly of the examples' functions, the yardstick for dampf's code
+dev/           scripts for developing the kit: benchmark, checks in Mesen, the desktop's build, art
+config/pmd/    PMD rules (./gradlew pmdMain pmdTest)
+docs/          the working documents (see Documents); docs/book the user book (VitePress, with
+               its package.json), mostly generated from doc-specs/; docs/assets the logo
+doc-specs/     what each page of the book covers, and its sources
+```
+
+Inside `compiler/src`:
+
+```
+main/antlr/dampf/parser/       C grammar from grammars-v4 (see its README.md)
+main/java/dampf/               Main (the command line) and Compiler (the pipeline)
+main/java/dampf/parser/        support classes for the grammar (symbol table for typedef names)
+main/java/dampf/frontend/      preprocessor call, source positions, parsing, AST builder
+main/java/dampf/ast/           typed AST of the whole program
+main/java/dampf/check/         subset checks (call graph, no recursion)
+main/java/dampf/mir/           MIR: lowering from the AST, the passes, the interpreter
+main/java/dampf/backend/       code generators (from MIR, and the naive one from the AST), timing
+main/java/dampf/lir/           LIR: 65816 code in basic blocks, its text (ca65 source), verifier, passes
+main/java/dampf/asm/           dampf's assembler and linker, and the debug file
+main/java/dampf/target/        the 65816's cycle table
+main/java/dampf/snes/          ROM build (memory map, bank packing, header; with dampf's linker or ld65)
+main/java/dampf/emu/           dampf's own 65816 and SNES emulator, the examples' checks and benchmark
+main/java/dampf/tools/         dampf mir, dampf bench, dampf profile
+main/java/dampf/util/          running external programs
+main/resources/dampf/include/  dampf's own <stdint.h>, <string.h> and <dampf.h>
+main/resources/dampf/snes/     SNES runtime (start-up, header, vectors)
+test/java/dampf/               unit, execution, random, example and emulator tests; book source checks
+test/resources/exec/           execution test programs
+test/python/                   the tests of tools/ (ToolsTest runs them)
 ```
 
 ## Licence

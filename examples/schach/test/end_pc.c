@@ -1,7 +1,7 @@
 /*
  * The end of a game on the PC: every position of end_positions.h gives the end it must.
  *
- *   cc -std=c99 -O2 -Wall -Wextra -fsanitize=undefined,address -idirafter src/main/resources/dampf/include \
+ *   cc -std=c99 -O2 -Wall -Wextra -fsanitize=undefined,address -idirafter compiler/src/main/resources/dampf/include \
  *       -I examples/schach/src examples/schach/test/end_pc.c examples/schach/src/board.c -o build/end
  */
 #include <stdio.h>

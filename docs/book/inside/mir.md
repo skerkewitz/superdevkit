@@ -69,7 +69,7 @@ void sum_scores(void)
 ```
 
 Run `dampf mir` to print its MIR as the lowering from the AST produces it, before any pass
-(`dampf` is the launcher `build/install/dampf/bin/dampf`;
+(`dampf` is the launcher `build/install/superdevkit/bin/dampf`;
 [Command line](/reference/command-line) has the options):
 
 ```sh

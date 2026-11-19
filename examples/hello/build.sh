@@ -11,7 +11,9 @@ GEN=build/gen
 mkdir -p "$GEN"
 python3 -I "$KIT/tools/png2snes.py" tiles assets/font_gfx.png font_gfx "$GEN"
 python3 -I "$KIT/tools/png2snes.py" tiles assets/ball_gfx.png ball_gfx "$GEN"
-[ "${CONVERT_ONLY:-0}" = 1 ] && exit 0      # the tests convert, then compile in the JVM (ExamplesTest)
-DAMPF=${DAMPF:-$KIT/build/install/dampf/bin/dampf}
+[ "${CONVERT_ONLY:-0}" = 1 ] && exit 0      # the tests (ExamplesTest) and the desktop build convert only
+# dampf: in a superdevkit home bin/dampf, in the kit's repository its installation
+if [ -z "$DAMPF" ] && [ -x "$KIT/bin/dampf" ]; then DAMPF=$KIT/bin/dampf; fi
+DAMPF=${DAMPF:-$KIT/build/install/superdevkit/bin/dampf}
 [ -x "$DAMPF" ] || (cd "$KIT" && ./gradlew -q installDist)
 "$DAMPF" build @hello.args -o build/hello.sfc "$@"

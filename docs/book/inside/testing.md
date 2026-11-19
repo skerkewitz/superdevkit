@@ -44,7 +44,7 @@ values are addresses that differ between PC and SNES, and so are constant object
 
 ## The layers
 
-**Execution tests** are small C programs in `src/test/resources/exec/`, each written to exercise
+**Execution tests** are small C programs in `compiler/src/test/resources/exec/`, each written to exercise
 one area: 8-bit wrap-around, calls, pointers, banks, 32-bit arithmetic, tables in ROM.
 `ExecutionTest` runs each one on the PC with gcc, in the MIR interpreter before and after the
 passes, and as two ROMs in dampf's emulator, one per code generator. When
@@ -162,7 +162,7 @@ you need ca65 and ld65 to develop dampf, but not to use it. `LirTest` checks the
 parser and verifier of LIR on small hand-written pieces.
 
 `StyleGuideTest` measures the speed rules of the C style guide, `lib/C_STYLE.md`. Each rule is a
-C file in `src/test/resources/style/`, named after the rule, with a pair of functions that
+C file in `compiler/src/test/resources/style/`, named after the rule, with a pair of functions that
 compute the same thing two ways and a first comment that states the claim, such as
 `claim: sum_u8_counter slower sum_u16_counter`. The relation is `slower`, `faster` or `same`,
 where `same` means within 5 %. The test builds each file with the code generator from MIR and
@@ -250,7 +250,7 @@ Gradle properties:
 | `./gradlew test -PcpuTests=<N>` | the same with N tests per opcode |
 | `./gradlew test -Pcoverage` | also measures code coverage with JaCoCo; the report is in `build/reports/jacoco/test/html/index.html` (and as XML), without the parser ANTLR generates |
 | `./gradlew pmdMain pmdTest` | PMD's checks with the rules in `config/pmd/ruleset.xml`; reports in `build/reports/pmd/`; findings do not fail the build |
-| `./gradlew cpd` | copied code in `src/main/java` (PMD's CPD), from 100 tokens on; report in `build/reports/cpd/main.txt` |
+| `./gradlew cpd` | copied code in `compiler/src/main/java` (PMD's CPD), from 100 tokens on; report in `build/reports/cpd/main.txt` |
 | `./gradlew cpd -PcpdTokens=<N>` | the same from N tokens on |
 | `dev/bench_examples.sh [options]` | the examples' benchmark: the work per tick of every example, built with these options for `dampf build` |
 | `BASELINE=<table> dev/bench_examples.sh` | the same, and the ratio to an earlier table, per example and as the geometric mean |
@@ -269,7 +269,7 @@ a build. All scripts in `dev/`, with their arguments and variables, are listed i
 
 ## Adding an execution test
 
-An execution test is a C file in `src/test/resources/exec/` with globals and a function
+An execution test is a C file in `compiler/src/test/resources/exec/` with globals and a function
 `test_main`, which is the entry function on both sides. It needs no output and no assertions:
 the globals it leaves behind are the result. A comment at the top says what it tests. A test
 of 8-bit wrap-around could look like this:

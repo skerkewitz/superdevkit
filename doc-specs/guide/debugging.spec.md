@@ -3,7 +3,7 @@ title: Debugging in Mesen
 sources:
   - README.md
   - docs/architecture.md
-  - src/main/java/dampf/backend/AsmWriter.java
+  - compiler/src/main/java/dampf/backend/AsmWriter.java
   - examples/m1/calls.c
 audience: Users who want to step through their C code on the SNES
 ---

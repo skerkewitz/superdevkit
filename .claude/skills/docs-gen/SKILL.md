@@ -101,7 +101,7 @@ is written once what it describes is built and the line is removed.
 C programs, commands, messages and generated assembly are the parts of a page most likely to be
 wrong, and they can be checked by running dampf.
 
-1. Build once: `./gradlew installDist -q`. The launcher is `build/install/dampf/bin/dampf`.
+1. Build once: `./gradlew installDist -q`. The launcher is `build/install/superdevkit/bin/dampf`.
 2. Write each example C program as a complete file into a fresh directory in the scratchpad,
    never into the repository or the game's folders.
 3. Run the command the page shows (`dampf check`, `build`, `mir`, `profile`) and compare what it

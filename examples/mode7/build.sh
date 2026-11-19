@@ -9,6 +9,8 @@ cd "$(dirname "$0")"
 KIT=../..
 mkdir -p build/gen
 [ "${CONVERT_ONLY:-0}" = 1 ] && exit 0
-DAMPF=${DAMPF:-$KIT/build/install/dampf/bin/dampf}
+# dampf: in a superdevkit home bin/dampf, in the kit's repository its installation
+if [ -z "$DAMPF" ] && [ -x "$KIT/bin/dampf" ]; then DAMPF=$KIT/bin/dampf; fi
+DAMPF=${DAMPF:-$KIT/build/install/superdevkit/bin/dampf}
 [ -x "$DAMPF" ] || (cd "$KIT" && ./gradlew -q installDist)
 "$DAMPF" build @mode7.args -o build/mode7.sfc "$@"

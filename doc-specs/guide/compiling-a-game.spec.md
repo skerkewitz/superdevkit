@@ -1,15 +1,15 @@
 ---
 title: Compiling a game
 sources:
-  - src/main/java/dampf/ConfigFile.java
+  - compiler/src/main/java/dampf/ConfigFile.java
   - examples/ertuep/ertuep.args
   - examples/ertuep/build.sh
   - examples/ertuep/README.md
   - docs/adr/0028-options-can-be-kept-in-an-argument-file-given-by.md
   - README.md
-  - src/main/java/dampf/Main.java
-  - src/main/java/dampf/Compiler.java
-  - src/main/java/dampf/emu/ExampleProfile.java
+  - compiler/src/main/java/dampf/Main.java
+  - compiler/src/main/java/dampf/Compiler.java
+  - compiler/src/main/java/dampf/emu/ExampleProfile.java
   - reference/README.md
   - lib/snes/README.md
 audience: Users moving from one example file to the many files of a real game

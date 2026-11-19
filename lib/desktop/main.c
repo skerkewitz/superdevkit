@@ -20,10 +20,10 @@
  *
  * Every session in the window is recorded: the joypad and the checksum of every tick. F11 flags
  * the moment (a mark) and saves the session so far as <game>_rec_<n>.txt, a file in the format of
- * check.txt ("ticks", "press", and "mark T" and "hash T H", which the other players skip), so
- * the same file plays on the SNES too (dev/replay_example.sh). --replay file plays one in the
- * window: it pauses at the first mark, and at the first tick whose checksum is not the recorded
- * one; after its last tick the keyboard takes over (and the recording goes on). F5 pauses and
+ * check.txt ("ticks", "press", and "mark T" and "hash T H"), so the same file plays on the SNES
+ * too (dev/replay.sh <rom> <recording>, in dampf's emulator, which compares the hashes and skips
+ * the marks). --replay file plays one in the window: it pauses at each mark, and at the first
+ * tick whose checksum is not the recorded one; after its last tick the keyboard takes over (and the recording goes on). F5 pauses and
  * goes on, F6 steps one tick while paused, F7 runs eight ticks a frame. With --check,
  * --record file writes the recording of the check's run.
  *
@@ -32,8 +32,9 @@
  * every frame is one tick, and the splash comes before them, without input), writes the screenshots it
  * asks for as PNG into the folder of --out (default .), the checksum of every tick
  * (sdevkit_dbg_hash: "tick hash" in hex, one a line) into hashes.txt there, and prints "frames N ticks N lost L
- * undrawn U sprites S"; the exit status is 1 when a byte was lost or a register write was one
- * Rachael does not draw (sdevkit__undrawn). S counts the lines over the sprite limits (32 sprites,
+ * undrawn U sprites S"; the exit status is 1 when a byte was lost, a register write was one
+ * Rachael does not draw (sdevkit__undrawn), or the file is a recording and a tick's checksum is
+ * not the recorded one. S counts the lines over the sprite limits (32 sprites,
  * 34 tiles); a game may mean that (flicker), so it does not fail the check.
  *
  * This file is host code for the desktop's C compiler, not for dampf.
