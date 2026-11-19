@@ -946,7 +946,7 @@ fields) 214,867.
 
 In its pair function `dx < 0` was a truth value: value numbering merged the test of the inlined
 `abs16` with the same test of the shove, and the one comparison then fed two branches in other
-blocks, so the code generator computed 0 or 1 (`EOR #\$8000 / CMP / ROL / EOR #1`), stored it and
+blocks, so the code generator computed 0 or 1 (`EOR #$8000 / CMP / ROL / EOR #1`), stored it and
 tested it later. `SinkCompares` computes such a comparison again right before each branch that
 uses it, after value numbering, so compare and branch fuse (`LDA dx / BMI`).
 
