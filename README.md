@@ -233,6 +233,14 @@ test/resources/exec/           execution test programs
 test/python/                   the tests of tools/ (ToolsTest runs them)
 ```
 
+## Trademarks
+
+superdevkit is an independent project. It is not affiliated with, endorsed by or connected to
+Nintendo, and it is not an official development kit. Nintendo, Super Nintendo, Super Nintendo
+Entertainment System and SNES are trademarks of Nintendo; they are used here only to say which
+console the kit is for. superdevkit contains no code or data of Nintendo's, and the games made with
+it are their authors' own.
+
 ## Licence
 
 superdevkit, dampf included, is under the Apache License v2.0 with LLVM Exceptions, the same

@@ -24,3 +24,5 @@ features:
   - title: Readable output
     details: The generated assembly carries the C line, the processor state and the cycles of each instruction, and Mesen steps through the C source.
 ---
+
+superdevkit is an independent project. It is not affiliated with, endorsed by or connected to Nintendo, and it is not an official development kit. Nintendo, Super Nintendo, Super Nintendo Entertainment System and SNES are trademarks of Nintendo; they are used here only to say which console the kit is for. superdevkit contains no code or data of Nintendo's, and the games made with it are their authors' own.
