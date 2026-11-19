@@ -43,7 +43,7 @@ public final class IndexParams {
             if (sites.isEmpty()) {
                 continue;
             }
-            Map<Value.Param, Plan> plans = new HashMap<>();
+            Map<Value.Param, Plan> plans = new java.util.LinkedHashMap<>();   // in the order of the parameters: the output must not depend on hash codes
             for (Value.Param p : f.params()) {
                 Plan plan = plan(f, p);
                 if (plan != null) {
