@@ -244,6 +244,23 @@ What it takes:
 - **Hosting:** a release on GitHub, a build on GitHub Actions (cc65 installed for the tests that
   compare with ca65 and ld65; no Mesen), the book on GitHub Pages.
 
+## Future ideas
+
+Ideas without a milestone; one becomes a step of a milestone when it is decided.
+
+- **dampf in Compiler Explorer.** A local Compiler Explorer (godbolt) knows extra compilers from
+  `etc/config/c.local.properties`; a wrapper script takes its gcc-style arguments (`-S -o out.s
+  input.c`), calls dampf and turns `.dbg line, "file", N` into the `.file`/`.loc` directives
+  Compiler Explorer maps the source lines with. That gives dampf next to gcc, diffs and links
+  for an afternoon's work. On godbolt.org itself after publishing: it needs a stable release
+  that installs unattended and a pull request to Compiler Explorer's `infra` repository.
+- **`dampf explore`.** A local page served by dampf itself, compiling in the JVM, for what
+  Compiler Explorer cannot show: the cycles per source line and per function (best and worst
+  case, from the timing analysis), the MIR after each pass, the naive and the MIR backend side
+  by side, and running the code in `dampf.emu` with its result and cycles against gcc's result
+  on the PC. A few days for a first version; worth it once the cycle column is missed in
+  Compiler Explorer.
+
 ## The playable ROM
 
 Built 2026-11-17, ahead of the game's own SNES port, so that every iteration of dampf can be played
