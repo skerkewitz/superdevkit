@@ -17,9 +17,12 @@ import java.util.Map;
 final class EmulatorRunner {
     private final long limitMasterCycles;
 
-    /** Short test programs: at most about 600 frames. */
+    /**
+     * Short test programs: at most about 600 frames; 6,000 with a pass limit
+     * ({@link dampf.util.PassLimit}), since code without the passes is up to ten times slower.
+     */
     EmulatorRunner() {
-        this(600L * 357_366);
+        this((dampf.util.PassLimit.configured() >= 0 ? 6_000L : 600L) * 357_366);
     }
 
     EmulatorRunner(long limitMasterCycles) {

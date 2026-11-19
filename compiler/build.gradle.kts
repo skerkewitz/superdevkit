@@ -75,6 +75,14 @@ tasks.test {
     // Random programs: -Prandom=<count> (default 50), -PrandomSeed=<first seed>
     providers.gradleProperty("random").orNull?.let { systemProperty("dampf.random.count", it) }
     providers.gradleProperty("randomSeed").orNull?.let { systemProperty("dampf.random.seed", it) }
+    // At most n pass applications (dampf.util.PassLimit, dev/bisect_passes.sh): -PoptLimit=n or
+    // DAMPF_OPT_LIMIT; the last one is appended to the file DAMPF_OPT_LIMIT_LOG names. As system
+    // properties they are inputs of the task, so a new limit runs the tests again.
+    (providers.gradleProperty("optLimit").orNull ?: providers.environmentVariable("DAMPF_OPT_LIMIT").orNull)
+        ?.let { systemProperty("dampf.optLimit", it) }
+    providers.environmentVariable("DAMPF_OPT_LIMIT_LOG").orNull?.let { systemProperty("dampf.optLimit.log", it) }
+    // Only the execution test of one program: -Pexec=<name without .c>
+    providers.gradleProperty("exec").orNull?.let { systemProperty("dampf.exec.only", it) }
     // Records new hashes of the back end's output (BackendOutputTest): -PbackendOutput=update
     providers.gradleProperty("backendOutput").orNull?.let { systemProperty("dampf.backendOutput", it) }
     // The 65816 emulator against the SingleStepTests suite (downloads ~50 MB once): -PcpuTests

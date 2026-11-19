@@ -218,6 +218,13 @@ back end that step B introduces. The roadmap's risk "little human knowledge of t
 about exactly this: a miscompilation should name its pass without anyone reading the code
 generator.
 
+Built (2026-11-20): `dampf.util.PassLimit`, described in
+[testing.md](testing.md#supporting-pieces). The passes on the whole module (`ParamRanges`,
+`PointerParams`, `IndexParams`) count once per run, not per function. Two findings on the way:
+`IndexParams` gave one of two outputs depending on hash codes (fixed in the commit before), and
+code without the passes is up to ten times slower than with them, which the tests' emulator
+limit now allows for.
+
 ### T4. Tests for the conditions of every pattern
 
 For each pass in `dampf.mir` write its conditions as MIR text tests, one where the pass applies

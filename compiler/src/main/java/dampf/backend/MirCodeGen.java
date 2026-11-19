@@ -89,7 +89,14 @@ public final class MirCodeGen {
     /** {@code blockCounts}: see {@link dampf.Compiler.Options}; null without a profile. */
     public MirCodeGen(MModule module, String entry, java.util.function.Function<String, String> debugName,
                       java.util.function.BiFunction<String, String, Long> blockCounts) {
+        this(module, entry, debugName, blockCounts, dampf.util.PassLimit.configured(""));
+    }
+
+    /** {@code limit}: the LIR passes count their applications in it and stop at its limit. */
+    public MirCodeGen(MModule module, String entry, java.util.function.Function<String, String> debugName,
+                      java.util.function.BiFunction<String, String, Long> blockCounts, dampf.util.PassLimit limit) {
         this.blockCounts = blockCounts;
+        this.limit = limit;
         this.module = module;
         this.entry = entry;
         this.debugName = debugName;
@@ -122,13 +129,15 @@ public final class MirCodeGen {
             List<Block> order = function(f, code);
             // loads of what a register holds on every way in, then stores no path reads; then the
             // code is shorter, so more branches may reach
-            new RedundantLoads(Selection.FRAME).run(code.function());
-            new IndexInY(Selection.FRAME).run(code.function());
-            new Peephole(Selection.FRAME, Selection.FRAME_START).run(code.function());
-            ByteStretches.run(code.function());
-            KnownCarry.run(code.function());
-            new DeadStores(Selection.FRAME, ownValueBytes(f)).run(code.function());
-            BranchRelax.run(code.function());
+            // (each counts in the pass limit; BranchRelax does not, it is part of making the code)
+            LFunction lf = code.function();
+            limit.apply("RedundantLoads", f.name(), () -> new RedundantLoads(Selection.FRAME).run(lf));
+            limit.apply("IndexInY", f.name(), () -> new IndexInY(Selection.FRAME).run(lf));
+            limit.apply("Peephole", f.name(), () -> new Peephole(Selection.FRAME, Selection.FRAME_START).run(lf));
+            limit.apply("ByteStretches", f.name(), () -> ByteStretches.run(lf));
+            limit.apply("KnownCarry", f.name(), () -> KnownCarry.run(lf));
+            limit.apply("DeadStores", f.name(), () -> new DeadStores(Selection.FRAME, ownValueBytes(f)).run(lf));
+            BranchRelax.run(lf);
             Map<String, String> renamed = dampf.lir.LocalLabels.renumber(code.function(), "@L");
             Map<String, Integer> bounds = new HashMap<>();
             code.loopBounds().forEach((label, rounds) -> bounds.put(renamed.getOrDefault(label, label), rounds));
@@ -233,6 +242,7 @@ public final class MirCodeGen {
 
     /** How often each block ran, (function, block) → count or null, from a profile; null without one. */
     final java.util.function.BiFunction<String, String, Long> blockCounts;
+    final dampf.util.PassLimit limit;
 
     /**
      * Best and worst case in CPU cycles per function (by label), after generate(); see {@link Timing}.

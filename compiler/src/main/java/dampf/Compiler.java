@@ -41,13 +41,23 @@ public final class Compiler {
      *                     announces it (rounded up to 2, 4, 8, 16 or 32 KB, at $70:0000 in LoROM),
      *                     and the preprocessor gets {@code SDEVKIT_SRAM_SIZE} with the exact number
      *                     for the kit's {@code sdevkit_sram()} (ADR record 32)
+     * @param optLimit     how many pass applications may run ({@link dampf.util.PassLimit}, to find
+     *                     the pass that broke a program); negative: the limit the environment sets,
+     *                     else none
      */
     public record Options(List<Path> sources, List<Path> includeDirs, List<String> defines, String entry, Path output,
                           Map<String, Path> replacements, Backend backend,
                           java.util.function.BiFunction<String, String, Long> blockCounts, boolean fastRom, boolean ca65,
-                          int sram) {
+                          int sram, long optLimit) {
         /** The largest save RAM of a LoROM cartridge that dampf announces: 32 KB at $70:0000. */
         public static final int MAX_SRAM = 32 * 1024;
+
+        public Options(List<Path> sources, List<Path> includeDirs, List<String> defines, String entry, Path output,
+                       Map<String, Path> replacements, Backend backend,
+                       java.util.function.BiFunction<String, String, Long> blockCounts, boolean fastRom, boolean ca65,
+                       int sram) {
+            this(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fastRom, ca65, sram, -1);
+        }
 
         public Options(List<Path> sources, List<Path> includeDirs, List<String> defines, String entry, Path output,
                        Map<String, Path> replacements, Backend backend,
@@ -76,20 +86,20 @@ public final class Compiler {
         }
 
         public Options withBackend(Backend b) {
-            return new Options(sources, includeDirs, defines, entry, output, replacements, b, blockCounts, fastRom, ca65, sram);
+            return new Options(sources, includeDirs, defines, entry, output, replacements, b, blockCounts, fastRom, ca65, sram, optLimit);
         }
 
         public Options withBlockCounts(java.util.function.BiFunction<String, String, Long> counts) {
-            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, counts, fastRom, ca65, sram);
+            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, counts, fastRom, ca65, sram, optLimit);
         }
 
         public Options withFastRom(boolean fast) {
-            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fast, ca65, sram);
+            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fast, ca65, sram, optLimit);
         }
 
         /** {@code true}: assemble and link with ca65 and ld65. */
         public Options withCa65(boolean useCa65) {
-            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fastRom, useCa65, sram);
+            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fastRom, useCa65, sram, optLimit);
         }
 
         /** With this many bytes of save RAM (0: none). */
@@ -97,7 +107,12 @@ public final class Compiler {
             if (bytes < 0 || bytes > MAX_SRAM) {
                 throw new IllegalArgumentException("save RAM of " + bytes + " bytes: 0 to " + MAX_SRAM);
             }
-            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fastRom, ca65, bytes);
+            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fastRom, ca65, bytes, optLimit);
+        }
+
+        /** With at most this many pass applications (negative: the limit the environment sets, else none). */
+        public Options withOptLimit(long limit) {
+            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fastRom, ca65, sram, limit);
         }
 
         /** The defines the preprocessor gets: the user's, and SDEVKIT_SRAM_SIZE with save RAM. */
@@ -186,13 +201,17 @@ public final class Compiler {
             }
             NaiveCodeGen.checkEntry(entry);
             dampf.mir.MModule mir = Lower.lower(program);
-            dampf.mir.Optimizer.run(mir);
-            MirCodeGen gen = new MirCodeGen(mir, entry.label(), debugName, o.blockCounts());
+            dampf.util.PassLimit limit = new dampf.util.PassLimit(
+                    o.optLimit() >= 0 ? o.optLimit() : dampf.util.PassLimit.configured(), baseName);
+            dampf.mir.Optimizer.run(mir, false, true, limit);
+            MirCodeGen gen = new MirCodeGen(mir, entry.label(), debugName, o.blockCounts(), limit);
             asm = new java.util.ArrayList<>(gen.generate());
             timing = gen.timing();
             Map<String, String> why = gen.unboundedWhy();
             writeTiming(timing, why, outDir.resolve(baseName + ".timing.txt"));
-            checkBudgets(program, timing, why, warnings);
+            // with a pass limit, the passes that prove a loop's bound may not have run: a budget
+            // that cannot be guaranteed is then a warning, so the program can still be bisected
+            checkBudgets(program, timing, why, warnings, limit.limited());
         } else {
             asm = new java.util.ArrayList<>(new NaiveCodeGen(program, entry, o.replacements().keySet(), debugName).generate());
         }
@@ -216,7 +235,7 @@ public final class Compiler {
      * into a caller is part of the caller's bound.
      */
     private static void checkBudgets(Program program, Map<String, long[]> timing, Map<String, String> why,
-                                     List<String> warnings) throws CompileError {
+                                     List<String> warnings, boolean onlyWarn) throws CompileError {
         List<dampf.frontend.Diagnostic> errors = new java.util.ArrayList<>();
         for (Function f : program.functions()) {
             long[] t = f.budget() == null ? null : timing.get(f.label());
@@ -238,7 +257,10 @@ public final class Compiler {
                         + Math.round(100.0 * t[1] / budget) + " % of its budget of " + budget + " (DAMPF_BUDGET)");
             }
         }
-        if (!errors.isEmpty()) {
+        if (onlyWarn) {
+            errors.forEach(d -> warnings.add(new dampf.frontend.Diagnostic(dampf.frontend.Diagnostic.Severity.WARNING,
+                    d.pos(), d.message() + "; an error without the pass limit").toString()));
+        } else if (!errors.isEmpty()) {
             throw new CompileError(errors);
         }
     }

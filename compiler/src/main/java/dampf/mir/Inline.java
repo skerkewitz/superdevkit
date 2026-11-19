@@ -36,6 +36,11 @@ public final class Inline {
      * LLVM's inliner simplifies a function before its callers see it).
      */
     public static boolean run(MModule m, java.util.function.Consumer<MFunction> simplify) {
+        return run(m, simplify, dampf.util.PassLimit.none());
+    }
+
+    /** As {@link #run(MModule, java.util.function.Consumer)}; each inlined call is one application of the limit. */
+    public static boolean run(MModule m, java.util.function.Consumer<MFunction> simplify, dampf.util.PassLimit limit) {
         counter = 0;
         Map<String, Integer> sites = new HashMap<>();
         for (MFunction f : m.functions()) {
@@ -59,8 +64,9 @@ public final class Inline {
                             MFunction callee = m.function(c.callee);
                             int n = size(callee);
                             boolean small = n <= SMALL || n <= SINGLE && sites.getOrDefault(c.callee, 0) == 1;
-                            if (callee != f && small && size(f) + n <= CALLER_LIMIT) {
+                            if (callee != f && small && size(f) + n <= CALLER_LIMIT && limit.allows()) {
                                 inline(f, c, callee);
+                                limit.count("Inline " + callee.name(), f.name());
                                 changed = true;
                                 into = true;
                                 again = true;

@@ -35,7 +35,9 @@ class ExecutionTest {
         Path dir = Path.of(ExecutionTest.class.getResource("/exec").toURI());
         List<Path> programs;
         try (Stream<Path> s = Files.list(dir)) {
-            programs = s.filter(p -> p.toString().endsWith(".c")).sorted().toList();
+            String only = System.getProperty("dampf.exec.only");   // -Pexec=<name>
+            programs = s.filter(p -> p.toString().endsWith(".c"))
+                    .filter(p -> only == null || p.getFileName().toString().equals(only + ".c")).sorted().toList();
         }
         return programs.stream().map(src -> DynamicTest.dynamicTest(src.getFileName().toString(), () -> assertTimeoutPreemptively(java.time.Duration.ofMinutes(3), () -> {
             String name = src.getFileName().toString().replace(".c", "");

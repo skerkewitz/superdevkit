@@ -143,6 +143,16 @@ over when it left ([ADR record 40](adr/0040-the-examples-replace-blubber-blasen-
 - **Cycle table:** `CycleTableAgainstEmulatorTest` checks the cost model
   (`dampf.target.Cycles65816`) against the emulator for every opcode in dampf's processor state;
   `Cycles65816Test` spot-checks it against the W65C816S data sheet.
+- **The pass limit** (`dampf.util.PassLimit`, as LLVM's `-opt-bisect-limit`): `dampf build
+  --opt-limit n`, `-PoptLimit=n` for the tests, or `DAMPF_OPT_LIMIT=n`, stops the MIR and LIR
+  passes after n applications that changed something (one pass on one function; inlining one
+  call; the passes on the whole module once). `dev/bisect_passes.sh <command>` runs a check
+  command with smaller and smaller limits and names the application that breaks a program, for
+  example `dev/bisect_passes.sh ./gradlew -q :compiler:test --tests dampf.exec.ExecutionTest
+  -Pexec=loops` (`-Pexec` runs one execution program). Selection and its decisions are not
+  counted. With a limit, the tests' emulator allows 6,000 frames (code without the passes is up to
+  ten times slower) and a budget the timing cannot guarantee is a warning. `PassLimitTest` checks
+  the counting; the execution tests pass with any limit.
 - **Mutation checks:** deliberately broken code generation must make tests fail. When one did
   not (a 32-bit arithmetic shift whose high bits no test observed), a test was added.
 - **Smaller tests:** `MappingTest` (where the cartridge's ROM appears, LoROM and HiROM);
