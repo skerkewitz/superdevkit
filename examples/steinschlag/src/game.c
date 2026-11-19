@@ -330,6 +330,7 @@ static void play(uint16_t pad)
             cave[miner_y][miner_x] = K_BLAST;     /* out of time: the miner's lamp goes off */
             cell_changed(miner_x, miner_y);
             miner_dead = 1;
+            sdevkit_sfx_play(SFX_CRUSHED);
         }
     }
     camera(0);
@@ -365,6 +366,7 @@ void game_init(uint16_t seed)
     sdevkit_oam_init_gfx_set(miner_gfx_tiles, MINER_GFX_TILES_SIZE, miner_gfx_pal,
                              MINER_GFX_PAL_SIZE, 0, VRAM_SPRITES, SDEVKIT_OBJ_SIZE16_L32);
     sdevkit_oam_init();
+    sdevkit_sfx_init(&sfx_bank);
     title();
     /* the screen is still off: copy the whole maps at once */
     sdevkit_dma_copy_vram((const uint8_t *)cave_map[0], VRAM_CAVE_MAP, sizeof cave_map[0]);

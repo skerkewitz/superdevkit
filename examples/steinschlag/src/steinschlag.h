@@ -2,6 +2,10 @@
  * Steinschlag: a miner digs through a cave for gems while boulders fall and roll, and beetles
  * crawl along the walls. Enough gems open the exit. An example of superdevkit that scrolls: the
  * cave is larger than the screen, and the camera follows the miner in x and y.
+ *
+ * Sound (assets/sfx/sfx.json, two voices): digging, a gem taken, a boulder landing, a beetle hit,
+ * the miner crushed, the exit opening. Much can happen in one tick; the priorities decide what
+ * gives way, and digging never cuts off the exit opening.
  */
 #ifndef STEINSCHLAG_H
 #define STEINSCHLAG_H
@@ -9,6 +13,7 @@
 #include <stdint.h>
 #include "sdevkit/loop.h"
 #include "sdevkit/snes.h"
+#include "sfx.h"                                 /* the sound effects, from assets/sfx/sfx.json */
 
 /* --- the cave (cave.c) ----------------------------------------------------------------------- */
 #define CAVE_W 40              /* cells of 16 x 16 pixels: 640 x 352 pixels */

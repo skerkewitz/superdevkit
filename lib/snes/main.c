@@ -10,7 +10,7 @@
  * tick would overwrite the frames of the code it interrupted. Calling game_vblank from the loop
  * gives the same timing without that.
  *
- * Not done here: sound and save RAM.
+ * After game_vblank the sound effects the tick asked for start (sfx.c). Not done here: save RAM.
  */
 #include "sdevkit/loop.h"
 #include "sdevkit/snes.h"
@@ -21,6 +21,7 @@ void sdevkit__reset_ppu(void);
 void sdevkit__oam_upload(void);
 void sdevkit__wait_vblank(void);
 void sdevkit__read_pads(uint16_t *pad1, uint16_t *pad2);
+void sdevkit__sfx_frame(void);
 
 /* Before game_init: the console in a known state, the screen off. */
 void sdevkit__start(void)
@@ -32,7 +33,8 @@ void sdevkit__start(void)
 }
 
 /* After each game_tick: the tick's checksum closed (the sprite table named last, then the mark
- * the checks count ticks by), the next vertical blank, the OAM shadow, the game's uploads. */
+ * the checks count ticks by), the next vertical blank, the OAM shadow, the game's uploads, then
+ * the sound effects of the tick (after the uploads, so they take none of the vertical blank). */
 void sdevkit__frame(void)
 {
     sdevkit_dbg_hash(sdevkit_oam_memory, sizeof sdevkit_oam_memory);
@@ -40,6 +42,7 @@ void sdevkit__frame(void)
     sdevkit__wait_vblank();
     sdevkit__oam_upload();
     game_vblank();
+    sdevkit__sfx_frame();
 }
 
 /* One frame of the splash screen (lib/splash/splash.h): the next vertical blank, the brightness

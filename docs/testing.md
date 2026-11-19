@@ -33,7 +33,7 @@ scalar elements (`a[2]`, `s.x`), must have the same values on both sides. Pointe
 | Unit tests | One pass or component against expected output | JVM | Milliseconds |
 | Execution tests | `compiler/src/test/resources/exec/*.c` against gcc | dampf's emulator, and Mesen when there is one | Seconds |
 | Random programs | Generated programs against gcc | dampf's emulator | Minutes for many |
-| Examples | Each example's `check.txt` played on the SNES and on the desktop, a checksum per tick | dampf's emulator and Rachael; Mesen in `dev/compare_example.sh` | Under a minute |
+| Examples | Each example's `check.txt` played on the SNES and on the desktop, a checksum per tick, and the same DSP writes in the same ticks ([docs/sound.md](sound.md#the-checks)) | dampf's emulator and Rachael; Mesen in `dev/compare_example.sh` | Under a minute |
 | Timing on the examples | Every call of every example against its static bounds | dampf's emulator | 20 seconds |
 
 **Unit tests** cover the front end (`PreprocessorTest`, `ParserTest`, `AstBuilderTest`), MIR
@@ -124,7 +124,7 @@ over when it left ([ADR record 40](adr/0040-the-examples-replace-blubber-blasen-
 
 ## Supporting pieces
 
-- **dampf's emulator** (`dampf.emu`: 65816 CPU, LoROM, WRAM, no graphics, DMA or sound) runs the
+- **dampf's emulator** (`dampf.emu`: 65816 CPU, LoROM, WRAM, the SPC700's boot protocol and the kit's sound driver, no graphics, DMA or sound output) runs the
   execution and random-program tests and the examples inside the JVM, and counts master cycles with the memory speeds of the SNES (WRAM and SlowROM 8, I/O 6,
   internal cycles 6, DRAM refresh 40 per scanline). Of the picture it has the timing the kit's
   main loop polls: the line counter, the vertical blank flag, the automatic joypad read and the

@@ -7,7 +7,7 @@ import java.nio.file.Path;
 /**
  * Just enough of a Super Nintendo to run dampf's programs: the 65816 ({@link Cpu65816}), a LoROM
  * cartridge, 128 KB of WRAM with its mirrors, and the master-cycle timing of the bus. No picture,
- * no sound, no DMA, no interrupts.
+ * no sound output, no DMA, no interrupts.
  *
  * <p>Timing, in master cycles (21.477 MHz on NTSC): an access costs 8 for WRAM, SlowROM and most of
  * the address space, 6 for I/O registers at $2000-$3FFF and $4200-$5FFF (and FastROM once
@@ -19,6 +19,9 @@ import java.nio.file.Path;
  * {@code NMITIMEN} bit 0 is set), the line counter latched by {@code SLHV} and read at
  * {@code OPVCT}, and the joypads at {@code $4218}-{@code $421B} from {@link #setPads}. Enough for
  * the kit's main loop (lib/snes/main.c), which waits for the vertical blank by polling.
+ *
+ * <p>The sound side is {@link Apu}: the ports $2140-$2143 (mirrored up to $217F), the audio RAM,
+ * the SPC700's boot code and the kit's driver.
  *
  * <p>Writes to the B-bus ports $21FA-$21FF, which no hardware uses, are passed to a
  * {@link PortListener}: dampf's runtime writes 1 to $21FB when the program is done, the game's
@@ -38,6 +41,7 @@ public final class Snes implements Bus {
     private final byte[] rom;
     private final byte[] wram = new byte[128 * 1024];
     private final Cpu65816 cpu = new Cpu65816(this);
+    private final Apu apu = new Apu();
     private PortListener ports = (p, v, t) -> { };
     private boolean done;
     private boolean fastRom;
@@ -82,6 +86,11 @@ public final class Snes implements Bus {
 
     public Cpu65816 cpu() {
         return cpu;
+    }
+
+    /** The sound side: the SPC700, its RAM and the DSP's registers. */
+    public Apu apu() {
+        return apu;
     }
 
     public void onPortWrite(PortListener listener) {
@@ -231,6 +240,9 @@ public final class Snes implements Bus {
     }
 
     private int io(int offset) {
+        if (offset >= 0x2140 && offset <= 0x217F) {
+            return apu.cpuRead(offset & 3, master);
+        }
         return switch (offset) {
             case 0x2137 -> {
                 latchedLine = scanline;     // SLHV: latch the counters
@@ -273,6 +285,10 @@ public final class Snes implements Bus {
         }
         if (offset < 0x2000) {
             wram[offset] = (byte) value;
+            return;
+        }
+        if (offset >= 0x2140 && offset <= 0x217F) {
+            apu.cpuWrite(offset & 3, value, master);
             return;
         }
         if (offset >= 0x21FA && offset <= 0x21FF) {

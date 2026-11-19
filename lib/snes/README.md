@@ -8,11 +8,12 @@ links it into a ROM you can play (for Mesen or real hardware).
 | --- | --- |
 | `hw.h` | The registers, as pointers to `volatile` memory |
 | `snes.c` | The functions of `sdevkit/snes.h`, and what `main.c` needs from the hardware (`sdevkit__oam_upload`, `sdevkit__wait_vblank`, ...) |
-| `main.c` | Start-up, the splash screen (`../splash/splash.h`, ADR record 37), and the main loop of `sdevkit/loop.h`: joypads, `game_tick`, then in the vertical blank the OAM copy and `game_vblank` |
+| `main.c` | Start-up, the splash screen (`../splash/splash.h`, ADR record 37), and the main loop of `sdevkit/loop.h`: joypads, `game_tick`, then in the vertical blank the OAM copy and `game_vblank`, then the sound effects of the tick |
+| `sfx.c` | The sound effects ([docs/sound.md](../../docs/sound.md)): the logic of `../sound/sfx_voices.h` through the ports `$2140`-`$2143`, the uploads by the SPC700's boot code, then one DSP write per exchange with the kit's driver |
 
 There is no interrupt handler: the main loop waits for the vertical blank itself, because C code
 called from an NMI in the middle of a tick would overwrite the frames of the code it interrupted
-(dampf keeps them at fixed places). Sound and save RAM are not built.
+(dampf keeps them at fixed places). Save RAM is not built.
 
 Checks: `ExamplesTest` plays every example's `check.txt` through this layer in dampf's emulator,
 with a checksum per tick against the desktop, and `dev/check_example.sh` in Mesen (no byte may

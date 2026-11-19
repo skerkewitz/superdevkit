@@ -94,10 +94,12 @@ edge. Both are built on WSL: Linux with gcc, Windows with the MSVC of the Window
 (`dev/build_desktop_windows.sh`, ADR [record 39](adr/0039-win64-is-built-with-msvc-for-now-from-wsl.md)), which plays with the gamepads WSL does not
 see and gives the same checksums and pictures as Linux.
 
-Still to do in M7: sound, save RAM and the debug
+Built in M7 on 2026-11-19: sound effects on both platforms ([docs/sound.md](sound.md), ADR
+[record 44](adr/0044-sound-effects-come-from-sfx-json-and-rachael-plays.md)); Schach and
+Steinschlag use them. Still to do in M7: music, save RAM and the debug
 registrations in the console API (built on the desktop, stubs on the SNES; ADR [record
 32](adr/0032-desktop-and-web-are-for-prototyping-with-sound.md), with the names of [record
-34](adr/0034-every-name-of-the-console-api-starts-with.md)), the desktop frontend with sound, save RAM and the debug view, and the `superdevkit` command with `init`, `build` and
+34](adr/0034-every-name-of-the-console-api-starts-with.md)), the desktop frontend with save RAM and the debug view, and the `superdevkit` command with `init`, `build` and
 `run` (ADR [record 31](adr/0031-the-superdevkit-command-builds-a-project-from-its.md)); `init`
 writes a line into the new project's `CLAUDE.md` or `AGENTS.md` that points to the kit's guides,
 `lib/C_STYLE.md` and `lib/SNES_HARDWARE.md`. Done

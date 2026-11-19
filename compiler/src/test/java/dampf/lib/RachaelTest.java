@@ -51,7 +51,7 @@ class RachaelTest {
         Files.writeString(c, program);
         Processes.check(Path.of("."), Duration.ofMinutes(1), List.of("cc", "-std=c99", "-Wall", "-Wextra",
                 "-Wno-unused-parameter", "-I", "lib/include", "-I", "lib/rachael", c.toString(), "lib/rachael/ppu.c",
-                "lib/rachael/render.c", "-o", exe.toString()));
+                "lib/rachael/render.c", "lib/rachael/dsp.c", "-o", exe.toString()));
         String out = Processes.check(tmp, Duration.ofMinutes(1), List.of(exe.toString()));
         assertEquals("drawn 0\nmosaic 1\nmode 2\nports 4\nfirst 06 31", out.strip());
     }
@@ -91,7 +91,7 @@ class RachaelTest {
         Files.writeString(c, program);
         Processes.check(Path.of("."), Duration.ofMinutes(1), List.of("cc", "-std=c99", "-Wall", "-Wextra",
                 "-Wno-unused-parameter", "-I", "lib/include", "-I", "lib/rachael", c.toString(), "lib/rachael/ppu.c",
-                "lib/rachael/render.c", "-o", exe.toString()));
+                "lib/rachael/render.c", "lib/rachael/dsp.c", "-o", exe.toString()));
         String out = Processes.check(tmp, Duration.ofMinutes(1), List.of(exe.toString()));
         assertEquals("15 05 23 01 01", out.strip());
     }
@@ -131,7 +131,7 @@ class RachaelTest {
         Files.writeString(c, program);
         Processes.check(Path.of("."), Duration.ofMinutes(1), List.of("cc", "-std=c99", "-Wall", "-Wextra",
                 "-Wno-unused-parameter", "-I", "lib/include", "-I", "lib/rachael", c.toString(), "lib/rachael/ppu.c",
-                "lib/rachael/render.c", "-o", exe.toString()));
+                "lib/rachael/render.c", "lib/rachael/dsp.c", "-o", exe.toString()));
         String out = Processes.check(tmp, Duration.ofMinutes(1), List.of(exe.toString()));
         assertEquals("0000 0000 0000 7FFF 7FFF", out.strip());
     }
@@ -147,7 +147,7 @@ class RachaelTest {
         Path exe = tmp.resolve("rachael_test");
         Processes.check(Path.of("."), Duration.ofMinutes(1), List.of("cc", "-std=c99", "-Wall", "-Wextra",
                 "-Wno-unused-parameter", "-I", "lib/include", "-I", "lib/rachael", "compiler/src/test/c/rachael_test.c",
-                "lib/rachael/ppu.c", "lib/rachael/render.c", "-o", exe.toString()));
+                "lib/rachael/ppu.c", "lib/rachael/render.c", "lib/rachael/dsp.c", "-o", exe.toString()));
         String out = Processes.check(tmp, Duration.ofMinutes(1), List.of(exe.toString()));
         assertEquals("all tests passed", out.strip());
     }

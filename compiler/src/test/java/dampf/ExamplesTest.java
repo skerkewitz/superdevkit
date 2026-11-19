@@ -35,7 +35,10 @@ import org.junit.jupiter.api.TestFactory;
  *       the format a session in the window is saved in with F11) must have the same buttons and
  *       the SNES's checksum for every tick;</li>
  *   <li>both lists the same: dampf's code and gcc's, lib/snes and Rachael computed the same game.
- *       The first tick that differs is named.</li>
+ *       The first tick that differs is named. And the same sound ({@code sound.txt} in both
+ *       folders): what game_init uploaded into the audio RAM, and every DSP write the SPC700's driver made in the
+ *       emulator is the one Rachael's DSP got, in the same tick; the desktop's check plays nothing
+ *       that Rachael's DSP does not model ({@code unheard 0}).</li>
  * </ol>
  *
  * The picture is compared by dev/compare_example.sh (Mesen), which also compares Mesen's
@@ -61,6 +64,7 @@ public class ExamplesTest {
             ExampleCheck.Result snes = ExampleCheck.run(Files.readAllBytes(r.rom().rom()), input, 40 * input.ticks() + 2000);
             Path emu = Files.createDirectories(ex.resolve("build/emu-check"));
             Files.write(emu.resolve("hashes.txt"), snes.lines());
+            Files.write(emu.resolve("sound.txt"), snes.sound());
             List<String> ticks = new ArrayList<>();
             for (int i = 0; i < snes.tickEnds().size(); i++) {
                 ticks.add(i + " " + (snes.tickEnds().get(i) - (i == 0 ? snes.tickEnds().get(0) : snes.tickEnds().get(i - 1))));
@@ -86,6 +90,7 @@ public class ExamplesTest {
                     "--record", recording.toString());
             assertTrue(result.contains(" lost 0"), result);
             assertTrue(result.contains(" undrawn 0"), result);
+            assertTrue(result.contains(" unheard 0"), result);
             List<String> pc = Files.readAllLines(out.resolve("hashes.txt"));
             List<String> sn = snes.lines();
             for (int i = 0; i < Math.min(pc.size(), sn.size()); i++) {
@@ -95,6 +100,15 @@ public class ExamplesTest {
                 }
             }
             assertEquals(pc.size(), sn.size(), name + ": ticks played");
+            List<String> pcSound = Files.readAllLines(out.resolve("sound.txt"));
+            List<String> snSound = snes.sound();
+            for (int i = 0; i < Math.min(pcSound.size(), snSound.size()); i++) {
+                if (!pcSound.get(i).equals(snSound.get(i))) {
+                    fail(name + ": the sound differs first in line " + (i + 1) + " of sound.txt (SNES " + snSound.get(i)
+                            + ", desktop " + pcSound.get(i) + "; build/emu-check and build/desktop-check have all)");
+                }
+            }
+            assertEquals(pcSound.size(), snSound.size(), name + ": the lines of sound.txt");
 
             // the desktop's recording of the same run (lib/desktop, F11 in the window) is a check.txt
             // of its own: the same buttons every tick, and the SNES's checksums

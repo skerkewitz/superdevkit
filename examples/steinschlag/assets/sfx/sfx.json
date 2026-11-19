@@ -1,0 +1,23 @@
+{
+  "voices": 2,
+  "sounds": [
+    { "id": "dig", "priority": 0, "samples": [
+        { "file": "dig.wav", "active": true,
+          "rate": 11000, "treble": 0, "gain": 0, "trim": true, "volume": 70 } ] },
+    { "id": "gem", "priority": 2, "samples": [
+        { "file": "gem.wav", "active": true,
+          "rate": 22000, "treble": 6, "gain": -6, "trim": true, "volume": 90 } ] },
+    { "id": "land", "priority": 1, "samples": [
+        { "file": "land.wav", "active": true,
+          "rate": 11000, "treble": 0, "gain": 0, "trim": true, "volume": 110 } ] },
+    { "id": "beetle", "priority": 3, "samples": [
+        { "file": "beetle.wav", "active": true,
+          "rate": 16000, "treble": 4, "gain": -3, "trim": true, "volume": 100 } ] },
+    { "id": "crushed", "priority": 5, "samples": [
+        { "file": "crushed.wav", "active": true,
+          "rate": 11000, "treble": 0, "gain": 0, "trim": true, "volume": 120 } ] },
+    { "id": "exit", "priority": 4, "samples": [
+        { "file": "exit.wav", "active": true,
+          "rate": 16000, "treble": 3, "gain": -3, "trim": true, "volume": 100 } ] }
+  ]
+}

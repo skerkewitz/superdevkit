@@ -153,8 +153,9 @@ static void blast(uint8_t x, uint8_t y, uint8_t gems)
             if (k == K_STEEL || k == K_EXIT || k == K_EXIT_OPEN) {
                 continue;
             }
-            if (k == K_MINER) {
+            if (k == K_MINER && !miner_dead) {
                 miner_dead = 1;
+                sdevkit_sfx_play(SFX_CRUSHED);
             }
             set(bx, by, gems ? K_BLAST_GEM : K_BLAST);
         }
@@ -183,6 +184,7 @@ static void fall(uint8_t x, uint8_t y, uint8_t c)
             return;
         }
         if (below == K_BEETLE) {
+            sdevkit_sfx_play(SFX_BEETLE);
             blast(x, (uint8_t)(y + 1), 1);
             return;
         }
@@ -202,6 +204,9 @@ static void fall(uint8_t x, uint8_t y, uint8_t c)
     cave[y][x] = (uint8_t)(k | parity);                /* at rest */
     if (c & FALLING) {
         cell_changed(x, y);
+        if (k == K_BOULDER) {
+            sdevkit_sfx_play(SFX_LAND);
+        }
     }
 }
 
@@ -271,6 +276,7 @@ void cave_scan_rows(uint8_t from, uint8_t to)
             case K_EXIT:
                 if (gems_got >= gems_needed) {
                     set(x, y, K_EXIT_OPEN);
+                    sdevkit_sfx_play(SFX_EXIT);
                 }
                 break;
             default:
@@ -289,8 +295,12 @@ uint8_t miner_step(uint8_t dir, uint8_t grab)
     uint8_t k = KIND(cave[ty][tx]);
 
     if (k == K_GEM) {
+        sdevkit_sfx_play(SFX_GEM);
         gems_got++;
         add_score(gems_got > gems_needed ? 15 : 10);
+    }
+    if (k == K_DIRT) {
+        sdevkit_sfx_play(SFX_DIG);
     }
     if (k == K_DIRT || k == K_GEM) {
         if (grab) {                                    /* dig or take it from where you stand */

@@ -21,6 +21,12 @@ import java.util.Map;
  * hashing costs the game no time. The pad of tick T is set when tick T - 1 ends, before the main
  * loop reads it.
  *
+ * <p>It also records the sound as the desktop's check writes it to sound.txt (lib/desktop): every
+ * write the SPC700 makes to a DSP register, as "init" (in game_init) or the tick after which it
+ * came, the register and the value in hex; after game_init's writes the line "aram H": the FNV-1a
+ * of the bytes written into the audio RAM from $0200 on, each its address and value, in the order
+ * written ({@link Apu#uploadHash}).
+ *
  * <p>The emulator has no PPU and no DMA (a DMA does not take the CPU's time here), so the frames
  * per tick are close to Mesen's, not equal.
  */
@@ -80,9 +86,11 @@ public final class ExampleCheck {
      * What a run gave: the checksum after each tick, the frames the ticks took (from the end of
      * the splash screen), the master cycles of the slowest tick, the master clock at the end of
      * each tick, and for each tick how many vertical blanks had begun when it ended, times two,
-     * plus one when it ended inside one ({@code vblankAtEnd}).
+     * plus one when it ended inside one ({@code vblankAtEnd}), and the lines of the sound
+     * ({@code sound}, as the desktop's sound.txt).
      */
-    public record Result(List<Long> hashes, long frames, long slowestTick, List<Long> tickEnds, List<Long> vblankAtEnd) {
+    public record Result(List<Long> hashes, long frames, long slowestTick, List<Long> tickEnds, List<Long> vblankAtEnd,
+                         List<String> sound) {
         public double framesPerTick() {
             return hashes.isEmpty() ? 0 : (double) frames / hashes.size();
         }
@@ -214,6 +222,9 @@ public final class ExampleCheck {
         long[] started = { -1 };
         long[] tickStart = { 0 };
         long[] slowest = { 0 };
+        List<String> sound = new ArrayList<>();
+        snes.apu().onDspWrite((reg, value) -> sound.add(
+                (started[0] < 0 ? "init" : Long.toString(hashes.size() - 1)) + String.format(" %02x %02x", reg, value)));
         snes.onPortWrite((port, value, clock) -> {
             if (port == 0x21FC) {
                 bytes[count[0]++] = value & 0xFF;
@@ -229,6 +240,7 @@ public final class ExampleCheck {
                 }
             } else if (port == 0x21FD) {
                 if (value == 1) {
+                    sound.add(String.format("aram %08x", snes.apu().uploadHash()));
                     started[0] = clock;
                     tickStart[0] = clock;
                     hash[0] = FNV_START;
@@ -252,6 +264,6 @@ public final class ExampleCheck {
                     + " frames" + (started[0] < 0 ? " (game_init never returned: the splash screen or the game hangs?)" : ""));
         }
         return new Result(List.copyOf(hashes), (snes.masterClock() - started[0]) / FRAME, slowest[0], List.copyOf(ends),
-                List.copyOf(vblankAtEnd));
+                List.copyOf(vblankAtEnd), List.copyOf(sound));
     }
 }

@@ -1,7 +1,8 @@
 #!/bin/sh
 # Plays an example headless in Mesen with the input of examples/<name>/check.txt
 # (dev/example_check.lua): no byte may reach VRAM, CGRAM or OAM outside a vertical blank, and the
-# screenshots it asks for go to examples/<name>/build/check/.
+# screenshots it asks for go to examples/<name>/build/check/, with the checksums (hashes.txt) and the
+# sound (sound.txt: the DSP writes of the SNES's sound CPU, as the desktop's check writes them).
 #   dev/check_example.sh catchme             builds the example first (its build.sh)
 #   NOBUILD=1 dev/check_example.sh catchme   checks the ROM as it is
 #   INPUT=rec.txt dev/check_example.sh ertuep with another input than check.txt (a recording)
@@ -17,11 +18,12 @@ rm -rf "$OUT" && mkdir -p "$OUT"
 cp "$EX/build/$NAME.sfc" "$MESEN_DIR/example_check.sfc"
 cp dev/example_check.lua "$MESEN_DIR/example_check.lua"
 cp "${INPUT:-$EX/check.txt}" "$MESEN_DIR/example_input.txt"
-rm -f "$MESEN_DIR/example_check.txt" "$MESEN_DIR/example_hashes.txt" "$MESEN_DIR"/example_shot_*.png "$MESEN_DIR"/example_splash_*.png
+rm -f "$MESEN_DIR/example_check.txt" "$MESEN_DIR/example_hashes.txt" "$MESEN_DIR/example_sound.txt" "$MESEN_DIR"/example_shot_*.png "$MESEN_DIR"/example_splash_*.png
 mesen_run 600 example_check.sfc example_check.lua
 [ -f "$MESEN_DIR/example_check.txt" ] || { echo "check: Mesen wrote no example_check.txt"; exit 1; }
 mv "$MESEN_DIR/example_check.txt" "$OUT/check.txt"
 [ -f "$MESEN_DIR/example_hashes.txt" ] && mv "$MESEN_DIR/example_hashes.txt" "$OUT/hashes.txt"
+[ -f "$MESEN_DIR/example_sound.txt" ] && tr -d "\r" < "$MESEN_DIR/example_sound.txt" > "$OUT/sound.txt" && rm "$MESEN_DIR/example_sound.txt"
 for f in "$MESEN_DIR"/example_shot_*.png "$MESEN_DIR"/example_splash_*.png; do [ -f "$f" ] && mv "$f" "$OUT/"; done
 tail -1 "$OUT/check.txt"
 tr -d "\r" < "$OUT/check.txt" | grep -q "lost 0$" || { echo "check: bytes lost outside the vertical blank (see $OUT/check.txt)"; exit 1; }

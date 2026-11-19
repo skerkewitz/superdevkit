@@ -76,6 +76,27 @@ extern sdevkit__rachael_state sdevkit__rachael;
 
 void sdevkit__write_reg(uint8_t reg, uint8_t value);
 
+/* --- Sound (dsp.c, sfx.c; docs/sound.md) ---------------------------------------------------- */
+#define SDEVKIT__DSP_RATE 32000   /* the S-DSP's samples a second */
+
+typedef struct {
+    uint8_t  aram[65536];          /* the audio RAM: driver, sample directory, samples (sfx.c) */
+    uint8_t  regs[128];            /* the DSP's registers, as last written */
+    uint32_t upload_hash;          /* FNV-1a of the bytes uploaded, each with its address (sound.txt's "aram") */
+    uint16_t unheard;              /* writes that switch on what Rachael does not play, since power on */
+    uint8_t  unheard_reg, unheard_value;   /* the first of them ($FF: a sample with a loop) */
+    void   (*log)(uint8_t reg, uint8_t value);   /* the frontend's check: told of every DSP write */
+} sdevkit__sound_state;
+
+extern sdevkit__sound_state sdevkit__sound;
+
+void sdevkit__sound_reset(void);                       /* power on: silent, the registers as after reset */
+void sdevkit__dsp_write(uint8_t reg, uint8_t value);   /* what the SPC700's driver does on the SNES */
+/* The DSP's next samples at 32 kHz, left and right after each other: frames * 2 values. */
+void sdevkit__dsp_render(int16_t *stereo, unsigned frames);
+/* After each game_vblank (the frontend, as lib/snes/main.c): the effects the tick asked for start. */
+void sdevkit__sfx_frame(void);
+
 /* A register write whose effect Rachael does not draw, so the SNES would show something else:
  * a mode other than 1 and 7, mosaic, SETINI (interlace, high resolution, overscan, EXTBG),
  * direct colour (CGWSEL bit 0), and the ports of VRAM, CGRAM and OAM, which would go around her

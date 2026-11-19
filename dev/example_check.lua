@@ -21,6 +21,12 @@
 -- hashes.txt. The kit's main loop writes 0 to $21FD after each game_tick (1 once after game_init);
 -- sdevkit_dbg_hash writes the address and size of what it names to $21FC (five bytes), and the
 -- memory is read and hashed here (FNV-1a, 32 bits).
+-- And example_sound.txt, the sound as the desktop's check writes sound.txt (lib/desktop): every
+-- write the SPC700 makes to a DSP register ($F2 names it, $F3 takes the value), "init" before the
+-- first tick or the tick after which it came, the register and the value in hex; after
+-- game_init's writes "aram H": the FNV-1a of the bytes written into the audio RAM from $0200 on,
+-- each its address (low, high byte) and value, in the order written. (Not of the RAM itself: what
+-- the uploads did not touch is Mesen's fill pattern there, zero in the others.)
 local ok, err = pcall(function()
   local total, shots, presses, splash = 600, {}, {}, {}
   for line in io.lines("example_input.txt") do
@@ -43,6 +49,23 @@ local ok, err = pcall(function()
   local out = io.open("example_check.txt", "w")
   local hashes = io.open("example_hashes.txt", "w")
   local hash, hashBytes, hashTicks = 2166136261, {}, 0
+  local sound, started, dspAddr, upload = io.open("example_sound.txt", "w"), false, 0, 2166136261
+  emu.addMemoryCallback(function(addr, value)
+    local h = upload
+    h = ((h ~ (addr & 0xFF)) * 16777619) & 0xFFFFFFFF
+    h = ((h ~ (addr >> 8)) * 16777619) & 0xFFFFFFFF
+    upload = ((h ~ value) * 16777619) & 0xFFFFFFFF
+  end, emu.callbackType.write, 0x0200, 0xFFFF, emu.cpuType.spc, emu.memType.spcMemory)
+  emu.addMemoryCallback(function(addr, value) dspAddr = value end,
+    emu.callbackType.write, 0xF2, 0xF2, emu.cpuType.spc, emu.memType.spcMemory)
+  emu.addMemoryCallback(function(addr, value)
+    if dspAddr >= 0x80 then return end
+    if started then
+      sound:write(string.format("%d %02x %02x\n", hashTicks - 1, dspAddr, value))
+    else
+      sound:write(string.format("init %02x %02x\n", dspAddr, value))
+    end
+  end, emu.callbackType.write, 0xF3, 0xF3, emu.cpuType.spc, emu.memType.spcMemory)
   emu.addMemoryCallback(function(addr, value)
     hashBytes[#hashBytes + 1] = value
     if #hashBytes == 5 then
@@ -57,6 +80,10 @@ local ok, err = pcall(function()
     end
   end, emu.callbackType.write, 0x21FC, 0x21FC)
   emu.addMemoryCallback(function(addr, value)
+    if value == 1 and not started then      -- game_init is done: what the uploads wrote
+      sound:write(string.format("aram %08x\n", upload))
+      started = true
+    end
     if value == 0 and hashTicks < total then
       hashes:write(string.format("%d %08x\n", hashTicks, hash))
       hashTicks = hashTicks + 1
@@ -128,6 +155,7 @@ local ok, err = pcall(function()
       out:write(string.format("frames %d ticks %d lost %d\n", frame, ticks, lost))
       out:close()
       hashes:close()
+      sound:close()
       emu.stop(0)
     end
   end, emu.eventType.endFrame)

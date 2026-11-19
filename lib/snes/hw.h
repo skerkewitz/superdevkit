@@ -39,6 +39,12 @@
 #define OPVCT    REG8(0x213D)   /* latched V counter: low byte, then bit 8 */
 #define STAT78   REG8(0x213F)   /* reading it resets the OPHCT/OPVCT byte order */
 
+/* The four ports to the SPC700 (lib/snes/sfx.c); $2144-$217F mirror them */
+#define APUIO0   REG8(0x2140)
+#define APUIO1   REG8(0x2141)
+#define APUIO2   REG8(0x2142)
+#define APUIO3   REG8(0x2143)
+
 /* Ports no hardware uses, for the checks (dampf's emulator, dev/example_check.lua). $21FA and
  * $21FB are the benchmark's and the tests' (a tick of the benchmark, the end of a test). */
 #define DBG_HASH REG8(0x21FC)   /* sdevkit_dbg_hash: five bytes, address and size */

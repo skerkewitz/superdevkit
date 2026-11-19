@@ -24,6 +24,9 @@ tasks.withType<JavaCompile>().configureEach {
 
 tasks.test {
     useJUnitPlatform()
+    workingDir = rootProject.projectDir   // the tests read tools/ and write their files as the compiler's do
+    environment("SFX_GOLDEN", System.getenv("SFX_GOLDEN") ?: "")
+    inputs.file(rootProject.file("tools/brr_lab.html"))
     filter { isFailOnNoMatchingTests = false }   // `./gradlew test --tests X`: X may be the compiler's
     timeout.set(Duration.ofMinutes(10))
 }

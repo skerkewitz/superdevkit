@@ -1,0 +1,20 @@
+{
+  "voices": 1,
+  "sounds": [
+    { "id": "put", "priority": 1, "samples": [
+        { "file": "put.wav", "active": true,
+          "rate": 16000, "treble": 6, "gain": 0, "trim": true, "volume": 110 } ] },
+    { "id": "take", "priority": 1, "samples": [
+        { "file": "take.wav", "active": true,
+          "rate": 16000, "treble": 6, "gain": -3, "trim": true, "volume": 110 } ] },
+    { "id": "your_move", "priority": 2, "samples": [
+        { "file": "your_move.wav", "active": true,
+          "rate": 16000, "treble": 4, "gain": 0, "trim": true, "volume": 90 } ] },
+    { "id": "check", "priority": 3, "samples": [
+        { "file": "check.wav", "active": true,
+          "rate": 16000, "treble": 3, "gain": -3, "trim": true, "volume": 90 } ] },
+    { "id": "mate", "priority": 4, "samples": [
+        { "file": "mate.wav", "active": true,
+          "rate": 16000, "treble": 3, "gain": -3, "trim": true, "volume": 100 } ] }
+  ]
+}

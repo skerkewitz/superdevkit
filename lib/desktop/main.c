@@ -6,8 +6,11 @@
  *   game_tick(pads)     the picture is being drawn: VRAM and CGRAM take nothing now
  *   sdevkit__vblank()   the vertical blank begins: the sprite table is copied
  *   game_vblank()       the game's uploads
+ *   sdevkit__sfx_frame() the sound effects the tick asked for start (lib/sound/sfx_voices.h)
  *   sdevkit__render()   the picture of the frame, which ends the vertical blank
  *
+ * Each tick also makes a frame's samples of Rachael's DSP (32 kHz, stereo): in the window they
+ * play through raylib's audio stream; a check writes them to a WAV file with --wav file.
  * Before game_init, as on the SNES, the splash screen (lib/splash/splash.h): its frames are drawn
  * and shown like the game's, then the console is reset again.
  *
@@ -32,9 +35,12 @@
  * every frame is one tick, and the splash comes before them, without input), writes the screenshots it
  * asks for as PNG into the folder of --out (default .), the checksum of every tick
  * (sdevkit_dbg_hash: "tick hash" in hex, one a line) into hashes.txt there, and prints "frames N ticks N lost L
- * undrawn U sprites S"; the exit status is 1 when a byte was lost, a register write was one
- * Rachael does not draw (sdevkit__undrawn), or the file is a recording and a tick's checksum is
- * not the recorded one. S counts the lines over the sprite limits (32 sprites,
+ * undrawn U unheard H sprites S"; the exit status is 1 when a byte was lost, a register write was one
+ * Rachael does not draw (sdevkit__undrawn), a DSP write one she does not play (sdevkit__sound.unheard),
+ * or the file is a recording and a tick's checksum is not the recorded one. sound.txt there has
+ * the sound as dampf's emulator also writes it (dampf.emu.ExampleCheck): every DSP write, "init"
+ * (in game_init) or the tick after which it was made, the register and the value in hex; after
+ * game_init's writes the line "aram H": the FNV-1a of the bytes written into the audio RAM from $0200 on (each its address, low and high byte, then the value, in the order written). S counts the lines over the sprite limits (32 sprites,
  * 34 tiles); a game may mean that (flicker), so it does not fail the check.
  *
  * This file is host code for the desktop's C compiler, not for dampf.
@@ -79,6 +85,100 @@ static unsigned sprite_lines;
 static FILE *hashes;
 static long tick_count;
 static uint32_t last_hash;                 /* the checksum of the last tick */
+
+/* --- the sound ------------------------------------------------------------------------------- */
+/* What a tick makes of the DSP's output: on the SNES 32000 / 60.0988 samples (NTSC), in the window
+ * 32000 / 60, the window's frame rate, so that the stream neither runs dry nor fills up. */
+static long sound_ticks;                   /* ticks whose samples were made */
+static long sound_rate = 600988;           /* frames per 10,000 seconds */
+static FILE *sound_log;                    /* a check's sound.txt */
+static long sound_tick = -1;               /* the tick a DSP write belongs to; -1 is game_init */
+static FILE *wav;                          /* --wav: the DSP's output */
+static unsigned long wav_frames;
+
+static void log_dsp(uint8_t reg, uint8_t value)
+{
+    if (sound_tick < 0) {
+        fprintf(sound_log, "init %02x %02x\n", reg, value);
+    } else {
+        fprintf(sound_log, "%ld %02x %02x\n", sound_tick, reg, value);
+    }
+}
+
+#define AUDIO_CHUNK 1024                    /* frames the stream asks for at a time */
+#define FIFO_FRAMES (AUDIO_CHUNK * 8)
+static AudioStream stream;
+static int audio_on;
+static int16_t fifo[FIFO_FRAMES * 2];
+static unsigned fifo_n;
+
+static void le(FILE *f, unsigned long v, int bytes)
+{
+    int i;
+
+    for (i = 0; i < bytes; i++) {
+        fputc((int)(v >> (8 * i)) & 0xFF, f);
+    }
+}
+
+static void wav_header(FILE *f, unsigned long frames)
+{
+    fwrite("RIFF", 1, 4, f);
+    le(f, 36 + frames * 4, 4);
+    fwrite("WAVEfmt ", 1, 8, f);
+    le(f, 16, 4);
+    le(f, 1, 2);                            /* PCM */
+    le(f, 2, 2);                            /* stereo */
+    le(f, SDEVKIT__DSP_RATE, 4);
+    le(f, SDEVKIT__DSP_RATE * 4, 4);
+    le(f, 4, 2);
+    le(f, 16, 2);
+    fwrite("data", 1, 4, f);
+    le(f, frames * 4, 4);
+}
+
+/* The samples of one tick: into the window's stream, or the check's WAV file. */
+static void sound_step(void)
+{
+    static int16_t buf[1200 * 2];
+    long long a = (long long)sound_ticks * SDEVKIT__DSP_RATE * 10000 / sound_rate;
+    long long b = (long long)(sound_ticks + 1) * SDEVKIT__DSP_RATE * 10000 / sound_rate;
+    unsigned n = (unsigned)(b - a), i;
+
+    sound_ticks++;
+    sdevkit__dsp_render(buf, n);
+    if (wav != NULL) {
+        for (i = 0; i < n * 2; i++) {
+            le(wav, (unsigned long)(uint16_t)buf[i], 2);
+        }
+        wav_frames += n;
+    }
+    if (audio_on) {
+        if (fifo_n + n > FIFO_FRAMES) {     /* fast forward: the oldest go */
+            unsigned drop = fifo_n + n - FIFO_FRAMES;
+            memmove(fifo, fifo + drop * 2, (fifo_n - drop) * 2 * sizeof fifo[0]);
+            fifo_n -= drop;
+        }
+        memcpy(fifo + fifo_n * 2, buf, n * 2 * sizeof buf[0]);
+        fifo_n += n;
+    }
+}
+
+/* The window's stream asks for its next chunk: from the samples made, silence where there are none. */
+static void audio_feed(void)
+{
+    static int16_t chunk[AUDIO_CHUNK * 2];
+
+    while (audio_on && IsAudioStreamProcessed(stream)) {
+        unsigned n = fifo_n < AUDIO_CHUNK ? fifo_n : AUDIO_CHUNK;
+        memcpy(chunk, fifo, n * 2 * sizeof fifo[0]);
+        memset(chunk + n * 2, 0, (AUDIO_CHUNK - n) * 2 * sizeof chunk[0]);
+        memmove(fifo, fifo + n * 2, (fifo_n - n) * 2 * sizeof fifo[0]);
+        fifo_n -= n;
+        UpdateAudioStream(stream, chunk, AUDIO_CHUNK);
+    }
+}
+
 
 /* --- recordings ------------------------------------------------------------------------------- */
 static const struct { const char *name; uint16_t bit; } BUTTONS[] = {
@@ -280,6 +380,9 @@ static unsigned frame_step(const uint16_t pad[SDEVKIT_PADS])
     lost = sdevkit__stats().dma_lost;
     sdevkit__vblank();
     game_vblank();
+    sound_tick = tick_count - 1;
+    sdevkit__sfx_frame();
+    sound_step();
     s = sdevkit__stats();
     picture();
     lost += s.dma_lost;
@@ -421,6 +524,16 @@ static void report_undrawn(FILE *out)
     }
 }
 
+/* DSP writes Rachael does not play (sdevkit__sound.unheard): the SNES would sound different. */
+static void report_unheard(FILE *out)
+{
+    if (sdevkit__sound.unheard > 0) {
+        fprintf(out, "%s: %u DSP writes Rachael does not play, the first $%02X = $%02X "
+                     "(docs/sound.md: what Rachael's DSP plays)\n",
+                GAME_NAME, sdevkit__sound.unheard, sdevkit__sound.unheard_reg, sdevkit__sound.unheard_value);
+    }
+}
+
 /* The window's title: the game, the tick, and what the debugger does. */
 static void title(int paused, int fast, int replaying)
 {
@@ -483,6 +596,14 @@ static int window(int scale, int no_crt, const char *replay_file)
     }
     crt_ok = sdevkit__crt_load();
     crt_on = crt_ok && !no_crt;
+    sound_rate = 600000;                    /* the window's 60 frames a second */
+    InitAudioDevice();
+    if (IsAudioDeviceReady()) {
+        SetAudioStreamBufferSizeDefault(AUDIO_CHUNK);
+        stream = LoadAudioStream(SDEVKIT__DSP_RATE, 16, 2);
+        PlayAudioStream(stream);
+        audio_on = 1;
+    }
     splash_texture = tex;
     splash_scale = scale;
     rec.on = 1;
@@ -523,6 +644,7 @@ static int window(int scale, int no_crt, const char *replay_file)
                 break;
             }
         }
+        audio_feed();
         show(tex);
         if (tick_count != shown_tick || IsKeyPressed(KEY_F5) || IsKeyPressed(KEY_F7)) {
             if ((tick_count & 15) == 0 || paused || fast || tick_count - shown_tick != 1) {
@@ -538,11 +660,16 @@ static int window(int scale, int no_crt, const char *replay_file)
     }
     sdevkit__crt_unload();
     UnloadTexture(tex);
+    if (audio_on) {
+        UnloadAudioStream(stream);
+        CloseAudioDevice();
+    }
     CloseWindow();
     if (lost > 0) {
         fprintf(stderr, "%s: %u bytes would not have reached the PPU on the SNES\n", GAME_NAME, lost);
     }
     report_undrawn(stderr);
+    report_unheard(stderr);
     return 0;
 }
 
@@ -562,7 +689,7 @@ static uint16_t button(const char *name)
 
 /* Plays the input of a check.txt (or a recording) without a window. With a recording's
  * checksums, a tick that differs is reported, and the exit status is 1. */
-static int check(const char *path, const char *out, const char *record)
+static int check(const char *path, const char *out, const char *record, const char *wav_file)
 {
     Input in;
     long f, differs = -1;
@@ -581,8 +708,28 @@ static int check(const char *path, const char *out, const char *record)
             return 2;
         }
     }
+    {
+        char name[512];
+        snprintf(name, sizeof name, "%s/sound.txt", out);
+        sound_log = fopen(name, "wb");
+        if (sound_log == NULL) {
+            fprintf(stderr, "check: cannot write %s\n", name);
+            return 2;
+        }
+        sdevkit__sound.log = log_dsp;
+    }
+    if (wav_file != NULL) {
+        wav = fopen(wav_file, "wb");
+        if (wav == NULL) {
+            fprintf(stderr, "check: cannot write %s\n", wav_file);
+            return 2;
+        }
+        wav_header(wav, 0);
+    }
     rec.on = record != NULL;
+    sound_tick = -1;
     start();
+    fprintf(sound_log, "aram %08x\n", (unsigned)sdevkit__sound.upload_hash);
     for (f = 0; f < in.ticks; f++) {
         uint16_t pad[SDEVKIT_PADS] = { 0, 0 };
         unsigned l;
@@ -607,6 +754,15 @@ static int check(const char *path, const char *out, const char *record)
     }
     fclose(hashes);
     hashes = NULL;
+    sdevkit__sound.log = NULL;
+    fclose(sound_log);
+    sound_log = NULL;
+    if (wav != NULL) {
+        fseek(wav, 0, SEEK_SET);
+        wav_header(wav, wav_frames);
+        fclose(wav);
+        wav = NULL;
+    }
     if (record != NULL) {
         int i;
         for (i = 0; i < in.nmarks && rec.nmarks < MAX_MARKS; i++) {
@@ -617,9 +773,10 @@ static int check(const char *path, const char *out, const char *record)
         }
     }
     report_undrawn(stdout);
-    printf("frames %ld ticks %ld lost %u undrawn %u sprites %u\n", in.ticks, in.ticks, lost, sdevkit__rachael.undrawn,
-           sprite_lines);
-    return lost > 0 || sdevkit__rachael.undrawn > 0 || differs >= 0 ? 1 : 0;
+    report_unheard(stdout);
+    printf("frames %ld ticks %ld lost %u undrawn %u unheard %u sprites %u\n", in.ticks, in.ticks, lost,
+           sdevkit__rachael.undrawn, sdevkit__sound.unheard, sprite_lines);
+    return lost > 0 || sdevkit__rachael.undrawn > 0 || sdevkit__sound.unheard > 0 || differs >= 0 ? 1 : 0;
 }
 
 int main(int argc, char **argv)
@@ -627,6 +784,7 @@ int main(int argc, char **argv)
     const char *check_file = NULL;
     const char *replay_file = NULL;
     const char *record_file = NULL;
+    const char *wav_file = NULL;
     const char *out = ".";
     int scale = 3;
     int no_crt = 0;
@@ -639,6 +797,8 @@ int main(int argc, char **argv)
             replay_file = argv[++i];
         } else if (strcmp(argv[i], "--record") == 0 && i + 1 < argc) {
             record_file = argv[++i];
+        } else if (strcmp(argv[i], "--wav") == 0 && i + 1 < argc) {
+            wav_file = argv[++i];
         } else if (strcmp(argv[i], "--out") == 0 && i + 1 < argc) {
             out = argv[++i];
         } else if (strcmp(argv[i], "--scale") == 0 && i + 1 < argc) {
@@ -647,13 +807,13 @@ int main(int argc, char **argv)
             no_crt = 1;
         } else {
             fprintf(stderr, "usage: %s [--scale N] [--no-crt] [--replay recording.txt]\n"
-                            "       %s --check check.txt [--out dir] [--record recording.txt]\n", argv[0], argv[0]);
+                            "       %s --check check.txt [--out dir] [--record recording.txt] [--wav sound.wav]\n", argv[0], argv[0]);
             return 2;
         }
     }
     if (check_file != NULL) {
         SetTraceLogLevel(LOG_WARNING);
-        return check(check_file, out, record_file);
+        return check(check_file, out, record_file, wav_file);
     }
     return window(scale < 1 ? 1 : scale, no_crt, replay_file);
 }

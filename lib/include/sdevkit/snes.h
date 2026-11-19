@@ -234,6 +234,32 @@ void sdevkit_mode7_set_matrix(int16_t a, int16_t b, int16_t c, int16_t d);
 void sdevkit_mode7_set_center(int16_t x, int16_t y);
 void sdevkit_mode7_set_select(uint8_t select);       /* SDEVKIT_M7_*: outside the map, flips */
 
+/* --- Sound effects (sdevkit_sfx_*, docs/sound.md) ----------------------------------------- */
+/* A game's effects come from its assets/sfx/sfx.json: superdevkit sfx converts it into a header
+ * with a name per effect (SFX_JUMP, ...) and a bank, NAME_bank, which these functions play. The
+ * fields are the build's; a game only passes the bank on. */
+#define SDEVKIT_SFX_OFF 0xFF              /* the sample of an effect without an active one */
+typedef struct {
+    uint8_t                effects;       /* how many, SFX_COUNT */
+    uint8_t                voices;        /* how many of the DSP's 8 voices the effects use, 1..8 */
+    uint8_t                samples;       /* the active samples, one entry each in the sample directory */
+    const uint8_t         *sample;        /* per effect: its sample's number, or SDEVKIT_SFX_OFF */
+    const uint8_t         *priority;      /* per effect: the higher wins a voice */
+    const uint8_t         *volume;        /* per effect: the voice's volume register, 0..127 */
+    const uint16_t        *pitch;         /* per effect: the pitch register, rate * 4096 / 32000 */
+    const uint16_t        *frames;        /* per effect: how long it plays, in frames, plus one */
+    const uint8_t *const  *brr;           /* per sample: its BRR blocks */
+    const uint16_t        *brr_size;      /* per sample: their bytes */
+} sdevkit_sfx_bank;
+/* Loads the bank's samples into the audio RAM and starts the sound: once, in game_init (the screen
+ * is off). On the SNES it waits for the sound CPU's boot code and sends every byte through it,
+ * about a frame per 2 KB. A null bank does nothing. */
+void sdevkit_sfx_init(const sdevkit_sfx_bank *bank);
+/* Plays an effect: it starts after this tick, when a voice is free or the voice of an effect with
+ * a lower priority (or the older one of the same) gives way; otherwise it is dropped. An effect
+ * without an active sample, or before sdevkit_sfx_init, does nothing. */
+void sdevkit_sfx_play(uint8_t id);
+
 /* --- Debug (sdevkit_dbg_*) --------------------------------------------------------------- */
 /* VRAM as 0x8000 words, for a debug check of the tile maps on the desktop. Only Rachael
  * can read VRAM like memory; on the SNES it returns a single zero word, so a check that uses it

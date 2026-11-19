@@ -9,12 +9,13 @@ Linux and Windows; the browser comes later. The kit holds:
 - the **library** ([lib](lib/README.md)): the console API in C for the SNES, and
   [Rachael](lib/README.md#rachael), the SNES rebuilt in portable C, with a desktop frontend
   (a window, the keyboard and gamepads, recordings and replays);
-- the **tools** ([tools](tools/README.md)): graphics from PNG files, sound effects to try;
+- the **tools** ([tools](tools/README.md)): graphics from PNG files, the editor of a game's sound
+  effects (BRR Lab; the conversion is `superdevkit sfx`, [docs/sound.md](docs/sound.md));
 - **examples** ([examples](examples/)): games and programs, from `hello` to the shooter
   Er-Tüp, which are also the kit's test cases and its benchmark;
 - the **book** ([docs/book](docs/book)): the user guide and the reference.
 
-Status: version 0.5.0, in work. Milestones M0 to M4 and M6 (dampf's own assembler and linker)
+Status: version 0.5.1, in work. Milestones M0 to M4 and M6 (dampf's own assembler and linker)
 are done; M5, in which Blubber Blasen (the kit's first user, a game in its own repository) builds
 its ROM with the kit, is in work, and so is M7, the desktop and the `superdevkit` command. The
 milestones and versions are in [docs/roadmap.md](docs/roadmap.md), why the kit is the project and
@@ -33,7 +34,8 @@ The name: in German, *Dampf machen* ("make steam") means to get things moving fa
 the steam factory of Blubber Blasen.
 
 dampf compiles all of Blubber Blasen and built a playable ROM of it, with the console API written
-in C in [lib/snes](lib/snes/README.md) (sound and save RAM are not built yet). During play the
+in C in [lib/snes](lib/snes/README.md) (save RAM is not built yet; sound effects came after the
+game left, [docs/sound.md](docs/sound.md)). During play the
 game took 0.79 frames per tick ([docs/optimizations.md](docs/optimizations.md#where-things-stand)). Since
 2026-11-19 the kit's own examples (`examples/`) are dampf's test cases and its benchmark
 (`dev/bench_examples.sh`), and the game's code is no longer in this repository

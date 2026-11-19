@@ -32,7 +32,8 @@ class LibNamesTest {
     /** A function declaration at file scope: the name before the parameter list. */
     private static final Pattern FUNCTION = Pattern.compile("\\b(\\w+)\\s*\\([^(){};]*\\)\\s*;");
     private static final Pattern EXTERN = Pattern.compile("\\bextern\\b[^;(]*?\\b(\\w+)\\s*(?:\\[[^\\]]*\\])*\\s*;");
-    private static final Pattern TYPEDEF = Pattern.compile("\\btypedef\\b[^;]*?\\b(\\w+)\\s*;");
+    /** A typedef: the name before the semicolon, after the body of a struct if it has one. */
+    private static final Pattern TYPEDEF = Pattern.compile("\\btypedef\\b(?:[^;{]*\\{[^}]*\\})?[^;{]*?\\b(\\w+)\\s*;");
 
     @TempDir
     Path tmp;
@@ -69,7 +70,8 @@ class LibNamesTest {
     @Test
     void everyNameOfThePublicHeadersHasThePrefix() throws IOException {
         Set<String> names = publicNames();
-        assertTrue(names.containsAll(List.of("sdevkit_oam_set", "sdevkit_oam_memory", "SDEVKIT_KEY_A", "SDEVKIT_RGB5", "game_tick")),
+        assertTrue(names.containsAll(List.of("sdevkit_oam_set", "sdevkit_oam_memory", "SDEVKIT_KEY_A", "SDEVKIT_RGB5", "game_tick",
+                "sdevkit_sfx_bank")),
                 "the header scan missed names: " + names);
         List<String> wrong = names.stream()
                 .filter(n -> !n.startsWith("sdevkit_") && !n.startsWith("SDEVKIT_") && !GAME_CALLBACKS.contains(n)).toList();

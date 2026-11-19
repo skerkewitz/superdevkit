@@ -44,6 +44,7 @@ class BackendOutputTest {
     private static final Path OUT = Path.of("build/backend-output");
     private static final Path REF = Path.of("build/backend-output-ref");
     static final int RANDOM_PROGRAMS = 20;
+    /** The checkout's folder, which the hashes leave out: they are the same in every checkout. */
 
     @Test
     void theOutputIsAsRecorded() throws Exception {

@@ -14,7 +14,7 @@ class MainTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         System.setOut(new PrintStream(out));
         try {
-            Main.main(new String[] { "--version" });
+            Main.run(new String[] { "--version" });
         } finally {
             System.setOut(old);
         }

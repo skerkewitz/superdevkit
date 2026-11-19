@@ -106,6 +106,7 @@ void sdevkit__reset(void)
     memset(sdevkit_oam_memory, 0, sizeof sdevkit_oam_memory);
     sdevkit__rachael.regs[SDEVKIT_PPU_INIDISP] = 0x80;   /* forced blank until the game turns the screen on */
     sdevkit__rachael.tick_hash = SDEVKIT__HASH_START;
+    sdevkit__sound_reset();
 }
 
 void sdevkit__vblank(void)

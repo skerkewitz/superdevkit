@@ -1,8 +1,9 @@
 #!/bin/sh
 # Plays an example on the SNES (Mesen, dev/check_example.sh) and on the desktop (its headless
 # check) with the same input, and compares the screenshots pixel for pixel (dev/compare_shots.py)
-# and the checksum after every tick (sdevkit_dbg_hash): dampf's code and gcc's, lib/snes and
-# Rachael must compute and show the same.
+# and the checksum after every tick (sdevkit_dbg_hash), and the sound (every DSP write of the
+# SNES's sound CPU, and what game_init uploaded into the audio RAM): dampf's code and gcc's, lib/snes and
+# Rachael must compute, show and play the same.
 #   dev/compare_example.sh catchme
 set -e
 cd "$(dirname "$0")/.."
@@ -20,3 +21,9 @@ if ! cmp -s "$EX/build/check/hashes.unix.txt" "$EX/build/desktop-check/hashes.tx
     exit 1
 fi
 echo "checksums: $(wc -l < "$EX/build/desktop-check/hashes.txt") ticks the same"
+if ! cmp -s "$EX/build/check/sound.txt" "$EX/build/desktop-check/sound.txt"; then
+    echo "compare: the sound differs, first at:"
+    diff "$EX/build/check/sound.txt" "$EX/build/desktop-check/sound.txt" | head -4
+    exit 1
+fi
+echo "sound: $(grep -c . "$EX/build/desktop-check/sound.txt") lines the same"

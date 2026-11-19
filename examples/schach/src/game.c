@@ -17,6 +17,10 @@
  * The console thinks for a node limit, some steps of the search every tick (search_run, schach.h),
  * so the cursor keeps moving while it thinks, and the same move comes on the SNES and on the
  * desktop. A tick of the search takes about two frames on the SNES.
+ *
+ * Sound (assets/sfx/sfx.json, one voice): a piece put down or taken on every move, "your move" when
+ * the console has moved, "check" and "checkmate". They come in the same tick, and with one voice
+ * the higher priority wins: the last two over the others, "your move" over the console's piece.
  */
 #include "search.h"
 #include "book.h"
@@ -26,6 +30,7 @@
 #include "board_gfx.h"
 #include "sprites_gfx.h"
 #include "font_gfx.h"
+#include "sfx.h"
 
 #define BG1_TILES_16   (1 << 4)        /* BGMODE: layer 1 has 16 x 16 tiles */
 #define VRAM_BOARD     0x0000
@@ -309,6 +314,7 @@ static void move_made(uint8_t from, uint8_t to, uint8_t flag)
 {
     uint8_t end;
 
+    sdevkit_sfx_play(board[to] != EMPTY || flag == MF_EP ? SFX_TAKE : SFX_PUT);
     move_text(from, to, flag, san[plies & 31]);
     if (side == BLACK) {
         panel(6, "I played:");
@@ -321,6 +327,13 @@ static void move_made(uint8_t from, uint8_t to, uint8_t flag)
     draw_moves();
     list_legal();
     end = game_end();
+    if (end == END_MATE) {
+        sdevkit_sfx_play(SFX_MATE);
+    } else if (in_check()) {
+        sdevkit_sfx_play(SFX_CHECK);
+    } else if (end == END_NONE && side == WHITE) {
+        sdevkit_sfx_play(SFX_YOUR_MOVE);
+    }
     if (end != END_NONE) {
         state = ST_OVER;
         held = NO_SQ;
@@ -598,6 +611,7 @@ void game_init(uint16_t init_seed)
         board_map[j] = element_tile(31);
     }
     chess_init();
+    sdevkit_sfx_init(&sfx_bank);
     book_init();
     draw_labels();
     panel_yellow(1, "Schach");

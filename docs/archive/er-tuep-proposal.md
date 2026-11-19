@@ -2,8 +2,8 @@
 
 Archived 2026-11-19: built. The checks compare a checksum per tick (ADR record 38), and all three
 stages play with their bosses, the third in mode 7, and end the game
-([examples/ertuep](../../examples/ertuep/README.md), its README says what is in it). Sound waits
-for the kit's and is listed among its users in [sound-effects-proposal.md](../sound-effects-proposal.md).
+([examples/ertuep](../../examples/ertuep/README.md), its README says what is in it). Open: sound,
+which the kit now has ([docs/sound.md](../sound.md)).
 
 What the building changed against the text below: positions are 12.4 fixed point, not 8.8 (the
 screen is 256 pixels wide, and objects live beside it); the frame is guarded by a measured budget
@@ -91,7 +91,7 @@ Mode 1 for stages 1 and 2: BG1 the stage in 16 x 16 tiles, scrolled; BG2 the bos
 own scroll registers and animated by changing tiles, so it costs no sprites; BG3 the status line.
 Sprites for the ship, the crate, shots, enemies, debris: up to 128, at most 32 on a line, which
 the desktop check counts (`sprites N`). Stage 3 in mode 7. No sound: the effects come with the
-kit's sound (docs/sound-effects-proposal.md), Er-Tüp as its third user after Schach and
+kit's sound (docs/sound.md), Er-Tüp as its third user after Schach and
 Steinschlag.
 
 ## What it exercises in dampf
