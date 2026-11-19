@@ -176,3 +176,5 @@ need no licence and can be made again. Their settings are then chosen in the Lab
   or first only "the same effects started in the same frames".
 - Whether `sdevkit_sfx_play` takes a volume or a pan as well, or the file's values are enough for
   now.
+- A jingle with the splash screen (ADR record 37): short, a few KB of BRR, loaded with the effects
+  and played as the logo fades in; and whether a button that shortens the splash cuts it off.

@@ -1,9 +1,12 @@
 # Proposal: a splash screen in every game made with superdevkit
 
-Status: built, 2026-11-19 (ADR record 37), with two changes by the user: no movement besides the
-fades, and the logo stays three seconds; a button pressed while it fades in or stays ends it once
-it has faded in. "Movement" below and the open question on switching it off are therefore not
-built.
+Archived 2026-11-19: built (ADR record 37,
+[../adr/0037-every-game-starts-with-the-kit-s-splash-screen.md](../adr/0037-every-game-starts-with-the-kit-s-splash-screen.md)),
+with two changes by the user: no movement besides the fades, and the logo stays three seconds; a
+button pressed while it fades in or stays ends it once it has faded in. So "Movement" below is not
+built, and the splash cannot be switched off, only shortened. The picture is made by
+`dev/art/splash.py`, the course is `lib/splash/splash.h`. The jingle waits for sound, as an open
+question of [sound-effects-proposal.md](../sound-effects-proposal.md).
 
 ## What
 
@@ -94,7 +97,7 @@ judgement, not legal advice.
 - Can a game switch it off? The user's idea is that it is always there. A build option for
   development only (the checks and the replays would not need it anyway) is enough for impatient
   testing, and a release build always shows it.
-- A jingle with it, once the kit has sound effects ([sound-effects-proposal.md](sound-effects-proposal.md))?
+- A jingle with it, once the kit has sound effects ([sound-effects-proposal.md](../sound-effects-proposal.md))?
   Short, a few KB of BRR, loaded with the effects and played as the logo fades in.
 - PAL: two seconds are 100 frames there, not 120; the splash counts time in frames, so it lasts a
   sixth longer on PAL, as the games do (ADR record 36).

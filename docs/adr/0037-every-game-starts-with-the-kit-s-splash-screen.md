@@ -3,7 +3,7 @@
 **Context.** Games made with Unity, Godot or Unreal start with the engine's logo, and so tell
 whoever plays them what they were made with. The user wants the same for every game made with
 superdevkit, without a line of the game's code, on every target
-([splash-screen-proposal.md](../splash-screen-proposal.md)). A splash in the library runs before
+([splash-screen-proposal.md](../archive/splash-screen-proposal.md)). A splash in the library runs before
 `game_init`, so it must leave the console as the game expects it, and it must not disturb the
 checks of the examples, which count ticks by the copy of the sprite table and compare the SNES
 with the desktop picture by picture.

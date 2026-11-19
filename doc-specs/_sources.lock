@@ -62,7 +62,7 @@ guide/introduction docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.
 guide/introduction docs/adr/0034-every-name-of-the-console-api-starts-with.md de6b41464018
 guide/introduction docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
 guide/introduction docs/adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md 92353ab17311
-guide/introduction docs/adr/0037-every-game-starts-with-the-kit-s-splash-screen.md e89fbd5a9eff
+guide/introduction docs/adr/0037-every-game-starts-with-the-kit-s-splash-screen.md f1e423f1eb87
 guide/introduction docs/optimizations.md 647f94a894cd
 guide/introduction docs/roadmap.md 5853b138630f
 guide/introduction lib/README.md 923cf01650c1
@@ -113,7 +113,7 @@ guide/writing-c docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md 
 guide/writing-c docs/adr/0034-every-name-of-the-console-api-starts-with.md de6b41464018
 guide/writing-c docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
 guide/writing-c docs/adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md 92353ab17311
-guide/writing-c docs/adr/0037-every-game-starts-with-the-kit-s-splash-screen.md e89fbd5a9eff
+guide/writing-c docs/adr/0037-every-game-starts-with-the-kit-s-splash-screen.md f1e423f1eb87
 guide/writing-c docs/subset.md 91c2e2a5019a
 guide/writing-c src/main/java/dampf/Main.java b19bb0c88acd
 guide/writing-c src/main/java/dampf/check/CallGraph.java 1f480e8e97b7
@@ -181,7 +181,7 @@ inside/how-a-compile-works docs/adr/0033-mesence-is-the-emulator-for-the-console
 inside/how-a-compile-works docs/adr/0034-every-name-of-the-console-api-starts-with.md de6b41464018
 inside/how-a-compile-works docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
 inside/how-a-compile-works docs/adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md 92353ab17311
-inside/how-a-compile-works docs/adr/0037-every-game-starts-with-the-kit-s-splash-screen.md e89fbd5a9eff
+inside/how-a-compile-works docs/adr/0037-every-game-starts-with-the-kit-s-splash-screen.md f1e423f1eb87
 inside/how-a-compile-works docs/architecture.md 09ce4c89900a
 inside/how-a-compile-works src/main/antlr/dampf/parser/README.md 45d7fdf1170c
 inside/how-a-compile-works src/main/java/dampf/Compiler.java 27002cdf7153
@@ -232,7 +232,7 @@ inside/mir docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md 5ad51
 inside/mir docs/adr/0034-every-name-of-the-console-api-starts-with.md de6b41464018
 inside/mir docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
 inside/mir docs/adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md 92353ab17311
-inside/mir docs/adr/0037-every-game-starts-with-the-kit-s-splash-screen.md e89fbd5a9eff
+inside/mir docs/adr/0037-every-game-starts-with-the-kit-s-splash-screen.md f1e423f1eb87
 inside/mir docs/architecture.md 09ce4c89900a
 inside/mir docs/testing.md 028cc22e5018
 inside/mir src/main/java/dampf/mir/Instr.java 7c4f924e88f7
@@ -279,7 +279,7 @@ inside/optimizations docs/adr/0033-mesence-is-the-emulator-for-the-console-check
 inside/optimizations docs/adr/0034-every-name-of-the-console-api-starts-with.md de6b41464018
 inside/optimizations docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
 inside/optimizations docs/adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md 92353ab17311
-inside/optimizations docs/adr/0037-every-game-starts-with-the-kit-s-splash-screen.md e89fbd5a9eff
+inside/optimizations docs/adr/0037-every-game-starts-with-the-kit-s-splash-screen.md f1e423f1eb87
 inside/optimizations docs/architecture.md 09ce4c89900a
 inside/optimizations docs/optimizations-log.md aa804c6b80ab
 inside/optimizations docs/optimizations.md 647f94a894cd
@@ -388,7 +388,7 @@ inside/roadmap docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md 5
 inside/roadmap docs/adr/0034-every-name-of-the-console-api-starts-with.md de6b41464018
 inside/roadmap docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
 inside/roadmap docs/adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md 92353ab17311
-inside/roadmap docs/adr/0037-every-game-starts-with-the-kit-s-splash-screen.md e89fbd5a9eff
+inside/roadmap docs/adr/0037-every-game-starts-with-the-kit-s-splash-screen.md f1e423f1eb87
 inside/roadmap docs/roadmap.md 5853b138630f
 inside/roadmap lib/README.md 923cf01650c1
 inside/testing README.md 7a2f2177bf74
@@ -469,7 +469,7 @@ reference/c-subset docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.
 reference/c-subset docs/adr/0034-every-name-of-the-console-api-starts-with.md de6b41464018
 reference/c-subset docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
 reference/c-subset docs/adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md 92353ab17311
-reference/c-subset docs/adr/0037-every-game-starts-with-the-kit-s-splash-screen.md e89fbd5a9eff
+reference/c-subset docs/adr/0037-every-game-starts-with-the-kit-s-splash-screen.md f1e423f1eb87
 reference/c-subset docs/subset.md 91c2e2a5019a
 reference/c-subset src/main/java/dampf/check/CallGraph.java 1f480e8e97b7
 reference/c-subset src/main/java/dampf/frontend/AstBuilder.java 8bb4e33c67d1
@@ -530,7 +530,7 @@ reference/hints docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md 
 reference/hints docs/adr/0034-every-name-of-the-console-api-starts-with.md de6b41464018
 reference/hints docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
 reference/hints docs/adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md 92353ab17311
-reference/hints docs/adr/0037-every-game-starts-with-the-kit-s-splash-screen.md e89fbd5a9eff
+reference/hints docs/adr/0037-every-game-starts-with-the-kit-s-splash-screen.md f1e423f1eb87
 reference/hints docs/hints.md 385e5701f6b1
 reference/hints docs/subrange-types.md 36b327590609
 reference/hints docs/timing.md 2c50d5c61005
@@ -579,7 +579,7 @@ reference/limits docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md
 reference/limits docs/adr/0034-every-name-of-the-console-api-starts-with.md de6b41464018
 reference/limits docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
 reference/limits docs/adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md 92353ab17311
-reference/limits docs/adr/0037-every-game-starts-with-the-kit-s-splash-screen.md e89fbd5a9eff
+reference/limits docs/adr/0037-every-game-starts-with-the-kit-s-splash-screen.md f1e423f1eb87
 reference/limits docs/hints.md 385e5701f6b1
 reference/limits docs/optimizations.md 647f94a894cd
 reference/limits docs/roadmap.md 5853b138630f
@@ -634,7 +634,7 @@ reference/runtime-and-memory docs/adr/0033-mesence-is-the-emulator-for-the-conso
 reference/runtime-and-memory docs/adr/0034-every-name-of-the-console-api-starts-with.md de6b41464018
 reference/runtime-and-memory docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
 reference/runtime-and-memory docs/adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md 92353ab17311
-reference/runtime-and-memory docs/adr/0037-every-game-starts-with-the-kit-s-splash-screen.md e89fbd5a9eff
+reference/runtime-and-memory docs/adr/0037-every-game-starts-with-the-kit-s-splash-screen.md f1e423f1eb87
 reference/runtime-and-memory docs/memory-map.md f314d1a27652
 reference/runtime-and-memory docs/optimizations.md 647f94a894cd
 reference/runtime-and-memory src/main/java/dampf/backend/FrameLayout.java 4b380f377e64
