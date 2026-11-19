@@ -1,0 +1,258 @@
+package superdevkit.project;
+
+import dampf.Compiler;
+import dampf.ConfigFile;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import superdevkit.gfx.Png2Snes;
+import superdevkit.sfx.Sfx;
+
+/**
+ * What {@code superdevkit build <target>} does for a project, as a list of steps (ADR record 31):
+ * {@code --plan} prints them, {@code --dry-run} checks that what each needs is there, and a build
+ * runs them, printing each with {@code --verbose}. No step runs a shell: the converters and dampf
+ * run in this Java, the desktop's C compiler is called directly, one call per file and one to link.
+ *
+ * <p>The targets: {@code snes} (build/snes/NAME.sfc, with dampf and the kit's lib/snes),
+ * {@code linux} and {@code win64} (Desktop). Every build converts the assets into build/gen first
+ * and writes build/compile_commands.json for editors: the game's files as dampf sees them.
+ */
+public final class Build {
+    /** One thing the build does: a line for the plan, the files it needs, and the work. */
+    public record Step(String tool, String line, List<Path> needs, Work work) {}
+
+    /** The work of a step. */
+    public interface Work {
+        void run(PrintStream out) throws Exception;
+    }
+
+    /** A step that failed: its message is what the user reads. */
+    public static final class Failure extends Exception {
+        public Failure(String message) {
+            super(message);
+        }
+    }
+
+    public static final List<String> TARGETS = List.of("snes", "linux", "win64");
+
+    private Build() {
+    }
+
+    /** The steps of building {@code target}. */
+    public static List<Step> plan(Project p, Kit kit, String target, boolean debug) throws Failure, IOException {
+        List<Step> steps = new ArrayList<>(assets(p));
+        switch (target) {
+            case "snes" -> steps.add(dampf(p, kit));
+            case "linux", "win64" -> steps.addAll(Desktop.steps(p, kit, target, debug));
+            default -> throw new Failure("no target '" + target + "' (" + String.join(", ", TARGETS) + ")");
+        }
+        steps.add(compileCommands(p, kit));
+        return steps;
+    }
+
+    /** The conversions: every picture, then the sound effects, into build/gen. */
+    public static List<Step> assets(Project p) {
+        List<Step> steps = new ArrayList<>();
+        Path gen = p.gen();
+        for (Project.Graphic g : p.graphics()) {
+            String mode = g.mode().name().toLowerCase(java.util.Locale.ROOT);
+            String first = g.mode() == Png2Snes.Mode.MODE7 ? " " + g.first() : "";
+            steps.add(new Step("png", mode + " " + g.png() + " " + g.name() + " build/gen" + first, List.of(p.path(g.png())),
+                    out -> {
+                        try {
+                            Png2Snes.convert(g.mode(), p.path(g.png()), g.name(), gen, g.first());
+                        } catch (superdevkit.gfx.ConvertException e) {
+                            throw new Failure(e.getMessage());
+                        }
+                    }));
+        }
+        if (p.sfx() != null) {
+            steps.add(new Step("sfx", p.sfx() + " sfx build/gen", List.of(p.path(p.sfx())), out -> {
+                try {
+                    Sfx.Report r = Sfx.build(p.path(p.sfx()), "sfx", gen);
+                    for (String l : r.lines()) {
+                        out.println("    " + l);
+                    }
+                } catch (Sfx.Failure e) {
+                    throw new Failure(String.join("\n", e.messages()));
+                }
+            }));
+        }
+        return steps;
+    }
+
+    /** The game's C files: the sources (folders for their .c files) and what the conversions write. */
+    public static List<Path> gameSources(Project p) throws Failure, IOException {
+        List<Path> files = new ArrayList<>();
+        for (String s : p.sources()) {
+            try {
+                files.addAll(ConfigFile.sources(p.path(s)));
+            } catch (ConfigFile.Error e) {
+                throw new Failure(Project.FILE + ": sources: " + e.getMessage());
+            }
+        }
+        List<Path> generated = new ArrayList<>();
+        for (Project.Graphic g : p.graphics()) {
+            generated.add(p.gen().resolve(g.name() + ".c"));
+        }
+        if (p.sfx() != null) {
+            generated.add(p.gen().resolve("sfx.c"));
+        }
+        // in the order of their names, as dampf takes a folder's files (ConfigFile.sources)
+        generated.sort(null);
+        files.addAll(generated);
+        return files;
+    }
+
+    /** The include folders of the game: the kit's API, the game's headers, build/gen. */
+    public static List<Path> includes(Project p, Kit kit) {
+        List<Path> inc = new ArrayList<>();
+        inc.add(kit.lib().resolve("include"));
+        inc.addAll(p.includeDirs());
+        if (p.generates()) {
+            inc.add(p.gen());
+        }
+        return inc;
+    }
+
+    /** dampf's options for the SNES: the game, then the kit's lib/snes, entry main, the save RAM. */
+    public static Compiler.Options dampfOptions(Project p, Kit kit, Path rom) throws Failure, IOException {
+        List<Path> sources = new ArrayList<>(gameSources(p));
+        try {
+            sources.addAll(ConfigFile.sources(kit.lib().resolve("snes")));
+        } catch (ConfigFile.Error e) {
+            throw new Failure(e.getMessage());
+        }
+        return new Compiler.Options(sources, includes(p, kit), List.of(), "main", rom)
+                .withBackend(Compiler.Backend.MIR).withSram(p.sram());
+    }
+
+    public static Path rom(Project p) {
+        return p.dir().resolve("build").resolve("snes").resolve(p.name() + ".sfc");
+    }
+
+    private static Step dampf(Project p, Kit kit) throws Failure, IOException {
+        Path rom = rom(p);
+        StringBuilder line = new StringBuilder("build");
+        for (Path i : includes(p, kit)) {
+            line.append(" -I ").append(rel(p, i));
+        }
+        line.append(" --entry main");
+        if (p.sram() > 0) {
+            line.append(" --sram ").append(p.sram());
+        }
+        line.append(" -o ").append(rel(p, rom));
+        for (String s : p.sources()) {
+            line.append(' ').append(s);
+        }
+        if (p.generates()) {
+            line.append(" build/gen/");
+        }
+        line.append(' ').append(rel(p, kit.lib().resolve("snes"))).append('/');
+        List<Path> needs = new ArrayList<>();
+        for (String s : p.sources()) {
+            needs.add(p.path(s));
+        }
+        return new Step("dampf", line.toString(), needs, out -> {
+            Files.createDirectories(rom.getParent());
+            try {
+                Compiler.Result r = Compiler.compile(dampfOptions(p, kit, rom));
+                r.warnings().forEach(w -> out.println("    " + w));
+            } catch (dampf.frontend.CompileError e) {
+                throw new Failure(String.join("\n", e.diagnostics().stream().map(Object::toString).toList()));
+            }
+        });
+    }
+
+    /** build/compile_commands.json: each of the game's files with the options dampf's preprocessor gets. */
+    private static Step compileCommands(Project p, Kit kit) {
+        Path file = p.dir().resolve("build").resolve("compile_commands.json");
+        return new Step("write", rel(p, file), List.of(), out -> {
+            StringBuilder s = new StringBuilder("[\n");
+            List<Path> files = gameSources(p);
+            for (int k = 0; k < files.size(); k++) {
+                List<String> args = new ArrayList<>(List.of("cc", "-std=c99", "-nostdinc", "-undef", "-D__DAMPF__=1",
+                        "-isystem", kit.dampfInclude().toString()));
+                if (p.sram() > 0) {
+                    args.add("-DSDEVKIT_SRAM_SIZE=" + p.sram());
+                }
+                for (Path i : includes(p, kit)) {
+                    args.add("-I");
+                    args.add(i.toAbsolutePath().normalize().toString());
+                }
+                args.add("-c");
+                args.add(files.get(k).toAbsolutePath().normalize().toString());
+                s.append("  { \"directory\": ").append(json(p.dir().toAbsolutePath().normalize().toString()))
+                        .append(", \"file\": ").append(json(files.get(k).toAbsolutePath().normalize().toString()))
+                        .append(", \"arguments\": [");
+                for (int a = 0; a < args.size(); a++) {
+                    s.append(a > 0 ? ", " : "").append(json(args.get(a)));
+                }
+                s.append("] }").append(k + 1 < files.size() ? ",\n" : "\n");
+            }
+            Files.createDirectories(file.getParent());
+            Files.writeString(file, s.append("]\n").toString(), StandardCharsets.UTF_8);
+        });
+    }
+
+    static String json(String s) {
+        StringBuilder b = new StringBuilder("\"");
+        for (char c : s.toCharArray()) {
+            switch (c) {
+                case '"' -> b.append("\\\"");
+                case '\\' -> b.append("\\\\");
+                default -> b.append(c);
+            }
+        }
+        return b.append('"').toString();
+    }
+
+    /** A path as the plan shows it: relative to the project where it is inside it. */
+    public static String rel(Project p, Path x) {
+        Path d = p.dir().toAbsolutePath().normalize();
+        Path a = x.toAbsolutePath().normalize();
+        return a.startsWith(d) ? d.relativize(a).toString().replace('\\', '/') : a.toString();
+    }
+
+    /** Runs the steps: the plan only, the check only, or the work (printing each with verbose). */
+    public static int run(List<Step> steps, boolean plan, boolean dryRun, boolean verbose, PrintStream out, PrintStream err) {
+        if (plan || dryRun) {
+            int missing = 0;
+            for (Step s : steps) {
+                if (plan) {
+                    out.printf("  %-6s %s%n", s.tool(), s.line());
+                }
+                for (Path n : s.needs()) {
+                    if (!Files.exists(n)) {
+                        err.println("missing: " + n + " (for " + s.tool() + ")");
+                        missing++;
+                    }
+                }
+            }
+            if (dryRun) {
+                out.println(missing == 0 ? "everything the build needs is there" : missing + " missing");
+            }
+            return missing == 0 ? 0 : 1;
+        }
+        for (Step s : steps) {
+            if (verbose) {
+                out.printf("  %-6s %s%n", s.tool(), s.line());
+            }
+            try {
+                s.work().run(out);
+            } catch (Failure e) {
+                err.println("error: " + s.tool() + ": " + e.getMessage());
+                return 1;
+            } catch (Exception e) {
+                err.println("error: " + s.tool() + ": " + e);
+                return 1;
+            }
+        }
+        return 0;
+    }
+}

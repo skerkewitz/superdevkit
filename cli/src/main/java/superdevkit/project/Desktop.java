@@ -1,0 +1,306 @@
+package superdevkit.project;
+
+import java.io.IOException;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+
+/**
+ * The desktop targets (ADR records 31, 32 and 39): the game on Rachael, with the kit's frontend
+ * and raylib, built by the system's C compiler in three steps, as dev/build_desktop.sh did:
+ *
+ * <ol>
+ *   <li>the game's files alone, as on the SNES: without the host's headers, with dampf's include
+ *       folder and the kit's public headers only;</li>
+ *   <li>the symbol check ({@link Symbols}): what the game's objects call must be the kit's;</li>
+ *   <li>the link with Rachael, the frontend and raylib.</li>
+ * </ol>
+ *
+ * {@code linux}: gcc or clang ({@code CC}, default cc), build/linux/NAME. {@code win64}: MSVC,
+ * found with vswhere, on Windows or from WSL (ADR record 39), build/win64/NAME.exe. One call per
+ * file and one to link; MSVC's run in a batch file after vcvars64, which sets up its environment.
+ */
+final class Desktop {
+    private Desktop() {
+    }
+
+    static boolean wsl() {
+        try {
+            return Files.readString(Path.of("/proc/version")).toLowerCase(Locale.ROOT).contains("microsoft");
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    static boolean windows() {
+        return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("windows");
+    }
+
+    static Path output(Project p, String target) {
+        return p.dir().resolve("build").resolve(target).resolve(p.name() + (target.equals("win64") ? ".exe" : ""));
+    }
+
+    static List<Build.Step> steps(Project p, Kit kit, String target, boolean debug) throws Build.Failure, IOException {
+        if (target.equals("linux") && windows()) {
+            throw new Build.Failure("the target linux builds on Linux (or WSL); here it is win64");
+        }
+        if (target.equals("win64") && !windows() && !wsl()) {
+            throw new Build.Failure("the target win64 builds on Windows or WSL, with MSVC (ADR record 39)");
+        }
+        List<Build.Step> steps = new ArrayList<>();
+        Path ray = Raylib.folder(kit, target);
+        steps.add(new Build.Step("raylib", Raylib.VERSION + " for " + target + " in " + ray
+                + (Raylib.present(kit, target) ? "" : " (fetched from GitHub first)"), List.of(),
+                out -> Raylib.ensure(kit, target, out)));
+        Path obj = p.dir().resolve("build").resolve(target).resolve("obj");
+        List<Path> sources = Build.gameSources(p);
+        List<Path> objects = new ArrayList<>();
+        Map<Path, Path> objOf = new HashMap<>();
+        for (Path s : sources) {
+            String parent = s.getParent() == null ? "" : s.getParent().getFileName() + "_";
+            String base = s.getFileName().toString().replaceFirst("\\.c$", "");
+            Path o = obj.resolve(parent + base + (target.equals("win64") ? ".obj" : ".o"));
+            objects.add(o);
+            objOf.put(s, o);
+        }
+        return target.equals("win64") ? msvc(p, kit, debug, steps, ray, obj, sources, objects, objOf)
+                : gcc(p, kit, debug, steps, ray, obj, sources, objects, objOf);
+    }
+
+    // ------------------------------------------------------------------ linux: gcc or clang
+
+    private static List<Build.Step> gcc(Project p, Kit kit, boolean debug, List<Build.Step> steps, Path ray, Path obj,
+                                        List<Path> sources, List<Path> objects, Map<Path, Path> objOf) throws IOException {
+        String cc = System.getenv().getOrDefault("CC", "cc");
+        List<String> common = new ArrayList<>(List.of(cc, "-std=c99", debug ? "-O0" : "-O2", "-g", "-Wall", "-Wextra",
+                "-Wno-unused-parameter"));
+        if (p.sram() > 0) {
+            common.add("-DSDEVKIT_SRAM_SIZE=" + p.sram());
+        }
+        steps.add(new Build.Step("mkdir", Build.rel(p, obj), List.of(), out -> {
+            deleteTree(obj);
+            Files.createDirectories(obj);
+        }));
+        for (Path s : sources) {
+            List<String> cmd = new ArrayList<>(common);
+            // -ffreestanding and -fno-tree-loop-distribute-patterns keep gcc from turning the byte loop of
+            // dampf's static memcpy into a call of memcpy, which in that file is the loop itself
+            cmd.addAll(List.of("-nostdinc", "-ffreestanding", "-fno-tree-loop-distribute-patterns",
+                    "-isystem", kit.dampfInclude().toString()));
+            for (Path i : Build.includes(p, kit)) {
+                cmd.add("-I");
+                cmd.add(i.toString());
+            }
+            cmd.addAll(List.of("-c", s.toString(), "-o", objOf.get(s).toString()));
+            steps.add(new Build.Step(cc, String.join(" ", show(p, cmd)), needs(p, s), out -> exec(p.dir(), cmd, out)));
+        }
+        steps.add(symbols(p, kit, objects));
+        List<String> link = new ArrayList<>(common);
+        link.addAll(List.of("-I", kit.lib().resolve("include").toString(), "-I", kit.lib().resolve("rachael").toString(),
+                "-I", ray.resolve("include").toString(), "-DGAME_NAME=\"" + p.name() + "\""));
+        for (Path o : objects) {
+            link.add(o.toString());
+        }
+        link.addAll(cFiles(kit.lib().resolve("rachael")));
+        link.addAll(cFiles(kit.lib().resolve("desktop")));
+        link.addAll(List.of(ray.resolve("lib/libraylib.a").toString(), "-lGL", "-lm", "-lpthread", "-ldl", "-lrt", "-lX11",
+                "-o", output(p, "linux").toString()));
+        steps.add(new Build.Step(cc, String.join(" ", show(p, link)), List.of(), out -> exec(p.dir(), link, out)));
+        return steps;
+    }
+
+    // ------------------------------------------------------------------ win64: MSVC
+
+    private static List<Build.Step> msvc(Project p, Kit kit, boolean debug, List<Build.Step> steps, Path ray, Path obj,
+                                         List<Path> sources, List<Path> objects, Map<Path, Path> objOf) throws IOException {
+        String cl = "cl /nologo /std:c11 " + (debug ? "/Od" : "/O2") + " /Z7 /W3 /utf-8 /MD"
+                + (p.sram() > 0 ? " /DSDEVKIT_SRAM_SIZE=" + p.sram() : "");
+        Path exe = output(p, "win64");
+        String[] vs = { null };
+        steps.add(new Build.Step("vswhere", "the Visual Studio with the C++ tools for x64", List.of(), out -> {
+            vs[0] = visualStudio();
+            deleteTree(obj);
+            Files.createDirectories(obj);
+        }));
+        steps.add(new Build.Step("cl", sources.size() + " files of the game: " + cl + " /X /I <dampf's include> /I ... /c",
+                needs(p, sources.toArray(Path[]::new)), out -> {
+                    StringBuilder bat = new StringBuilder();
+                    for (Path s : sources) {
+                        bat.append(cl).append(" /X /I \"").append(win(kit.dampfInclude())).append('"');
+                        for (Path i : Build.includes(p, kit)) {
+                            bat.append(" /I \"").append(win(i)).append('"');
+                        }
+                        bat.append(" /c \"").append(win(s)).append("\" /Fo\"").append(win(objOf.get(s))).append("\" || exit /b 1\r\n");
+                    }
+                    batch(obj, vs[0], bat.toString(), out);
+                    for (Path o : objects) {
+                        if (!Files.isRegularFile(o)) {
+                            throw new Build.Failure(o + " was not compiled");
+                        }
+                    }
+                }));
+        steps.add(symbols(p, kit, objects));
+        steps.add(new Build.Step("cl", "the link: the game, lib/rachael, lib/desktop, raylib.lib -> " + Build.rel(p, exe),
+                List.of(), out -> {
+                    Files.deleteIfExists(exe);
+                    StringBuilder bat = new StringBuilder(cl).append(" /D_CRT_SECURE_NO_WARNINGS");
+                    for (Path i : List.of(kit.lib().resolve("include"), kit.lib().resolve("rachael"), ray.resolve("include"))) {
+                        bat.append(" /I \"").append(win(i)).append('"');
+                    }
+                    bat.append(" /DGAME_NAME=\"\\\"").append(p.name()).append("\\\"\" /Fo\"").append(win(obj)).append("\\\\\"");
+                    List<String> files = new ArrayList<>();
+                    for (Path o : objects) {
+                        files.add(o.toString());
+                    }
+                    files.addAll(cFiles(kit.lib().resolve("rachael")));
+                    files.addAll(cFiles(kit.lib().resolve("desktop")));
+                    for (String f : files) {
+                        bat.append(" \"").append(win(Path.of(f))).append('"');
+                    }
+                    bat.append(" \"").append(win(ray.resolve("lib/raylib.lib")))
+                            .append("\" opengl32.lib gdi32.lib winmm.lib user32.lib shell32.lib /Fe\"").append(win(exe))
+                            .append("\"  /link /DEBUG /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup || exit /b 1\r\n");
+                    batch(obj, vs[0], bat.toString(), out);
+                    if (!Files.isRegularFile(exe)) {
+                        throw new Build.Failure("the link failed");
+                    }
+                    exe.toFile().setExecutable(true);   // so WSL can start it too
+                }));
+        return steps;
+    }
+
+    private static String visualStudio() throws Build.Failure, IOException, InterruptedException {
+        Path vswhere = windows() ? Path.of("C:\\Program Files (x86)\\Microsoft Visual Studio\\Installer\\vswhere.exe")
+                : Path.of("/mnt/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe");
+        if (!Files.isRegularFile(vswhere)) {
+            throw new Build.Failure("no Visual Studio (" + vswhere + "); win64 builds with MSVC's C++ tools for x64");
+        }
+        Process pr = new ProcessBuilder(vswhere.toString(), "-latest", "-products", "*", "-requires",
+                "Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "-property", "installationPath")
+                .redirectErrorStream(true).start();
+        String vs = new String(pr.getInputStream().readAllBytes(), StandardCharsets.UTF_8).strip();
+        pr.waitFor(60, TimeUnit.SECONDS);
+        if (vs.isEmpty()) {
+            throw new Build.Failure("no Visual Studio with the C++ tools for x64 (vswhere found none)");
+        }
+        return vs;
+    }
+
+    private static final Map<Path, String> WIN = new HashMap<>();
+
+    /** A path as Windows sees it (from WSL: wslpath -w). */
+    static String win(Path p) throws IOException, InterruptedException {
+        Path a = p.toAbsolutePath().normalize();
+        if (windows()) {
+            return a.toString();
+        }
+        String cached = WIN.get(a);
+        if (cached != null) {
+            return cached;
+        }
+        Process pr = new ProcessBuilder("wslpath", "-w", "-a", a.toString()).redirectErrorStream(true).start();
+        String w = new String(pr.getInputStream().readAllBytes(), StandardCharsets.UTF_8).strip();
+        pr.waitFor(30, TimeUnit.SECONDS);
+        if (pr.exitValue() != 0) {
+            // wslpath -w wants the path to exist; a file that does not yet exists in a folder that does
+            w = win(a.getParent()) + "\\" + a.getFileName();
+        }
+        WIN.put(a, w);
+        return w;
+    }
+
+    /** Runs lines after vcvars64 in a batch file (cmd.exe starts in Windows' folder: every path is absolute). */
+    private static void batch(Path dir, String vs, String lines, PrintStream out) throws Exception {
+        Path bat = dir.resolve("step.bat");
+        Files.writeString(bat, "@echo off\r\ncall \"" + vs + "\\VC\\Auxiliary\\Build\\vcvars64.bat\" >nul || exit /b 1\r\n"
+                + lines, StandardCharsets.UTF_8);
+        List<String> cmd = windows() ? List.of("cmd", "/c", bat.toString()) : List.of("cmd.exe", "/c", win(bat));
+        Process pr = new ProcessBuilder(cmd).redirectErrorStream(true).directory(dir.toFile()).start();
+        String log = new String(pr.getInputStream().readAllBytes(), StandardCharsets.UTF_8).replace("\r", "");
+        pr.waitFor(30, TimeUnit.MINUTES);
+        StringBuilder shown = new StringBuilder();
+        for (String l : log.split("\n")) {
+            if (l.startsWith("UNC paths are not supported") || l.startsWith("CMD.EXE was started")
+                    || l.startsWith("'\\\\wsl") || l.startsWith("Defaulting to Windows directory") || l.isBlank()
+                    || l.matches("[\\w.-]+\\.c")) {
+                continue;
+            }
+            shown.append(l).append('\n');
+        }
+        if (pr.exitValue() != 0) {
+            throw new Build.Failure(shown.toString().strip());
+        }
+        if (!shown.isEmpty()) {
+            out.print(shown.toString().indent(4));
+        }
+    }
+
+    // ------------------------------------------------------------------ both
+
+    private static Build.Step symbols(Project p, Kit kit, List<Path> objects) {
+        return new Build.Step("check", "the game's objects call nothing but lib/include/sdevkit (ADR record 34)",
+                List.of(), out -> {
+                    List<String> bad = Symbols.check(kit.lib().resolve("include/sdevkit"), objects);
+                    if (!bad.isEmpty()) {
+                        throw new Build.Failure(String.join("\n", bad));
+                    }
+                });
+    }
+
+    private static List<Path> needs(Project p, Path... files) {
+        List<Path> out = new ArrayList<>();
+        for (Path f : files) {
+            if (!f.toAbsolutePath().normalize().startsWith(p.gen().toAbsolutePath().normalize())) {
+                out.add(f);     // build/gen is written by the steps before
+            }
+        }
+        return out;
+    }
+
+    static List<String> cFiles(Path dir) throws IOException {
+        if (!Files.isDirectory(dir)) {
+            return List.of();
+        }
+        try (var s = Files.list(dir)) {
+            return s.filter(f -> f.toString().endsWith(".c")).sorted().map(Path::toString).toList();
+        }
+    }
+
+    private static List<String> show(Project p, List<String> cmd) {
+        List<String> out = new ArrayList<>();
+        for (String a : cmd) {
+            out.add(a.startsWith("/") ? Build.rel(p, Path.of(a)) : a);
+        }
+        return out;
+    }
+
+    private static void exec(Path dir, List<String> cmd, PrintStream out) throws Exception {
+        Process pr = new ProcessBuilder(cmd).directory(dir.toFile()).redirectErrorStream(true).start();
+        String log = new String(pr.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        pr.waitFor(30, TimeUnit.MINUTES);
+        if (pr.exitValue() != 0) {
+            throw new Build.Failure(cmd.getFirst() + " failed:\n" + log.strip());
+        }
+        if (!log.isBlank()) {
+            out.print(log.indent(4));
+        }
+    }
+
+    static void deleteTree(Path p) throws IOException {
+        if (!Files.exists(p)) {
+            return;
+        }
+        try (var s = Files.walk(p)) {
+            for (Path x : s.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                Files.delete(x);
+            }
+        }
+    }
+}
