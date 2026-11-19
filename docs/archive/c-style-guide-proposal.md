@@ -1,15 +1,20 @@
 # Proposal: a style guide for C with dampf
 
-Status: built, 2026-11-19, as [lib/C_STYLE.md](../lib/C_STYLE.md) with `StyleGuideTest`; the
-measurements below are from dampf at commit `1e8c0c6`, and the guide's table has today's (some
-differ: see the guide). `superdevkit init`'s pointer waits for M7.
+Archived 2026-11-19: built as [lib/C_STYLE.md](../../lib/C_STYLE.md), every speed rule a test
+(`StyleGuideTest`), with the book page "Writing fast C". The measurements below are from dampf at
+commit `1e8c0c6`; the guide's table has today's, and several came out otherwise. The rule on
+8-bit loop counters held only for loops over bytes: rewriting the examples by it made most
+functions slower, and the guide now has a rule for each case. The open questions were answered by
+building it: the rules use the timing report's worst case, and a claim that no longer holds fails
+the build. The one step left, the pointer that `superdevkit init` writes into a new project, is
+in the roadmap (M7).
 
 ## Why
 
 Whoever writes C for a superdevkit game needs four answers: what dampf accepts, what it rejects,
 what is slow on the 65816, and what is fast. A fifth is just as useful: what makes no difference,
 so nobody rewrites code for nothing. Today these answers are spread over
-[subset.md](subset.md) (allowed and rejected), [optimizations.md](optimizations.md), the
+[subset.md](../subset.md) (allowed and rejected), [optimizations.md](../optimizations.md), the
 README of Steinschlag ("What costs time on the 65816") and conversations. The book's page
 "Writing C for dampf" covers what is allowed, not what is fast.
 
@@ -75,7 +80,7 @@ guide must notice when they are fixed. That decides its form.
 One file, the source of truth, in five parts:
 
 1. **Rejected.** What `dampf check` rejects, one line each, with the checker's message as it
-   prints it. Taken from [subset.md](subset.md), not repeated there in other words: plain
+   prints it. Taken from [subset.md](../subset.md), not repeated there in other words: plain
    `int`, `short`, `long`, `unsigned`; floating point; recursion; heap; function pointers;
    `goto`; unions and bit fields; structs by value as parameters or results; `f()` and K&R
    parameters; variable-length arrays; compound literals; designated initializers; `_Bool`;

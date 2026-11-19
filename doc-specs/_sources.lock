@@ -59,11 +59,11 @@ guide/introduction docs/adr/0030-one-book-for-superdevkit-with-dampf-as-a-part-o
 guide/introduction docs/adr/0031-the-superdevkit-command-builds-a-project-from-its.md a01855b548ad
 guide/introduction docs/adr/0032-desktop-and-web-are-for-prototyping-with-sound.md 7e9782d49c63
 guide/introduction docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md 5ad51480af48
-guide/introduction docs/adr/0034-every-name-of-the-console-api-starts-with.md e719f3a2fb26
+guide/introduction docs/adr/0034-every-name-of-the-console-api-starts-with.md de6b41464018
 guide/introduction docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
 guide/introduction docs/adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md 92353ab17311
 guide/introduction docs/optimizations.md 647f94a894cd
-guide/introduction docs/roadmap.md 9c6edb3ec827
+guide/introduction docs/roadmap.md 5853b138630f
 guide/introduction lib/README.md 1bc8a729d8f4
 guide/introduction lib/snes/README.md 2386650af21f
 guide/snes-hardware doc-specs/guide/snes-hardware.spec.md 610e1e516c15
@@ -109,7 +109,7 @@ guide/writing-c docs/adr/0030-one-book-for-superdevkit-with-dampf-as-a-part-of.m
 guide/writing-c docs/adr/0031-the-superdevkit-command-builds-a-project-from-its.md a01855b548ad
 guide/writing-c docs/adr/0032-desktop-and-web-are-for-prototyping-with-sound.md 7e9782d49c63
 guide/writing-c docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md 5ad51480af48
-guide/writing-c docs/adr/0034-every-name-of-the-console-api-starts-with.md e719f3a2fb26
+guide/writing-c docs/adr/0034-every-name-of-the-console-api-starts-with.md de6b41464018
 guide/writing-c docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
 guide/writing-c docs/adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md 92353ab17311
 guide/writing-c docs/subset.md 91c2e2a5019a
@@ -176,7 +176,7 @@ inside/how-a-compile-works docs/adr/0030-one-book-for-superdevkit-with-dampf-as-
 inside/how-a-compile-works docs/adr/0031-the-superdevkit-command-builds-a-project-from-its.md a01855b548ad
 inside/how-a-compile-works docs/adr/0032-desktop-and-web-are-for-prototyping-with-sound.md 7e9782d49c63
 inside/how-a-compile-works docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md 5ad51480af48
-inside/how-a-compile-works docs/adr/0034-every-name-of-the-console-api-starts-with.md e719f3a2fb26
+inside/how-a-compile-works docs/adr/0034-every-name-of-the-console-api-starts-with.md de6b41464018
 inside/how-a-compile-works docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
 inside/how-a-compile-works docs/adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md 92353ab17311
 inside/how-a-compile-works docs/architecture.md 09ce4c89900a
@@ -226,7 +226,7 @@ inside/mir docs/adr/0030-one-book-for-superdevkit-with-dampf-as-a-part-of.md 37a
 inside/mir docs/adr/0031-the-superdevkit-command-builds-a-project-from-its.md a01855b548ad
 inside/mir docs/adr/0032-desktop-and-web-are-for-prototyping-with-sound.md 7e9782d49c63
 inside/mir docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md 5ad51480af48
-inside/mir docs/adr/0034-every-name-of-the-console-api-starts-with.md e719f3a2fb26
+inside/mir docs/adr/0034-every-name-of-the-console-api-starts-with.md de6b41464018
 inside/mir docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
 inside/mir docs/adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md 92353ab17311
 inside/mir docs/architecture.md 09ce4c89900a
@@ -272,7 +272,7 @@ inside/optimizations docs/adr/0030-one-book-for-superdevkit-with-dampf-as-a-part
 inside/optimizations docs/adr/0031-the-superdevkit-command-builds-a-project-from-its.md a01855b548ad
 inside/optimizations docs/adr/0032-desktop-and-web-are-for-prototyping-with-sound.md 7e9782d49c63
 inside/optimizations docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md 5ad51480af48
-inside/optimizations docs/adr/0034-every-name-of-the-console-api-starts-with.md e719f3a2fb26
+inside/optimizations docs/adr/0034-every-name-of-the-console-api-starts-with.md de6b41464018
 inside/optimizations docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
 inside/optimizations docs/adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md 92353ab17311
 inside/optimizations docs/architecture.md 09ce4c89900a
@@ -380,10 +380,10 @@ inside/roadmap docs/adr/0030-one-book-for-superdevkit-with-dampf-as-a-part-of.md
 inside/roadmap docs/adr/0031-the-superdevkit-command-builds-a-project-from-its.md a01855b548ad
 inside/roadmap docs/adr/0032-desktop-and-web-are-for-prototyping-with-sound.md 7e9782d49c63
 inside/roadmap docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md 5ad51480af48
-inside/roadmap docs/adr/0034-every-name-of-the-console-api-starts-with.md e719f3a2fb26
+inside/roadmap docs/adr/0034-every-name-of-the-console-api-starts-with.md de6b41464018
 inside/roadmap docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
 inside/roadmap docs/adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md 92353ab17311
-inside/roadmap docs/roadmap.md 9c6edb3ec827
+inside/roadmap docs/roadmap.md 5853b138630f
 inside/roadmap lib/README.md 1bc8a729d8f4
 inside/testing README.md 7a2f2177bf74
 inside/testing build.gradle.kts 88f5fb2832a4
@@ -459,7 +459,7 @@ reference/c-subset docs/adr/0030-one-book-for-superdevkit-with-dampf-as-a-part-o
 reference/c-subset docs/adr/0031-the-superdevkit-command-builds-a-project-from-its.md a01855b548ad
 reference/c-subset docs/adr/0032-desktop-and-web-are-for-prototyping-with-sound.md 7e9782d49c63
 reference/c-subset docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md 5ad51480af48
-reference/c-subset docs/adr/0034-every-name-of-the-console-api-starts-with.md e719f3a2fb26
+reference/c-subset docs/adr/0034-every-name-of-the-console-api-starts-with.md de6b41464018
 reference/c-subset docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
 reference/c-subset docs/adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md 92353ab17311
 reference/c-subset docs/subset.md 91c2e2a5019a
@@ -519,7 +519,7 @@ reference/hints docs/adr/0030-one-book-for-superdevkit-with-dampf-as-a-part-of.m
 reference/hints docs/adr/0031-the-superdevkit-command-builds-a-project-from-its.md a01855b548ad
 reference/hints docs/adr/0032-desktop-and-web-are-for-prototyping-with-sound.md 7e9782d49c63
 reference/hints docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md 5ad51480af48
-reference/hints docs/adr/0034-every-name-of-the-console-api-starts-with.md e719f3a2fb26
+reference/hints docs/adr/0034-every-name-of-the-console-api-starts-with.md de6b41464018
 reference/hints docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
 reference/hints docs/adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md 92353ab17311
 reference/hints docs/hints.md 385e5701f6b1
@@ -567,12 +567,12 @@ reference/limits docs/adr/0030-one-book-for-superdevkit-with-dampf-as-a-part-of.
 reference/limits docs/adr/0031-the-superdevkit-command-builds-a-project-from-its.md a01855b548ad
 reference/limits docs/adr/0032-desktop-and-web-are-for-prototyping-with-sound.md 7e9782d49c63
 reference/limits docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md 5ad51480af48
-reference/limits docs/adr/0034-every-name-of-the-console-api-starts-with.md e719f3a2fb26
+reference/limits docs/adr/0034-every-name-of-the-console-api-starts-with.md de6b41464018
 reference/limits docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
 reference/limits docs/adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md 92353ab17311
 reference/limits docs/hints.md 385e5701f6b1
 reference/limits docs/optimizations.md 647f94a894cd
-reference/limits docs/roadmap.md 9c6edb3ec827
+reference/limits docs/roadmap.md 5853b138630f
 reference/limits docs/subset.md 91c2e2a5019a
 reference/limits docs/timing.md 2c50d5c61005
 reference/limits lib/README.md 1bc8a729d8f4
@@ -621,7 +621,7 @@ reference/runtime-and-memory docs/adr/0030-one-book-for-superdevkit-with-dampf-a
 reference/runtime-and-memory docs/adr/0031-the-superdevkit-command-builds-a-project-from-its.md a01855b548ad
 reference/runtime-and-memory docs/adr/0032-desktop-and-web-are-for-prototyping-with-sound.md 7e9782d49c63
 reference/runtime-and-memory docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md 5ad51480af48
-reference/runtime-and-memory docs/adr/0034-every-name-of-the-console-api-starts-with.md e719f3a2fb26
+reference/runtime-and-memory docs/adr/0034-every-name-of-the-console-api-starts-with.md de6b41464018
 reference/runtime-and-memory docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2dd
 reference/runtime-and-memory docs/adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md 92353ab17311
 reference/runtime-and-memory docs/memory-map.md f314d1a27652

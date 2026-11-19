@@ -1,5 +1,11 @@
 # Prefixing the console API with `sdevkit_`
 
+Archived 2026-11-19: steps 0 to 7 are built (see "Outcome" below); the decision is ADR record 34
+([../adr/0034-every-name-of-the-console-api-starts-with.md](../adr/0034-every-name-of-the-console-api-starts-with.md)).
+Step 8, removing the compatibility headers in `lib/include/snes/` once Blubber Blasen uses the new
+names, is tracked in [superdevkit-transition.md](../superdevkit-transition.md) (M5) and, for the
+game, in [game-findings.md](../game-findings.md) (finding 8).
+
 A plan for renaming superdevkit's console API so that every name a game can use starts with
 `sdevkit_`, and for making sure on every platform that a game reaches nothing else. It amends
 ADR records 29 and 32; the decision is ADR record 34. Decided with the user on 2026-11-18; this document is the brief for the

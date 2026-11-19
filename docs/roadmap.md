@@ -94,7 +94,9 @@ registrations in the console API (built on the desktop, stubs on the SNES; ADR [
 32](adr/0032-desktop-and-web-are-for-prototyping-with-sound.md), with the names of [record
 34](adr/0034-every-name-of-the-console-api-starts-with.md)), the desktop frontend on Windows and
 with sound, save RAM and the debug view, and the `superdevkit` command with `init`, `build` and
-`run` (ADR [record 31](adr/0031-the-superdevkit-command-builds-a-project-from-its.md)). Done
+`run` (ADR [record 31](adr/0031-the-superdevkit-command-builds-a-project-from-its.md)); `init`
+writes a line into the new project's `CLAUDE.md` or `AGENTS.md` that points to the kit's guides,
+`lib/C_STYLE.md` and `lib/SNES_HARDWARE.md`. Done
 when the examples and Blubber Blasen run on Windows and Linux from the kit. The steps are in
 [superdevkit-transition.md](superdevkit-transition.md#m7-windows-and-linux-070).
 
@@ -336,6 +338,12 @@ Open: the DMA margin is in M5, constant shifts longer than 8 in M9.
   assertion on the PC, with the replays running against them ([hints.md](hints.md)).
 
 ## Open questions
+
+- **A feature in Rachael as a dummy** (2026-11-19, from the hardware guide). Is a feature that
+  Rachael does not draw but reports when it is used enough to let a game use it? It keeps the
+  desktop honest, but the desktop then cannot check that game's picture. Until it is decided, a
+  feature is usable only when both `lib/snes` and Rachael draw it
+  ([lib/SNES_HARDWARE.md](../lib/SNES_HARDWARE.md)).
 
 - **A miscompilation in the code generator, not yet found** (2026-11-18; fixing it is part of
   M5). With functions of up to 80 instructions inlined (the limit is 60), the game's benchmark

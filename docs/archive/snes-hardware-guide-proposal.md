@@ -1,10 +1,13 @@
 # Proposal: a guide to the SNES hardware for superdevkit games
 
-Status: built, 2026-11-19, as [lib/SNES_HARDWARE.md](../lib/SNES_HARDWARE.md), except step 3
-(random start values): the kit's start-up on the SNES clears every PPU register and the video
-memory, so a game starts from known values there too, and random ones in Rachael would test a
-state the kit never leaves (the guide says so). The companion of
-[c-style-guide-proposal.md](c-style-guide-proposal.md).
+Archived 2026-11-19: built as [lib/SNES_HARDWARE.md](../../lib/SNES_HARDWARE.md), with the book
+page "The SNES hardware", Rachael's report of register writes she does not draw, the costs of the
+console API in `lib/README.md`, and tests for the feature table and the costs. Not built, on
+purpose: step 3 (random start values), since the kit's start-up on the SNES clears every PPU
+register and the video memory, so a game starts from known values there too. Writing the book's
+page also found that the desktop check never counted bytes written during the picture, now fixed.
+Mode 7 has been built since. The open question on dummies in Rachael is in the roadmap. The
+companion of [c-style-guide-proposal.md](c-style-guide-proposal.md).
 
 ## Two guides
 

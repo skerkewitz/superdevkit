@@ -8,7 +8,7 @@ PC side of the pseudo SNES (`snes_vblank`, `snes_render`); record 32 planned a f
 desktop a game is linked into one program with raylib, libc and the pseudo SNES, so a game could
 call any of their functions, or collide with one of their names. On the SNES the library's helpers
 (`platform_oam_upload`, ...) shared the game's namespace too. Record 29 had named the feature macro
-`SDK_HAS_SOUND`. The plan is [prefix_snes_api_transition.md](../prefix_snes_api_transition.md).
+`SDK_HAS_SOUND`. The plan is [prefix_snes_api_transition.md](../archive/prefix_snes_api_transition.md).
 
 **Decision.**
 

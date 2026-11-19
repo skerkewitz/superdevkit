@@ -133,9 +133,11 @@ change with `sdevkit_dbg_toggle`, `sdevkit_dbg_range`, `sdevkit_dbg_color` and
 `sdevkit_dbg_action` and draws boxes per frame with `sdevkit_dbg_box`. All of this is built on
 the desktop and a stub on the SNES, where the debug functions are empty, so the game code needs
 no `#ifdef`. The `superdevkit` command, written in Java and shipped with dampf, builds a project
-described by its `superdevkit.toml`: `init` copies an example, `build` builds for the target it
-is given (`snes`, `win64`, `linux` or `web`), and `run` builds and starts the game. It calls the
-compilers itself, one call per file and one to link, without CMake, Make or shell scripts, and
+described by its `superdevkit.toml`: `init` copies an example (and points the new project's
+`CLAUDE.md` or `AGENTS.md` to the dev kit's guides for C and for the hardware), `build` builds
+for the target it is given (`snes`, `win64`, `linux` or `web`), and `run` builds and starts the
+game. It calls the compilers itself, one call per file and one to link, without CMake, Make or
+shell scripts, and
 `--verbose`, `--dry-run` and `--plan` print every call, check that everything needed is there,
 or both. For the desktop you provide the C compiler yourself; the dev kit brings only dampf.
 Until M7, a game builds for the SNES with dampf and an argument file. M7 is done when the
