@@ -213,7 +213,7 @@ tests of the TOML reader and of the plan each command makes (`--plan` output).
 
 Built on 2026-11-19: the seven examples have `superdevkit.toml` (their `build.sh` and `.args` went;
 the ROMs the command builds are the scripts', byte for byte), and the tests build them through the
-CLI's classes. The handover to the
+CLI's classes. The handover, written as the game's finding 1 (`docs/game-findings.md`), to the
 game: Blubber Blasen's desktop build from the kit (its sound calls from `game_sfx()` to
 `sdevkit_sfx_play()`, its save RAM to `sdevkit_sram()`, its debug view to registrations; its
 recordings stay its own, reached through `sdevkit_dbg_action`).
