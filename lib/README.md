@@ -32,7 +32,10 @@ and calls the same console API as on the SNES, so the same source runs on the de
 M8, in the browser, and gives the same picture as the SNES, pixel for pixel
 (`dev/compare_example.sh` checks it). Rachael also counts every byte the SNES would lose (written
 outside the vertical blank, or more than a vertical blank can copy), so what fits on the desktop
-fits on the console.
+fits on the console. She also counts every register write she does not draw (a mode other than
+1, mosaic, `SETINI`, the ports of VRAM, CGRAM and OAM, which would go around her memories;
+`sdevkit__undrawn`): the SNES would show something else there, and the desktop check fails on it
+as on a lost byte.
 
 If you know Wine, Rachael is to the SNES what Winelib is to Windows. Wine runs Windows programs on
 Linux without emulating a PC: it implements the Windows API on Linux ("Wine Is Not an Emulator").

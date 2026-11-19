@@ -15,8 +15,33 @@ sdevkit__rachael_state sdevkit__rachael;
 uint8_t sdevkit_oam_memory[128 * 4 + 8 * 4];
 
 /* --- Registers ----------------------------------------------------------------------- */
+uint8_t sdevkit__undrawn(uint8_t reg, uint8_t value)
+{
+    switch (reg) {
+    case SDEVKIT_PPU_BGMODE:
+        return (uint8_t)((value & 7) != 1);           /* only mode 1 is drawn */
+    case 0x06:                                         /* MOSAIC: a size and a layer */
+        return (uint8_t)((value & 0xF0) != 0 && (value & 0x0F) != 0);
+    case 0x33:                                         /* SETINI */
+        return (uint8_t)(value != 0);
+    case 0x02: case 0x03: case 0x04:                   /* OAMADDL, OAMADDH, OAMDATA */
+    case 0x15: case 0x16: case 0x17: case 0x18: case 0x19:   /* VMAIN, VMADDL/H, VMDATAL/H */
+    case 0x21: case 0x22:                              /* CGADD, CGDATA */
+        return 1;
+    default:                                           /* drawn, or without effect in mode 1 */
+        return 0;
+    }
+}
+
 void sdevkit__write_reg(uint8_t reg, uint8_t value)
 {
+    if (sdevkit__undrawn(reg, value)) {
+        if (sdevkit__rachael.undrawn == 0) {
+            sdevkit__rachael.undrawn_reg = reg;
+            sdevkit__rachael.undrawn_value = value;
+        }
+        sdevkit__rachael.undrawn++;
+    }
     if (reg >= SDEVKIT_PPU_BG1HOFS && reg <= SDEVKIT_PPU_BG1HOFS + 7) {
         /* BGnHOFS / BGnVOFS: written twice, low byte then high byte, through a
          * shared latch (simplified from the SNES formula; same result for

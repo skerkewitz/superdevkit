@@ -59,11 +59,19 @@ typedef struct {
     uint16_t       dma_count;              /* bytes since the last vertical blank */
     uint16_t       dma_lost;               /* bytes that did not arrive since then */
     uint8_t        in_vblank;              /* between sdevkit__vblank() and sdevkit__render() */
+    uint16_t       undrawn;                /* register writes Rachael does not draw, since power on */
+    uint8_t        undrawn_reg, undrawn_value;   /* the first of them */
     sdevkit__frame_stats stats;
 } sdevkit__rachael_state;
 
 extern sdevkit__rachael_state sdevkit__rachael;
 
 void sdevkit__write_reg(uint8_t reg, uint8_t value);
+
+/* A register write whose effect Rachael does not draw, so the SNES would show something else:
+ * a mode other than 1, mosaic, SETINI (interlace, high resolution, overscan), and the ports of
+ * VRAM, CGRAM and OAM, which would go around her memories (the API's DMA functions do not).
+ * Counted in sdevkit__rachael.undrawn; the frontends report it as they report lost bytes. */
+uint8_t sdevkit__undrawn(uint8_t reg, uint8_t value);
 
 #endif /* SDEVKIT__RACHAEL_H */

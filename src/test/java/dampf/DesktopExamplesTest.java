@@ -15,7 +15,8 @@ import org.junit.jupiter.api.TestFactory;
 
 /**
  * Every example builds for the desktop (tools/build_desktop.sh) and plays its check.txt there
- * without a window and without a byte the SNES would lose. Skipped where raylib was not fetched
+ * without a window, without a byte the SNES would lose and without a register write Rachael does
+ * not draw. Skipped where raylib was not fetched
  * (tools/fetch_raylib.sh linux): the tests do not download anything.
  */
 class DesktopExamplesTest {
@@ -34,6 +35,7 @@ class DesktopExamplesTest {
             String result = run(ex.resolve("build/linux/" + name).toString(), "--check", ex.resolve("check.txt").toString(),
                     "--out", out.toString());
             assertEquals(true, result.contains(" lost 0"), result);
+            assertEquals(true, result.contains(" undrawn 0"), result);
         }));
     }
 

@@ -15,8 +15,9 @@
  * With --check <file> it runs without a window, with the input of the file (the format of the
  * examples' check.txt: "ticks N", "press T1 T2 buttons...", "shot T"; on the desktop every frame is
  * one tick), writes the screenshots it
- * asks for as PNG into the folder of --out (default .), and prints "frames N ticks N lost L";
- * the exit status is 1 when a byte was lost.
+ * asks for as PNG into the folder of --out (default .), and prints "frames N ticks N lost L
+ * undrawn U"; the exit status is 1 when a byte was lost or a register write was one Rachael does
+ * not draw (sdevkit__undrawn).
  *
  * This file is host code for the desktop's C compiler, not for dampf.
  */
@@ -105,6 +106,16 @@ static uint16_t keyboard(void)
     return p;
 }
 
+/* Register writes Rachael does not draw (sdevkit__undrawn): the SNES would show another picture. */
+static void report_undrawn(FILE *out)
+{
+    if (sdevkit__rachael.undrawn > 0) {
+        fprintf(out, "%s: %u register writes Rachael does not draw, the first $21%02X = $%02X "
+                     "(the SNES would show something else)\n",
+                GAME_NAME, sdevkit__rachael.undrawn, sdevkit__rachael.undrawn_reg, sdevkit__rachael.undrawn_value);
+    }
+}
+
 static int window(int scale)
 {
     Texture2D tex;
@@ -139,6 +150,7 @@ static int window(int scale)
     if (lost > 0) {
         fprintf(stderr, "%s: %u bytes would not have reached the PPU on the SNES\n", GAME_NAME, lost);
     }
+    report_undrawn(stderr);
     return 0;
 }
 
@@ -228,8 +240,9 @@ static int check(const char *path, const char *out)
             }
         }
     }
-    printf("frames %ld ticks %ld lost %u\n", frames, frames, lost);
-    return lost > 0 ? 1 : 0;
+    report_undrawn(stdout);
+    printf("frames %ld ticks %ld lost %u undrawn %u\n", frames, frames, lost, sdevkit__rachael.undrawn);
+    return lost > 0 || sdevkit__rachael.undrawn > 0 ? 1 : 0;
 }
 
 int main(int argc, char **argv)
