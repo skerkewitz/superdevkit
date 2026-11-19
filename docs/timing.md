@@ -63,7 +63,7 @@ on the PC; `n` must be a number. After the timing, `dampf build` checks it on th
 compiled on its own:
 
 - worst case above the budget: a compile error at the function, with the worst and the best
-  case (`b.c:5:42: error: 'sum' takes up to 1201 CPU cycles, over its budget of 1000
+  case (`b.c:5:42: error: 'sum' takes up to 1137 CPU cycles, over its budget of 1000
   (DAMPF_BUDGET); best case 17, see the .timing.txt file`, for a loop over 32 bytes);
 - no worst case: a compile error that names the loop or the call without a bound, since a budget
   can only be guaranteed for bounded code;

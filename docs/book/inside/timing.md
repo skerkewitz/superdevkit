@@ -4,8 +4,9 @@
 dampf computes how long your code runs. For every function the
 [code generator from MIR](/glossary#code-generator-from-mir) writes, it works out a best and a
 worst case in CPU cycles, from the function's entry to its return with the functions it calls,
-writes them to a timing report, and refuses a build in which a function breaks the cycle budget
-you gave it. The [naive code generator](/glossary#naive-code-generator) does none of this.
+writes them to a [timing report](/glossary#timing-report), and refuses a build in which a
+function breaks the cycle budget you gave it. The
+[naive code generator](/glossary#naive-code-generator) does none of this.
 
 ## Why the 65816 can be timed exactly
 
@@ -122,7 +123,6 @@ b0_entry:
 b2_body:
         lda     _scores,x           ;                                                           6
         and     #$00FF              ;                                                           3
-        clc                         ;                                                           2
         adc     z:dampf_frame+2     ;                                                           4
         sta     z:dampf_frame+2     ;                                                           4
         inx                         ;                                                           2
@@ -137,9 +137,9 @@ b4_endfor:
 ```
 
 The entry costs 10 cycles. One way round the loop, from the test at `b1_for` through the body
-and back, costs 3 + 3 + 19 + 2 = 27; the way out, the test with the branch not taken and the
+and back, costs 3 + 3 + 17 + 2 = 25; the way out, the test with the branch not taken and the
 rest of the function, costs 3 + 2 + 9 + 6 = 20. The head runs at most 33 times, 32 rounds and
-the test that ends the loop, so the worst case is 10 + 32 × 27 + 20 = 894 cycles. The best case
+the test that ends the loop, so the worst case is 10 + 32 × 25 + 20 = 830 cycles. The best case
 is 10 + 20 = 30: it is the shortest way out and does not use the loop's bound, so for a loop
 that always runs the same number of rounds it lies far below what the function takes.
 
@@ -204,7 +204,7 @@ above, the most expensive function first:
         1940         2594  dampf_sdiv32
         1888         2432  dampf_udiv32
         1168         1968  dampf_mul32
-          30          894  _sum_scores
+          30          830  _sum_scores
          564          772  dampf_udiv16
          287          367  dampf_mul16
           13           21  _abs16
@@ -280,10 +280,10 @@ int main(void)
 ```
 
 After it has computed the timing, `dampf build` compares the function's worst case with the
-budget. The worst case of 894 cycles is above 800, and the build fails:
+budget. The worst case of 830 cycles is above 800, and the build fails:
 
 ```
-budget.c:7:41: error: 'sum_scores' takes up to 894 CPU cycles, over its budget of 800 (DAMPF_BUDGET); best case 30, see the .timing.txt file
+budget.c:7:41: error: 'sum_scores' takes up to 830 CPU cycles, over its budget of 800 (DAMPF_BUDGET); best case 30, see the .timing.txt file
 ```
 
 dampf writes the timing report before it checks the budgets, so `build/budget.timing.txt` is

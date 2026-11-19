@@ -11,6 +11,7 @@ sources:
   - src/main/java/dampf/Compiler.java
   - src/test/resources/exec/hint_range.c
   - src/test/java/dampf/BudgetTest.java
+  - tools/build_desktop.sh
 audience: Users who want to tell dampf what it cannot infer
 ---
 
@@ -21,11 +22,17 @@ The hint macros, what each tells dampf, and how each is checked in the PC build.
 ## Sections
 
 1. **How hints work** – the header `<dampf.h>` and how a game's PC build reaches it
-   (`-idirafter`), macros that become built-ins with dampf, checked assertions on the PC (and
-   `NDEBUG`), why a wrong hint is dangerous.
+   (`-idirafter`), and how the kit's desktop build does (`tools/build_desktop.sh`: `-nostdinc
+   -ffreestanding`, dampf's include folder with `-isystem`, so `<stdint.h>` is dampf's there too,
+   and a wrong hint traps instead of asserting); macros that become built-ins with dampf, checked
+   assertions on the PC (and `NDEBUG`); that dampf trusts a hint and never checks it on the SNES,
+   and why a wrong hint is dangerous.
 2. **The hints** – one H3 per built hint (`DAMPF_RANGE`, `DAMPF_BUDGET`): what it states, where
    it may stand, an example with what dampf does with it (a loop bound, a build error or
-   warning), the PC check, and the messages for misuse.
+   warning), the PC check, and the messages for misuse. Before the first example that shows a
+   timing report, say that `dampf build` writes it next to the ROM (`<rom>.timing.txt`), what its
+   columns are (best and worst case in CPU cycles), and link
+   [Command line](/reference/command-line).
 3. **Not built yet** – the other hints of the catalogue in one short list, `DAMPF_TRIPS`
    postponed and why, and subrange types (`DAMPF_RANGED`); link [Limits](/reference/limits).
 

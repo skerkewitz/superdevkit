@@ -12,7 +12,7 @@ The book has three guides, one per reader, each with its own sidebar
 
 | Guide | Reader | Folder | Pages |
 |---|---|---|---|
-| **User guide** | a game programmer who writes C for the SNES and wants to compile it with dampf | `guide/` | what dampf is, getting started, writing C for dampf, compiling a whole game, debugging in Mesen |
+| **User guide** | a game programmer who writes C for the SNES and wants to compile it with dampf | `guide/` | what dampf is, getting started, writing C for dampf, writing fast C, the SNES hardware, compiling a whole game, debugging in Mesen |
 | **Reference** | a user who wants everything about one subject | `reference/`, and the glossary | command line, the C subset, runtime and memory, the generated files, limits; later the hints |
 | **Inside** | a technical reader who wants to know how dampf works under the hood | `inside/` | how a compile works, MIR, the optimizations, exact timing, testing, the roadmap |
 

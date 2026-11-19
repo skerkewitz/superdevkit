@@ -52,6 +52,16 @@ the blocks "never ran") and must still give gcc's results, since a profile chang
 order of the blocks. The ROMs from MIR also check the static timing against the emulator
 ([timing.md](timing.md), "Checked against the emulator").
 
+**The guides' tests.** `StyleGuideTest` checks the speed rules of the C style guide
+(`lib/C_STYLE.md`): one file per rule in `src/test/resources/style/`, two functions that compute
+the same thing and a `claim:` line (`slower`, `faster`, `same` within 5 %); it checks the claim on
+the timing report's worst cases, runs the program like an execution test, and compares the guide's
+table of measurements (`STYLE_GUIDE=update` writes it). `LibCostTest` builds a program that calls
+every function of the console API and writes their best and worst cases into the table of
+`lib/README.md` (`LIB_COSTS=update`). `SnesHardwareGuideTest` checks the feature table of
+`lib/SNES_HARDWARE.md` against `lib/snes` and `lib/rachael`, and `RachaelTest` that Rachael counts
+the register writes she does not draw. Each fails when its document is no longer true.
+
 **Random programs** (`RandomProgramTest`, 50 per build) run like the execution tests, without
 the block counts and without Mesen. The generator makes programs free of undefined behaviour by construction (divisors
 made odd, shift counts masked, wide arithmetic in `uint32_t`) and favours boundary values like

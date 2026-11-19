@@ -127,6 +127,20 @@ Also in M9:
   (decision 2), each once its subset decision is taken.
 - **Constant shifts by a multiple of 8 as byte moves.** A 32-bit shift by 16 is a loop of 16
   steps today, about 600 cycles.
+- **The gaps the C style guide measures** ([lib/C_STYLE.md](../lib/C_STYLE.md), each a rule that
+  `StyleGuideTest` checks; the change that closes a gap changes or retires its rule):
+  - 8-bit loop counters cost more than 16-bit ones (row 3 above): retires `slow-u8-counter`;
+  - an array with a 16-bit index goes through a 24-bit pointer unless a `DAMPF_RANGE` bounds the
+    index, although an index past the end would be undefined in C: retires `fast-range-index`;
+  - a pointer walk costs more than indexing (`o->x; o++`): retires `slow-pointer-walk`;
+  - a multiplication of two bytes calls `dampf_mul16`, the SNES's 8 x 8 multiplier at
+    `$4202`-`$4203` is not used: turns `same-multiply-width` into a rule for bytes;
+  - a signed division by a power of two keeps its rounding correction when a `DAMPF_RANGE` proves
+    the value is not negative: retires `slow-signed-divide`;
+  - 32-bit operands go through frame slots (`hash ^= key` copies all four words): retires
+    `slow-32-bit`;
+  - a constant shift above 8 is a loop (`shl 9` as `ldx #9; asl; dex; bne`; found in Schach's
+    Zobrist table): retires `slow-shift-above-8`.
 
 The order: register allocation (2), or the split of struct arrays (4) once its subset question
 is decided; then 3, 5 and 7. The rest has to come from the game doing less work: the pair loop

@@ -9,6 +9,8 @@ const userGuide = [
       { text: 'What is dampf?', link: '/guide/introduction' },
       { text: 'Getting started', link: '/guide/getting-started' },
       { text: 'Writing C for dampf', link: '/guide/writing-c' },
+      { text: 'Writing fast C', link: '/guide/writing-fast-c' },
+      { text: 'The SNES hardware', link: '/guide/snes-hardware' },
       { text: 'Compiling a game', link: '/guide/compiling-a-game' },
       { text: 'Debugging in Mesen', link: '/guide/debugging' }
     ]

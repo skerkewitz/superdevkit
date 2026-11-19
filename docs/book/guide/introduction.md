@@ -129,9 +129,9 @@ console API `lib/include/sdevkit/snes.h`, taken over from the game and renamed s
 a game can use starts with `sdevkit_` or `SDEVKIT_` (`setMode` is `sdevkit_set_mode`): the
 PVSnesLib-shaped calls the game makes, and the main loop of `sdevkit/loop.h`. Until the game
 switches to the new names, a deprecated compatibility header, `lib/include/snes/`, maps the old
-ones for the snapshot of Blubber Blasen; `tools/sdevkit_rename.py` converts a game. On the console the game ran at 1.16
-frames per tick during a minute of play (3,600 frames, 3,098 ticks), measured on 2026-11-18 after
-the latest optimizations. That figure includes waiting for the
+ones for the snapshot of Blubber Blasen; `tools/sdevkit_rename.py` converts a game. On the
+console the game ran at 1.16 frames per tick during a minute of play (3,600 frames, 3,098
+ticks), measured on 2026-11-18 after the latest optimizations. That figure includes waiting for the
 [vertical blank](/glossary#vertical-blank) and the platform layer, so it is not comparable with
 the benchmark: a tick that needs more than one frame waits for the next vertical blank, and the
 benchmark leaves out what the game's video code costs on the hardware. Sound and save RAM are

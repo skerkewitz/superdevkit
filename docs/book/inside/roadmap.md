@@ -18,7 +18,8 @@ itself. While the game is played it takes 0.79 frames per [tick](/glossary#tick)
 of 0.6, and on the same scene dampf's code is 2.14 times as fast as
 [Calypsi](/glossary#calypsi)'s.
 
-dampf is the compiler of superdevkit, a development kit for SNES games that this repository
+dampf is the compiler of superdevkit, a [development kit](/glossary#dev-kit) for SNES games that
+this repository
 holds until it is published. M5 is in work, as version 0.5.0: Blubber Blasen builds its ROM
 with the dev kit, from its own repository.
 
@@ -82,11 +83,18 @@ needed for that while the repository is private. Its work falls into five parts:
   one file per build. dampf ships a `<string.h>` with `memset` and `memcpy`. The test of this
   step found a miscompilation, which is fixed: a loop counter kept in the X register was stepped
   before a later store whose address was formed from its old value. It was not the open one
-  described below. Still to come: a converter for the PNG images of the examples.
+  described below. Done: a converter for PNG images, `tools/png2snes.py`, and three examples,
+  hello, CatchMe and Steinschlag, which play in Mesen without losing a byte and are built in
+  every build.
 - **The dev kit in this repository.** Done: the platform layer has become the dev kit's library
   in `lib/snes`, and the console API the dev kit owns is `lib/include/sdevkit/snes.h`. A table
   shows per function and platform whether it is built or a stub, and a test checks that every
-  function of the API exists in `lib/snes` and in the table. The main loop (`lib/snes/main.c`)
+  function of the API exists in `lib/snes` and in the table. The table also gives what a call
+  costs on the SNES, best to worst case in CPU cycles, taken from the
+  [timing report](/glossary#timing-report) by a test that fails when the numbers are not
+  current. Two guides sit next to the library: `lib/C_STYLE.md`, how to write a game's C for
+  dampf, whose speed rules are measurements a test checks, and `lib/SNES_HARDWARE.md`, what the
+  SNES allows and punishes and which of it the dev kit has. The main loop (`lib/snes/main.c`)
   is the library's, and the frame rhythm it calls (`game_init`, `game_tick`, `game_vblank`, the
   pad bits) is declared in `lib/include/sdevkit/loop.h`. Done: every name a game can use starts
   with `sdevkit_` or `SDEVKIT_` (`oamSetXY` became `sdevkit_oam_set_xy`, `KEY_A` became
@@ -111,7 +119,10 @@ started early, during M5, because prototyping and checking a game is much quicke
 desktop. [Rachael](/glossary#rachael), the SNES rebuilt in portable C from Blubber Blasen's
 implementation of the console API on the PC, is in the dev kit as `lib/rachael`, with a desktop
 frontend for Linux built on raylib in `lib/desktop`, and the examples give the same picture on
-the SNES and on the desktop, pixel for pixel. Still to come are Rachael's tests from the game,
+the SNES and on the desktop, pixel for pixel. Rachael counts every byte the SNES would lose and
+every register write she does not draw, such as a mode other than 1 or mosaic, where the SNES
+would show something else; the desktop check fails on either.
+Still to come are Rachael's tests from the game,
 the frontend on Windows, and the `superdevkit` command. The console API gains sound, save RAM
 and a debug view. A game plays sound by number
 with `sdevkit_sfx_play(id)`, `sdevkit_music_play(track)` and `sdevkit_music_stop()`, the numbers
@@ -150,7 +161,15 @@ and HIR, a level above MIR that is built only when something needs it. Then come
 followed across blocks, 8-bit index registers with arrays aligned to pages, and a calling
 convention that passes the first argument in A. 16-bit pointers into RAM and enum objects in one
 byte follow once their subset decisions are taken, and constant shifts by a multiple of 8
-become byte moves: a 32-bit shift by 16 is a loop of 16 steps today, about 600 cycles. The rest
+become byte moves: a 32-bit shift by 16 is a loop of 16 steps today, about 600 cycles. M9 also
+closes the gaps that the dev kit's C style guide measures, where one way of writing C is slower
+than another: 8-bit loop counters cost more than 16-bit ones; an array with a 16-bit index goes
+through a 24-bit pointer unless a `DAMPF_RANGE` hint bounds the index; a pointer walk costs more
+than indexing; a multiplication of two bytes calls a routine instead of using the SNES's 8 x 8
+multiplier; a signed division by a power of two keeps its rounding correction even when the
+value is known not to be negative; 32-bit operands go through frame slots; and a constant shift
+by more than 8 is a loop. Each gap is a rule of the guide that a test checks, and the change
+that closes a gap changes or retires its rule. The rest
 of the way to the goal has to come from the game doing less work, as the checkpoint after M2
 concluded.
 
@@ -197,6 +216,14 @@ Some steps of the dev kit have no milestone yet: macOS, where raylib runs but wh
 test now; `superdevkit bundle`, one folder with every target, ready to publish; the desktop
 running the ROM in an emulator; Mesen as the desktop target; and the compiler moved into a
 folder `compiler/` once a second build world in the repository makes it worth it.
+
+Two ideas for dampf itself have no milestone either. A local Compiler Explorer (godbolt) could
+show dampf next to gcc through a wrapper script that turns dampf's line information into the
+directives Compiler Explorer maps source lines with; on godbolt.org itself only after
+publishing, since that needs a stable release. `dampf explore` would be a local page served by
+dampf for what Compiler Explorer cannot show: the cycles per source line and per function, the
+MIR after each pass, both code generators side by side, and the code run in dampf's emulator
+against gcc's result on the PC.
 
 ### Publishing (not scheduled)
 

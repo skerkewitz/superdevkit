@@ -129,6 +129,25 @@ the bytes of every line, the symbols, segments, scopes and C symbols (`DbgMeanin
 you need ca65 and ld65 to develop dampf, but not to use it. `LirTest` checks the blocks, printer,
 parser and verifier of LIR on small hand-written pieces.
 
+`StyleGuideTest` measures the speed rules of the C style guide, `lib/C_STYLE.md`. Each rule is a
+C file in `src/test/resources/style/`, named after the rule, with a pair of functions that
+compute the same thing two ways and a first comment that states the claim, such as
+`claim: sum_u8_counter slower sum_u16_counter`. The relation is `slower`, `faster` or `same`,
+where `same` means within 5 %. The test builds each file with the code generator from MIR and
+compares the worst cases of the two functions in the [timing report](/glossary#timing-report).
+The program must also give the PC's globals in dampf's emulator, so a fast form that changes
+the meaning cannot get in, and the measured cycles must lie within the static timing. A claim
+that no longer holds fails the build: the rule changes or goes in the same commit as the change
+to dampf that broke it. The table of measurements in the guide must be what the test measures.
+
+Three more tests keep the documents of the [dev kit](/glossary#dev-kit) true. `LibCostTest`
+builds a program that calls every function of the console API, the calls a game makes to the
+dev kit's library, and checks their best and worst cases against the table in `lib/README.md`.
+`SnesHardwareGuideTest` checks the feature table of the guide to the SNES hardware,
+`lib/SNES_HARDWARE.md`, against `lib/snes` and against [Rachael](/glossary#rachael) in
+`lib/rachael`. `RachaelTest` checks that Rachael counts the register writes she does not draw.
+Like `StyleGuideTest`, each fails when its document is no longer true.
+
 ## dampf's emulator and Mesen
 
 The SNES side of the tests runs in `dampf.emu`, a 65816 emulator in Java with LoROM, work RAM and
@@ -168,8 +187,8 @@ Each takes the Mesen that `MESEN` names, else `.mesen/Mesen`, else `.mesen/Mesen
 ## Running the tests
 
 `./gradlew build` compiles dampf and runs every test that needs no property: the unit tests, the
-execution tests (in Mesen too, when `.mesen/` exists), 50 random programs and the check of the
-back end's output. The rest is
+execution tests (in Mesen too, when `.mesen/` exists), 50 random programs, the check of the
+back end's output and the tests of the guides. The rest is
 switched on with Gradle properties:
 
 | Call | What it does |
@@ -182,6 +201,8 @@ switched on with Gradle properties:
 | `./gradlew test -PrandomSeed=<S>` | random programs from seed S on (default 1) |
 | `./gradlew test -Preplays` | also the game's replays and `GameTimingTest`; with a Mesen also the replays through the platform layer |
 | `./gradlew test --tests '*BackendOutputTest' -PbackendOutput=update` | records new hashes of the back end's output and copies its assembly to `build/backend-output-ref/` |
+| `STYLE_GUIDE=update ./gradlew test --tests dampf.exec.StyleGuideTest` | writes today's measurements into the table of `lib/C_STYLE.md` |
+| `LIB_COSTS=update ./gradlew test --tests '*LibCostTest'` | writes today's best and worst cases into the table of `lib/README.md` |
 | `./gradlew test -PcpuTests` | also the emulator against SingleStepTests, 300 tests per opcode |
 | `./gradlew test -PcpuTests=<N>` | the same with N tests per opcode |
 | `./gradlew test -Pblubberblasen=<path>` | tests that need the game's sources read them from there |
@@ -243,7 +264,8 @@ a test was added for them.
 A test must fail, not wait forever. Every program test runs under a hard time limit
 (`assertTimeoutPreemptively`): 3 minutes per execution test, 2 per random program, 15 per
 replay (20 through the platform layer) and 2 per MIR round trip, because JUnit's default
-timeouts do not cover the dynamic tests these are built from; `GameTimingTest` has 10 minutes.
+timeouts do not cover the dynamic tests these are built from; `GameTimingTest` has 10 minutes,
+and `StyleGuideTest` 5 for all its rules.
 External programs (gcc, the PC builds, and ca65 and ld65 where the tests use them) run through
 `dampf.util.Processes` with a time limit and are killed when it runs out. The emulator stops
 after 600 frames in the program tests and after 200,000 frames in `dampf bench` and the

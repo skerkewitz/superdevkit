@@ -82,6 +82,12 @@ One picture on the screen; the SNES shows 60 a second (NTSC). The speed of game 
 frames per [tick](#tick). Also, on the code side, the memory a function's locals and parameters
 occupy; the book says *frame of a function* for that.
 
+## Front end
+
+The part of dampf that reads C: it preprocesses a file with `gcc -E`, parses it, checks it
+against the [subset](#subset) and reports what is outside it. `dampf check` runs only the front
+end. A [hint](#hint) becomes a built-in there, a name only the front end knows.
+
 ## Hint
 
 A macro from dampf's header `<dampf.h>` that tells dampf something it cannot infer, such as a
@@ -190,6 +196,13 @@ The part of C that dampf accepts. Anything outside it is rejected with a message
 
 One step of Blubber Blasen's game logic. Its speed is measured in [frames](#frame) per tick:
 the goal is that the game logic of a tick fits in 60 % of a frame.
+
+## Timing report
+
+The file `<rom>.timing.txt` that `dampf build` writes next to the ROM: for every function, the
+best and the worst case from its entry to its return, in CPU cycles, calls included; a function
+whose worst case dampf cannot bound says `unbounded` and names the loop or call. A
+`DAMPF_BUDGET` is checked against it. See [Exact timing](/inside/timing).
 
 ## UBSan
 

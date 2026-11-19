@@ -8,6 +8,7 @@ sources:
   - build.gradle.kts
   - src/test/java/dampf/exec/*.java
   - src/test/java/dampf/emu/*.java
+  - src/test/java/dampf/lib/*.java
 audience: Contributors, and users who want to know why they can trust dampf's output
 ---
 
