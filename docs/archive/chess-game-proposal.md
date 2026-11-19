@@ -1,7 +1,9 @@
 # Proposal: a chess game as an example of superdevkit
 
-Status: built, 2026-11-19, as [examples/schach](../examples/schach/README.md); what was measured
-there (speed, strength) and where it differs from this plan is in its README.
+Archived 2026-11-19: all four steps are built, as [examples/schach](../../examples/schach/README.md).
+Its README has what was measured (speed, strength) and where the result differs from this plan:
+the search manages about 270 nodes a second (11,500 CPU cycles a node), not one to two thousand,
+and the strength comes in three levels instead of one target.
 
 A small chess game for the SNES, written in dampf's C subset like the other examples
 (`examples/hello`, `examples/catchme`, `examples/steinschlag`). The player is always white, the
@@ -32,7 +34,7 @@ Not in the first version: playing black, two players, a clock, sound, saving a g
 
 ## The two constraints of the subset
 
-The subset ([subset.md](subset.md)) has no recursion and no heap (ADR record 6). Neither is a real
+The subset ([subset.md](../subset.md)) has no recursion and no heap (ADR record 6). Neither is a real
 obstacle for chess.
 
 **No recursion.** Alpha-beta search is usually written as a recursive function, but it can be a
@@ -45,7 +47,7 @@ same loop, with a flag per ply.
 The loop has an advantage the recursive version lacks: it can stop after any node and carry on in
 the next frame. The search then runs a fixed number of nodes per `game_tick`, the cursor and a
 "thinking" display keep moving, and `game_tick` stays inside its cycle budget
-([timing.md](timing.md)).
+([timing.md](../timing.md)).
 
 **No heap.** Chess programs rarely need one. All move lists share one static array (a few
 thousand entries is plenty), each ply using a section of it. The position history for repetition

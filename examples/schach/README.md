@@ -2,7 +2,7 @@
 
 A chess game: the player is white, the console black. An example of superdevkit with no action
 at all, only a search that runs for seconds over tables, which makes it a test of dampf's code
-generator as much as a game. The plan was [docs/chess-game-proposal.md](../../docs/chess-game-proposal.md);
+generator as much as a game. The plan was [docs/archive/chess-game-proposal.md](../../docs/archive/chess-game-proposal.md);
 all four of its steps are built.
 
 ```bash
