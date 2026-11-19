@@ -10,24 +10,29 @@ starts. It is in the library, not in the game, so every game has it without writ
 every target: the SNES, and Rachael on the desktop and the web. It tells whoever plays a game what
 it was made with.
 
-The design is the user's picture of 2026-11-19: a SNES pad in pixel art with a cartridge on top,
-and beside it the text "DONE WITH" above "SUPERDEVKIT", "DEVKIT" brighter than "SUPER", in grey
-and white on black.
+The design is the user's picture, `assets/splash/logo_source.png` (239 x 52 pixels, 2026-11-19):
+a SNES pad in pixel art with a cartridge on top, and beside it two lines of text, "SUPERDEVKIT"
+below with "DEVKIT" brighter than "SUPER", in grey and white on black. The text of the first line
+is "MADE WITH", as the engines have it ("Made with Unity"); the picture still says "DONE WITH",
+which read as "finished with".
 
 ## The picture on the SNES
 
-The picture as it is cannot be used directly. It is 1408 x 768 pixels, the SNES shows 256 x 224,
-and scaled down by 5.5 its soft edges and the letters of "DONE WITH" (about 50 pixels high, then
-9) turn to mush. And it is not pixel art on a grid: the pixels of the pad have uneven sizes and
-blurred edges.
+The picture is close to the SNES's resolution already. Padded to 240 x 56 it is a block of 30 x 7
+tiles in the middle of the screen. Mapped to a palette chosen by hand, black, six greys, white,
+the cartridge's lilac and the four buttons' colours, it needs 14 of a palette's 16 colours and 175
+different tiles, 5.6 KB of ROM and VRAM at 4 bits per pixel, and everything stays legible.
 
-So the logo is drawn again at the SNES's own resolution, with the picture as the design: a script
-`dev/art/splash.py`, like the examples' graphics, draws it pixel by pixel and `png2snes.py` turns
-it into tiles. About 200 x 48 pixels in the middle of the screen, the pad about 56 x 32, the text
-in a pixel font of 8 to 16 pixels in height; at most 16 colours on one palette, which the picture
-almost is already (black, three greys, white, the lilac of the cartridge and the buttons' four
-colours). On a black screen that is about 150 tiles of 4 bits per pixel, under 5 KB of ROM, and the
-map of one layer.
+It is not clean pixel art, though: it has 63 colours, the black is about ten different near-black
+tones, there are single grey and lilac specks in the dark parts of the pad, and the edges of the
+letters have uneven grey pixels left from smoothing. On the SNES that looks restless, and the
+specks make almost empty tiles all different.
+
+So the source stays the design, and a script `dev/art/splash.py`, like the examples' graphics,
+makes the SNES's picture from it: the fixed palette, everything near black made black, single
+specks removed, and the text set again with clean edges, "MADE WITH" in place of "DONE WITH".
+`png2snes.py` turns the result into tiles. A colour is then changed in the script, not in an image
+editor.
 
 ## How it runs
 
@@ -72,11 +77,7 @@ buttons and the shine together one second, holding a second, fading out half a s
 of it is the same on the SNES and on Rachael, so a check can take screenshots in the middle of
 each movement.
 
-## Two things to settle first
-
-**"DONE WITH" or "MADE WITH".** The engines say "Made with Unity", "Made with Godot"; "made
-with" is the usual English for it, "done with" reads as "finished with". I would write "MADE
-WITH SUPERDEVKIT".
+## One thing to settle before publishing
 
 **The pad and the cartridge are Nintendo's design.** The shape of the SNES pad, its four coloured
 buttons and the cartridge's outline are recognisable as Nintendo's, and the splash is in every
@@ -98,7 +99,7 @@ picture as it is is fine. For the private repository it does not matter yet.
 ## Steps
 
 1. `dev/art/splash.py`: the logo at the SNES's resolution, its tiles and palette as C in the
-   library (`lib/splash/` or next to `main.c`), with the answer on "MADE WITH" and on the pad.
+   library (`lib/splash/` or next to `main.c`), from `assets/splash/logo_source.png`.
 2. The splash in `lib/snes/main.c` and `lib/desktop/main.c`, the video reset after it; first
    still, then the movements one by one.
 3. The examples' checks unchanged and passing; one screenshot of the splash in a check, the SNES
