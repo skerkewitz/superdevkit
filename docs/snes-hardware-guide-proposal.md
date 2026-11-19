@@ -1,6 +1,9 @@
 # Proposal: a guide to the SNES hardware for superdevkit games
 
-Status: proposal, 2026-11-19. Nothing is built yet. The companion of
+Status: built, 2026-11-19, as [lib/SNES_HARDWARE.md](../lib/SNES_HARDWARE.md), except step 3
+(random start values): the kit's start-up on the SNES clears every PPU register and the video
+memory, so a game starts from known values there too, and random ones in Rachael would test a
+state the kit never leaves (the guide says so). The companion of
 [c-style-guide-proposal.md](c-style-guide-proposal.md).
 
 ## Two guides

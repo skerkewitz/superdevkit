@@ -60,7 +60,8 @@ class LibApiTest {
         assertDefinesAll(RACHAEL);
     }
 
-    private static void assertDefinesAll(Path platform) throws IOException {
+    /** The functions the .c files of a platform's folder define. */
+    static Set<String> defined(Path platform) throws IOException {
         Set<String> defined = new TreeSet<>();
         try (Stream<Path> files = Files.list(platform)) {
             for (Path f : files.filter(p -> p.toString().endsWith(".c")).toList()) {
@@ -70,6 +71,11 @@ class LibApiTest {
                 }
             }
         }
+        return defined;
+    }
+
+    private static void assertDefinesAll(Path platform) throws IOException {
+        Set<String> defined = defined(platform);
         List<String> missing = new ArrayList<>(consoleApi());
         missing.removeAll(defined);
         assertEquals(List.of(), missing, "functions of sdevkit/snes.h that " + platform + " does not define (a stub counts)");

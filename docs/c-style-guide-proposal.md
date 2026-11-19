@@ -1,7 +1,8 @@
 # Proposal: a style guide for C with dampf
 
-Status: proposal, 2026-11-19. Nothing is built yet. The measurements below are from dampf at
-commit `1e8c0c6`.
+Status: built, 2026-11-19, as [lib/C_STYLE.md](../lib/C_STYLE.md) with `StyleGuideTest`; the
+measurements below are from dampf at commit `1e8c0c6`, and the guide's table has today's (some
+differ: see the guide). `superdevkit init`'s pointer waits for M7.
 
 ## Why
 

@@ -9,6 +9,10 @@ from the README.
   execution tests also run in Mesen when `.mesen/` exists (not in git; `dev/fetch_mesen.sh` puts
   MesenCE there, ADR record 33).
 - A new language feature needs an execution test in `src/test/resources/exec/` (PC vs SNES).
+- Game code (the examples, Schach, anything in `examples/`) follows `lib/C_STYLE.md` (C for
+  dampf; its speed rules are tests, `StyleGuideTest`) and `lib/SNES_HARDWARE.md` (the hardware
+  and what the kit has). A change to dampf that breaks a rule of the C guide changes the rule in
+  the same commit.
 - dampf works on the snapshot `snapshots/blubberblasen` (never edit it; refresh with
   `dev/update_game_snapshot.sh /mnt/d/Develop/AiProject/BlubberBlasen`). Never run Mesen or write
   files inside the game's own folders: another agent is working there.
