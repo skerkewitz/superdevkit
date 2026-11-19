@@ -26,6 +26,10 @@ wrong code without any message, so the PC build checks every fact your tests and
 defining `NDEBUG` switches the checks off, as for any `assert`. A hint that only asks for a check
 at build time, such as `DAMPF_BUDGET`, expands to nothing on the PC.
 
+A PC build without the host's headers (gcc's `-nostdinc -ffreestanding`, as the desktop build of
+a game uses) has no `<assert.h>`. There a wrong hint calls `__builtin_trap()` instead, which stops
+the program without a message; `NDEBUG` switches this check off as well.
+
 ## The hints
 
 ### DAMPF_RANGE
@@ -77,7 +81,7 @@ With the hint, `n` is at most 10 inside the loop and at most 11 after the step, 
 runs a bounded number of times (`names.timing.txt`):
 
 ```
-          24         1113  _test_main
+          21         1134  _test_main
           31          317  _text_len
 ```
 
@@ -87,11 +91,11 @@ an `assert`. A wrong hint stops the program, here `DAMPF_RANGE(n, 0, 3)` in a co
 on names of four and five letters:
 
 ```
-pc: wrong.c:11: text_len: Assertion `(unsigned long long)(n) - (unsigned long long)(0) <= (unsigned long long)(3) - (unsigned long long)(0) && "DAMPF_RANGE(" "n" ", " "0" ", " "3" ")"' failed.
+pc: wrong.c:11: text_len: Assertion `DAMPF_RANGE_HOLDS(n, 0, 3) && "DAMPF_RANGE(" "n" ", " "0" ", " "3" ")"' failed.
 ```
 
-The check is written as one unsigned comparison so that a hint on an unsigned variable with
-the lower bound 0 gives no "comparison is always true" warning under `-Wextra`.
+The check, `DAMPF_RANGE_HOLDS`, is one unsigned comparison, so that a hint on an unsigned
+variable with the lower bound 0 gives no "comparison is always true" warning under `-Wextra`.
 
 A misused hint is a compile error:
 
@@ -129,17 +133,17 @@ void test_main(void)
 }
 ```
 
-The loop takes up to 1201 cycles, more than the budget, and the build fails:
+The loop takes up to 1137 cycles, more than the budget, and the build fails:
 
 ```
-sum.c:7:42: error: 'sum' takes up to 1201 CPU cycles, over its budget of 1000 (DAMPF_BUDGET); best case 17, see the .timing.txt file
+sum.c:7:42: error: 'sum' takes up to 1137 CPU cycles, over its budget of 1000 (DAMPF_BUDGET); best case 17, see the .timing.txt file
 ```
 
 A worst case above 90 % of the budget builds, with a warning before the line that names the
-files written. With `DAMPF_BUDGET(1300)`:
+files written. With `DAMPF_BUDGET(1200)`:
 
 ```
-sum2.c:7:42: warning: 'sum' takes up to 1201 CPU cycles, 92 % of its budget of 1300 (DAMPF_BUDGET)
+sum2.c:7:42: warning: 'sum' takes up to 1137 CPU cycles, 95 % of its budget of 1200 (DAMPF_BUDGET)
 ```
 
 A function without a worst case cannot keep a budget, because dampf cannot guarantee it. The
