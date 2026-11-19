@@ -252,7 +252,8 @@ What it takes:
 
 - **Own examples instead of Blubber Blasen.** Done on 2026-11-19 (ADR record 40): the snapshot,
   its replays and its hand-written function left the repository, and on 2026-11-19 the git
-  history too (`git filter-repo`, force pushed), with the game's tools and tests. The examples took over their jobs: Er-Tüp is a test case of a whole game's size,
+  history too (`git filter-repo`, force pushed), with the game's tools and tests. The examples
+  took over their jobs: Er-Tüp is a test case of a whole game's size,
   `reference/` holds functions of the examples, and `dev/bench_examples.sh` measures the work per
   tick of all of them against a baseline: many small calls (Schach), 16- and 32-bit arithmetic
   (Mandelbrot), arrays and bytes (Steinschlag), fixed point, particles, a pair loop and state
