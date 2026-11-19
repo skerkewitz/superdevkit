@@ -1,0 +1,579 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BRR Lab</title>
+<!--
+  BRR Lab: hear a sound effect as the SNES would play it.
+
+  Drop a WAV (or any file the browser can decode). It is mixed to mono, resampled to the chosen
+  rate, given a treble boost and a gain, encoded to BRR, and decoded again exactly as the S-DSP
+  does: the BRR filters with their 15-bit wrap, then the Gaussian interpolation at 32 kHz with
+  the chip's own table. "SNES" plays that result.
+
+  Not modelled: envelopes (ADSR/GAIN), voice and master volume, echo, and the console's analog
+  output filter. So it is the sample as the DSP's voice produces it, at full volume.
+
+  Sources: the BRR decoding and the interpolation follow Mesen 2's S-DSP (Core/SNES/DSP,
+  DspVoice.cpp and DspInterpolation.h), which follows blargg's snes_spc and Anomie's notes. The
+  512 values of GAUSS are the S-DSP's table, read from the chip.
+
+  Self-contained: no network, no libraries. Open the file in a browser.
+-->
+<style>
+:root {
+  --bg: #f6f5f2; --panel: #ffffff; --text: #1d1d1f; --muted: #6b6b70; --line: #dddcd7;
+  --accent: #3157c8; --accent-text: #ffffff; --orig: #9a9aa0; --snes: #3157c8; --warn: #b4441c;
+  --ok: #2e7d4f;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #17181b; --panel: #212226; --text: #ececee; --muted: #9c9ca3; --line: #34353b;
+    --accent: #7d9bf0; --accent-text: #0e1220; --orig: #6f7078; --snes: #8fa9f5; --warn: #f08a5d;
+    --ok: #6cc391;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #17181b; --panel: #212226; --text: #ececee; --muted: #9c9ca3; --line: #34353b;
+  --accent: #7d9bf0; --accent-text: #0e1220; --orig: #6f7078; --snes: #8fa9f5; --warn: #f08a5d;
+  --ok: #6cc391;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+main { max-width: 880px; margin: 0 auto; padding: 24px 16px 48px; }
+h1 { font-size: 22px; margin: 0 0 4px; }
+.sub { color: var(--muted); margin: 0 0 20px; }
+.panel {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 16px; margin-bottom: 16px;
+}
+#drop {
+  border: 2px dashed var(--line); border-radius: 10px; padding: 28px 16px; text-align: center;
+  color: var(--muted); cursor: pointer;
+}
+#drop.over { border-color: var(--accent); color: var(--text); }
+#drop strong { color: var(--text); }
+.row { display: grid; grid-template-columns: 150px 1fr 110px; gap: 12px; align-items: center;
+  margin: 10px 0; }
+.row label { color: var(--muted); }
+.row output { text-align: right; font-variant-numeric: tabular-nums; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.presets { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px 162px; }
+button {
+  font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--text);
+  border-radius: 8px; padding: 7px 12px; cursor: pointer;
+}
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: .45; cursor: default; }
+button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+.presets button { padding: 3px 9px; font-size: 13px; }
+.presets button.on { border-color: var(--accent); color: var(--accent); }
+.play { display: flex; flex-wrap: wrap; gap: 8px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.stat { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.stat .k { color: var(--muted); font-size: 12px; }
+.stat .v { font-size: 20px; font-variant-numeric: tabular-nums; }
+.stat .v small { font-size: 13px; color: var(--muted); }
+canvas { width: 100%; height: 140px; display: block; border-radius: 6px; background: var(--bg); }
+.legend { display: flex; gap: 16px; color: var(--muted); font-size: 13px; margin-top: 6px; }
+.legend span::before { content: ""; display: inline-block; width: 10px; height: 3px;
+  margin-right: 6px; vertical-align: middle; background: var(--c); }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); }
+th { color: var(--muted); font-weight: normal; font-size: 13px; }
+td.n, th.n { text-align: right; }
+.warn { color: var(--warn); }
+.okc { color: var(--ok); }
+.note { color: var(--muted); font-size: 13px; }
+.check { display: flex; gap: 8px; align-items: center; }
+@media (max-width: 600px) {
+  .row { grid-template-columns: 1fr 80px; }
+  .row label { grid-column: 1 / -1; }
+  .presets { margin-left: 0; }
+}
+</style>
+</head>
+<body>
+<main>
+  <h1>BRR Lab</h1>
+  <p class="sub">Hear a sound effect as the SNES plays it: resampled, encoded to BRR, decoded and
+    interpolated as the S-DSP does.</p>
+
+  <div class="panel">
+    <div id="drop" tabindex="0">
+      <strong>Drop a WAV file here</strong> or click to choose one
+      <div id="fileinfo" class="note" style="margin-top:6px"></div>
+    </div>
+    <input id="file" type="file" accept="audio/*,.wav" hidden>
+  </div>
+
+  <div class="panel">
+    <div class="row">
+      <label for="rate">Sample rate</label>
+      <input id="rate" type="range" min="4000" max="32000" step="500" value="16000">
+      <output id="rateOut"></output>
+    </div>
+    <div class="presets" id="presets"></div>
+    <div class="row">
+      <label for="treble">Treble boost</label>
+      <input id="treble" type="range" min="0" max="18" step="0.5" value="6">
+      <output id="trebleOut"></output>
+    </div>
+    <div class="row">
+      <label for="gain">Gain</label>
+      <input id="gain" type="range" min="-18" max="12" step="0.5" value="0">
+      <output id="gainOut"></output>
+    </div>
+    <div class="row">
+      <label for="trim">Trim silence</label>
+      <div class="check"><input id="trim" type="checkbox" checked>
+        <span class="note">quieter than -50 dB at the start and the end</span></div>
+      <span></span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="play">
+      <button id="pOrig" disabled>Play original</button>
+      <button id="pRes" disabled>Play resampled (no BRR)</button>
+      <button id="pSnes" class="primary" disabled>Play SNES</button>
+      <button id="stop" disabled>Stop</button>
+      <button id="dl" disabled>Download .brr</button>
+      <button id="add" disabled>Add to budget</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="stats">
+      <div class="stat"><div class="k">BRR size</div><div class="v" id="sBytes">-</div></div>
+      <div class="stat"><div class="k">Share of 64 KB audio RAM</div><div class="v" id="sShare">-</div></div>
+      <div class="stat"><div class="k">Length</div><div class="v" id="sLen">-</div></div>
+      <div class="stat"><div class="k">Pitch register</div><div class="v" id="sPitch">-</div></div>
+      <div class="stat"><div class="k">BRR error (SNR)</div><div class="v" id="sSnr">-</div></div>
+      <div class="stat"><div class="k">Blocks per filter 0/1/2/3</div><div class="v" id="sFilt">-</div></div>
+    </div>
+    <p class="note" id="clipNote"></p>
+  </div>
+
+  <div class="panel">
+    <canvas id="wave" width="1700" height="280"></canvas>
+    <div class="legend">
+      <span style="--c: var(--orig)">resampled input</span>
+      <span style="--c: var(--snes)">SNES output (32 kHz)</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <table>
+      <thead><tr><th>Effect</th><th class="n">Rate</th><th class="n">Treble</th>
+        <th class="n">Bytes</th><th></th></tr></thead>
+      <tbody id="budget"></tbody>
+      <tfoot><tr><th>Total</th><th></th><th></th><th class="n" id="bTotal">0</th><th></th></tr></tfoot>
+    </table>
+    <p class="note">The audio RAM holds the sound driver, the sample directory (4 bytes per
+      sample) and the samples; with sound effects only, no music and no echo, a few hundred bytes
+      go to the driver and the rest is for samples.</p>
+  </div>
+</main>
+
+<script>
+"use strict";
+
+/* The S-DSP's Gaussian interpolation table (512 entries, read from the chip). */
+const GAUSS = [
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2,
+  2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 7, 7, 7, 8, 8, 8, 9, 9, 9, 10, 10, 10,
+  11, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15, 15, 16, 16, 17, 17, 18, 19, 19, 20, 20, 21, 21, 22, 23, 23, 24, 24, 25, 26, 27, 27,
+  28, 29, 29, 30, 31, 32, 32, 33, 34, 35, 36, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56,
+  58, 59, 60, 61, 62, 64, 65, 66, 67, 69, 70, 71, 73, 74, 76, 77, 78, 80, 81, 83, 84, 86, 87, 89, 90, 92, 94, 95, 97, 99, 100, 102,
+  104, 106, 107, 109, 111, 113, 115, 117, 118, 120, 122, 124, 126, 128, 130, 132, 134, 137, 139, 141, 143, 145, 147, 150, 152, 154, 156, 159, 161, 163, 166, 168,
+  171, 173, 175, 178, 180, 183, 186, 188, 191, 193, 196, 199, 201, 204, 207, 210, 212, 215, 218, 221, 224, 227, 230, 233, 236, 239, 242, 245, 248, 251, 254, 257,
+  260, 263, 267, 270, 273, 276, 280, 283, 286, 290, 293, 297, 300, 304, 307, 311, 314, 318, 321, 325, 328, 332, 336, 339, 343, 347, 351, 354, 358, 362, 366, 370,
+  374, 378, 381, 385, 389, 393, 397, 401, 405, 410, 414, 418, 422, 426, 430, 434, 439, 443, 447, 451, 456, 460, 464, 469, 473, 477, 482, 486, 491, 495, 499, 504,
+  508, 513, 517, 522, 527, 531, 536, 540, 545, 550, 554, 559, 563, 568, 573, 577, 582, 587, 592, 596, 601, 606, 611, 615, 620, 625, 630, 635, 640, 644, 649, 654,
+  659, 664, 669, 674, 678, 683, 688, 693, 698, 703, 708, 713, 718, 723, 728, 732, 737, 742, 747, 752, 757, 762, 767, 772, 777, 782, 787, 792, 797, 802, 806, 811,
+  816, 821, 826, 831, 836, 841, 846, 851, 855, 860, 865, 870, 875, 880, 884, 889, 894, 899, 904, 908, 913, 918, 923, 927, 932, 937, 941, 946, 951, 955, 960, 965,
+  969, 974, 978, 983, 988, 992, 997, 1001, 1005, 1010, 1014, 1019, 1023, 1027, 1032, 1036, 1040, 1045, 1049, 1053, 1057, 1061, 1066, 1070, 1074, 1078, 1082, 1086, 1090, 1094, 1098, 1102,
+  1106, 1109, 1113, 1117, 1121, 1125, 1128, 1132, 1136, 1139, 1143, 1146, 1150, 1153, 1157, 1160, 1164, 1167, 1170, 1174, 1177, 1180, 1183, 1186, 1190, 1193, 1196, 1199, 1202, 1205, 1207, 1210,
+  1213, 1216, 1219, 1221, 1224, 1227, 1229, 1232, 1234, 1237, 1239, 1241, 1244, 1246, 1248, 1251, 1253, 1255, 1257, 1259, 1261, 1263, 1265, 1267, 1269, 1270, 1272, 1274, 1275, 1277, 1279, 1280,
+  1282, 1283, 1284, 1286, 1287, 1288, 1290, 1291, 1292, 1293, 1294, 1295, 1296, 1297, 1297, 1298, 1299, 1300, 1300, 1301, 1302, 1302, 1303, 1303, 1303, 1304, 1304, 1304, 1304, 1304, 1305, 1305
+];
+
+const ARAM = 65536;
+const DSP_RATE = 32000;
+
+const $ = id => document.getElementById(id);
+let actx = null;
+let source = null;          // decoded AudioBuffer of the file
+let sourceMono = null;      // its channels mixed to one
+let fileName = "";
+let current = null;         // { input: Int16Array (target rate), brr: Uint8Array, snes: Int16Array, rate, pitch }
+let playing = null;
+let pending = 0;
+
+function audio() {
+  if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+  return actx;
+}
+
+/* --- BRR, as the S-DSP decodes it ------------------------------------------------------------ */
+
+const clamp16 = v => v < -32768 ? -32768 : v > 32767 ? 32767 : v;
+const wrap16 = v => ((v & 0xFFFF) ^ 0x8000) - 0x8000;
+
+/* One sample: nibble n (-8..7), shift, filter, the two previous outputs (as stored). Returns the
+   output as the DSP stores it: clamped to 16 bits, then doubled with wrap (the 15-bit clip). */
+function decodeOne(n, shift, filter, out1, out2) {
+  let s = (n << shift) >> 1;
+  if (shift >= 13) s = n < 0 ? -0x800 : 0;
+  return wrap16(clamp16(s + predict(filter, out1, out2)) * 2);
+}
+
+/* What a filter adds to RD, from the two previous outputs as stored. */
+function predict(filter, out1, out2) {
+  const p1 = out1 >> 1, p2 = out2 >> 1;
+  switch (filter) {
+    case 1: return p1 + ((-p1) >> 4);
+    case 2: return (p1 << 1) + ((-((p1 << 1) + p1)) >> 5) - p2 + (p2 >> 4);
+    case 3: return (p1 << 1) + ((-(p1 + (p1 << 2) + (p1 << 3))) >> 6) - p2 + (((p2 << 1) + p2) >> 4);
+  }
+  return 0;
+}
+
+/* Encodes x (Int16Array) to BRR: for each block of 16 samples every filter and shift is tried,
+   each nibble chosen against the real decoder (so the wrap is never hit by accident), and the
+   pair with the smallest squared error kept. The last block carries the end flag. */
+function encodeBrr(x) {
+  const blocks = Math.max(1, Math.ceil(x.length / 16));
+  const out = new Uint8Array(blocks * 9);
+  const used = [0, 0, 0, 0];
+  let o1 = 0, o2 = 0;
+  const nib = new Int8Array(16), best = new Int8Array(16);
+  for (let b = 0; b < blocks; b++) {
+    let bestErr = Infinity, bestShift = 0, bestFilter = 0, bo1 = 0, bo2 = 0;
+    for (let filter = 0; filter < 4; filter++) {
+      if (b === 0 && filter !== 0) continue;   // no history yet: filter 0, as encoders do
+      for (let shift = 0; shift <= 12; shift++) {
+        let e = 0, a1 = o1, a2 = o2;
+        for (let i = 0; i < 16; i++) {
+          const t = b * 16 + i < x.length ? x[b * 16 + i] : 0;
+          const pred = predict(filter, a1, a2);
+          const ideal = ((t >> 1) - pred) * 2 / (1 << shift);
+          let lo = Math.floor(ideal), hi = lo + 1;
+          let bestN = 0, bestV = 0, bestE = Infinity;
+          for (const n0 of [lo - 1, lo, hi, hi + 1]) {
+            const n = n0 < -8 ? -8 : n0 > 7 ? 7 : n0;
+            const v = decodeOne(n, shift, filter, a1, a2);
+            const d = (v - t) * (v - t);
+            if (d < bestE) { bestE = d; bestN = n; bestV = v; }
+          }
+          nib[i] = bestN; e += bestE;
+          a2 = a1; a1 = bestV;
+          if (e >= bestErr) break;
+        }
+        if (e < bestErr) {
+          bestErr = e; bestShift = shift; bestFilter = filter; best.set(nib); bo1 = a1; bo2 = a2;
+        }
+      }
+    }
+    used[bestFilter]++;
+    const end = b === blocks - 1 ? 1 : 0;
+    out[b * 9] = (bestShift << 4) | (bestFilter << 2) | end;
+    for (let i = 0; i < 8; i++) {
+      out[b * 9 + 1 + i] = ((best[2 * i] & 15) << 4) | (best[2 * i + 1] & 15);
+    }
+    o1 = bo1; o2 = bo2;
+  }
+  return { brr: out, used };
+}
+
+/* Decodes a BRR stream to the DSP's stored samples. */
+function decodeBrr(brr) {
+  const blocks = brr.length / 9;
+  const y = new Int16Array(blocks * 16);
+  let o1 = 0, o2 = 0, k = 0;
+  for (let b = 0; b < blocks; b++) {
+    const h = brr[b * 9], shift = h >> 4, filter = (h >> 2) & 3;
+    for (let i = 0; i < 16; i++) {
+      const byte = brr[b * 9 + 1 + (i >> 1)];
+      const n = ((i & 1 ? byte & 15 : byte >> 4) ^ 8) - 8;
+      const v = decodeOne(n, shift, filter, o1, o2);
+      y[k++] = v; o2 = o1; o1 = v;
+    }
+    if (h & 1) break;
+  }
+  return y;
+}
+
+/* The voice's output at 32 kHz: the Gaussian interpolation over four samples, stepped by the
+   pitch (0x1000 = one sample per output sample). The first three taps start at zero, as after a
+   key-on. */
+function gaussPlay(y, pitch) {
+  const d = new Int32Array(y.length + 3);
+  d.set(y, 3);
+  const n = Math.floor((y.length) * 4096 / pitch);
+  const out = new Int16Array(n);
+  let pos = 0;
+  for (let i = 0; i < n; i++) {
+    const k = pos >> 12, off = (pos >> 4) & 0xFF;
+    if (k + 3 >= d.length) break;
+    let s = wrap16(((GAUSS[255 - off] * d[k]) >> 11) + ((GAUSS[511 - off] * d[k + 1]) >> 11)
+                 + ((GAUSS[256 + off] * d[k + 2]) >> 11));
+    s += (GAUSS[off] * d[k + 3]) >> 11;
+    out[i] = clamp16(s) & ~1;
+    pos += pitch;
+  }
+  return out;
+}
+
+/* --- The input: mono, resampled, treble boost, gain, trim ----------------------------------- */
+
+/* The file's channels mixed to one. */
+function mono(buf) {
+  const n = buf.length, x = new Float32Array(n);
+  for (let c = 0; c < buf.numberOfChannels; c++) {
+    const ch = buf.getChannelData(c);
+    for (let i = 0; i < n; i++) x[i] += ch[i] / buf.numberOfChannels;
+  }
+  return x;
+}
+
+/* Windowed-sinc resampling (Blackman, 32 zero crossings a side), with the cut-off below the
+   lower of the two Nyquist frequencies, so nothing folds back. Done here rather than by the
+   browser, whose lowest rates differ. */
+function resample(x, inRate, outRate) {
+  const ratio = outRate / inRate, cut = Math.min(1, ratio) * 0.95, half = 32;
+  const width = half / cut;
+  const n = Math.max(1, Math.round(x.length * ratio));
+  const y = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const t = i / ratio, c = Math.floor(t);
+    let acc = 0;
+    for (let k = Math.ceil(t - width); k <= Math.floor(t + width); k++) {
+      if (k < 0 || k >= x.length) continue;
+      const d = t - k, u = d * cut;
+      const sinc = u === 0 ? 1 : Math.sin(Math.PI * u) / (Math.PI * u);
+      const w = 0.42 + 0.5 * Math.cos(Math.PI * d / width) + 0.08 * Math.cos(2 * Math.PI * d / width);
+      acc += x[k] * sinc * w;
+    }
+    y[i] = acc * cut;
+  }
+  return y;
+}
+
+/* A high shelf (RBJ cookbook) at a quarter of the rate: lifts what the Gaussian interpolation
+   dulls. */
+function trebleBoost(x, rate, db) {
+  if (db <= 0) return x;
+  const A = Math.pow(10, db / 40), w = 2 * Math.PI * (rate * 0.25) / rate;
+  const cs = Math.cos(w), al = Math.sin(w) / 2 * Math.SQRT2;
+  const b0 = A * ((A + 1) + (A - 1) * cs + 2 * Math.sqrt(A) * al);
+  const b1 = -2 * A * ((A - 1) + (A + 1) * cs);
+  const b2 = A * ((A + 1) + (A - 1) * cs - 2 * Math.sqrt(A) * al);
+  const a0 = (A + 1) - (A - 1) * cs + 2 * Math.sqrt(A) * al;
+  const a1 = 2 * ((A - 1) - (A + 1) * cs);
+  const a2 = (A + 1) - (A - 1) * cs - 2 * Math.sqrt(A) * al;
+  const y = new Float32Array(x.length);
+  let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+  for (let i = 0; i < x.length; i++) {
+    const v = (b0 * x[i] + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2) / a0;
+    x2 = x1; x1 = x[i]; y2 = y1; y1 = v; y[i] = v;
+  }
+  return y;
+}
+
+function trimSilence(x) {
+  const th = Math.pow(10, -50 / 20);
+  let a = 0, b = x.length;
+  while (a < b && Math.abs(x[a]) < th) a++;
+  while (b > a && Math.abs(x[b - 1]) < th) b--;
+  return x.subarray(a, b);
+}
+
+function toInt16(x, db) {
+  const g = Math.pow(10, db / 20) * 32767;
+  const y = new Int16Array(x.length);
+  let clipped = 0;
+  for (let i = 0; i < x.length; i++) {
+    let v = Math.round(x[i] * g);
+    if (v > 32767) { v = 32767; clipped++; } else if (v < -32768) { v = -32768; clipped++; }
+    y[i] = v;
+  }
+  return { y, clipped };
+}
+
+/* --- The page -------------------------------------------------------------------------------- */
+
+const PRESETS = [8000, 11000, 16000, 18000, 22000, 32000];
+
+function pitchFor(rate) { return Math.max(1, Math.min(0x3FFF, Math.round(rate * 4096 / DSP_RATE))); }
+
+function showControls() {
+  const rate = +$("rate").value, p = pitchFor(rate);
+  $("rateOut").textContent = (p * DSP_RATE / 4096 / 1000).toFixed(2) + " kHz";
+  $("trebleOut").textContent = "+" + (+$("treble").value).toFixed(1) + " dB";
+  const g = +$("gain").value;
+  $("gainOut").textContent = (g > 0 ? "+" : "") + g.toFixed(1) + " dB";
+  for (const b of $("presets").children) b.classList.toggle("on", +b.dataset.rate === rate);
+}
+
+async function rebuild() {
+  showControls();
+  if (!source) return;
+  const ticket = ++pending;
+  const pitch = pitchFor(+$("rate").value);
+  const rate = pitch * DSP_RATE / 4096;          // the rate the DSP really plays at
+  await new Promise(r => setTimeout(r, 0));     // let the controls repaint first
+  if (ticket !== pending) return;
+  let x = resample(sourceMono, source.sampleRate, rate);
+  x = trebleBoost(x, rate, +$("treble").value);
+  if ($("trim").checked) x = trimSilence(x);
+  const { y: input, clipped } = toInt16(x, +$("gain").value);
+  const { brr, used } = encodeBrr(input);
+  const dec = decodeBrr(brr);
+  const snes = gaussPlay(dec, pitch);
+  let sig = 0, err = 0;
+  for (let i = 0; i < input.length; i++) { sig += input[i] * input[i]; const d = dec[i] - input[i]; err += d * d; }
+  const heard = resample(Float32Array.from(input, v => v / 32768), rate, DSP_RATE);
+  current = { input, heard, brr, snes, rate, pitch, used };
+  $("sBytes").innerHTML = brr.length.toLocaleString("en") + " <small>bytes</small>";
+  $("sShare").textContent = (100 * brr.length / ARAM).toFixed(1) + " %";
+  $("sLen").innerHTML = (input.length / rate).toFixed(3) + " <small>s</small>";
+  $("sPitch").innerHTML = "$" + pitch.toString(16).toUpperCase().padStart(4, "0")
+    + " <small>(" + pitch + ")</small>";
+  $("sSnr").innerHTML = err === 0 ? "exact" : (10 * Math.log10(sig / err)).toFixed(1) + " <small>dB</small>";
+  $("sFilt").textContent = used.join(" / ");
+  $("clipNote").innerHTML = clipped
+    ? '<span class="warn">' + clipped + " samples clipped by the gain: lower it.</span>"
+    : "";
+  for (const id of ["pOrig", "pRes", "pSnes", "stop", "dl", "add"]) $(id).disabled = false;
+  draw();
+}
+
+function draw() {
+  const c = $("wave"), g = c.getContext("2d"), cs = getComputedStyle(document.documentElement);
+  g.clearRect(0, 0, c.width, c.height);
+  if (!current) return;
+  const mid = c.height / 2;
+  const lane = (data, step, color) => {
+    g.strokeStyle = color; g.lineWidth = 2; g.beginPath();
+    const n = data.length, w = c.width;
+    for (let px = 0; px < w; px++) {
+      const a = Math.floor(px * n / w), b = Math.max(a + 1, Math.floor((px + 1) * n / w));
+      let lo = 32767, hi = -32768;
+      for (let i = a; i < b && i < n; i++) { if (data[i] < lo) lo = data[i]; if (data[i] > hi) hi = data[i]; }
+      g.moveTo(px + 0.5, mid - hi / 32768 * mid); g.lineTo(px + 0.5, mid - lo / 32768 * mid);
+    }
+    g.stroke();
+  };
+  lane(current.input, 1, cs.getPropertyValue("--orig").trim());
+  g.globalAlpha = 0.75;
+  lane(current.snes, 1, cs.getPropertyValue("--snes").trim());
+  g.globalAlpha = 1;
+}
+
+function play(samples, rate) {
+  stop();
+  const ctx = audio();
+  if (ctx.state === "suspended") ctx.resume();
+  const b = ctx.createBuffer(1, Math.max(1, samples.length), rate);
+  const ch = b.getChannelData(0);
+  if (samples instanceof Float32Array) ch.set(samples);
+  else for (let i = 0; i < samples.length; i++) ch[i] = samples[i] / 32768;
+  const s = ctx.createBufferSource();
+  s.buffer = b; s.connect(ctx.destination); s.start();
+  playing = s;
+  s.onended = () => { if (playing === s) playing = null; };
+}
+
+function stop() { if (playing) { try { playing.stop(); } catch (e) {} playing = null; } }
+
+async function load(file) {
+  fileName = file.name.replace(/\.[^.]+$/, "");
+  $("fileinfo").textContent = "decoding " + file.name + " ...";
+  try {
+    const data = await file.arrayBuffer();
+    source = await audio().decodeAudioData(data);
+    sourceMono = mono(source);
+    $("fileinfo").textContent = file.name + ": " + source.numberOfChannels + " channel(s), "
+      + source.sampleRate + " Hz, " + source.duration.toFixed(3) + " s";
+    rebuild();
+  } catch (e) {
+    source = null;
+    $("fileinfo").innerHTML = '<span class="warn">Cannot decode ' + file.name + ": " + e.message + "</span>";
+  }
+}
+
+/* The budget: what the effects tried so far add up to. */
+let budget = [];
+try { budget = JSON.parse(localStorage.getItem("brrlab.budget") || "[]"); } catch (e) { budget = []; }
+function saveBudget() { try { localStorage.setItem("brrlab.budget", JSON.stringify(budget)); } catch (e) {} }
+function showBudget() {
+  const tb = $("budget"); tb.innerHTML = "";
+  let total = 0;
+  budget.forEach((e, i) => {
+    total += e.bytes + 4;
+    const tr = document.createElement("tr");
+    tr.innerHTML = "<td></td><td class='n'>" + (e.rate / 1000).toFixed(2) + " kHz</td><td class='n'>+"
+      + e.treble + " dB</td><td class='n'>" + e.bytes.toLocaleString("en") + "</td>"
+      + "<td class='n'><button data-i='" + i + "'>Remove</button></td>";
+    tr.firstChild.textContent = e.name;
+    tb.appendChild(tr);
+  });
+  const t = $("bTotal");
+  t.textContent = total.toLocaleString("en") + " (" + (100 * total / ARAM).toFixed(1) + " %)";
+  t.className = "n " + (total > ARAM - 1024 ? "warn" : "okc");
+}
+$("budget").addEventListener("click", e => {
+  const i = e.target.dataset && e.target.dataset.i;
+  if (i !== undefined) { budget.splice(+i, 1); saveBudget(); showBudget(); }
+});
+
+for (const r of PRESETS) {
+  const b = document.createElement("button");
+  b.textContent = r / 1000 + " kHz"; b.dataset.rate = r;
+  b.onclick = () => { $("rate").value = r; rebuild(); };
+  $("presets").appendChild(b);
+}
+for (const id of ["rate", "treble", "gain"]) {
+  $(id).addEventListener("input", showControls);
+  $(id).addEventListener("change", rebuild);
+}
+$("trim").addEventListener("change", rebuild);
+$("pOrig").onclick = () => play(sourceMono, source.sampleRate);
+$("pRes").onclick = () => play(current.heard, DSP_RATE);
+$("pSnes").onclick = () => play(current.snes, DSP_RATE);
+$("stop").onclick = stop;
+$("dl").onclick = () => {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([current.brr], { type: "application/octet-stream" }));
+  a.download = (fileName || "sample") + ".brr"; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+$("add").onclick = () => {
+  budget.push({ name: fileName || "sample", rate: current.rate, treble: +$("treble").value,
+    bytes: current.brr.length });
+  saveBudget(); showBudget();
+};
+
+const drop = $("drop");
+drop.onclick = () => $("file").click();
+drop.onkeydown = e => { if (e.key === "Enter" || e.key === " ") $("file").click(); };
+$("file").onchange = e => { if (e.target.files[0]) load(e.target.files[0]); };
+drop.ondragover = e => { e.preventDefault(); drop.classList.add("over"); };
+drop.ondragleave = () => drop.classList.remove("over");
+drop.ondrop = e => {
+  e.preventDefault(); drop.classList.remove("over");
+  if (e.dataTransfer.files[0]) load(e.dataTransfer.files[0]);
+};
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", draw);
+
+showControls();
+showBudget();
+</script>
+</body>
+</html>

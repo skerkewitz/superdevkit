@@ -1,13 +1,14 @@
 # tools
 
 Tools of the dev kit for game developers (ADR [record 29](../docs/adr/0029-superdevkit-is-the-project-and-dampf-is-its.md)).
-They are Python 3 for now, without libraries beyond the standard ones; whether they stay Python
+They are Python 3 for now (one page for the browser), without libraries beyond the standard ones; whether they stay Python
 or become Java is an open question of the [roadmap](../docs/roadmap.md#open-questions). The
 scripts for developing the dev kit itself are in [dev/](../dev/README.md).
 
 | Tool | What it does | Call | Writes |
 | --- | --- | --- | --- |
 | `png2snes.py` | PNG to SNES graphics as C for dampf: `tiles` cuts an image of up to 16 colours (indexed, or RGB/RGBA with transparent pixels as colour 0) into 8 x 8 tiles of 4 bits per pixel, in reading order (a sheet 128 pixels wide has the order of VRAM, so a 16 x 16 sprite at tile n is n, n + 1, n + 16, n + 17), with its palette in BGR 5:5:5; `palette` reads only the colours of the first row of a strip, for another palette of the same tiles. | `tools/png2snes.py tiles sheet.png NAME out_dir`, `tools/png2snes.py palette strip.png NAME out_dir` | `NAME.c` and `NAME.h`: `NAME_tiles[]`, `NAME_pal[]`, `NAME_TILE_COUNT`, `NAME_TILES_SIZE`, `NAME_PAL_SIZE` |
+| `brr_lab.html` | A page for trying sound effects: drop a WAV, choose the sample rate (the DSP's pitch register is shown), a treble boost and a gain, and hear the original, the resampled sound and the SNES's: encoded to BRR (every filter and shift tried per block, against the real decoder) and decoded and interpolated as the S-DSP does, with the chip's Gaussian table. Shows the size in bytes and the share of the 64 KB audio RAM, adds effects up to a budget, and saves the `.brr`. Envelopes, volume, echo and the analog filter are not modelled. A browser page, so not Python; no network, no libraries. | open `tools/brr_lab.html` in a browser | the `.brr` file, on request |
 | `fetch_raylib.sh` | Fetches raylib, ready-built and pinned to one version (5.5), for a desktop target (ADR record 31). | `tools/fetch_raylib.sh linux` | `build/raylib/linux/` (not in git) |
 | `build_desktop.sh` | Builds an example for the desktop with the system's C compiler and raylib, on [Rachael](../lib/README.md#rachael): the same game code as on the SNES. Until the `superdevkit` command (roadmap M7). | `tools/build_desktop.sh examples/<name>`; `CC` picks the compiler | `examples/<name>/build/linux/<name>`: run it for a window, or with `--check check.txt --out dir` |
 | `check_game_symbols.py` | The check of `build_desktop.sh` (ADR record 34): every symbol a game's objects leave undefined must be declared in `lib/include/sdevkit`, defined by the game, or one the compiler emits on its own (`memcpy`, `memset`, `memmove`, `__stack_chk_fail`); anything else stops the build with its name. | `tools/check_game_symbols.py lib/include/sdevkit game_objects...` | nothing; exit status 1 and the names on an error |
