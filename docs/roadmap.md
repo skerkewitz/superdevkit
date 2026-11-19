@@ -6,19 +6,21 @@ what was left of them moved to the milestones after M5 (see [History](#history))
 
 ## Where dampf stands
 
-M0 to M6 are concluded. M0 to M4 and M6 with version 0.4.0 (2026-11-18): all of Blubber Blasen
+M0 to M7 are concluded. M0 to M4 and M6 with version 0.4.0 (2026-11-18): all of Blubber Blasen
 compiles, the benchmark and the replays give the PC's checksums, on the SNES and in a playable
 ROM, dampf's code is faster than Calypsi's, and dampf assembles and links itself. M5 as version
 0.6.0 (2026-11-19): Blubber Blasen builds its SNES ROM with the dev kit from its own repository,
-and the ROM plays its recordings with the PC's checksum on every tick. During play the game took
+and the ROM plays its recordings with the PC's checksum on every tick. M7 as version 0.7.0
+(2026-11-19): the desktop (Linux, Windows) from the kit, sound effects, save RAM, music on the
+desktop, the debug view, and the `superdevkit` command. During play the game took
 0.79 frames per tick on 2026-11-18 against a goal of 0.6, so the compiler work goes on while the
 game reduces its own work in parallel; the current numbers are in
 [optimizations.md](optimizations.md#where-things-stand).
 
 dampf is the compiler of a development kit for SNES games, superdevkit; this repository is
 superdevkit's (ADR
-[record 29](adr/0029-superdevkit-is-the-project-and-dampf-is-its.md)). M7 is in work: the
-desktop, sound effects (built), and the `superdevkit` command.
+[record 29](adr/0029-superdevkit-is-the-project-and-dampf-is-its.md)). Next: the optimizer's work
+on the game's costliest loop (its finding 9, M9) and the web (M8).
 
 ## Versions
 
@@ -44,7 +46,7 @@ needs is an open question. The rule is ADR
 | M4 | Fine tuning, started early: block layout by a profile, peephole rules, loop and branch optimizations | 0.4.0 | Done 2026-11-18 |
 | M6 | Standing alone: dampf's own assembler and linker | 0.4.0 | Done 2026-11-18 |
 | M5 | Blubber Blasen builds its ROM with the dev kit, from its own repository | 0.6.0 | Done 2026-11-19 |
-| M7 | Windows and Linux: Rachael and the desktop frontend in the kit, the `superdevkit` command with `init`, `build`, `run`; the examples and Blubber Blasen run on the desktop from the kit | 0.7.0 | In work (started during M5) |
+| M7 | Windows and Linux: Rachael and the desktop frontend in the kit, the `superdevkit` command with `init`, `build`, `run`; the examples and Blubber Blasen run on the desktop from the kit | 0.7.0 | Done 2026-11-19 (the game's switch handed over to it) |
 | M8 | The web: the same games in the browser; Blubber Blasen drops its own PC side | 0.8.0 | Planned |
 | M9 | The optimizer: what was left of M3, register allocation first | 0.9.0 | Planned |
 | M10 | Language, platform and usability: C in interrupts, intrinsics, the open subset decisions, dampf's own preprocessor | 0.10.0 | Planned |
@@ -53,36 +55,6 @@ needs is an open question. The rule is ADR
 
 What each concluded milestone reached is in [History](#history). The order after M5 follows the
 likely gain and what each milestone needs from the one before; it was kept when M5 was concluded.
-
-## M7: Windows and Linux (0.7.0)
-
-Started early, during M5 (2026-11-18), because prototyping and checking a game is so much
-quicker on the desktop: the pseudo SNES is in the kit as [Rachael](../lib/README.md#rachael) (`lib/rachael`, with 16 x 16 background
-tiles, and row y of the picture as scanline y + 1 like the SNES), with a desktop frontend for
-Linux (`lib/desktop`, raylib 5.5) and a headless check that plays an example's `check.txt` in a second
-(`ExamplesTest`, which also plays every example's check in dampf's emulator and compares a
-checksum per tick with the desktop). The examples give the same picture on the SNES and on the desktop,
-pixel for pixel (`dev/compare_example.sh`); that comparison found a bug in `lib/snes`, whose
-`oamSetVisible` (now `sdevkit_oam_set_visible`) moved a sprite at a negative x to the right
-edge. Both are built on WSL: Linux with gcc, Windows with the MSVC of the Windows side
-(ADR [record 39](adr/0039-win64-is-built-with-msvc-for-now-from-wsl.md)), which plays with the gamepads WSL does not
-see and gives the same checksums and pictures as Linux.
-
-Built in M7 on 2026-11-19: sound effects on both platforms ([docs/sound.md](sound.md), ADR
-[record 44](adr/0044-sound-effects-come-from-sfx-json-and-rachael-plays.md)); Schach and
-Steinschlag use them; save RAM too (`sdevkit_sram`, `dampf --sram`; CatchMe keeps its high score
-there); and the debug view with the registrations of the console API (F1 on the desktop, empty on
-the SNES, where dampf removes the calls); and the `superdevkit` command with `init`, `build` and
-`run` for `snes`, `linux` and `win64` (ADR [record 31](adr/0031-the-superdevkit-command-builds-a-project-from-its.md)),
-on a project file, `superdevkit.toml`, which every example has instead of its build script; the
-converters are Java in it, so building needs nothing but Java and a C compiler; `init` writes a
-`CLAUDE.md` into the new project that points to the kit's guides, `lib/C_STYLE.md` and
-`lib/SNES_HARDWARE.md`; and music on the desktop from the files the project lists, a stub on the
-SNES (ADR [record 32](adr/0032-desktop-and-web-are-for-prototyping-with-sound.md), with the names
-of [record 34](adr/0034-every-name-of-the-console-api-starts-with.md); [sound.md](sound.md#music)).
-The handover to the game is written (`docs/game-findings.md`, finding 1). Done
-when the examples and Blubber Blasen run on Windows and Linux from the kit. The steps are in
-[superdevkit-transition.md](superdevkit-transition.md#m7-windows-and-linux-070).
 
 ## M8: the web (0.8.0)
 
@@ -109,6 +81,16 @@ FastROM, 12 hardware registers at constant addresses) are in [History](#history)
 
 Also in M9:
 
+- **The game's pair loop as a benchmark** (its finding 9, 2026-11-19: `docs/kit-bench/separate.c` in
+  the game's repository). The bubble separation in four variants over 32 frames of real
+  positions: the counted pair loop over the 23-byte structs (93,999 master cycles a frame with
+  0.5.2), a list of slots sorted by x (93,763), the counted loop over one array per field
+  (109,381) and the list over one array per field (94,843). The game switches to the sorted list
+  when the last is clearly below the first and the third no slower than the first. The assembly
+  shows where: `j * 23` multiplied for every pair instead of stepped, every intermediate through
+  the direct page, `b[list[k]]` multiplied by 23 (`slow-index-list`), 8-bit counters over bytes,
+  a branch and a jump per test; that one array per field is slower goes against
+  `fast-array-per-field`.
 - **Random programs and execution tests that reach the optimizer's patterns** (from M5, see
   [Risks](#risks)).
 - **16-bit pointers into RAM** ([subset.md](subset.md), decision 3), and enum objects in one byte
@@ -512,6 +494,39 @@ frame layout let them share a place (`exec/regress_branch_phis.c`). The converte
 Its steps beyond the goal moved: random programs and execution tests that reach the optimizer to
 M9, the book's getting started on `hello` to the release work, the ROM on a console to the work
 that waits for hardware.
+
+### M7
+
+Started early, during M5 (2026-11-18), because prototyping and checking a game is so much
+quicker on the desktop: the pseudo SNES is in the kit as [Rachael](../lib/README.md#rachael) (`lib/rachael`, with 16 x 16 background
+tiles, and row y of the picture as scanline y + 1 like the SNES), with a desktop frontend for
+Linux (`lib/desktop`, raylib 5.5) and a headless check that plays an example's `check.txt` in a second
+(`ExamplesTest`, which also plays every example's check in dampf's emulator and compares a
+checksum per tick with the desktop). The examples give the same picture on the SNES and on the desktop,
+pixel for pixel (`dev/compare_example.sh`); that comparison found a bug in `lib/snes`, whose
+`oamSetVisible` (now `sdevkit_oam_set_visible`) moved a sprite at a negative x to the right
+edge. Both are built on WSL: Linux with gcc, Windows with the MSVC of the Windows side
+(ADR [record 39](adr/0039-win64-is-built-with-msvc-for-now-from-wsl.md)), which plays with the gamepads WSL does not
+see and gives the same checksums and pictures as Linux.
+
+Built in M7 on 2026-11-19: sound effects on both platforms ([docs/sound.md](sound.md), ADR
+[record 44](adr/0044-sound-effects-come-from-sfx-json-and-rachael-plays.md)); Schach and
+Steinschlag use them; save RAM too (`sdevkit_sram`, `dampf --sram`; CatchMe keeps its high score
+there); and the debug view with the registrations of the console API (F1 on the desktop, empty on
+the SNES, where dampf removes the calls); and the `superdevkit` command with `init`, `build` and
+`run` for `snes`, `linux` and `win64` (ADR [record 31](adr/0031-the-superdevkit-command-builds-a-project-from-its.md)),
+on a project file, `superdevkit.toml`, which every example has instead of its build script; the
+converters are Java in it, so building needs nothing but Java and a C compiler; `init` writes a
+`CLAUDE.md` into the new project that points to the kit's guides, `lib/C_STYLE.md` and
+`lib/SNES_HARDWARE.md`; and music on the desktop from the files the project lists, a stub on the
+SNES (ADR [record 32](adr/0032-desktop-and-web-are-for-prototyping-with-sound.md), with the names
+of [record 34](adr/0034-every-name-of-the-console-api-starts-with.md); [sound.md](sound.md#music)).
+The steps are in [superdevkit-transition.md](superdevkit-transition.md#m7-windows-and-linux-070).
+
+Concluded on 2026-11-19 as version 0.7.0, with one part of its goal left to the game: the examples
+build and run on Linux and Windows from the kit, and Blubber Blasen's switch to the kit's desktop
+build was handed over to it (the game's finding 1, sent the same day); the game's frontend and
+build script go when it has switched.
 
 ### M6
 

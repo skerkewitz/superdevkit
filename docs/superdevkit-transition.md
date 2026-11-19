@@ -125,6 +125,9 @@ Checked in Mesen with the region set to PAL before the console: the speed, and n
 
 ## M7: Windows and Linux (0.7.0)
 
+Concluded on 2026-11-19 as version 0.7.0 ([roadmap](roadmap.md#m7)); Blubber Blasen's switch to the
+kit's desktop build is with the game (its finding 1).
+
 ### 7.1 Rachael, the pseudo SNES, in the kit
 
 Built (during M5): `lib/rachael`, with 16 x 16 background tiles and the picture's rows as scanlines
@@ -213,7 +216,7 @@ tests of the TOML reader and of the plan each command makes (`--plan` output).
 
 Built on 2026-11-19: the seven examples have `superdevkit.toml` (their `build.sh` and `.args` went;
 the ROMs the command builds are the scripts', byte for byte), and the tests build them through the
-CLI's classes. The handover, written as the game's finding 1 (`docs/game-findings.md`), to the
+CLI's classes. The handover, the game's finding 1 (sent on 2026-11-19), to the
 game: Blubber Blasen's desktop build from the kit (its sound calls from `game_sfx()` to
 `sdevkit_sfx_play()`, its save RAM to `sdevkit_sram()`, its debug view to registrations; its
 recordings stay its own, reached through `sdevkit_dbg_action`).

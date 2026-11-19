@@ -15,10 +15,11 @@ Linux and Windows; the browser comes later. The kit holds:
   Er-Tüp, which are also the kit's test cases and its benchmark;
 - the **book** ([docs/book](docs/book)): the user guide and the reference.
 
-Status: version 0.6.0, in work. Milestones M0 to M6 are done: M6 is dampf's own assembler and
-linker, and with M5 Blubber Blasen (the kit's first user, a game in its own repository) builds its
-ROM with the kit and plays its recordings with the PC's checksums. M7, the desktop and the
-`superdevkit` command, is in work; its sound effects are built. The
+Status: version 0.7.0, in work. Milestones M0 to M7 are done: M6 is dampf's own assembler and
+linker; with M5 Blubber Blasen (the kit's first user, a game in its own repository) builds its
+ROM with the kit and plays its recordings with the PC's checksums; with M7 a game builds and runs
+on the SNES, Linux and Windows with the `superdevkit` command, with sound effects, save RAM, music
+on the desktop and a debug view. The
 milestones and versions are in [docs/roadmap.md](docs/roadmap.md), why the kit is the project and
 dampf its compiler in [ADR record 29](docs/adr/0029-superdevkit-is-the-project-and-dampf-is-its.md).
 
