@@ -143,6 +143,5 @@ that the check reports.
 - Is a dummy in Rachael that draws nothing, but reports that it was used, enough to let a game
   use a feature? It keeps the desktop honest, but the desktop then cannot check that game's
   picture.
-- PAL: decided that the kit's games run on PAL consoles too, from one ROM with NTSC's limits;
-  whether the main loop makes up for the slower 50 Hz is open
-  ([superdevkit-transition.md](superdevkit-transition.md), 5.7).
+- PAL: decided in ADR record 36 (one ROM with NTSC's limits, PAL a sixth slower for now); the
+  guide states it as a rule.
