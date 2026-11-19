@@ -32,6 +32,7 @@ uint8_t book_find(void)
 {
     uint16_t lo = 0, hi = BOOK_ENTRIES, i, first;
     uint16_t total = 0, pick;
+    uint32_t hash = chess_hash();
     uint8_t k;
 
     while (lo < hi) {                    /* the first entry not below the hash */

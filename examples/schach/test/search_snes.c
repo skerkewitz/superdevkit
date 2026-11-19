@@ -34,7 +34,7 @@ void test_main(void)
     for (i = 0; i < RUNS; i++) {
         uint32_t before;
         set_fen(RUN_FEN[i]);
-        before = hash;
+        before = chess_hash();
         search_clear();
         search_start(600, 30);
         while (!search_run(40)) {
@@ -46,7 +46,7 @@ void test_main(void)
         depths[i] = best_depth;
         node_counts[i] = nodes;
         total_nodes += nodes;
-        if (hash != before || sp != 0 || mv_count != 0) {
+        if (chess_hash() != before || sp != 0 || mv_count != 0) {
             given_back = 0;
         }
     }

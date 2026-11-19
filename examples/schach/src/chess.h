@@ -48,7 +48,8 @@ extern uint8_t castle;                  /* CASTLE_* bits */
 extern uint8_t ep;                      /* the square a pawn may take en passant, or NO_SQ */
 extern uint8_t half;                    /* half moves since the last capture or pawn move */
 extern uint16_t fullmove;
-extern uint32_t hash;                   /* Zobrist */
+extern uint16_t hash_lo, hash_hi;       /* Zobrist, in two halves (rule slow-32-bit) */
+uint32_t chess_hash(void);              /* the two halves as one number */
 extern int16_t psq;                     /* material and piece squares, without kings, white's view */
 extern uint8_t phase;                   /* 0 (bare kings and pawns) to 24 (all pieces) */
 
@@ -67,7 +68,7 @@ extern uint8_t sp;
 
 /* Positions since the last capture or pawn move, for repetitions. */
 #define HIST_MAX 160
-extern uint32_t hist[HIST_MAX];
+extern uint16_t hist_lo[HIST_MAX], hist_hi[HIST_MAX];
 extern uint8_t hist_len;
 
 /* The values of the piece squares; psq_val[piece][sq] is negative for black's pieces. */

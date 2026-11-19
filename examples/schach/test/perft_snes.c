@@ -23,7 +23,7 @@ void test_main(void)
     for (i = 0; i < PERFT_POSITIONS; i++) {
         set_fen(PERFT_FEN[i]);
         counts[i] = perft(SNES_DEPTH[i]);
-        end_hash[i] = hash;
+        end_hash[i] = chess_hash();
         if (counts[i] != PERFT_COUNT[i][SNES_DEPTH[i] - 1]) {
             wrong |= (uint8_t)(1 << i);
         }

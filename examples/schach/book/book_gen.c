@@ -30,7 +30,7 @@ static void add(uint8_t from, uint8_t to, uint8_t flag)
 {
     unsigned i;
     for (i = 0; i < n; i++) {
-        if (e_hash[i] == hash && e_from[i] == from && e_to[i] == to && e_flag[i] == flag) {
+        if (e_hash[i] == chess_hash() && e_from[i] == from && e_to[i] == to && e_flag[i] == flag) {
             e_weight[i]++;
             return;
         }
@@ -39,7 +39,7 @@ static void add(uint8_t from, uint8_t to, uint8_t flag)
         fprintf(stderr, "book_gen: more than %d answers\n", MAX);
         exit(1);
     }
-    e_hash[n] = hash, e_from[n] = from, e_to[n] = to, e_flag[n] = flag, e_weight[n] = 1;
+    e_hash[n] = chess_hash(), e_from[n] = from, e_to[n] = to, e_flag[n] = flag, e_weight[n] = 1;
     n++;
 }
 

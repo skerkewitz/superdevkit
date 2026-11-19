@@ -105,8 +105,8 @@ static int16_t from_tt(int16_t v, uint8_t p)
 
 static void tt_store(uint8_t p, int16_t v, uint8_t flag)
 {
-    uint16_t i = (uint16_t)(hash & (TT_SIZE - 1));
-    uint16_t key = (uint16_t)(hash >> 16);
+    uint16_t i = (uint16_t)(hash_lo & (TT_SIZE - 1));
+    uint16_t key = hash_hi;
 
     DAMPF_RANGE(i, 0, TT_SIZE - 1);
     if (tt_key[i] == key && tt_flag[i] != TT_NONE && tt_depth[i] > s_depth[p]) {
@@ -298,9 +298,9 @@ static void enter(void)
         s_quiet[p] = 1;
         gen_moves(GEN_CAPTURES, 0);
     } else {
-        uint16_t i = (uint16_t)(hash & (TT_SIZE - 1));
+        uint16_t i = (uint16_t)(hash_lo & (TT_SIZE - 1));
         DAMPF_RANGE(i, 0, TT_SIZE - 1);
-        if (tt_flag[i] != TT_NONE && tt_key[i] == (uint16_t)(hash >> 16)) {
+        if (tt_flag[i] != TT_NONE && tt_key[i] == hash_hi) {
             hint_from = tt_from[i];
             hint_to = tt_to[i];
             if (p > 0 && tt_depth[i] >= depth) {

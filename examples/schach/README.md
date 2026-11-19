@@ -157,6 +157,7 @@ made, tested and taken back, the move generation shared out):
 | First version (legality by `attacked()` after every move) | 4,286 | 12 |
 | Legality only on the line through the king, the hash not saved twice, the castling hash only when the rights change | 2,811 | 19 |
 | `DAMPF_RANGE` on the 16-bit index of the move list, castling without a second test for check | 2,641 | 20 |
+| The Zobrist hash in two 16-bit halves and the key table as `[square][piece]` (the C style guide's `slow-32-bit` and `slow-shift-above-8`; 2026-11-19, against 2,641 on the same dampf) | 2,535 | 21 |
 
 A node of the search (one position entered, in the full or the quiescence search) costs much more:
 it generates and orders its moves, and most nodes try only a few of them.
@@ -165,6 +166,15 @@ it generates and orders its moves, and most nodes try only a few of them.
 | --- | --- | --- |
 | First version | 12,433 | 4 |
 | Check known from the move just made, the quiescence search pruned, only the first 8 moves picked by score, `DAMPF_RANGE` on the 16-bit indices of the move list and the table | 11,479 | 4.5 |
+| The hash in two halves, the key table turned (as above; 2026-11-19, against 11,649 on the same dampf) | 11,517 | 4.5 |
+
+The whole check game took 16,425 frames in Mesen after that change, against 16,719 before
+(−1.8 %), with the same 81 pictures. The same rewrite also changed every 8-bit loop counter of
+the four examples to 16 bit, as the guide's rule then said: most functions got slower (Steinschlag's
+`hud_clear` from 1,246 to 1,958 cycles, a loop over words), Schach's game took 17 frames more, and
+the rule turned out to hold only for loops over bytes. The guide now has both cases
+(`slow-u8-counter`, `slow-u16-counter-words`); only the four counters of Schach whose functions got
+faster were kept.
 
 The first version also searched too many quiescence nodes: Kiwipete needed 2,961 nodes for depth
 1, now 600 nodes reach depth 2. Per call: `gen_moves` 6,100 cycles, `score_moves` 2,700, `next`
@@ -177,9 +187,10 @@ optimizer, as the proposal expected:
 
 - **32-bit values go through frame slots.** `hash ^= zob_side` loads both operands into the
   frame, XORs into a third slot and copies that back: 81 cycles, where `lda/eor/sta` twice is
-  about 30. Every Zobrist update pays this.
-- **A shift by a constant above 8 is a loop.** `zob[p][sq]` (rows of 512 bytes) is `shl 9`, done
-  as `ldx #9; asl; dex; bne`, about 65 cycles; `xba` and one `asl` would do.
+  about 30. Every Zobrist update paid this; the hash is now two 16-bit halves.
+- **A shift by a constant above 8 is a loop.** `zob[p][sq]` (rows of 512 bytes) was `shl 9`, done
+  as `ldx #9; asl; dex; bne`, about 65 cycles; `xba` and one `asl` would do. The table is now
+  `[square][piece]`, rows of 32 bytes.
 - **Arrays with a 16-bit index go through a 24-bit pointer.** `psq_val[p][to]` builds a pointer in
   the direct page and reads `[dp],y` instead of `lda psq_val,x`; so does every array with a 16-bit
   index unless a `DAMPF_RANGE` hint bounds it: `mv_from[n] = from` is 32 cycles without the hint

@@ -104,7 +104,7 @@ static void draw_square(uint8_t sq)
 
 static uint8_t is_target(uint8_t from, uint8_t to)
 {
-    uint8_t i;
+    uint16_t i;
 
     for (i = 0; i < legal_n; i++) {
         if (legal_from[i] == from && legal_to[i] == to) {
@@ -430,7 +430,7 @@ static void move_cursor(uint16_t pad, uint16_t pressed)
 
 static uint8_t has_moves(uint8_t from)
 {
-    uint8_t i;
+    uint16_t i;
 
     for (i = 0; i < legal_n; i++) {
         if (legal_from[i] == from) {
@@ -458,7 +458,7 @@ static void draw_promotion(void)
 
 static void clear_promotion(void)
 {
-    uint8_t y;
+    uint16_t y;
 
     for (y = 12; y < 17; y++) {
         panel(y, "");

@@ -14,7 +14,7 @@ uint8_t plist[32];
 uint8_t pidx[128];
 uint8_t side, castle, ep, half;
 uint16_t fullmove;
-uint32_t hash;
+uint16_t hash_lo, hash_hi;
 int16_t psq;
 uint8_t phase;
 
@@ -27,14 +27,23 @@ static uint8_t u_cap[UNDO_MAX], u_capidx[UNDO_MAX], u_castle[UNDO_MAX], u_ep[UND
 static uint8_t u_from[UNDO_MAX], u_to[UNDO_MAX], u_flag[UNDO_MAX], u_phase[UNDO_MAX];
 static int16_t u_psq[UNDO_MAX];
 
-uint32_t hist[HIST_MAX];
+uint16_t hist_lo[HIST_MAX], hist_hi[HIST_MAX];
 uint8_t hist_len;
 
 int16_t psq_val[16][128];
-static uint32_t zob[16][128];
-static uint32_t zob_castle[16];
-static uint32_t zob_ep[8];
-static uint32_t zob_side;
+/* The Zobrist keys in two halves, indexed [square][piece]: a row of 16 keys is 32 bytes, so the
+ * index is a shift by 5, where [piece][square] needed one by 9 (rule slow-shift-above-8). */
+static uint16_t zob_lo[128][16], zob_hi[128][16];
+static uint16_t zob_castle_lo[16], zob_castle_hi[16];
+static uint16_t zob_ep_lo[8], zob_ep_hi[8];
+static uint16_t zob_side_lo, zob_side_hi;
+
+#define ZOB(p, sq) hash_lo ^= zob_lo[sq][p]; hash_hi ^= zob_hi[sq][p]
+
+uint32_t chess_hash(void)
+{
+    return ((uint32_t)hash_hi << 16) | hash_lo;
+}
 
 /* --- tables ---------------------------------------------------------------------------------- */
 static const int8_t KNIGHT_STEPS[8] = { 33, 31, 18, 14, -14, -18, -31, -33 };
@@ -141,11 +150,14 @@ void chess_init(void)
     rnd_state = 0x9E3779B9u;
     for (p = 0; p < 16; p++) {
         for (sq = 0; sq < 128; sq++) {
-            zob[p][sq] = 0;
+            zob_lo[sq][p] = 0;
+            zob_hi[sq][p] = 0;
             psq_val[p][sq] = 0;
             if (!OFF(sq) && TYPE(p) != EMPTY && TYPE(p) != 7) {
                 uint8_t f = FILE_OF(sq), r = RANK_OF(sq);
-                zob[p][sq] = rnd32();
+                uint32_t key = rnd32();
+                zob_lo[sq][p] = (uint16_t)key;
+                zob_hi[sq][p] = (uint16_t)(key >> 16);
                 if (TYPE(p) != KING) {
                     if (COLOR(p) == WHITE) {
                         psq_val[p][sq] = (int16_t)(PIECE_VALUE[TYPE(p)] + PST[TYPE(p) - 1][(7 - r) * 8 + f]);
@@ -157,12 +169,20 @@ void chess_init(void)
         }
     }
     for (i = 0; i < 16; i++) {
-        zob_castle[i] = i == 0 ? 0 : rnd32();
+        uint32_t r = i == 0 ? 0 : rnd32();
+        zob_castle_lo[i] = (uint16_t)r;
+        zob_castle_hi[i] = (uint16_t)(r >> 16);
     }
     for (i = 0; i < 8; i++) {
-        zob_ep[i] = rnd32();
+        uint32_t r = rnd32();
+        zob_ep_lo[i] = (uint16_t)r;
+        zob_ep_hi[i] = (uint16_t)(r >> 16);
     }
-    zob_side = rnd32();
+    {
+        uint32_t r = rnd32();
+        zob_side_lo = (uint16_t)r;
+        zob_side_hi = (uint16_t)(r >> 16);
+    }
     for (sq = 0; sq < 128; sq++) {
         castle_keep[sq] = 15;
     }
@@ -232,7 +252,8 @@ static uint8_t setup_from_board(void)
     }
     n[0] = 1;
     n[1] = 1;
-    hash = 0;
+    hash_lo = 0;
+    hash_hi = 0;
     psq = 0;
     phase = 0;
     for (sq = 0; sq < 128; sq++) {
@@ -260,7 +281,7 @@ static uint8_t setup_from_board(void)
             pidx[sq] = (uint8_t)(c * 16 + n[c]);
             n[c]++;
         }
-        hash ^= zob[p][sq];
+        ZOB(p, sq);
         psq = (int16_t)(psq + psq_val[p][sq]);
         phase = (uint8_t)(phase + PHASE_OF[TYPE(p)]);
     }
@@ -270,12 +291,15 @@ static uint8_t setup_from_board(void)
     if (ep != NO_SQ && !ep_possible(ep, side)) {
         ep = NO_SQ;
     }
-    hash ^= zob_castle[castle];
+    hash_lo ^= zob_castle_lo[castle];
+    hash_hi ^= zob_castle_hi[castle];
     if (ep != NO_SQ) {
-        hash ^= zob_ep[FILE_OF(ep)];
+        hash_lo ^= zob_ep_lo[FILE_OF(ep)];
+        hash_hi ^= zob_ep_hi[FILE_OF(ep)];
     }
     if (side == BLACK) {
-        hash ^= zob_side;
+        hash_lo ^= zob_side_lo;
+        hash_hi ^= zob_side_hi;
     }
     sp = 0;
     hist_len = 0;
@@ -650,7 +674,8 @@ static void move_piece(uint8_t p, uint8_t from, uint8_t to)
     board[from] = EMPTY;
     pidx[to] = idx;
     plist[idx] = to;
-    hash ^= zob[p][from] ^ zob[p][to];
+    hash_lo ^= zob_lo[from][p] ^ zob_lo[to][p];
+    hash_hi ^= zob_hi[from][p] ^ zob_hi[to][p];
     psq = (int16_t)(psq + psq_val[p][to] - psq_val[p][from]);
 }
 
@@ -668,7 +693,8 @@ void make_move(uint8_t from, uint8_t to, uint8_t flag)
     u_half[s] = half;
     u_psq[s] = psq;
     u_phase[s] = phase;
-    hist[hist_len] = hash;
+    hist_lo[hist_len] = hash_lo;
+    hist_hi[hist_len] = hash_hi;
     hist_len++;
 
     if (flag == MF_EP) {
@@ -682,7 +708,7 @@ void make_move(uint8_t from, uint8_t to, uint8_t flag)
         u_capidx[s] = idx;
         plist[idx] = NO_SQ;
         board[cap_sq] = EMPTY;
-        hash ^= zob[cap][cap_sq];
+        ZOB(cap, cap_sq);
         psq = (int16_t)(psq - psq_val[cap][cap_sq]);
         phase = (uint8_t)(phase - PHASE_OF[TYPE(cap)]);
         half = 0;
@@ -693,7 +719,8 @@ void make_move(uint8_t from, uint8_t to, uint8_t flag)
         if (flag >= MF_PROMO_N) {
             uint8_t np = (uint8_t)(side | PROMO_TYPE(flag));
             board[to] = np;
-            hash ^= zob[p][to] ^ zob[np][to];
+            hash_lo ^= zob_lo[to][p] ^ zob_lo[to][np];
+            hash_hi ^= zob_hi[to][p] ^ zob_hi[to][np];
             psq = (int16_t)(psq + psq_val[np][to] - psq_val[p][to]);
             phase = (uint8_t)(phase + PHASE_OF[TYPE(np)]);
         }
@@ -708,21 +735,25 @@ void make_move(uint8_t from, uint8_t to, uint8_t flag)
     {
         uint8_t keep = (uint8_t)(castle & castle_keep[from] & castle_keep[to]);
         if (keep != castle) {
-            hash ^= zob_castle[castle] ^ zob_castle[keep];
+            hash_lo ^= zob_castle_lo[castle] ^ zob_castle_lo[keep];
+            hash_hi ^= zob_castle_hi[castle] ^ zob_castle_hi[keep];
             castle = keep;
         }
     }
     if (ep != NO_SQ) {
-        hash ^= zob_ep[FILE_OF(ep)];
+        hash_lo ^= zob_ep_lo[FILE_OF(ep)];
+        hash_hi ^= zob_ep_hi[FILE_OF(ep)];
         ep = NO_SQ;
     }
     side ^= BLACK;
-    hash ^= zob_side;
+    hash_lo ^= zob_side_lo;
+    hash_hi ^= zob_side_hi;
     if (flag == MF_DOUBLE) {
         uint8_t e = (uint8_t)((from + to) >> 1);
         if (ep_possible(e, side)) {
             ep = e;
-            hash ^= zob_ep[FILE_OF(e)];
+            hash_lo ^= zob_ep_lo[FILE_OF(e)];
+            hash_hi ^= zob_ep_hi[FILE_OF(e)];
         }
     }
     sp = (uint8_t)(s + 1);
@@ -736,7 +767,8 @@ void unmake_move(void)
 
     sp = s;
     hist_len--;
-    hash = hist[hist_len];
+    hash_lo = hist_lo[hist_len];
+    hash_hi = hist_hi[hist_len];
     side ^= BLACK;
     p = board[to];
     if (flag >= MF_PROMO_N) {
@@ -789,15 +821,18 @@ void make_null(void)
     u_flag[s] = MF_NORMAL;
     u_ep[s] = ep;
     u_half[s] = half;
-    hist[hist_len] = hash;
+    hist_lo[hist_len] = hash_lo;
+    hist_hi[hist_len] = hash_hi;
     hist_len++;
     if (ep != NO_SQ) {
-        hash ^= zob_ep[FILE_OF(ep)];
+        hash_lo ^= zob_ep_lo[FILE_OF(ep)];
+        hash_hi ^= zob_ep_hi[FILE_OF(ep)];
         ep = NO_SQ;
     }
     half = 0;
     side ^= BLACK;
-    hash ^= zob_side;
+    hash_lo ^= zob_side_lo;
+    hash_hi ^= zob_side_hi;
     sp = (uint8_t)(s + 1);
 }
 
@@ -807,7 +842,8 @@ void unmake_null(void)
 
     sp = s;
     hist_len--;
-    hash = hist[hist_len];
+    hash_lo = hist_lo[hist_len];
+    hash_hi = hist_hi[hist_len];
     side ^= BLACK;
     ep = u_ep[s];
     half = u_half[s];
@@ -841,7 +877,7 @@ uint8_t repeated(void)
     stop = hist_len > half ? (uint8_t)(hist_len - half) : 0;
     i = (uint8_t)(hist_len - 4);
     for (;;) {
-        if (hist[i] == hash) {
+        if (hist_lo[i] == hash_lo && hist_hi[i] == hash_hi) {
             return 1;
         }
         if (i < stop + 2) {
@@ -976,10 +1012,11 @@ static uint8_t no_mating_material(void)
 
 static uint8_t repetitions(void)
 {
-    uint8_t i, n = 1;
+    uint16_t i;
+    uint8_t n = 1;
 
     for (i = 0; i < hist_len; i++) {
-        if (hist[i] == hash && ((hist_len - i) & 1) == 0) {
+        if (hist_lo[i] == hash_lo && hist_hi[i] == hash_hi && ((hist_len - i) & 1) == 0) {
             n++;
         }
     }

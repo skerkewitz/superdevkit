@@ -79,10 +79,10 @@ static int selfplay(uint32_t seed, int verbose)
             best_to = legal_to[k];
             best_flag = legal_flag[k];
         } else {
-            uint32_t before = hash;
+            uint32_t before = chess_hash();
             think();
             total += nodes;
-            if (hash != before || sp != 0 || mv_count != 0) {
+            if (chess_hash() != before || sp != 0 || mv_count != 0) {
                 printf("the board was not given back after a search\n");
                 return 1;
             }
