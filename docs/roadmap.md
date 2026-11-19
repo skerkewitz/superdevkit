@@ -6,28 +6,32 @@ what was left of them moved to the milestones after M5 (see [History](#history))
 
 ## Where dampf stands
 
-M0 to M4 and M6 were concluded with version 0.4.0 (2026-11-18): all of Blubber Blasen compiles,
-the benchmark and the replays give the PC's checksums, on the SNES and in a playable ROM,
-dampf's code is faster than Calypsi's, and dampf assembles and links itself. During play the
-game takes 0.79 frames per tick against a goal of 0.6, so the compiler work goes on while the
+M0 to M6 are concluded. M0 to M4 and M6 with version 0.4.0 (2026-11-18): all of Blubber Blasen
+compiles, the benchmark and the replays give the PC's checksums, on the SNES and in a playable
+ROM, dampf's code is faster than Calypsi's, and dampf assembles and links itself. M5 as version
+0.6.0 (2026-11-19): Blubber Blasen builds its SNES ROM with the dev kit from its own repository,
+and the ROM plays its recordings with the PC's checksum on every tick. During play the game took
+0.79 frames per tick on 2026-11-18 against a goal of 0.6, so the compiler work goes on while the
 game reduces its own work in parallel; the current numbers are in
 [optimizations.md](optimizations.md#where-things-stand).
 
 dampf is the compiler of a development kit for SNES games, superdevkit; this repository is
 superdevkit's (ADR
-[record 29](adr/0029-superdevkit-is-the-project-and-dampf-is-its.md)). M5 is in work, as
-version 0.5.0: Blubber Blasen builds its ROM with the dev kit, from its own repository.
+[record 29](adr/0029-superdevkit-is-the-project-and-dampf-is-its.md)). M7 is in work: the
+desktop, sound effects (built), and the `superdevkit` command.
 
 ## Versions
 
-The version is the dev kit's; it is in `build.gradle.kts`, and `dampf --version` prints it. Milestone N is
-released as version 0.N.0; fixes in between raise the last number. M6 was done ahead of M5 and
-is part of 0.4.0, so there is no 0.6.0. Every version before 1.0 is a pre-release: the subset,
+The version is the dev kit's; it is in `build.gradle.kts`, and `dampf --version` prints it.
+Milestone N is released as version 0.N.0; between milestones the last number rises for every
+change worth naming, features included. M6 was done ahead of M5 and is part of 0.4.0, and M5,
+concluded after 0.5.0 was in use, took the free 0.6.0. Every version before 1.0 is a pre-release: the subset,
 the command line and the files dampf writes may change from one to the next. Publishing is a
 step of its own, not scheduled yet (see [Publishing](#publishing-not-scheduled)). What 1.0
 needs is an open question. The rule is ADR
 [record 26](adr/0026-milestone-n-is-version-0n0-and-the-first-public.md), amended by
-[record 29](adr/0029-superdevkit-is-the-project-and-dampf-is-its.md).
+[record 29](adr/0029-superdevkit-is-the-project-and-dampf-is-its.md) and
+[record 45](adr/0045-m5-is-concluded-as-060-and-a-version-between.md).
 
 ## Milestones
 
@@ -39,7 +43,7 @@ needs is an open question. The rule is ADR
 | M3 | The big levers: MIR, LIR and the code generator from MIR, static timing and budgets, value ranges and pointer compression; faster than Calypsi | 0.4.0 | Done 2026-11-18 |
 | M4 | Fine tuning, started early: block layout by a profile, peephole rules, loop and branch optimizations | 0.4.0 | Done 2026-11-18 |
 | M6 | Standing alone: dampf's own assembler and linker | 0.4.0 | Done 2026-11-18 |
-| M5 | Blubber Blasen builds its ROM with the dev kit, from its own repository | 0.5.0 | In work |
+| M5 | Blubber Blasen builds its ROM with the dev kit, from its own repository | 0.6.0 | Done 2026-11-19 |
 | M7 | Windows and Linux: Rachael and the desktop frontend in the kit, the `superdevkit` command with `init`, `build`, `run`; the examples and Blubber Blasen run on the desktop from the kit | 0.7.0 | In work (started during M5) |
 | M8 | The web: the same games in the browser; Blubber Blasen drops its own PC side | 0.8.0 | Planned |
 | M9 | The optimizer: what was left of M3, register allocation first | 0.9.0 | Planned |
@@ -48,36 +52,7 @@ needs is an open question. The rule is ADR
 | M12 | Fine tuning: what was left of M4, until the frame budget is met | 0.12.0 | Planned |
 
 What each concluded milestone reached is in [History](#history). The order after M5 follows the
-likely gain and what each milestone needs from the one before; it is revised when M5 is done.
-
-## M5: Blubber Blasen builds with the dev kit (0.5.0)
-
-Done when Blubber Blasen builds its SNES ROM from its own repository with a local install of the
-dev kit (no release is needed while the repository is private), and that ROM plays the game's
-recordings with the PC's checksums; and the examples (`hello`, CatchMe, Steinschlag) build for the
-SNES and play in Mesen.
-
-Done on the branch `m5`: `tools/` became `dev/` (nothing in it was for other games), the snapshot
-moved to `snapshots/blubberblasen`, `platform/snes` became `lib/snes`, and the console API
-(`lib/include/sdevkit/snes.h`) and the main loop with its frame rhythm
-(`lib/include/sdevkit/loop.h`) belong to the library ([lib/README.md](../lib/README.md)). Every
-name a game can use starts with `sdevkit_` or `SDEVKIT_`, the desktop build checks that a game
-calls nothing else, and `tools/sdevkit_rename.py` converts code from the old names; the game has
-switched, and the deprecated header that kept them went on 2026-11-19 (ADR
-[record 34](adr/0034-every-name-of-the-console-api-starts-with.md)). dampf can be called by a game:
-argument files (`@file`, `--config`), every error of a run reported, `<string.h>` with `memset`
-and `memcpy`. Its test found a miscompilation: a loop counter kept in X was stepped before a later
-store whose address was formed from its old value (`exec/regress_x_step_address.c`); it is fixed
-and was not the one with inlining up to 80. That one the game found on 2026-11-19 with the default
-limit: a branch whose two sides start a loop each wrote both start values before branching, and
-the frame layout let them share a place (`exec/regress_branch_phis.c`). The converter
-`tools/png2snes.py`, and the three examples, hello, CatchMe and Steinschlag (`examples/`), which
-play in Mesen without losing a byte (`dev/check_example.sh`) and are built by `ExamplesTest` in
-every build. The steps still to do, each with what
-makes it done, are in [superdevkit-transition.md](superdevkit-transition.md#m5-the-snes-050):
-the remaining examples work (the book's getting-started on hello),
-correctness (tests that reach the optimizer), the book, the handover to the
-game, and the playable ROM on a console.
+likely gain and what each milestone needs from the one before; it was kept when M5 was concluded.
 
 ## M7: Windows and Linux (0.7.0)
 
@@ -131,6 +106,8 @@ FastROM, 12 hardware registers at constant addresses) are in [History](#history)
 
 Also in M9:
 
+- **Random programs and execution tests that reach the optimizer's patterns** (from M5, see
+  [Risks](#risks)).
 - **16-bit pointers into RAM** ([subset.md](subset.md), decision 3), and enum objects in one byte
   (decision 2), each once its subset decision is taken.
 - **Constant shifts by a multiple of 8 as byte moves.** A 32-bit shift by 16 is a loop of 16
@@ -245,6 +222,9 @@ Also in M12:
 
 ## Not scheduled for the dev kit
 
+The ROM on a real SNES or a flash cartridge, on NTSC and PAL, and the DMA margin
+(`SETUP_LINES`) measured there, until there is hardware (from M5;
+[superdevkit-transition.md](superdevkit-transition.md#57-on-a-console-needs-the-hardware)).
 macOS (raylib runs there; nobody can test it now), `superdevkit bundle` (one folder with every
 target, ready to publish), the desktop running the ROM in an emulator, Mesen as the desktop, and
 the compiler moved into `compiler/` once a second build world makes it worth it.
@@ -273,6 +253,8 @@ What it takes:
 - **The documents** say nothing that only holds for the private repository.
 - **The repository renamed** to superdevkit, with dampf as its compiler: done on 2026-11-19 (on
   GitHub, still private), the README and the documents follow it.
+- **The book's getting started on `hello`**, and `examples/m1` gone, with the book before the
+  release (ADR [record 43](adr/0043-the-book-is-brought-in-step-before-a-release-not.md); from M5).
 - **Before the first release** (ADR [record 41](adr/0041-the-release-is-a-zip-per-system-with-a-java.md)): dampf's own
   preprocessor (M10) and the graphics converter in Java in the CLI, so building for the SNES
   needs nothing but the download.
@@ -323,8 +305,8 @@ and the toolchain is tested on what only the console shows.
 - **No interrupt handler.** The loop waits for the vertical blank, then copies the OAM shadow and
   calls `game_vblank`. C code called from an NMI in the middle of a tick would overwrite the frames
   of the code it interrupted, since dampf keeps them at fixed places.
-- **Not built:** sound (the game has none yet), save RAM (the high scores start empty at every
-  power-on).
+- **Not built:** save RAM (the high scores start empty at every power-on). Sound effects are
+  built ([sound.md](sound.md)), and the game plays them.
 - **Building and checking:** while the game's code was here, a script built its playable ROM and
   another played it in Mesen for a minute with scripted input (screenshots; no byte may reach
   VRAM, CGRAM or OAM outside a vertical blank), and the replay test played a recording through
@@ -338,7 +320,8 @@ naive code generator the vertical blank code is so slow that the room tiles neve
 minute of play, measured again on 2026-11-18) is in
 [optimizations.md](optimizations.md#where-things-stand).
 
-Open: the DMA margin is in M5, constant shifts longer than 8 in M9.
+Open: the DMA margin waits for a console ([Not scheduled](#not-scheduled-for-the-dev-kit)),
+constant shifts longer than 8 are in M9.
 
 ## Risks
 
@@ -354,7 +337,8 @@ Open: the DMA margin is in M5, constant shifts longer than 8 in M9.
   for came from Blubber Blasen. Mitigated by the examples' benchmark (`dev/bench_examples.sh`),
   on which they are still to be checked.
 - **Never run on a console.** Everything is checked in dampf's emulator and in Mesen; FastROM,
-  the DMA margin and timing at the edges have not run on hardware (M5).
+  the DMA margin and timing at the edges have not run on hardware (not scheduled until there is
+  hardware).
 - **Different behaviour on PC and SNES.** Mitigated by fixed-width types only, exact promotion
   rules and the differential tests against gcc.
 - **The frame budget depends on the game.** The checkpoint after M2 concluded that the compiler
@@ -382,9 +366,6 @@ Open: the DMA margin is in M5, constant shifts longer than 8 in M9.
   users.
 - How Mesen shows locals that live in fixed direct page places, several values sharing a place
   (M11).
-- Why Calypsi's results drift from the PC's from tick 596 on: a miscompile, RAM its start-up
-  leaves uncleared, or a step of the game's own Calypsi build that dampf's comparison script
-  lacked. The comparison rests on 102 ticks.
 - How to express impossible path combinations, should the worst-case bounds turn out too
   pessimistic in practice ([timing.md](timing.md)).
 - How `restrict` is checked on the PC in practice, and whether a dampf-specific no-alias hint is
@@ -499,6 +480,36 @@ game is the game's finding 1 (forwarded to it).
   not measure.
 - **Block layout by a profile** (`dampf profile --blocks`, `dampf build --block-counts`), opt-in.
 
+### M5
+
+Concluded on 2026-11-19 as version 0.6.0 (ADR
+[record 45](adr/0045-m5-is-concluded-as-060-and-a-version-between.md)): Blubber Blasen builds its
+SNES ROM from its own repository with a local install of the kit (`build_snes.sh`: dampf,
+`lib/snes`, `superdevkit sfx`), and the ROM plays four recordings of 36,000 ticks each (Arcade,
+with the CPU partner, Plus, Plus with the partner) with the PC's checksum on every tick, which
+covers the sprite table and both tilemaps; its DSP writes equal Rachael's. The examples build for
+the SNES and play in Mesen without losing a byte.
+
+On the way: `tools/` became `dev/` (nothing in it was for other games), `platform/snes` became
+`lib/snes`, and the console API (`lib/include/sdevkit/snes.h`) and the main loop with its frame
+rhythm (`lib/include/sdevkit/loop.h`) belong to the library ([lib/README.md](../lib/README.md)).
+Every name a game can use starts with `sdevkit_` or `SDEVKIT_`, the desktop build checks that a
+game calls nothing else, and `tools/sdevkit_rename.py` converts code from the old names; the game
+switched, and the deprecated header that kept them went (ADR
+[record 34](adr/0034-every-name-of-the-console-api-starts-with.md)). dampf can be called by a
+game: argument files (`@file`, `--config`), every error of a run reported, `<string.h>` with
+`memset` and `memcpy`. Two miscompilations were found and fixed: a loop counter kept in X stepped
+before a later store whose address was formed from its old value
+(`exec/regress_x_step_address.c`), and, found by the game with the default inlining limit, a
+branch whose two sides start a loop each wrote both start values before branching while the
+frame layout let them share a place (`exec/regress_branch_phis.c`). The converter
+`tools/png2snes.py` and the examples came with it, and the game's snapshot left the repository
+(ADR [record 40](adr/0040-the-examples-replace-blubber-blasen-s-snapshot-as.md)).
+
+Its steps beyond the goal moved: random programs and execution tests that reach the optimizer to
+M9, the book's getting started on `hello` to the release work, the ROM on a console to the work
+that waits for hardware.
+
 ### M6
 
 dampf assembles and links itself, so ca65 and ld65 are no longer needed and using dampf needs
@@ -525,7 +536,9 @@ both ways.
 - Licence: Apache License 2.0 with LLVM Exceptions
   ([record 25](adr/0025-dampf-is-under-the-apache-license-20-with-llvm.md)).
 - What the Calypsi investigation finds: dampf is faster on the same scene; the order of the
-  optimizations follows the plan above.
+  optimizations follows the plan above. Why Calypsi's results drifted from the PC's from tick 596
+  on was not found; it is not pursued, since the game left Calypsi on 2026-11-19 and the kit no
+  longer compares with it.
 
 ## Relation to Blubber Blasen
 

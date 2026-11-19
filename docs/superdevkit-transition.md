@@ -45,7 +45,7 @@ The kit:
 
 | Milestone | Version | Goal |
 | --- | --- | --- |
-| M5 | 0.5.0 | Blubber Blasen builds its SNES ROM with the dev kit from its own repository; the examples build for the SNES |
+| M5 | 0.6.0 (planned as 0.5.0) | Blubber Blasen builds its SNES ROM with the dev kit from its own repository; the examples build for the SNES |
 | M7 | 0.7.0 | Windows and Linux: Rachael and the desktop frontend in the kit, the CLI with `init`, `build`, `run`; the examples and Blubber Blasen run on the desktop from the kit |
 | M8 | 0.8.0 | The web: the same games in the browser; Blubber Blasen drops its own PC side |
 
@@ -53,14 +53,18 @@ The milestones planned before (the optimizer, language and platform, timing and 
 tuning) move from M7–M10 to M9–M12 (ADR record 26 on renumbering). macOS, `bundle`/`deploy`, the
 desktop running the ROM in an emulator and Mesen as the desktop are not scheduled.
 
-## M5: the SNES (0.5.0)
+## M5: the SNES (0.6.0)
 
-Done so far on `m5`: the version 0.5.0; `dev/`, `lib/snes`; the console API and the
-main loop in the library (`lib/include/sdevkit/`, `LibApiTest`, `LibNamesTest`); steps 5.1 and 5.2; the three examples.
+Concluded on 2026-11-19 as version 0.6.0 (ADR
+[record 45](adr/0045-m5-is-concluded-as-060-and-a-version-between.md),
+[roadmap](roadmap.md#m5)): Blubber Blasen's ROM, built with the kit, plays its recordings with
+the PC's checksums. Steps 5.1, 5.2, 5.3 (but the getting started), 5.4's miscompilation and 5.6
+are done. What is left moved: the rest of 5.4 to M9, `hello` as the getting started and 5.5 to the
+book before the release, 5.7 until there is hardware.
 
 ### 5.1 dampf can be called by a game
 
-Built: argument files, every error of a run, `<string.h>` ([roadmap](roadmap.md#m5-blubber-blasen-builds-with-the-dev-kit-050)).
+Built: argument files, every error of a run, `<string.h>` ([roadmap](roadmap.md#m5)).
 
 ### 5.2 The converter
 
@@ -133,10 +137,11 @@ them to Rachael and her line offset itself.
 New headers in `lib/include/sdevkit/`, with the names of ADR record 34, built in `lib/rachael` and
 `lib/desktop`, stubs in `lib/snes`, rows in `lib/README.md`'s table:
 
-- `sound.h`: `sdevkit_sfx_play(id)`, `sdevkit_music_play(track)`, `sdevkit_music_stop()`. The
-  numbers come from the project file (the converter writes `SDEVKIT_SFX_*` and
-  `SDEVKIT_MUSIC_*` into a header); on the desktop the frontend plays the files. On the SNES
-  nothing yet; later a queue the main loop sends to the sound processor in the vertical blank.
+- Sound effects: built on 2026-11-19, otherwise than planned here, on both platforms
+  ([sound.md](sound.md), ADR record 44): `sdevkit_sfx_init` and `sdevkit_sfx_play` in
+  `sdevkit/snes.h`, the effects from `assets/sfx/sfx.json` through `superdevkit sfx`, an SPC700
+  driver on the SNES and Rachael's DSP on the desktop, both playing the same BRR. Music
+  (`sdevkit_music_play(track)`, `sdevkit_music_stop()`) is still to do.
 - `sram.h`: `sdevkit_sram()` (the block) and `SDEVKIT_SRAM_SIZE` from the project file; the
   frontend saves it when it changed and on exit.
 - `debug.h`: `sdevkit_dbg_toggle(name, &flag)`, `sdevkit_dbg_range(name, &value, lo, hi)`,

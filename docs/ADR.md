@@ -40,7 +40,7 @@ of its subject.
 | 23 | [Value ranges are inferred first, and subrange types wait for a profile](adr/0023-value-ranges-are-inferred-first-and-subrange-types.md) | Accepted | 2026-11-17 |
 | 24 | [A refactoring step may cost about 1 % speed if the back end gets much cleaner](adr/0024-a-refactoring-step-may-cost-about-1-speed-if-the.md) | Accepted | 2026-11-18 |
 | 25 | [dampf is under the Apache License 2.0 with LLVM Exceptions](adr/0025-dampf-is-under-the-apache-license-20-with-llvm.md) | Accepted | 2026-11-17 |
-| 26 | [Milestone N is version 0.N.0, and the first public version is an alpha](adr/0026-milestone-n-is-version-0n0-and-the-first-public.md) | Accepted; amended by 29 | 2026-11-18 |
+| 26 | [Milestone N is version 0.N.0, and the first public version is an alpha](adr/0026-milestone-n-is-version-0n0-and-the-first-public.md) | Accepted; amended by 29, 45 | 2026-11-18 |
 | 27 | [`goto` and labels stay rejected, and a forward and outward form is the most dampf will allow](adr/0027-goto-and-labels-stay-rejected-and-a-forward-and.md) | Accepted | 2026-11-18 |
 | 28 | [Options can be kept in an argument file, given by `--config` or `@file`](adr/0028-options-can-be-kept-in-an-argument-file-given-by.md) | Accepted | 2026-11-18 |
 | 29 | [superdevkit is the project, and dampf is its compiler](adr/0029-superdevkit-is-the-project-and-dampf-is-its.md) | Accepted; amended by 32, 34, 40, 41 | 2026-11-18 |
@@ -59,3 +59,4 @@ of its subject.
 | 42 | [The splash screen is the new design in parts on BG1, and its stars are sprites](adr/0042-the-splash-screen-is-the-new-design-in-parts.md) | Accepted | 2026-11-19 |
 | 43 | [The book is brought in step before a release, not with every change](adr/0043-the-book-is-brought-in-step-before-a-release-not.md) | Accepted | 2026-11-19 |
 | 44 | [Sound effects come from sfx.json, and Rachael plays the SNES's BRR](adr/0044-sound-effects-come-from-sfx-json-and-rachael-plays.md) | Accepted | 2026-11-19 |
+| 45 | [M5 is concluded as 0.6.0, and a version between milestones may carry features](adr/0045-m5-is-concluded-as-060-and-a-version-between.md) | Accepted | 2026-11-19 |
