@@ -11,9 +11,12 @@ NAME=${1:?usage: dev/replay_example.sh <example> <recording>}
 REC=$(realpath "${2:?usage: dev/replay_example.sh <example> <recording>}")
 cd "$(dirname "$0")/.."
 EX=examples/$NAME
-[ "${NOBUILD:-0}" = 1 ] || "$EX/build.sh" > /dev/null
+# the kit's command: in a superdevkit home bin/superdevkit, in the repository its installation
+S=bin/superdevkit; [ -x "$S" ] || S=build/install/superdevkit/bin/superdevkit
+[ -x "$S" ] || ./gradlew -q installDist
+[ "${NOBUILD:-0}" = 1 ] || "$S" build snes "$EX" > /dev/null
 echo "dampf's emulator:"
-dev/replay.sh "$EX/build/$NAME.sfc" "$REC"
+dev/replay.sh "$EX/build/snes/$NAME.sfc" "$REC"
 if [ "${WITH_MESEN:-0}" = 1 ]; then
     echo "Mesen:"
     INPUT="$REC" NOBUILD=1 dev/check_example.sh "$NAME" | tail -1

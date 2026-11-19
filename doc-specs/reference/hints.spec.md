@@ -11,7 +11,7 @@ sources:
   - compiler/src/main/java/dampf/Compiler.java
   - compiler/src/test/resources/exec/hint_range.c
   - compiler/src/test/java/dampf/BudgetTest.java
-  - dev/build_desktop.sh
+  - cli/src/main/java/superdevkit/project/Desktop.java
 audience: Users who want to tell dampf what it cannot infer
 ---
 

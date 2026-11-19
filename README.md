@@ -151,12 +151,31 @@ Windows build, with the settings the tests need ([ADR record 33](docs/adr/0033-m
 The Linux build is taken when it is there; from WSL the Windows `Mesen.exe` works too. All Gradle switches are listed in the book's
 [testing](docs/book/inside/testing.md) page, the scripts in [dev/README.md](dev/README.md).
 
+## Using superdevkit
+
+A game is a folder with a `superdevkit.toml` (its name, the kit's version, its sources, pictures,
+sound effects and save RAM; ADR record 31), and the `superdevkit` command builds it:
+
+```bash
+superdevkit init mygame --from catchme   # a new project, a copy of an example
+superdevkit build snes                    # build/snes/mygame.sfc (and build/compile_commands.json)
+superdevkit build linux                   # build/linux/mygame; win64 with MSVC, also from WSL
+superdevkit run                           # builds the desktop program and plays it; run snes: Mesen
+superdevkit build snes --plan             # the steps, without running them (--verbose: while running)
+```
+
+It converts the assets in Java (`superdevkit png`, `superdevkit sfx`), compiles with dampf in the
+same Java for the SNES, and calls the system's C compiler for the desktop, one call per file, after
+fetching raylib once. A SNES build also writes `build/snes/<name>.args`, dampf's argument file of
+what it compiled.
+
 ## Using dampf
 
 ```bash
 dampf build --entry test_main -o build/examples/m1/calls.sfc examples/m1/calls.c
-dampf check @examples/ertuep/ertuep.args
-dampf build @examples/ertuep/ertuep.args -o build/ertuep.sfc
+superdevkit build snes examples/ertuep            # writes the argument file used below
+dampf check @examples/ertuep/build/snes/ertuep.args
+dampf build @examples/ertuep/build/snes/ertuep.args -o build/ertuep.sfc
 ```
 
 The launcher is `build/install/superdevkit/bin/dampf` (`./gradlew installDist`).
@@ -199,13 +218,13 @@ jre/ and raylib/ come with the release zips.
 
 ```
 compiler/      dampf, the compiler, with its emulator and the tests of the whole kit (Gradle subproject)
-cli/           the superdevkit command: init, build and run come with M7 (Gradle subproject)
+cli/           the superdevkit command: init, build, run, and the converters png and sfx (Gradle subproject)
 lib/           the dev kit's library: the console API (include/), the SNES (snes/), Rachael, the
                desktop; see its README.md
-tools/         tools for game developers: png2snes.py, brr_lab.html, sdevkit_rename.py
+tools/         tools for game developers: brr_lab.html, sdevkit_rename.py (the converters are in cli/)
 examples/      the dev kit's examples: test cases and the benchmark (each has its README.md)
 reference/     hand-written assembly of the examples' functions, the yardstick for dampf's code
-dev/           scripts for developing the kit: benchmark, checks in Mesen, the desktop's build, art
+dev/           scripts for developing the kit: benchmark, checks in Mesen, art
 config/pmd/    PMD rules (./gradlew pmdMain pmdTest)
 docs/          the working documents (see Documents); docs/book the user book (VitePress, with
                its package.json), mostly generated from doc-specs/; docs/assets the logo

@@ -128,8 +128,9 @@ void game_init(uint16_t seed)
     sdevkit_sfx_play(SFX_JUMP);        /* where it happens, in game_tick */
 ```
 
-The example's `build.sh` calls `superdevkit sfx assets/sfx/sfx.json sfx build/gen` before dampf
-(Schach and Steinschlag do). An effect asked for in a tick starts after the tick, when the main
+A project names its file in `superdevkit.toml` (`[sound] sfx = "assets/sfx/sfx.json"`), and
+`superdevkit build` converts it into `build/gen/sfx.c` and `sfx.h` before it compiles (Schach and
+Steinschlag do). An effect asked for in a tick starts after the tick, when the main
 loop has run `game_vblank`: a free voice takes it; if all of the file's voices are busy, it
 replaces the voice of the lowest priority not above its own, the older of equal ones; if every
 playing effect has a higher priority, it is dropped. A voice is free when the effect's length in

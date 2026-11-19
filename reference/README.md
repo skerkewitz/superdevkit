@@ -9,8 +9,9 @@ reference is faster, the reason becomes a hint or an optimization rule.
 ## Linking a reference function
 
 ```bash
-cd examples/ertuep
-dampf build @ertuep.args --backend naive --replace random16=../../reference/ertuep_random16.s -o build/ref.sfc
+superdevkit build snes examples/ertuep     # writes examples/ertuep/build/snes/ertuep.args too
+dampf build @examples/ertuep/build/snes/ertuep.args --backend naive \
+    --replace random16=reference/ertuep_random16.s -o build/ref.sfc
 ```
 
 `--replace` keeps the function's parameters and frame and emits no code for it; the assembly file

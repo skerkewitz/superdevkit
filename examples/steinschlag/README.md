@@ -6,8 +6,8 @@ Beetles crawl along the walls, and touching one ends badly. Enough gems open the
 the time runs out. An example of superdevkit that scrolls: the cave is larger than the screen.
 
 ```bash
-examples/steinschlag/build.sh            # the SNES: examples/steinschlag/build/steinschlag.sfc
-dev/build_desktop.sh examples/steinschlag   # the desktop (Linux): examples/steinschlag/build/linux/steinschlag
+superdevkit build snes examples/steinschlag     # the SNES: examples/steinschlag/build/snes/steinschlag.sfc
+superdevkit run examples/steinschlag            # the desktop: builds build/linux/steinschlag (win64 on Windows) and plays it
 ```
 
 On the desktop the keyboard is the joypad: the arrows, Z (B), X (A), A (Y), S (X), Q and W (L and
@@ -29,7 +29,7 @@ On the SNES it plays without losing a byte and manages 0.98 ticks per frame.
 | `src/game.c` | the screen, the camera, the miner, the status line, the course of the game |
 | `src/steinschlag.h` | what the two share |
 | `assets/` | `cave_a_gfx.png`, `cave_b_gfx.png`, `cave_c_gfx.png` (the cave's elements as 16 x 16 tiles, one palette each), `miner_gfx.png` (the sprite), `font_gfx.png` (the status line); drawn by `dev/art/steinschlag.py` |
-| `steinschlag.args`, `build.sh`, `check.txt` | the build, and the input of the check in Mesen |
+| `superdevkit.toml`, `check.txt` | the project (its sources, pictures and sound effects), and the input of the check in Mesen |
 
 Things worth looking at:
 

@@ -15,9 +15,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * The desktop build lets a game reach only the console API (ADR record 34, dev/build_desktop.sh):
+ * The desktop build lets a game reach only the console API (ADR record 34, superdevkit build linux):
  * the host's headers are not there, and a function of raylib or libc declared by hand stops the
- * build. Skipped where raylib was not fetched (dev/fetch_raylib.sh linux).
+ * build. Skipped where raylib was not fetched (a superdevkit build linux before: the tests download nothing).
  */
 class DesktopIsolationTest {
 
@@ -34,16 +34,33 @@ class DesktopIsolationTest {
             void game_vblank(void) { }
             """;
 
-    /** A game folder as build_desktop.sh expects it: build.sh (nothing to convert) and src/. */
+    /** A project of the kit's repository: superdevkit.toml (nothing to convert) and src/. */
     private Path game(String name, String source) throws IOException {
         Path dir = tmp.resolve(name);
         Files.createDirectories(dir.resolve("src"));
-        Files.writeString(dir.resolve("build.sh"), "exit 0\n");
+        Files.writeString(dir.resolve("superdevkit.toml"), "name = \"" + name + "\"\nkit = \""
+                + Path.of("").toAbsolutePath().toString().replace("\\", "/") + "\"\nsources = [\"src\"]\n");
         Files.writeString(dir.resolve("src/game.c"), source);
         return dir;
     }
 
     private record Run(int exit, String out) {}
+
+    /** superdevkit build linux, in this Java. */
+    private static Run build(Path dir) throws Exception {
+        java.io.ByteArrayOutputStream log = new java.io.ByteArrayOutputStream();
+        java.io.PrintStream ps = new java.io.PrintStream(log, true, StandardCharsets.UTF_8);
+        int status;
+        try {
+            superdevkit.project.Project p = superdevkit.project.Project.read(dir);
+            status = superdevkit.project.Build.run(superdevkit.project.Build.plan(p, superdevkit.project.Kit.of(p), "linux", false),
+                    false, false, false, ps, ps);
+        } catch (superdevkit.project.Build.Failure | superdevkit.project.Project.Error e) {
+            ps.println(e.getMessage());
+            status = 1;
+        }
+        return new Run(status, log.toString(StandardCharsets.UTF_8));
+    }
 
     private static Run run(String... cmd) throws IOException, InterruptedException {
         Process p = new ProcessBuilder(cmd).redirectErrorStream(true).start();
@@ -55,7 +72,7 @@ class DesktopIsolationTest {
     }
 
     @Test
-    void aGameOnTheConsoleApiBuildsAndCopiesStructsRight() throws IOException, InterruptedException {
+    void aGameOnTheConsoleApiBuildsAndCopiesStructsRight() throws Exception {
         // A struct copy large enough that gcc calls memcpy: in this file that is dampf's static one
         // (<string.h>). Should a copy go wrong, the game writes VRAM while the picture is drawn,
         // and the check reports the bytes as lost.
@@ -82,7 +99,7 @@ class DesktopIsolationTest {
                     if (!ok) { sdevkit_dma_copy_vram(b.bytes, 0, 16); }
                 }
                 """);
-        Run build = run("sh", "dev/build_desktop.sh", dir.toString());
+        Run build = build(dir);
         assertEquals(0, build.exit(), build.out());
         Files.writeString(dir.resolve("check.txt"), "ticks 3\n");
         Run check = run(dir.resolve("build/linux/good").toString(), "--check", dir.resolve("check.txt").toString(), "--out", tmp.toString());
@@ -91,7 +108,7 @@ class DesktopIsolationTest {
     }
 
     @Test
-    void aHostHeaderIsNotThere() throws IOException, InterruptedException {
+    void aHostHeaderIsNotThere() throws Exception {
         Path dir = game("stdio", """
                 #include <stdio.h>
                 #include <stdint.h>
@@ -99,13 +116,13 @@ class DesktopIsolationTest {
                 """ + CALLBACKS + """
                 void game_tick(const uint16_t pad[SDEVKIT_PADS]) { (void)pad; printf("hi\\n"); }
                 """);
-        Run build = run("sh", "dev/build_desktop.sh", dir.toString());
+        Run build = build(dir);
         assertNotEquals(0, build.exit(), build.out());
         assertTrue(build.out().contains("stdio.h"), build.out());
     }
 
     @Test
-    void aFunctionOutsideTheApiStopsTheBuild() throws IOException, InterruptedException {
+    void aFunctionOutsideTheApiStopsTheBuild() throws Exception {
         Path dir = game("raylib", """
                 #include <stdint.h>
                 #include "sdevkit/loop.h"
@@ -113,7 +130,7 @@ class DesktopIsolationTest {
                 """ + CALLBACKS + """
                 void game_tick(const uint16_t pad[SDEVKIT_PADS]) { (void)pad; DrawText("hi", 0, 0, 10, 0); }
                 """);
-        Run build = run("sh", "dev/build_desktop.sh", dir.toString());
+        Run build = build(dir);
         assertNotEquals(0, build.exit(), build.out());
         assertTrue(build.out().contains("uses DrawText, which is not part of superdevkit's console API"), build.out());
     }

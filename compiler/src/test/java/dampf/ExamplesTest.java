@@ -21,15 +21,15 @@ import org.junit.jupiter.api.TestFactory;
  * desktop, with the same checksum after every tick:
  *
  * <ol>
- *   <li>the SNES: its build.sh converts the assets (CONVERT_ONLY=1), then dampf compiles it with its
- *       argument file (from MIR), and dampf's emulator plays the ROM with the input of
+ *   <li>the SNES: built as superdevkit build snes builds it (its superdevkit.toml: the assets
+ *       converted, dampf from MIR with the kit's lib/snes), and dampf's emulator plays the ROM with the input of
  *       {@code check.txt} ({@link ExampleCheck}), the checksums into
  *       {@code build/emu-check/hashes.txt}, the frames per tick into {@code frames.txt} there (on average, and of the slowest 60 ticks in
  *       a row), and the master cycles from the end of each tick to the end of the next into
  *       {@code ticks.txt}; a {@code budget T1 T2} line of {@code check.txt} fails the test when a tick
  *       from T1 to T2 - 1 took more than a frame;</li>
- *   <li>the desktop (where raylib was fetched, dev/fetch_raylib.sh linux: the tests download
- *       nothing): dev/build_desktop.sh, then the same check without a window, without a byte
+ *   <li>the desktop (where raylib was fetched, by a superdevkit build linux before: the tests
+ *       download nothing): built as superdevkit build linux builds it, then the same check without a window, without a byte
  *       the SNES would lose and without a register write Rachael does not draw, its checksums
  *       into {@code build/desktop-check/hashes.txt}, and the run's recording ({@code --record}:
  *       the format a session in the window is saved in with F11) must have the same buttons and
@@ -49,7 +49,7 @@ public class ExamplesTest {
     @TestFactory
     Stream<DynamicTest> everyExampleBuildsAndPlaysTheSameOnBoth() throws IOException {
         List<Path> examples = examples();
-        assertTrue(!examples.isEmpty(), "no examples with an argument file");
+        assertTrue(!examples.isEmpty(), "no examples with a superdevkit.toml");
         boolean desktop = Files.isRegularFile(Path.of("build/raylib/linux/lib/libraylib.a"));
         return examples.stream().map(ex -> DynamicTest.dynamicTest(ex.getFileName().toString(), () -> {
             String name = ex.getFileName().toString();
@@ -83,7 +83,7 @@ public class ExamplesTest {
             if (!desktop) {
                 return;
             }
-            run("sh", "dev/build_desktop.sh", ex.toString());
+            buildDesktop(ex);
             Path out = Files.createDirectories(ex.resolve("build/desktop-check"));
             Path recording = out.resolve("recording.txt");
             String result = run(ex.resolve("build/linux/" + name).toString(), "--check", check.toString(), "--out", out.toString(),
@@ -121,54 +121,37 @@ public class ExamplesTest {
         }));
     }
 
-    /** The examples: the folders of examples/ with an argument file of their name. */
+    /** The examples: the folders of examples/ with a superdevkit.toml. */
     public static List<Path> examples() throws IOException {
         try (Stream<Path> s = Files.list(Path.of("examples"))) {
-            return s.filter(d -> Files.isRegularFile(d.resolve(d.getFileName() + ".args"))).sorted().toList();
+            return s.filter(d -> Files.isRegularFile(d.resolve(superdevkit.project.Project.FILE))).sorted().toList();
         }
     }
 
-    /** An example built as its build.sh does: the assets converted, then compiled with dampf (MIR). */
-    public static Compiler.Result compile(Path ex, Path out) throws IOException, InterruptedException, dampf.frontend.CompileError {
+    /** An example built as superdevkit build snes builds it: the assets converted, then dampf (MIR). */
+    public static Compiler.Result compile(Path ex, Path out) throws Exception {
         return Compiler.compile(options(ex, out).withBackend(Compiler.Backend.MIR));
     }
 
-    /** The options of an example's build (its argument file), after its assets are converted. */
-    public static Compiler.Options options(Path ex, Path out) throws IOException, InterruptedException {
-        String name = ex.getFileName().toString();
-        if (Files.isRegularFile(ex.resolve("build.sh"))) {
-            ProcessBuilder pb = new ProcessBuilder("sh", ex.resolve("build.sh").toString()).redirectErrorStream(true);
-            pb.environment().put("CONVERT_ONLY", "1");
-            Process p = pb.start();
-            String log = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            p.waitFor(120, TimeUnit.SECONDS);
-            assertEquals(0, p.exitValue(), log);
-        }
-        List<String> args = new ArrayList<>(ConfigFile.expand(List.of("build", "@" + ex.resolve(name + ".args"))));
-        return options(args, out);
+    /** The dampf options of an example's SNES build (its superdevkit.toml), after its assets are converted. */
+    public static Compiler.Options options(Path ex, Path out) throws Exception {
+        superdevkit.project.Project p = superdevkit.project.Project.read(ex.toAbsolutePath().normalize());
+        superdevkit.project.Kit kit = superdevkit.project.Kit.of(p);
+        java.io.ByteArrayOutputStream log = new java.io.ByteArrayOutputStream();
+        java.io.PrintStream ps = new java.io.PrintStream(log, true, StandardCharsets.UTF_8);
+        assertEquals(0, superdevkit.project.Build.run(superdevkit.project.Build.assets(p), false, false, false, ps, ps),
+                log.toString(StandardCharsets.UTF_8));
+        return superdevkit.project.Build.dampfOptions(p, kit, out);
     }
 
-    /** The options dampf build takes from these arguments (-I, --entry, sources). */
-    private static Compiler.Options options(List<String> args, Path out) throws IOException {
-        List<Path> includes = new ArrayList<>();
-        List<Path> sources = new ArrayList<>();
-        String entry = "main";
-        int sram = 0;
-        for (int i = 1; i < args.size(); i++) {
-            String a = args.get(i);
-            if (a.equals("-I")) {
-                includes.add(Path.of(args.get(++i)));
-            } else if (a.equals("--entry")) {
-                entry = args.get(++i);
-            } else if (a.equals("--sram")) {
-                sram = Integer.parseInt(args.get(++i));
-            } else if (a.startsWith("-")) {
-                throw new IllegalArgumentException("an option the test does not know: " + a);
-            } else {
-                sources.addAll(ConfigFile.sources(Path.of(a)));
-            }
-        }
-        return new Compiler.Options(sources, includes, List.of(), entry, out).withSram(sram);
+    /** The desktop program of an example, as superdevkit build linux builds it. */
+    static void buildDesktop(Path ex) throws Exception {
+        superdevkit.project.Project p = superdevkit.project.Project.read(ex.toAbsolutePath().normalize());
+        superdevkit.project.Kit kit = superdevkit.project.Kit.of(p);
+        java.io.ByteArrayOutputStream log = new java.io.ByteArrayOutputStream();
+        java.io.PrintStream ps = new java.io.PrintStream(log, true, StandardCharsets.UTF_8);
+        assertEquals(0, superdevkit.project.Build.run(superdevkit.project.Build.plan(p, kit, "linux", false), false, false, false, ps, ps),
+                log.toString(StandardCharsets.UTF_8));
     }
 
     private static String run(String... cmd) throws IOException, InterruptedException {

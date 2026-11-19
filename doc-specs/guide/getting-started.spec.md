@@ -8,10 +8,9 @@ sources:
   - compiler/src/main/java/dampf/ConfigFile.java
   - compiler/src/main/java/dampf/frontend/Preprocessor.java
   - examples/hello/README.md
-  - examples/hello/build.sh
-  - examples/hello/hello.args
+  - examples/hello/superdevkit.toml
   - examples/hello/src/hello.c
-  - dev/build_desktop.sh
+  - cli/src/main/java/superdevkit/project/Desktop.java
 audience: A first-time user with a Linux or WSL machine who wants to write a SNES game with superdevkit
 ---
 

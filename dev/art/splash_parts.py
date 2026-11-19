@@ -21,9 +21,9 @@ KIT = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, HERE)
 from pix import Canvas, save_png  # noqa: E402
 
-_spec = importlib.util.spec_from_file_location("png2snes", os.path.join(KIT, "tools", "png2snes.py"))
-png2snes = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(png2snes)
+_spec = importlib.util.spec_from_file_location("png_read", os.path.join(KIT, "dev", "png_read.py"))
+png_read = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(png_read)
 
 BG = (32, 40, 56)                         # the background, one colour (the design's is about 31, 38, 56)
 EDGE, SOFT = 14, 6
@@ -65,7 +65,7 @@ def kmeans(pixels, k):
 
 
 def main():
-    w, h, px, pal = png2snes.read_png(os.path.join(KIT, "dev", "art", "splash", "logo_source.png"))
+    w, h, px, pal = png_read.read_png(os.path.join(KIT, "dev", "art", "splash", "logo_source.png"))
     src = [[tuple((pal[px[y][x]] if pal else px[y][x])[:3]) for x in range(w)] for y in range(h)]
     hard = [[dist(src[y][x], BG) > EDGE for x in range(w)] for y in range(h)]
     keep = [[hard[y][x] or (dist(src[y][x], BG) > SOFT and any(

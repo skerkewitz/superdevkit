@@ -20,9 +20,9 @@ KIT = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, HERE)
 from pix import Canvas, save_png  # noqa: E402
 
-_spec = importlib.util.spec_from_file_location("png2snes", os.path.join(KIT, "tools", "png2snes.py"))
-png2snes = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(png2snes)
+_spec = importlib.util.spec_from_file_location("png_read", os.path.join(KIT, "dev", "png_read.py"))
+png_read = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(png_read)
 
 PARTS = os.path.join(KIT, "dev", "art", "splash", "parts")
 W, H = 256, 224                           # the screen
@@ -33,7 +33,7 @@ MAX_BG_TILES = VRAM_MAP // 16             # 16 words a tile below the map
 
 
 def read_part(name):
-    w, h, px, pal = png2snes.read_png(os.path.join(PARTS, name + ".png"))
+    w, h, px, pal = png_read.read_png(os.path.join(PARTS, name + ".png"))
     return w, h, px, [tuple(c[:3]) for c in pal[:16]]
 
 

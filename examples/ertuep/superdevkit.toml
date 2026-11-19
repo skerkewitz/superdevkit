@@ -1,0 +1,20 @@
+# Er-Tüp's project file (superdevkit.toml, ADR record 31): superdevkit build snes makes the ROM,
+# superdevkit run plays it on the desktop.
+name = "ertuep"
+kit = "../.."                 # the kit's repository, which this example is part of
+sources = ["src"]
+
+[graphics]
+tiles = [
+    "assets/stage_bar.png", "assets/stage_cellar.png", "assets/stage_kitchen.png",
+    "assets/stage_brew.png", "assets/stage_mett.png",
+    "assets/wall_bar.png", "assets/wall_cellar.png", "assets/wall_kitchen.png", "assets/wall_brew.png",
+    "assets/sprites_a.png", "assets/sprites_b.png", "assets/sprites_c.png",
+    { png = "assets/boss.png", name = "boss_gfx" },
+    { png = "assets/boss2.png", name = "boss2_gfx" },
+]
+tiles2 = ["assets/hud.png"]   # BG3, 2 bits a pixel
+mode7 = [                     # stage 3 in mode 7: its colours from CGRAM 33 on
+    { png = "assets/festzelt.png", first = 33 },
+    { png = "assets/karussell.png", first = 33 },
+]

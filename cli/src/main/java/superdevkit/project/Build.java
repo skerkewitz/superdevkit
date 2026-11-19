@@ -160,6 +160,7 @@ public final class Build {
         }
         return new Step("dampf", line.toString(), needs, out -> {
             Files.createDirectories(rom.getParent());
+            writeArgs(p, kit, rom);
             try {
                 Compiler.Result r = Compiler.compile(dampfOptions(p, kit, rom));
                 r.warnings().forEach(w -> out.println("    " + w));
@@ -167,6 +168,28 @@ public final class Build {
                 throw new Failure(String.join("\n", e.diagnostics().stream().map(Object::toString).toList()));
             }
         });
+    }
+
+    /**
+     * build/snes/NAME.args: what the build compiles, as an argument file for dampf (ADR record 28),
+     * so dampf can be called with options of one's own: {@code dampf build @build/snes/NAME.args
+     * -o other.sfc --backend naive} (dev/bench_examples.sh does). Absolute paths.
+     */
+    private static void writeArgs(Project p, Kit kit, Path rom) throws Failure, IOException {
+        Compiler.Options o = dampfOptions(p, kit, rom);
+        StringBuilder s = new StringBuilder("# What superdevkit build snes compiles, for dampf (written by every build):\n"
+                + "#   dampf build @build/snes/" + p.name() + ".args -o out.sfc [more options]\n");
+        for (Path i : o.includeDirs()) {
+            s.append("-I ").append(i.toAbsolutePath().normalize()).append('\n');
+        }
+        s.append("--entry ").append(o.entry()).append('\n');
+        if (o.sram() > 0) {
+            s.append("--sram ").append(o.sram()).append('\n');
+        }
+        for (Path f : o.sources()) {
+            s.append(f.toAbsolutePath().normalize()).append('\n');
+        }
+        Files.writeString(rom.resolveSibling(p.name() + ".args"), s.toString(), StandardCharsets.UTF_8);
     }
 
     /** build/compile_commands.json: each of the game's files with the options dampf's preprocessor gets. */

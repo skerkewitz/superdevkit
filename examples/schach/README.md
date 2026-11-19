@@ -6,8 +6,8 @@ generator as much as a game. The plan was [docs/archive/chess-game-proposal.md](
 all four of its steps are built.
 
 ```bash
-examples/schach/build.sh                 # the SNES: examples/schach/build/schach.sfc
-dev/build_desktop.sh examples/schach   # the desktop (Linux): examples/schach/build/linux/schach
+superdevkit build snes examples/schach     # the SNES: examples/schach/build/snes/schach.sfc
+superdevkit run examples/schach            # the desktop: builds build/linux/schach (win64 on Windows) and plays it
 ```
 
 On the desktop the keyboard is the joypad: the arrows, X (A), Z (B), Enter (Start).
@@ -34,7 +34,7 @@ the game ended. Below it the last 14 moves. Start after the end begins the next 
 | `src/game.c`, `src/schach.h` | the screen, the joypad, the course of a game; the levels and how much the console thinks a frame |
 | `assets/` | `board_gfx.png` (the squares with and without each piece, 16 x 16), `sprites_gfx.png` (the cursor, the pieces), `font_gfx.png` (ASCII); drawn by `dev/art/schach.py` |
 | `test/` | the tests and tools below |
-| `schach.args`, `build.sh`, `check.txt` | the build, and the input of the check in Mesen and on the desktop |
+| `superdevkit.toml`, `check.txt` | the project (its sources, pictures and sound effects), and the input of the check in Mesen and on the desktop |
 
 **The rules.** A 0x88 board (a square is `rank * 16 + file`, and `sq & 0x88` is not zero once a
 step left the board) with a piece list per side. Moves are generated pseudo-legally into one

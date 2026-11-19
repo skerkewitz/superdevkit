@@ -5,9 +5,9 @@ in the shape of an L turns and zooms around the middle of the screen, with a spr
 it. It is there to show that the SNES and the desktop draw mode 7 the same, pixel for pixel.
 
 ```bash
-examples/mode7/build.sh               # the SNES: examples/mode7/build/mode7.sfc
-dev/build_desktop.sh examples/mode7   # the desktop (Linux): examples/mode7/build/linux/mode7
-dev/compare_example.sh mode7          # both with the input of check.txt, the pictures compared
+superdevkit build snes examples/mode7     # the SNES: examples/mode7/build/snes/mode7.sfc
+superdevkit run examples/mode7            # the desktop: builds build/linux/mode7 (win64 on Windows) and plays it
+dev/compare_example.sh mode7                  # both with the input of check.txt, the pictures compared
 ```
 
 A (on the desktop X) changes what lies outside the map: it repeats, it is transparent (the

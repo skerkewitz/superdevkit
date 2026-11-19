@@ -1,9 +1,0 @@
-# Schach for the SNES: the game, its converted graphics (build/gen, written by build.sh) and the dev
-# kit's library. Paths are relative to this file (ADR record 28).
--I ../../lib/include
--I src
--I build/gen
---entry main
-src/
-build/gen/
-../../lib/snes/

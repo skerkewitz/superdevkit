@@ -7,8 +7,8 @@ screen, no scrolling, one background layer and a handful of sprites.
 ## Build and play
 
 ```bash
-examples/catchme/build.sh            # the SNES: examples/catchme/build/catchme.sfc
-dev/build_desktop.sh examples/catchme   # the desktop (Linux): examples/catchme/build/linux/catchme
+superdevkit build snes examples/catchme     # the SNES: examples/catchme/build/snes/catchme.sfc
+superdevkit run examples/catchme            # the desktop: builds build/linux/catchme (win64 on Windows) and plays it
 ```
 
 On the desktop the keyboard is the joypad: the arrows, Z (B), X (A), A (Y), S (X), Q and W (L and
@@ -28,8 +28,7 @@ works for less time.
 
 | File | What |
 | --- | --- |
-| `catchme.args` | the call of dampf: the include paths, the entry, the sources (ADR record 28) |
-| `build.sh` | converts the assets with `tools/png2snes.py`, then calls dampf (until the `superdevkit` command, roadmap M7) |
+| `superdevkit.toml` | the project: its sources, its pictures (converted into `build/gen`), its save RAM (ADR record 31) |
 | `src/catchme.h` | what the files share |
 | `src/game.c` | the course of the game (title, ready, play, a life lost, a level cleared, game over), score and lives, and the frame rhythm: `game_init`, `game_tick`, `game_vblank` (`sdevkit/loop.h`) |
 | `src/maze.c` | the maze as text, the background map in RAM, the walls drawn from their neighbours, the status line |

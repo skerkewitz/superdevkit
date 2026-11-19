@@ -25,6 +25,7 @@ dependencies {
     testImplementation(platform("org.junit:junit-bom:5.13.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("com.fasterxml.jackson.core:jackson-databind:2.17.2") // reads the CPU test suite
+    testImplementation(project(":cli"))   // the tests build the examples as superdevkit build does
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
@@ -54,7 +55,7 @@ tasks.test {
     // dampf's headers from the sources (SystemHeaders), so that the paths in the output are the
     // same on every run and machine
     systemProperty("dampf.include", "compiler/src/main/resources/dampf/include")
-    // the examples' build.sh converts their sound effects with the installed superdevkit command
+    // the installed superdevkit command (the BRR Lab and the desktop tests run it)
     dependsOn(":cli:installDist")
     // Files the tests read that are not on the class path: without them as inputs, a change to
     // a document, the game's snapshot or the platform layer left the task up to date, and

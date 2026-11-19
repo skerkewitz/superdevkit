@@ -3,7 +3,7 @@
 # (dev/example_check.lua): no byte may reach VRAM, CGRAM or OAM outside a vertical blank, and the
 # screenshots it asks for go to examples/<name>/build/check/, with the checksums (hashes.txt) and the
 # sound (sound.txt: the DSP writes of the SNES's sound CPU, as the desktop's check writes them).
-#   dev/check_example.sh catchme             builds the example first (its build.sh)
+#   dev/check_example.sh catchme             builds the example first (superdevkit build snes)
 #   NOBUILD=1 dev/check_example.sh catchme   checks the ROM as it is
 #   INPUT=rec.txt dev/check_example.sh ertuep with another input than check.txt (a recording)
 # MESEN=<path> picks Mesen (default: MesenCE in .mesen/, dev/mesen.sh).
@@ -13,9 +13,12 @@ NAME=${1:?usage: dev/check_example.sh <example>}
 EX=examples/$NAME
 OUT=$EX/build/check
 . dev/mesen.sh
-[ "${NOBUILD:-0}" = 1 ] || "$EX/build.sh" > /dev/null
+# the kit's command: in a superdevkit home bin/superdevkit, in the repository its installation
+S=bin/superdevkit; [ -x "$S" ] || S=build/install/superdevkit/bin/superdevkit
+[ -x "$S" ] || ./gradlew -q installDist
+[ "${NOBUILD:-0}" = 1 ] || "$S" build snes "$EX" > /dev/null
 rm -rf "$OUT" && mkdir -p "$OUT"
-cp "$EX/build/$NAME.sfc" "$MESEN_DIR/example_check.sfc"
+cp "$EX/build/snes/$NAME.sfc" "$MESEN_DIR/example_check.sfc"
 cp dev/example_check.lua "$MESEN_DIR/example_check.lua"
 cp "${INPUT:-$EX/check.txt}" "$MESEN_DIR/example_input.txt"
 rm -f "$MESEN_DIR/example_check.txt" "$MESEN_DIR/example_hashes.txt" "$MESEN_DIR/example_sound.txt" "$MESEN_DIR"/example_shot_*.png "$MESEN_DIR"/example_splash_*.png

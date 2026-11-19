@@ -3,7 +3,7 @@
  *
  * Mode 7 has one background layer, which the PPU turns, scales and moves by a matrix. The tent is
  * seen from above: a picture of 1024 x 1024 pixels (assets/festzelt.png, drawn by
- * dev/art/ertuep.py, converted by png2snes.py's mode7), and the camera flies a loop through its
+ * dev/art/ertuep.py, converted by superdevkit png's mode7), and the camera flies a loop through its
  * aisles. The ship always flies to the right of the screen; at each corner of the loop the floor
  * turns a quarter under it. Everything else is as in the other stages: objects live in screen
  * space, the waves come by the camera's distance (cam_x), only the picture under them turns.

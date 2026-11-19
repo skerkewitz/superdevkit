@@ -37,8 +37,8 @@ The kit:
 | `lib/rachael/` | [Rachael](../lib/README.md#rachael), the pseudo SNES, for the desktop and the web: video memory, registers, the renderer, portable C (from Blubber Blasen's `src/snes`) |
 | `lib/desktop/` | the frontend of `win64` and `linux` (raylib): window, scaling, input, sound, save file, debug view, screenshots |
 | `lib/web/` | what the web build adds to it: the page, IndexedDB for save RAM, the click to start |
-| `tools/` | converters for game developers (`png2snes.py`, later sound) |
-| `cli/` | the `superdevkit` command (Java) |
+| `tools/` | tools for game developers (the BRR Lab, the rename script) |
+| `cli/` | the `superdevkit` command (Java), with the converters (`png`, `sfx`) |
 | `examples/` | `hello`, `catchme`, `steinschlag`: projects in the shape above |
 
 ## The milestones
@@ -68,13 +68,13 @@ Built: argument files, every error of a run, `<string.h>` ([roadmap](roadmap.md#
 
 ### 5.2 The converter
 
-Built: `tools/png2snes.py`, tested by `ToolsTest`.
+Built: `tools/png2snes.py`, tested by `ToolsTest`; in M7 it became Java, `superdevkit png`.
 
 ### 5.3 The examples on the SNES
 
-Each example is a project: `README.md`, `<name>.args` (until the CLI of M7, the call of dampf),
-`src/`, `assets/` (PNG, drawn for the example), `build/`; a `build.sh` that runs the converter and
-dampf, until the CLI replaces it. Each runs in Mesen with a script of scripted input
+Each example is a project: `README.md`, `src/`, `assets/` (PNG, drawn for the example), `build/`;
+until the CLI of M7 an argument file (`<name>.args`) and a `build.sh` that ran the converter and
+dampf, since then `superdevkit.toml`. Each runs in Mesen with a script of scripted input
 (`dev/check_example.sh <name>`: screenshots, bytes lost outside the vertical blank).
 
 - **hello** (built: `examples/hello`; still to do: the book's getting-started on it, and `examples/m1` gone): `examples/m1` as a project: a sprite and text on the screen, stepping through C in
@@ -163,9 +163,8 @@ Music is what is left of 7.2.
 ### 7.3 The desktop frontend
 
 Built for Linux (during M5): `lib/desktop/main.c` with a window, the keyboard and a gamepad, the
-frame rhythm, F12 for a screenshot, and `--check` without a window; `dev/build_desktop.sh` and
-`dev/fetch_raylib.sh` until the CLI; Windows with MSVC from WSL, `dev/build_desktop_windows.sh`
-(ADR record 39); the CRT filter of Blubber Blasen's frontend (`lib/desktop/crt.c`, Tab, `--no-crt`);
+frame rhythm, F12 for a screenshot, and `--check` without a window; built by scripts until the CLI
+(`superdevkit build linux`, and `win64` with MSVC, from WSL too, ADR record 39); the CRT filter of Blubber Blasen's frontend (`lib/desktop/crt.c`, Tab, `--no-crt`);
 every session recorded, F11 saves it, `--replay` with pause and single steps, the recording
 played on the SNES side by `dev/replay.sh` (and `dev/replay_example.sh` for an example, with Mesen).
 Built during M7: sound effects (Rachael's DSP through raylib's audio stream), save RAM
@@ -185,9 +184,13 @@ Done when: CatchMe runs on Linux and Windows from a build of its own sources and
 
 ### 7.4 The CLI
 
-`cli/`, Java, in the same distribution as dampf, launcher `superdevkit` (the Gradle subproject and
-the distribution in the shape of a release, ADR record 41, exist since 2026-11-19; the command
-gives its version so far):
+Built on 2026-11-19 (`cli/src/main/java/superdevkit/project`), as planned below. The PNG converter
+became Java (`superdevkit png`, the same bytes as the Python one), the symbol check reads ELF and
+COFF objects itself, raylib is fetched and unpacked in Java, and a SNES build also writes dampf's
+argument file of what it compiled (`build/snes/<name>.args`). `run snes` starts Mesen (`MESEN`, or
+the kit's `.mesen/`). The plan:
+
+`cli/`, Java, in the same distribution as dampf, launcher `superdevkit`:
 
 - reads `superdevkit.toml` with a TOML reader of its own (the subset the project file uses);
 - `init <name> [--from <example>]` copies an example and sets its name;
@@ -206,7 +209,9 @@ tests of the TOML reader and of the plan each command makes (`--plan` output).
 
 ### 7.5 The examples and the game on the desktop
 
-The three examples get `superdevkit.toml` (their `build.sh` and `.args` go). The handover to the
+Built on 2026-11-19: the seven examples have `superdevkit.toml` (their `build.sh` and `.args` went;
+the ROMs the command builds are the scripts', byte for byte), and the tests build them through the
+CLI's classes. The handover to the
 game: Blubber Blasen's desktop build from the kit (its sound calls from `game_sfx()` to
 `sdevkit_sfx_play()`, its save RAM to `sdevkit_sram()`, its debug view to registrations; its
 recordings stay its own, reached through `sdevkit_dbg_action`).
@@ -215,9 +220,9 @@ recordings stay its own, reached through `sdevkit_dbg_action`).
 
 - `web` as a target of the CLI with `emcc` and raylib's web build; `lib/web`: the page, the click
   to start (sound and keyboard focus need a click in the browser), save RAM in IndexedDB.
-- The game is compiled on its own as on the desktop (ADR record 34, `dev/build_desktop.sh`):
-  `-nostdinc` with dampf's include folder, then `dev/check_game_symbols.py` on its objects
-  (`emcc` writes LLVM objects; `llvm-nm` reads them) before the link.
+- The game is compiled on its own as on the desktop (ADR record 34, `superdevkit build linux`):
+  `-nostdinc` with dampf's include folder, then the symbol check on its objects (`emcc` writes
+  LLVM objects, which `superdevkit.project.Symbols` would have to read too) before the link.
 - `superdevkit run web` serves the build on a local port and opens the browser.
 - The examples in the browser; Blubber Blasen's web build from the kit, and then the game drops
   `src/snes`, `src/platform` and its web build: its folder holds its game, its assets, its debug

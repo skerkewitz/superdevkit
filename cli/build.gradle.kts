@@ -56,13 +56,13 @@ distributions {
             from(project(":compiler").tasks.named("startScripts")) { into("bin") }
             from(project(":compiler").file("src/main/resources/dampf/include")) { into("include") }
             // the kit, so that the installation is a superdevkit home with all a game needs
-            // (ADR record 41): the library, the tools, the examples, the desktop's build scripts
+            // (ADR record 41): the library, the tools, the examples, dev/replay.sh (a recording on the SNES side)
             from(rootProject.file("lib")) { into("lib") }
             from(rootProject.file("tools")) { into("tools"); exclude("**/__pycache__/**", "lab_test/**") }
             from(rootProject.file("examples")) { into("examples"); exclude("*/build/**", "**/__pycache__/**") }
             from(rootProject.file("dev")) {
                 into("dev")
-                include("build_desktop.sh", "build_desktop_windows.sh", "fetch_raylib.sh", "check_game_symbols.py", "replay.sh")
+                include("replay.sh")
             }
             from(rootProject.file("LICENSE"), rootProject.file("NOTICE"))
             // the book as Markdown: its links (/glossary#x, VitePress's) become relative .md links,

@@ -5,8 +5,8 @@ position shown as numbers. About a hundred lines of C in one file, for a first l
 superdevkit game is put together and for stepping through C in Mesen.
 
 ```bash
-examples/hello/build.sh            # the SNES: examples/hello/build/hello.sfc
-dev/build_desktop.sh examples/hello   # the desktop (Linux): examples/hello/build/linux/hello
+superdevkit build snes examples/hello     # the SNES: examples/hello/build/snes/hello.sfc
+superdevkit run examples/hello            # the desktop: builds build/linux/hello (win64 on Windows) and plays it
 ```
 
 On the desktop the keyboard is the joypad: the arrows, Z (B), X (A), A (Y), S (X), Q and W (L and
@@ -22,8 +22,7 @@ Open `build/hello.sfc` in Mesen with `build/hello.dbg` next to it, and step thro
 | --- | --- |
 | `src/hello.c` | the game: the three functions every superdevkit game defines (`game_init`, `game_tick`, `game_vblank`), text in a background map, a sprite |
 | `assets/font_gfx.png` | the font, as background tiles; `assets/ball_gfx.png` the ball, as a sprite (drawn by `dev/art/hello.py`) |
-| `hello.args` | the call of dampf (ADR record 28) |
-| `build.sh` | converts the assets with `tools/png2snes.py` and calls dampf |
+| `superdevkit.toml` | the project: its sources and its pictures (ADR record 31) |
 
 What it shows:
 

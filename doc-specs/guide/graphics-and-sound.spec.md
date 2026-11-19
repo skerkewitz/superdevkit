@@ -2,17 +2,16 @@
 title: Graphics and sound
 sources:
   - tools/README.md
-  - tools/png2snes.py
+  - cli/src/main/java/superdevkit/gfx/Png2Snes.java
   - tools/brr_lab.html
-  - compiler/src/test/python/test_png2snes.py
-  - examples/hello/build.sh
-  - examples/hello/hello.args
+  - cli/src/test/java/superdevkit/gfx/Png2SnesTest.java
+  - examples/hello/superdevkit.toml
   - examples/hello/src/hello.c
-  - examples/catchme/build.sh
-  - examples/ertuep/build.sh
+  - examples/catchme/superdevkit.toml
+  - examples/ertuep/superdevkit.toml
   - lib/include/sdevkit/snes.h
   - lib/SNES_HARDWARE.md
-  - dev/build_desktop.sh
+  - cli/src/main/java/superdevkit/project/Desktop.java
 audience: Game programmers who have pictures and sounds made on the PC and want them in a game
 ---
 

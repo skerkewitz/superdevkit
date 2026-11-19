@@ -4,10 +4,9 @@ sources:
   - lib/desktop/main.c
   - lib/desktop/RETRO-EFFECT.md
   - lib/README.md
-  - dev/build_desktop.sh
-  - dev/build_desktop_windows.sh
-  - dev/fetch_raylib.sh
-  - dev/check_game_symbols.py
+  - cli/src/main/java/superdevkit/project/Desktop.java
+  - cli/src/main/java/superdevkit/project/Raylib.java
+  - cli/src/main/java/superdevkit/project/Symbols.java
   - dev/replay.sh
   - compiler/src/main/java/dampf/emu/ExampleCheck.java
   - examples/hello/check.txt

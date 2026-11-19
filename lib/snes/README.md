@@ -1,7 +1,7 @@
 # lib/snes: the library on the SNES
 
 The dev kit's console API (`lib/include/sdevkit/snes.h`, see [lib/README.md](../README.md)) on the
-real SNES, written in C and compiled by dampf together with the game: every example's `build.sh`
+real SNES, written in C and compiled by dampf together with the game: `superdevkit build snes`
 links it into a ROM you can play (for Mesen or real hardware).
 
 | File | What |

@@ -59,27 +59,27 @@ likely gain and what each milestone needs from the one before; it was kept when 
 Started early, during M5 (2026-11-18), because prototyping and checking a game is so much
 quicker on the desktop: the pseudo SNES is in the kit as [Rachael](../lib/README.md#rachael) (`lib/rachael`, with 16 x 16 background
 tiles, and row y of the picture as scanline y + 1 like the SNES), with a desktop frontend for
-Linux (`lib/desktop`, raylib 5.5 fetched by `dev/fetch_raylib.sh`, built by
-`dev/build_desktop.sh`) and a headless check that plays an example's `check.txt` in a second
+Linux (`lib/desktop`, raylib 5.5) and a headless check that plays an example's `check.txt` in a second
 (`ExamplesTest`, which also plays every example's check in dampf's emulator and compares a
 checksum per tick with the desktop). The examples give the same picture on the SNES and on the desktop,
 pixel for pixel (`dev/compare_example.sh`); that comparison found a bug in `lib/snes`, whose
 `oamSetVisible` (now `sdevkit_oam_set_visible`) moved a sprite at a negative x to the right
 edge. Both are built on WSL: Linux with gcc, Windows with the MSVC of the Windows side
-(`dev/build_desktop_windows.sh`, ADR [record 39](adr/0039-win64-is-built-with-msvc-for-now-from-wsl.md)), which plays with the gamepads WSL does not
+(ADR [record 39](adr/0039-win64-is-built-with-msvc-for-now-from-wsl.md)), which plays with the gamepads WSL does not
 see and gives the same checksums and pictures as Linux.
 
 Built in M7 on 2026-11-19: sound effects on both platforms ([docs/sound.md](sound.md), ADR
 [record 44](adr/0044-sound-effects-come-from-sfx-json-and-rachael-plays.md)); Schach and
 Steinschlag use them; save RAM too (`sdevkit_sram`, `dampf --sram`; CatchMe keeps its high score
 there); and the debug view with the registrations of the console API (F1 on the desktop, empty on
-the SNES, where dampf removes the calls). Still to do in M7: music (built on the desktop, a stub on
-the SNES; ADR [record 32](adr/0032-desktop-and-web-are-for-prototyping-with-sound.md), with the
-names of [record 34](adr/0034-every-name-of-the-console-api-starts-with.md)), and the
-`superdevkit` command with `init`, `build` and
-`run` (ADR [record 31](adr/0031-the-superdevkit-command-builds-a-project-from-its.md)); `init`
-writes a line into the new project's `CLAUDE.md` or `AGENTS.md` that points to the kit's guides,
-`lib/C_STYLE.md` and `lib/SNES_HARDWARE.md`. Done
+the SNES, where dampf removes the calls); and the `superdevkit` command with `init`, `build` and
+`run` for `snes`, `linux` and `win64` (ADR [record 31](adr/0031-the-superdevkit-command-builds-a-project-from-its.md)),
+on a project file, `superdevkit.toml`, which every example has instead of its build script; the
+converters are Java in it, so building needs nothing but Java and a C compiler; `init` writes a
+`CLAUDE.md` into the new project that points to the kit's guides, `lib/C_STYLE.md` and
+`lib/SNES_HARDWARE.md`. Still to do in M7: music (built on the desktop, a stub on the SNES; ADR
+[record 32](adr/0032-desktop-and-web-are-for-prototyping-with-sound.md), with the names of
+[record 34](adr/0034-every-name-of-the-console-api-starts-with.md)), and the handover to the game. Done
 when the examples and Blubber Blasen run on Windows and Linux from the kit. The steps are in
 [superdevkit-transition.md](superdevkit-transition.md#m7-windows-and-linux-070).
 

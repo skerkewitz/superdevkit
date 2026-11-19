@@ -117,10 +117,13 @@ class BackendOutputTest {
             Compiler.Options o;
             try {
                 o = dampf.ExamplesTest.options(ex, OUT.resolve("example_" + name + ".sfc"));
-            } catch (InterruptedException e) {
+            } catch (IOException e) {
+                throw e;
+            } catch (Exception e) {
                 throw new IOException(e);
             }
-            cases.add(new Case("example_" + name, o.sources(), o.includeDirs(), o.defines(), o.entry(), false));
+            // allDefines: with SDEVKIT_SRAM_SIZE where the example has save RAM, as its build has it
+            cases.add(new Case("example_" + name, o.sources(), o.includeDirs(), o.allDefines(), o.entry(), false));
             Map<String, Path> refs = new TreeMap<>();
             try (Stream<Path> s = Files.list(Path.of("reference"))) {
                 s.filter(f -> f.getFileName().toString().startsWith(name + "_") && f.toString().endsWith(".s")).sorted()

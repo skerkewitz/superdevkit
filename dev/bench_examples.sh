@@ -21,8 +21,10 @@ printf '%-12s %7s %8s %10s %10s %8s\n' example ticks frames work busiest runtime
 for check in examples/*/check.txt; do
     ex=$(dirname "$check")
     name=$(basename "$ex")
-    CONVERT_ONLY=1 sh "$ex/build.sh" > /dev/null
-    log=$(cd "$ex" && ../../build/install/superdevkit/bin/dampf build "@$name.args" -o "../../$OUT/$name.sfc" "$@" 2>&1) \
+    # the example's build (superdevkit build snes), then dampf again with its argument file and the
+    # options given here
+    build/install/superdevkit/bin/superdevkit build snes "$ex" > /dev/null || exit 1
+    log=$(build/install/superdevkit/bin/dampf build "@$ex/build/snes/$name.args" -o "$OUT/$name.sfc" "$@" 2>&1) \
         || { echo "$log"; exit 1; }
     line=$(java -cp "$CP" dampf.emu.ExampleBench "$OUT/$name.sfc" "$OUT/$name.lbl" "$check")
     echo "$name $line" | awk '{ printf "%-12s %7d %8.3f %10d %10d %7.1f%%\n", $1, $2, $3, $4, $5, $6 }' >> "$TABLE"

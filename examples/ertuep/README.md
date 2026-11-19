@@ -8,9 +8,9 @@ tumble down and are the score, as deposit: "PFAND 12,75 €". The slowdown the g
 a power-up nobody wants. The idea is in [docs/archive/er-tuep-proposal.md](../../docs/archive/er-tuep-proposal.md).
 
 ```bash
-examples/ertuep/build.sh                  # the SNES: examples/ertuep/build/ertuep.sfc
-dev/build_desktop.sh examples/ertuep    # the desktop (Linux): examples/ertuep/build/linux/ertuep
-dev/build_desktop_windows.sh examples/ertuep   # Windows, with a gamepad: build/windows/ertuep.exe
+superdevkit build snes examples/ertuep     # the SNES: examples/ertuep/build/snes/ertuep.sfc
+superdevkit run examples/ertuep            # the desktop: builds build/linux/ertuep (win64 on Windows) and plays it
+superdevkit build win64 examples/ertuep       # Windows (MSVC, also from WSL), with a gamepad
 ```
 
 On the desktop the keyboard is the joypad: the arrows, Z (B), X (A), Enter (Start); on Windows a
@@ -80,7 +80,7 @@ bosses, flown by an autopilot.
 | `src/bossmap.c` | their pictures in three states each, as cells (written by `dev/art/ertuep.py`) |
 | `src/walls.c` | the pictures of the walls behind, as cells (written by `dev/art/ertuep.py`) |
 | `assets/` | the sheets: the stage's three rooms, their walls, the sprites (three sheets), the status line, the tent and the carousel as mode 7 pictures; drawn by `dev/art/ertuep.py` |
-| `ertuep.args`, `build.sh`, `check.txt` | the build, and the input of the checks |
+| `superdevkit.toml`, `check.txt` | the project (its sources and pictures), and the input of the checks |
 
 Things worth looking at:
 
@@ -120,7 +120,7 @@ Things worth looking at:
   5700 5732` (the cycles per function and per C line over those ticks).
 - **Mode 7 under a status line.** Mode 7 has one layer, and the status line is BG3 of mode 1: two
   HDMA channels switch BGMODE and TM after its 16 lines, every frame, from tables in ROM. Mode 7's
-  picture (1024 x 1024 pixels, 256 tiles of 8 x 8 at most, converted by `png2snes.py mode7`) fills
+  picture (1024 x 1024 pixels, 256 tiles of 8 x 8 at most, converted by `superdevkit png mode7`) fills
   the VRAM below the status line's and the sprites'; its colours are CGRAM 33 to 127. The tent and
   the carousel are two such pictures, swapped while the screen is dark.
 - **A loop instead of a scroll.** The camera's distance is the same `cam_x` as in the other

@@ -2,8 +2,7 @@
 title: Compiling a game
 sources:
   - compiler/src/main/java/dampf/ConfigFile.java
-  - examples/ertuep/ertuep.args
-  - examples/ertuep/build.sh
+  - examples/ertuep/superdevkit.toml
   - examples/ertuep/README.md
   - docs/adr/0028-options-can-be-kept-in-an-argument-file-given-by.md
   - README.md

@@ -9,8 +9,8 @@ import glob
 import os
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tools"))
-import png2snes  # noqa: E402
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import png_read  # noqa: E402
 
 
 def five(px):
@@ -30,8 +30,8 @@ def main(snes_dir, desktop_dir):
             print(f"{os.path.basename(s)}: no desktop screenshot")
             bad += 1
             continue
-        w, h, a, _ = png2snes.read_png(s)
-        w2, h2, b, _ = png2snes.read_png(d)
+        w, h, a, _ = png_read.read_png(s)
+        w2, h2, b, _ = png_read.read_png(d)
         if (w, h) != (w2, h2):
             print(f"{os.path.basename(s)}: {w} x {h} on the SNES, {w2} x {h2} on the desktop")
             bad += 1

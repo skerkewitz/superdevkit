@@ -86,7 +86,7 @@ class LibNamesTest {
         List<String> wrong = new ArrayList<>();
         List<Path> sources = new ArrayList<>();
         for (String dir : List.of("lib/snes", "lib/rachael", "lib/desktop")) {
-            // the frontend needs raylib's header (dev/fetch_raylib.sh), as ExamplesTest does
+            // the frontend needs raylib's header (fetched by a superdevkit build linux), as ExamplesTest does
             if (!dir.equals("lib/desktop") || Files.exists(Path.of("build/raylib/linux/include/raylib.h"))) {
                 sources.addAll(files(Path.of(dir), ".c"));
             }

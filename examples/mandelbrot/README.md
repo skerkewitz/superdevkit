@@ -6,8 +6,8 @@ colours flow and it turns twice, then the next one is drawn over it. A on the jo
 next view at once, B to the one before.
 
 ```bash
-examples/mandelbrot/build.sh                  # the SNES: examples/mandelbrot/build/mandelbrot.sfc
-dev/build_desktop.sh examples/mandelbrot    # the desktop (Linux): examples/mandelbrot/build/linux/mandelbrot
+superdevkit build snes examples/mandelbrot     # the SNES: examples/mandelbrot/build/snes/mandelbrot.sfc
+superdevkit run examples/mandelbrot            # the desktop: builds build/linux/mandelbrot (win64 on Windows) and plays it
 ```
 
 It is the dev kit's example of code that computes. Its inner loop is `z = z * z + c` in fixed
