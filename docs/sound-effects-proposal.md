@@ -17,10 +17,17 @@ numbers come from a file of the game's assets, never from file names:
 {
   "voices": 2,
   "sounds": [
-    { "id": "jump",  "file": "jump.wav",  "rate": 16000, "treble": 6, "gain": 0,
-      "trim": true, "volume": 100, "priority": 1 },
-    { "id": "death", "file": "death.wav", "rate": 11000, "treble": 3, "gain": -2,
-      "trim": true, "volume": 127, "priority": 3 }
+    { "id": "jump", "priority": 1, "samples": [
+        { "file": "jump.wav",  "active": true,
+          "rate": 16000, "treble": 6, "gain": 0, "trim": true, "volume": 100 },
+        { "file": "jump2.wav", "active": false,
+          "rate": 11000, "treble": 9, "gain": 2, "trim": true, "volume": 110 } ] },
+    { "id": "death", "priority": 3, "samples": [
+        { "file": "death.wav", "active": true,
+          "rate": 11000, "treble": 3, "gain": -2, "trim": true, "volume": 127 } ] },
+    { "id": "hurry", "priority": 2, "samples": [
+        { "file": "hurry.wav", "active": false,
+          "rate": 16000, "treble": 6, "gain": 0, "trim": true, "volume": 100 } ] }
   ]
 }
 ```
@@ -29,24 +36,49 @@ numbers come from a file of the game's assets, never from file names:
 /* generated from assets/sfx/sfx.json */
 #define SFX_JUMP   0
 #define SFX_DEATH  1
-#define SFX_COUNT  2
+#define SFX_HURRY  2   /* disabled: no active sample */
+#define SFX_COUNT  3
 ```
 
 An effect's number is its place in the list, its name the `id` in capitals with `SFX_` in front.
 The names belong to the game, so they do not start with `SDEVKIT_`.
 
-`gain` and `volume` are different things: `gain` scales the sound before it is encoded, so that it
-uses the range of BRR well (a quiet effect stored quietly loses bits); `volume` is the DSP's
-volume register when it plays. `priority` decides which effect gives way when the voices are
-busy. `voices` is how many of the DSP's 8 voices the effects use.
+An effect has one or more samples, the variants to choose from, and at most one of them is
+active: only that one is converted and goes into the ROM. Changing which is active swaps the sound
+in the next build without losing the settings of the others, so two takes of a jump can be
+compared in the game. An effect with no active sample is disabled: its name stays in the header,
+so the game builds unchanged, it takes no byte of the audio RAM, and `sdevkit_sfx_play` returns
+at once for it, before choosing a voice, so it cuts off no other effect. Nothing happens.
+
+The build fails, with the name and the place, when:
+
+- the game uses an effect the file does not list: the name is not in the header, so the C
+  compiler stops at it;
+- an effect has more than one active sample;
+- an active sample's WAV file is missing or cannot be read;
+- two effects have the same `id`;
+- the active samples do not fit into the audio RAM next to the driver; the message lists the
+  largest.
+
+A sample that is not active is not read, so a variant whose file is gone stops nothing until it
+is made active.
+
+The settings of the conversion and `volume` belong to each sample, since two takes differ in
+level and sound; `priority` belongs to the effect. `gain` and `volume` are different things:
+`gain` scales the sound before it is encoded, so that it uses the range of BRR well (a quiet
+effect stored quietly loses bits); `volume` is the DSP's volume register when it plays.
+`priority` decides which effect gives way when the voices are busy. `voices` is how many of the
+DSP's 8 voices the effects use.
 
 ## BRR Lab is the editor of the file
 
 `tools/brr_lab.html` grows from one sound into the editor of `sfx.json`: a list of the effects on
-one side, the settings of the chosen one on the other (`id`, rate, treble, gain, trim, volume,
-priority), the total of all samples against the audio RAM always in view, and playing with the
-voices and priorities of the file, so that two effects can be triggered one after the other and
-one hears which cuts which off.
+one side, the settings of the chosen one on the other (`id`, priority, and per sample rate,
+treble, gain, trim, volume and which one is active), the variants of an effect played one after
+the other to compare them, the total of the active samples against the audio RAM always in view,
+and playing with the voices and priorities of the file, so that two effects can be triggered one
+after the other and one hears which cuts which off. It shows the same errors the build would
+stop on.
 
 It opens the folder `assets/sfx` and saves the file back into it through the browser's File
 System Access API (Chrome and Edge); in Firefox, which lacks it, it loads the file and offers the
