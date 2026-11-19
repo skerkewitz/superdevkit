@@ -51,6 +51,27 @@ It does not count as ticks: the checks of the examples count `game_tick`s (`exam
 ticks by (the OAM copy at the end of a frame). The replay test does not get it: it starts the
 game through `sdevkit__start`, not through `main`.
 
+## Movement
+
+A still logo is enough; a little movement makes it better, and it can show what the kit can do,
+as long as it uses only what Rachael draws today (the rule of the hardware guide: mosaic and
+mode 7, the obvious tricks, are not in Rachael yet). Three ideas, each cheap:
+
+- **The cartridge goes in.** The cartridge is a sprite (32 x 16, two sprites of the large size)
+  that drops from above into the pad's slot, slows down and settles with a small bounce; then the
+  text appears. Once there is sound, the jingle starts on the click.
+- **The buttons light up.** The four coloured buttons light up one after the other, by changing
+  their four palette entries frame by frame: a few bytes of CGRAM a frame, no tiles.
+- **A shine runs over the text.** A narrow bright band moves diagonally across "SUPERDEVKIT": a
+  window whose edges HDMA moves line by line, and colour math that brightens what is inside it.
+  That shows HDMA, windows and colour math, three things the examples hardly use, and Rachael
+  draws all three.
+
+In this order the splash takes about three and a half seconds: the cartridge half a second, the
+buttons and the shine together one second, holding a second, fading out half a second. Every frame
+of it is the same on the SNES and on Rachael, so a check can take screenshots in the middle of
+each movement.
+
 ## Two things to settle first
 
 **"DONE WITH" or "MADE WITH".** The engines say "Made with Unity", "Made with Godot"; "made
@@ -78,7 +99,8 @@ picture as it is is fine. For the private repository it does not matter yet.
 
 1. `dev/art/splash.py`: the logo at the SNES's resolution, its tiles and palette as C in the
    library (`lib/splash/` or next to `main.c`), with the answer on "MADE WITH" and on the pad.
-2. The splash in `lib/snes/main.c` and `lib/desktop/main.c`, the video reset after it.
+2. The splash in `lib/snes/main.c` and `lib/desktop/main.c`, the video reset after it; first
+   still, then the movements one by one.
 3. The examples' checks unchanged and passing; one screenshot of the splash in a check, the SNES
    and Rachael the same pixel for pixel, also in the middle of a fade.
 4. An ADR record (every game shows it; whether it can be switched off), a row in `lib/README.md`.
