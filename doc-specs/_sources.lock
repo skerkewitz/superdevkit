@@ -22,7 +22,7 @@ guide/getting-started cli/build.gradle.kts 06466d808d84
 guide/getting-started compiler/src/main/java/dampf/ConfigFile.java 73077240c3bf
 guide/getting-started compiler/src/main/java/dampf/Main.java 9912b3ebacd1
 guide/getting-started compiler/src/main/java/dampf/frontend/Preprocessor.java 2ab4df18ffb5
-guide/getting-started dev/build_desktop.sh f781b4122a63
+guide/getting-started dev/build_desktop.sh 7923038f131e
 guide/getting-started doc-specs/guide/getting-started.spec.md c6aed3cb79d0
 guide/getting-started examples/hello/README.md fc9b5248b5bd
 guide/getting-started examples/hello/build.sh 81682ced9f2c
@@ -30,7 +30,7 @@ guide/getting-started examples/hello/hello.args 7ea3b8af3c49
 guide/getting-started examples/hello/src/hello.c 6241a71960fe
 guide/getting-started lib/README.md 3da50610b612
 guide/graphics-and-sound compiler/src/test/python/test_png2snes.py a7a94ed3ebd4
-guide/graphics-and-sound dev/build_desktop.sh f781b4122a63
+guide/graphics-and-sound dev/build_desktop.sh 7923038f131e
 guide/graphics-and-sound doc-specs/guide/graphics-and-sound.spec.md 94091e0fd801
 guide/graphics-and-sound examples/catchme/build.sh 70db2e9d87dd
 guide/graphics-and-sound examples/ertuep/build.sh 84958d8d4738
@@ -99,12 +99,12 @@ guide/snes-hardware lib/desktop/main.c 2706c3554a03
 guide/snes-hardware lib/rachael/ppu.c 3db66ad07cf6
 guide/snes-hardware lib/rachael/rachael.h b3500a346ae7
 guide/the-desktop compiler/src/main/java/dampf/emu/ExampleCheck.java ce2783cbf873
-guide/the-desktop dev/build_desktop.sh f781b4122a63
-guide/the-desktop dev/build_desktop_windows.sh eec6d2eac9ea
+guide/the-desktop dev/build_desktop.sh 7923038f131e
+guide/the-desktop dev/build_desktop_windows.sh cac772a579e9
 guide/the-desktop dev/check_game_symbols.py ba4e042cf6fb
 guide/the-desktop dev/fetch_raylib.sh 4f26c1e050b8
 guide/the-desktop dev/replay.sh ac76a8b5fec6
-guide/the-desktop doc-specs/guide/the-desktop.spec.md 64759f56415b
+guide/the-desktop doc-specs/guide/the-desktop.spec.md bddbc3975e14
 guide/the-desktop examples/hello/check.txt e27ee15501c9
 guide/the-desktop lib/README.md 3da50610b612
 guide/the-desktop lib/desktop/RETRO-EFFECT.md f8122f76e687
@@ -472,7 +472,7 @@ inside/testing compiler/src/test/java/dampf/lib/LibNamesTest.java 52a27a819eab
 inside/testing compiler/src/test/java/dampf/lib/RachaelTest.java a6178e5148b5
 inside/testing compiler/src/test/java/dampf/lib/SnesHardwareGuideTest.java 7753c0c39fe2
 inside/testing compiler/src/test/java/dampf/lib/SplashTest.java 8fc95916d949
-inside/testing dev/README.md 472931a4f369
+inside/testing dev/README.md 1176513ff15f
 inside/testing doc-specs/inside/testing.spec.md 4c8edf88a201
 inside/testing docs/testing.md ea253a0540c1
 inside/testing docs/timing.md 5d119d7916f5
@@ -571,7 +571,7 @@ reference/hints compiler/src/main/java/dampf/frontend/AstBuilder.java 8bcae697e4
 reference/hints compiler/src/main/resources/dampf/include/dampf.h 4f47fa266b38
 reference/hints compiler/src/test/java/dampf/BudgetTest.java 7ab99f5df2b0
 reference/hints compiler/src/test/resources/exec/hint_range.c 6d1dcc6be9e1
-reference/hints dev/build_desktop.sh f781b4122a63
+reference/hints dev/build_desktop.sh 7923038f131e
 reference/hints doc-specs/reference/hints.spec.md b0da605e9370
 reference/hints docs/ADR.md 12c7f565dc15
 reference/hints docs/adr/0001-dampf-is-a-compiler-of-its-own-for-one-target-the.md 411bd59d1e0c

@@ -3,6 +3,7 @@
 # side (MSVC, found with vswhere) and raylib's MSVC package: the same three steps as
 # dev/build_desktop.sh, which builds for Linux and whose checks are the reference.
 #   dev/build_desktop_windows.sh examples/ertuep   -> examples/ertuep/build/windows/ertuep.exe
+#   DEBUG=1 ...    without optimization (/Od), for stepping in the Visual Studio debugger
 # Started from Windows (Explorer, or \\wsl.localhost\<distribution>\...\ertuep.exe), it plays the
 # game with the keyboard and with the gamepads Windows knows, which WSL does not see.
 #
@@ -40,7 +41,8 @@ run() {
 }
 DAMPF_INCLUDE=include                       # dampf's headers: in a superdevkit home include/,
 [ -d "$DAMPF_INCLUDE" ] || DAMPF_INCLUDE=compiler/src/main/resources/dampf/include   # in the repository the sources
-CL="cl /nologo /std:c11 /O2 /Z7 /W3 /utf-8 /MD"   # /MD: the C runtime raylib's package was built with; /Z7: debug information
+OPT=/O2; [ "${DEBUG:-0}" = 1 ] && OPT=/Od
+CL="cl /nologo /std:c11 $OPT /Z7 /W3 /utf-8 /MD"   # /MD: the C runtime raylib's package was built with; /Z7: debug information
 
 GAME_SOURCES=""
 GAME_OBJECTS=""

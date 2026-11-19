@@ -5,7 +5,8 @@
 #   dev/build_desktop.sh examples/catchme         -> examples/catchme/build/linux/catchme
 #   examples/catchme/build/linux/catchme             plays it in a window
 #   examples/catchme/build/linux/catchme --check examples/catchme/check.txt --out DIR
-# CC picks the compiler (default cc).
+# CC picks the compiler (default cc). DEBUG=1 compiles without optimization (-O0), so that gdb shows
+# every variable and steps line by line; the picture and the checksums stay the same.
 #
 # The game reaches only superdevkit's console API (ADR record 34), so it is built in three steps:
 #   1. the game's sources alone, as on the SNES: without the host's headers (-nostdinc), with
@@ -27,7 +28,8 @@ rm -rf "$OBJ" && mkdir -p "$OBJ"
 R=build/raylib/linux
 DAMPF_INCLUDE=include                       # dampf's headers: in a superdevkit home include/,
 [ -d "$DAMPF_INCLUDE" ] || DAMPF_INCLUDE=compiler/src/main/resources/dampf/include   # in the repository the sources
-CC=${CC:-cc}                                # -g: the program carries debug information for gdb
+CC=${CC:-cc}
+OPT=-O2; [ "${DEBUG:-0}" = 1 ] && OPT=-O0   # and always -g: debug information for gdb
 WARN="-Wall -Wextra -Wno-unused-parameter"
 
 GAME_OBJECTS=""
@@ -35,7 +37,7 @@ for src in "$EX"/src/*.c "$EX"/build/gen/*.c; do
     [ -f "$src" ] || continue
     obj=$OBJ/$(basename "$(dirname "$src")")_$(basename "$src" .c).o
     # shellcheck disable=SC2086
-    $CC -std=c99 -O2 -g $WARN -nostdinc -ffreestanding -fno-tree-loop-distribute-patterns \
+    $CC -std=c99 $OPT -g $WARN -nostdinc -ffreestanding -fno-tree-loop-distribute-patterns \
         -isystem "$DAMPF_INCLUDE" -I lib/include -I "$EX/src" -I "$EX/build/gen" -c "$src" -o "$obj"
     GAME_OBJECTS="$GAME_OBJECTS $obj"
 done
@@ -44,7 +46,7 @@ done
 python3 -I dev/check_game_symbols.py lib/include/sdevkit $GAME_OBJECTS
 
 # shellcheck disable=SC2086
-$CC -std=c99 -O2 -g $WARN -I lib/include -I lib/rachael -I "$R/include" -DGAME_NAME="\"$NAME\"" \
+$CC -std=c99 $OPT -g $WARN -I lib/include -I lib/rachael -I "$R/include" -DGAME_NAME="\"$NAME\"" \
     $GAME_OBJECTS lib/rachael/*.c lib/desktop/*.c \
     "$R/lib/libraylib.a" -lGL -lm -lpthread -ldl -lrt -lX11 \
     -o "$OUT/$NAME"

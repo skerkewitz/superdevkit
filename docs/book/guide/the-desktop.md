@@ -247,6 +247,14 @@ Windows build writes `build/windows/<game>.pdb` next to the program. So the game
 gdb or the Visual Studio debugger like any program of the PC, with breakpoints, steps and
 variables in your own source.
 
+The build optimizes (`-O2`, `/O2` on Windows), and at that level gdb shows some variables as
+`<optimized out>`. Set `DEBUG=1` to build without optimization (`-O0`, `/Od`), so that the
+debugger shows every variable; the picture and the checksums stay the same:
+
+```sh
+DEBUG=1 dev/build_desktop.sh examples/hello
+```
+
 A check is a good way in: it opens no window and plays the same input every time, so a bug
 comes back at the same tick. Under gdb, with a breakpoint on the game's tick:
 

@@ -45,7 +45,9 @@ the same as the SNES's pixel for pixel, but the PC's speed, not the console's.
    differs; that the ROM must be built from the same source as the program that recorded.
 5. **Debugging on the PC** – the desktop build carries debug information (`-g`, and on Windows
    a `.pdb` next to the program), so the game's C runs under gdb or the Visual Studio debugger
-   like any PC program: one example of starting it under gdb. What it does not show (the 65816
+   like any PC program: one example of starting it under gdb. `DEBUG=1` builds without
+   optimization, so that the debugger shows every variable; the picture and the checksums stay
+   the same. What it does not show (the 65816
    code dampf writes): link [Debugging in Mesen](/guide/debugging).
 6. **What the desktop does not tell you** – no console time: a tick too slow for the SNES runs
    at full speed here. The window keeps 60 frames a second; only the check runs as fast as the
