@@ -21,8 +21,8 @@
 #include "search.h"
 #include "book.h"
 #include "schach.h"
-#include "snes/loop.h"
-#include "snes/snes.h"
+#include "sdevkit/loop.h"
+#include "sdevkit/snes.h"
 #include "board_gfx.h"
 #include "sprites_gfx.h"
 #include "font_gfx.h"
@@ -162,7 +162,7 @@ static void text_at(uint8_t x, uint8_t y, const char *s, uint8_t width, uint8_t 
     uint8_t n = 0;
 
     while (*s != 0 && x + n < 32) {
-        text_map[at + n] = (uint16_t)((uint8_t)(*s - 32) | PAL(pal) | BG_TIL_PRIO);
+        text_map[at + n] = (uint16_t)((uint8_t)(*s - 32) | PAL(pal) | SDEVKIT_BG_TIL_PRIO);
         s++;
         n++;
     }
@@ -254,19 +254,19 @@ static void draw_sprites(void)
     uint16_t y = (uint16_t)(BOARD_PX + (7 - cur_rank) * 16 - 1);
 
     if (state == ST_TITLE || state == ST_OVER) {
-        oamSetVisible(OAM_CURSOR, OBJ_HIDE);
-        oamSetVisible(OAM_HELD, OBJ_HIDE);
+        sdevkit_oam_set_visible(OAM_CURSOR, SDEVKIT_OBJ_HIDE);
+        sdevkit_oam_set_visible(OAM_HELD, SDEVKIT_OBJ_HIDE);
         return;
     }
-    oamSet(OAM_CURSOR, x, y, 3, 0, 0, element_tile(held != NO_SQ ? 1 : 0), 0);
-    oamSetEx(OAM_CURSOR, OBJ_SMALL, (state == ST_THINK && ((timer >> 4) & 1)) ? OBJ_HIDE : OBJ_SHOW);
+    sdevkit_oam_set(OAM_CURSOR, x, y, 3, 0, 0, element_tile(held != NO_SQ ? 1 : 0), 0);
+    sdevkit_oam_set_ex(OAM_CURSOR, SDEVKIT_OBJ_SMALL, (state == ST_THINK && ((timer >> 4) & 1)) ? SDEVKIT_OBJ_HIDE : SDEVKIT_OBJ_SHOW);
     if (held != NO_SQ) {
         uint8_t p = board[held];
         uint8_t e = (uint8_t)(COLOR(p) == WHITE ? 1 + TYPE(p) : 7 + TYPE(p));
-        oamSet(OAM_HELD, x, (uint16_t)(y - 3), 3, 0, 0, element_tile(e), 0);
-        oamSetEx(OAM_HELD, OBJ_SMALL, OBJ_SHOW);
+        sdevkit_oam_set(OAM_HELD, x, (uint16_t)(y - 3), 3, 0, 0, element_tile(e), 0);
+        sdevkit_oam_set_ex(OAM_HELD, SDEVKIT_OBJ_SMALL, SDEVKIT_OBJ_SHOW);
     } else {
-        oamSetVisible(OAM_HELD, OBJ_HIDE);
+        sdevkit_oam_set_visible(OAM_HELD, SDEVKIT_OBJ_HIDE);
     }
 }
 
@@ -399,7 +399,7 @@ static void title(void)
 /* The cursor: one square per press, held down it repeats after a pause. */
 static void move_cursor(uint16_t pad, uint16_t pressed)
 {
-    uint16_t dirs = (uint16_t)(pad & (KEY_UP | KEY_DOWN | KEY_LEFT | KEY_RIGHT));
+    uint16_t dirs = (uint16_t)(pad & (SDEVKIT_KEY_UP | SDEVKIT_KEY_DOWN | SDEVKIT_KEY_LEFT | SDEVKIT_KEY_RIGHT));
     uint8_t step = 0;
 
     if (pressed & dirs) {
@@ -414,16 +414,16 @@ static void move_cursor(uint16_t pad, uint16_t pressed)
     if (!step) {
         return;
     }
-    if ((pad & KEY_UP) && cur_rank < 7) {
+    if ((pad & SDEVKIT_KEY_UP) && cur_rank < 7) {
         cur_rank++;
     }
-    if ((pad & KEY_DOWN) && cur_rank > 0) {
+    if ((pad & SDEVKIT_KEY_DOWN) && cur_rank > 0) {
         cur_rank--;
     }
-    if ((pad & KEY_RIGHT) && cur_file < 7) {
+    if ((pad & SDEVKIT_KEY_RIGHT) && cur_file < 7) {
         cur_file++;
     }
-    if ((pad & KEY_LEFT) && cur_file > 0) {
+    if ((pad & SDEVKIT_KEY_LEFT) && cur_file > 0) {
         cur_file--;
     }
 }
@@ -471,14 +471,14 @@ static void player(uint16_t pad, uint16_t pressed)
 
     move_cursor(pad, pressed);
     sq = SQ(cur_file, cur_rank);
-    if (pressed & KEY_B) {
+    if (pressed & SDEVKIT_KEY_B) {
         if (held != NO_SQ) {
             held = NO_SQ;
             draw_board();
         }
         return;
     }
-    if (!(pressed & KEY_A)) {
+    if (!(pressed & SDEVKIT_KEY_A)) {
         return;
     }
     if (held != NO_SQ && is_target(held, sq)) {
@@ -514,16 +514,16 @@ static void promote(uint16_t pressed)
 {
     static const uint8_t FLAG[4] = { MF_PROMO_Q, MF_PROMO_R, MF_PROMO_B, MF_PROMO_N };
 
-    if (pressed & KEY_UP) {
+    if (pressed & SDEVKIT_KEY_UP) {
         promo_choice = (uint8_t)((promo_choice + 3) & 3);
         draw_promotion();
-    } else if (pressed & KEY_DOWN) {
+    } else if (pressed & SDEVKIT_KEY_DOWN) {
         promo_choice = (uint8_t)((promo_choice + 1) & 3);
         draw_promotion();
-    } else if (pressed & KEY_B) {
+    } else if (pressed & SDEVKIT_KEY_B) {
         clear_promotion();
         state = ST_PLAYER;
-    } else if (pressed & KEY_A) {
+    } else if (pressed & SDEVKIT_KEY_A) {
         clear_promotion();
         held = NO_SQ;
         move_made(promo_from, promo_to, FLAG[promo_choice]);
@@ -570,30 +570,30 @@ void game_init(uint16_t init_seed)
     uint16_t j;
 
     seed = init_seed;
-    setMode(BG_MODE1, BG1_TILES_16);
-    bgSetDisable(2);
-    bgInitTileSet(0, board_gfx_tiles, board_gfx_pal, 0, BOARD_GFX_TILES_SIZE, BOARD_GFX_PAL_SIZE, BG_16COLORS,
+    sdevkit_set_mode(SDEVKIT_BG_MODE1, BG1_TILES_16);
+    sdevkit_bg_set_disable(2);
+    sdevkit_bg_init_tile_set(0, board_gfx_tiles, board_gfx_pal, 0, BOARD_GFX_TILES_SIZE, BOARD_GFX_PAL_SIZE, SDEVKIT_BG_16COLORS,
                   VRAM_BOARD);
     for (i = 1; i < 4; i++) {            /* palettes 1 to 3: the board's, other square colours */
-        dmaCopyCGram(board_gfx_pal, (uint16_t)(i * 16), BOARD_GFX_PAL_SIZE);
+        sdevkit_dma_copy_cgram(board_gfx_pal, (uint16_t)(i * 16), BOARD_GFX_PAL_SIZE);
     }
-    setPaletteColor(PAL_LAST * 16 + 1, 0x43BE);    /* the last move: yellow */
-    setPaletteColor(PAL_LAST * 16 + 2, 0x26D9);
-    setPaletteColor(PAL_TARGET * 16 + 1, 0x4B76);  /* where the piece in the hand can go: green */
-    setPaletteColor(PAL_TARGET * 16 + 2, 0x328F);
-    setPaletteColor(PAL_CHECK * 16 + 1, 0x3A1E);   /* the king in check: red */
-    setPaletteColor(PAL_CHECK * 16 + 2, 0x2559);
-    bgSetMapPtr(0, VRAM_BOARD_MAP, SC_32x32);
-    bgSetScroll(0, (uint16_t)(16 - BOARD_PX + 0x400), (uint16_t)(16 - BOARD_PX - 1 + 0x400));
-    bgInitTileSet(1, font_gfx_tiles, font_gfx_pal, PAL_TEXT, FONT_GFX_TILES_SIZE, FONT_GFX_PAL_SIZE, BG_16COLORS,
+    sdevkit_set_palette_color(PAL_LAST * 16 + 1, 0x43BE);    /* the last move: yellow */
+    sdevkit_set_palette_color(PAL_LAST * 16 + 2, 0x26D9);
+    sdevkit_set_palette_color(PAL_TARGET * 16 + 1, 0x4B76);  /* where the piece in the hand can go: green */
+    sdevkit_set_palette_color(PAL_TARGET * 16 + 2, 0x328F);
+    sdevkit_set_palette_color(PAL_CHECK * 16 + 1, 0x3A1E);   /* the king in check: red */
+    sdevkit_set_palette_color(PAL_CHECK * 16 + 2, 0x2559);
+    sdevkit_bg_set_map_ptr(0, VRAM_BOARD_MAP, SDEVKIT_SC_32x32);
+    sdevkit_bg_set_scroll(0, (uint16_t)(16 - BOARD_PX + 0x400), (uint16_t)(16 - BOARD_PX - 1 + 0x400));
+    sdevkit_bg_init_tile_set(1, font_gfx_tiles, font_gfx_pal, PAL_TEXT, FONT_GFX_TILES_SIZE, FONT_GFX_PAL_SIZE, SDEVKIT_BG_16COLORS,
                   VRAM_FONT);
-    dmaCopyCGram(font_gfx_pal, PAL_YELLOW * 16, FONT_GFX_PAL_SIZE);
-    setPaletteColor(PAL_YELLOW * 16 + 1, 0x235F);
-    bgSetMapPtr(1, VRAM_TEXT_MAP, SC_32x32);
-    bgSetScroll(1, 0, 0x3FF);
-    oamInitGfxSet(sprites_gfx_tiles, SPRITES_GFX_TILES_SIZE, sprites_gfx_pal, SPRITES_GFX_PAL_SIZE, 0, VRAM_SPRITES,
-                  OBJ_SIZE16_L32);
-    oamInit();
+    sdevkit_dma_copy_cgram(font_gfx_pal, PAL_YELLOW * 16, FONT_GFX_PAL_SIZE);
+    sdevkit_set_palette_color(PAL_YELLOW * 16 + 1, 0x235F);
+    sdevkit_bg_set_map_ptr(1, VRAM_TEXT_MAP, SDEVKIT_SC_32x32);
+    sdevkit_bg_set_scroll(1, 0, 0x3FF);
+    sdevkit_oam_init_gfx_set(sprites_gfx_tiles, SPRITES_GFX_TILES_SIZE, sprites_gfx_pal, SPRITES_GFX_PAL_SIZE, 0, VRAM_SPRITES,
+                  SDEVKIT_OBJ_SIZE16_L32);
+    sdevkit_oam_init();
     for (j = 0; j < 16 * 32; j++) {      /* around the board: an empty element, the backdrop */
         board_map[j] = element_tile(31);
     }
@@ -603,15 +603,15 @@ void game_init(uint16_t init_seed)
     panel_yellow(1, "Schach");
     title();
     /* the screen is still off: copy the whole maps at once */
-    dmaCopyVram((const u8 *)board_map, VRAM_BOARD_MAP, sizeof board_map);
-    dmaCopyVram((const u8 *)text_map, VRAM_TEXT_MAP, sizeof text_map);
+    sdevkit_dma_copy_vram((const uint8_t *)board_map, VRAM_BOARD_MAP, sizeof board_map);
+    sdevkit_dma_copy_vram((const uint8_t *)text_map, VRAM_TEXT_MAP, sizeof text_map);
     board_dirty = 0;
     text_from = 0xFF;
     text_to = 0;
-    setBrightness(15);
+    sdevkit_set_brightness(15);
 }
 
-void game_tick(const uint16_t pad[SNES_PADS])
+void game_tick(const uint16_t pad[SDEVKIT_PADS])
 {
     uint16_t pressed = (uint16_t)(pad[0] & ~last_pad);
 
@@ -619,14 +619,14 @@ void game_tick(const uint16_t pad[SNES_PADS])
     timer++;
     switch (state) {
     case ST_TITLE:
-        if ((pressed & KEY_LEFT) && level > 0) {
+        if ((pressed & SDEVKIT_KEY_LEFT) && level > 0) {
             level--;
             draw_level();
-        } else if ((pressed & KEY_RIGHT) && level + 1 < LEVELS) {
+        } else if ((pressed & SDEVKIT_KEY_RIGHT) && level + 1 < LEVELS) {
             level++;
             draw_level();
         }
-        if (pressed & KEY_START) {
+        if (pressed & SDEVKIT_KEY_START) {
             seed = (uint16_t)(seed + timer);
             new_game();
         }
@@ -642,7 +642,7 @@ void game_tick(const uint16_t pad[SNES_PADS])
         think();
         break;
     default:                             /* ST_OVER */
-        if (pressed & KEY_START) {
+        if (pressed & SDEVKIT_KEY_START) {
             seed = (uint16_t)(seed + timer);
             new_game();
         }
@@ -654,12 +654,12 @@ void game_tick(const uint16_t pad[SNES_PADS])
 void game_vblank(void)
 {
     if (board_dirty) {                   /* the board's eight rows of map cells */
-        dmaCopyVram((const u8 *)&board_map[32], VRAM_BOARD_MAP + 32, 8 * 32 * 2);
+        sdevkit_dma_copy_vram((const uint8_t *)&board_map[32], VRAM_BOARD_MAP + 32, 8 * 32 * 2);
         board_dirty = 0;
     }
     if (text_from != 0xFF) {
         uint16_t first = (uint16_t)text_from * 32;
-        dmaCopyVram((const u8 *)&text_map[first], (uint16_t)(VRAM_TEXT_MAP + first),
+        sdevkit_dma_copy_vram((const uint8_t *)&text_map[first], (uint16_t)(VRAM_TEXT_MAP + first),
                     (uint16_t)((text_to - text_from + 1) * 64));
         text_from = 0xFF;
         text_to = 0;

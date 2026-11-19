@@ -76,7 +76,7 @@ the hand and of a king in check keep their tiles and get another palette whose t
 differ: four palettes, one set of tiles. Layer 1 is scrolled by 4 pixels, so the letters and
 numbers of layer 2 sit in the middle of their squares. Layer 2 is text in 8 x 8 tiles with a font of
 all ASCII characters (moves need `x+#=` and lower case). The cursor and the piece in the hand are
-sprites (`oamSet` takes a byte offset into the sprite table: sprite 1 is offset 4).
+sprites (`sdevkit_oam_set` takes a byte offset into the sprite table: sprite 1 is offset 4).
 
 **Thinking and the frame.** The console runs 24 steps of the search a tick (`STEPS`,
 `src/schach.h`), and a tick then takes about two frames; the cursor moves meanwhile. Fewer steps a
