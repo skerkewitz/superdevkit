@@ -107,6 +107,7 @@ working documents it is written from.
 - [docs/subrange-types.md](docs/subrange-types.md): design proposal for subrange types (`DAMPF_RANGED`) and inferred value ranges; what is built of it is in optimizations.md.
 - [docs/optimizations.md](docs/optimizations.md): where things stand, the optimization catalogue, the gap to hand-written assembly.
 - [docs/optimizations-log.md](docs/optimizations-log.md): dated measurements of each optimization step.
+- [docs/current-compiler-flaws.md](docs/current-compiler-flaws.md): what is structurally wrong with the optimizer and the back end (measured 2026-11-20), and the steps that fix it.
 - [docs/timing.md](docs/timing.md): exact timing, worst-case bounds and cycle budgets.
 - [docs/archive](docs/archive): finished plans and reviews, kept as they were (the way to LIR and to dampf's own assembler and linker, the status review of 2026-11-18).
 - [docs/memory-map.md](docs/memory-map.md): where code, data, variables and pointers live.

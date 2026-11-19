@@ -115,6 +115,11 @@ Also in M9:
   - a constant shift above 8 is a loop (`shl 9` as `ldx #9; asl; dex; bne`; found in Schach's
     Zobrist table): retires `slow-shift-above-8`.
 
+An analysis of 2026-11-20 ([current-compiler-flaws.md](current-compiler-flaws.md)) found why
+the same loop costs between 25 and 138 cycles a round depending on its spelling, and proposes
+an order that starts with tests and a canonical form before register allocation. It is not
+decided yet; until it is, the order below stands.
+
 The order: register allocation (2), or the split of struct arrays (4) once its subset question
 is decided; then 3, 5 and 7. The rest has to come from the game doing less work: the pair loop
 of `separate` (16 %) and the CPU partner (the game's finding 1, forwarded to it), as
