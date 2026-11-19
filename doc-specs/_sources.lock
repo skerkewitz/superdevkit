@@ -107,7 +107,7 @@ guide/writing-c src/main/java/dampf/Main.java b19bb0c88acd
 guide/writing-c src/main/java/dampf/check/CallGraph.java 1f480e8e97b7
 guide/writing-c src/main/java/dampf/frontend/Preprocessor.java 6f1fe4009f97
 guide/writing-c src/main/java/dampf/frontend/SystemHeaders.java 22951945cd04
-guide/writing-c src/main/resources/dampf/include/dampf.h ef60b85b2ab7
+guide/writing-c src/main/resources/dampf/include/dampf.h b018ea4983eb
 guide/writing-c src/main/resources/dampf/include/stdint.h 2c47a6b93ede
 guide/writing-c src/main/resources/dampf/include/string.h 42e94587dde9
 inside/how-a-compile-works doc-specs/inside/how-a-compile-works.spec.md ff587f67de96
@@ -378,7 +378,7 @@ inside/timing src/main/java/dampf/Compiler.java 27002cdf7153
 inside/timing src/main/java/dampf/backend/AsmWriter.java db8459c802e8
 inside/timing src/main/java/dampf/backend/Timing.java f8fcb2d598df
 inside/timing src/main/java/dampf/target/Cycles65816.java 8698afa0f4ad
-inside/timing src/main/resources/dampf/include/dampf.h ef60b85b2ab7
+inside/timing src/main/resources/dampf/include/dampf.h b018ea4983eb
 inside/timing src/test/java/dampf/BudgetTest.java 7ab99f5df2b0
 inside/timing src/test/java/dampf/exec/GameTimingTest.java 58a045abfd9a
 inside/timing src/test/java/dampf/exec/Timing.java c29c1caa941d
@@ -422,7 +422,7 @@ reference/c-subset docs/adr/0035-the-pseudo-snes-is-called-rachael.md b6d02136d2
 reference/c-subset docs/subset.md 91c2e2a5019a
 reference/c-subset src/main/java/dampf/check/CallGraph.java 1f480e8e97b7
 reference/c-subset src/main/java/dampf/frontend/AstBuilder.java 8bb4e33c67d1
-reference/c-subset src/main/resources/dampf/include/dampf.h ef60b85b2ab7
+reference/c-subset src/main/resources/dampf/include/dampf.h b018ea4983eb
 reference/c-subset src/main/resources/dampf/include/stdint.h 2c47a6b93ede
 reference/c-subset src/main/resources/dampf/include/string.h 42e94587dde9
 reference/c-subset src/test/java/dampf/frontend/AllErrorsTest.java c100c160b7ec
@@ -483,7 +483,7 @@ reference/hints docs/subrange-types.md 36b327590609
 reference/hints docs/timing.md ce5dfbe3b13c
 reference/hints src/main/java/dampf/Compiler.java 27002cdf7153
 reference/hints src/main/java/dampf/frontend/AstBuilder.java 8bb4e33c67d1
-reference/hints src/main/resources/dampf/include/dampf.h ef60b85b2ab7
+reference/hints src/main/resources/dampf/include/dampf.h b018ea4983eb
 reference/hints src/test/java/dampf/BudgetTest.java 7ab99f5df2b0
 reference/hints src/test/resources/exec/hint_range.c 6d1dcc6be9e1
 reference/limits README.md 7a2f2177bf74
