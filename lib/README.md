@@ -91,39 +91,43 @@ compatibility headers are what the rename script writes.
 
 ## Built and stub, per function and platform
 
-Desktop means `rachael/` with `desktop/` (Linux now).
+Desktop means `rachael/` with `desktop/` (Linux now). The last column is what a call costs on the
+SNES: best to worst case in CPU cycles, calls included, from the timing report of a program that
+calls every function (`LibCostTest` writes it with `LIB_COSTS=update`, and fails when it is not
+today's). A DMA function also uses as many bytes of the vertical blank's 5,700 as it copies; the
+main loop's copy of the sprite table takes 544 of them each frame.
 
-| Function | SNES | desktop |
-| --- | --- | --- |
-| `sdevkit_set_mode` | built | built |
-| `sdevkit_set_brightness` | built | built |
-| `sdevkit_set_screen_on` | built | built |
-| `sdevkit_set_screen_off` | built | built |
-| `sdevkit_set_color_effect` | built | built |
-| `sdevkit_set_color_intensity` | built | built |
-| `sdevkit_set_palette_color` | built | built |
-| `sdevkit_dma_copy_vram` | built | built |
-| `sdevkit_dma_copy_cgram` | built | built |
-| `sdevkit_dma_clear_vram` | built | built |
-| `sdevkit_bg_set_gfx_ptr` | built | built |
-| `sdevkit_bg_set_map_ptr` | built | built |
-| `sdevkit_bg_set_scroll` | built | built |
-| `sdevkit_bg_set_enable` | built | built |
-| `sdevkit_bg_set_disable` | built | built |
-| `sdevkit_bg_set_enable_sub` | built | built |
-| `sdevkit_bg_set_disable_sub` | built | built |
-| `sdevkit_bg_init_tile_set` | built | built |
-| `sdevkit_bg_init_map_set` | built | built |
-| `sdevkit_oam_init` | built | built |
-| `sdevkit_oam_init_gfx_set` | built | built |
-| `sdevkit_oam_init_gfx_attr` | built | built |
-| `sdevkit_oam_set` | built | built |
-| `sdevkit_oam_set_xy` | built | built |
-| `sdevkit_oam_set_ex` | built | built |
-| `sdevkit_oam_set_visible` | built | built |
-| `sdevkit_oam_clear` | built | built |
-| `sdevkit_reg_write` | built | built |
-| `sdevkit_hdma_set` | built | built |
-| `sdevkit_hdma_enable` | built | built |
-| `sdevkit_dma_fits` | built | built |
-| `sdevkit_dbg_vram` | built (a single zero word: the SNES cannot read VRAM) | built |
+| Function | SNES | desktop | CPU cycles on the SNES |
+| --- | --- | --- | ---: |
+| `sdevkit_set_mode` | built | built | 45 |
+| `sdevkit_set_brightness` | built | built | 20 |
+| `sdevkit_set_screen_on` | built | built | 52 to unbounded |
+| `sdevkit_set_screen_off` | built | built | 20 |
+| `sdevkit_set_color_effect` | built | built | 36 |
+| `sdevkit_set_color_intensity` | built | built | 28 |
+| `sdevkit_set_palette_color` | built | built | 47 |
+| `sdevkit_dma_copy_vram` | built | built | 116 |
+| `sdevkit_dma_copy_cgram` | built | built | 100 |
+| `sdevkit_dma_clear_vram` | built | built | 111 |
+| `sdevkit_bg_set_gfx_ptr` | built | built | 85 to 195 |
+| `sdevkit_bg_set_map_ptr` | built | built | 35 |
+| `sdevkit_bg_set_scroll` | built | built | 88 |
+| `sdevkit_bg_set_enable` | built | built | 61 to 173 |
+| `sdevkit_bg_set_disable` | built | built | 64 to 176 |
+| `sdevkit_bg_set_enable_sub` | built | built | 61 to 173 |
+| `sdevkit_bg_set_disable_sub` | built | built | 64 to 176 |
+| `sdevkit_bg_init_tile_set` | built | built | 592 to 782 |
+| `sdevkit_bg_init_map_set` | built | built | 145 |
+| `sdevkit_oam_init` | built | built | 23 to 104,215 |
+| `sdevkit_oam_init_gfx_set` | built | built | 246 to 356 |
+| `sdevkit_oam_init_gfx_attr` | built | built | 37 to 147 |
+| `sdevkit_oam_set` | built | built | 315 to 427 |
+| `sdevkit_oam_set_xy` | built | built | 139 to 251 |
+| `sdevkit_oam_set_ex` | built | built | 80 to 192 |
+| `sdevkit_oam_set_visible` | built | built | 6 |
+| `sdevkit_oam_clear` | built | built | 23 to 103,703 |
+| `sdevkit_reg_write` | built | built | 25 |
+| `sdevkit_hdma_set` | built | built | 83 |
+| `sdevkit_hdma_enable` | built | built | 21 |
+| `sdevkit_dma_fits` | built | built | 87 to 92 |
+| `sdevkit_dbg_vram` | built (a single zero word: the SNES cannot read VRAM) | built | 14 |
