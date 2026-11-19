@@ -5,7 +5,7 @@ flying beer tap; its companion is a crate of beer that docks at the front or the
 launched and comes back; caps and bottles are the shots; the cork of a bottle of sparkling wine is
 the charged shot, and greed is punished when the bottle foams over. Hit enemies drop empties, which
 tumble down and are the score, as deposit: "PFAND 12,75 €". The slowdown the genre is known for is
-a power-up nobody wants. The idea is in [docs/er-tuep-proposal.md](../../docs/er-tuep-proposal.md).
+a power-up nobody wants. The idea is in [docs/archive/er-tuep-proposal.md](../../docs/archive/er-tuep-proposal.md).
 
 ```bash
 examples/ertuep/build.sh                  # the SNES: examples/ertuep/build/ertuep.sfc

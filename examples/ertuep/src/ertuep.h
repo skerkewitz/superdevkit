@@ -2,7 +2,7 @@
  * Er-Tüp: a side-scrolling shooter in a German pub. The ship is a flying beer tap, its companion a
  * crate of beer that docks at the front or the back and can be launched; caps and bottles are the
  * shots, the cork of a bottle of sparkling wine the charged shot, and the empties the enemies drop
- * are the score, as deposit (Pfand) in cents. docs/er-tuep-proposal.md has the whole idea.
+ * are the score, as deposit (Pfand) in cents. docs/archive/er-tuep-proposal.md has the whole idea.
  *
  * What the files share. Positions and speeds are 12.4 fixed point (16 is one pixel) in screen
  * space: x 0 is the left edge of the picture, y 0 its top. The world scrolls under the objects;

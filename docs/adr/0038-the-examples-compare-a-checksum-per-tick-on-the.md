@@ -5,7 +5,7 @@
 difference in the game's logic shows there only when it reaches a screenshot, and then without
 the tick it started in; and the comparison needs Mesen, so it never ran in the build. Blubber
 Blasen has had a checksum per tick in its replays from the start. The Er-Tüp proposal
-([er-tuep-proposal.md](../er-tuep-proposal.md)) asked for the same for the examples before a game
+([er-tuep-proposal.md](../archive/er-tuep-proposal.md)) asked for the same for the examples before a game
 with many objects is built.
 
 **Decision.** After every tick the checks compute a checksum of the game's state, FNV-1a with 32

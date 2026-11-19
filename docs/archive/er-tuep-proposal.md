@@ -1,8 +1,9 @@
 # Proposal: Er-Tüp, a side-scrolling shooter as an example of superdevkit
 
-Status: built (2026-11-19): the checks compare a checksum per tick (ADR record 38), and all three
-stages play with their bosses, the third in mode 7, and end the game (`examples/ertuep`, its
-README says what is in it). Open: sound, which waits for the kit's (sound-effects-proposal.md).
+Archived 2026-11-19: built. The checks compare a checksum per tick (ADR record 38), and all three
+stages play with their bosses, the third in mode 7, and end the game
+([examples/ertuep](../../examples/ertuep/README.md), its README says what is in it). Sound waits
+for the kit's and is listed among its users in [sound-effects-proposal.md](../sound-effects-proposal.md).
 
 What the building changed against the text below: positions are 12.4 fixed point, not 8.8 (the
 screen is 256 pixels wide, and objects live beside it); the frame is guarded by a measured budget
