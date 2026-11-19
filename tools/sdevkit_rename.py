@@ -4,16 +4,14 @@ the snesXxx extensions, snes_vram, the KEY_* bits) to the sdevkit_ ones (ADR rec
 
     python3 -I tools/sdevkit_rename.py FILE_OR_FOLDER...     rewrites .c and .h files in place
     python3 -I tools/sdevkit_rename.py --dry-run FILE...     only prints what it would change
-    python3 -I tools/sdevkit_rename.py --write-compat DIR    writes the compatibility headers
 
 Only identifiers change: strings, character constants and comments stay as they are (with
 --comments, identifiers in comments change too). The include of "snes/snes.h" or "snes/loop.h"
 becomes "sdevkit/snes.h" or "sdevkit/loop.h". The typedefs u8, u16, s16 and u32 become the
 <stdint.h> types. It prints every file it changed, with the number of names replaced.
 
-The table below is the only copy of the rename table: the compatibility headers
-lib/include/snes/snes.h and lib/include/snes/loop.h are written from it (--write-compat), and
-LibNamesTest checks that they are.
+A file that includes raylib.h is a desktop frontend, not game code: raylib has KEY_* names of its
+own, so the file is left as it is, with a warning.
 """
 import os
 import re
@@ -133,36 +131,10 @@ def sources(paths):
             yield p
 
 
-# --- the compatibility headers -------------------------------------------------------------------
-COMPAT_NOTE = """/*
- * DEPRECATED: the old names of superdevkit's console API, mapped to the sdevkit_ ones (ADR
- * record 34). Only for code that cannot be changed yet (the snapshot of Blubber Blasen); new code
- * includes "sdevkit/%s". tools/sdevkit_rename.py converts a game, and writes this file
- * (--write-compat): do not edit it by hand.
- */
-"""
-
-
-def compat_headers():
-    snes = [COMPAT_NOTE % "snes.h", "#ifndef SNES_SNES_H", "#define SNES_SNES_H", "",
-            '#include "sdevkit/snes.h"', ""]
-    snes += ["typedef %-8s %s;" % (new, old) for old, new in TYPES]
-    snes.append("")
-    snes += ["#define %s %s" % pair for pair in SNES_TABLE]
-    snes += ["", "#endif /* SNES_SNES_H */", ""]
-    loop = [COMPAT_NOTE % "loop.h", "#ifndef SNES_LOOP_H", "#define SNES_LOOP_H", "",
-            '#include "sdevkit/loop.h"', ""]
-    loop += ["#define %s %s" % pair for pair in LOOP_MACROS]
-    loop += ["", "#endif /* SNES_LOOP_H */", ""]
-    return {"snes.h": "\n".join(snes), "loop.h": "\n".join(loop)}
+RAYLIB = re.compile(r'^\s*#\s*include\s*[<"]raylib\.h[>"]', re.M)
 
 
 def main(argv):
-    if len(argv) == 2 and argv[0] == "--write-compat":
-        for name, text in compat_headers().items():
-            with open(os.path.join(argv[1], name), "w", encoding="utf-8") as f:
-                f.write(text)
-        return 0
     dry = "--dry-run" in argv
     comments = "--comments" in argv
     paths = [a for a in argv if not a.startswith("--")]
@@ -172,6 +144,9 @@ def main(argv):
     for path in sources(paths):
         with open(path, encoding="utf-8") as f:
             text = f.read()
+        if RAYLIB.search(text):
+            print("%s: skipped, it includes raylib.h (a frontend, not game code)" % path, file=sys.stderr)
+            continue
         new, count = rename(text, comments=comments)
         if new != text:
             print("%s: %d names" % (path, count))

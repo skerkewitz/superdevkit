@@ -68,6 +68,11 @@ call its own statement.
   costs a doubling of the index on every access.
 - **`slow-pointer-walk`** Index an array (`a[i].x`) instead of walking it with a pointer
   (`o->x; o++`).
+- **`slow-index-list`** Walk all slots with a counter and skip the free ones
+  (`if (!used(&a[j])) continue;`) rather than a list of the used slots' indexes
+  (`&a[list[k]]`), unless most slots are free: dampf steps a counter's element offset by the
+  element's size, where an index loaded from a list is multiplied by the size on every element.
+  Measured in Blubber Blasen's pair loop too, where the list cost three times as much a line.
 - **`slow-multiply-variable`** Multiply by a constant where the factor is one: `va * vb` calls
   the runtime, `va * 40` is shifts and adds.
 - **`slow-divide-variable`** Divide by a constant power of two where you can: `va / vb` calls the
@@ -145,6 +150,7 @@ Measured 2026-11-19 (worst case of the timing report, code generator from MIR).
 | `slow-compare-sum` | `compare_sum` | 162 | slower | `compare_sum_narrowed` | 96 |
 | `slow-divide-variable` | `divide_variables` | 816 | slower | `divide_constant` | 17 |
 | `slow-hand-shifts` | `times_40_by_shifts` | 45 | slower | `times_40` | 31 |
+| `slow-index-list` | `pairs_by_list` | 23,186 | slower | `pairs_by_counter` | 15,590 |
 | `slow-multiply-variable` | `multiply_variables` | 411 | slower | `multiply_constant` | 31 |
 | `slow-pointer-walk` | `move_by_pointer` | 1,943 | slower | `move_by_index` | 1,881 |
 | `slow-shift-above-8` | `shift_by_9` | 130 | slower | `shift_by_8_then_1` | 19 |

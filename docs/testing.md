@@ -61,6 +61,8 @@ every function of the console API and writes their best and worst cases into the
 `lib/README.md` (`LIB_COSTS=update`). `SnesHardwareGuideTest` checks the feature table of
 `lib/SNES_HARDWARE.md` against `lib/snes` and `lib/rachael`, and `RachaelTest` that Rachael counts
 the register writes she does not draw. Each fails when its document is no longer true.
+`RachaelTest` also runs her renderer's tests in C (`compiler/src/test/c/rachael_test.c`, from the
+game's tests of its pseudo SNES): small scenes rendered and checked pixel by pixel.
 
 **Random programs** (`RandomProgramTest`, 50 per build) run like the execution tests, without
 the block counts and without Mesen. The generator makes programs free of undefined behaviour by construction (divisors
@@ -89,6 +91,9 @@ every tick; F11 saves it in the format of `check.txt` (with `mark` and `hash` li
 other players skip), so a bug seen on the desktop can be played again: in the window
 (`--replay`, which pauses at the marks and at the first tick whose checksum differs from the
 recorded one), and on the SNES side (`dev/replay.sh` in dampf's emulator for any ROM, `dev/replay_example.sh` for an example, also in Mesen).
+When the ROM from MIR differs and the naive one does not, `dampf.emu.RomDiff good.sfc bad.sfc
+recording.txt` plays both and names, tick by tick, the globals that differ (the video queues first,
+which depend on speed; then the one the miscompiled code writes).
 `ExamplesTest` has every example's check written as a recording too (`--record`) and requires the
 same buttons and the SNES's checksum for every tick in it.
 
@@ -100,6 +105,8 @@ of dampf's runtime), and with `BASELINE=` the ratio to an earlier table and thei
 mean: an optimization or a tuned parameter is judged on all examples, not on one program. The
 naive code generator, for example, does three times the work on the geometric mean, between 1.3
 times (Mandelbrot, whose time is the runtime's multiplication) and 6.4 times (Er-Tüp).
+A game outside the repository measures itself the same way: `dampf.emu.ExampleBench rom.sfc
+rom.lbl recording.txt`, from any folder (it finds the kit's `lib/snes/snes.c` through the debug file).
 
 **The static timing on the examples** (`ExamplesTimingTest`) runs every example for 3,000 frames
 without input in dampf's emulator (the titles' demos, Mandelbrot computing, Schach playing) and

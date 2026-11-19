@@ -54,8 +54,9 @@ timing report can differ a little, since dampf compiles the whole program at onc
 7. **Mode 7** – the `sdevkit_mode7_*` functions and `SDEVKIT_M7_*`.
 8. **Debug calls** – `sdevkit_dbg_vram` and `sdevkit_dbg_hash`: what each does on each platform,
    and what data `sdevkit_dbg_hash` may be given.
-9. **The old names** – the deprecated headers in `lib/include/snes/` and
-   `tools/sdevkit_rename.py`, which converts a game to the `sdevkit_` names.
+9. **The old names** – `tools/sdevkit_rename.py`, which converts a game from the old names
+   (PVSnesLib's, `KEY_*`, `u8`...) to the `sdevkit_` ones; the kit has no header for the old
+   names any more.
 
 In sections 2 to 8, each function is an entry of its own (H3 with its name): its declaration as
 in the header, what it does in one to three sentences, its parameters where the header's names

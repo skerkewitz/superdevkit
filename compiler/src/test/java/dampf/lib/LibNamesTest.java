@@ -25,7 +25,6 @@ import org.junit.jupiter.api.io.TempDir;
 class LibNamesTest {
 
     private static final Path PUBLIC = Path.of("lib/include/sdevkit");
-    private static final Path COMPAT = Path.of("lib/include/snes");
     /** The callbacks a game defines: its names, not the kit's. */
     private static final Set<String> GAME_CALLBACKS = Set.of("game_init", "game_tick", "game_vblank");
 
@@ -106,15 +105,5 @@ class LibNamesTest {
             }
         }
         assertEquals(List.of(), wrong, "external names in lib/ that are not sdevkit_*, sdevkit__* or main (make them static)");
-    }
-
-    @Test
-    void theCompatibilityHeadersAreWhatTheRenameScriptWrites() throws IOException {
-        Processes.check(Path.of("."), Duration.ofMinutes(1),
-                List.of("python3", "-I", "tools/sdevkit_rename.py", "--write-compat", tmp.toString()));
-        for (String name : List.of("snes.h", "loop.h")) {
-            assertEquals(Files.readString(tmp.resolve(name)), Files.readString(COMPAT.resolve(name)),
-                    COMPAT.resolve(name) + " differs from python3 -I tools/sdevkit_rename.py --write-compat " + COMPAT);
-        }
     }
 }

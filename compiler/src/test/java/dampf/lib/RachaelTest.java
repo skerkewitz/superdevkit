@@ -11,9 +11,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Rachael (lib/rachael) reports what she cannot show as the SNES would: register writes she does
- * not draw (sdevkit__undrawn). A small program on Rachael, built by gcc, writes registers and
- * prints her count after each group.
+ * Rachael (lib/rachael) as the SNES: small programs on her, built by gcc, print what she did. She
+ * reports what she cannot show (register writes she does not draw, sdevkit__undrawn), keeps the
+ * library's copies of registers as lib/snes does, starts an HDMA table on the first row, and
+ * draws what the SNES draws (the C tests in compiler/src/test/c).
  */
 class RachaelTest {
     @TempDir
@@ -93,5 +94,61 @@ class RachaelTest {
                 "lib/rachael/render.c", "-o", exe.toString()));
         String out = Processes.check(tmp, Duration.ofMinutes(1), List.of(exe.toString()));
         assertEquals("15 05 23 01 01", out.strip());
+    }
+
+    /**
+     * Where an HDMA table's first entry lands: on row 0 of the picture (scanline 1), as in Mesen
+     * (measured by Blubber Blasen with this program, 2026-11-19). The backdrop is black and adds
+     * the fixed colour; HDMA writes COLDATA, black for three lines, then white. Rows 0 to 2 are
+     * black and row 3 is the first white one.
+     */
+    @Test
+    void anHdmaTablesFirstEntryLandsOnTheFirstRow() throws Exception {
+        String program = """
+                #include <stdio.h>
+                #include "rachael.h"
+                static const uint8_t table[] = { 3, 0xE0, 1, 0xFF, 0 };
+                static uint16_t picture[SDEVKIT__W * SDEVKIT__H];
+                int main(void)
+                {
+                    int y;
+                    sdevkit__reset();
+                    sdevkit_set_mode(SDEVKIT_BG_MODE1, 0);
+                    sdevkit_set_palette_color(0, 0);
+                    sdevkit_set_color_effect(0x00, 0x20);            /* math always, fixed colour, on the backdrop */
+                    sdevkit_hdma_set(1, SDEVKIT_PPU_COLDATA, SDEVKIT_HDMA_ONE, table);
+                    sdevkit_hdma_enable(SDEVKIT_HDMA_CHANNEL1);
+                    sdevkit_set_screen_on();
+                    sdevkit__vblank();
+                    sdevkit__render(picture);
+                    for (y = 0; y < 5; y++) {
+                        printf("%04X ", picture[y * SDEVKIT__W]);
+                    }
+                    return 0;
+                }
+                """;
+        Path c = tmp.resolve("hdma.c"), exe = tmp.resolve("hdma");
+        Files.writeString(c, program);
+        Processes.check(Path.of("."), Duration.ofMinutes(1), List.of("cc", "-std=c99", "-Wall", "-Wextra",
+                "-Wno-unused-parameter", "-I", "lib/include", "-I", "lib/rachael", c.toString(), "lib/rachael/ppu.c",
+                "lib/rachael/render.c", "-o", exe.toString()));
+        String out = Processes.check(tmp, Duration.ofMinutes(1), List.of(exe.toString()));
+        assertEquals("0000 0000 0000 7FFF 7FFF", out.strip());
+    }
+
+    /**
+     * The renderer's tests (compiler/src/test/c/rachael_test.c, from the game's tests of its pseudo
+     * SNES): tiles, palettes and flips, scrolling and 32 x 64 maps, layer order, sprites and the
+     * per-line limits, colour math in windows, HDMA tables, brightness, the vertical blank's rules,
+     * the DMA count.
+     */
+    @Test
+    void theRenderersTestsPass() throws Exception {
+        Path exe = tmp.resolve("rachael_test");
+        Processes.check(Path.of("."), Duration.ofMinutes(1), List.of("cc", "-std=c99", "-Wall", "-Wextra",
+                "-Wno-unused-parameter", "-I", "lib/include", "-I", "lib/rachael", "compiler/src/test/c/rachael_test.c",
+                "lib/rachael/ppu.c", "lib/rachael/render.c", "-o", exe.toString()));
+        String out = Processes.check(tmp, Duration.ofMinutes(1), List.of(exe.toString()));
+        assertEquals("all tests passed", out.strip());
     }
 }

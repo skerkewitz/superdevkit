@@ -153,8 +153,10 @@ class BackendOutputTest {
             LUnit parsed = LParser.parse(asm.get(i));
             assertEquals(asm.get(i), LPrinter.print(parsed), key + " module " + i + ": the LIR text does not read back the same");
             assertEquals(List.of(), LVerifier.verify(parsed), key + " module " + i + ": the LIR read back");
-            // the modification time of a source file (.dbg file) changes with every checkout
-            hashes.put(key + ".s" + i, hash(asm.get(i).replaceAll("(\\.dbg\\s+file, \"[^\"]*\", \\d+, )\\d+", "$10")));
+            // the modification time of a source file (.dbg file) changes with every checkout, and
+            // where the checkout is shows in the paths of the function headers
+            hashes.put(key + ".s" + i, hash(asm.get(i).replaceAll("(\\.dbg\\s+file, \"[^\"]*\", \\d+, )\\d+", "$10")
+                    .replace(Path.of("").toAbsolutePath().toString(), "<checkout>")));
         }
         // dampf's own assembler and linker build the same ROM as ca65 and ld65
         Path nativeDir = Files.createDirectories(dir.resolve("native"));

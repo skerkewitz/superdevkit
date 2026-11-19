@@ -27,9 +27,10 @@ import java.util.Set;
  *     operands are used there.</li>
  * <li>A load or store at {@code ptradd p, c} (a constant 0..32767) reads p itself; such a ptradd
  *     that only loads and stores use is not computed at all ("folded").</li>
- * <li>A block whose predecessors all end with a jump, and whose φs do not read each other, gets
- *     its φs written at the end of each predecessor ("direct"); else the predecessors write an
- *     "incoming" place, which the block copies on entry.</li>
+ * <li>A block whose φs do not read each other and are not live into the other side of a
+ *     predecessor's branch gets its φs written at the end of each predecessor ("direct"); else
+ *     the predecessors write an "incoming" place, which the block copies on entry. A branch
+ *     writes the direct φs of both its sides, so these all conflict with each other.</li>
  * <li>A cast that only copies bytes ({@link #transparent}) has no place; its users read its
  *     source.</li>
  * <li>An instruction with a 2-word result may write its first word before it has read all its
@@ -476,6 +477,14 @@ final class FrameLayout {
                 reads(t, atEnd);
             }
             if (t != null) {
+                // the direct φs of all successors are written here, one after the other: those of
+                // a branch's two sides conflict with each other as much as those of one side
+                List<Integer> written = new ArrayList<>();
+                for (Block s : new LinkedHashSet<>(t.successors())) {
+                    if (direct.contains(s)) {
+                        written.addAll(phis(s));
+                    }
+                }
                 for (Block s : new LinkedHashSet<>(t.successors())) {
                     if (direct.contains(s)) {
                         List<Integer> phis = phis(s);
@@ -492,7 +501,7 @@ final class FrameLayout {
                                 samePlaceOnly.computeIfAbsent(o, k -> new HashSet<>()).add(p);
                             }
                             interfere(g, p, others);
-                            for (int q : phis) {
+                            for (int q : written) {
                                 if (p != q) {
                                     g[p].set(q);
                                     g[q].set(p);

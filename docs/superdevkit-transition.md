@@ -32,7 +32,7 @@ The kit:
 | Part | What |
 | --- | --- |
 | `compiler/` (today `src/`) | dampf |
-| `lib/include/sdevkit/` | the console API (`snes.h`), the frame rhythm (`loop.h`), sound, save RAM and debug registrations; every name `sdevkit_`/`SDEVKIT_` (ADR record 34). `lib/include/snes/` maps the old names until the game switches |
+| `lib/include/sdevkit/` | the console API (`snes.h`), the frame rhythm (`loop.h`), sound, save RAM and debug registrations; every name `sdevkit_`/`SDEVKIT_` (ADR record 34); the old names' header `lib/include/snes/` went when the game switched (2026-11-19) |
 | `lib/snes/` | the SNES: the API in C, the main loop |
 | `lib/rachael/` | [Rachael](../lib/README.md#rachael), the pseudo SNES, for the desktop and the web: video memory, registers, the renderer, portable C (from Blubber Blasen's `src/snes`) |
 | `lib/desktop/` | the frontend of `win64` and `linux` (raylib): window, scaling, input, sound, save file, debug view, screenshots |
@@ -92,7 +92,8 @@ README; the screenshots look right.
 
 ### 5.4 Correctness
 
-- **The miscompilation with inlining up to 80** found and fixed, with an execution test.
+- **The miscompilation with inlining up to 80** found and fixed, with an execution test (done
+  2026-11-19: `exec/regress_branch_phis.c`).
 - **Random programs that reach the optimizer**, and execution tests for its patterns.
 
 ### 5.5 The book (ADR record 30)
@@ -106,7 +107,8 @@ In the game's findings (forwarded to it), for the game's agent: a build of the S
 dev kit next to the PVSnesLib one (an argument file in the game's repository, `-I lib/include`,
 `lib/snes/*.c`), the data as plain C (`map2c`, `gfx2c` without `--snes`), `BB_FAST` with a
 `__DAMPF__` branch, an ADR of the game's own; the console API's new names (ADR record 34,
-finding 8: `tools/sdevkit_rename.py`), after which the kit drops `lib/include/snes/`.
+finding 8: `tools/sdevkit_rename.py`), after which the kit drops `lib/include/snes/` (done
+2026-11-19: the game uses the new names).
 
 ### 5.7 On a console (needs the hardware)
 
@@ -122,9 +124,9 @@ Checked in Mesen with the region set to PAL before the console: the speed, and n
 ### 7.1 Rachael, the pseudo SNES, in the kit
 
 Built (during M5): `lib/rachael`, with 16 x 16 background tiles and the picture's rows as scanlines
-one on, so that it matches the SNES pixel for pixel. Still to do: its tests from the game's
-`tests/test_snes.c` (the parts that test its pseudo SNES); the game's copy now differs on purpose
-(the two changes), which the handover to the game has to say.
+one on, so that it matches the SNES pixel for pixel. Its tests came from the game's
+`tests/test_snes.c` (2026-11-19, `compiler/src/test/c/rachael_test.c`), after the game had moved
+them to Rachael and her line offset itself.
 
 ### 7.2 Sound, save RAM and the debug registrations in the API
 

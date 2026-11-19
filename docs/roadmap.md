@@ -62,19 +62,21 @@ moved to `snapshots/blubberblasen`, `platform/snes` became `lib/snes`, and the c
 (`lib/include/sdevkit/snes.h`) and the main loop with its frame rhythm
 (`lib/include/sdevkit/loop.h`) belong to the library ([lib/README.md](../lib/README.md)). Every
 name a game can use starts with `sdevkit_` or `SDEVKIT_`, the desktop build checks that a game
-calls nothing else, and `tools/sdevkit_rename.py` converts code from the old names, which a
-deprecated header keeps for the game until it switches (ADR
+calls nothing else, and `tools/sdevkit_rename.py` converts code from the old names; the game has
+switched, and the deprecated header that kept them went on 2026-11-19 (ADR
 [record 34](adr/0034-every-name-of-the-console-api-starts-with.md)). dampf can be called by a game:
 argument files (`@file`, `--config`), every error of a run reported, `<string.h>` with `memset`
 and `memcpy`. Its test found a miscompilation: a loop counter kept in X was stepped before a later
 store whose address was formed from its old value (`exec/regress_x_step_address.c`); it is fixed
-and was not the one with inlining up to 80, which is still open. The converter
+and was not the one with inlining up to 80. That one the game found on 2026-11-19 with the default
+limit: a branch whose two sides start a loop each wrote both start values before branching, and
+the frame layout let them share a place (`exec/regress_branch_phis.c`). The converter
 `tools/png2snes.py`, and the three examples, hello, CatchMe and Steinschlag (`examples/`), which
 play in Mesen without losing a byte (`dev/check_example.sh`) and are built by `ExamplesTest` in
 every build. The steps still to do, each with what
 makes it done, are in [superdevkit-transition.md](superdevkit-transition.md#m5-the-snes-050):
 the remaining examples work (the book's getting-started on hello),
-correctness (the miscompilation, tests that reach the optimizer), the book, the handover to the
+correctness (tests that reach the optimizer), the book, the handover to the
 game, and the playable ROM on a console.
 
 ## M7: Windows and Linux (0.7.0)
@@ -92,7 +94,7 @@ edge. Both are built on WSL: Linux with gcc, Windows with the MSVC of the Window
 (`dev/build_desktop_windows.sh`, ADR [record 39](adr/0039-win64-is-built-with-msvc-for-now-from-wsl.md)), which plays with the gamepads WSL does not
 see and gives the same checksums and pictures as Linux.
 
-Still to do in M7: Rachael's tests from the game, sound, save RAM and the debug
+Still to do in M7: sound, save RAM and the debug
 registrations in the console API (built on the desktop, stubs on the SNES; ADR [record
 32](adr/0032-desktop-and-web-are-for-prototyping-with-sound.md), with the names of [record
 34](adr/0034-every-name-of-the-console-api-starts-with.md)), the desktop frontend with sound, save RAM and the debug view, and the `superdevkit` command with `init`, `build` and
@@ -326,7 +328,8 @@ Open: the DMA margin is in M5, constant shifts longer than 8 in M9.
 ## Risks
 
 - **Miscompilation.** Mitigated by the test layers, the naive reference and the examples' checks
-  as oracle, a checksum every tick against the PC ([testing.md](testing.md)). One is known and not found yet (M5).
+  as oracle, a checksum every tick against the PC ([testing.md](testing.md)). When one shows,
+  `dampf.emu.RomDiff` names the global it breaks first.
 - **The optimizer is tested by whole programs only in a few.** The execution tests and 50 random
   programs per build barely reach the optimizer's patterns; in practice the optimizer is tested
   by whole programs: Blubber Blasen's benchmark and one replay until 2026-11-19, since then the
@@ -342,7 +345,7 @@ Open: the DMA margin is in M5, constant shifts longer than 8 in M9.
 - **The frame budget depends on the game.** The checkpoint after M2 concluded that the compiler
   alone cannot reach it; with the CPU partner the worst tick takes 3 frames.
 - **Little human knowledge of the code.** About 23,000 lines were written in two days, mostly by
-  AI agents. A bug like the open miscompilation needs someone who knows how the code generator
+  AI agents. A bug like the miscompilation of 2026-11-19 needs someone who knows how the code generator
   works; today that knowledge is mostly in the documents and the ADR.
 - **Scope creep.** The compiler could become the project and stall the game; the book and M6
   came before M5. Mitigated by running it in parallel and by milestones that are measured against
@@ -360,20 +363,6 @@ Open: the DMA margin is in M5, constant shifts longer than 8 in M9.
   feature is usable only when both `lib/snes` and Rachael draw it
   ([lib/SNES_HARDWARE.md](../lib/SNES_HARDWARE.md)).
 
-- **A miscompilation in the code generator, not yet found** (2026-11-18; fixing it is part of
-  M5). With functions of up to 80 instructions inlined (the limit is 60), the game's benchmark
-  differs from the PC in 56 of 3,610 ticks, from tick 32 on. What is known: the optimized MIR is
-  right (the interpreter gives the PC's checksums, every value within its range); ca65 and
-  dampf's assembler build the same ROM; it stays with every LIR pass, `PointerRemat`, branch
-  relaxation, the new block order, loop counters in X, indexes in Y, values handed on in A and
-  arguments computed in place switched off. `main` before the branch `optimise` with the same
-  limit is right, but there the limit counts unsimplified bodies and fewer functions are inlined.
-  So an older part of the code generator (selection, `FrameLayout`, the masks) goes wrong on a
-  function the larger inlining makes. Next step: find the function by comparing the emulator's
-  globals with the interpreter's at tick 32, then reduce it to an execution test. The game's code
-  has left the repository (ADR record 40): the search needs it from the game's own repository, or
-  an example that the limit of 80 breaks too (`dev/bench_examples.sh` and the examples' checks
-  with the limit raised).
 - What 1.0 needs: the frame budget met, the subset decisions taken, C in interrupts, or a set of
   users.
 - How Mesen shows locals that live in fixed direct page places, several values sharing a place

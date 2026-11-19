@@ -26,10 +26,11 @@ import java.util.TreeMap;
  * per tick, the work per tick on average and in the busiest 60 ticks in a row (master cycles; a
  * frame has 357,368), and the share of the work in dampf's runtime routines ({@code dampf_*}:
  * multiplication, division, shifts by a variable). The ROM's timing report ({@code .timing.txt})
- * and debug file ({@code .dbg}) must lie beside it; run it from the top of the repository.
+ * and debug file ({@code .dbg}) must lie beside it, and the sources it names where it names them.
  */
 public final class ExampleBench {
     private static final int WINDOW = 60;
+    private static final String SNES_C = "lib/snes/snes.c";
 
     private ExampleBench() {
     }
@@ -103,9 +104,28 @@ public final class ExampleBench {
                 total == 0 ? 0.0 : 100.0 * runtime[0] / total);
     }
 
-    /** The addresses of the C lines of the main loop's two waiting functions, wherever inlined. */
+    /**
+     * The addresses of the C lines of the main loop's two waiting functions, wherever inlined.
+     * The kit's {@code lib/snes/snes.c} is found among the debug file's sources by the end of its
+     * path, and read where the debug file says it is (relative to the debug file's folder), so a
+     * game built outside the kit's repository can be measured too.
+     */
     private static Set<Integer> waitingAddresses(Path dbg) throws IOException {
-        Path snes = Path.of("lib/snes/snes.c");
+        String named = null;
+        for (String l : Files.readAllLines(dbg)) {
+            if (l.startsWith("file\t")) {
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("name=\"([^\"]*)\"").matcher(l);
+                if (m.find() && (m.group(1).equals(SNES_C) || m.group(1).endsWith("/" + SNES_C))) {
+                    named = m.group(1);
+                    break;
+                }
+            }
+        }
+        if (named == null) {
+            throw new IOException(dbg + ": the ROM has no code from " + SNES_C + " (built without the kit's main loop?)");
+        }
+        Path snes = dbg.toAbsolutePath().getParent().resolve(named).normalize();
+        String key = named.replaceFirst("^(\\.\\./)+", "");   /* as ExampleProfile.cLines names it */
         List<String> src = Files.readAllLines(snes);
         Set<String> lines = new HashSet<>();
         for (String name : List.of("void sdevkit__wait_vblank(void)", "void sdevkit__read_pads(")) {
@@ -117,7 +137,7 @@ public final class ExampleBench {
                 throw new IOException(snes + ": no " + name);
             }
             for (; i < src.size() && !src.get(i).equals("}"); i++) {
-                lines.add("lib/snes/snes.c:" + (i + 1));
+                lines.add(key + ":" + (i + 1));
             }
         }
         Set<Integer> at = new HashSet<>();

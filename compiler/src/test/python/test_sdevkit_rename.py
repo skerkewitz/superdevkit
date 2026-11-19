@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Tests of sdevkit_rename.py: identifiers change, strings and comments do not, files are
-rewritten in place, the compatibility headers come from the table.
+rewritten in place.
 
     python3 -I compiler/src/test/python/test_sdevkit_rename.py      (the Gradle build runs it, ToolsTest)
 """
@@ -55,6 +55,16 @@ class Rename(unittest.TestCase):
                 self.assertTrue(new.startswith(("sdevkit_", "SDEVKIT_")), new)
         self.assertEqual(len(set(r.TABLE.values())), len(r.TABLE), "two old names map to one new name")
 
+    def test_a_raylib_frontend_is_skipped(self):
+        with tempfile.TemporaryDirectory() as d:
+            c = os.path.join(d, "platform.c")
+            text = '#include "raylib.h"\nint up(void) { return IsKeyDown(KEY_UP); }\n'
+            with open(c, "w") as f:
+                f.write(text)
+            self.assertEqual(r.main([d]), 0)
+            with open(c) as f:
+                self.assertEqual(f.read(), text)
+
     def test_files_in_place(self):
         with tempfile.TemporaryDirectory() as d:
             os.makedirs(os.path.join(d, "src"))
@@ -72,14 +82,6 @@ class Rename(unittest.TestCase):
                 self.assertEqual(f.read(), "void f(void) { sdevkit_set_screen_on(); }\n")
             with open(txt) as f:
                 self.assertEqual(f.read(), "setScreenOn\n")
-
-    def test_compat_maps_every_name(self):
-        h = r.compat_headers()
-        for old, new in r.SNES_TABLE:
-            self.assertIn("#define %s %s\n" % (old, new), h["snes.h"])
-        for old, new in r.LOOP_MACROS:
-            self.assertIn("#define %s %s\n" % (old, new), h["loop.h"])
-        self.assertIn("typedef uint8_t  u8;", h["snes.h"])
 
 
 if __name__ == "__main__":
