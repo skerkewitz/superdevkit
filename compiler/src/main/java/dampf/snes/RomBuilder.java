@@ -278,6 +278,28 @@ public final class RomBuilder {
         return c.append("}\n").toString();
     }
 
+    /**
+     * Announces battery-backed save RAM in the header: the cartridge type ROM + RAM + battery
+     * ($02) and the RAM size as 2^n KB, the bytes rounded up to 2, 4, 8, 16 or 32 KB; then the
+     * checksum again. The console maps it at $70:0000 to $70:7FFF (LoROM), emulators keep it in a
+     * file of that size.
+     */
+    public static void setSram(Path rom, int bytes) throws IOException {
+        if (bytes <= 0 || bytes > 32 * 1024) {
+            throw new IllegalArgumentException("save RAM of " + bytes + " bytes: 1 to 32768");
+        }
+        byte[] data = Files.readAllBytes(rom);
+        int header = 0x7FC0;
+        int kb = 2;
+        while (kb * 1024 < bytes) {
+            kb *= 2;
+        }
+        data[header + 0x16] = 0x02;
+        data[header + 0x18] = (byte) (31 - Integer.numberOfLeadingZeros(kb));
+        Files.write(rom, data);
+        fixHeader(rom);
+    }
+
     /** Writes the ROM size, the checksum and its complement into the LoROM header ($7FC0 in the file). */
     static void fixHeader(Path rom) throws IOException {
         byte[] data = Files.readAllBytes(rom);

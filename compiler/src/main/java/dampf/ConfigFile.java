@@ -21,7 +21,7 @@ public final class ConfigFile {
 
     /** Options followed by a value. */
     private static final Set<String> TAKES_VALUE = Set.of("-I", "-D", "-o", "--entry", "--backend", "--assembler",
-            "--block-counts", "--replace");
+            "--block-counts", "--replace", "--sram");
     /** Options whose value is a path. */
     private static final Set<String> PATH_VALUE = Set.of("-I", "-o", "--block-counts");
 

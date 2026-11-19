@@ -8,6 +8,8 @@
  * VRAM: the background tiles from word 0x0000, the background map at 0x1000 (32 x 32 entries),
  * the sprite tiles at 0x4000. CGRAM: background palette 0 (colours 0..15), sprite palettes 0..6
  * (colours 128..239): the mouse, the four cats, the scared cats, the mouse after a chili.
+ *
+ * The high score is kept in the cartridge's save RAM (sdevkit_sram, catchme.args: --sram 8).
  */
 #include "catchme.h"
 #include "maze_gfx.h"
@@ -54,6 +56,43 @@ uint16_t random16(void)
     return rng;
 }
 
+/* --- the high score in save RAM -------------------------------------------------------------- */
+/* 8 bytes: 'C', 'M', the score (32 bits, low byte first), 0, and a check byte, the sum of the
+ * seven before it. Anything else (a new cartridge, whose RAM holds what it holds) means no high
+ * score yet, and the game starts with its own. */
+#define SAVE_BYTES 8
+
+static uint8_t save_sum(const uint8_t *s)
+{
+    uint8_t sum = 0;
+    uint8_t i;
+
+    for (i = 0; i < SAVE_BYTES - 1; i++) {
+        sum = (uint8_t)(sum + s[i]);
+    }
+    return sum;
+}
+
+static void best_load(void)
+{
+    const uint8_t *s = sdevkit_sram();
+
+    if (s[0] == 'C' && s[1] == 'M' && s[SAVE_BYTES - 1] == save_sum(s)) {
+        memcpy(&best, s + 2, 4);            /* little endian on the SNES and the PC alike */
+    }
+}
+
+static void best_save(void)
+{
+    uint8_t *s = sdevkit_sram();
+
+    s[0] = 'C';
+    s[1] = 'M';
+    memcpy(s + 2, &best, 4);
+    s[6] = 0;
+    s[SAVE_BYTES - 1] = save_sum(s);
+}
+
 /* --- the status line ------------------------------------------------------------------------- */
 static void hud(void)
 {
@@ -76,6 +115,7 @@ static void add_score(uint16_t points)
     }
     if (score > best) {
         best = score;
+        best_save();
     }
     hud();
 }
@@ -239,6 +279,7 @@ void game_init(uint16_t seed)
     sdevkit_dma_copy_cgram(pal_scared_pal, 128 + 16 * 5, PAL_SCARED_PAL_SIZE);
     sdevkit_dma_copy_cgram(pal_hot_pal, 128 + 16 * 6, PAL_HOT_PAL_SIZE);
     sdevkit_oam_init();
+    best_load();
     level = 1;
     title();
     sdevkit_dma_copy_vram((const uint8_t *)bg_map, VRAM_BG_MAP, MAP_BYTES);   /* the screen is still off */
@@ -248,6 +289,7 @@ void game_init(uint16_t seed)
 
 void game_tick(const uint16_t pad[SDEVKIT_PADS])
 {
+    sdevkit_dbg_hash(sdevkit_sram(), SAVE_BYTES);   /* the checks compare the save RAM too */
     uint16_t pressed = (uint16_t)(pad[0] & ~last_pad);
 
     last_pad = pad[0];

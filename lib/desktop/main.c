@@ -18,6 +18,12 @@
  * vertical blank, or more than one vertical blank can copy), so the desktop finds what the SNES
  * would lose.
  *
+ * Save RAM (sdevkit_sram, built with -DSDEVKIT_SRAM_SIZE): in the window it is the file <game>.srm
+ * next to the program, read before the game starts, written when it changed (looked at every
+ * half second) and when the window closes. A check, a replay and a recording start with the save
+ * RAM their file names ("sram H": its bytes in hex, the rest zero), or zeros; they never touch
+ * the .srm file. A recording names the save RAM of its start.
+ *
  * The window shows the picture through the retro TV filter (crt.c); Tab turns it off and on,
  * --no-crt starts without it. Screenshots (F12, --check) are Rachael's picture, unfiltered.
  *
@@ -197,7 +203,26 @@ static struct {
     long n, cap;
     long marks[MAX_MARKS];
     int nmarks;
+    uint8_t sram[SDEVKIT_SRAM_SIZE > 0 ? SDEVKIT_SRAM_SIZE : 1];   /* the save RAM when it began */
 } rec;
+
+/* The save RAM in hex, up to its last byte that is not zero; nothing when all are zero. */
+static void write_sram_line(FILE *f, const uint8_t *sram)
+{
+    long n = SDEVKIT_SRAM_SIZE, i;
+
+    while (n > 0 && sram[n - 1] == 0) {
+        n--;
+    }
+    if (n == 0) {
+        return;
+    }
+    fprintf(f, "sram ");
+    for (i = 0; i < n; i++) {
+        fprintf(f, "%02x", sram[i]);
+    }
+    fprintf(f, "\n");
+}
 
 static void *grow(void *p, size_t size)
 {
@@ -235,6 +260,7 @@ static int rec_save(const char *path)
     }
     fprintf(f, "# a recording of %s (lib/desktop): pad 1 and the checksum of every tick\n", GAME_NAME);
     fprintf(f, "ticks %ld\n", rec.n);
+    write_sram_line(f, rec.sram);
     for (start = 0; start < rec.n; start = t) {
         uint16_t p = rec.pad[start];
         for (t = start + 1; t < rec.n && rec.pad[t] == p; t++) {
@@ -271,7 +297,16 @@ typedef struct {
     int nshots;
     long marks[MAX_MARKS];
     int nmarks;
+    uint8_t sram[SDEVKIT_SRAM_SIZE > 0 ? SDEVKIT_SRAM_SIZE : 1];   /* the save RAM at power-on */
 } Input;
+
+/* A line of a check or a recording; an "sram" line has two hex digits per byte of save RAM. */
+static char line[2 * 32768 + 64];
+
+static int hex_digit(char c)
+{
+    return c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1;
+}
 
 static uint16_t button(const char *name);
 static long splash_shots[64];
@@ -288,7 +323,6 @@ static long number(const char *path, const char *w)
 
 static int load_input(const char *path, Input *in, long default_ticks)
 {
-    char line[512];
     long size;
     FILE *f = fopen(path, "r");
 
@@ -351,6 +385,22 @@ static int load_input(const char *path, Input *in, long default_ticks)
             in->shots[in->nshots++] = number(path, strtok(NULL, " \t\r\n"));
         } else if (strcmp(w, "splash") == 0 && splash_nshot < 64) {
             splash_shots[splash_nshot++] = number(path, strtok(NULL, " \t\r\n"));
+        } else if (strcmp(w, "sram") == 0) {
+            const char *h = strtok(NULL, " \t\r\n");
+            long i, n = h != NULL ? (long)strlen(h) / 2 : 0;
+            if (h == NULL || (long)strlen(h) % 2 != 0 || n > SDEVKIT_SRAM_SIZE) {
+                fprintf(stderr, "%s: the sram line of %s does not fit the game's %d bytes of save RAM\n",
+                        GAME_NAME, path, SDEVKIT_SRAM_SIZE);
+                exit(2);
+            }
+            for (i = 0; i < n; i++) {
+                int hi = hex_digit(h[2 * i]), lo = hex_digit(h[2 * i + 1]);
+                if (hi < 0 || lo < 0) {
+                    fprintf(stderr, "%s: the sram line of %s is not hex\n", GAME_NAME, path);
+                    exit(2);
+                }
+                in->sram[i] = (uint8_t)(hi << 4 | lo);
+            }
         }
     }
     fclose(f);
@@ -446,14 +496,65 @@ static void sdevkit__splash_sprites(const uint8_t *low, uint16_t bytes, const ui
 
 #include "../splash/splash.h"
 
-/* Power on: the splash, the console reset again, then the game. */
-static void start(void)
+/* Power on with this save RAM (null: as it is): the splash, the console reset again, then the
+ * game. The recording begins with the save RAM of this moment. */
+static void start(const uint8_t *sram)
 {
+#if SDEVKIT_SRAM_SIZE > 0
+    if (sram != NULL) {
+        memcpy(sdevkit_sram(), sram, SDEVKIT_SRAM_SIZE);
+    }
+    memcpy(rec.sram, sdevkit_sram(), SDEVKIT_SRAM_SIZE);
+#else
+    (void)sram;
+#endif
     sdevkit__reset();
     sdevkit__splash();
     sdevkit__reset();
     game_init(0);
 }
+
+/* --- the save RAM file ------------------------------------------------------------------------ */
+#if SDEVKIT_SRAM_SIZE > 0
+static char sram_path[1024];                /* <game>.srm next to the program; empty: not kept */
+static uint8_t sram_saved[SDEVKIT_SRAM_SIZE];   /* what the file holds */
+
+/* Reads the file into the save RAM: what it has, the rest zero. */
+static void sram_load(void)
+{
+    FILE *f;
+
+    snprintf(sram_path, sizeof sram_path, "%s%s.srm", GetApplicationDirectory(), GAME_NAME);
+    memset(sdevkit_sram(), 0, SDEVKIT_SRAM_SIZE);
+    f = fopen(sram_path, "rb");
+    if (f != NULL) {
+        size_t n = fread(sdevkit_sram(), 1, SDEVKIT_SRAM_SIZE, f);
+        (void)n;
+        fclose(f);
+    }
+    memcpy(sram_saved, sdevkit_sram(), SDEVKIT_SRAM_SIZE);
+}
+
+/* Writes the save RAM into the file when it is not what the file holds. */
+static void sram_store(void)
+{
+    FILE *f;
+
+    if (sram_path[0] == 0 || memcmp(sram_saved, sdevkit_sram(), SDEVKIT_SRAM_SIZE) == 0) {
+        return;
+    }
+    f = fopen(sram_path, "wb");
+    if (f == NULL || fwrite(sdevkit_sram(), 1, SDEVKIT_SRAM_SIZE, f) != SDEVKIT_SRAM_SIZE) {
+        fprintf(stderr, "%s: cannot write the save RAM to %s\n", GAME_NAME, sram_path);
+        sram_path[0] = 0;
+    } else {
+        memcpy(sram_saved, sdevkit_sram(), SDEVKIT_SRAM_SIZE);
+    }
+    if (f != NULL) {
+        fclose(f);
+    }
+}
+#endif
 
 /* --- the window ------------------------------------------------------------------------------ */
 static void show(Texture2D tex)
@@ -607,7 +708,12 @@ static int window(int scale, int no_crt, const char *replay_file)
     splash_texture = tex;
     splash_scale = scale;
     rec.on = 1;
-    start();
+#if SDEVKIT_SRAM_SIZE > 0
+    if (!replaying) {
+        sram_load();                        /* a replay starts with its own and keeps no file */
+    }
+#endif
+    start(replaying ? replay.sram : NULL);
     while (!WindowShouldClose()) {
         int steps = paused ? (IsKeyPressed(KEY_F6) ? 1 : 0) : fast ? 8 : 1;
         int k;
@@ -657,7 +763,15 @@ static int window(int scale, int no_crt, const char *replay_file)
             snprintf(name, sizeof name, "%s_%d.png", GAME_NAME, shots++);
             save_png(name);
         }
+#if SDEVKIT_SRAM_SIZE > 0
+        if (tick_count % 30 == 0) {
+            sram_store();
+        }
+#endif
     }
+#if SDEVKIT_SRAM_SIZE > 0
+    sram_store();
+#endif
     sdevkit__crt_unload();
     UnloadTexture(tex);
     if (audio_on) {
@@ -728,7 +842,7 @@ static int check(const char *path, const char *out, const char *record, const ch
     }
     rec.on = record != NULL;
     sound_tick = -1;
-    start();
+    start(in.sram);
     fprintf(sound_log, "aram %08x\n", (unsigned)sdevkit__sound.upload_hash);
     for (f = 0; f < in.ticks; f++) {
         uint16_t pad[SDEVKIT_PADS] = { 0, 0 };

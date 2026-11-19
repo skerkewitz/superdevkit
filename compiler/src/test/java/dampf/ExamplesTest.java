@@ -153,19 +153,22 @@ public class ExamplesTest {
         List<Path> includes = new ArrayList<>();
         List<Path> sources = new ArrayList<>();
         String entry = "main";
+        int sram = 0;
         for (int i = 1; i < args.size(); i++) {
             String a = args.get(i);
             if (a.equals("-I")) {
                 includes.add(Path.of(args.get(++i)));
             } else if (a.equals("--entry")) {
                 entry = args.get(++i);
+            } else if (a.equals("--sram")) {
+                sram = Integer.parseInt(args.get(++i));
             } else if (a.startsWith("-")) {
                 throw new IllegalArgumentException("an option the test does not know: " + a);
             } else {
                 sources.addAll(ConfigFile.sources(Path.of(a)));
             }
         }
-        return new Compiler.Options(sources, includes, List.of(), entry, out);
+        return new Compiler.Options(sources, includes, List.of(), entry, out).withSram(sram);
     }
 
     private static String run(String... cmd) throws IOException, InterruptedException {

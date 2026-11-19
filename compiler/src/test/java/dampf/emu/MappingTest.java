@@ -28,6 +28,30 @@ class MappingTest {
     }
 
     @Test
+    void loRomSaveRamIsAtBank70WhenTheHeaderAnnouncesIt() {
+        byte[] r = rom(0x20000);
+        r[0x7FD5] = 0x30;
+        r[0x7FD6] = 0x02;                                    // ROM, RAM and battery
+        r[0x7FD8] = 0x01;                                    // 2 KB
+        Snes s = new Snes(r);
+        assertEquals(2048, s.sram().length);
+        s.write(0x700000, 0x12);
+        s.write(0x7007FF, 0x34);
+        assertEquals(0x12, s.read(0x700000));
+        assertEquals(0x12, s.read(0x700800));                // 2 KB repeat through the bank
+        assertEquals(0x34, s.read(0xF007FF));                // $F0-$FD mirror $70-$7D
+        assertEquals(0x12, s.peek(0x700000));
+        assertEquals(0x12, s.sram()[0]);
+        assertEquals(r[0x0000] & 0xFF, s.read(0x708000));    // the upper half of bank $70 is ROM
+
+        r[0x7FD6] = 0x00;                                    // ROM only: nothing at $70:0000
+        Snes none = new Snes(r);
+        assertEquals(0, none.sram().length);
+        none.write(0x700000, 0x12);
+        assertEquals(0, none.read(0x700000));
+    }
+
+    @Test
     void hiRomMapsWholeBanks() {
         byte[] r = rom(0x20000);
         r[0xFFD5] = 0x21;

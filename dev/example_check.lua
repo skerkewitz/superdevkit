@@ -16,6 +16,8 @@
 --                               blank, where everything before it only switches the screen off,
 --                               so frame N is the Nth write with bit 7 clear; its picture is
 --                               taken two frame ends on, as a tick's
+--   sram H                      the cartridge's save RAM at power-on: its bytes in hex from the
+--                               first on, the rest zero (written before the game starts)
 -- Writes example_check.txt: lost bytes per frame, then "frames F ticks T lost L"; and
 -- example_hashes.txt: the checksum of every tick, "tick hash" (hex), as the desktop's check writes
 -- hashes.txt. The kit's main loop writes 0 to $21FD after each game_tick (1 once after game_init);
@@ -28,11 +30,12 @@
 -- each its address (low, high byte) and value, in the order written. (Not of the RAM itself: what
 -- the uploads did not touch is Mesen's fill pattern there, zero in the others.)
 local ok, err = pcall(function()
-  local total, shots, presses, splash = 600, {}, {}, {}
+  local total, shots, presses, splash, sram = 600, {}, {}, {}, nil
   for line in io.lines("example_input.txt") do
     local w = {}
     for word in line:gmatch("%S+") do w[#w + 1] = word end
     if w[1] == "ticks" then total = tonumber(w[2])
+    elseif w[1] == "sram" then sram = w[2]
     elseif w[1] == "shot" then shots[tonumber(w[2])] = true
     elseif w[1] == "splash" then splash[tonumber(w[2])] = true
     elseif w[1] == "press" then
@@ -45,6 +48,16 @@ local ok, err = pcall(function()
         for i = 4, #w do held[w[i]] = true end
       end
     end
+  end
+  -- the save RAM of the check, the rest zero, as on the desktop and in dampf's emulator
+  local sramSize = emu.getMemorySize(emu.memType.snesSaveRam)
+  if sram and #sram // 2 > sramSize then
+    error("the check's sram line has " .. (#sram // 2) .. " bytes, the ROM's save RAM " .. sramSize)
+  end
+  for i = 0, sramSize - 1 do
+    local v = 0
+    if sram and i < #sram // 2 then v = tonumber(sram:sub(2 * i + 1, 2 * i + 2), 16) end
+    emu.write(i, v, emu.memType.snesSaveRam)
   end
   local out = io.open("example_check.txt", "w")
   local hashes = io.open("example_hashes.txt", "w")

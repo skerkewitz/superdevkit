@@ -10,7 +10,8 @@ import java.util.Map;
 /**
  * Plays a game of the kit in dampf's emulator with the input of a {@code check.txt} (the format
  * of the examples' checks: {@code ticks N}, {@code press T1 T2 buttons...}, {@code budget T1 T2}: no
- * tick from T1 to T2 - 1 may take more than a frame; {@code shot} and {@code splash} lines are for
+ * tick from T1 to T2 - 1 may take more than a frame; {@code sram H}: the save RAM at power-on, its
+ * bytes in hex from the first on, the rest zero; {@code shot} and {@code splash} lines are for
  * the picture and ignored here) and records the checksum of every
  * tick, as the desktop's check (lib/desktop) and Mesen's (dev/example_check.lua) do: the bytes the
  * game names with {@code sdevkit_dbg_hash}, then the sprite table, FNV-1a with 32 bits.
@@ -53,9 +54,10 @@ public final class ExampleCheck {
      * -1 where there is none) and its marks ({@code mark T}). The joypad of every tick is worked
      * out once: a recording has thousands of press lines.
      */
-    public record Input(long ticks, List<Press> presses, List<Budget> budgets, long[] recorded, List<Long> marks, int[] pads) {
+    public record Input(long ticks, List<Press> presses, List<Budget> budgets, long[] recorded, List<Long> marks, int[] pads,
+                        byte[] sram) {
         public Input(long ticks, List<Press> presses, List<Budget> budgets) {
-            this(ticks, presses, budgets, new long[0], List.of(), pads(ticks, presses));
+            this(ticks, presses, budgets, new long[0], List.of(), pads(ticks, presses), new byte[0]);
         }
 
         private static int[] pads(long ticks, List<Press> presses) {
@@ -181,9 +183,12 @@ public final class ExampleCheck {
         List<Budget> budgets = new ArrayList<>();
         Map<Long, Long> recorded = new java.util.HashMap<>();
         List<Long> marks = new ArrayList<>();
+        byte[] sram = new byte[0];
         for (String line : Files.readAllLines(checkTxt)) {
             String[] w = line.strip().split("\\s+");
-            if (w[0].equals("hash")) {
+            if (w[0].equals("sram") && w.length == 2) {
+                sram = java.util.HexFormat.of().parseHex(w[1]);
+            } else if (w[0].equals("hash")) {
                 recorded.put(Long.parseLong(w[1]), Long.parseLong(w[2], 16));
             } else if (w[0].equals("mark")) {
                 marks.add(Long.parseLong(w[1]));
@@ -207,12 +212,17 @@ public final class ExampleCheck {
         java.util.Arrays.fill(byTick, -1);
         recorded.forEach((t, h) -> byTick[t.intValue()] = h);
         Input plain = new Input(ticks, List.copyOf(presses), List.copyOf(budgets));
-        return new Input(ticks, plain.presses(), plain.budgets(), byTick, List.copyOf(marks), plain.pads());
+        return new Input(ticks, plain.presses(), plain.budgets(), byTick, List.copyOf(marks), plain.pads(), sram);
     }
 
     /** Plays {@code rom} until {@code input.ticks()} ticks are done or {@code limitFrames} frames passed. */
     public static Result run(byte[] rom, Input input, long limitFrames) throws IOException {
         Snes snes = new Snes(rom);
+        if (input.sram().length > snes.sram().length) {
+            throw new IOException("the check starts with " + input.sram().length + " bytes of save RAM, the ROM has "
+                    + snes.sram().length);
+        }
+        System.arraycopy(input.sram(), 0, snes.sram(), 0, input.sram().length);
         List<Long> hashes = new ArrayList<>();
         List<Long> ends = new ArrayList<>();
         List<Long> vblankAtEnd = new ArrayList<>();

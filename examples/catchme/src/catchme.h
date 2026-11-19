@@ -7,6 +7,7 @@
 #define CATCHME_H
 
 #include <stdint.h>
+#include <string.h>
 #include "sdevkit/loop.h"
 #include "sdevkit/snes.h"
 

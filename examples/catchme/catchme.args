@@ -4,6 +4,7 @@
 -I src
 -I build/gen
 --entry main
+--sram 8
 src/
 build/gen/
 ../../lib/snes/

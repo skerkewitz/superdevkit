@@ -442,6 +442,17 @@ void sdevkit_dbg_hash(const void *data, uint16_t bytes)
     DBG_HASH = (uint8_t)(bytes >> 8);
 }
 
+/* The cartridge's battery-backed RAM: LoROM maps it at $70:0000, and dampf --sram writes into the
+ * header that the cartridge has it (ROM, RAM and battery; the size). */
+uint8_t *sdevkit_sram(void)
+{
+#if SDEVKIT_SRAM_SIZE > 0
+    return (uint8_t *)0x700000;
+#else
+    return 0;
+#endif
+}
+
 /* Both joypads, SNES bit layout (game.h). The automatic read runs in the first lines of the
  * vertical blank. */
 void sdevkit__read_pads(uint16_t *pad1, uint16_t *pad2)

@@ -40,6 +40,8 @@ public final class Snes implements Bus {
 
     private final byte[] rom;
     private final byte[] wram = new byte[128 * 1024];
+    /** The cartridge's save RAM, as the LoROM header announces it (empty without), at $70:0000. */
+    private final byte[] sram;
     private final Cpu65816 cpu = new Cpu65816(this);
     private final Apu apu = new Apu();
     private PortListener ports = (p, v, t) -> { };
@@ -67,6 +69,34 @@ public final class Snes implements Bus {
     public Snes(byte[] rom) {
         this.rom = rom;
         this.hiRom = isHiRom(rom);
+        this.sram = new byte[sramSize(rom, hiRom)];
+    }
+
+    /**
+     * The save RAM a LoROM header announces: a cartridge type with RAM ($02: ROM, RAM and battery,
+     * or $01) and the RAM size as 2^n KB at $FFD8; 0 bytes otherwise.
+     */
+    static int sramSize(byte[] rom, boolean hiRom) {
+        if (hiRom || rom.length < 0x8000) {
+            return 0;
+        }
+        int type = rom[0x7FD6] & 0xFF;
+        int size = rom[0x7FD8] & 0xFF;
+        return (type == 0x01 || type == 0x02) && size > 0 && size <= 5 ? 1024 << size : 0;
+    }
+
+    /** The save RAM, to fill before the run (a recording's start) or to read after it. */
+    public byte[] sram() {
+        return sram;
+    }
+
+    /** The index into the save RAM for an address of banks $70-$7D (and $F0-$FD), below $8000; -1 if none. */
+    private int sramIndex(int bank, int offset) {
+        int b = bank & 0x7F;
+        if (sram.length == 0 || b < 0x70 || b > 0x7D || offset >= 0x8000 || hiRom) {
+            return -1;
+        }
+        return ((b - 0x70) << 15 | offset) % sram.length;
     }
 
     /**
@@ -124,6 +154,10 @@ public final class Snes implements Bus {
         int offset = address & 0xFFFF;
         if (bank == 0x7E || bank == 0x7F) {
             return wram[(bank - 0x7E) << 16 | offset] & 0xFF;
+        }
+        int s = sramIndex(bank, offset);
+        if (s >= 0) {
+            return sram[s] & 0xFF;
         }
         if (hiRom && ((bank & 0x40) != 0 || offset >= 0x8000)) {
             return rom[(((bank & 0x3F) << 16) | offset) % rom.length] & 0xFF;
@@ -226,6 +260,10 @@ public final class Snes implements Bus {
         if (bank == 0x7E || bank == 0x7F) {
             return wram[(bank - 0x7E) << 16 | offset] & 0xFF;
         }
+        int s = sramIndex(bank, offset);
+        if (s >= 0) {
+            return sram[s] & 0xFF;
+        }
         if (hiRom && ((bank & 0x40) != 0 || offset >= 0x8000)) {
             return rom[(((bank & 0x3F) << 16) | offset) % rom.length] & 0xFF; // HiROM
         }
@@ -278,6 +316,11 @@ public final class Snes implements Bus {
         int offset = address & 0xFFFF;
         if (bank == 0x7E || bank == 0x7F) {
             wram[(bank - 0x7E) << 16 | offset] = (byte) value;
+            return;
+        }
+        int s = sramIndex(bank, offset);
+        if (s >= 0) {
+            sram[s] = (byte) value;
             return;
         }
         if ((bank & 0x40) != 0) {

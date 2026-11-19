@@ -32,7 +32,7 @@ both has its functions in `lib/snes` and in `lib/rachael`.
 | Raster interrupts (H/V IRQ), the timers | not built: the game is never interrupted (`sdevkit/loop.h`) | not built | |
 | Sound effects: samples (BRR) from a game's `sfx.json`, 1 to 8 voices with priorities, GAIN's direct envelope, volume ([docs/sound.md](../docs/sound.md)) | built: a forwarding driver on the SPC700, the logic in C | built: Rachael's DSP, through raylib's audio stream; the DSP writes compared with the SNES's | `sdevkit_sfx_init`, `sdevkit_sfx_play` |
 | Music, ADSR envelopes, echo, noise, pitch modulation, looped samples | not built | not built, reported | |
-| Save RAM | not built | not built | |
+| Save RAM: battery-backed, up to 32 KB, kept while the console is off | built: the cartridge's RAM at `$70:0000`, announced in the header by `dampf --sram` | built: `<game>.srm` next to the program; checks and recordings start with the save RAM they name | `sdevkit_sram` |
 | Mouse, multitap, Super Scope | not built | not built | |
 | The CPU's multiplier and divider (`$4202`-`$4206`), mode 7's multiplier (`$2134`-`$2136`) | not used: dampf's runtime multiplies in software | not needed: the game is compiled for the PC | |
 
@@ -101,7 +101,7 @@ What each function costs on the SNES, in CPU cycles, is the last column of the t
 
 ## Not usable yet
 
-Music, save RAM, raster effects by interrupt, the mouse: each waits for its feature in
+Music, raster effects by interrupt, the mouse: each waits for its feature in
 both columns of the table. Many raster effects work today with HDMA (a value per line for a
 register: scrolling, colours, windows).
 

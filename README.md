@@ -168,7 +168,8 @@ links with ca65 and ld65 instead of dampf's own assembler and linker (the same R
 writes a map file). The runtime calls the entry function after start-up (`void name(void)`, default
 `main`) and writes to $21FB when it returns. With the code generator from MIR it also writes the
 timing report (`.timing.txt`). `--backend naive` picks the naive code generator, `--slowrom`
-builds for a SlowROM cartridge (FastROM is the default), `--replace fn=file.s` links a
+builds for a SlowROM cartridge (FastROM is the default), `--sram BYTES` gives the cartridge
+battery-backed save RAM (the header says so; `SDEVKIT_SRAM_SIZE` is defined), `--replace fn=file.s` links a
 hand-written function ([reference](reference/README.md)) and `--block-counts` lays out the
 blocks by a profile. `parse` only preprocesses and parses. `check` runs the front end on every
 file alone, then on all of them together (recursion, functions defined nowhere or twice). Every

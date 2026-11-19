@@ -43,6 +43,9 @@ DAMPF_INCLUDE=include                       # dampf's headers: in a superdevkit 
 [ -d "$DAMPF_INCLUDE" ] || DAMPF_INCLUDE=compiler/src/main/resources/dampf/include   # in the repository the sources
 OPT=/O2; [ "${DEBUG:-0}" = 1 ] && OPT=/Od
 CL="cl /nologo /std:c11 $OPT /Z7 /W3 /utf-8 /MD"   # /MD: the C runtime raylib's package was built with; /Z7: debug information
+# the save RAM the SNES build asks for (--sram N in the argument file): the same size on the desktop
+SRAM=$(sed -n 's/^--sram[[:space:]][[:space:]]*\([0-9][0-9]*\).*/\1/p' "$EX/$NAME.args" 2>/dev/null | head -n 1)
+[ -n "$SRAM" ] && CL="$CL /DSDEVKIT_SRAM_SIZE=$SRAM"
 
 GAME_SOURCES=""
 GAME_OBJECTS=""

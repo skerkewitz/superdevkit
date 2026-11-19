@@ -71,6 +71,11 @@ switches the ROM there to 3.58 MHz (`MEMSEL` at `$420D`); the header says FastRO
 `$30`). A ROM access then takes 6 master cycles instead of 8. `dampf build --slowrom` leaves it at
 2.68 MHz, header `$20`, for a SlowROM cartridge (flash cartridges and emulators run FastROM).
 
+Save RAM, with `dampf build --sram BYTES`: the cartridge's battery-backed RAM at `$70:0000` to
+`$70:7FFF` (8 master cycles a byte), up to 32 KB. The header's cartridge type becomes `$02` (ROM,
+RAM and battery) and its RAM size the smallest of 2, 4, 8, 16 and 32 KB that holds the bytes;
+`sdevkit_sram()` returns the address ([lib/README.md](../lib/README.md)).
+
 - **Bank `$80`** holds the parts with fixed places: the start-up code, the runtime's arithmetic
   routines, the initial values of variables (copied to RAM at start-up), the header at `$FFC0` and
   the vectors at `$FFE0`. The rest of the bank is filled like the others.

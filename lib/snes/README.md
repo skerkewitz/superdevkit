@@ -13,7 +13,9 @@ links it into a ROM you can play (for Mesen or real hardware).
 
 There is no interrupt handler: the main loop waits for the vertical blank itself, because C code
 called from an NMI in the middle of a tick would overwrite the frames of the code it interrupted
-(dampf keeps them at fixed places). Save RAM is not built.
+(dampf keeps them at fixed places). Save RAM is the cartridge's battery RAM at `$70:0000`
+(`sdevkit_sram`): `dampf --sram BYTES` writes it into the header (ROM, RAM and battery; the size
+rounded up to 2 to 32 KB) and defines `SDEVKIT_SRAM_SIZE`.
 
 Checks: `ExamplesTest` plays every example's `check.txt` through this layer in dampf's emulator,
 with a checksum per tick against the desktop, and `dev/check_example.sh` in Mesen (no byte may

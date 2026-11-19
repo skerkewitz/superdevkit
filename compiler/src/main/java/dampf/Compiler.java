@@ -37,10 +37,24 @@ public final class Compiler {
      *                     for a SlowROM cartridge
      * @param ca65         assemble and link with ca65 and ld65 instead of dampf's own assembler and
      *                     linker (which build the same ROM; see ADR record 19)
+     * @param sram         bytes of battery-backed save RAM the cartridge has (0: none): the header
+     *                     announces it (rounded up to 2, 4, 8, 16 or 32 KB, at $70:0000 in LoROM),
+     *                     and the preprocessor gets {@code SDEVKIT_SRAM_SIZE} with the exact number
+     *                     for the kit's {@code sdevkit_sram()} (ADR record 32)
      */
     public record Options(List<Path> sources, List<Path> includeDirs, List<String> defines, String entry, Path output,
                           Map<String, Path> replacements, Backend backend,
-                          java.util.function.BiFunction<String, String, Long> blockCounts, boolean fastRom, boolean ca65) {
+                          java.util.function.BiFunction<String, String, Long> blockCounts, boolean fastRom, boolean ca65,
+                          int sram) {
+        /** The largest save RAM of a LoROM cartridge that dampf announces: 32 KB at $70:0000. */
+        public static final int MAX_SRAM = 32 * 1024;
+
+        public Options(List<Path> sources, List<Path> includeDirs, List<String> defines, String entry, Path output,
+                       Map<String, Path> replacements, Backend backend,
+                       java.util.function.BiFunction<String, String, Long> blockCounts, boolean fastRom, boolean ca65) {
+            this(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fastRom, ca65, 0);
+        }
+
         public Options(List<Path> sources, List<Path> includeDirs, List<String> defines, String entry, Path output,
                        Map<String, Path> replacements, Backend backend) {
             this(sources, includeDirs, defines, entry, output, replacements, backend, null, true, false);
@@ -62,20 +76,38 @@ public final class Compiler {
         }
 
         public Options withBackend(Backend b) {
-            return new Options(sources, includeDirs, defines, entry, output, replacements, b, blockCounts, fastRom, ca65);
+            return new Options(sources, includeDirs, defines, entry, output, replacements, b, blockCounts, fastRom, ca65, sram);
         }
 
         public Options withBlockCounts(java.util.function.BiFunction<String, String, Long> counts) {
-            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, counts, fastRom, ca65);
+            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, counts, fastRom, ca65, sram);
         }
 
         public Options withFastRom(boolean fast) {
-            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fast, ca65);
+            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fast, ca65, sram);
         }
 
         /** {@code true}: assemble and link with ca65 and ld65. */
         public Options withCa65(boolean useCa65) {
-            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fastRom, useCa65);
+            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fastRom, useCa65, sram);
+        }
+
+        /** With this many bytes of save RAM (0: none). */
+        public Options withSram(int bytes) {
+            if (bytes < 0 || bytes > MAX_SRAM) {
+                throw new IllegalArgumentException("save RAM of " + bytes + " bytes: 0 to " + MAX_SRAM);
+            }
+            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fastRom, ca65, bytes);
+        }
+
+        /** The defines the preprocessor gets: the user's, and SDEVKIT_SRAM_SIZE with save RAM. */
+        public List<String> allDefines() {
+            if (sram == 0) {
+                return defines;
+            }
+            List<String> all = new java.util.ArrayList<>(defines);
+            all.add("SDEVKIT_SRAM_SIZE=" + sram);
+            return all;
         }
 
         /** Block counts from a file of lines "function block count" ({@code dampf profile --blocks}). */
@@ -105,7 +137,7 @@ public final class Compiler {
     private Compiler() {}
 
     public static Program frontEnd(Options o) throws CompileError, IOException {
-        Preprocessor pp = new Preprocessor("gcc", SystemHeaders.directory(), o.includeDirs(), o.defines());
+        Preprocessor pp = new Preprocessor("gcc", SystemHeaders.directory(), o.includeDirs(), o.allDefines());
         AstBuilder builder = new AstBuilder(SystemHeaders.directory());
         // every file, so that the errors of one do not hide those of the next
         List<dampf.frontend.Diagnostic> errors = new java.util.ArrayList<>();
@@ -169,6 +201,9 @@ public final class Compiler {
         }
         RomBuilder.Rom rom = o.ca65() ? RomBuilder.build(asm, outDir, baseName, o.fastRom())
                 : RomBuilder.buildNative(asm, outDir, baseName, o.fastRom());
+        if (o.sram() > 0) {
+            RomBuilder.setSram(rom.rom(), o.sram());
+        }
         return new Result(program, asm, rom, timing, warnings);
     }
 

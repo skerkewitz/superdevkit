@@ -142,8 +142,12 @@ New headers in `lib/include/sdevkit/`, with the names of ADR record 34, built in
   `sdevkit/snes.h`, the effects from `assets/sfx/sfx.json` through `superdevkit sfx`, an SPC700
   driver on the SNES and Rachael's DSP on the desktop, both playing the same BRR. Music
   (`sdevkit_music_play(track)`, `sdevkit_music_stop()`) is still to do.
-- `sram.h`: `sdevkit_sram()` (the block) and `SDEVKIT_SRAM_SIZE` from the project file; the
-  frontend saves it when it changed and on exit.
+- Save RAM: built on 2026-11-19, in `sdevkit/snes.h` rather than a header of its own:
+  `sdevkit_sram()` (the block) and `SDEVKIT_SRAM_SIZE`, from `dampf --sram BYTES` on the SNES
+  (the cartridge's battery RAM at `$70:0000`, announced in the header) and `-DSDEVKIT_SRAM_SIZE`
+  on the desktop (`<game>.srm` next to the program, written when it changed and on exit). Checks
+  and recordings name the save RAM they start with (`sram H`), dampf's emulator and Mesen's script
+  load it; CatchMe keeps its high score there.
 - `debug.h`: `sdevkit_dbg_toggle(name, &flag)`, `sdevkit_dbg_range(name, &value, lo, hi)`,
   `sdevkit_dbg_color(name, &colour)`, `sdevkit_dbg_action(name, function)` once at start;
   `sdevkit_dbg_box(x, y, w, h, kind)` per frame. Empty on the SNES; an execution test checks that

@@ -1,4 +1,6 @@
 ticks 1500
+# the save RAM at power-on: a high score of 120 ("CM", 120, 0, the check byte), which the play beats
+sram 434d780000000008
 shot 60
 press 120 124 start
 shot 200

@@ -260,6 +260,22 @@ void sdevkit_sfx_init(const sdevkit_sfx_bank *bank);
  * without an active sample, or before sdevkit_sfx_init, does nothing. */
 void sdevkit_sfx_play(uint8_t id);
 
+/* --- Save RAM (sdevkit_sram, ADR record 32) ---------------------------------------------- */
+/* Battery-backed RAM on the cartridge, kept while the console is off: high scores, settings, a
+ * saved game. A game asks for it in its build (dampf --sram BYTES, which defines
+ * SDEVKIT_SRAM_SIZE; the desktop build gets the same -DSDEVKIT_SRAM_SIZE); without, the size is
+ * 0 and sdevkit_sram() returns 0. The game reads and writes the block like memory, whenever it
+ * likes; the kit keeps it: the cartridge's battery on the SNES (at $70:0000, the header announces
+ * it), a file next to the program on the desktop (<game>.srm, written when it changed and on exit).
+ * The first time it holds zeros on the desktop and in the checks, on a cartridge whatever the RAM
+ * held: a game marks its data as valid (a magic number, a checksum) and clears the block when the
+ * mark is missing. A recording starts with the save RAM of its start, so that a replay plays the
+ * same game. */
+#ifndef SDEVKIT_SRAM_SIZE
+#define SDEVKIT_SRAM_SIZE 0
+#endif
+uint8_t *sdevkit_sram(void);
+
 /* --- Debug (sdevkit_dbg_*) --------------------------------------------------------------- */
 /* VRAM as 0x8000 words, for a debug check of the tile maps on the desktop. Only Rachael
  * can read VRAM like memory; on the SNES it returns a single zero word, so a check that uses it
