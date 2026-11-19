@@ -6,8 +6,9 @@ which has not changed since 1990. Written for whoever writes a game, an AI first
 Rachael (the desktop) and in Mesen, never on a console, so each rule says how it is checked.
 
 **Three kinds of rule.** *Enforced*: Rachael or the build reports a breach, and the desktop
-check fails on it. *Measured*: only the console's timing shows it, in Mesen
-(`dev/check_example.sh`). *Documented*: the kit does not check it; take care yourself.
+check fails on it. *Measured*: a check shows it without failing on it: what only the console's
+timing shows, in Mesen (`dev/check_example.sh`), or a count of the desktop check that a game may
+mean. *Documented*: the kit does not check it; take care yourself.
 
 ## What the kit has
 
@@ -60,8 +61,9 @@ What each function costs on the SNES, in CPU cycles, is the last column of the t
 
 - **At most 32 sprites and 34 tiles of 8 pixels on one line.** Over 32, the sprites with the
   highest numbers in the sprite table are dropped; over 34 tiles, the sprites are checked from
-  the highest number down, so those with the lowest numbers lose their tiles (*enforced*:
-  Rachael counts both, `range_over_lines`, `time_over_lines`).
+  the highest number down, so those with the lowest numbers lose their tiles (*measured*: Rachael
+  counts both, and the desktop check prints the lines over a limit as `sprites N`; a game may
+  mean it, flickering on purpose, so the check does not fail on it).
 - **Put the most important sprite at the lowest number**: it is drawn in front, and it is the
   last to be dropped by the 32-sprite limit (but the first to lose tiles over 34).
 - **Flicker** by rotating the order in the table from frame to frame when a line needs more

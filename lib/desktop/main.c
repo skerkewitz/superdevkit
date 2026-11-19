@@ -16,8 +16,9 @@
  * examples' check.txt: "ticks N", "press T1 T2 buttons...", "shot T"; on the desktop every frame is
  * one tick), writes the screenshots it
  * asks for as PNG into the folder of --out (default .), and prints "frames N ticks N lost L
- * undrawn U"; the exit status is 1 when a byte was lost or a register write was one Rachael does
- * not draw (sdevkit__undrawn).
+ * undrawn U sprites S"; the exit status is 1 when a byte was lost or a register write was one
+ * Rachael does not draw (sdevkit__undrawn). S counts the lines over the sprite limits (32 sprites,
+ * 34 tiles); a game may mean that (flicker), so it does not fail the check.
  *
  * This file is host code for the desktop's C compiler, not for dampf.
  */
@@ -53,17 +54,27 @@ static void picture(void)
     }
 }
 
-/* One frame of the console; returns the bytes lost in it. */
+/* Lines of the frames so far with more sprites or sprite tiles than the SNES draws. */
+static unsigned sprite_lines;
+
+/* One frame of the console; returns the bytes lost in it: those written during the picture
+ * (in game_tick, which the vertical blank would otherwise forget) and those over the vertical
+ * blank's budget (in game_vblank). */
 static unsigned frame_step(const uint16_t pad[SDEVKIT_PADS])
 {
     sdevkit__frame_stats s;
+    unsigned lost;
 
     game_tick(pad);
+    lost = sdevkit__stats().dma_lost;
     sdevkit__vblank();
     game_vblank();
     s = sdevkit__stats();
     picture();
-    return s.dma_lost;
+    lost += s.dma_lost;
+    s = sdevkit__stats();
+    sprite_lines += (unsigned)s.range_over_lines + s.time_over_lines;
+    return lost;
 }
 
 static void save_png(const char *path)
@@ -241,7 +252,8 @@ static int check(const char *path, const char *out)
         }
     }
     report_undrawn(stdout);
-    printf("frames %ld ticks %ld lost %u undrawn %u\n", frames, frames, lost, sdevkit__rachael.undrawn);
+    printf("frames %ld ticks %ld lost %u undrawn %u sprites %u\n", frames, frames, lost, sdevkit__rachael.undrawn,
+           sprite_lines);
     return lost > 0 || sdevkit__rachael.undrawn > 0 ? 1 : 0;
 }
 

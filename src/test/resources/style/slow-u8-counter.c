@@ -1,7 +1,7 @@
 /* rule: slow-u8-counter
  * claim: sum_u8_counter slower sum_u16_counter
- * A loop counter of uint8_t costs more than one of uint16_t: each i++ switches the accumulator
- * to 8 bits and back, and each byte load is masked. */
+ * A loop counter of uint8_t costs more than one of uint16_t: an 8-bit i++ switches the
+ * accumulator to 8 bits and back, and the counter is masked again for the compare. */
 #include <stdint.h>
 
 uint8_t data[200];
