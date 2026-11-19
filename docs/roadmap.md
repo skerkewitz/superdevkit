@@ -72,10 +72,11 @@ see and gives the same checksums and pictures as Linux.
 Built in M7 on 2026-11-19: sound effects on both platforms ([docs/sound.md](sound.md), ADR
 [record 44](adr/0044-sound-effects-come-from-sfx-json-and-rachael-plays.md)); Schach and
 Steinschlag use them; save RAM too (`sdevkit_sram`, `dampf --sram`; CatchMe keeps its high score
-there). Still to do in M7: music and the debug
-registrations in the console API (built on the desktop, stubs on the SNES; ADR [record
-32](adr/0032-desktop-and-web-are-for-prototyping-with-sound.md), with the names of [record
-34](adr/0034-every-name-of-the-console-api-starts-with.md)), the desktop frontend with the debug view, and the `superdevkit` command with `init`, `build` and
+there); and the debug view with the registrations of the console API (F1 on the desktop, empty on
+the SNES, where dampf removes the calls). Still to do in M7: music (built on the desktop, a stub on
+the SNES; ADR [record 32](adr/0032-desktop-and-web-are-for-prototyping-with-sound.md), with the
+names of [record 34](adr/0034-every-name-of-the-console-api-starts-with.md)), and the
+`superdevkit` command with `init`, `build` and
 `run` (ADR [record 31](adr/0031-the-superdevkit-command-builds-a-project-from-its.md)); `init`
 writes a line into the new project's `CLAUDE.md` or `AGENTS.md` that points to the kit's guides,
 `lib/C_STYLE.md` and `lib/SNES_HARDWARE.md`. Done

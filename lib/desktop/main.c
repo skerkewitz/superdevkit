@@ -33,8 +33,15 @@
  * too (dev/replay.sh <rom> <recording>, in dampf's emulator, which compares the hashes and skips
  * the marks). --replay file plays one in the window: it pauses at each mark, and at the first
  * tick whose checksum is not the recorded one; after its last tick the keyboard takes over (and the recording goes on). F5 pauses and
- * goes on, F6 steps one tick while paused, F7 runs eight ticks a frame. With --check,
- * --record file writes the recording of the check's run.
+ * goes on, F6 steps one tick while paused, F7 runs eight ticks a frame, F8 a tick every four
+ * frames (slow motion). With --check, --record file writes the recording of the check's run.
+ *
+ * F1 opens the debug view beside the picture (view.c): the run, what the game registered with
+ * sdevkit_dbg_toggle, _range, _color and _action, its boxes (sdevkit_dbg_box) over the picture,
+ * CGRAM, VRAM's tiles and the sprites. A change made there is not part of the recording: the
+ * window says from which tick a replay plays another game, and the recording notes it.
+ * --view-shot file.png (with --check) draws the view once after the check into a PNG, in a
+ * hidden window (--view-tab 0..3 picks the tab), for the tests and the docs.
  *
  * With --check <file> it runs without a window, with the input of the file (the format of the
  * examples' check.txt: "ticks N", "press T1 T2 buttons...", "shot T", "splash N"; on the desktop
@@ -60,6 +67,7 @@
 #include "rachael.h"
 #include "raylib.h"
 #include "crt.h"
+#include "view.h"
 
 #ifndef GAME_NAME
 #define GAME_NAME "superdevkit"
@@ -204,7 +212,9 @@ static struct {
     long marks[MAX_MARKS];
     int nmarks;
     uint8_t sram[SDEVKIT_SRAM_SIZE > 0 ? SDEVKIT_SRAM_SIZE : 1];   /* the save RAM when it began */
-} rec;
+    long debug_tick;                   /* the first tick the debug view changed the game before; -1 none */
+    const char *debug_name;
+} rec = { .debug_tick = -1 };
 
 /* The save RAM in hex, up to its last byte that is not zero; nothing when all are zero. */
 static void write_sram_line(FILE *f, const uint8_t *sram)
@@ -260,6 +270,10 @@ static int rec_save(const char *path)
     }
     fprintf(f, "# a recording of %s (lib/desktop): pad 1 and the checksum of every tick\n", GAME_NAME);
     fprintf(f, "ticks %ld\n", rec.n);
+    if (rec.debug_tick >= 0) {
+        fprintf(f, "# the debug view changed %s before tick %ld: from there a replay plays another game\n",
+                rec.debug_name, rec.debug_tick);
+    }
     write_sram_line(f, rec.sram);
     for (start = 0; start < rec.n; start = t) {
         uint16_t p = rec.pad[start];
@@ -415,6 +429,7 @@ static unsigned frame_step(const uint16_t pad[SDEVKIT_PADS])
     sdevkit__frame_stats s;
     unsigned lost;
 
+    sdevkit__dbg_nboxes = 0;
     game_tick(pad);
     {
         uint32_t h = sdevkit__tick_hash();
@@ -455,7 +470,7 @@ static long splash_count;               /* frames of the splash so far */
 static const char *splash_out = ".";
 
 static uint16_t keyboard(void);
-static void show(Texture2D tex);
+static const char *show(Texture2D tex, sdevkit__run_state *run);
 
 /* One frame of the splash (lib/splash/splash.h): the brightness written in the vertical blank,
  * the picture drawn; in the window shown, with the keyboard as pad 1; in a check, the screenshots
@@ -473,7 +488,7 @@ static uint16_t sdevkit__splash_frame(uint8_t brightness)
             CloseWindow();
             exit(0);
         }
-        show(splash_texture);
+        show(splash_texture, NULL);
         return keyboard();
     }
     for (i = 0; i < splash_nshot; i++) {
@@ -511,6 +526,7 @@ static void start(const uint8_t *sram)
     sdevkit__reset();
     sdevkit__splash();
     sdevkit__reset();
+    sdevkit__dbg_reset();
     game_init(0);
 }
 
@@ -557,29 +573,45 @@ static void sram_store(void)
 #endif
 
 /* --- the window ------------------------------------------------------------------------------ */
-static void show(Texture2D tex)
+/* The picture, with the filter or without, and the debug view when it is open, into a window (or a
+ * texture) of w x h: the picture fills what the panel leaves as far as its shape allows, centred;
+ * the rest stays black. Returns what the debug view changed. */
+static const char *draw_frame(Texture2D tex, float w, float h, int filter, sdevkit__run_state *run)
 {
-    /* The picture fills the window as far as its shape allows, centred; the rest stays black. */
-    float w = (float)GetScreenWidth(), h = (float)GetScreenHeight();
-    float s = w / SDEVKIT__W < h / SDEVKIT__H ? w / SDEVKIT__W : h / SDEVKIT__H;
+    static sdevkit__run_state none;
+    float pw = sdevkit__debug_is_open() ? w - SDEVKIT__PANEL_W : w;
+    float s = pw / SDEVKIT__W < h / SDEVKIT__H ? pw / SDEVKIT__W : h / SDEVKIT__H;
     float dw = SDEVKIT__W * s, dh = SDEVKIT__H * s;
-    Rectangle dst = { (w - dw) / 2, (h - dh) / 2, dw, dh };
+    Rectangle dst = { (pw - dw) / 2, (h - dh) / 2, dw, dh };
+
+    ClearBackground(BLACK);
+    if (filter) {
+        sdevkit__crt_draw(dst, s);
+    } else {
+        DrawTexturePro(tex, (Rectangle){ 0, 0, SDEVKIT__W, SDEVKIT__H }, dst, (Vector2){ 0, 0 }, 0, WHITE);
+    }
+    return sdevkit__debug_draw(dst, s, w, h, run != NULL ? run : &none);
+}
+
+static const char *show(Texture2D tex, sdevkit__run_state *run)
+{
+    float w = (float)GetScreenWidth(), h = (float)GetScreenHeight();
+    float pw = sdevkit__debug_is_open() ? w - SDEVKIT__PANEL_W : w;
+    float s = pw / SDEVKIT__W < h / SDEVKIT__H ? pw / SDEVKIT__W : h / SDEVKIT__H;
+    const char *changed;
 
     UpdateTexture(tex, rgba);
     if (crt_on) {
         sdevkit__crt_prepare(tex, s);
     }
     BeginDrawing();
-    ClearBackground(BLACK);
-    if (crt_on) {
-        sdevkit__crt_draw(dst, s);
-    } else {
-        DrawTexturePro(tex, (Rectangle){ 0, 0, SDEVKIT__W, SDEVKIT__H }, dst, (Vector2){ 0, 0 }, 0, WHITE);
-    }
+    changed = draw_frame(tex, w, h, crt_on, run);
     EndDrawing();
     if (IsKeyPressed(KEY_TAB) && crt_ok) {
         crt_on = !crt_on;
     }
+    sdevkit__debug_keys();
+    return changed;
 }
 
 static uint16_t keyboard(void)
@@ -636,12 +668,14 @@ static void report_unheard(FILE *out)
 }
 
 /* The window's title: the game, the tick, and what the debugger does. */
-static void title(int paused, int fast, int replaying)
+static void title(const sdevkit__run_state *run, int replaying)
 {
-    char t[160];
+    char t[200];
 
-    snprintf(t, sizeof t, "%s (superdevkit) - tick %ld%s%s%s", GAME_NAME, tick_count,
-             replaying ? " - replay" : "", paused ? " - paused (F5 on, F6 a tick)" : "", fast ? " - fast" : "");
+    snprintf(t, sizeof t, "%s (superdevkit) - tick %ld%s%s%s%s%s", GAME_NAME, tick_count,
+             replaying ? " - replay" : "", run->paused ? " - paused (F5 on, F6 a tick)" : "",
+             run->fast ? " - fast" : "", run->slow ? " - slow" : "",
+             rec.debug_tick >= 0 ? " - changed in the debug view" : "");
     SetWindowTitle(t);
 }
 
@@ -674,8 +708,9 @@ static int window(int scale, int no_crt, const char *replay_file)
     unsigned lost = 0;
     int shots = 0;
     Input replay;
-    int replaying = 0, paused = 0, fast = 0, reported = 0, next_mark = 0;
-    long shown_tick = -1;
+    int replaying = 0, reported = 0, next_mark = 0;
+    long shown_tick = -1, frames = 0;
+    sdevkit__run_state run = { 0 };
 
     if (replay_file != NULL) {
         int m;
@@ -715,13 +750,25 @@ static int window(int scale, int no_crt, const char *replay_file)
 #endif
     start(replaying ? replay.sram : NULL);
     while (!WindowShouldClose()) {
-        int steps = paused ? (IsKeyPressed(KEY_F6) ? 1 : 0) : fast ? 8 : 1;
+        int steps;
         int k;
+        const char *changed;
+        if (IsKeyPressed(KEY_F6)) {
+            run.step = 1;
+        }
+        steps = run.paused ? (run.step ? 1 : 0) : run.fast ? 8 : run.slow ? (frames % 4 == 0) : 1;
+        run.step = 0;
+        frames++;
         if (IsKeyPressed(KEY_F5)) {
-            paused = !paused;
+            run.paused = !run.paused;
         }
         if (IsKeyPressed(KEY_F7)) {
-            fast = !fast;
+            run.fast = !run.fast;
+            run.slow = 0;
+        }
+        if (IsKeyPressed(KEY_F8)) {
+            run.slow = !run.slow;
+            run.fast = 0;
         }
         if (IsKeyPressed(KEY_F11)) {
             flag();
@@ -739,22 +786,32 @@ static int window(int scale, int no_crt, const char *replay_file)
                 fprintf(stderr, "%s: tick %ld has checksum %08x, the recording %08x: from here it plays "
                                 "another game\n", GAME_NAME, t, (unsigned)last_hash, (unsigned)replay.hash[t]);
                 reported = 1;
-                paused = 1;
+                run.paused = 1;
             }
             if (replaying && next_mark < replay.nmarks && tick_count == replay.marks[next_mark]) {
                 fprintf(stderr, "%s: the mark at tick %ld\n", GAME_NAME, tick_count);
                 next_mark++;
-                paused = 1;
+                run.paused = 1;
             }
-            if (paused) {
+            if (run.paused) {
                 break;
             }
         }
         audio_feed();
-        show(tex);
-        if (tick_count != shown_tick || IsKeyPressed(KEY_F5) || IsKeyPressed(KEY_F7)) {
-            if ((tick_count & 15) == 0 || paused || fast || tick_count - shown_tick != 1) {
-                title(paused, fast, replaying);
+        run.tick = tick_count;
+        run.lost = lost;
+        changed = show(tex, &run);
+        if (changed != NULL && rec.debug_tick < 0) {
+            rec.debug_tick = tick_count;
+            rec.debug_name = changed;
+            fprintf(stderr, "%s: the debug view changed %s before tick %ld: a replay of this session plays "
+                            "another game from there\n", GAME_NAME, changed, tick_count);
+            shown_tick = -1;
+        }
+        if (tick_count != shown_tick || IsKeyPressed(KEY_F5) || IsKeyPressed(KEY_F7) || IsKeyPressed(KEY_F8)
+            || run.step) {
+            if ((tick_count & 15) == 0 || run.paused || run.fast || run.slow || tick_count - shown_tick != 1) {
+                title(&run, replaying);
             }
             shown_tick = tick_count;
         }
@@ -772,6 +829,7 @@ static int window(int scale, int no_crt, const char *replay_file)
 #if SDEVKIT_SRAM_SIZE > 0
     sram_store();
 #endif
+    sdevkit__debug_unload();
     sdevkit__crt_unload();
     UnloadTexture(tex);
     if (audio_on) {
@@ -799,6 +857,48 @@ static uint16_t button(const char *name)
     }
     fprintf(stderr, "check: unknown button '%s'\n", name);
     exit(2);
+}
+
+/* The debug view after a check, into a PNG: a hidden window (the drawing needs one), the picture
+ * and the panel of the tab drawn into a texture of the window's size at scale 3. */
+static int view_shot(const char *path, int tab)
+{
+    const int w = SDEVKIT__W * 3 + SDEVKIT__PANEL_W, h = SDEVKIT__H * 3;
+    Texture2D tex;
+    RenderTexture2D target;
+    Image shot;
+    sdevkit__run_state run = { 0 };
+    int ok;
+
+    SetConfigFlags(FLAG_WINDOW_HIDDEN);
+    InitWindow(w, h, GAME_NAME " (superdevkit) - view shot");
+    {
+        Image img = { rgba, SDEVKIT__W, SDEVKIT__H, 1, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 };
+        tex = LoadTextureFromImage(img);
+    }
+    target = LoadRenderTexture(w, h);
+    sdevkit__debug_set_open(1, tab);
+    run.tick = tick_count;
+    run.paused = 1;
+    BeginTextureMode(target);
+    draw_frame(tex, (float)w, (float)h, 0, &run);
+    EndTextureMode();
+    BeginTextureMode(target);                /* the tiles' texture is filled while drawing: once more */
+    draw_frame(tex, (float)w, (float)h, 0, &run);
+    EndTextureMode();
+    shot = LoadImageFromTexture(target.texture);
+    ImageFlipVertical(&shot);
+    ok = ExportImage(shot, path);
+    UnloadImage(shot);
+    sdevkit__debug_unload();
+    UnloadRenderTexture(target);
+    UnloadTexture(tex);
+    CloseWindow();
+    if (!ok) {
+        fprintf(stderr, "check: cannot write %s\n", path);
+        return 2;
+    }
+    return 0;
 }
 
 /* Plays the input of a check.txt (or a recording) without a window. With a recording's
@@ -899,7 +999,9 @@ int main(int argc, char **argv)
     const char *replay_file = NULL;
     const char *record_file = NULL;
     const char *wav_file = NULL;
+    const char *view_file = NULL;
     const char *out = ".";
+    int view_tab = 0;
     int scale = 3;
     int no_crt = 0;
     int i;
@@ -917,17 +1019,30 @@ int main(int argc, char **argv)
             out = argv[++i];
         } else if (strcmp(argv[i], "--scale") == 0 && i + 1 < argc) {
             scale = atoi(argv[++i]);
+        } else if (strcmp(argv[i], "--view-shot") == 0 && i + 1 < argc) {
+            view_file = argv[++i];
+        } else if (strcmp(argv[i], "--view-tab") == 0 && i + 1 < argc) {
+            view_tab = atoi(argv[++i]);
         } else if (strcmp(argv[i], "--no-crt") == 0) {
             no_crt = 1;
         } else {
             fprintf(stderr, "usage: %s [--scale N] [--no-crt] [--replay recording.txt]\n"
-                            "       %s --check check.txt [--out dir] [--record recording.txt] [--wav sound.wav]\n", argv[0], argv[0]);
+                            "       %s --check check.txt [--out dir] [--record recording.txt] [--wav sound.wav]\n"
+                            "                 [--view-shot view.png [--view-tab 0..3]]\n", argv[0], argv[0]);
             return 2;
         }
     }
     if (check_file != NULL) {
+        int status;
         SetTraceLogLevel(LOG_WARNING);
-        return check(check_file, out, record_file, wav_file);
+        status = check(check_file, out, record_file, wav_file);
+        if (view_file != NULL) {
+            int v = view_shot(view_file, view_tab);
+            if (v != 0) {
+                status = v;
+            }
+        }
+        return status;
     }
     return window(scale < 1 ? 1 : scale, no_crt, replay_file);
 }

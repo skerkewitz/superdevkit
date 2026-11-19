@@ -442,6 +442,43 @@ void sdevkit_dbg_hash(const void *data, uint16_t bytes)
     DBG_HASH = (uint8_t)(bytes >> 8);
 }
 
+/* The debug view exists on the desktop only: here the registrations and the boxes do nothing, and
+ * dampf inlines the empty functions away (DebugCallsTest). */
+void sdevkit_dbg_toggle(const char *name, uint8_t *flag)
+{
+    (void)name;
+    (void)flag;
+}
+
+void sdevkit_dbg_range(const char *name, int16_t *value, int16_t lo, int16_t hi)
+{
+    (void)name;
+    (void)value;
+    (void)lo;
+    (void)hi;
+}
+
+void sdevkit_dbg_color(const char *name, uint16_t *colour)
+{
+    (void)name;
+    (void)colour;
+}
+
+void sdevkit_dbg_action(const char *name, uint8_t *pressed)
+{
+    (void)name;
+    (void)pressed;
+}
+
+void sdevkit_dbg_box(int16_t x, int16_t y, uint8_t w, uint8_t h, uint8_t kind)
+{
+    (void)x;
+    (void)y;
+    (void)w;
+    (void)h;
+    (void)kind;
+}
+
 /* The cartridge's battery-backed RAM: LoROM maps it at $70:0000, and dampf --sram writes into the
  * header that the cartridge has it (ROM, RAM and battery; the size). */
 uint8_t *sdevkit_sram(void)

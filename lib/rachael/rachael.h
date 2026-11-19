@@ -104,4 +104,30 @@ void sdevkit__sfx_frame(void);
  * Counted in sdevkit__rachael.undrawn; the frontends report it as they report lost bytes. */
 uint8_t sdevkit__undrawn(uint8_t reg, uint8_t value);
 
+/* --- The debug registrations (debug.c; ADR record 32) --------------------------------------- */
+/* What the game registered with sdevkit_dbg_toggle, _range, _color and _action, for the desktop's
+ * debug view, and the boxes sdevkit_dbg_box drew in the current tick. */
+#define SDEVKIT__DBG_MAX   32
+#define SDEVKIT__DBG_BOXES 256
+enum { SDEVKIT__DBG_TOGGLE, SDEVKIT__DBG_RANGE, SDEVKIT__DBG_COLOR, SDEVKIT__DBG_ACTION };
+
+typedef struct {
+    uint8_t     kind;              /* SDEVKIT__DBG_* */
+    const char *name;
+    void       *p;                 /* uint8_t * (toggle, action), int16_t * (range), uint16_t * (colour) */
+    int16_t     lo, hi;            /* a range's bounds */
+} sdevkit__dbg_entry;
+
+typedef struct {
+    int16_t x, y;
+    uint8_t w, h, kind;
+} sdevkit__dbg_rect;
+
+extern sdevkit__dbg_entry sdevkit__dbg_entries[SDEVKIT__DBG_MAX];
+extern int sdevkit__dbg_count;
+extern sdevkit__dbg_rect sdevkit__dbg_boxes[SDEVKIT__DBG_BOXES];
+extern int sdevkit__dbg_nboxes;
+
+void sdevkit__dbg_reset(void);     /* power on: no registrations, no boxes */
+
 #endif /* SDEVKIT__RACHAEL_H */

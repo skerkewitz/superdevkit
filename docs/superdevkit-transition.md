@@ -148,12 +148,17 @@ New headers in `lib/include/sdevkit/`, with the names of ADR record 34, built in
   on the desktop (`<game>.srm` next to the program, written when it changed and on exit). Checks
   and recordings name the save RAM they start with (`sram H`), dampf's emulator and Mesen's script
   load it; CatchMe keeps its high score there.
-- `debug.h`: `sdevkit_dbg_toggle(name, &flag)`, `sdevkit_dbg_range(name, &value, lo, hi)`,
-  `sdevkit_dbg_color(name, &colour)`, `sdevkit_dbg_action(name, function)` once at start;
-  `sdevkit_dbg_box(x, y, w, h, kind)` per frame. Empty on the SNES; an execution test checks that
-  dampf removes the calls (cycles of a tick with and without them).
+- The debug registrations: built on 2026-11-19, in `sdevkit/snes.h`: `sdevkit_dbg_toggle(name,
+  &flag)`, `sdevkit_dbg_range(name, &value, lo, hi)`, `sdevkit_dbg_color(name, &colour)` and
+  `sdevkit_dbg_action(name, &pressed)` once in `game_init`, `sdevkit_dbg_box(x, y, w, h, kind)` per
+  tick. The action is a flag the view sets and the game clears in its next tick, not a function:
+  dampf has no function pointers, and the game's state changes only inside a tick. Empty on the
+  SNES; `DebugCallsTest` checks that dampf removes the calls (the cycles of a tick with and without
+  them), which needed a pass of its own for the loops left empty (`DeadLoops`). CatchMe registers
+  three and draws its actors' boxes.
 
-Done when: `LibApiTest` covers the new headers; an execution test per stub on the SNES.
+Done when: `LibApiTest` covers the new functions; a test that the stubs cost nothing on the SNES.
+Music is what is left of 7.2.
 
 ### 7.3 The desktop frontend
 
@@ -163,7 +168,10 @@ frame rhythm, F12 for a screenshot, and `--check` without a window; `dev/build_d
 (ADR record 39); the CRT filter of Blubber Blasen's frontend (`lib/desktop/crt.c`, Tab, `--no-crt`);
 every session recorded, F11 saves it, `--replay` with pause and single steps, the recording
 played on the SNES side by `dev/replay.sh` (and `dev/replay_example.sh` for an example, with Mesen).
-Still to do: sound and music, save RAM, the debug view. The plan as it was:
+Built during M7: sound effects (Rachael's DSP through raylib's audio stream), save RAM
+(`<game>.srm`), and the debug view (`lib/desktop/view.c`: F1, beside the picture; drawn with raylib
+alone, no GUI library: the registrations, the boxes, pause, a tick, slow motion, fast, CGRAM, VRAM's
+tiles, the sprites). Still to do: music. The plan as it was:
 
 `lib/desktop` in C with raylib: the window (256 x 224 scaled to whole multiples), the frame
 rhythm of `loop.h` (`game_tick`, then `sdevkit__vblank`, `game_vblank`, `sdevkit__render`),

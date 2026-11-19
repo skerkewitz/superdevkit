@@ -291,4 +291,22 @@ const uint16_t *sdevkit_dbg_vram(void);
  * memory itself. On Rachael it hashes. */
 void sdevkit_dbg_hash(const void *data, uint16_t bytes);
 
+/* The debug view (ADR record 32), on the desktop: F1 opens it beside the picture. A game registers
+ * once, in game_init, what it wants to change while it runs, and the view lists it; per tick it
+ * can draw boxes over the picture (collision boxes, a target). On the SNES the functions are empty
+ * and dampf removes the calls, so the game needs no #ifdef. name is a string constant (the view
+ * keeps the pointer); at most 32 registrations. A change made in the view is not part of a
+ * recording: from then on a replay plays another game (the window says so). */
+void sdevkit_dbg_toggle(const char *name, uint8_t *flag);                         /* 0 or 1 */
+void sdevkit_dbg_range(const char *name, int16_t *value, int16_t lo, int16_t hi);  /* lo..hi */
+void sdevkit_dbg_color(const char *name, uint16_t *colour);                       /* BGR 5:5:5 */
+/* A button: the view sets *pressed to 1, and the game does what it means in its next game_tick
+ * and sets it back to 0 (dampf has no function pointers to call, and the game's state changes
+ * only inside a tick). */
+void sdevkit_dbg_action(const char *name, uint8_t *pressed);
+/* A box of w x h pixels at screen position (x, y), drawn over the picture in the debug view in the
+ * colour of kind (0..7); for this tick only (the list is cleared before each game_tick). At most
+ * 256 a tick. */
+void sdevkit_dbg_box(int16_t x, int16_t y, uint8_t w, uint8_t h, uint8_t kind);
+
 #endif /* SDEVKIT_SNES_H */

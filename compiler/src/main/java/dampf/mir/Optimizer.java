@@ -112,6 +112,10 @@ public final class Optimizer {
             if (verifyEach) {
                 Verifier.verify(m, f);
             }
+            changed |= DeadLoops.run(f);
+            if (verifyEach) {
+                Verifier.verify(m, f);
+            }
         }
     }
 }

@@ -10,6 +10,8 @@
  * (colours 128..239): the mouse, the four cats, the scared cats, the mouse after a chili.
  *
  * The high score is kept in the cartridge's save RAM (sdevkit_sram, catchme.args: --sram 8).
+ * On the desktop, the debug view (F1) can freeze the cats, clear a level and pick the level a new
+ * game starts with, and shows the actors' boxes; on the SNES these calls are empty.
  */
 #include "catchme.h"
 #include "maze_gfx.h"
@@ -91,6 +93,32 @@ static void best_save(void)
     memcpy(s + 2, &best, 4);
     s[6] = 0;
     s[SAVE_BYTES - 1] = save_sum(s);
+}
+
+/* --- the debug view (the desktop's; empty on the SNES) ---------------------------------------- */
+static uint8_t dbg_cats_frozen;        /* the cats stand still */
+static uint8_t dbg_clear_level;        /* the view's button: the level counts as eaten */
+static int16_t dbg_start_level = 1;    /* the level a new game starts with */
+
+static void debug_register(void)
+{
+    sdevkit_dbg_toggle("cats frozen", &dbg_cats_frozen);
+    sdevkit_dbg_action("clear the level", &dbg_clear_level);
+    sdevkit_dbg_range("start level", &dbg_start_level, 1, 20);
+}
+
+/* The mouse's box in yellow, the cats' in red, blue while they are scared. */
+static void debug_boxes(void)
+{
+    uint8_t i;
+
+    sdevkit_dbg_box(mouse.x, (int16_t)(mouse.y + MAZE_TOP), 16, 16, 3);
+    for (i = 0; i < CATS; i++) {
+        const Actor *c = &cats[i];
+        if (c->mode != CAT_HOME && c->mode != CAT_EYES) {
+            sdevkit_dbg_box(c->x, (int16_t)(c->y + MAZE_TOP), 16, 16, c->mode == CAT_SCARED ? 2 : 0);
+        }
+    }
 }
 
 /* --- the status line ------------------------------------------------------------------------- */
@@ -192,7 +220,7 @@ static void new_game(void)
 {
     score = 0;
     lives = 3;
-    level = 1;
+    level = (uint8_t)dbg_start_level;
     extra_given = 0;
     start_level();
 }
@@ -280,6 +308,7 @@ void game_init(uint16_t seed)
     sdevkit_dma_copy_cgram(pal_hot_pal, 128 + 16 * 6, PAL_HOT_PAL_SIZE);
     sdevkit_oam_init();
     best_load();
+    debug_register();
     level = 1;
     title();
     sdevkit_dma_copy_vram((const uint8_t *)bg_map, VRAM_BG_MAP, MAP_BYTES);   /* the screen is still off */
@@ -289,9 +318,9 @@ void game_init(uint16_t seed)
 
 void game_tick(const uint16_t pad[SDEVKIT_PADS])
 {
-    sdevkit_dbg_hash(sdevkit_sram(), SAVE_BYTES);   /* the checks compare the save RAM too */
     uint16_t pressed = (uint16_t)(pad[0] & ~last_pad);
 
+    sdevkit_dbg_hash(sdevkit_sram(), SAVE_BYTES);   /* the checks compare the save RAM too */
     last_pad = pad[0];
     frame++;
     switch (state) {
@@ -312,7 +341,14 @@ void game_tick(const uint16_t pad[SDEVKIT_PADS])
         break;
     case ST_PLAY:
         mouse_move(pad[0]);
-        cats_move();
+        if (!dbg_cats_frozen) {
+            cats_move();
+        }
+        debug_boxes();
+        if (dbg_clear_level) {
+            dbg_clear_level = 0;
+            maze_crumbs = 0;
+        }
         if (collisions()) {
             state = ST_DYING;
             timer = 90;

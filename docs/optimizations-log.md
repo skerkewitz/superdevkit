@@ -919,3 +919,19 @@ dampf 0.66 (0.79 before the branch): 2.14 times as fast instead of 1.81. `level_
 loop moved into the dev kit's library, which changes no generated code of the game). A minute of
 play in Mesen (`dev/check_game_rom.sh`): 3,098 ticks in 3,600 frames, 1.16 frames per tick, no
 byte lost (before the branch `optimise`: 2,296 ticks, 1.57).
+
+## Dead loops (2026-11-19, on the examples)
+
+`DeadLoops` (catalogue H) removes a loop that has no effect (no store, copy, call or volatile load),
+whose values nobody reads after it, and that is proved to end: one way out, on a counter compared
+with a constant, stepped by the same constant every round, so that the comparison fails before
+the counter could wrap (an odd step for `!=`). gcc keeps a C loop that might not end, so dampf
+keeps every loop it cannot prove finite, and every loop around one. The loops it finds are those
+left empty after inlining: the debug view's calls are empty functions on the SNES (ADR record 32),
+and `for (i = 0; i < CATS; i++) sdevkit_dbg_box(...)` left a counting loop of 19 cycles in every
+tick of CatchMe.
+
+Measured with `dev/bench_examples.sh`, without the pass against with it: CatchMe 52,888 → 52,473
+master cycles per tick (-0.8 %), the six other examples the same to the cycle; none of the
+execution tests and random programs changed its code (`BackendOutputTest`). `DebugCallsTest`
+checks that a tick with the registrations and a box loop costs the same as one without them.
