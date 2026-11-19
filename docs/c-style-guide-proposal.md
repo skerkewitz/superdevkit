@@ -143,5 +143,5 @@ the examples.
 - Should a failing relation fail the build, or only warn until the guide is updated? Failing is
   stricter and is what keeps the guide true; it also means an optimizer change cannot land
   without touching the guide.
-- Does the guide also cover the console API's costs (what a DMA of n bytes costs in the vertical
-  blank, what `sdevkit_oam_set` costs per sprite), or does that belong to `lib/README.md`?
+- The console API's costs (what a DMA of n bytes costs in the vertical blank, what a sprite
+  call costs) belong to the hardware guide: [snes-hardware-guide-proposal.md](snes-hardware-guide-proposal.md).
