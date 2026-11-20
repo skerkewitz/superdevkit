@@ -622,6 +622,15 @@ frame bugs.
 
 Expect small differences in the code (places shared a little differently). Measure, log.
 
+The check is built first (2026-11-20), on the places `FrameLayout` still assigns: `PlaceCheck`
+runs in `MirCodeGen` right after `assignPlaces`, while every operand names its owner (the
+function's values and parameters; a φ's incoming place), and fails the compile on a byte read
+where it was not written on every way, or written over another owner's live byte without being
+a copy. Selection marks the copies it makes by writing a value into the place it shares with
+another (`LMark`: a φ copy into a direct φ, an in-place step); the marks go before the LIR
+passes. Its first run found a miscompilation (`ConstAddressTest`, the scroll registers of the
+kit's `sdevkit_bg_set_scroll`).
+
 ### B3. X and Y assigned by cost
 
 A pass on LIR, before places are assigned. For a virtual place p of one word and a register R

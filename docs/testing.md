@@ -205,7 +205,9 @@ over when it left ([ADR record 40](adr/0040-the-examples-replace-blubber-blasen-
   static worst case of every function of every example and of every spelling member
   (`compiler/src/test/resources/cost-baseline.txt`, written by the same update): a hash says the
   code changed, the diff of that file says which functions got slower.
-- **`LirTest`**: blocks, printer, parser and verifier of LIR on small hand-written pieces.
+- **`LirTest`**: blocks, printer, parser and verifier of LIR on small hand-written pieces;
+  **`PlaceCheckTest`** the check of the frame places (no read of a byte not written, no write
+  over another value's live byte) that runs in every compile.
 - **`BookSourcesTest`** checks the bookkeeping of the generated book pages: the lock, the
   specs' sources, the pages' markers. Whether the pages are current is `./gradlew checkBook`,
   run before a release and not part of `build` (ADR record 43).
@@ -224,7 +226,8 @@ Every IR level ([architecture.md](architecture.md)) is to have a text format tha
 (pass tests as IR text in, IR text out, like LLVM's), a verifier run after every pass, and, for
 HIR and MIR, an interpreter, so a wrong result can be pinned to the lowering between two levels.
 MIR has all three; LIR has the text format and the verifier (`LVerifier`, after every code
-generation: labels, branch targets, known opcodes, the accumulator width on every path); its
+generation: labels, branch targets, known opcodes, the accumulator width on every path) and the
+place check (`PlaceCheck`, after the places are assigned); its
 meaning is checked by running the code. HIR is not built; its interpreter would be a second
 definition of what the program means, next to gcc.
 

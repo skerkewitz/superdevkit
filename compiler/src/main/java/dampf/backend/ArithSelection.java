@@ -82,6 +82,11 @@ final class ArithSelection {
         switch (b.op) {
             case ADD, SUB -> {
                 String step = incDec(b);
+                if (step != null && sel.operand(x, 0) instanceof LOperand.Mem from && from.owner() != null
+                        && sel.dest(b, 0) instanceof LOperand.Mem to) {
+                    // stepped in the place of x, which it shares: x's bytes are b's now (no code)
+                    sel.out.mark(List.of(new dampf.lir.LMark.Copy(to.owner(), from.owner(), 2)));
+                }
                 if (step != null && step.endsWith("8")) {
                     sel.ins("sep", "#$20");
                     sel.ins(step.substring(0, 3), sel.dest(b, 0));

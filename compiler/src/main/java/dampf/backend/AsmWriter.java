@@ -87,6 +87,13 @@ final class AsmWriter {
         unit.add(LParser.line(text, m16));
     }
 
+    /** A copy without code between places that share their address (see {@link dampf.lir.LMark}). */
+    void mark(java.util.List<dampf.lir.LMark.Copy> copies) {
+        if (!copies.isEmpty()) {
+            unit.add(new dampf.lir.LMark(java.util.List.copyOf(copies)));
+        }
+    }
+
     /** A comment indented like an instruction. */
     void note(String text) {
         unit.add(LDirective.note(text));

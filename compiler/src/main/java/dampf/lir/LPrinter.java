@@ -50,6 +50,7 @@ public final class LPrinter {
             case LDirective d -> d.text();
             case LSourceLine s -> sourceLine(s);
             case LFunction f -> throw new IllegalArgumentException("a function is not one line");
+            case LMark m -> throw new IllegalArgumentException("a mark is taken out before the text is written");
         };
     }
 

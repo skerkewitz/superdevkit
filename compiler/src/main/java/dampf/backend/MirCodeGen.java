@@ -133,6 +133,8 @@ public final class MirCodeGen {
             // (each counts in the pass limit; BranchRelax does not, it is part of making the code)
             LFunction lf = code.function();
             assignPlaces(lf);
+            checkPlaces(f, lf);
+            lf.rebuild(lf.items().stream().filter(it -> !(it instanceof dampf.lir.LMark)).toList());
             limit.apply("RedundantLoads", f.name(), () -> new RedundantLoads().run(lf));
             limit.apply("IndexInY", f.name(), () -> new IndexInY().run(lf));
             limit.apply("Peephole", f.name(), () -> new Peephole(Selection.FRAME_START).run(lf));
@@ -636,6 +638,24 @@ public final class MirCodeGen {
         }
     }
 
+    /**
+     * The places of f's values, φ incoming places and parameters against what its code reads and
+     * writes ({@link dampf.lir.PlaceCheck}); a problem is a bug of the frame layout or of selection.
+     */
+    void checkPlaces(MFunction f, LFunction lf) {
+        java.util.Set<Object> own = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        own.addAll(f.params());
+        for (Block b : f.blocks()) {
+            own.addAll(b.instrs());
+        }
+        List<String> errors = dampf.lir.PlaceCheck.check(lf, o -> own.contains(o.key()),
+                o -> o.key() instanceof dampf.mir.Value.Param);
+        if (!errors.isEmpty()) {
+            throw new IllegalStateException("the frame places of " + f.name() + " are wrong: " + String.join("; ",
+                    errors.subList(0, Math.min(5, errors.size()))));
+        }
+    }
+
     /** The operand with the address its owner's place has (an operand without an owner as it is). */
     private LOperand assign(LOperand op) {
         switch (op) {
@@ -739,7 +759,12 @@ public final class MirCodeGen {
                 for (int w = 0; w < Selection.words(p.type()); w++) {
                     LOperand to = direct ? sel.placeOf(p, w) : sel.incomingOf(p, w);
                     if (sel.operand(v, w).equals(to)) {
-                        continue;   // the operand shares the φ's place
+                        // the operand shares the φ's place: a copy without code
+                        if (sel.operand(v, w) instanceof LOperand.Mem from && from.owner() != null
+                                && to instanceof LOperand.Mem toPlace) {
+                            sel.out.mark(List.of(new dampf.lir.LMark.Copy(toPlace.owner(), from.owner(), 2)));
+                        }
+                        continue;
                     }
                     if (sel.operand(v, w).equals(Selection.imm(0)) && !sel.aHolds.contains(Selection.imm(0))) {
                         sel.ins("stz", to);   // no load of the zero
