@@ -703,7 +703,7 @@ slower for reasons [optimizations.md](optimizations.md#tried-and-rejected) could
 | 3 | C1 to C3 canonical arithmetic and comparisons, C9 and C10 addresses | 1 | little | part of `g`, `h`, `m`; `table-2d` |
 | 4 | R4 ranges kept when inlining, R1 widening by end, R2 unsigned intervals | 1 | yes | the gaps marked R4, `c_i16_lt100`, the bound cliffs, `slow-u8-counter` |
 | 5 | L1 to L3 `CountedLoops` and its users | 3, 4 | yes | `d`, `i` (done 2026-11-20: `i`, `g`, `n` and the loops counting down closed; `d` waits for C5) |
-| 6 | C5, C8, L4 to L6 | 5 | yes | `g`, `h`, `m`, `x`, `slow-u16-counter-words` |
+| 6 | C5, C8, L4 to L6 | 5 | yes | `g`, `h`, `m`, `x`, `slow-u16-counter-words` (done 2026-11-20 with L4 and L5; C5 as far as L4 does it, C8 and L6 not built: no gap needs them yet) |
 | 7 | C6 pointer comparisons, C7 loads out of loops | 3 | yes | `y`, part of `j`, `k` |
 | 8 | R3 indexes from array bounds (ADR) | 4 | yes | `l`, `fast-range-index` |
 | 9 | K3 cost baseline | 1 | no | |
