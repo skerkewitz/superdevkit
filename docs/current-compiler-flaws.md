@@ -364,6 +364,9 @@ bound before `WIDEN_AFTER`. Tests: `RangesTest` with a signed counter up, a sign
 an unsigned counter, and a counter that really wraps; `c_i16_lt100` in the spelling test;
 `Ranges.checker` runs in every execution and random test as now.
 
+Built (2026-11-20, [log](optimizations-log.md#widening-by-the-end-that-moved-2026-11-20-on-the-spelling-families)):
+eight gaps closed, the cliff at 24 rounds gone; no example changed its code.
+
 ### R2. Bytes above 127 have no range
 
 A range is one interval of signed values. An `i8` that holds 0..199 is not one, so it is the

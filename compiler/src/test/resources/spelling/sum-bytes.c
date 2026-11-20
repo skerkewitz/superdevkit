@@ -2,7 +2,6 @@
  * tolerance: 10
  * The sum of data[0] to data[99] into a uint16_t, by index and by pointer, with every counter
  * type, direction, test and loop form. The appendix of docs/current-compiler-flaws.md.
- * gap: c_i16_lt100 R1 widening throws away the lower bound: signed compare, 24-bit pointer
  * gap: d_u8_ne100 L2 != gives the range analysis no bound, so the byte counter "might wrap"
  * gap: g_u16_down L2,L3 i != 0 gives the range analysis no bound, so i - 1 is no index (24-bit pointer); i - 1 is also the step, and the X pattern wants a step with one user
  * gap: h_u8_down L2,C5 i != 0 gives the range analysis no bound; the byte counter's index is computed in 16 bits beside it

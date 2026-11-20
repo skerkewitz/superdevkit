@@ -105,4 +105,41 @@ class RangesTest {
             }
         }
     }
+
+    /** A loop that stays while counter PRED bound, stepping it from start by step; the counter's range. */
+    private static Ranges.Range counter(String type, long start, String pred, long bound, long step) {
+        String text = """
+                func @_count() -> i16 {
+                b0_entry:
+                    jump b1_for
+                b1_for:
+                    %%0 = phi %s [b0_entry, %d], [b2_body, %%2]
+                    %%1 = cmp %s %s %%0, %d
+                    br %%1, b2_body, b3_end
+                b2_body:
+                    %%2 = add %s %%0, %d
+                    jump b1_for
+                b3_end:
+                    %%3 = sext %s %%0 to i16
+                    ret i16 %%3
+                }
+                """.formatted(type, start, pred, type, bound, type, step, type);
+        MModule m = MirParser.parse(text);
+        MFunction f = m.function("_count");
+        Interpreter in = new Interpreter(m, 1_000_000);
+        in.observe(Ranges.checker(m));
+        in.call("_count", List.of());   // every value lies in its range
+        return new Ranges(f).of((Instr.Phi) Loops.find(f).getFirst().head().instrs().getFirst());
+    }
+
+    @Test
+    void wideningKeepsTheEndThatDidNotMove() {
+        // more rounds than WIDEN_AFTER: the end that moves is widened, the other stays
+        assertEquals(new Ranges.Range(0, 100), counter("i16", 0, "slt", 100, 1));        // signed, up
+        assertEquals(new Ranges.Range(0, 30), counter("i16", 0, "slt", 30, 1));          // past 24 rounds
+        assertEquals(new Ranges.Range(-1, 99), counter("i16", 99, "sge", 0, -1));        // signed, down
+        assertEquals(new Ranges.Range(0, 300), counter("i16", 0, "ult", 300, 1));        // unsigned
+        // a byte counter that really wraps (1, 2, ..., 127, -128, ..., -1, 0): its whole type
+        assertEquals(new Ranges.Range(-128, 127), counter("i8", 1, "ne", 0, 1));
+    }
 }

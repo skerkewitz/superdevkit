@@ -14,8 +14,10 @@ import java.util.Map;
  * comparison (or its negation), in that block and every block it dominates.
  *
  * <p>φs are joined over their incoming edges, with the conditions of the edge's source. Loops
- * are iterated until nothing changes; a value whose interval keeps growing is widened to its
- * type's whole range after {@link #WIDEN_AFTER} changes, so the iteration ends.
+ * are iterated until nothing changes; a value whose interval keeps growing is widened after
+ * {@link #WIDEN_AFTER} changes, so the iteration ends: the end that moved goes to the type's
+ * limit, the other stays (a counter from 0 upwards keeps 0; narrowing then takes back what
+ * widening added at the top).
  *
  * <p>The ranges are claims about every execution, so a wrong one gives wrong code. The tests
  * check every value the interpreter computes against its range (see MirRunner).
@@ -106,7 +108,12 @@ public final class Ranges {
                     Range next = r.join(old);
                     if (!next.equals(old)) {
                         if (changes.merge(i, 1, Integer::sum) > WIDEN_AFTER) {
-                            next = full(i.type());
+                            // widen the end that moved, not the other: a counter from 0 upwards
+                            // keeps 0 (both moved: both go). An end at its limit cannot move
+                            // again, so a value is widened at most twice.
+                            Range whole = full(i.type());
+                            next = new Range(next.lo() < old.lo() ? whole.lo() : next.lo(),
+                                    next.hi() > old.hi() ? whole.hi() : next.hi());
                         }
                         if (!next.equals(old)) {
                             range.put(i, next);

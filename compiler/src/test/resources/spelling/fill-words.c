@@ -3,7 +3,7 @@
  * A constant stored into every element of a uint16_t array, by index with every counter type,
  * up and down, and by pointer. The style guide's slow-u16-counter-words.
  * gap: fill_u16 L4 the i16 counter is kept beside the derived offset (slow-u16-counter-words)
- * gap: fill_i16 R1,L4 widening throws away the lower bound; the counter is kept beside the offset
+ * gap: fill_i16 L4 as fill_u16
  * gap: fill_u16_le L4 as fill_u16
  * gap: fill_u16_ne L2,L4 != gives the range analysis no bound; the counter is kept beside the offset
  * gap: fill_u16_down L2,L3 i != 0 gives the range analysis no bound, so i - 1 is no index (24-bit pointer); i - 1 is also the step, and the X pattern wants a step with one user

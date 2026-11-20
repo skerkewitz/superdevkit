@@ -1049,3 +1049,17 @@ loop, takes both to the flat loop's cost.
 The examples: Steinschlag -12.8 % (its cave is `cave[y][x]`), Er-Tüp +0.2 %, CatchMe and Schach
 the same on average (Schach's busiest ticks +0.4 %), the rest the same; geometric mean -1.9 %.
 The pair loops the same. Code changed in all seven examples and in 5 execution programs.
+
+## Widening by the end that moved (2026-11-20, on the spelling families)
+
+The range analysis widened a value that changed more than 24 times to its type's whole range,
+both ends. A signed counter from 0 upwards lost its 0, the loop's condition only brought the
+upper end back, and the counter was "-32,768..100": a signed comparison, and the array access
+through a 24-bit pointer. Now only the end that moved is widened
+([current-compiler-flaws.md](current-compiler-flaws.md#r1-widening-throws-away-the-bound-that-did-not-move), R1).
+
+Eight gaps of the spelling test closed: `c_i16_lt100` 6,146 → 2,538 cycles, the `int16_t`
+counter of every bound family from 30 rounds on (the cliff at 24 rounds: `int16_t i < 30` was 61
+cycles a round, now 25), `copy_i16` 8,825 → 2,517, `find_return_i16` 6,306 → 4,395; `fill_i16`
+and `pairs_i16` now cost what their `uint16_t` spellings cost. No example and no program of
+`BackendOutputTest` changed its code: none has a signed counter over more than 24 rounds.

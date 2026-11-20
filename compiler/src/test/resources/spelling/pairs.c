@@ -3,7 +3,7 @@
  * The nested loop over all pairs (i, j) with j > i, as a game's collision test: the pairs closer
  * than 8 in x. By index with every counter type, by pointer, and with the inner loop counting down.
  * gap: pairs_u16 L4 j is kept beside its derived offset
- * gap: pairs_i16 R1 widening throws away the lower bound: signed compares, 24-bit pointers
+ * gap: pairs_i16 L4 as pairs_u16
  * gap: pairs_hoisted L4 as pairs_u16
  * gap: pairs_ptr C6 the pointers are compared as 32-bit values: b is computed every inner round, and the indexes into xs come on top
  * gap: pairs_down L3 the inner counter goes down to a variable bound (j > i), which no loop pattern takes
