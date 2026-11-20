@@ -53,7 +53,11 @@ class RandomProgramTest {
         String again = "seed " + seed + " (again: ./gradlew :compiler:test --tests 'dampf.exec.RandomProgramTest." + factory
                 + "' -PrandomSeed=" + seed + " -Prandom=1)";
         assertTimeoutPreemptively(java.time.Duration.ofMinutes(2), () -> {
-            EmulatorRunner runner = new EmulatorRunner();
+            // a random program is short by construction (RandomLoopProgram counts the rounds of its
+            // loops), but its bodies may call helpers and divide 32-bit values: the naive code of
+            // one in a few hundred needs more than the usual 600 frames (seed 16842). A program that
+            // hangs still fails, after 2,000 frames (6,000 with a pass limit).
+            EmulatorRunner runner = new EmulatorRunner((dampf.util.PassLimit.configured() >= 0 ? 6_000L : 2_000L) * 357_366);
             Path work = Files.createDirectories(tmp.resolve("seed" + seed));
             Path src = work.resolve("random" + seed + ".c");
             Files.writeString(src, program);
