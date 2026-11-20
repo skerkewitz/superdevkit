@@ -22,8 +22,8 @@ public final class RedundantLoads {
 
     private final RegContents contents;
 
-    public RedundantLoads(String frame) {
-        this.contents = new RegContents(frame);
+    public RedundantLoads() {
+        this.contents = new RegContents();
     }
 
     /** Removes (or turns into CMP #0) the redundant loads; returns how many changed. */
@@ -50,7 +50,7 @@ public final class RedundantLoads {
                 if (!(items.get(k) instanceof LInstr in)) {
                     continue;
                 }
-                String op = in.operand();
+                LOperand op = in.op();
                 int flags = liveAfter.get(in);
                 boolean held = op != null && switch (in.mnemonic()) {
                     case "lda" -> in.m16() && s.a().contains(op);
@@ -74,10 +74,10 @@ public final class RedundantLoads {
                 // commutative and sets the flags itself; the carry an ADC reads is not touched by LDA)
                 int n = nextInstr(items, k);
                 if (op != null && in.mnemonic().equals("lda") && in.m16() && n >= 0
-                        && items.get(n) instanceof LInstr next && next.m16() && next.operand() != null
-                        && COMMUTATIVE.contains(next.mnemonic()) && s.a().contains(next.operand())
-                        && !next.operand().equals(op)) {
-                    LInstr fused = next.withOperand(op);
+                        && items.get(n) instanceof LInstr next && next.m16() && next.op() != null
+                        && COMMUTATIVE.contains(next.mnemonic()) && s.a().contains(next.op())
+                        && !next.op().equals(op)) {
+                    LInstr fused = next.withOperand(op.text());
                     liveAfter.put(fused, liveAfter.get(next));
                     items.set(n, fused);
                     items.remove(k--);

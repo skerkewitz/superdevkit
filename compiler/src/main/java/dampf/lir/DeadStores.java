@@ -20,15 +20,11 @@ import java.util.Map;
  * value place as base reads all of them (it does not happen).
  */
 public final class DeadStores {
-    private final String frame;
     private final BitSet own;
-    private final RegContents names;
 
     /** {@code own}: the frame offsets of the bytes of the function's value places. */
-    public DeadStores(String frame, BitSet own) {
-        this.frame = frame;
+    public DeadStores(BitSet own) {
         this.own = own;
-        this.names = new RegContents(frame);
     }
 
     /** Removes the dead stores; returns how many. */
@@ -100,33 +96,22 @@ public final class DeadStores {
         if (def != null) {
             live.andNot(def);
         }
-        String op = i.operand();
-        if (op == null || !op.contains(frame) || op.startsWith("#") || !reads(i.mnemonic())) {
-            if (op != null && op.startsWith("[") && op.contains(frame)) {
-                pointerRead(op, live);   // a store through a pointer kept in a place reads the pointer
-            }
+        if (!(i.op() instanceof LOperand.Mem op) || !op.frame()) {
+            return;   // no frame place (an immediate that names one is no access)
+        }
+        if (op.indirect()) {
+            live.set(op.offset(), op.offset() + 3);   // through a pointer kept in a place: it reads the pointer
             return;
         }
-        if (op.startsWith("[")) {
-            pointerRead(op, live);
+        if (!reads(i.mnemonic())) {
             return;
         }
-        int at = names.frameOffset(op);
+        int at = op.frameOffset();
         if (at < 0) {
-            live.or(own);   // indexed or otherwise unknown: anything may be read
+            live.or(own);   // indexed: anything may be read
             return;
         }
         live.set(at, at + width(i));
-    }
-
-    private void pointerRead(String op, BitSet live) {
-        int close = op.indexOf(']');
-        int at = names.frameOffset(op.substring(1, close));
-        if (at < 0) {
-            live.or(own);
-        } else {
-            live.set(at, at + 3);
-        }
     }
 
     /** The own bytes a store writes completely, or null if it is not such a store. */
@@ -135,7 +120,7 @@ public final class DeadStores {
         if (!(m.equals("sta") || m.equals("stx") || m.equals("sty") || m.equals("stz")) || i.operand() == null) {
             return null;
         }
-        int at = names.frameOffset(i.operand());
+        int at = RegContents.frameOffset(i.op());
         if (at < 0) {
             return null;
         }

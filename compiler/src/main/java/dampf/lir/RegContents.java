@@ -11,17 +11,17 @@ import java.util.Set;
  * operands it equals (places in the frame and immediates; after {@code LDA x / STA y} both), for
  * X and Y one each. A place is forgotten when something writes it or a byte next to it, A when an
  * instruction changes it, everything at a call; a store through a pointer may write any place.
- * Where ways meet, what all of them bring holds. Only places of the frame (operands that name
- * {@code frame}) and immediates are followed.
+ * Where ways meet, what all of them bring holds. Only places of the frame and immediates are
+ * followed. The operands are typed ({@link LOperand}, ADR record 47).
  */
 public final class RegContents {
     /** What the registers hold: the operands A equals, and what X and Y equal (null: unknown). */
-    public record State(Set<String> a, String x, String y) {
+    public record State(Set<LOperand> a, LOperand x, LOperand y) {
         public static final State NONE = new State(Set.of(), null, null);
 
         /** What both hold. */
         public State meet(State o) {
-            Set<String> both = new HashSet<>(a);
+            Set<LOperand> both = new HashSet<>(a);
             both.retainAll(o.a);
             return new State(Set.copyOf(both), x != null && x.equals(o.x) ? x : null, y != null && y.equals(o.y) ? y : null);
         }
@@ -32,11 +32,7 @@ public final class RegContents {
         }
     }
 
-    private final String frame;
-
-    /** {@code frame}: the symbol the frame places are written with ("dampf_frame"). */
-    public RegContents(String frame) {
-        this.frame = frame;
+    public RegContents() {
     }
 
     /** What holds where each reachable block starts (the first block: nothing). */
@@ -71,13 +67,13 @@ public final class RegContents {
     /** What holds after instruction i, from what held before it. */
     public State after(LInstr i, State s) {
         String m = i.mnemonic();
-        String op = i.operand();
+        LOperand op = i.op();
         boolean m8 = !i.m16();
-        Set<String> a = new HashSet<>(s.a());
-        String x = s.x();
-        String y = s.y();
+        Set<LOperand> a = new HashSet<>(s.a());
+        LOperand x = s.x();
+        LOperand y = s.y();
         boolean writesMemory = switch (m) {
-            case "sta", "stx", "sty", "stz", "inc", "dec", "asl", "lsr", "rol", "ror" -> op != null && !op.equals("a");
+            case "sta", "stx", "sty", "stz", "inc", "dec", "asl", "lsr", "rol", "ror" -> op != null && !(op instanceof LOperand.Acc);
             default -> false;
         };
         if (writesMemory && (writesAnyPlace(op) || op.equals(x))) {
@@ -103,7 +99,7 @@ public final class RegContents {
         }
         switch (m) {
             case "sep" -> {
-                if ("#$20".equals(op)) {
+                if (isRegisterBits(op)) {
                     a.clear();
                 }
             }
@@ -124,7 +120,7 @@ public final class RegContents {
             case "stx", "sty", "stz", "cmp", "cpx", "cpy", "ldx", "ldy", "inx", "dex", "iny", "dey",
                  "bcc", "bcs", "beq", "bne", "bmi", "bpl", "bvc", "bvs", "bra", "jmp", "clc", "sec" -> { }
             case "asl", "lsr", "rol", "ror", "inc", "dec" -> {
-                if ("a".equals(op) || op == null) {
+                if (op == null || op instanceof LOperand.Acc) {
                     a.clear();
                 }
             }
@@ -133,48 +129,38 @@ public final class RegContents {
         return new State(Set.copyOf(a), x, y);
     }
 
+    /** {@code #$20}: the accumulator's width bit of REP and SEP. */
+    private static boolean isRegisterBits(LOperand op) {
+        return op instanceof LOperand.Imm k && k.expr().equals("$20");
+    }
+
     /**
      * A place whose contents a register can hold: a frame place or an immediate. Not an indexed
-     * one ({@code z:dampf_frame+0,x}, an element of a local array): the same text names another
+     * one ({@code z:dampf_frame+0,x}, an element of a local array): the same operand names another
      * byte when X or Y changes.
      */
-    private boolean trackable(String operand) {
-        return operand != null && operand.indexOf(',') < 0
-                && (operand.contains(frame) && !operand.startsWith("[") || operand.startsWith("#"));
+    private static boolean trackable(LOperand op) {
+        return op instanceof LOperand.Imm || op instanceof LOperand.Mem mem && mem.frame() && mem.index() == LOperand.Index.NONE
+                && !mem.indirect();
     }
 
     /** A store through a pointer or an index: it may write any frame place. */
-    private boolean writesAnyPlace(String operand) {
-        return operand.startsWith("[") || operand.indexOf(',') >= 0 && operand.contains(frame);
+    private static boolean writesAnyPlace(LOperand op) {
+        return op instanceof LOperand.Mem mem && (mem.indirect() || mem.frame() && mem.index() != LOperand.Index.NONE);
     }
 
     /** A write to a place: A no longer equals it, nor a place that shares a byte with it. */
-    private void forgetPlace(Set<String> a, String operand) {
-        if (writesAnyPlace(operand)) {
-            a.removeIf(h -> !h.startsWith("#"));
+    private static void forgetPlace(Set<LOperand> a, LOperand op) {
+        if (writesAnyPlace(op)) {
+            a.removeIf(h -> !(h instanceof LOperand.Imm));
             return;
         }
-        int at = frameOffset(operand);
-        a.removeIf(h -> h.equals(operand) || at >= 0 && frameOffset(h) >= 0 && Math.abs(frameOffset(h) - at) <= 1);
+        int at = frameOffset(op);
+        a.removeIf(h -> h.equals(op) || at >= 0 && frameOffset(h) >= 0 && Math.abs(frameOffset(h) - at) <= 1);
     }
 
-    /** The offset of a direct frame place ("z:dampf_frame+6"), -1 for anything else. */
-    public int frameOffset(String operand) {
-        int k = operand.indexOf(frame);
-        if (k < 0 || operand.indexOf(',') >= 0) {
-            return -1;
-        }
-        String rest = operand.substring(k + frame.length());
-        if (rest.isEmpty()) {
-            return 0;
-        }
-        if (!rest.startsWith("+")) {
-            return -1;
-        }
-        try {
-            return Integer.parseInt(rest.substring(1));
-        } catch (NumberFormatException e) {
-            return -1;
-        }
+    /** The offset of a direct frame place ({@code z:dampf_frame+6}), -1 for anything else. */
+    public static int frameOffset(LOperand op) {
+        return op instanceof LOperand.Mem mem ? mem.frameOffset() : -1;
     }
 }

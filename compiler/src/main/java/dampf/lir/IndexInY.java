@@ -20,8 +20,8 @@ public final class IndexInY {
 
     private final RegContents contents;
 
-    public IndexInY(String frame) {
-        this.contents = new RegContents(frame);
+    public IndexInY() {
+        this.contents = new RegContents();
     }
 
     /** Returns how many loads of X went. */
@@ -39,13 +39,13 @@ public final class IndexInY {
                 if (!(items.get(k) instanceof LInstr in)) {
                     continue;
                 }
-                if (in.mnemonic().equals("ldx") && in.operand() != null && in.operand().equals(s.y())) {
+                if (in.mnemonic().equals("ldx") && in.op() != null && in.op().equals(s.y())) {
                     List<Integer> uses = convertible(items, k, xLiveOut.getOrDefault(b, true));
                     if (uses != null) {
                         for (int u : uses) {
                             LInstr use = (LInstr) items.get(u);
-                            String op = use.operand();
-                            items.set(u, use.withOperand(op.substring(0, op.length() - 2) + ",y"));
+                            LOperand.Mem m = (LOperand.Mem) use.op();
+                            items.set(u, use.withOperand(new LOperand.Mem(m.width(), m.base(), m.offset(), LOperand.Index.Y, false).text()));
                         }
                         items.remove(k--);
                         changed++;
@@ -79,9 +79,9 @@ public final class IndexInY {
             }
             flagsSet |= (RedundantLoads.writes(in) & nz) == nz;
             if (readsX(in)) {
-                String op = in.operand();
-                if (op == null || !op.endsWith(",x") || op.startsWith("z:") || op.startsWith("f:") || op.startsWith("(")
-                        || !ABS_Y.contains(in.mnemonic())) {
+                // an absolute address indexed by X (no direct page or long form has a Y twin)
+                if (!(in.op() instanceof LOperand.Mem m) || m.index() != LOperand.Index.X || m.indirect()
+                        || m.width() == LOperand.Width.DP || m.width() == LOperand.Width.LONG || !ABS_Y.contains(in.mnemonic())) {
                     return null;
                 }
                 uses.add(j);
@@ -97,8 +97,8 @@ public final class IndexInY {
     }
 
     static boolean readsX(LInstr i) {
-        String op = i.operand();
-        if (op != null && (op.endsWith(",x") || op.contains(",x)"))) {
+        if (i.op() instanceof LOperand.Mem m && m.index() == LOperand.Index.X
+                || i.op() instanceof LOperand.Raw r && (r.text().endsWith(",x") || r.text().contains(",x)"))) {
             return true;
         }
         return switch (i.mnemonic()) {

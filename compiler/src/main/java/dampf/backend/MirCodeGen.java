@@ -131,12 +131,12 @@ public final class MirCodeGen {
             // code is shorter, so more branches may reach
             // (each counts in the pass limit; BranchRelax does not, it is part of making the code)
             LFunction lf = code.function();
-            limit.apply("RedundantLoads", f.name(), () -> new RedundantLoads(Selection.FRAME).run(lf));
-            limit.apply("IndexInY", f.name(), () -> new IndexInY(Selection.FRAME).run(lf));
+            limit.apply("RedundantLoads", f.name(), () -> new RedundantLoads().run(lf));
+            limit.apply("IndexInY", f.name(), () -> new IndexInY().run(lf));
             limit.apply("Peephole", f.name(), () -> new Peephole(Selection.FRAME, Selection.FRAME_START).run(lf));
             limit.apply("ByteStretches", f.name(), () -> ByteStretches.run(lf));
             limit.apply("KnownCarry", f.name(), () -> KnownCarry.run(lf));
-            limit.apply("DeadStores", f.name(), () -> new DeadStores(Selection.FRAME, ownValueBytes(f)).run(lf));
+            limit.apply("DeadStores", f.name(), () -> new DeadStores(ownValueBytes(f)).run(lf));
             BranchRelax.run(lf);
             Map<String, String> renamed = dampf.lir.LocalLabels.renumber(code.function(), "@L");
             Map<String, Integer> bounds = new HashMap<>();
