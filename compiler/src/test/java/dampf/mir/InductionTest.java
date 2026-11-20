@@ -104,8 +104,9 @@ class InductionTest {
         MModule optimized = MirParser.parse(PROGRAM);
         Optimizer.run(optimized, true, false);
         String up = Printer.print(optimized.function("_up"));
-        // i < 30 is now offset < 90 (offset = i * 3), and the 8-bit counter is gone
-        assertTrue(up.contains("cmp ult i16") && up.contains(", 90"), up);
+        // i < 30 is i <= 29, now offset <= 87 (offset = i * 3), so offset < 88, and the 8-bit
+        // counter is gone
+        assertTrue(up.contains("cmp ult i16") && up.contains(", 88"), up);
         assertFalse(up.contains("phi i8"), up);
     }
     @Test
@@ -148,5 +149,186 @@ class InductionTest {
         assertEquals(3, Loops.find(f).getFirst().head().instrs().stream().filter(x -> x instanceof Instr.Phi).count(), printed);
         assertEquals(new Interpreter(MirParser.parse(text), 100_000).call("_walk", List.of(0L)),
                 new Interpreter(m, 100_000).call("_walk", List.of(0L)));
+    }
+
+    // the forms of L4 (docs/current-compiler-flaws.md): i - 1 from 1 to n, (i - 1) * 2 counting
+    // down, r * 16 + c in a table, a stride of 5 (strength reduction makes it x * 4 + x), a
+    // byte counter to a byte bound that may be 0, and a counter something else reads
+    private static final String FORMS = """
+            global @_t : 256
+
+            func @_from1(i16 %n) -> i16 {
+            b0_entry:
+                %9 = and i16 %n, 127
+                jump b1
+            b1:
+                %0 = phi i16 [b0_entry, 1], [b2, %5]
+                %1 = phi i16 [b0_entry, 0], [b2, %6]
+                %2 = cmp ult i16 %0, %9
+                br %2, b2, b3
+            b2:
+                %3 = add i16 %0, -1
+                %7 = ptradd @_t, i16 %3
+                %8 = load i8 %7
+                %10 = zext i8 %8 to i16
+                %6 = add i16 %1, %10
+                %5 = add i16 %0, 1
+                jump b1
+            b3:
+                ret i16 %1
+            }
+
+            func @_down2(i16 %n) -> i16 {
+            b0_entry:
+                %9 = and i16 %n, 63
+                jump b1
+            b1:
+                %0 = phi i16 [b0_entry, %9], [b2, %5]
+                %1 = phi i16 [b0_entry, 0], [b2, %6]
+                %2 = cmp ne i16 %0, 0
+                br %2, b2, b3
+            b2:
+                %5 = add i16 %0, -1
+                %3 = mul i16 %5, 2
+                %7 = ptradd @_t, i16 %3
+                %8 = load i16 %7
+                %6 = add i16 %1, %8
+                jump b1
+            b3:
+                ret i16 %1
+            }
+
+            func @_rows(i16 %r) -> i16 {
+            b0_entry:
+                %9 = and i16 %r, 7
+                %4 = mul i16 %9, 16
+                jump b1
+            b1:
+                %0 = phi i16 [b0_entry, 0], [b2, %5]
+                %1 = phi i16 [b0_entry, 0], [b2, %6]
+                %2 = cmp ult i16 %0, 16
+                br %2, b2, b3
+            b2:
+                %3 = add i16 %4, %0
+                %7 = ptradd @_t, i16 %3
+                %8 = load i8 %7
+                %10 = zext i8 %8 to i16
+                %6 = add i16 %1, %10
+                %5 = add i16 %0, 1
+                jump b1
+            b3:
+                ret i16 %1
+            }
+
+            func @_stride5(i16 %n) -> i16 {
+            b0_entry:
+                %9 = and i16 %n, 31
+                jump b1
+            b1:
+                %0 = phi i16 [b0_entry, %9], [b2, %5]
+                %1 = phi i16 [b0_entry, 0], [b2, %6]
+                %2 = cmp ne i16 %0, 0
+                br %2, b2, b3
+            b2:
+                %5 = add i16 %0, -1
+                %3 = mul i16 %5, 5
+                %7 = ptradd @_t, i16 %3
+                %8 = load i8 %7
+                %10 = zext i8 %8 to i16
+                %6 = add i16 %1, %10
+                jump b1
+            b3:
+                ret i16 %1
+            }
+
+            func @_bytes(i8 %n) -> i16 {
+            b0_entry:
+                jump b1
+            b1:
+                %0 = phi i8 [b0_entry, 0], [b2, %5]
+                %1 = phi i16 [b0_entry, 0], [b2, %6]
+                %2 = cmp ult i8 %0, %n
+                br %2, b2, b3
+            b2:
+                %3 = zext i8 %0 to i16
+                %7 = ptradd @_t, i16 %3
+                %8 = load i8 %7
+                %10 = zext i8 %8 to i16
+                %6 = add i16 %1, %10
+                %5 = add i8 %0, 1
+                jump b1
+            b3:
+                ret i16 %1
+            }
+
+            func @_keeps(i16 %n) -> i16 {
+            b0_entry:
+                %9 = and i16 %n, 63
+                jump b1
+            b1:
+                %0 = phi i16 [b0_entry, 0], [b2, %5]
+                %1 = phi i16 [b0_entry, 0], [b2, %6]
+                %2 = cmp ult i16 %0, %9
+                br %2, b2, b3
+            b2:
+                %3 = mul i16 %0, 3
+                %7 = ptradd @_t, i16 %3
+                %8 = load i8 %7
+                %10 = zext i8 %8 to i16
+                %11 = add i16 %1, %10
+                %6 = add i16 %11, %0
+                %5 = add i16 %0, 1
+                jump b1
+            b3:
+                ret i16 %1
+            }
+
+            func @_fill() -> void {
+            b0_entry:
+                jump b1
+            b1:
+                %0 = phi i16 [b0_entry, 0], [b2, %2]
+                %1 = cmp ult i16 %0, 256
+                br %1, b2, b3
+            b2:
+                %3 = ptradd @_t, i16 %0
+                %4 = mul i16 %0, 7
+                %5 = trunc i16 %4 to i8
+                store i8 %3, %5
+                %2 = add i16 %0, 1
+                jump b1
+            b3:
+                ret
+            }
+            """;
+
+    /** The phis of the head of f's (one) loop. */
+    private static long headPhis(MModule m, String f) {
+        Loops.Loop l = Loops.find(m.function(f)).getFirst();
+        return l.head().instrs().stream().filter(x -> x instanceof Instr.Phi).count();
+    }
+
+    @Test
+    void affineValuesBecomeVariablesAndTheCounterGoes() {
+        MModule plain = MirParser.parse(FORMS);
+        MModule optimized = MirParser.parse(FORMS);
+        Optimizer.run(optimized, true, false);
+        // one variable for the index and the sum, the counter gone (rows: the index r * 16 + c)
+        for (String f : List.of("_from1", "_down2", "_rows", "_stride5", "_bytes")) {
+            assertEquals(2, headPhis(optimized, f), Printer.print(optimized.function(f)));
+        }
+        assertFalse(Printer.print(optimized.function("_bytes")).contains("phi i8"));
+        // read by the sum too: the counter stays beside its product
+        assertEquals(3, headPhis(optimized, "_keeps"), Printer.print(optimized.function("_keeps")));
+        for (String f : List.of("_from1", "_down2", "_rows", "_stride5", "_bytes", "_keeps")) {
+            for (long a : new long[] {0, 1, 2, 5, 13, 31, 63, 64, 127, 128, 255}) {
+                Interpreter want = new Interpreter(plain, 10_000_000);
+                Interpreter got = new Interpreter(optimized, 10_000_000);
+                got.observe(Ranges.checker(optimized));
+                want.call("_fill", List.of());
+                got.call("_fill", List.of());
+                assertEquals(want.call(f, List.of(a)), got.call(f, List.of(a)), f + "(" + a + ")\n" + Printer.print(optimized.function(f)));
+            }
+        }
     }
 }

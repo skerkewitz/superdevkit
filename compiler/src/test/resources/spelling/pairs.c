@@ -2,11 +2,8 @@
  * tolerance: 10
  * The nested loop over all pairs (i, j) with j > i, as a game's collision test: the pairs closer
  * than 8 in x. By index with every counter type, by pointer, and with the inner loop counting down.
- * gap: pairs_u16 L4 j is kept beside its derived offset
- * gap: pairs_i16 L4 as pairs_u16
- * gap: pairs_hoisted L4 as pairs_u16
  * gap: pairs_ptr C6 the pointers are compared as 32-bit values: b is computed every inner round, and the indexes into xs come on top
- * gap: pairs_down L4 the test j > i stays on j beside its derived offset
+ * gap: pairs_down L4 the counter moved to its offset is compared with a bound in a place, and the X pattern takes constants only (o >= 2 * (i + 1))
  */
 #include <stdint.h>
 

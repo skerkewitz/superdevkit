@@ -2,12 +2,11 @@
  * tolerance: 10
  * Two fields of every element moved: of an array of structs by index and by pointer, and of one
  * array per field. The style guide's fast-array-per-field.
- * gap: struct_u16 L4 the counter is kept beside the derived offset; then the stride (split)
+ * gap: struct_u16 split as struct_u8
  * gap: struct_u8 split a stride of 5 bytes takes TXA ADC TAX where the field arrays take INX INX: only splitting the array (roadmap M9 row 4) closes it
  * gap: struct_ptr C6 the pointers are compared as 32-bit values every round
  * gap: struct_ptr_count L4,L5 the pointer's offset and the counter step by different amounts: one is derived from the other, and the test could move to the offset
- * gap: struct_down L4 the offsets of objs[i - 1] are computed from i - 1 every round
- * gap: fields_u16 L4 the counter is kept beside the derived offset
+ * gap: struct_down split as struct_u8
  */
 #include <stdint.h>
 

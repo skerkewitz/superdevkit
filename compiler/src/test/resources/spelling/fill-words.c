@@ -1,15 +1,7 @@
 /* family: fill-words
  * tolerance: 10
  * A constant stored into every element of a uint16_t array, by index with every counter type,
- * up and down, and by pointer. The style guide's slow-u16-counter-words.
- * gap: fill_u16 L4 the i16 counter is kept beside the derived offset (slow-u16-counter-words)
- * gap: fill_i16 L4 as fill_u16
- * gap: fill_u16_le L4 as fill_u16
- * gap: fill_u16_ne L4 as fill_u16
- * gap: fill_u16_down L4 (i - 1) * 2 is no product of the counter, so the offset is computed every round
- * gap: fill_u8_down C5 as h_u8_down of sum-bytes
- * gap: fill_while L4 as fill_u16
- * gap: fill_do L4 as fill_u16
+ * up and down, and by pointer. Was the style guide's slow-u16-counter-words.
  * gap: fill_ptr_walk L4,L5 the pointer's offset and the counter step by different amounts: one is derived from the other, and the test could move to the offset
  * gap: fill_ptr_end C6 the pointers are compared as 32-bit values every round
  */

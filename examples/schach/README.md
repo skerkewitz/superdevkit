@@ -174,7 +174,8 @@ the four examples to 16 bit, as the guide's rule then said: most functions got s
 `hud_clear` from 1,246 to 1,958 cycles, a loop over words), Schach's game took 17 frames more, and
 the rule turned out to hold only for loops over bytes. The guide then got both cases
 (`slow-u8-counter`, `slow-u16-counter-words`); only the four counters of Schach whose functions got
-faster were kept. `slow-u8-counter` went on 2026-11-20, when byte counters got unsigned ranges.
+faster were kept. Both rules went on 2026-11-20: `slow-u8-counter` when byte counters got
+unsigned ranges, `slow-u16-counter-words` when the loop test moved to the stepped offset.
 
 The first version also searched too many quiescence nodes: Kiwipete needed 2,961 nodes for depth
 1, now 600 nodes reach depth 2. Per call: `gen_moves` 6,100 cycles, `score_moves` 2,700, `next`

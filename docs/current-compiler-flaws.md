@@ -485,6 +485,10 @@ Steps, each its own commit:
   loop test to a derived variable for every counter type when the number of rounds shows the
   variable does not wrap, and when the counter then has no other use. Retires
   `slow-u16-counter-words`.
+  Built (2026-11-20, [log](optimizations-log.md#affine-values-of-a-counter-as-variables-the-loop-test-on-them-2026-11-20-on-the-spelling-families-and-the-examples)):
+  L4 as described, for every affine value (also `r * 16 + c`, and a byte counter's zero
+  extension); `slow-u16-counter-words` and `slow-word-array` retired. Left: a test moved to a
+  bound in a place (`rows_*`, `pairs_down`), which the X pattern does not take.
 - **L5.** Two counters of one loop with the same start and step are one: replace the second by
   the first (`x_ptr_walk`: the counter and the pointer's offset). A counter that differs from
   another by a constant factor or offset is derived from it and falls under L4.

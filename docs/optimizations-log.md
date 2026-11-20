@@ -1197,3 +1197,40 @@ counters that step by different amounts (L4). The style guide's `pairs_by_list` 
 The examples: CatchMe -0.5 %, Steinschlag -0.3 %, Schach +0.1 %, the rest the same; geometric
 mean -0.1 %. Code changed in five examples and 9 programs of `BackendOutputTest`.
 
+## Affine values of a counter as variables, the loop test on them (2026-11-20, on the spelling families and the examples)
+
+`Induction` made a variable of `i * C` only, and moved the loop test to it for byte counters
+only, so a 16-bit counter stayed in memory beside the offset it stepped (the style guide's
+`slow-u16-counter-words`), and `i - 1`, `(i - 1) * 2` or `r * 16 + c` were computed every round.
+It now takes any affine value of a counter: the zero extension of a byte counter, `+` a constant,
+a value from outside the loop or another affine value, `*` and `<<` a constant
+([current-compiler-flaws.md](current-compiler-flaws.md#flaw-l-four-passes-recognise-loops-each-differently),
+L4). A value with a factor other than 1 becomes a variable, as before; if nothing but such
+values, the step and one loop test read the counter, every one does, and the test moves to the
+first: `i < 64` with `o = i * 2` is `o <= 126`, which `Simplify` writes `o < 127`. The move is
+exact when the compared values map into one 16-bit reading without wrapping (the value ranges
+show it); `<` becomes `<=` with the bound minus one, and `!=` of a counter that never passes its
+bound becomes `>` first, so that the variable's range in the loop leaves out the value after the
+last round. A value that is another variable plus a constant is that addition. Found on the
+way: users counted only from live instructions (a dead `zext` kept counters), and the bound
+offset added in 16 bits after the zero extension (`n - 1` of a byte `n = 0` is 255).
+
+The spelling families: 15 gaps closed. `fill_u16` and its spellings 1,945 → 1,233
+(`fill_u16_down` 2,390, `fill_u8_down` 2,710), `pairs_u16` 21,411 → 17,990, `pairs_hoisted`
+19,899 → 16,574, `struct_u16` 1,881 → 1,521, `fields_u16` 1,721 → 1,361, `struct_down` 2,070 →
+1,585, `m_u16_from1` 4,146 → 2,538, `d_u8_ne100` 2,936 → 2,538, `h_u8_down` 4,443 → 2,738;
+`rows_u16` 5,774 → 5,397, whose test now compares with a bound in a place, which the X pattern
+does not take yet. The style guide: `slow-u16-counter-words` (both 1,233) and `slow-word-array`
+(`sum_words` 7,033 → 4,825, now cheaper than `sum_bytes`) retired; `fast-array-per-field` and
+`slow-pointer-walk` 360 cycles cheaper on both sides.
+
+| | Before | After |
+| --- | ---: | ---: |
+| A counter, struct array | 179,353 | 179,361 |
+| B sorted list, struct array | 190,127 | 190,430 (+0.2 %) |
+| C counter, one array per field | 186,990 | 186,996 |
+| D sorted list, one array per field | 180,432 | 180,735 (+0.2 %) |
+
+The examples: Er-Tüp -2.0 %, CatchMe -0.2 %, Schach +0.2 %, the rest the same; geometric mean
+-0.3 %. Code changed in all seven and in 23 programs of `BackendOutputTest`.
+

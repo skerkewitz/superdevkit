@@ -55,14 +55,6 @@ call its own statement.
 
 ## 3. Slow
 
-- **`slow-u16-counter-words`** In a loop over an array of `uint16_t`, count with `uint8_t` (if the
-  count fits): dampf then drops the counter and steps the index register by 2, where it keeps a
-  16-bit counter in memory beside it. This rule is a gap in dampf, not the 65816: both forms
-  should cost the same. Over an array of bytes they do. Elsewhere (a loop over a table of two
-  dimensions, a counter used in 8-bit arithmetic) the difference is small and goes either way:
-  keep what reads better, and measure a hot loop in both forms with the timing report.
-- **`slow-word-array`** Store values in the narrowest type they fit: an element of `uint16_t`
-  costs a doubling of the index on every access.
 - **`slow-pointer-walk`** Index an array (`a[i].x`) instead of walking it with a pointer
   (`o->x; o++`).
 - **`slow-index-list`** Walk all slots with a counter and skip the free ones
@@ -135,7 +127,7 @@ Measured 2026-11-20 (worst case of the timing report, code generator from MIR).
 
 | Rule | This | CPU cycles | is | than this | CPU cycles |
 | --- | --- | ---: | --- | --- | ---: |
-| `fast-array-per-field` | `move_array_per_field` | 1,721 | faster | `move_array_of_structs` | 1,881 |
+| `fast-array-per-field` | `move_array_per_field` | 1,361 | faster | `move_array_of_structs` | 1,521 |
 | `fast-range-index` | `store_with_range` | 56 | faster | `store_without_range` | 103 |
 | `same-declaration-place` | `declared_at_top` | 5,025 | same | `declared_where_used` | 5,025 |
 | `same-increment-form` | `count_postfix` | 5,025 | same | `count_prefix` | 5,025 |
@@ -149,9 +141,7 @@ Measured 2026-11-20 (worst case of the timing report, code generator from MIR).
 | `slow-hand-shifts` | `times_40_by_shifts` | 45 | slower | `times_40` | 31 |
 | `slow-index-list` | `pairs_by_list` | 20,630 | slower | `pairs_by_counter` | 15,590 |
 | `slow-multiply-variable` | `multiply_variables` | 411 | slower | `multiply_constant` | 31 |
-| `slow-pointer-walk` | `move_by_pointer` | 1,943 | slower | `move_by_index` | 1,881 |
+| `slow-pointer-walk` | `move_by_pointer` | 1,943 | slower | `move_by_index` | 1,521 |
 | `slow-shift-above-8` | `shift_by_9` | 130 | slower | `shift_by_8_then_1` | 19 |
 | `slow-signed-divide` | `divide_signed` | 265 | slower | `divide_unsigned` | 17 |
-| `slow-u16-counter-words` | `fill_u16_counter` | 1,945 | slower | `fill_u8_counter` | 1,233 |
-| `slow-word-array` | `sum_words` | 7,033 | slower | `sum_bytes` | 5,025 |
 <!-- end of measurements -->

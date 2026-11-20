@@ -2,12 +2,9 @@
  * tolerance: 10
  * The sum of data[0] to data[99] into a uint16_t, by index and by pointer, with every counter
  * type, direction, test and loop form. The appendix of docs/current-compiler-flaws.md.
- * gap: d_u8_ne100 C5 the zero extension for the index stays in the loop head, which then is not rotated: a BEQ out and a BRA back each round
- * gap: h_u8_down C5 the index i - 1 comes from the byte's zero extension, not from the 8-bit step (SEP, DEC, REP), so the counter stays out of X
  * gap: j_u16_var_bound C7 the global bound is loaded every round; index not proved below 32 KB
  * gap: k_u8_var_bound C7 the global bound is loaded every round
  * gap: l_u16_local_bound R3 index not proved below 32 KB, so a 24-bit pointer
- * gap: m_u16_from1 L4 the index is i - 1, the X pattern wants i itself
  * gap: y_ptr_end C6 the pointers are compared as 32-bit values every round
  */
 #include <stdint.h>
