@@ -38,8 +38,8 @@ final class MemorySelection {
         LOperand index = sel.operand(a.index(), 0);
         boolean yForm = ABS_Y.contains(mnemonic) && f.width() != LOperand.Width.DP && f.width() != LOperand.Width.LONG;
         boolean preferY = sel.yIndexes.contains(Selection.throughCopies(a.index()));
-        if (yForm && !index.equals(sel.xHolds)
-                && (index.equals(sel.yHolds) || preferY || sel.xTaken != null || sel.xHolds != null && !(sel.xHolds instanceof LOperand.Imm))) {
+        if (yForm && !Selection.same(index, sel.xHolds)
+                && (Selection.same(index, sel.yHolds) || preferY || sel.xTaken != null || sel.xHolds != null && !(sel.xHolds instanceof LOperand.Imm))) {
             sel.ins("ldy", index);
             return f.indexed(LOperand.Index.Y);
         }

@@ -221,12 +221,49 @@ final class Selection {
     final Set<Value> yIndexes = new HashSet<>();
 
     /**
-     * What A holds for sure: the operand strings (frame places and an immediate) equal to it, so
-     * a load of any of them can be left out (after LDA x / STA y both are). Forgotten at labels,
-     * calls and stores through pointers, and when an instruction changes A; a place is dropped
-     * when something else writes it or a neighbouring byte.
+     * What A holds for sure: the operands (frame places and an immediate) equal to it, so a load
+     * of any of them can be left out (after LDA x / STA y both are). Forgotten at labels, calls
+     * and stores through pointers, and when an instruction changes A; a place is dropped when
+     * something else writes it or a neighbouring byte. A frame place counts by its owner, not by
+     * its address: A holds that value wherever its place ends up (B2, ADR record 47).
      */
-    final Set<LOperand> aHolds = new HashSet<>();
+    final Holds aHolds = new Holds();
+
+    /** Operands, a frame place matched by address and owner ({@link #same}). */
+    static final class Holds {
+        private final List<LOperand> ops = new ArrayList<>();
+
+        boolean contains(LOperand o) {
+            for (LOperand h : ops) {
+                if (same(h, o)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        void add(LOperand o) {
+            if (!contains(o)) {
+                ops.add(o);
+            }
+        }
+
+        void clear() {
+            ops.clear();
+        }
+
+        void removeIf(java.util.function.Predicate<LOperand> p) {
+            ops.removeIf(p);
+        }
+    }
+
+    /** The same operand: equal, and a frame place of the same owner. */
+    static boolean same(LOperand a, LOperand b) {
+        if (a == null || b == null || !a.equals(b)) {
+            return false;
+        }
+        return !(a instanceof LOperand.Mem m && b instanceof LOperand.Mem n) || java.util.Objects.equals(m.owner(), n.owner());
+    }
     /** The pointers in dampf_ptr and dampf_ptr+4 (forgotten like aHolds), and what Y holds. */
     Value ptrP;
     Value ptrQ;
@@ -317,10 +354,10 @@ final class Selection {
         if (!mnemonic.equals("ldy")) {
             flushHeld();
         }
-        if (mnemonic.equals("ldy") && operand != null && operand.equals(yHolds)) {
+        if (mnemonic.equals("ldy") && same(operand, yHolds)) {
             return;
         }
-        if (mnemonic.equals("ldx") && operand != null && operand.equals(xHolds)) {
+        if (mnemonic.equals("ldx") && same(operand, xHolds)) {
             return;
         }
         out.insOp(mnemonic, operand, null, relax);

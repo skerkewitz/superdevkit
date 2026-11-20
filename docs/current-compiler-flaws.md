@@ -629,7 +629,9 @@ where it was not written on every way, or written over another owner's live byte
 a copy. Selection marks the copies it makes by writing a value into the place it shares with
 another (`LMark`: a φ copy into a direct φ, an in-place step); the marks go before the LIR
 passes. Its first run found a miscompilation (`ConstAddressTest`, the scroll registers of the
-kit's `sdevkit_bg_set_scroll`).
+kit's `sdevkit_bg_set_scroll`). Selection then learnt to match what A, X and Y hold by owner
+instead of by address, so a load it leaves out stays right wherever the places end up (no hash
+changed).
 
 ### B3. X and Y assigned by cost
 
