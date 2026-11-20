@@ -344,8 +344,19 @@ final class Selection {
         track("lda", operand);
     }
 
+    /**
+     * A place whose contents a register can hold: a frame place or an immediate. Not an indexed
+     * one ({@code z:dampf_frame+0,x}, an element of a local array): the same text names another
+     * byte when X or Y changes.
+     */
     static boolean trackable(String operand) {
-        return operand != null && (operand.contains(FRAME) && !operand.startsWith("[") || operand.startsWith("#"));
+        return operand != null && operand.indexOf(',') < 0
+                && (operand.contains(FRAME) && !operand.startsWith("[") || operand.startsWith("#"));
+    }
+
+    /** A store through a pointer or an index: it may write any frame place. */
+    static boolean writesAnyPlace(String operand) {
+        return operand.startsWith("[") || operand.indexOf(',') >= 0 && operand.contains(FRAME);
     }
 
     void track(String mnemonic, String operand) {
@@ -367,10 +378,10 @@ final class Selection {
             case "sta", "stx", "sty", "stz", "inc", "dec", "asl", "lsr", "rol", "ror" -> operand != null && !operand.equals("a");
             default -> false;
         };
-        if (writesMemory && (operand.startsWith("[") || operand.equals(xHolds))) {
+        if (writesMemory && (writesAnyPlace(operand) || operand.equals(xHolds))) {
             xHolds = null;
         }
-        if (writesMemory && (operand.startsWith("[") || operand.equals(yHolds))) {
+        if (writesMemory && (writesAnyPlace(operand) || operand.equals(yHolds))) {
             yHolds = null;
         }
         switch (mnemonic) {
@@ -409,7 +420,7 @@ final class Selection {
                 }
             }
             case "sta" -> {
-                if (operand != null && operand.startsWith("[")) {
+                if (operand != null && writesAnyPlace(operand)) {
                     aHolds.clear();   // may write any frame place
                 } else if (!m8 && trackable(operand)) {
                     aHolds.add(operand);   // (forgetPlace dropped it and its neighbours first)
@@ -428,7 +439,7 @@ final class Selection {
 
     /** A write to a place: A no longer equals it, nor a place that shares a byte with it. */
     void forgetPlace(String operand) {
-        if (operand.startsWith("[")) {
+        if (writesAnyPlace(operand)) {
             aHolds.removeIf(h -> !h.startsWith("#"));
             return;
         }

@@ -80,10 +80,10 @@ public final class RegContents {
             case "sta", "stx", "sty", "stz", "inc", "dec", "asl", "lsr", "rol", "ror" -> op != null && !op.equals("a");
             default -> false;
         };
-        if (writesMemory && (op.startsWith("[") || op.equals(x))) {
+        if (writesMemory && (writesAnyPlace(op) || op.equals(x))) {
             x = null;
         }
-        if (writesMemory && (op.startsWith("[") || op.equals(y))) {
+        if (writesMemory && (writesAnyPlace(op) || op.equals(y))) {
             y = null;
         }
         switch (m) {
@@ -115,7 +115,7 @@ public final class RegContents {
                 }
             }
             case "sta" -> {
-                if (op != null && op.startsWith("[")) {
+                if (op != null && writesAnyPlace(op)) {
                     a.clear();   // may write any frame place
                 } else if (!m8 && trackable(op)) {
                     a.add(op);
@@ -133,13 +133,24 @@ public final class RegContents {
         return new State(Set.copyOf(a), x, y);
     }
 
+    /**
+     * A place whose contents a register can hold: a frame place or an immediate. Not an indexed
+     * one ({@code z:dampf_frame+0,x}, an element of a local array): the same text names another
+     * byte when X or Y changes.
+     */
     private boolean trackable(String operand) {
-        return operand != null && (operand.contains(frame) && !operand.startsWith("[") || operand.startsWith("#"));
+        return operand != null && operand.indexOf(',') < 0
+                && (operand.contains(frame) && !operand.startsWith("[") || operand.startsWith("#"));
+    }
+
+    /** A store through a pointer or an index: it may write any frame place. */
+    private boolean writesAnyPlace(String operand) {
+        return operand.startsWith("[") || operand.indexOf(',') >= 0 && operand.contains(frame);
     }
 
     /** A write to a place: A no longer equals it, nor a place that shares a byte with it. */
     private void forgetPlace(Set<String> a, String operand) {
-        if (operand.startsWith("[")) {
+        if (writesAnyPlace(operand)) {
             a.removeIf(h -> !h.startsWith("#"));
             return;
         }
