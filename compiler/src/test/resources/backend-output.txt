@@ -98,10 +98,10 @@ exec_locals.layout.timing c93a165069032913b507fee3
 exec_locals.mir.s0 7ccb9e6aa0ec8f3252af2055
 exec_locals.mir.timing c93a165069032913b507fee3
 exec_locals.naive.s0 affc0a450826501e81a0f6f3
-exec_loop_bounds.layout.s0 829936b9e8c0212ed8bb4d50
-exec_loop_bounds.layout.timing d766b8febf9a2236343efbad
-exec_loop_bounds.mir.s0 a13b71cee6ca492b25238147
-exec_loop_bounds.mir.timing 508051d0b0e58680e15123b2
+exec_loop_bounds.layout.s0 b273f9b6f9120af28ec25a19
+exec_loop_bounds.layout.timing 7d7b5351734fa37dc729deb1
+exec_loop_bounds.mir.s0 06753d7d0b3d74da44bb0dd9
+exec_loop_bounds.mir.timing 4fb763d844fe568c5afb82a7
 exec_loop_bounds.naive.s0 5308f43bcd51fcf2af837670
 exec_loop_test_moved.layout.s0 ce01f9cf38e2a6e082e1ac23
 exec_loop_test_moved.layout.timing 8299ef434961aaab0cf64d93

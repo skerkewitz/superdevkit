@@ -499,7 +499,9 @@ definition. `!=` counts as `<` (`>`) when a step of 1 (-1) starts on the near si
 bound. `CountedLoopsTest` has the forms of the spelling families, the loops to refuse, and
 random counting loops (three shapes, every predicate, zero-extended or not, constant or ranged
 start and bound) whose claims the interpreter checks; four mutations of the arithmetic each
-made it fail.
+made it fail. A bound may change in the loop, unlike the description above
+([log](optimizations-log.md#bounds-that-change-in-the-loop-2026-11-20-on-the-execution-programs)):
+`Timing` takes such bounds, and an ordered test needs only their range.
 
 Built (2026-11-20, [log](optimizations-log.md#counters-take-their-range-from-the-counted-loop-2026-11-20-on-the-spelling-families-and-the-examples)):
 L2. `Ranges` meets a counter φ with what `CountedLoops` says, before and after widening, and

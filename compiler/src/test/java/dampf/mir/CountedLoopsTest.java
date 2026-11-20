@@ -118,6 +118,10 @@ class CountedLoopsTest {
         l = only(forLoop("i16", 0, "ne", "101", 4));
         assertEquals(-1, l.exactRuns());
         assertEquals(CountedLoops.UNKNOWN, l.runs(CountedLoops.CONSTANTS));
+        // from above the bound, a step of 1 goes round the type once: 250, ..., 255, 0, ..., 100
+        l = only(forLoop("i8", 250, "ne", "100", 1));
+        assertEquals(107, l.runs(CountedLoops.CONSTANTS));
+        interval(l, CountedLoops.CONSTANTS, null, null);
         // an odd step meets every value: finite, but it wraps
         l = only(forLoop("i8", 0, "ne", "100", 3));
         assertEquals(256, l.runs(CountedLoops.CONSTANTS));
@@ -273,7 +277,7 @@ class CountedLoopsTest {
                 }
                 """);
         assertTrue(l.counters().isEmpty());
-        // a bound written in the loop
+        // a bound read anew every round, and written
         l = only("""
                 global @_n : 2
 
@@ -293,9 +297,11 @@ class CountedLoopsTest {
                     ret i16 0
                 }
                 """);
-        assertEquals(1, l.counters().size());
-        assertTrue(l.exits().isEmpty());
-        assertEquals(CountedLoops.UNKNOWN, l.runs(ranges()));
+        // a bound written in the loop: what the test says holds still, as the bound lies in its
+        // range (here any i16) every round, but it is no invariant
+        assertEquals(1, l.exits().size());
+        assertFalse(l.exits().getFirst().invariant(l));
+        assertEquals(65536, l.runs(ranges()));
         // counters that wrap: every byte is at most 255; 254 + 2 wraps to 0; counting away
         for (String[] c : new String[][] {{"i8", "ule", "255", "1"}, {"i8", "ult", "255", "2"},
                 {"i16", "ult", "100", "-1"}, {"i16", "uge", "0", "-1"}, {"i16", "eq", "7", "1"}}) {
@@ -333,7 +339,7 @@ class CountedLoopsTest {
      * Random counting loops, in three shapes (test in the head on the φ, in the head on the
      * stepped value, in the latch on the stepped value), with any predicate, either side staying,
      * the counter on either side, possibly zero-extended, from constant or ranged starts to
-     * constant or ranged bounds. The interpreter runs each for several arguments: the head runs
+     * constant or ranged bounds, or to a bound that changes every round. The interpreter runs each for several arguments: the head runs
      * at most as often as claimed (exactly when exactRuns says), and every counter's value in the
      * head lies in its intervals.
      */
@@ -355,7 +361,8 @@ class CountedLoopsTest {
             long step = steps[rnd.nextInt(steps.length)];
             int bits = t.equals("i8") ? 8 : 16;
             String start = rnd.nextInt(3) == 0 ? "%s0" : Long.toString(small(rnd, bits));
-            String bound = rnd.nextInt(3) == 0 ? "%n0" : Long.toString(small(rnd, widened ? bits + 1 : bits));
+            int kind = rnd.nextInt(4);   // a constant, a parameter, or a bound that changes every round
+            String bound = kind == 0 ? "%n0" : kind == 1 ? "%n1" : Long.toString(small(rnd, widened ? bits + 1 : bits));
             String text = randomLoop(t, bt, widened, shape, pred, staysIfTrue, counterLeft, step, start, bound,
                     rnd.nextInt(4), rnd.nextInt(4));
             MModule m = MirParser.parse(text);
@@ -446,6 +453,9 @@ class CountedLoopsTest {
         sb.append("b1_head:\n");
         sb.append("    %0 = phi ").append(t).append(" [b0_entry, ").append(start).append("], [").append(latch).append(", %2]\n");
         sb.append("    %9 = phi i32 [b0_entry, 0], [").append(latch).append(", %10]\n");
+        // a bound that changes every round: the round's number, masked
+        sb.append(bt.equals("i32") ? "    %t = add i32 %9, 0\n" : "    %t = trunc i32 %9 to " + bt + "\n");
+        sb.append("    %n1 = and ").append(bt).append(" %t, ").append(masks[boundMask]).append('\n');
         if (shape != 0) {
             sb.append("    %2 = add ").append(t).append(" %0, ").append(step).append('\n');
             sb.append("    %10 = add i32 %9, 1\n");

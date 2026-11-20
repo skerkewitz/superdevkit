@@ -1118,3 +1118,18 @@ programs of `BackendOutputTest`. Loop bounds of the timing analysis got tighter:
 `exec/dead_loops.c` that had none has one, and `add_up` of `exec/hint_range.c` (`while (k)`
 with k at most 7) 9,730 → 256 cycles at worst, since its counter now stays in its byte and
 `Induction` makes `k * 3` a variable of its own.
+
+## Bounds that change in the loop (2026-11-20, on the execution programs)
+
+`CountedLoops` took only a bound defined outside the loop; `Timing` took any, with its range, and
+needs to keep doing so when it moves onto `CountedLoops` (L3): `either` of `exec/loop_bounds.c`
+runs `r < (layer == 0 ? 24 : 32)`, whose bound is a φ of the loop. What an ordered test says
+holds for such a bound too, as long as it lies in its range every round; `!=` needs a bound that
+stays the same (the random loops found that one that changes steps around the counter). Also from
+`Timing`: a step of 1 from the far side of a constant goes round the type once to it.
+
+Code changed in one program: `either`'s byte counter is now known not to pass 32, so its step is a
+16-bit `INC` (7 cycles) instead of an 8-bit one inside the store's `SEP`/`REP` (5 cycles); its
+worst case 2,520 → 2,584. The examples and the spelling families the same (no example's code
+changed).
+

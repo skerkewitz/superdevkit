@@ -18,9 +18,11 @@ import java.util.Set;
  * <p>A <b>counter</b> is an integer φ of the head whose value on every way back is
  * {@code add φ, c} with one constant c, the step. An <b>exit</b> is the branch of a block that
  * every round passes (it dominates every way back) and that leaves the loop on one side, on a
- * comparison of a counter with a bound: a constant, or a value defined outside the loop. What is
- * compared is the φ or the stepped value φ + c (the test of a {@code do} loop), either one
- * possibly zero-extended to a wider type.
+ * comparison of a counter with a bound. What is compared is the φ or the stepped value φ + c
+ * (the test of a {@code do} loop), either one possibly zero-extended to a wider type. The bound
+ * may change from round to round ({@code i < (a ? 24 : 32)}): what an ordered test says needs
+ * only that it lies in its range every round; {@code !=} needs it the same every round; only a
+ * constant bound gives an exact number.
  *
  * <p>The numbers come from the ranges of the starts and of the bounds ({@link Oracle}), the final
  * ones of {@link Ranges} or its state while it iterates. Each exit gives, in the reading of its
@@ -32,8 +34,9 @@ import java.util.Set;
  *       value that stays plus c (plus 0 when the stepped value is compared);</li>
  *   <li>stays while it is above the bound, c &lt; 0: the same downwards;</li>
  *   <li>stays while it is not the bound: with a step of 1 from below the bound (-1 from above),
- *       or start and bound constants the step reaches exactly, as "below" ("above"); else, with an
- *       odd step, the counter meets every value of its type, so the head runs at most 2^w times.</li>
+ *       or start and bound constants the step reaches exactly, as "below" ("above"); a step of 1
+ *       from above a constant bound goes round the type once to it; else, with an odd step, the
+ *       counter meets every value of its type, so the head runs at most 2^w times.</li>
  * </ul>
  * The head runs at most the fewest of these times ({@link #headRuns}, which also counts from the
  * counters' own ranges). Every counter, compared or not, then lies between its start and start
@@ -84,7 +87,12 @@ public final class CountedLoops {
      * the block it leaves to.
      */
     public record Exit(Block block, Instr.Cmp cmp, Counter counter, boolean stepped, boolean widened,
-                       Instr.Pred stay, Value bound, Block out) {}
+                       Instr.Pred stay, Value bound, Block out) {
+        /** Whether the bound is the same in every round: a constant, or defined outside the loop. */
+        public boolean invariant(Loop l) {
+            return !(bound instanceof Instr d && d.block() != null && l.blocks().contains(d.block()));
+        }
+    }
 
     /** A way out of the loop. */
     public record Edge(Block from, Block to) {}
@@ -262,7 +270,7 @@ public final class CountedLoops {
                     MType bt = e.bound.type();
                     y = unsigned ? Ranges.ufull(bt) : Ranges.full(bt);
                 }
-                Fact f = fact(e.stay, k.c, e.stepped ? 1 : 0, s, y, all.lo(), all.hi(), w, counterUnsigned);
+                Fact f = fact(e.stay, k.c, e.stepped ? 1 : 0, s, y, all.lo(), all.hi(), w, counterUnsigned, e.invariant(this));
                 if (f != null) {
                     out.add(f);
                 }
@@ -280,10 +288,12 @@ public final class CountedLoops {
     /**
      * One exit in one reading: the loop stays while (counter stay y); the counter starts in s,
      * steps by c, and its values lie in [min, max]; the comparison sees it after d steps (0: the
-     * φ, 1: the stepped value). Null if this says nothing.
+     * φ, 1: the stepped value). Null if this says nothing. Equality needs a bound that is the
+     * same every round ({@code invariant}, or a single value): one that changes can step around
+     * the counter.
      */
     static Fact fact(Instr.Pred stay, long c, int d, Ranges.Range s, Ranges.Range y, long min, long max, int w,
-                     boolean unsigned) {
+                     boolean unsigned, boolean invariant) {
         if (c == 0) {
             return null;
         }
@@ -296,6 +306,9 @@ public final class CountedLoops {
             case UGT, SGT -> { strict = true; up = false; }
             case UGE, SGE -> { strict = false; up = false; }
             case NE -> {
+                if (!invariant && y.lo() != y.hi()) {
+                    return null;
+                }
                 // the first compared value, if it does not wrap
                 long flo = s.lo() + d * c;
                 long fhi = s.hi() + d * c;
@@ -305,6 +318,13 @@ public final class CountedLoops {
                 if (reaches) {
                     strict = true;
                     up = c > 0;
+                } else if (Math.abs(c) == 1 && y.lo() == y.hi() && y.lo() >= min && y.lo() <= max && flo >= min && fhi <= max) {
+                    // a step of 1 from the far side goes round the type once; from both sides at most all of it
+                    long m = 1L << w;
+                    long t = y.lo();
+                    long steps = c > 0 ? (flo <= t && t < fhi ? m - 1 : Math.floorMod(t - flo, m))
+                            : (flo < t && t <= fhi ? m - 1 : Math.floorMod(fhi - t, m));
+                    return new Fact(steps + 1, null, unsigned, false);
                 } else if ((c & 1) != 0 && y.lo() >= min && y.hi() <= max) {
                     // an odd step meets every value of the type, the bound among them (a
                     // zero-extended counter never meets a bound above its type): within 2^w steps
@@ -468,9 +488,6 @@ public final class CountedLoops {
         for (int side = 0; side < 2; side++) {
             Value q = cmp.op(side);
             Value bound = cmp.op(1 - side);
-            if (bound instanceof Instr d && d.block() != null && in.contains(d.block())) {
-                continue;   // the bound changes in the loop
-            }
             boolean widened = false;
             if (q instanceof Instr.Cast z && z.kind == Instr.CastKind.ZEXT && z.type().bits() > z.op(0).type().bits()) {
                 q = z.op(0);
