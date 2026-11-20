@@ -1142,3 +1142,22 @@ compared zero-extended with a word below 256, and an even step that meets its co
 (`for (u = 0; u != 40; u += 2)`, which `exec/dead_loops.c` kept until now and loses). No example
 and no other program changed.
 
+## Counters in X read after their step (2026-11-20, on the spelling families and the execution programs)
+
+The X pattern wanted the step as the last instruction before the jump back, with no other user:
+the counter of a `do` loop, whose test reads the stepped value, and a loop counting down that
+indexes with `i - 1` (the step itself since C1) stayed in memory, and a signed test `i >= 0`
+was not one CPX takes. `findXCounters` now takes its counters from `CountedLoops` (a commit of
+its own that kept every hash) and a step anywhere in the round, once a round: before it X
+holds the counter, after it the stepped value, which the fused exit test (`CPX`) and array
+indexes may read. The counter must not be read after the step, nor either value after the loop.
+A signed test against 0 of a 16-bit counter is `CPX #0` and `BMI`/`BPL`
+([current-compiler-flaws.md](current-compiler-flaws.md#flaw-l-four-passes-recognise-loops-each-differently),
+L3; `exec/x_stepped.c` has the cases).
+
+The spelling families: 15 gaps closed. `i_u16_dowhile` 4,030 → 2,725, `g_u16_down` 3,743 →
+2,738, `copy_down` 3,522 → 2,517, and in every bound family `u16_down` and `i16_down` -27 %
+(4,779 → 3,494 for 128 rounds); `fill_do` 2,765 → 1,932. The examples, the pair loops and the
+style guide's measurements the same (no example's code changed); `exec/pointer_index.c` keeps a
+counter in X it kept in memory (worst case -25 cycles).
+

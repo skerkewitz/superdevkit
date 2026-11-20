@@ -6,7 +6,7 @@
  * gap: pairs_i16 L4 as pairs_u16
  * gap: pairs_hoisted L4 as pairs_u16
  * gap: pairs_ptr C6 the pointers are compared as 32-bit values: b is computed every inner round, and the indexes into xs come on top
- * gap: pairs_down L3 the inner counter goes down to a variable bound (j > i), which no loop pattern takes
+ * gap: pairs_down L4 the test j > i stays on j beside its derived offset
  */
 #include <stdint.h>
 

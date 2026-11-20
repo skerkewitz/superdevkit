@@ -130,12 +130,15 @@ final class BranchSelection {
 
     /** A branch on the comparison c without its truth value: flags, then the jump. */
     void compareAndBranch(Instr.Cmp c, Block ifTrue, Block ifFalse, Block next) {
-        if (sel.xResident.containsKey(Selection.throughCopies(c.op(0)))) {
+        Value x = Selection.throughCopies(c.op(0));
+        if (sel.xResident.containsKey(x) || sel.xSteps.containsKey(x)) {
             sel.xOp("cpx", sel.operand(c.op(1), 0));
             jumpOn(switch (c.pred) {
                 case EQ -> "beq";
                 case NE -> "bne";
                 case ULT -> "bcc";
+                case SLT -> "bmi";   // against 0: N is the sign of X
+                case SGE -> "bpl";
                 default -> "bcs";   // UGE (findXCounters admits no other)
             }, null, false, ifTrue, ifFalse, next);
             return;

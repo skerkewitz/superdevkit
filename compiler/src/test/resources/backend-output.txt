@@ -113,10 +113,10 @@ exec_pair_loops.layout.timing bd499afb9476574b8f8d44c1
 exec_pair_loops.mir.s0 b36e82c58273fb1faa244b7f
 exec_pair_loops.mir.timing c2678d06ef49e9e9b7e0d00d
 exec_pair_loops.naive.s0 63569bbba080615e9818f906
-exec_pointer_index.layout.s0 101878c292d2e6b6447d1aff
-exec_pointer_index.layout.timing e4366cb3c1a9654eee9bbaa4
-exec_pointer_index.mir.s0 093ed346b5791f9c6ab9bb2c
-exec_pointer_index.mir.timing be4ac540c90665cb27013186
+exec_pointer_index.layout.s0 4d9f1a986fdbf715e31d8e23
+exec_pointer_index.layout.timing aa7d1420261514bd5ea2c6eb
+exec_pointer_index.mir.s0 a059ef4b00e4778d3ef2d654
+exec_pointer_index.mir.timing 91a9fe0b5f04111eb98b6b16
 exec_pointer_index.naive.s0 551bf67825dcf4887fe7aa4d
 exec_pointer_offsets.layout.s0 ee28d84e5179659c7b5f19a0
 exec_pointer_offsets.layout.timing 1296dad7114427201fde71d2
@@ -228,6 +228,11 @@ exec_x_counters.layout.timing 3a4b055c1b4cf0a3e575b230
 exec_x_counters.mir.s0 54af806b61b40c570a4ada94
 exec_x_counters.mir.timing ffa4ce8ebafba47b6e549b4b
 exec_x_counters.naive.s0 5b421b59e85ea7affb88a435
+exec_x_stepped.layout.s0 5d30f1079ae81fc5d57d2a2b
+exec_x_stepped.layout.timing 8b9911847ffbc413d042550f
+exec_x_stepped.mir.s0 420957937b22881882fa8acf
+exec_x_stepped.mir.timing 9846143f57466f146fde8576
+exec_x_stepped.naive.s0 f4b6694bcd8e86907c3f5d20
 random1.mir.s0 c8e91917aa2b560f29a2294d
 random1.mir.timing df5463e68b7def1e47cdb72c
 random1.naive.s0 547feb8fad01f0fc9bb214f0

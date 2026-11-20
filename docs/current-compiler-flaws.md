@@ -514,7 +514,13 @@ asks `CountedLoops` how often a head runs (its own `untilEqual` and `untilBound`
 `DeadLoops` takes the loop's exit from it, still only on a constant, not zero-extended, and with
 `!=` only for an odd step, which is all its own proof took; the commit after it lifts that
 ([log](optimizations-log.md#dead-loops-proved-by-the-counted-loop-2026-11-20-on-the-execution-programs)). Then `Induction`: its counters are those of `CountedLoops` (with
-one step instruction), every hash kept.
+one step instruction), every hash kept. Last `findXCounters`: its counters from `CountedLoops` (every hash
+kept), then a step anywhere in the round, its stepped value read in X by the exit test and as
+an index, and a signed test against 0
+([log](optimizations-log.md#counters-in-x-read-after-their-step-2026-11-20-on-the-spelling-families-and-the-execution-programs)).
+With that the `do` loop and the loops counting down are closed. `SelectionPlan`, `Timing`,
+`DeadLoops` and `Induction` recognise no counter of their own any more; the 54 gap lines before
+L1 are 38, of which L4 names 19.
 
 ## Flaw B: no register allocation, and places are decided before the code exists
 
@@ -685,7 +691,7 @@ slower for reasons [optimizations.md](optimizations.md#tried-and-rejected) could
 | 2 | T2 random programs | | no | (may find bugs: fix them first, each with an execution test) |
 | 3 | C1 to C3 canonical arithmetic and comparisons, C9 and C10 addresses | 1 | little | part of `g`, `h`, `m`; `table-2d` |
 | 4 | R4 ranges kept when inlining, R1 widening by end, R2 unsigned intervals | 1 | yes | the gaps marked R4, `c_i16_lt100`, the bound cliffs, `slow-u8-counter` |
-| 5 | L1 to L3 `CountedLoops` and its users | 3, 4 | yes | `d`, `i` |
+| 5 | L1 to L3 `CountedLoops` and its users | 3, 4 | yes | `d`, `i` (done 2026-11-20: `i`, `g`, `n` and the loops counting down closed; `d` waits for C5) |
 | 6 | C5, C8, L4 to L6 | 5 | yes | `g`, `h`, `m`, `x`, `slow-u16-counter-words` |
 | 7 | C6 pointer comparisons, C7 loads out of loops | 3 | yes | `y`, part of `j`, `k` |
 | 8 | R3 indexes from array bounds (ADR) | 4 | yes | `l`, `fast-range-index` |

@@ -2,7 +2,6 @@
  * tolerance: 10
  * One byte array copied into another, by index with every counter type, up and down, and by
  * pointer.
- * gap: copy_down L3 i - 1 is the step, and the X pattern wants a step with one user
  * gap: copy_ptr L5 three counters with one start and step (the two pointers' offsets and n)
  * gap: copy_ptr_end C6 the pointers are compared as 32-bit values every round
  * gap: copy_while_n L5 the pointers and n are counters with one start and step

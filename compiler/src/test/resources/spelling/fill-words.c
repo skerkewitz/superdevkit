@@ -6,10 +6,10 @@
  * gap: fill_i16 L4 as fill_u16
  * gap: fill_u16_le L4 as fill_u16
  * gap: fill_u16_ne L4 as fill_u16
- * gap: fill_u16_down L3,L4 i - 1 is the step, and (i - 1) * 2 is no product of the counter
- * gap: fill_u8_down C5,L3 as h_u8_down of sum-bytes
+ * gap: fill_u16_down L4 (i - 1) * 2 is no product of the counter, so the offset is computed every round
+ * gap: fill_u8_down C5 as h_u8_down of sum-bytes
  * gap: fill_while L4 as fill_u16
- * gap: fill_do L3,L4 as fill_u16, and the test reads the stepped value
+ * gap: fill_do L4 as fill_u16
  * gap: fill_ptr_walk L5 the pointer's offset and the counter have one start and step
  * gap: fill_ptr_end C6 the pointers are compared as 32-bit values every round
  */

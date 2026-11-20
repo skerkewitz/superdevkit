@@ -79,7 +79,7 @@ entry.
 | K | Peephole | Partly. A remembers every place it equals, `INC`/`DEC` in place, `STZ`, no `CMP #0` where N and Z already describe A, `TAX` for a reload of a stored value, shifts as a mask, the high byte as a byte load (`Peephole`), no `CLC` where the carry is known clear (`KnownCarry`) | 391,423 → 386,306 ([no `CMP #0`](optimizations-log.md#no-cmp-0-where-the-flags-are-set-2026-11-17)) |
 | L | `switch` as a jump table (`JMP (abs,X)`) | Not built | |
 | M | Copy and fill with `MVN`/`MVP` or DMA | Not built | |
-| N | Values in X and Y | Partly. Loop counters in X (also next to an index in Y), a second index in Y, loop-invariant indexes in Y, the index through a pointer in Y (rows of 2D arrays included), what A, X and Y hold known across blocks | 329,834 → 326,596 ([index in Y](optimizations-log.md#a-pointer-plus-an-index-the-index-in-y-2026-11-17)) |
+| N | Values in X and Y | Partly. Loop counters in X (also next to an index in Y, and with their stepped value read after the step: a `do` loop's test, `i - 1` going down), a second index in Y, loop-invariant indexes in Y, the index through a pointer in Y (rows of 2D arrays included), what A, X and Y hold known across blocks | 329,834 → 326,596 ([index in Y](optimizations-log.md#a-pointer-plus-an-index-the-index-in-y-2026-11-17)) |
 
 The expectation before any of this was a factor of 3 to 6 over the naive code generator; what
 play measures now is in *Where things stand*.

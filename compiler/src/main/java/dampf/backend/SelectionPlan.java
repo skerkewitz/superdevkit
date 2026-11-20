@@ -311,7 +311,8 @@ final class SelectionPlan {
             }
         }
         Set<Block> entries = new HashSet<>();   // where loops that have X load their start value
-        for (CountedLoops.Loop counted : CountedLoops.find(f)) {
+        List<CountedLoops.Loop> all = CountedLoops.find(f);
+        for (CountedLoops.Loop counted : all) {
             dampf.mir.Loops.Loop loop = counted.loop();
             if (loop.blocks().stream().anyMatch(b -> sel.xBlocks.containsKey(b) || entries.contains(b)) || clobbersX(loop)) {
                 continue;
@@ -340,11 +341,10 @@ final class SelectionPlan {
                         ok = false;
                     }
                 }
-                // the step must be the last thing before the jump back (else later code in the
-                // loop would see the next value in X already)
-                if (!ok || step == null || !loop.latches().contains(step.block())
-                        || !(step.block().terminator() instanceof Instr.Jump)
-                        || users.getOrDefault(step, List.of()).size() != 1) {
+                // the step runs once a round (in no inner loop); from it to the way back X holds
+                // the stepped value, before it the φ's
+                Set<Block> after = step == null ? null : after(loop, step.block());
+                if (!ok || step == null || after == null || inInnerLoop(step.block(), counted, all)) {
                     continue;
                 }
                 long c = counter.c();
@@ -354,7 +354,7 @@ final class SelectionPlan {
                         continue;   // it would wrap, and X would not
                     }
                 }
-                int indexUses = otherIndex(loop, p) ? -1 : usesFitX(p, step, loop, users);
+                int indexUses = otherIndex(loop, p, step) ? -1 : usesFitX(p, step, loop, users, after);
                 if (indexUses < 0 || indexUses <= bestUses && best != null) {
                     continue;
                 }
@@ -375,52 +375,105 @@ final class SelectionPlan {
     }
 
     /**
-     * How often v (or a copy of it) indexes an array access in the loop, or -1 if v has a use
-     * that needs it somewhere other than X (or after the loop, or after the step).
+     * The blocks of the loop that a round reaches after block s without passing the head; null
+     * if s itself is among them (s in a cycle of its own).
      */
-    int usesFitX(Instr.Phi v, Instr step, dampf.mir.Loops.Loop loop, Map<Value, List<Instr>> users) {
-        int indexes = 0;
-        List<Instr> work = new ArrayList<>(users.getOrDefault(v, List.of()));
-        for (int n = 0; n < work.size(); n++) { // NOPMD ForLoopCanBeForeach: work grows in the loop
-            Instr u = work.get(n);
-            if (!loop.blocks().contains(u.block())) {
-                return -1;
-            }
-            if (u == step) {
+    static Set<Block> after(dampf.mir.Loops.Loop loop, Block s) {
+        Set<Block> out = new HashSet<>();
+        List<Block> work = new ArrayList<>(s.terminator().successors());
+        while (!work.isEmpty()) {
+            Block b = work.removeLast();
+            if (b == loop.head() || !loop.blocks().contains(b) || !out.add(b)) {
                 continue;
             }
-            if (u.block() == step.block() && u.block().instrs().indexOf(u) > u.block().instrs().indexOf(step)) {
-                return -1;   // read after the step: X has the next value by then
+            work.addAll(b.terminator().successors());
+        }
+        return out.contains(s) ? null : out;
+    }
+
+    /** Whether b lies in a loop inside {@code loop}. */
+    private static boolean inInnerLoop(Block b, CountedLoops.Loop loop, List<CountedLoops.Loop> all) {
+        for (CountedLoops.Loop l : all) {
+            if (l != loop && loop.blocks().contains(l.head()) && l.blocks().contains(b)) {
+                return true;
             }
-            switch (u) {
-                case Instr.Cast c when FrameLayout.transparent(c) && c.kind == Instr.CastKind.ZEXT && c.type() == MType.I16 ->
-                        work.addAll(users.getOrDefault(c, List.of()));
-                case Instr.Cmp c when sel.fused.contains(c) && Selection.throughCopies(c.op(0)) == v && c.op(1) instanceof Value.Const
-                        && (c.pred == Instr.Pred.EQ || c.pred == Instr.Pred.NE || c.pred == Instr.Pred.ULT
-                        || c.pred == Instr.Pred.UGE) -> { }
-                case Instr.PtrAdd q when sel.folded.contains(q) && sel.layout.indexable(q) && Selection.throughCopies(q.op(1)) == v
-                        && q.op(0) != v -> {
-                    // the address is formed where it is used, with X: a use after the step would
-                    // take the next element (an offset added to it, then a store after the step)
-                    if (usedAfter(q, step, users)) {
+        }
+        return false;
+    }
+
+    /** Whether u runs after the step in a round: later in the step's block, or in a block after it. */
+    private static boolean isAfter(Instr u, Instr step, Set<Block> after) {
+        Block s = step.block();
+        return u.block() == s ? s.instrs().indexOf(u) > s.instrs().indexOf(step) : after.contains(u.block());
+    }
+
+    /**
+     * How often v or its stepped value (or a copy of either) indexes an array access in the loop,
+     * or -1 if one of them has a use that needs it somewhere other than X: after the loop, v
+     * after the step (X has the next value by then), or anything but a fused comparison with a
+     * constant, an index, or the zero extension of a byte.
+     */
+    int usesFitX(Instr.Phi v, Instr step, dampf.mir.Loops.Loop loop, Map<Value, List<Instr>> users, Set<Block> after) {
+        int indexes = 0;
+        for (Instr x : List.of(v, step)) {
+            List<Instr> work = new ArrayList<>(users.getOrDefault(x, List.of()));
+            for (int n = 0; n < work.size(); n++) { // NOPMD ForLoopCanBeForeach: work grows in the loop
+                Instr u = work.get(n);
+                if (!loop.blocks().contains(u.block())) {
+                    return -1;
+                }
+                if (x == v ? u == step : u == v) {
+                    continue;   // the step, and the stepped value on the way back
+                }
+                if (x == v && isAfter(u, step, after)) {
+                    return -1;   // read after the step: X has the next value by then
+                }
+                switch (u) {
+                    case Instr.Cast c when FrameLayout.transparent(c) && c.kind == Instr.CastKind.ZEXT && c.type() == MType.I16 ->
+                            work.addAll(users.getOrDefault(c, List.of()));
+                    case Instr.Cmp c when sel.fused.contains(c) && Selection.throughCopies(c.op(0)) == x && c.op(1) instanceof Value.Const k
+                            && (c.pred == Instr.Pred.EQ || c.pred == Instr.Pred.NE || c.pred == Instr.Pred.ULT || c.pred == Instr.Pred.UGE
+                            || (c.pred == Instr.Pred.SLT || c.pred == Instr.Pred.SGE) && x.type() == MType.I16 && k.bits() == 0) -> { }
+                    case Instr.PtrAdd q when sel.folded.contains(q) && sel.layout.indexable(q) && Selection.throughCopies(q.op(1)) == x
+                            && q.op(0) != x -> {
+                        // the address is formed where it is used, with X: the φ's after the step
+                        // would take the next element (an offset added to it, then a store
+                        // after the step), and the stepped value's must stay in the round
+                        if (x == v ? usedAfter(q, step, users, after) : leavesRound(q, users)) {
+                            return -1;
+                        }
+                        indexes++;
+                    }
+                    default -> {
                         return -1;
                     }
-                    indexes++;
-                }
-                default -> {
-                    return -1;
                 }
             }
         }
         return indexes;
     }
 
-    /** Whether an address (or one formed from it by a further ptradd) is used after the step, in the step's block. */
-    private static boolean usedAfter(Value address, Instr step, Map<Value, List<Instr>> users) {
+    /** Whether an address (or one formed from it by a further ptradd) is used after the step. */
+    private static boolean usedAfter(Value address, Instr step, Map<Value, List<Instr>> users, Set<Block> after) {
         List<Instr> work = new ArrayList<>(users.getOrDefault(address, List.of()));
         for (int n = 0; n < work.size(); n++) { // NOPMD ForLoopCanBeForeach: work grows in the loop
             Instr u = work.get(n);
-            if (u.block() == step.block() && u.block().instrs().indexOf(u) > u.block().instrs().indexOf(step)) {
+            if (isAfter(u, step, after)) {
+                return true;
+            }
+            if (u instanceof Instr.PtrAdd || u instanceof Instr.Copy) {
+                work.addAll(users.getOrDefault(u, List.of()));
+            }
+        }
+        return false;
+    }
+
+    /** Whether an address (or one formed from it) goes into a φ, to be used in another round. */
+    private static boolean leavesRound(Value address, Map<Value, List<Instr>> users) {
+        List<Instr> work = new ArrayList<>(users.getOrDefault(address, List.of()));
+        for (int n = 0; n < work.size(); n++) { // NOPMD ForLoopCanBeForeach: work grows in the loop
+            Instr u = work.get(n);
+            if (u instanceof Instr.Phi) {
                 return true;
             }
             if (u instanceof Instr.PtrAdd || u instanceof Instr.Copy) {
@@ -431,18 +484,19 @@ final class SelectionPlan {
     }
 
     /**
-     * Whether an array access in the loop is indexed by something other than v and would load X
+     * Whether an array access in the loop is indexed by something other than v (or its step) and would load X
      * for it. With v in X, another index goes into Y (fixedAt), which works for LDA and STA at
      * an absolute address; STZ (a store of 0) and accesses in the direct page or at a long
      * address have no absolute,Y form.
      */
-    boolean otherIndex(dampf.mir.Loops.Loop loop, Instr v) {
+    boolean otherIndex(dampf.mir.Loops.Loop loop, Instr v, Instr step) {
         for (Block b : loop.blocks()) {
             for (Instr i : b.instrs()) {
                 if (i instanceof Instr.Load || i instanceof Instr.Store) {
                     FrameLayout.Address a = sel.layout.address(i.op(0));
                     String f = sel.fixed(a.base(), a.offset());
-                    if (a.index() != null && f != null && Selection.throughCopies(a.index()) != v) {
+                    Value index = a.index() == null ? null : Selection.throughCopies(a.index());
+                    if (index != null && f != null && index != v && index != step) {
                         boolean viaY = !f.startsWith("z:") && !f.startsWith("f:")
                                 && !(i instanceof Instr.Store s && s.op(1) instanceof Value.Const k && k.bits() == 0);
                         if (!viaY) {

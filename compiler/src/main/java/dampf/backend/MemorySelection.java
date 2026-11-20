@@ -29,8 +29,9 @@ final class MemorySelection {
         if (f == null || a.index() == null) {
             return f;
         }
-        if (sel.xResident.containsKey(Selection.throughCopies(a.index()))) {
-            return f + ",x";   // X holds the loop's index already
+        Value ix = Selection.throughCopies(a.index());
+        if (sel.xResident.containsKey(ix) || sel.xSteps.containsKey(ix)) {
+            return f + ",x";   // X holds the loop's index already (or the stepped one)
         }
         String index = sel.operand(a.index(), 0);
         boolean yForm = ABS_Y.contains(mnemonic) && !f.startsWith("z:") && !f.startsWith("f:");
