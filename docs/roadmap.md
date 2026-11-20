@@ -48,7 +48,7 @@ needs is an open question. The rule is ADR
 | M5 | Blubber Blasen builds its ROM with the dev kit, from its own repository | 0.6.0 | Done 2026-11-19 |
 | M7 | Windows and Linux: Rachael and the desktop frontend in the kit, the `superdevkit` command with `init`, `build`, `run`; the examples and Blubber Blasen run on the desktop from the kit | 0.7.0 | Done 2026-11-19 (the game's switch handed over to it) |
 | M8 | The web: the same games in the browser; Blubber Blasen drops its own PC side | 0.8.0 | Planned |
-| M9 | The optimizer: what was left of M3, register allocation first | 0.9.0 | Planned |
+| M9 | The optimizer: what was left of M3; tests and a canonical form first, then register allocation | 0.9.0 | In progress |
 | M10 | Language, platform and usability: C in interrupts, intrinsics, the open subset decisions, dampf's own preprocessor | 0.10.0 | Planned |
 | M11 | Timing and debugging: master cycles, bounds for more loops, locals and types in Mesen | 0.11.0 | Planned |
 | M12 | Fine tuning: what was left of M4, until the frame budget is met | 0.12.0 | Planned |
@@ -115,15 +115,13 @@ Also in M9:
   - a constant shift above 8 is a loop (`shl 9` as `ldx #9; asl; dex; bne`; found in Schach's
     Zobrist table): retires `slow-shift-above-8`.
 
-An analysis of 2026-11-20 ([current-compiler-flaws.md](current-compiler-flaws.md)) found why
-the same loop costs between 25 and 138 cycles a round depending on its spelling, and proposes
-an order that starts with tests and a canonical form before register allocation. It is not
-decided yet; until it is, the order below stands.
-
-The order: register allocation (2), or the split of struct arrays (4) once its subset question
-is decided; then 3, 5 and 7. The rest has to come from the game doing less work: the pair loop
-of `separate` (16 %) and the CPU partner (the game's finding 1, forwarded to it), as
-the checkpoint after M2 concluded.
+The order (decided 2026-11-20): the steps of [current-compiler-flaws.md](current-compiler-flaws.md#order-of-work),
+an analysis of why the same loop costs between 25 and 138 cycles a round depending on its
+spelling. Tests and a canonical form come before register allocation; rows 2, 3 and 9 and the
+gaps of the style guide above are its steps B3, B5, R3 and C/L. The split of struct arrays (4)
+once its subset question is decided, and 5 and 7, come after it. The rest has to come from the
+game doing less work: the pair loop of `separate` (16 %) and the CPU partner (the game's finding
+1, forwarded to it), as the checkpoint after M2 concluded.
 
 ## M10: language, platform and usability (0.10.0)
 
