@@ -75,7 +75,10 @@ class ConstAddressTest {
     /**
      * A register pair as the SNES platform's sdevkit_bg_set_scroll writes it: h = 0x210D + 2 * n, then
      * REG8(h) and REG8(h + 1). h is the sum of one constant address and the index of the other,
-     * so it must be computed (the code generator once folded it away and crashed).
+     * so it must be computed (the code generator once folded it away and crashed), and the access
+     * through h must index with h: indexing with n << 1 read a place the shift was never stored
+     * in, since it was handed to the sum in A (found by the place check of B2). The numbers come
+     * from tables, so the calls are not folded into constants.
      */
     @Test
     void aSumThatIsAlsoAnIndexIsComputed() throws Exception {
@@ -85,6 +88,8 @@ class ConstAddressTest {
                 #define MEM8(a) (*(volatile uint8_t *)(a))
 
                 uint8_t read_low[6];
+                uint8_t which[3] = {0, 2, 1};
+                uint16_t what[3] = {0x1234, 0xABCD, 0x5678};
 
                 static void put2(uint8_t n, uint16_t x)
                 {
@@ -96,9 +101,9 @@ class ConstAddressTest {
                 void test_main(void)
                 {
                     uint8_t i;
-                    put2(0, 0x1234);
-                    put2(2, 0xABCD);
-                    put2(1, 0x5678);
+                    for (i = 0; i < 3; i++) {
+                        put2(which[i], what[i]);
+                    }
                     for (i = 0; i < 6; i++) {
                         read_low[i] = MEM8(0x7E1E40 + i);
                     }

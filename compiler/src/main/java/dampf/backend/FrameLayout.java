@@ -130,6 +130,11 @@ final class FrameLayout {
             return new Address(q.op(0), offset, q.op(1));
         }
         ConstAddress c = constAddress(base);
+        if (c != null && c.index() != null && !folded.contains(c.sum())) {
+            // the sum is computed (another user reads it): X takes it, and its index may have
+            // been forwarded into it, never stored
+            return new Address(new Value.Const(MType.I32, 0), offset, c.sum());
+        }
         if (c != null) {
             return new Address(new Value.Const(MType.I32, c.address()), offset, c.index());
         }
@@ -141,9 +146,9 @@ final class FrameLayout {
      * {@code inttoptr} of a constant, or of a constant plus a 16-bit index that is never negative
      * and stays in the same bank ({@code REG8(0x210B + i)}). The access goes to that address
      * directly (long addressing, with X for the index) instead of through dampf_ptr. The base is
-     * then a constant in the Address.
+     * then a constant in the Address. {@code sum}: the instruction that adds them (null without an index).
      */
-    record ConstAddress(long address, Value index) {}
+    record ConstAddress(long address, Value index, Instr sum) {}
 
     ConstAddress constAddress(Value v) {
         if (!(v instanceof Instr.Cast c) || c.kind != Instr.CastKind.INTTOPTR) {
@@ -157,7 +162,7 @@ final class FrameLayout {
         }
         if (x instanceof Value.Const k) {
             long a = k.bits() & 0xFFFFFFL;
-            return a == k.bits() ? new ConstAddress(a, null) : null;
+            return a == k.bits() ? new ConstAddress(a, null, null) : null;
         }
         if (x instanceof Instr.Bin b && b.op == Instr.BinOp.ADD && b.type() == MType.I16
                 && (b.op(0) instanceof Value.Const) != (b.op(1) instanceof Value.Const)) {
@@ -167,7 +172,7 @@ final class FrameLayout {
             // the sum never wraps, and with a sign extension (C's int arithmetic) it is never
             // negative either, so the extension adds nothing
             if (r != null && r.lo() >= 0 && k.bits() + r.hi() <= (signed ? 0x7FFF : 0xFFFF)) {
-                return new ConstAddress(k.bits(), index);
+                return new ConstAddress(k.bits(), index, b);
             }
         }
         return null;

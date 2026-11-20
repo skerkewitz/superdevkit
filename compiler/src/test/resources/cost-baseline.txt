@@ -70,7 +70,7 @@ catchme _sdevkit_bg_set_enable 707
 catchme _sdevkit_bg_set_enable_sub 707
 catchme _sdevkit_bg_set_gfx_ptr 195
 catchme _sdevkit_bg_set_map_ptr 35
-catchme _sdevkit_bg_set_scroll 88
+catchme _sdevkit_bg_set_scroll 84
 catchme _sdevkit_dbg_action 6
 catchme _sdevkit_dbg_box 6
 catchme _sdevkit_dbg_color 6
@@ -295,7 +295,7 @@ ertuep _sdevkit_bg_set_enable 707
 ertuep _sdevkit_bg_set_enable_sub 707
 ertuep _sdevkit_bg_set_gfx_ptr 216
 ertuep _sdevkit_bg_set_map_ptr 35
-ertuep _sdevkit_bg_set_scroll 88
+ertuep _sdevkit_bg_set_scroll 84
 ertuep _sdevkit_dbg_action 6
 ertuep _sdevkit_dbg_box 6
 ertuep _sdevkit_dbg_color 6
@@ -417,7 +417,7 @@ hello _sdevkit_bg_set_enable 707
 hello _sdevkit_bg_set_enable_sub 707
 hello _sdevkit_bg_set_gfx_ptr 195
 hello _sdevkit_bg_set_map_ptr 35
-hello _sdevkit_bg_set_scroll 88
+hello _sdevkit_bg_set_scroll 84
 hello _sdevkit_dbg_action 6
 hello _sdevkit_dbg_box 6
 hello _sdevkit_dbg_color 6
@@ -505,7 +505,7 @@ mandelbrot _sdevkit_bg_set_enable 707
 mandelbrot _sdevkit_bg_set_enable_sub 707
 mandelbrot _sdevkit_bg_set_gfx_ptr 216
 mandelbrot _sdevkit_bg_set_map_ptr 35
-mandelbrot _sdevkit_bg_set_scroll 88
+mandelbrot _sdevkit_bg_set_scroll 84
 mandelbrot _sdevkit_dbg_action 6
 mandelbrot _sdevkit_dbg_box 6
 mandelbrot _sdevkit_dbg_color 6
@@ -594,7 +594,7 @@ mode7 _sdevkit_bg_set_enable 707
 mode7 _sdevkit_bg_set_enable_sub 707
 mode7 _sdevkit_bg_set_gfx_ptr 216
 mode7 _sdevkit_bg_set_map_ptr 35
-mode7 _sdevkit_bg_set_scroll 88
+mode7 _sdevkit_bg_set_scroll 84
 mode7 _sdevkit_dbg_action 6
 mode7 _sdevkit_dbg_box 6
 mode7 _sdevkit_dbg_color 6
@@ -738,7 +738,7 @@ schach _sdevkit_bg_set_enable 707
 schach _sdevkit_bg_set_enable_sub 707
 schach _sdevkit_bg_set_gfx_ptr 216
 schach _sdevkit_bg_set_map_ptr 35
-schach _sdevkit_bg_set_scroll 88
+schach _sdevkit_bg_set_scroll 84
 schach _sdevkit_dbg_action 6
 schach _sdevkit_dbg_box 6
 schach _sdevkit_dbg_color 6
@@ -955,7 +955,7 @@ steinschlag _sdevkit_bg_set_enable 707
 steinschlag _sdevkit_bg_set_enable_sub 707
 steinschlag _sdevkit_bg_set_gfx_ptr 216
 steinschlag _sdevkit_bg_set_map_ptr 35
-steinschlag _sdevkit_bg_set_scroll 88
+steinschlag _sdevkit_bg_set_scroll 84
 steinschlag _sdevkit_dbg_action 6
 steinschlag _sdevkit_dbg_box 6
 steinschlag _sdevkit_dbg_color 6
