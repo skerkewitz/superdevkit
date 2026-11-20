@@ -170,28 +170,40 @@ public final class Gvn {
 
     // ------------------------------------------------------------------ may two accesses overlap?
 
-    /** An address as a base plus a constant offset. */
-    private record Location(Value base, long offset) {
+    /**
+     * An address as a base plus a constant offset; {@code exact} false when a variable offset was
+     * added on the way (it then stays in the base's object, as C's pointers do, at an unknown
+     * place).
+     */
+    record Location(Value base, long offset, boolean exact) {
         boolean named() {
             return base instanceof Value.GlobalAddr || base instanceof Value.SlotAddr;
         }
     }
 
-    private static Location locate(Value address) {
+    static Location locate(Value address) {
         long offset = 0;
+        boolean exact = true;
         Value v = address;
-        while (v instanceof Instr.PtrAdd p && p.op(1) instanceof Value.Const k) {
-            offset += k.type().signed(k.bits());
+        while (v instanceof Instr.PtrAdd p) {
+            if (p.op(1) instanceof Value.Const k) {
+                offset += k.type().signed(k.bits());
+            } else {
+                exact = false;
+            }
             v = p.op(0);
         }
-        return new Location(v, offset);
+        if (!exact && !(v instanceof Value.GlobalAddr || v instanceof Value.SlotAddr)) {
+            return new Location(address, 0, true);   // a pointer plus an index: no object known
+        }
+        return new Location(v, offset, exact);
     }
 
-    private static boolean mayOverlap(Value a, int sizeA, Value b, int sizeB) {
+    static boolean mayOverlap(Value a, int sizeA, Value b, int sizeB) {
         Location la = locate(a);
         Location lb = locate(b);
         if (la.base().equals(lb.base())) {
-            return la.offset() < lb.offset() + sizeB && lb.offset() < la.offset() + sizeA;
+            return !la.exact() || !lb.exact() || la.offset() < lb.offset() + sizeB && lb.offset() < la.offset() + sizeA;
         }
         return !(la.named() && lb.named());
     }

@@ -1277,3 +1277,31 @@ The spelling families: `fill_ptr_walk` 1,359 → 1,233 (gap closed), `x_ptr_walk
 `same-pointer-walk`. The examples: Er-Tüp -0.1 %, the rest the same; code changed in Er-Tüp and
 2 programs of `BackendOutputTest`.
 
+## Loads out of loops (2026-11-20, on the spelling families and the examples)
+
+`Licm` moved arithmetic only, so a loop's bound in a global (`i < count`) was loaded every
+round. It now moves a load whose address does not change in the loop when nothing in the loop
+may write what it reads: no store or copy that may overlap it, no call of a function that may
+write memory, not volatile ([current-compiler-flaws.md](current-compiler-flaws.md#flaw-c-the-mir-has-no-canonical-form),
+C7). Outside the loop's head only from a global (bank $7E, all RAM) or a known place of a frame
+slot, which can be read once more than the program does. Whether two accesses may overlap is
+`Gvn`'s rule, which now follows a variable offset too: `t[i]` stays in `t`, as C's pointers do,
+so it overlaps no other global or slot (before, it might have been anything). The X pattern
+compares with a byte bound through its zero extension (`CPX` on the byte's place, which holds it
+zero-extended).
+
+The spelling families: `k_u8_var_bound` 5,354 → 2,651 (gap closed), `j_u16_var_bound` 6,651
+→ 5,553, now what `l_u16_local_bound` costs (R3). The style guide's `pairs_by_list` 20,630 →
+18,170.
+
+| | Before | After |
+| --- | ---: | ---: |
+| A counter, struct array | 179,361 | 179,361 |
+| B sorted list, struct array | 190,430 | 185,678 (-2.5 %) |
+| C counter, one array per field | 186,996 | 186,996 |
+| D sorted list, one array per field | 180,735 | 175,984 (-2.6 %) |
+
+The examples: Er-Tüp -0.5 %, Schach -0.4 %, CatchMe and Steinschlag -0.1 %, the rest the same;
+geometric mean -0.2 %. Code changed in all seven examples and in 28 programs of
+`BackendOutputTest`; `sdevkit_sfx_play` one cycle cheaper at worst.
+

@@ -431,6 +431,16 @@ final class SelectionPlan {
         if (x.type() != MType.I16 || b.type() != MType.I16 || b instanceof Value.Const) {
             return false;
         }
+        if (b instanceof Instr.Cast z && FrameLayout.transparent(z) && z.kind == Instr.CastKind.ZEXT) {
+            // a zero extension has no place: CPX reads its source's, which holds it zero-extended
+            Value src = z.op(0);
+            if (src instanceof Instr d && d.block() != null && !loop.blocks().contains(d.block()) && !sel.xResident.containsKey(d)
+                    && !sel.xSteps.containsKey(d) && !sel.folded.contains(d) && !sel.fused.contains(d)) {
+                bounds.add(src);
+                return true;
+            }
+            return src instanceof Value.Param;
+        }
         if (b instanceof Instr d) {
             return d.block() != null && !loop.blocks().contains(d.block()) && !sel.xResident.containsKey(d)
                     && !sel.xSteps.containsKey(d) && !sel.folded.contains(d) && !sel.fused.contains(d);

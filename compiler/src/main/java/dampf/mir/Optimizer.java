@@ -92,7 +92,7 @@ public final class Optimizer {
                 changed |= pass("ByteLoads", f, () -> ByteLoads.run(f));
                 changed |= pass("Narrow", f, () -> Narrow.run(f));
                 changed |= pass("RangeNarrow", f, () -> RangeNarrow.run(f));
-                changed |= pass("Licm", f, () -> Licm.run(f));
+                changed |= pass("Licm", f, () -> Licm.run(m, f, writes));
                 changed |= pass("Induction", f, () -> Induction.run(f));
                 changed |= pass("PointerOffsets", f, () -> PointerOffsets.run(m, f));
                 changed |= pass("StrengthReduce", f, () -> StrengthReduce.run(f));

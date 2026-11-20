@@ -313,6 +313,10 @@ they handle today are deleted in the same step (search for `BinOp.SUB` in `Induc
   no store or copy that may overlap (the rules `Gvn` uses: two different globals or slots never
   overlap), no call of a function that writes memory (`Gvn.writesMemory`), not volatile. Only
   from a block every round passes, as now. `j_u16_var_bound` and `k_u8_var_bound` are the tests.
+  Built (2026-11-20, [log](optimizations-log.md#loads-out-of-loops-2026-11-20-on-the-spelling-families-and-the-examples)):
+  as described; a load outside the head moves only from a global or a frame slot. The X
+  pattern also compares with a byte bound through its zero extension. `k` closed, `j` waits for
+  R3 as `l` does.
 - **C8.** Every loop has one block before it that only jumps to its head (a preheader), and one
   latch. `Licm` needs the first and skips loops without it; the X pattern needs the second.
   Insert the blocks where they are missing, in one place (`Loops` or a `LoopForm` pass), instead

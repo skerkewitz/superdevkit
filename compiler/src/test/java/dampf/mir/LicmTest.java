@@ -56,4 +56,70 @@ class LicmTest {
             }
         }
     }
+    @Test
+    void aLoadNothingInTheLoopWritesMovesOut() {
+        // the bound in a global moves; the one the loop stores to stays; a call of a function that
+        // writes memory keeps every load in its loop
+        String text = """
+                global @_n : 2
+                global @_m : 2
+                global @_t : 64
+
+                func @_w() -> void {
+                b0_entry:
+                    store i16 @_t, 1
+                    ret
+                }
+
+                func @_main() -> i16 {
+                b0_entry:
+                    jump b1_head
+                b1_head:
+                    %0 = phi i16 [b0_entry, 0], [b2_body, %5]
+                    %1 = load i16 @_n
+                    %2 = load i16 @_m
+                    %4 = cmp ult i16 %0, %1
+                    br %4, b2_body, b3_end
+                b2_body:
+                    %6 = ptradd @_t, i16 %0
+                    store i8 %6, 1
+                    store i16 @_m, %0
+                    %5 = add i16 %0, 1
+                    jump b1_head
+                b3_end:
+                    ret i16 %2
+                }
+
+                func @_calls() -> i16 {
+                b0_entry:
+                    jump b1_head
+                b1_head:
+                    %0 = phi i16 [b0_entry, 0], [b2_body, %5]
+                    %1 = load i16 @_n
+                    %4 = cmp ult i16 %0, %1
+                    br %4, b2_body, b3_end
+                b2_body:
+                    call void @_w()
+                    %5 = add i16 %0, 1
+                    jump b1_head
+                b3_end:
+                    ret i16 %0
+                }
+                """;
+        MModule m = MirParser.parse(text);
+        MFunction f = m.function("_main");
+        assertTrue(Licm.run(m, f, Gvn.writesMemory(m)));
+        assertTrue(!Licm.run(m, m.function("_calls"), Gvn.writesMemory(m)));
+        Verifier.verify(m);
+        String printed = Printer.print(f);
+        String entry = printed.substring(0, printed.indexOf("b1_head:"));
+        assertTrue(entry.contains("load i16 @_n") && !entry.contains("load i16 @_m"), printed);
+        Interpreter want = new Interpreter(MirParser.parse(text), 100_000);
+        Interpreter got = new Interpreter(m, 100_000);
+        want.call("_main", List.of());
+        got.call("_main", List.of());
+        for (int a = 0; a < 2; a++) {
+            assertEquals(want.load(want.addressOf("_m") + a, 1), got.load(got.addressOf("_m") + a, 1));
+        }
+    }
 }

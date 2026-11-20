@@ -140,7 +140,7 @@ Measured 2026-11-20 (worst case of the timing report, code generator from MIR).
 | `slow-compare-sum` | `compare_sum` | 164 | slower | `compare_sum_narrowed` | 98 |
 | `slow-divide-variable` | `divide_variables` | 816 | slower | `divide_constant` | 17 |
 | `slow-hand-shifts` | `times_40_by_shifts` | 45 | slower | `times_40` | 31 |
-| `slow-index-list` | `pairs_by_list` | 20,630 | slower | `pairs_by_counter` | 15,590 |
+| `slow-index-list` | `pairs_by_list` | 18,170 | slower | `pairs_by_counter` | 15,590 |
 | `slow-multiply-variable` | `multiply_variables` | 411 | slower | `multiply_constant` | 31 |
 | `slow-shift-above-8` | `shift_by_9` | 130 | slower | `shift_by_8_then_1` | 19 |
 | `slow-signed-divide` | `divide_signed` | 265 | slower | `divide_unsigned` | 17 |
