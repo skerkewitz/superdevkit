@@ -102,8 +102,8 @@ Also in M9:
   - a loop counter's width changed the cost of the loop: gone on 2026-11-20 with
     `slow-u8-counter` (unsigned byte ranges) and `slow-u16-counter-words` (the loop test moved
     to the derived offset, which also retired `slow-word-array`);
-  - an array with a 16-bit index goes through a 24-bit pointer unless a `DAMPF_RANGE` bounds the
-    index, although an index past the end would be undefined in C: retires `fast-range-index`;
+  - an array with a 16-bit index went through a 24-bit pointer unless a `DAMPF_RANGE` bounded
+    the index: gone on 2026-11-20 with `fast-range-index` (ADR record 46);
   - a pointer walk cost more than indexing (`o->x; o++`): gone on 2026-11-20 (`same-pointer-walk`
     now);
   - a multiplication of two bytes calls `dampf_mul16`, the SNES's 8 x 8 multiplier at

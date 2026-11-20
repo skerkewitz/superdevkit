@@ -424,6 +424,11 @@ fails on a wrong hint, and the PC build's UBSan catches most cases already
 gcc's code tolerates by reading a neighbour, reads another address on the SNES. Retires
 `fast-range-index`.
 
+Built (2026-11-20, ADR record 46, [log](optimizations-log.md#an-index-into-an-array-is-inside-it-2026-11-20-on-the-spelling-families-and-the-examples)):
+the interpreter's check first, then the first step, with a constant offset after the index only
+when it is at most 0 (`a[i].y` still needs the range). The second step is not built: no
+measured case needs it. `l` and `j` closed, `fast-range-index` retired.
+
 ### R4. Inlining drops the range of a derived variable
 
 `Induction` gives the variable it derives for `i * C` the range it knows (`Instr.Phi.known`);
@@ -712,7 +717,7 @@ slower for reasons [optimizations.md](optimizations.md#tried-and-rejected) could
 | 5 | L1 to L3 `CountedLoops` and its users | 3, 4 | yes | `d`, `i` (done 2026-11-20: `i`, `g`, `n` and the loops counting down closed; `d` waits for C5) |
 | 6 | C5, C8, L4 to L6 | 5 | yes | `g`, `h`, `m`, `x`, `slow-u16-counter-words` (done 2026-11-20 with L4 and L5; C5 as far as L4 does it, C8 and L6 not built: no gap needs them yet) |
 | 7 | C6 pointer comparisons, C7 loads out of loops | 3 | yes | `y`, part of `j`, `k` (done 2026-11-20: all C6 and C7 gaps; `j` waits for R3) |
-| 8 | R3 indexes from array bounds (ADR) | 4 | yes | `l`, `fast-range-index` |
+| 8 | R3 indexes from array bounds (ADR) | 4 | yes | `l`, `fast-range-index` (done 2026-11-20, ADR record 46) |
 | 9 | K3 cost baseline | 1 | no | |
 | 10 | B1 typed operands and virtual places (ADR) | 2 | no | |
 | 11 | B2 places assigned on LIR | 10 | little | the class of the frame bugs |

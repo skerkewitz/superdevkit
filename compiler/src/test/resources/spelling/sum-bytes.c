@@ -2,8 +2,6 @@
  * tolerance: 10
  * The sum of data[0] to data[99] into a uint16_t, by index and by pointer, with every counter
  * type, direction, test and loop form. The appendix of docs/current-compiler-flaws.md.
- * gap: j_u16_var_bound R3 as l_u16_local_bound
- * gap: l_u16_local_bound R3 index not proved below 32 KB, so a 24-bit pointer
  */
 #include <stdint.h>
 

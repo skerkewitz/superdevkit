@@ -1320,3 +1320,19 @@ The spelling families: the seven C6 gaps closed. `y_ptr_end` 6,989 → 2,538, `c
 is left, as for `struct_u16`). No example compares pointers: their code is the same, as are the
 pair loops; code changed in one program of `BackendOutputTest`.
 
+## An index into an array is inside it (2026-11-20, on the spelling families and the examples)
+
+A global or frame slot indexed by a 16-bit value was indexed with X only where the value ranges
+showed the index never negative, since X adds unsigned; otherwise every access computed a 24-bit
+pointer. C makes an access outside its object undefined, so a sum read only as the address of
+loads and stores (directly, or through a constant offset of at most 0) is now indexed with X
+without a range ([ADR record 46](adr/0046-an-access-to-an-array-tells-dampf-its-index-is.md),
+R3). The MIR interpreter stops a program that accesses outside its object, so the tests catch a
+program the rule would break.
+
+The spelling families: `l_u16_local_bound` and `j_u16_var_bound` 5,553 → 2,648 (both gaps
+closed). The style guide's `fast-range-index` no longer holds (56 cycles with the hint and
+without) and is retired. The examples: Schach -2.6 % (its busiest 60 ticks -3.0 %: the move
+list's 16-bit indexes), Steinschlag -0.1 %, the rest the same; geometric mean -0.4 %. The pair
+loops the same. Code changed in all seven examples and 4 programs of `BackendOutputTest`.
+

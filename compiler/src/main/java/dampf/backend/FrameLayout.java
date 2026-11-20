@@ -176,7 +176,9 @@ final class FrameLayout {
     /**
      * A global or frame slot plus a 16-bit value that is never negative: X can hold it for
      * {@code lda symbol,x} (X adds as an unsigned number, so a negative offset would carry into the
-     * bank).
+     * bank). The value is never negative when the ranges show it, or when the sum is only read as
+     * the address of loads and stores ({@link #onlyAccessed}): an access outside its object is
+     * undefined in C, so the offset lies in 0..size (ADR record 46).
      */
     boolean indexable(Instr.PtrAdd q) {
         if (!(q.op(0) instanceof Value.GlobalAddr || q.op(0) instanceof Value.SlotAddr)
@@ -184,8 +186,47 @@ final class FrameLayout {
             return false;
         }
         Ranges.Range r = ranges.at(q.op(1), q.block());
-        return r != null && r.lo() >= 0;
+        return r != null && r.lo() >= 0 || onlyAccessed(q);
     }
+
+    /**
+     * Whether q is read only as the address of loads and stores, directly or through a constant
+     * ptradd of at most 0 (a field after the index would let a valid access have a negative index,
+     * a[i].y at i * 4 = -2).
+     */
+    private boolean onlyAccessed(Instr.PtrAdd q) {
+        Boolean known = accessedOnly.get(q);
+        if (known != null) {
+            return known;
+        }
+        if (users == null) {
+            users = new HashMap<>();
+            for (Block b : f.blocks()) {
+                for (Instr i : b.instrs()) {
+                    for (Value v : i.operands()) {
+                        if (v instanceof Instr d) {
+                            users.computeIfAbsent(d, x -> new ArrayList<>()).add(i);
+                        }
+                    }
+                }
+            }
+        }
+        boolean ok = true;
+        for (Instr u : users.getOrDefault(q, List.of())) {
+            ok &= access(u, q) || u instanceof Instr.PtrAdd p && p.op(0) == q && p.op(1) instanceof Value.Const k
+                    && k.type().signed(k.bits()) <= 0 && users.getOrDefault(p, List.of()).stream().allMatch(w -> access(w, p));
+        }
+        accessedOnly.put(q, ok);
+        return ok;
+    }
+
+    /** Whether u is a load or store at address a (not one that stores a). */
+    private static boolean access(Instr u, Value a) {
+        return u instanceof Instr.Load && u.op(0) == a || u instanceof Instr.Store && u.op(0) == a && u.op(1) != a;
+    }
+
+    private Map<Instr, List<Instr>> users;
+    private final Map<Instr, Boolean> accessedOnly = new HashMap<>();
 
     /**
      * A pointer plus a 16-bit value that is never negative: {@code [dp],y} with the value in Y,

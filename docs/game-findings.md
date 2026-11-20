@@ -24,8 +24,10 @@ What the game would change: nothing it must. Where code was bent to follow those
 byte only for speed), write what reads best; the type of a stored value only matters for memory
 now. Measure with the timing report, as before.
 
-Ending a loop by comparing pointers (`for (p = a; p < a + n; p++)`) and a bound in a global
-(`i < count`) now cost what the counter does too. Still slower: a bound the compiler cannot
-prove keeps the index below 32,768 (`i < n` with any `n`: 2.2 times the cycles on a loop over
-100 bytes, through a 24-bit pointer); a `DAMPF_RANGE` on the bound or the index helps
-(`fast-range-index`).
+Ending a loop by comparing pointers (`for (p = a; p < a + n; p++)`), a bound in a global
+(`i < count`) and any bound at all (`i < n`) now cost what a constant bound does too. dampf now
+takes an index into an array as inside it, since an access outside is undefined in C (ADR record
+46): a `DAMPF_RANGE` added on such an index only for speed (the old `fast-range-index`) can go,
+one that bounds a loop for the timing report stays. In turn, an out-of-bounds index, which on
+the PC usually corrupts a neighbour, reads or writes another address on the SNES; a PC build with
+`-fsanitize=undefined` finds most of them.

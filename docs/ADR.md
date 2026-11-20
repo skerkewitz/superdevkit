@@ -60,3 +60,4 @@ of its subject.
 | 43 | [The book is brought in step before a release, not with every change](adr/0043-the-book-is-brought-in-step-before-a-release-not.md) | Accepted | 2026-11-19 |
 | 44 | [Sound effects come from sfx.json, and Rachael plays the SNES's BRR](adr/0044-sound-effects-come-from-sfx-json-and-rachael-plays.md) | Accepted | 2026-11-19 |
 | 45 | [M5 is concluded as 0.6.0, and a version between milestones may carry features](adr/0045-m5-is-concluded-as-060-and-a-version-between.md) | Accepted | 2026-11-19 |
+| 46 | [An access to an array tells dampf its index is inside it](adr/0046-an-access-to-an-array-tells-dampf-its-index-is.md) | Accepted | 2026-11-20 |

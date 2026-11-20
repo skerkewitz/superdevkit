@@ -84,9 +84,6 @@ call its own statement.
 
 - **`fast-array-per-field`** In hot code, one array per field (`px[i]`, `py[i]`) is a little
   cheaper than an array of structs (`objs[i].x`). The gain is small: keep the struct elsewhere.
-- **`fast-range-index`** An array of more than 256 elements reached with a 16-bit index goes
-  through a 24-bit pointer, unless dampf knows the index stays inside the array: a `DAMPF_RANGE`
-  on the index (`DAMPF_RANGE(n, 0, N - 1); a[n] = v;`) makes it a direct indexed access.
 - A multiplication or an unsigned division by a constant is cheap (`slow-multiply-variable`,
   `slow-divide-variable`): write it as such, in the clear form.
 
@@ -113,8 +110,9 @@ Write whichever reads better; these cost the same:
   least `game_tick` and `game_vblank` with their callees: a worst case above `n` CPU cycles is a
   build error, above 90 % a warning, so a slower change is found when it is made.
 - **`DAMPF_RANGE(v, lo, hi)`** only where a measurement shows it changes the code. Today that is
-  `fast-range-index`, and a loop the timing report calls unbounded (a hint on its counter gives
-  it a bound). A hint states a fact: a wrong one makes wrong code on the SNES and stops the
+  a loop the timing report calls unbounded (a hint on its counter gives it a bound); an index
+  into an array needs none since 2026-11-20 (an access outside the array is undefined in C, and
+  dampf relies on that, ADR record 46). A hint states a fact: a wrong one makes wrong code on the SNES and stops the
   program on the PC.
 
 ## Measurements
@@ -128,7 +126,6 @@ Measured 2026-11-20 (worst case of the timing report, code generator from MIR).
 | Rule | This | CPU cycles | is | than this | CPU cycles |
 | --- | --- | ---: | --- | --- | ---: |
 | `fast-array-per-field` | `move_array_per_field` | 1,361 | faster | `move_array_of_structs` | 1,521 |
-| `fast-range-index` | `store_with_range` | 56 | faster | `store_without_range` | 103 |
 | `same-declaration-place` | `declared_at_top` | 5,025 | same | `declared_where_used` | 5,025 |
 | `same-increment-form` | `count_postfix` | 5,025 | same | `count_prefix` | 5,025 |
 | `same-index-form` | `read_indexed` | 5,025 | same | `read_pointer_arithmetic` | 5,025 |
