@@ -11,6 +11,7 @@ import dampf.target.Cycles65816;
 public final class LInstr implements LItem {
     private final String mnemonic;
     private final String operand;
+    private final LOperand op;
     private final String comment;
     private final boolean m16;
     private final boolean x16;
@@ -28,6 +29,7 @@ public final class LInstr implements LItem {
     public LInstr(String mnemonic, String operand, String comment, boolean m16, boolean x16, boolean relaxable) {
         this.mnemonic = mnemonic;
         this.operand = operand;
+        this.op = LOperand.of(mnemonic, operand);
         this.comment = comment;
         this.m16 = m16;
         this.x16 = x16;
@@ -41,6 +43,11 @@ public final class LInstr implements LItem {
 
     public String operand() {
         return operand;
+    }
+
+    /** The operand, typed (ADR record 47); null if none. */
+    public LOperand op() {
+        return op;
     }
 
     public String comment() {

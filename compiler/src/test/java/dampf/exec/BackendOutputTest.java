@@ -193,6 +193,13 @@ class BackendOutputTest {
             LUnit parsed = LParser.parse(asm.get(i));
             assertEquals(asm.get(i), LPrinter.print(parsed), key + " module " + i + ": the LIR text does not read back the same");
             assertEquals(List.of(), LVerifier.verify(parsed), key + " module " + i + ": the LIR read back");
+            // every operand is typed (ADR record 47), but a pointer's word at two offsets
+            for (dampf.lir.LItem it : parsed.items()) {
+                if (it instanceof dampf.lir.LInstr in && in.op() instanceof dampf.lir.LOperand.Raw raw
+                        && !raw.text().matches(".*\\+\\d+\\+\\d+")) {
+                    throw new AssertionError(key + " module " + i + ": an operand that is not typed: " + raw.text());
+                }
+            }
             // the modification time of a source file (.dbg file) changes with every checkout, and
             // where the checkout is shows in the paths of the function headers
             hashes.put(key + ".s" + i, hash(asm.get(i).replaceAll("(\\.dbg\\s+file, \"[^\"]*\", \\d+, )\\d+", "$10")
