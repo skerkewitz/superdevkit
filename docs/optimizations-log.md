@@ -1336,3 +1336,14 @@ without) and is retired. The examples: Schach -2.6 % (its busiest 60 ticks -3.0 
 list's 16-bit indexes), Steinschlag -0.1 %, the rest the same; geometric mean -0.4 %. The pair
 loops the same. Code changed in all seven examples and 4 programs of `BackendOutputTest`.
 
+
+## Places get their addresses on the code (2026-11-20, on the examples)
+
+The frame places were coloured on MIR before selection, by a prediction of the code; they are
+now coloured on the LIR selection wrote ([ADR record 48](adr/0048-frame-places-are-coloured-on-the-lir-and.md),
+B2), with the predicted address as each place's first choice. That is about safety, not speed:
+a wrong prediction now costs a different address, not a miscompilation. Where a value handed on
+in A had a place nothing wrote, that place is gone, so three examples' frames lie 2 bytes lower
+(Ertüp, Schach, Steinschlag). No addressing form changed with them, so no cycle count did: the
+examples' timings, the worst cases of `cost-baseline.txt` and the pair loops are the same. Code
+changed in three programs of `BackendOutputTest`.

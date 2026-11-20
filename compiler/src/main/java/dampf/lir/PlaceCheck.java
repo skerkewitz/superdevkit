@@ -101,6 +101,33 @@ public final class PlaceCheck {
 
     private static Access access(LInstr i, java.util.function.Predicate<LOperand.Owner> tracked, Map<Byte, Integer> index,
                                  List<Byte> bytes, List<Integer> offsetOf) {
+        Touches t = touches(i, tracked);
+        if (t == null) {
+            return null;
+        }
+        LOperand.Mem m = (LOperand.Mem) i.op();
+        List<Integer> reads = new ArrayList<>();
+        List<Integer> writes = new ArrayList<>();
+        for (int k = 0; k < t.width(); k++) {
+            int x = byteOf(m.owner(), k, m.offset() + k, index, bytes, offsetOf);
+            if (t.reads()) {
+                reads.add(x);
+            }
+            if (t.writes()) {
+                writes.add(x);
+            }
+        }
+        return new Access(reads, writes);
+    }
+
+    /**
+     * What an instruction does to the place of a followed owner: {@code width} bytes from the
+     * operand's owner byte on, read and/or written (an indirect operand reads the 3 bytes of the
+     * pointer). Null if its operand is no such place (an indexed slot access is memory).
+     */
+    public record Touches(LOperand.Owner owner, int width, boolean reads, boolean writes) {}
+
+    public static Touches touches(LInstr i, java.util.function.Predicate<LOperand.Owner> tracked) {
         if (!(i.op() instanceof LOperand.Mem m) || !m.frame() || m.owner() == null || !tracked.test(m.owner())
                 || m.index() != LOperand.Index.NONE && !m.indirect()) {
             return null;
@@ -109,17 +136,13 @@ public final class PlaceCheck {
             case "ldx", "ldy", "stx", "sty", "cpx", "cpy" -> i.x16() ? 2 : 1;
             default -> i.m16() ? 2 : 1;
         };
-        List<Integer> at = new ArrayList<>();
-        for (int k = 0; k < width; k++) {
-            at.add(byteOf(m.owner(), k, m.offset() + k, index, bytes, offsetOf));
-        }
         if (m.indirect()) {
-            return new Access(at, List.of());   // the pointer is read, whatever goes through it
+            return new Touches(m.owner(), width, true, false);   // the pointer is read, whatever goes through it
         }
         return switch (i.mnemonic()) {
-            case "sta", "stx", "sty", "stz" -> new Access(List.of(), at);
-            case "inc", "dec", "asl", "lsr", "rol", "ror", "tsb", "trb" -> new Access(at, at);
-            default -> new Access(at, List.of());
+            case "sta", "stx", "sty", "stz" -> new Touches(m.owner(), width, false, true);
+            case "inc", "dec", "asl", "lsr", "rol", "ror", "tsb", "trb" -> new Touches(m.owner(), width, true, true);
+            default -> new Touches(m.owner(), width, true, false);
         };
     }
 

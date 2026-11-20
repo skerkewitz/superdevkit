@@ -631,7 +631,12 @@ another (`LMark`: a φ copy into a direct φ, an in-place step); the marks go be
 passes. Its first run found a miscompilation (`ConstAddressTest`, the scroll registers of the
 kit's `sdevkit_bg_set_scroll`). Selection then learnt to match what A, X and Y hold by owner
 instead of by address, so a load it leaves out stays right wherever the places end up (no hash
-changed).
+changed). Then the places got their addresses on the LIR ([record 48](adr/0048-frame-places-are-coloured-on-the-lir-and.md),
+`PlaceColouring`), `FrameLayout`'s prediction kept as each place's first choice: three examples
+changed, frames 2 bytes smaller where a value handed on in A had a place it never used. Without
+the prediction as first choice the execution and random tests pass too; that is the next step.
+Left of B2: φs through their incoming places, those coloured as well, and `FrameLayout` reduced
+to what is about MIR.
 
 ### B3. X and Y assigned by cost
 

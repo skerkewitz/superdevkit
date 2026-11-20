@@ -25,6 +25,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -123,15 +124,39 @@ public final class MirCodeGen {
             }
         }
         sel.layout();
+        Map<MFunction, AsmWriter> codes = new HashMap<>();
+        Map<MFunction, List<Block>> orders = new HashMap<>();
+        Map<MFunction, Ranges> ranges = new HashMap<>();
         for (MFunction f : module.functions()) {
             // selection writes the function once, assuming nothing about the registers where a
             // block starts and every jump and branch in its long form
             AsmWriter code = new AsmWriter();
-            List<Block> order = function(f, code);
+            orders.put(f, function(f, code));
+            codes.put(f, code);
+            ranges.put(f, sel.layout.ranges);
+        }
+        // the places, on the code: a function's frame lies above the frames of all it calls
+        for (MFunction f : module.functions()) {
+            for (Value.Param p : f.params()) {
+                paramOwner.put(p, f);
+            }
+        }
+        frameTotal = 0;
+        Set<MFunction> done = new HashSet<>();
+        for (MFunction f : module.functions()) {
+            colourPlaces(f, codes, done, new HashSet<>());
+        }
+        if (frameTotal > MAX_FRAME) {
+            throw new IllegalStateException("the frames need " + frameTotal + " bytes, more than " + MAX_FRAME);
+        }
+        for (MFunction f : module.functions()) {
+            AsmWriter code = codes.get(f);
+            List<Block> order = orders.get(f);
             // loads of what a register holds on every way in, then stores no path reads; then the
             // code is shorter, so more branches may reach
             // (each counts in the pass limit; BranchRelax does not, it is part of making the code)
             LFunction lf = code.function();
+            parameterNotes(f, lf);
             assignPlaces(lf);
             checkPlaces(f, lf);
             lf.rebuild(lf.items().stream().filter(it -> !(it instanceof dampf.lir.LMark)).toList());
@@ -145,7 +170,7 @@ public final class MirCodeGen {
             Map<String, String> renamed = dampf.lir.LocalLabels.renumber(code.function(), "@L");
             Map<String, Integer> bounds = new HashMap<>();
             code.loopBounds().forEach((label, rounds) -> bounds.put(renamed.getOrDefault(label, label), rounds));
-            written.put(f, new Written(code.function(), bounds, order, sel.layout.ranges));
+            written.put(f, new Written(code.function(), bounds, order, ranges.get(f)));
             if (code.unknownInstructions() > 0) {
                 throw new IllegalStateException("the cycle table does not know an instruction in " + f.name());
             }
@@ -186,16 +211,128 @@ public final class MirCodeGen {
      * places (not its slots, whose address may be taken). Only f reads them, while it runs.
      */
     java.util.BitSet ownValueBytes(MFunction f) {
-        FrameLayout l = layouts.get(f);
-        int b = base.get(f);
         java.util.BitSet own = new java.util.BitSet();
-        l.offset.forEach((k, v) -> {
-            if (k instanceof Value.Param || k instanceof Instr) {
-                own.set(b + v, b + v + 2 * Selection.words(((Value) k).type()));
+        for (Value.Param p : f.params()) {
+            int at = placeAt.get(new PlaceColouring.Place(p, false));
+            own.set(at, at + FrameLayout.bytes(p.type()));
+        }
+        for (Block b : f.blocks()) {
+            for (Instr i : b.instrs()) {
+                for (boolean incoming : new boolean[] {false, true}) {
+                    Integer at = placeAt.get(new PlaceColouring.Place(i, incoming));
+                    if (at != null && !argumentOf.containsKey(i)) {
+                        own.set(at, at + FrameLayout.bytes(i.type()));
+                    }
+                }
             }
-        });
-        l.incoming.forEach((p, v) -> own.set(b + v, b + v + 2 * Selection.words(p.type())));
+        }
         return own;
+    }
+
+    /** The address of every place, after {@link #colourPlaces}. */
+    final Map<PlaceColouring.Place, Integer> placeAt = new HashMap<>();
+    /** A value computed in a callee's parameter place ({@link #argumentsInPlace}): that parameter. */
+    final Map<Instr, Value.Param> argumentOf = new IdentityHashMap<>();
+    /** The function each parameter belongs to. */
+    final Map<Value.Param, MFunction> paramOwner = new IdentityHashMap<>();
+    /** Where each function's frame begins, after colouring. */
+    final Map<MFunction, Integer> placedBase = new HashMap<>();
+    final Map<MFunction, Integer> placedSize = new HashMap<>();
+
+    /**
+     * Gives the places of f their addresses on its code ({@link PlaceColouring}), after those of
+     * every function it calls: its frame begins where the highest of theirs ends.
+     */
+    void colourPlaces(MFunction f, Map<MFunction, AsmWriter> codes, Set<MFunction> done, Set<MFunction> path) {
+        if (done.contains(f)) {
+            return;
+        }
+        if (!path.add(f)) {
+            throw new IllegalStateException("recursion through " + f.name());
+        }
+        int b = 0;
+        for (MFunction c : callees.getOrDefault(f.name(), List.of())) {
+            colourPlaces(c, codes, done, path);
+            b = Math.max(b, placedBase.get(c) + placedSize.get(c));
+        }
+        path.remove(f);
+        FrameLayout l = layouts.get(f);
+        int newBase = b;
+        int oldBase = base.get(f);
+        java.util.Set<Object> own = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        own.addAll(f.params());
+        for (Block blk : f.blocks()) {
+            own.addAll(blk.instrs());
+        }
+        PlaceColouring.Frame frame = new PlaceColouring.Frame() {
+            @Override
+            public Integer fixed(PlaceColouring.Place p) {
+                if (p.incoming()) {
+                    return newBase + l.incoming.get((Instr.Phi) p.key());
+                }
+                if (p.key() instanceof Value.Param q) {
+                    MFunction g = paramOwner.get(q);
+                    return (g == f ? newBase : placedBase.get(g)) + layouts.get(g).offset.get(q);
+                }
+                if (p.key() instanceof Value.Slot s) {
+                    return newBase + l.offset.get(s);
+                }
+                Value.Param q = argumentOf.get((Instr) p.key());
+                if (q != null) {
+                    MFunction g = paramOwner.get(q);
+                    return placedBase.get(g) + layouts.get(g).offset.get(q);
+                }
+                return null;
+            }
+
+            @Override
+            public int bytes(PlaceColouring.Place p) {
+                return switch (p.key()) {
+                    case Value.Slot s -> Math.max(1, s.size());
+                    case Value v -> FrameLayout.bytes(v.type());
+                    default -> throw new IllegalStateException("a place of " + p.key());
+                };
+            }
+
+            @Override
+            public Integer predicted(PlaceColouring.Place p) {
+                Integer at = l.offset.get(p.key());
+                return at == null ? null : newBase + at;
+            }
+        };
+        Map<PlaceColouring.Place, Integer> at = PlaceColouring.colour(codes.get(f).function(), o -> own.contains(o.key()),
+                frame, newBase + l.valuesStart);
+        int end = newBase + l.valuesStart;
+        for (Map.Entry<PlaceColouring.Place, Integer> e : at.entrySet()) {
+            if (own.contains(e.getKey().key()) && !(e.getKey().key() instanceof Instr i && argumentOf.containsKey(i))) {
+                end = Math.max(end, e.getValue() + frame.bytes(e.getKey()));
+            }
+            placeAt.putIfAbsent(e.getKey(), e.getValue());
+            if (own.contains(e.getKey().key())) {
+                placeAt.put(e.getKey(), e.getValue());
+            }
+        }
+        for (Value.Param p : f.params()) {
+            placeAt.put(new PlaceColouring.Place(p, false), newBase + l.offset.get(p));
+        }
+        for (Value.Slot s : f.slots()) {
+            placeAt.put(new PlaceColouring.Place(s, false), newBase + l.offset.get(s));
+        }
+        placedBase.put(f, newBase);
+        placedSize.put(f, end - newBase);
+        frameTotal = Math.max(frameTotal, end);
+        done.add(f);
+    }
+
+    /** The notes that say where f's parameters are, at the start of its code. */
+    void parameterNotes(MFunction f, LFunction lf) {
+        List<dampf.lir.LItem> items = new ArrayList<>();
+        for (Value.Param p : f.params()) {
+            items.add(dampf.lir.LDirective.note("parameter " + p.type() + " " + p + " at "
+                    + Selection.at(placeAt.get(new PlaceColouring.Place(p, false))).text()));
+        }
+        items.addAll(lf.items());
+        lf.rebuild(items);
     }
 
     void prelude(AsmWriter w, int module, int modules) {
@@ -365,6 +502,7 @@ public final class MirCodeGen {
                         Value.Param p = callee.params().get(k);
                         if (!callBetween && sel.place.containsKey(p) && Selection.words(p.type()) == Selection.words(v.type())) {
                             sel.place.put(v, sel.place.get(p));
+                            argumentOf.put(v, p);
                         }
                     }
                 }
@@ -474,9 +612,6 @@ public final class MirCodeGen {
         sel.out.raw("; ---- " + f.name() + "    (" + f.pos() + ")");
         sel.out.raw("        .segment \"" + NaiveCodeGen.codeSegment(f.name()) + "\"");
         sel.out.raw(".proc " + f.name());
-        for (Value.Param p : f.params()) {
-            sel.out.note("parameter " + p.type() + " " + p + " at " + Selection.at(sel.place.get(p)).text());
-        }
         sel.layout = layouts.get(f);
         sel.ranges = sel.layout.ranges;
         sel.plan.findMasks(f);
@@ -628,12 +763,7 @@ public final class MirCodeGen {
                 if (!(items.get(k) instanceof dampf.lir.LInstr in) || in.op() == null) {
                     continue;
                 }
-                LOperand assigned = assign(in.op());
-                if (!assigned.text().equals(in.op().text())) {
-                    throw new IllegalStateException("selection wrote " + in.op().text() + " for a place assigned "
-                            + assigned.text() + ": " + in);
-                }
-                items.set(k, in.withOperand(assigned));
+                items.set(k, in.withOperand(assign(in.op())));
             }
         }
     }
@@ -663,7 +793,10 @@ public final class MirCodeGen {
                 if (m.owner() == null) {
                     throw new IllegalStateException("a frame operand without an owner: " + m.text());
                 }
-                Integer base = m.owner().incoming() ? sel.incoming.get((Instr.Phi) m.owner().key()) : sel.place.get(m.owner().key());
+                Integer base = placeAt.get(PlaceColouring.Place.of(m.owner()));
+                if (base == null) {
+                    throw new IllegalStateException("no place for " + m.text());
+                }
                 int at = base + m.owner().word();
                 if (m.indirect()) {
                     return new LOperand.Mem(LOperand.Width.NONE, Selection.FRAME, at, m.index(), true, m.owner());
@@ -674,7 +807,7 @@ public final class MirCodeGen {
                 if (i.owner() == null) {
                     throw new IllegalStateException("a frame address without an owner: " + i.text());
                 }
-                return new LOperand.Imm(".loword(" + Selection.FRAME + "+" + (sel.place.get(i.owner().key()) + i.owner().word()) + ")",
+                return new LOperand.Imm(".loword(" + Selection.FRAME + "+" + (placeAt.get(PlaceColouring.Place.of(i.owner())) + i.owner().word()) + ")",
                         i.owner());
             }
             default -> {
@@ -811,7 +944,13 @@ public final class MirCodeGen {
                     sel.ins("lda", sel.operand(p.op(0), 1));
                     sel.ins("adc", sel.operand(p.op(1), 1));
                     sel.result(p, 1);
-                } else if (!sel.operand(p.op(0), 1).equals(sel.dest(p, 1))) {
+                } else if (sel.operand(p.op(0), 1).equals(sel.dest(p, 1))) {
+                    // the bank word is in p's place already: p shares it with its base
+                    if (sel.operand(p.op(0), 1) instanceof LOperand.Mem from && from.owner() != null
+                            && sel.dest(p, 1) instanceof LOperand.Mem to) {
+                        sel.out.mark(List.of(new dampf.lir.LMark.Copy(to.owner(), from.owner(), 2)));
+                    }
+                } else {
                     // an i16 offset stays within the bank (Instr.PtrAdd): the bank word is copied
                     sel.ins("lda", sel.operand(p.op(0), 1));
                     sel.result(p, 1);

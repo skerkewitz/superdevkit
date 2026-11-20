@@ -50,6 +50,8 @@ final class FrameLayout {
     final Map<Object, Integer> offset = new IdentityHashMap<>();
     final Map<Instr.Phi, Integer> incoming = new IdentityHashMap<>();
     int size;
+    /** Where the values' places begin: after the parameters, slots and incoming places. */
+    int valuesStart;
 
     private final MFunction f;
     private final List<Value> values = new ArrayList<>();
@@ -683,6 +685,7 @@ final class FrameLayout {
     /** Gives every value the lowest offset that no interfering value covers (a partner's, if free). */
     private void colour(BitSet[] g) {
         int base = size;
+        valuesStart = size;
         int[] at = new int[values.size()];
         java.util.Arrays.fill(at, -1);
         Map<Integer, List<Integer>> partners = affinities();

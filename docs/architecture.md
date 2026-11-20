@@ -13,7 +13,8 @@ blocks with the accumulator width each runs in, whose text is the ca65 source da
 (`LPrinter`, `LParser`), a verifier (`LVerifier`) and passes. HIR will sit between the AST and MIR
 once struct splitting needs it. The code generator from MIR (`dampf.backend.MirCodeGen`, the
 default of `dampf build`) selects instructions once per function (`Selection` and the classes per
-kind of instruction, with `FrameLayout` for the places); the LIR passes then remove loads of what a
+kind of instruction, with `FrameLayout` proposing the places); the places get their addresses on
+the code (`PlaceColouring`, checked by `PlaceCheck`, ADR record 48); the LIR passes then remove loads of what a
 register holds (`RedundantLoads`, `IndexInY`, on `RegContents`), apply peephole rules
 (`Peephole`), run short 16-bit stretches between byte stores in 8 bits (`ByteStretches`), drop a
 `CLC` or `SEC` where the carry is known (`KnownCarry`) and remove stores nobody
