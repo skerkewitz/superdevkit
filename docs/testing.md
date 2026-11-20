@@ -65,6 +65,18 @@ the register writes she does not draw. Each fails when its document is no longer
 `RachaelTest` also runs her renderer's tests in C (`compiler/src/test/c/rachael_test.c`, from the
 game's tests of its pseudo SNES): small scenes rendered and checked pixel by pixel.
 
+**The spelling test** (`SpellingTest`) checks that the same work, written the ways a programmer
+would write it, costs the same ([current-compiler-flaws.md](current-compiler-flaws.md), T1).
+Each file in `compiler/src/test/resources/spelling/` is a family: its functions without
+parameters are its members, with an optional `setup` and `check`. The test generates a
+`test_main` that runs every member (after `setup`) on the PC and on the SNES, and requires the
+same globals on both and the same result and `check` from every member. Then it builds one ROM
+per member, with an entry that calls it, and measures its CPU cycles in dampf's emulator: a
+member costs at most the family's `tolerance` (percent) more than its cheapest member, unless a
+`gap:` line names it with the step of the plan that should close it and the cause. A gap that a
+change closes fails the test until its line is removed. The costs are written to
+`compiler/build/reports/spelling.txt`.
+
 **Random programs** (`RandomProgramTest`, 50 per build) run like the execution tests, without
 the block counts and without Mesen. The generator makes programs free of undefined behaviour by construction (divisors
 made odd, shift counts masked, wide arithmetic in `uint32_t`) and favours boundary values like

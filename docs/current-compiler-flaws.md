@@ -50,6 +50,7 @@ D=build/install/superdevkit/bin/dampf
 $D build --entry test_main -o out.sfc loops.c     # writes out.s and out.timing.txt beside the ROM
 $D mir -O loops.c                                 # the MIR after the passes
 ./gradlew :compiler:test -Pcoverage               # compiler/build/reports/jacoco/test/html/index.html
+./gradlew :compiler:test --tests dampf.exec.SpellingTest   # compiler/build/reports/spelling.txt
 ```
 
 `loops.c` is in the [appendix](#appendix-the-loop-spellings). "Cycles a round" below is the worst
@@ -178,6 +179,20 @@ constant, local and global bound; bounds 20, 100, 200 and 300 where the type all
 Done when the test runs in `./gradlew build`, passes with every open gap listed, and
 `docs/testing.md` describes it.
 
+Built (2026-11-20): `SpellingTest`, 13 families with 90 members, 64 of them gaps; the families
+above, and `sum-bound-N` for the bounds 20, 30, 128, 129, 200 and 300. Two things differ from
+the description above. The test writes `test_main` itself: a family has an optional `setup`
+(run before each member) and `check` (whose value after each member must be the same, for
+members that write memory instead of returning a value). And the cost is measured with a
+generated entry that calls the member, which inlines it, as dampf inlines every small function:
+for the appendix's functions that gives the numbers of the table plus 13 cycles, except
+`x_ptr_walk` (6,765 against 6,132) and `y_ptr_end` (6,989, 69 cycles a round against 138). The
+first difference is a flaw of its own, [R4](#r4-inlining-drops-the-range-of-a-derived-variable),
+found by the test: inlined, `fill_u16` costs 3,930 cycles, on its own 1,945. The test also found
+[C9 and C10](#flaw-c-the-mir-has-no-canonical-form) (`table-2d`), and that the stride of a struct
+costs 12 % (`struct_u8` against `fields_u8`, the gap named `split`: only roadmap M9 row 4 closes
+it). The report `compiler/build/reports/spelling.txt` has every member's cycles.
+
 ### T2. Random programs that reach the optimizer
 
 Extend `RandomProgram` (keep the old generator's output for seeds 1 to 50 unchanged behind a
@@ -281,6 +296,13 @@ they handle today are deleted in the same step (search for `BinOp.SUB` in `Induc
   Insert the blocks where they are missing, in one place (`Loops` or a `LoopForm` pass), instead
   of each pass checking and giving up.
 
+- **C9.** A `ptradd` of a `ptradd` of a global or a slot is one `ptradd` with the sum of the
+  offsets: `t[r][c]` is `ptradd (ptradd @t, r * 16), c` today, so the row's pointer is computed
+  every inner round and read as `[dp],y`, where `@t + (r * 16 + c)` is an index in X
+  (`table-2d`: `rows_u16` 7,950 cycles, the row pointer written by hand 5,578).
+- **C10.** `(x >> k) << k` (and `* 2^k`) is `x & ~(2^k - 1)`, and the sum or `|` of `x & ~m` and
+  `x & m` is x: `t[i >> 4][i & 15]` is `t` indexed by `i` (`flat_index`).
+
 Done when each rule has its test, the spelling test's gaps marked C1, C6 and C7 are closed or
 the remaining cause is named in their `gap:` line, and no pass handles a form the canonical
 form excludes.
@@ -352,6 +374,21 @@ fails on a wrong hint, and the PC build's UBSan catches most cases already
 (`-fsanitize=undefined` in `PcReference`). The record states that an out-of-bounds index, which
 gcc's code tolerates by reading a neighbour, reads another address on the SNES. Retires
 `fast-range-index`.
+
+### R4. Inlining drops the range of a derived variable
+
+`Induction` gives the variable it derives for `i * C` the range it knows (`Instr.Phi.known`);
+the selection then indexes with X, since the offset is never negative. `Inline` copies a φ
+without that field ([Inline.java:224](../compiler/src/main/java/dampf/mir/Inline.java#L224)), and
+the passes do not derive it again in the caller, so the inlined loop computes a 24-bit pointer
+every round. Found by the spelling test: `fill_u16` costs 1,945 cycles as a function and 3,930
+inlined, `pairs_u16` 29,523 inlined. Every small function with such a loop that dampf inlines is
+affected, in the examples too.
+
+Fix: copy `known` with the φ (one line; tried on 2026-11-20 and not kept: `fill_u16` inlined
+1,945, `pairs_u16` 21,411; 18 of the 90 members of the spelling families faster, `pairs_ptr` 3 %
+slower, which the step has to explain). Test: an `InlineTest` case where the callee's φ has
+`known` and the copy keeps it, and the spelling gaps marked R4.
 
 ## Flaw L: four passes recognise loops, each differently
 
@@ -579,8 +616,8 @@ slower for reasons [optimizations.md](optimizations.md#tried-and-rejected) could
 | --- | --- | --- | --- | --- |
 | 1 | T1 spelling test, T3 pass limit | | no | |
 | 2 | T2 random programs | | no | (may find bugs: fix them first, each with an execution test) |
-| 3 | C1 to C3 canonical arithmetic and comparisons | 1 | little | part of `g`, `h`, `m` |
-| 4 | R1 widening by end, R2 unsigned intervals | 1 | yes | `c_i16_lt100`, the bound cliffs, `slow-u8-counter` |
+| 3 | C1 to C3 canonical arithmetic and comparisons, C9 and C10 addresses | 1 | little | part of `g`, `h`, `m`; `table-2d` |
+| 4 | R4 ranges kept when inlining, R1 widening by end, R2 unsigned intervals | 1 | yes | the gaps marked R4, `c_i16_lt100`, the bound cliffs, `slow-u8-counter` |
 | 5 | L1 to L3 `CountedLoops` and its users | 3, 4 | yes | `d`, `i` |
 | 6 | C5, C8, L4 to L6 | 5 | yes | `g`, `h`, `m`, `x`, `slow-u16-counter-words` |
 | 7 | C6 pointer comparisons, C7 loads out of loops | 3 | yes | `y`, part of `j`, `k` |
@@ -602,8 +639,9 @@ named by `dev/bisect_passes.sh` down to one pass on one function.
 
 ## Appendix: the loop spellings
 
-The first family of T1 (`compiler/src/test/resources/spelling/sum-bytes.c`), with the functions
-of the table. `test_main` fills `data` and stores every result; the loops' time does not depend
+The functions of the table, with the `test_main` they were measured with. The spelling test has
+them as its first family ([sum-bytes.c](../compiler/src/test/resources/spelling/sum-bytes.c)),
+with a `setup` in place of `test_main` and two more spellings. `test_main` fills `data` and stores every result; the loops' time does not depend
 on what `data` holds.
 
 ```c
