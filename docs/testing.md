@@ -19,7 +19,9 @@ there, independent of any 65816 code. The interpreter also checks the range anal
 value it computes, and every parameter's value on entry to its function, must lie in its
 inferred interval (`Ranges.checker`), and a `DAMPF_RANGE` hint that does not hold stops it ("a
 hint does not hold"). Every hint that states a fact is also an assertion in the PC and test
-builds ([hints.md](hints.md)).
+builds ([hints.md](hints.md)). A load or store outside the global or frame slot its address is
+based on stops it too ("an access outside its object"): C makes it undefined, and the PC build's
+UBSan finds most such accesses as well.
 
 What is compared: the dampf runtime writes to `$21FB` when the entry function returns; the
 emulator, or Mesen's Lua script, then reads every global. All globals, flattened into their

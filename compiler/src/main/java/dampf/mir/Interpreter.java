@@ -26,6 +26,7 @@ public final class Interpreter {
     private final MModule module;
     private final byte[] mem = new byte[SIZE];
     private final Map<String, Integer> globalAddress = new HashMap<>();
+    private final Map<String, Integer> globalSize = new HashMap<>();
     private int frameTop = FRAMES;
     private long steps;
     private final long maxSteps;
@@ -37,6 +38,7 @@ public final class Interpreter {
         int next = GLOBALS;
         for (MModule.Global g : module.globals()) {
             globalAddress.put(g.symbol(), next);
+            globalSize.put(g.symbol(), g.size());
             next += Math.max(1, g.size());
             if (next >= FRAMES) {
                 throw new IllegalStateException("the globals do not fit the interpreter's memory");
@@ -236,6 +238,23 @@ public final class Interpreter {
         };
     }
 
+    /**
+     * The address of an access, checked: one based on a global or a frame slot must lie within
+     * that object (C makes any other access undefined).
+     */
+    private int inObject(Instr access, int address, int size, Frame frame) {
+        Gvn.Location at = Gvn.locate(access.op(0));
+        if (at.named()) {
+            long base = eval(at.base(), frame);
+            int length = at.base() instanceof Value.GlobalAddr g ? globalSize.get(g.symbol()) : ((Value.SlotAddr) at.base()).slot().size();
+            if (address < base || address + size > base + length) {
+                throw new IllegalStateException("an access outside its object: " + Printer.instr(access) + " at offset "
+                        + (address - base) + " of " + length + " bytes" + (access.pos() != null ? " (" + access.pos() + ")" : ""));
+            }
+        }
+        return address;
+    }
+
     private long execute(Instr i, Frame frame) {
         MType t = i.type();
         return switch (i) {
@@ -249,9 +268,9 @@ public final class Interpreter {
                 };
             }
             case Instr.PtrAdd p -> MType.PTR.wrap(eval(p.op(0), frame) + p.op(1).type().signed(eval(p.op(1), frame)));
-            case Instr.Load l -> load(address(l.op(0), frame), t.size);
+            case Instr.Load l -> load(inObject(l, address(l.op(0), frame), t.size, frame), t.size);
             case Instr.Store s -> {
-                store(address(s.op(0), frame), s.op(1).type().size, eval(s.op(1), frame));
+                store(inObject(s, address(s.op(0), frame), s.op(1).type().size, frame), s.op(1).type().size, eval(s.op(1), frame));
                 yield 0;
             }
             case Instr.Copy c -> {
