@@ -21,11 +21,11 @@ final class CallSelection {
         for (int k = 0; k < c.operands().size(); k++) {
             Value.Param p = callee.params().get(k);
             for (int w = 0; w < Selection.words(p.type()); w++) {
-                if (c.op(k) instanceof Instr v && sel.arith.stored(v) && sel.operand(v, w).equals(Selection.at(sel.place.get(p) + 2 * w))) {
+                if (c.op(k) instanceof Instr v && sel.arith.stored(v) && sel.operand(v, w).equals(sel.placeOf(p, w))) {
                     continue;   // computed in place (argumentsInPlace)
                 }
                 sel.ins("lda", sel.operand(c.op(k), w));
-                sel.ins("sta", Selection.at(sel.place.get(p) + 2 * w));
+                sel.ins("sta", sel.placeOf(p, w));
             }
         }
         sel.ins("jsl", c.callee);

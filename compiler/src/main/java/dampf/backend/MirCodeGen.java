@@ -3,6 +3,7 @@ package dampf.backend;
 import dampf.frontend.CompileError;
 import dampf.frontend.SourcePos;
 import dampf.lir.BranchRelax;
+import dampf.lir.LOperand;
 import dampf.lir.ByteStretches;
 import dampf.lir.DeadStores;
 import dampf.lir.IndexInY;
@@ -131,6 +132,7 @@ public final class MirCodeGen {
             // code is shorter, so more branches may reach
             // (each counts in the pass limit; BranchRelax does not, it is part of making the code)
             LFunction lf = code.function();
+            assignPlaces(lf);
             limit.apply("RedundantLoads", f.name(), () -> new RedundantLoads().run(lf));
             limit.apply("IndexInY", f.name(), () -> new IndexInY().run(lf));
             limit.apply("Peephole", f.name(), () -> new Peephole(Selection.FRAME_START).run(lf));
@@ -500,8 +502,8 @@ public final class MirCodeGen {
                         continue;   // set by the predecessors (or kept in X)
                     }
                     for (int w = 0; w < Selection.words(p.type()); w++) {
-                        sel.ins("lda", Selection.at(sel.incoming.get(p) + 2 * w));
-                        sel.ins("sta", Selection.at(sel.place.get(p) + 2 * w));
+                        sel.ins("lda", sel.incomingOf(p, w));
+                        sel.ins("sta", sel.placeOf(p, w));
                     }
                     continue;
                 }
@@ -611,6 +613,57 @@ public final class MirCodeGen {
     }
 
     /**
+     * Gives every frame operand its address from its owner (ADR record 47): word w of a value, a
+     * φ's incoming place, a frame slot, as the layout placed them. The places are still the ones
+     * {@link FrameLayout} assigned before selection, so the addresses do not change; an operand of
+     * the frame without an owner, or one whose owner says another address, is a bug of selection.
+     * This is where places assigned on LIR (B2 of docs/current-compiler-flaws.md) will come in.
+     */
+    void assignPlaces(LFunction lf) {
+        for (dampf.lir.LBlock b : lf.blocks()) {
+            List<dampf.lir.LItem> items = b.items();
+            for (int k = 0; k < items.size(); k++) {
+                if (!(items.get(k) instanceof dampf.lir.LInstr in) || in.op() == null) {
+                    continue;
+                }
+                LOperand assigned = assign(in.op());
+                if (!assigned.text().equals(in.op().text())) {
+                    throw new IllegalStateException("selection wrote " + in.op().text() + " for a place assigned "
+                            + assigned.text() + ": " + in);
+                }
+                items.set(k, in.withOperand(assigned));
+            }
+        }
+    }
+
+    /** The operand with the address its owner's place has (an operand without an owner as it is). */
+    private LOperand assign(LOperand op) {
+        switch (op) {
+            case LOperand.Mem m when m.frame() -> {
+                if (m.owner() == null) {
+                    throw new IllegalStateException("a frame operand without an owner: " + m.text());
+                }
+                Integer base = m.owner().incoming() ? sel.incoming.get((Instr.Phi) m.owner().key()) : sel.place.get(m.owner().key());
+                int at = base + m.owner().word();
+                if (m.indirect()) {
+                    return new LOperand.Mem(LOperand.Width.NONE, Selection.FRAME, at, m.index(), true, m.owner());
+                }
+                return Selection.at(at).indexed(m.index()).owned(m.owner());
+            }
+            case LOperand.Imm i when i.expr().contains(Selection.FRAME) -> {
+                if (i.owner() == null) {
+                    throw new IllegalStateException("a frame address without an owner: " + i.text());
+                }
+                return new LOperand.Imm(".loword(" + Selection.FRAME + "+" + (sel.place.get(i.owner().key()) + i.owner().word()) + ")",
+                        i.owner());
+            }
+            default -> {
+                return op;
+            }
+        }
+    }
+
+    /**
      * A small loop head (only φs, pointer sums, a comparison and a branch) goes right after the block that
      * jumps back to it: that block falls through into the test, and the test branches back into
      * the loop. Per round one branch instead of a jump and a branch.
@@ -682,17 +735,18 @@ public final class MirCodeGen {
                     }
                     continue;        // (along the back edge the step has updated X already)
                 }
-                int to = sel.direct.contains(s) ? sel.place.get(p) : sel.incoming.get(p);
+                boolean direct = sel.direct.contains(s);
                 for (int w = 0; w < Selection.words(p.type()); w++) {
-                    if (sel.operand(v, w).equals(Selection.at(to + 2 * w))) {
+                    LOperand to = direct ? sel.placeOf(p, w) : sel.incomingOf(p, w);
+                    if (sel.operand(v, w).equals(to)) {
                         continue;   // the operand shares the φ's place
                     }
                     if (sel.operand(v, w).equals(Selection.imm(0)) && !sel.aHolds.contains(Selection.imm(0))) {
-                        sel.ins("stz", Selection.at(to + 2 * w));   // no load of the zero
+                        sel.ins("stz", to);   // no load of the zero
                         continue;
                     }
                     sel.ins("lda", sel.operand(v, w));
-                    sel.ins("sta", Selection.at(to + 2 * w));
+                    sel.ins("sta", to);
                 }
             }
         }

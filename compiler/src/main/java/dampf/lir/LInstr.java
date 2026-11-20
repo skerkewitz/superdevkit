@@ -27,9 +27,14 @@ public final class LInstr implements LItem {
      * generator writes the long form).
      */
     public LInstr(String mnemonic, String operand, String comment, boolean m16, boolean x16, boolean relaxable) {
+        this(mnemonic, LOperand.of(mnemonic, operand), comment, m16, x16, relaxable);
+    }
+
+    /** An instruction with a typed operand (its owner kept); null for none. */
+    public LInstr(String mnemonic, LOperand op, String comment, boolean m16, boolean x16, boolean relaxable) {
         this.mnemonic = mnemonic;
-        this.operand = operand;
-        this.op = LOperand.of(mnemonic, operand);
+        this.operand = op == null ? null : op.text();
+        this.op = op;
         this.comment = comment;
         this.m16 = m16;
         this.x16 = x16;
@@ -144,6 +149,11 @@ public final class LInstr implements LItem {
 
     /** The same instruction with another operand. */
     public LInstr withOperand(String newOperand) {
+        return new LInstr(mnemonic, newOperand, comment, m16, x16, relaxable);
+    }
+
+    /** The same instruction with another typed operand. */
+    public LInstr withOperand(LOperand newOperand) {
         return new LInstr(mnemonic, newOperand, comment, m16, x16, relaxable);
     }
 

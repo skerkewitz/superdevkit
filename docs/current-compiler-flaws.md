@@ -597,6 +597,13 @@ Move the passes that read operand text (`RegContents`, `RedundantLoads`, `DeadSt
 with the places assigned exactly as `FrameLayout` assigns them today, every hash of
 `BackendOutputTest` must stay.
 
+Built (2026-11-20, ADR record 47), in six commits that kept every hash: `LOperand` (`BackendOutputTest`
+checks that every operand dampf writes is typed); the LIR passes on it; selection writing it;
+and every frame operand owned by what it belongs to (a value's word, a φ's incoming place, a
+frame slot, a callee's parameter), with `MirCodeGen.assignPlaces` after selection giving each
+its address from its owner. That phase still takes `FrameLayout`'s places and fails on a frame
+operand without an owner; B2 changes what it assigns. Labels are still compared by name.
+
 ### B2. Places assigned on LIR
 
 Compute liveness of the virtual places on the LIR (`DeadStores` has this analysis for frame

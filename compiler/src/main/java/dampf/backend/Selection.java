@@ -121,6 +121,16 @@ final class Selection {
                 LOperand.Index.NONE, false);
     }
 
+    /** Word w of a value's place (a value of this function, or a callee's parameter), owned by it. */
+    LOperand.Mem placeOf(Value v, int w) {
+        return at(place.get(v) + 2 * w).owned(new LOperand.Owner(v, false, 2 * w));
+    }
+
+    /** Word w of a φ's incoming place, owned by it. */
+    LOperand.Mem incomingOf(Instr.Phi p, int w) {
+        return at(incoming.get(p) + 2 * w).owned(new LOperand.Owner(p, true, 2 * w));
+    }
+
     /** Word w (0 low, 1 high) of a value, as an operand of lda, adc, cmp, ... */
     LOperand operand(Value v, int w) {
         if (v instanceof Instr i && (xResident.containsKey(i) || xSteps.containsKey(i))) {
@@ -132,10 +142,11 @@ final class Selection {
             case Value.GlobalAddr g -> rom.contains(g.symbol())
                     ? (w == 0 ? new LOperand.Imm(".loword(" + g.symbol() + ")") : new LOperand.Imm("^" + g.symbol()))
                     : (w == 0 ? new LOperand.Imm(".loword(" + g.symbol() + ")") : imm(0x7E));
-            case Value.SlotAddr s -> w == 0 ? new LOperand.Imm(".loword(" + FRAME + "+" + place.get(s.slot()) + ")") : imm(0x7E);
-            case Value.Param p -> w >= words(p.type()) ? imm(0) : at(place.get(p) + 2 * w);
+            case Value.SlotAddr s -> w == 0 ? new LOperand.Imm(".loword(" + FRAME + "+" + place.get(s.slot()) + ")",
+                    new LOperand.Owner(s.slot(), false, 0)) : imm(0x7E);
+            case Value.Param p -> w >= words(p.type()) ? imm(0) : placeOf(p, w);
             case Instr i when FrameLayout.transparent(i) -> w >= words(i.type()) ? imm(0) : operand(i.op(0), w);
-            case Instr i -> w >= words(i.type()) ? imm(0) : at(place.get(i) + 2 * w);
+            case Instr i -> w >= words(i.type()) ? imm(0) : placeOf(i, w);
         };
     }
 
@@ -153,7 +164,7 @@ final class Selection {
     }
 
     LOperand dest(Instr i, int w) {
-        return at(place.get(i) + 2 * w);
+        return placeOf(i, w);
     }
 
     /**
@@ -188,7 +199,7 @@ final class Selection {
         return switch (address) {
             case Value.GlobalAddr g -> new LOperand.Mem(rom.contains(g.symbol()) ? LOperand.Width.LONG : LOperand.Width.NONE,
                     g.symbol(), k, LOperand.Index.NONE, false);
-            case Value.SlotAddr s -> at(place.get(s.slot()) + k);
+            case Value.SlotAddr s -> at(place.get(s.slot()) + k).owned(new LOperand.Owner(s.slot(), false, k));
             // a number made into a pointer (a hardware register): long addressing, since the data
             // bank is $7E and an absolute $210B would reach WRAM
             case Value.Const c -> new LOperand.Mem(LOperand.Width.LONG, String.format("$%06X", (c.bits() + k) & 0xFFFFFF), 0,

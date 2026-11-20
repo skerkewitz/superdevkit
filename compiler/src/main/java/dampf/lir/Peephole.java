@@ -121,7 +121,7 @@ public final class Peephole {
         if (n1 != null && in.mnemonic().equals("sta") && in.m16() && n1.x16() && n1.m16()
                 && (n1.mnemonic().equals("ldx") || n1.mnemonic().equals("ldy"))
                 && n1.op() != null && n1.op().equals(in.op()) && plain(in.op())) {
-            items.set(next.get(0), new LInstr(n1.mnemonic().equals("ldx") ? "tax" : "tay", null, n1.comment(), true, true, false));
+            items.set(next.get(0), new LInstr(n1.mnemonic().equals("ldx") ? "tax" : "tay", (String) null, n1.comment(), true, true, false));
             return 1;
         }
         // REP #$20 / SEP #$20 with 8-bit A before

@@ -23,11 +23,47 @@ public sealed interface LOperand {
         }
     }
 
-    /** An immediate: {@code expr} is what follows the {@code #} ({@code $0001}, {@code .loword(_x)}, {@code ^_x}). */
-    record Imm(String expr) implements LOperand {
+    /**
+     * Whose a frame place is (ADR record 47): word {@code word} of a MIR value (or of a callee's
+     * parameter), the incoming place of a φ ({@code incoming}), or byte {@code word} of a frame slot.
+     * {@code key} is the MIR object, compared by identity. The phase that assigns the places
+     * gives every owned operand its address.
+     */
+    record Owner(Object key, boolean incoming, int word) {
+        @Override
+        public boolean equals(Object o) {
+            return o instanceof Owner w && w.key == key && w.incoming == incoming && w.word == word;
+        }
+
+        @Override
+        public int hashCode() {
+            return System.identityHashCode(key) * 31 + word * 2 + (incoming ? 1 : 0);
+        }
+    }
+
+    /**
+     * An immediate: {@code expr} is what follows the {@code #} ({@code $0001}, {@code .loword(_x)},
+     * {@code ^_x}). {@code owner}: the frame slot whose address it is ({@code .loword(dampf_frame+n)}),
+     * or null; not part of equality.
+     */
+    record Imm(String expr, Owner owner) implements LOperand {
+        public Imm(String expr) {
+            this(expr, null);
+        }
+
         @Override
         public String text() {
             return "#" + expr;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            return o instanceof Imm k && k.expr.equals(expr);
+        }
+
+        @Override
+        public int hashCode() {
+            return expr.hashCode();
         }
 
         /** The value if the immediate is a number ({@code $XXXX}); null otherwise. */
@@ -71,9 +107,30 @@ public sealed interface LOperand {
      * Memory: {@code base} (a symbol or a fixed address) plus {@code offset}, in an addressing
      * form, indexed or not; {@code indirect}: {@code [base+offset],y}, the pointer kept at that
      * place (indexed by Y). A frame place is the base {@link #FRAME} with its offset, written
-     * with the offset even when it is 0.
+     * with the offset even when it is 0. {@code owner}: whose frame place it is, or null; not part
+     * of equality (two operands at one address are the same operand).
      */
-    record Mem(Width width, String base, int offset, Index index, boolean indirect) implements LOperand {
+    record Mem(Width width, String base, int offset, Index index, boolean indirect, Owner owner) implements LOperand {
+        public Mem(Width width, String base, int offset, Index index, boolean indirect) {
+            this(width, base, offset, index, indirect, null);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            return o instanceof Mem m && m.width == width && m.base.equals(base) && m.offset == offset && m.index == index
+                    && m.indirect == indirect;
+        }
+
+        @Override
+        public int hashCode() {
+            return ((base.hashCode() * 31 + offset) * 31 + width.ordinal() * 3 + index.ordinal()) * 2 + (indirect ? 1 : 0);
+        }
+
+        /** The same operand with an owner. */
+        public Mem owned(Owner o) {
+            return new Mem(width, base, offset, index, indirect, o);
+        }
+
         @Override
         public String text() {
             String place = base + (offset != 0 || base.equals(FRAME) ? "+" + offset : "");
@@ -82,12 +139,12 @@ public sealed interface LOperand {
 
         /** The same operand k bytes further on. */
         public Mem plus(int k) {
-            return new Mem(width, base, offset + k, index, indirect);
+            return new Mem(width, base, offset + k, index, indirect, owner == null ? null : new Owner(owner.key(), owner.incoming(), owner.word() + k));
         }
 
         /** The same address indexed by another register. */
         public Mem indexed(Index by) {
-            return new Mem(width, base, offset, by, indirect);
+            return new Mem(width, base, offset, by, indirect, owner);
         }
 
         /** A place of the frame, read or written directly or through an index or as a pointer. */

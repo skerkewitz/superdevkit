@@ -47,11 +47,7 @@ final class AsmWriter {
 
     /** An instruction; {@code operand} and {@code comment} may be null. */
     void insOp(String mnemonic, dampf.lir.LOperand operand, String comment) {
-        ins(mnemonic, operand == null ? null : operand.text(), comment);
-    }
-
-    void insOp(String mnemonic, dampf.lir.LOperand operand, String comment, boolean relax) {
-        ins(mnemonic, operand == null ? null : operand.text(), comment, relax);
+        insOp(mnemonic, operand, comment, false);
     }
 
     void ins(String mnemonic, String operand, String comment) {
@@ -60,7 +56,13 @@ final class AsmWriter {
 
     /** {@code relax}: a jump or branch in its long form that {@link dampf.lir.BranchRelax} may shorten. */
     void ins(String mnemonic, String operand, String comment, boolean relax) {
-        LInstr in = new LInstr(mnemonic, operand, comment, m16, true, relax);
+        insOp(mnemonic, dampf.lir.LOperand.of(mnemonic, operand), comment, relax);
+    }
+
+    /** An instruction with a typed operand, kept as it is (its owner too). */
+    void insOp(String mnemonic, dampf.lir.LOperand op, String comment, boolean relax) {
+        String operand = op == null ? null : op.text();
+        LInstr in = new LInstr(mnemonic, op, comment, m16, true, relax);
         if (!in.known()) {
             unknown++;
         }

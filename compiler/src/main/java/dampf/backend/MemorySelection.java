@@ -156,7 +156,8 @@ final class MemorySelection {
         if (pointer instanceof Value.Param || pointer instanceof Instr) {
             int p = sel.place.get(pointer);
             if (Selection.FRAME_START + p + 3 < 0x100) {
-                return new LOperand.Mem(LOperand.Width.NONE, Selection.FRAME, p, LOperand.Index.Y, true);
+                return new LOperand.Mem(LOperand.Width.NONE, Selection.FRAME, p, LOperand.Index.Y, true,
+                        new LOperand.Owner(pointer, false, 0));
             }
         }
         boolean first = dp.equals(Selection.P);
