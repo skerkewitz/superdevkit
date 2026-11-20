@@ -355,7 +355,9 @@ final class FrameLayout {
         for (Instr i : s.instrs()) {
             if (i instanceof Instr.Phi p) {
                 for (Value v : p.operands()) {
-                    if (v instanceof Instr.Phi q && q.block() == s) {
+                    // through a transparent cast too: it has no place, it reads the φ's own
+                    // (l = c with a byte counter c is zext c; writing c's φ first lost the old c)
+                    if (Selection.throughCopies(v) instanceof Instr.Phi q && q.block() == s) {
                         return false;
                     }
                 }
