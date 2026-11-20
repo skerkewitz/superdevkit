@@ -26,7 +26,7 @@ public final class Induction {
     /** Returns whether anything changed. */
     public static boolean run(MFunction f) {
         Ranges ranges = new Ranges(f);
-        Map<Block, Block> idom = Cfg.idoms(f);
+        List<CountedLoops.Loop> loops = CountedLoops.find(f);
         Map<Instr, List<Instr>> users = new HashMap<>();
         for (Block b : f.blocks()) {
             for (Instr i : b.instrs()) {
@@ -46,11 +46,12 @@ public final class Induction {
                 if (i.type() != MType.I8 && i.type() != MType.I16) {
                     continue;
                 }
-                Instr.Bin step = step(i, h, idom);
+                CountedLoops.Counter k = counter(loops, h, i);
+                Instr.Bin step = k == null ? null : k.step();
                 if (step == null) {
                     continue;
                 }
-                long c = stepOf(i, step);
+                long c = k.c();
                 Map<Long, Instr.Phi> made = new HashMap<>();
                 for (Instr e : products(i, users)) {
                     long factor = ((Value.Const) (e.op(0) instanceof Value.Const ? e.op(0) : e.op(1))).bits();
@@ -84,9 +85,10 @@ public final class Induction {
                     if (!(x instanceof Instr.Phi i)) {
                         break;
                     }
-                    Instr.Bin step = i.type() == MType.I8 ? step(i, h, idom) : null;
-                    if (step != null && staysInByte(i, step, stepOf(i, step), ranges)) {
-                        moveTest(i, h, step, users, replaced);
+                    CountedLoops.Counter k = i.type() == MType.I8 ? counter(loops, h, i) : null;
+                    Instr.Bin step = k == null ? null : k.step();
+                    if (step != null && staysInByte(i, step, k.c(), ranges)) {
+                        moveTest(i, h, step, k.c(), users, replaced);
                     }
                 }
             }
@@ -95,9 +97,10 @@ public final class Induction {
         return !replaced.isEmpty();
     }
 
-    /** What the counter i grows by per round: the constant of {@code add i, c}. */
-    private static long stepOf(Instr.Phi i, Instr.Bin step) {
-        return i.type().signed(((Value.Const) (step.op(0) == i ? step.op(1) : step.op(0))).bits());
+    /** i as a counter of the loop headed by h (CountedLoops), or null. */
+    private static CountedLoops.Counter counter(List<CountedLoops.Loop> loops, Block h, Instr.Phi i) {
+        CountedLoops.Loop l = CountedLoops.at(loops, h);
+        return l == null ? null : l.counter(i);
     }
 
     /**
@@ -108,19 +111,19 @@ public final class Induction {
      * same. The counter and its step then feed only each other and go (DeadCode); in the game's
      * pair loop the offset in X is all that is left.
      */
-    private static void moveTest(Instr.Phi i, Block h, Instr.Bin step, Map<Instr, List<Instr>> users,
+    private static void moveTest(Instr.Phi i, Block h, Instr.Bin step, long c, Map<Instr, List<Instr>> users,
                                  Map<Instr, Value> replaced) {
         Instr.Cmp test = null;
         for (Instr u : users.getOrDefault(i, List.of())) {
             if (u == step) {
                 continue;
             }
-            if (u instanceof Instr.Cmp c && test == null && c.op(0) == i && c.op(1) instanceof Value.Const
-                    && switch (c.pred) {
+            if (u instanceof Instr.Cmp t && test == null && t.op(0) == i && t.op(1) instanceof Value.Const
+                    && switch (t.pred) {
                         case EQ, NE, ULT, ULE, UGT, UGE -> true;
                         default -> false;
                     }) {
-                test = c;
+                test = t;
                 continue;
             }
             return;   // i is used for something else
@@ -128,7 +131,6 @@ public final class Induction {
         if (test == null || !users.getOrDefault(step, List.of()).stream().allMatch(u -> u == i)) {
             return;
         }
-        long c = stepOf(i, step);
         for (Instr x : h.instrs()) {
             if (!(x instanceof Instr.Phi o)) {
                 break;
@@ -189,39 +191,6 @@ public final class Induction {
             factor = f;
         }
         return factor;
-    }
-
-
-
-    /**
-     * The instruction every back edge into h gives the φ i: {@code add i, c} with a constant c
-     * (the same instruction on every back edge); null if i is no such counter.
-     */
-    private static Instr.Bin step(Instr.Phi i, Block h, Map<Block, Block> idom) {
-        Instr.Bin step = null;
-        boolean entry = false;
-        for (int k = 0; k < i.from.size(); k++) {
-            if (dominates(h, i.from.get(k), idom)) {
-                if (!(i.op(k) instanceof Instr.Bin b) || b.op != Instr.BinOp.ADD
-                        || !(b.op(0) == i && b.op(1) instanceof Value.Const || b.op(1) == i && b.op(0) instanceof Value.Const)
-                        || step != null && step != b) {
-                    return null;
-                }
-                step = b;
-            } else {
-                entry = true;
-            }
-        }
-        return entry ? step : null;
-    }
-
-    private static boolean dominates(Block a, Block b, Map<Block, Block> idom) {
-        for (Block x = b; x != null; x = idom.get(x) == x ? null : idom.get(x)) {
-            if (x == a) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /** The multiplications of i (or of its zero extension to i16) by a constant, as i16. */

@@ -513,7 +513,8 @@ Built (2026-11-20): L3 for `Timing` and `DeadLoops`, every hash and every bound 
 asks `CountedLoops` how often a head runs (its own `untilEqual` and `untilBound` are gone);
 `DeadLoops` takes the loop's exit from it, still only on a constant, not zero-extended, and with
 `!=` only for an odd step, which is all its own proof took; the commit after it lifts that
-([log](optimizations-log.md#dead-loops-proved-by-the-counted-loop-2026-11-20-on-the-execution-programs)).
+([log](optimizations-log.md#dead-loops-proved-by-the-counted-loop-2026-11-20-on-the-execution-programs)). Then `Induction`: its counters are those of `CountedLoops` (with
+one step instruction), every hash kept.
 
 ## Flaw B: no register allocation, and places are decided before the code exists
 
