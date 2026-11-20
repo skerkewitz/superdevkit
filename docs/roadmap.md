@@ -279,6 +279,10 @@ Ideas without a milestone; one becomes a step of a milestone when it is decided.
   browser is started through `wslview` or `cmd.exe /c start`. Tauri is the step after, if a
   native app is wanted, since it wraps the same pages; `dampf explore` could share the server.
   A decision about the kit's shape, so an ADR record when it is taken.
+- **The game's design as a wiki.** The user describes the game in a wiki of its objects,
+  properties, levels and scenarios, and the AI builds the code from it and keeps it in step; a
+  first trial on Steinschlag. After superdevkit itself is complete
+  ([design-wiki-proposal.md](design-wiki-proposal.md)).
 
 ## The playable ROM
 

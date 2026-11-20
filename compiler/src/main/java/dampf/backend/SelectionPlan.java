@@ -302,6 +302,7 @@ final class SelectionPlan {
         sel.xResident.clear();
         sel.xSteps.clear();
         sel.xBlocks.clear();
+        sel.xBounds.clear();
         Map<Value, List<Instr>> users = new HashMap<>();
         for (Block b : f.blocks()) {
             for (Instr i : b.instrs()) {
@@ -372,6 +373,8 @@ final class SelectionPlan {
                 best = null;
             }
             if (best != null && bestUses > 0) {
+                usesFitX((Instr.Phi) best, bestStep, loop, users, after(loop, bestStep.block()));
+                sel.xBounds.addAll(bounds);
                 for (Block e : enters) {
                     entries.put(e, chosen.op(chosen.from.indexOf(e)));
                 }
@@ -416,6 +419,25 @@ final class SelectionPlan {
         return a == b || a instanceof Value.Const p && b instanceof Value.Const q && p.bits() == q.bits();
     }
 
+    /** The bounds in a place the last {@link #usesFitX} let the counter be compared with. */
+    private final List<Value> bounds = new ArrayList<>();
+
+    /**
+     * Whether a 16-bit counter in X can be compared with b where b is kept (CPX on its place): b
+     * is a 16-bit value from outside the loop that has a place (not in X itself, and not only
+     * handed on in A, which findForwards then leaves out).
+     */
+    private boolean placeBound(Value b, Instr x, dampf.mir.Loops.Loop loop) {
+        if (x.type() != MType.I16 || b.type() != MType.I16 || b instanceof Value.Const) {
+            return false;
+        }
+        if (b instanceof Instr d) {
+            return d.block() != null && !loop.blocks().contains(d.block()) && !sel.xResident.containsKey(d)
+                    && !sel.xSteps.containsKey(d) && !sel.folded.contains(d) && !sel.fused.contains(d);
+        }
+        return b instanceof Value.Param;
+    }
+
     /** Whether u runs after the step in a round: later in the step's block, or in a block after it. */
     private static boolean isAfter(Instr u, Instr step, Set<Block> after) {
         Block s = step.block();
@@ -430,6 +452,7 @@ final class SelectionPlan {
      */
     int usesFitX(Instr.Phi v, Instr step, dampf.mir.Loops.Loop loop, Map<Value, List<Instr>> users, Set<Block> after) {
         int indexes = 0;
+        bounds.clear();
         for (Instr x : List.of(v, step)) {
             List<Instr> work = new ArrayList<>(users.getOrDefault(x, List.of()));
             for (int n = 0; n < work.size(); n++) { // NOPMD ForLoopCanBeForeach: work grows in the loop
@@ -449,6 +472,9 @@ final class SelectionPlan {
                     case Instr.Cmp c when sel.fused.contains(c) && Selection.throughCopies(c.op(0)) == x && c.op(1) instanceof Value.Const k
                             && (c.pred == Instr.Pred.EQ || c.pred == Instr.Pred.NE || c.pred == Instr.Pred.ULT || c.pred == Instr.Pred.UGE
                             || (c.pred == Instr.Pred.SLT || c.pred == Instr.Pred.SGE) && x.type() == MType.I16 && k.bits() == 0) -> { }
+                    case Instr.Cmp c when sel.fused.contains(c) && Selection.throughCopies(c.op(0)) == x && placeBound(c.op(1), x, loop)
+                            && (c.pred == Instr.Pred.EQ || c.pred == Instr.Pred.NE || c.pred == Instr.Pred.ULT || c.pred == Instr.Pred.UGE) ->
+                            bounds.add(c.op(1));
                     case Instr.PtrAdd q when sel.folded.contains(q) && sel.layout.indexable(q) && Selection.throughCopies(q.op(1)) == x
                             && q.op(0) != x -> {
                         // the address is formed where it is used, with X: the φ's after the step

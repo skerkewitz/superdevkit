@@ -486,6 +486,7 @@ public final class MirCodeGen {
         sel.plan.findYIndexes(f);
         sel.plan.findForwards(f);
         sel.forward.removeAll(sel.xSteps.keySet());
+        sel.forward.removeAll(sel.xBounds);
         List<Block> blocks = layoutOrder(f, blockCounts == null ? null : blockName -> blockCounts.apply(f.name(), blockName));
         for (int k = 0; k < blocks.size(); k++) {
             Block b = blocks.get(k);

@@ -1234,3 +1234,17 @@ does not take yet. The style guide: `slow-u16-counter-words` (both 1,233) and `s
 The examples: Er-Tüp -2.0 %, CatchMe -0.2 %, Schach +0.2 %, the rest the same; geometric mean
 -0.3 %. Code changed in all seven and in 23 programs of `BackendOutputTest`.
 
+## A counter in X compared with a value in its place (2026-11-20, on the spelling families and the examples)
+
+The X pattern took a loop test against a constant only. A test moved by L4 often compares with a
+value computed before the loop (`r * 16 + 16` in a table's row, `2 * (i + 1)` in a pair loop
+counting down). A 16-bit counter in X may now be compared with a 16-bit value from outside the
+loop that has a place: `CPX` on it, the value kept stored (not only handed on in A).
+
+The spelling families: `pairs_down` 21,027 → 17,460 (gap closed), `rows_u16` and its spellings
+5,397 → 3,737; what is left of them is the outer loop, whose rows lie one after another and
+could be one loop (`flat_index`, 3,238; not in the plan). The pair loops the same.
+
+The examples: Schach -0.5 %, Er-Tüp and Steinschlag -0.1 %, the rest the same; geometric mean
+-0.1 %. Code changed in six examples and 2 programs of `BackendOutputTest`.
+

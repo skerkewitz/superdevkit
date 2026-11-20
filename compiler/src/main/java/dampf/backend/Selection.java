@@ -328,6 +328,8 @@ final class Selection {
     final Map<Instr, Instr> xResident = new HashMap<>();
     final Map<Instr, Long> xSteps = new HashMap<>();
     final Map<Block, Instr> xBlocks = new HashMap<>();
+    /** Values an X counter is compared with in their place (CPX): they must be stored. */
+    final java.util.Set<Value> xBounds = new java.util.HashSet<>();
     Instr xTaken;
 
     static Value throughCopies(Value v) {

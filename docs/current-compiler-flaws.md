@@ -487,8 +487,9 @@ Steps, each its own commit:
   `slow-u16-counter-words`.
   Built (2026-11-20, [log](optimizations-log.md#affine-values-of-a-counter-as-variables-the-loop-test-on-them-2026-11-20-on-the-spelling-families-and-the-examples)):
   L4 as described, for every affine value (also `r * 16 + c`, and a byte counter's zero
-  extension); `slow-u16-counter-words` and `slow-word-array` retired. Left: a test moved to a
-  bound in a place (`rows_*`, `pairs_down`), which the X pattern does not take.
+  extension); `slow-u16-counter-words` and `slow-word-array` retired. Then the X pattern takes a
+  test against a 16-bit bound in a place (`CPX` on it), which a moved test often has
+  ([log](optimizations-log.md#a-counter-in-x-compared-with-a-value-in-its-place-2026-11-20-on-the-spelling-families-and-the-examples)).
 - **L5.** Two counters of one loop with the same start and step are one: replace the second by
   the first (`x_ptr_walk`: the counter and the pointer's offset). A counter that differs from
   another by a constant factor or offset is derived from it and falls under L4.

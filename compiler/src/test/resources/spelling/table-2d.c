@@ -2,10 +2,10 @@
  * tolerance: 10
  * The sum of a uint8_t t[8][16], row by row: two loops with every counter type, a row pointer,
  * one loop over all 128 elements, and one pointer over the whole table.
- * gap: rows_u16 L4 the counter moved to its offset is compared with a bound in a place, and the X pattern takes constants only (r * 16 + c against r * 16 + 16)
- * gap: rows_u8 L4 as rows_u16
- * gap: rows_i16 L4 as rows_u16
- * gap: rows_ptr L4 as rows_u16
+ * gap: rows_u16 collapse the rows lie one after another, so the two loops could be one of 128 rounds (flat_index); the outer loop's 8 rounds and entries are the rest (not in the plan)
+ * gap: rows_u8 collapse as rows_u16
+ * gap: rows_i16 collapse as rows_u16
+ * gap: rows_ptr collapse as rows_u16
  * gap: flat_ptr C6 the pointers are compared as 32-bit values every round
  */
 #include <stdint.h>
