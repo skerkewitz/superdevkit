@@ -133,7 +133,7 @@ public final class MirCodeGen {
             LFunction lf = code.function();
             limit.apply("RedundantLoads", f.name(), () -> new RedundantLoads().run(lf));
             limit.apply("IndexInY", f.name(), () -> new IndexInY().run(lf));
-            limit.apply("Peephole", f.name(), () -> new Peephole(Selection.FRAME, Selection.FRAME_START).run(lf));
+            limit.apply("Peephole", f.name(), () -> new Peephole(Selection.FRAME_START).run(lf));
             limit.apply("ByteStretches", f.name(), () -> ByteStretches.run(lf));
             limit.apply("KnownCarry", f.name(), () -> KnownCarry.run(lf));
             limit.apply("DeadStores", f.name(), () -> new DeadStores(ownValueBytes(f)).run(lf));

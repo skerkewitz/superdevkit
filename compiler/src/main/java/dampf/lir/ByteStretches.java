@@ -90,23 +90,23 @@ public final class ByteStretches {
                 return j;
             }
             String m = in.mnemonic();
-            String op = in.operand();
+            LOperand op = in.op();
             boolean ok;
             if (NO_A.contains(m) && !m.startsWith("st") || m.equals("stx") || m.equals("sty")) {
                 ok = true;
             } else if (SAME_LOW_BYTE.contains(m)) {
                 ok = switch (m) {
-                    case "asl", "inc", "dec" -> "a".equals(op);
+                    case "asl", "inc", "dec" -> op instanceof LOperand.Acc;
                     case "adc", "sbc" -> !carryFromStretch;
                     default -> true;
                 };
             } else {
                 ok = false;
             }
-            if (ok && op != null && op.startsWith("f:$")) {
+            if (ok && op instanceof LOperand.Mem mem && mem.width() == LOperand.Width.LONG && mem.base().startsWith("$")) {
                 ok = false;   // a hardware register: reading 8 bits instead of 16 reads one register less
             }
-            if (!ok || op != null && op.startsWith("#") && !op.startsWith("#$") && !NO_A.contains(m)) {
+            if (!ok || op instanceof LOperand.Imm imm && imm.value() == null && !NO_A.contains(m)) {
                 return -1;   // an immediate written as an expression: its low byte is not known here
             }
             switch (m) {
@@ -168,15 +168,14 @@ public final class ByteStretches {
     /** The instruction as it runs in 8 bits: an immediate of A gets its low byte. */
     private static LInstr narrow(LInstr in) {
         String op = in.operand();
-        if (op != null && op.startsWith("#$") && !NO_A.contains(in.mnemonic())) {
-            long v = Long.parseLong(op.substring(2), 16);
-            op = String.format("#$%02X", v & 0xFF);
+        if (in.op() instanceof LOperand.Imm k && k.value() != null && !NO_A.contains(in.mnemonic())) {
+            op = String.format("#$%02X", k.value() & 0xFF);
         }
         return new LInstr(in.mnemonic(), op, in.comment(), false, in.x16(), in.relaxable());
     }
 
     private static boolean isWidth(LInstr i, String m) {
-        return i.mnemonic().equals(m) && "#$20".equals(i.operand());
+        return i.mnemonic().equals(m) && i.op() instanceof LOperand.Imm k && k.expr().equals("$20");
     }
 
     /** All four flags (for blocks without a known live-out). */

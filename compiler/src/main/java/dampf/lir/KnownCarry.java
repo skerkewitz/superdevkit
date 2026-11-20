@@ -95,8 +95,7 @@ public final class KnownCarry {
                  "pha", "phx", "phy", "pla", "plx", "ply", "trb", "tsb", "nop", "bcc", "bcs", "beq", "bne", "bmi",
                  "bpl", "bvc", "bvs", "bra", "brl", "jmp", "jml", "clv" -> c;
             // REP/SEP change the carry only with bit 0
-            case "rep", "sep" -> i.operand() != null && i.operand().startsWith("#$")
-                    && (Integer.parseInt(i.operand().substring(2), 16) & 1) == 0 ? c : UNKNOWN;
+            case "rep", "sep" -> i.op() instanceof LOperand.Imm k && k.value() != null && (k.value() & 1) == 0 ? c : UNKNOWN;
             default -> UNKNOWN;   // adc, sbc, cmp, cpx, cpy, shifts, calls, anything else
         };
     }

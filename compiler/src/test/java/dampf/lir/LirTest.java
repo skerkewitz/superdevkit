@@ -182,7 +182,7 @@ class LirTest {
                 ins("rtl", null),
                 ".endproc"));
         LFunction f = u.functions().getFirst();
-        new Peephole("dampf_frame", 0x20).run(f);
+        new Peephole(0x20).run(f);
         List<String> code = f.instrs().stream().map(LInstr::toString).toList();
         assertEquals(List.of("sta z:dampf_frame+4", "tax", "sta z:dampf_frame+6", "tay", "sep #$20",
                 "sta z:dampf_frame+8", "ldx z:dampf_frame+8", "rep #$20", "rtl"), code);
@@ -196,7 +196,7 @@ class LirTest {
         all[lines.length + 2] = ".endproc";
         LUnit u = LParser.parse(text(all));
         LFunction f = u.functions().getFirst();
-        new Peephole("dampf_frame", 0x20).run(f);
+        new Peephole(0x20).run(f);
         assertEquals(List.of(), LVerifier.verify(u));
         return f.instrs().stream().map(LInstr::toString).toList();
     }

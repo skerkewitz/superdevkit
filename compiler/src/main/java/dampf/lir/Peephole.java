@@ -2,8 +2,6 @@ package dampf.lir;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Peephole rules: a few instructions in a row replaced by cheaper ones that do the same. Each rule
@@ -28,14 +26,10 @@ import java.util.regex.Pattern;
  * </ul>
  */
 public final class Peephole {
-    private static final Pattern OPERAND = Pattern.compile("^(z:|a:|f:)?([A-Za-z_][A-Za-z0-9_]*)(?:\\+(\\d+))?(,x|,y)?$");
-
-    private final String frame;
     private final int frameStart;
 
-    /** {@code frame}: the symbol of the frame places, which starts at {@code frameStart} (for the direct page). */
-    public Peephole(String frame, int frameStart) {
-        this.frame = frame;
+    /** {@code frameStart}: where the frame places start (for the direct page). */
+    public Peephole(int frameStart) {
         this.frameStart = frameStart;
     }
 
@@ -78,7 +72,8 @@ public final class Peephole {
             }
             for (int k = 0; k < items.size(); k++) {
                 if (!(items.get(k) instanceof LInstr in) || !in.mnemonic().equals("cmp")
-                        || !(in.m16() ? "#$0000" : "#$00").equals(in.operand()) || (liveAfter.get(in) & RedundantLoads.C) != 0) {
+                        || !(in.op() instanceof LOperand.Imm zero && zero.expr().equals(in.m16() ? "$0000" : "$00"))
+                        || (liveAfter.get(in) & RedundantLoads.C) != 0) {
                     continue;
                 }
                 LInstr before = null;
@@ -111,7 +106,7 @@ public final class Peephole {
     private static boolean setsNzFromA(LInstr i) {
         return switch (i.mnemonic()) {
             case "lda", "and", "ora", "eor", "adc", "sbc", "txa", "tya", "pla" -> true;
-            case "asl", "lsr", "rol", "ror", "inc", "dec" -> "a".equals(i.operand());
+            case "asl", "lsr", "rol", "ror", "inc", "dec" -> i.op() instanceof LOperand.Acc;
             case "tax", "tay" -> i.m16() && i.x16();   // N and Z of the 16 bits copied, which are A's
             default -> false;
         };
@@ -125,7 +120,7 @@ public final class Peephole {
         // STA p / LDX p
         if (n1 != null && in.mnemonic().equals("sta") && in.m16() && n1.x16() && n1.m16()
                 && (n1.mnemonic().equals("ldx") || n1.mnemonic().equals("ldy"))
-                && n1.operand() != null && n1.operand().equals(in.operand()) && plain(in.operand())) {
+                && n1.op() != null && n1.op().equals(in.op()) && plain(in.op())) {
             items.set(next.get(0), new LInstr(n1.mnemonic().equals("ldx") ? "tax" : "tay", null, n1.comment(), true, true, false));
             return 1;
         }
@@ -138,8 +133,8 @@ public final class Peephole {
         // LDA x / XBA / AND #$00FF
         if (next.size() >= 2 && in.mnemonic().equals("lda") && in.m16() && n1.mnemonic().equals("xba")
                 && items.get(next.get(1)) instanceof LInstr n2 && n2.mnemonic().equals("and")
-                && "#$00FF".equals(n2.operand()) && n2.m16()) {
-            String high = plusOne(in.operand());
+                && n2.op() instanceof LOperand.Imm ff && ff.expr().equals("$00FF") && n2.m16()) {
+            String high = plusOne(in.op());
             if (high != null) {
                 items.remove((int) next.get(0));
                 items.set(k, in.withOperand(high));
@@ -177,39 +172,33 @@ public final class Peephole {
     }
 
     private static boolean isShift(LInstr i, String m) {
-        return i.mnemonic().equals(m) && "a".equals(i.operand()) && i.m16();
+        return i.mnemonic().equals(m) && i.op() instanceof LOperand.Acc && i.m16();
     }
 
     private static boolean isWidth(LInstr i, String m) {
-        return i.mnemonic().equals(m) && "#$20".equals(i.operand());
+        return i.mnemonic().equals(m) && i.op() instanceof LOperand.Imm k && k.expr().equals("$20");
     }
 
     /** The operand of the byte after x, or null if it cannot be written. */
-    private String plusOne(String x) {
-        if (x == null) {
+    private String plusOne(LOperand x) {
+        if (!(x instanceof LOperand.Mem m) || m.indirect() || m.base().startsWith("$")) {
             return null;
         }
-        Matcher m = OPERAND.matcher(x);
-        if (!m.matches()) {
-            return null;
-        }
-        String prefix = m.group(1) == null ? "" : m.group(1);
-        String base = m.group(2);
-        long offset = (m.group(3) == null ? 0 : Long.parseLong(m.group(3))) + 1;
-        String index = m.group(4) == null ? "" : m.group(4);
-        if (prefix.equals("z:")) {
-            if (!base.equals(frame) || !index.isEmpty()) {
+        LOperand.Width width = m.width();
+        int offset = m.offset() + 1;
+        if (width == LOperand.Width.DP) {
+            if (!m.frame() || m.index() != LOperand.Index.NONE) {
                 return null;   // only the frame's direct page places are known to have room
             }
-            prefix = frameStart + offset + 1 < 0x100 ? "z:" : "a:";
+            width = frameStart + offset + 1 < 0x100 ? LOperand.Width.DP : LOperand.Width.ABS;
         }
-        return prefix + base + "+" + offset + index;
+        return new LOperand.Mem(width, m.base(), offset, m.index(), false).text();
     }
 
     /** A plain memory operand (not indexed, not indirect, not an immediate). */
-    private static boolean plain(String operand) {
-        return operand != null && !operand.startsWith("#") && !operand.startsWith("[") && !operand.startsWith("(")
-                && !operand.contains(",");
+    private static boolean plain(LOperand op) {
+        return op instanceof LOperand.Mem m ? m.index() == LOperand.Index.NONE && !m.indirect()
+                : op instanceof LOperand.Raw r ? !r.text().startsWith("(") && !r.text().contains(",") : op instanceof LOperand.Acc;
     }
 
     /** The index of the next instruction after k in the list (comments skipped), -1 at a label or the end. */
