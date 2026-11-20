@@ -42,6 +42,8 @@ public final class Lower {
     private final Map<Variable, Map<Block, Value>> defs = new HashMap<>();
     private final Set<Block> sealed = new HashSet<>();
     private final Map<Block, Map<Variable, Instr.Phi>> incomplete = new HashMap<>();
+    /** What each removed trivial φ was replaced by (see {@link #tryRemoveTrivialPhi}). */
+    private final Map<Instr.Phi, Value> replacedPhis = new java.util.IdentityHashMap<>();
 
     private record Targets(Block breakTo, Block continueTo) {}
 
@@ -79,6 +81,7 @@ public final class Lower {
         defs.clear();
         sealed.clear();
         incomplete.clear();
+        replacedPhis.clear();
         targets.clear();
 
         Set<Variable> addressTaken = new HashSet<>();
@@ -199,12 +202,19 @@ public final class Lower {
         if (phi.block() != null) {
             phi.block().remove(phi);
         }
+        replacedPhis.put(phi, same);
         for (Instr.Phi p : phiUsers) {
             if (p.block() != null) {
                 tryRemoveTrivialPhi(p);
             }
         }
-        return same;
+        // same may be one of the φ users just removed (a loop's φ whose only other operand was
+        // this one): the caller would write a φ that no longer exists as the variable's value
+        Value v = same;
+        while (v instanceof Instr.Phi p && replacedPhis.containsKey(p)) {
+            v = replacedPhis.get(p);
+        }
+        return v;
     }
 
     private void replaceUses(Value old, Value with) {
