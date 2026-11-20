@@ -23,8 +23,8 @@ final class ArithSelection {
         if (b.type() != MType.I8 || sel.ranges == null) {
             return false;
         }
-        Ranges.Range x = Ranges.unsigned(sel.ranges.at(b.op(0), b.block()), MType.I8);
-        Ranges.Range y = Ranges.unsigned(sel.ranges.at(b.op(1), b.block()), MType.I8);
+        Ranges.Range x = sel.ranges.atUnsigned(b.op(0), b.block());
+        Ranges.Range y = sel.ranges.atUnsigned(b.op(1), b.block());
         if (x == null || y == null) {
             return false;
         }

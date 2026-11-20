@@ -128,7 +128,7 @@ public final class RangeNarrow {
         if (ra == null || rb == null) {
             return null;
         }
-        Boolean known = decide(c.pred, t, ra, rb);
+        Boolean known = decide(c.pred, ra, rb, ranges.atUnsigned(c.op(0), b), ranges.atUnsigned(c.op(1), b));
         if (known != null) {
             return new Value.Const(MType.I1, known ? 1 : 0);
         }
@@ -194,7 +194,7 @@ public final class RangeNarrow {
     }
 
     /** The outcome of a comparison if the ranges decide it, else null. */
-    static Boolean decide(Instr.Pred pred, MType t, Ranges.Range a, Ranges.Range b) {
+    static Boolean decide(Instr.Pred pred, Ranges.Range a, Ranges.Range b, Ranges.Range ua, Ranges.Range ub) {
         switch (pred) {
             case EQ, NE -> {
                 Boolean eq = a.lo() == a.hi() && b.lo() == b.hi() && a.lo() == b.lo() ? Boolean.TRUE
@@ -205,8 +205,6 @@ public final class RangeNarrow {
                 return ordered(pred, a, b);
             }
             default -> {
-                Ranges.Range ua = Ranges.unsigned(a, t);
-                Ranges.Range ub = Ranges.unsigned(b, t);
                 Instr.Pred signedPred = switch (pred) {
                     case ULT -> Instr.Pred.SLT;
                     case ULE -> Instr.Pred.SLE;

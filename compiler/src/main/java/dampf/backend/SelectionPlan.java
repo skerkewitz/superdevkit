@@ -355,7 +355,7 @@ final class SelectionPlan {
                 long c = MType.I16.signed(((Value.Const) step.op(1)).bits());
                 if (p.type() == MType.I8) {
                     c = MType.I8.signed(((Value.Const) step.op(1)).bits());
-                    Ranges.Range r = Ranges.unsigned(sel.ranges.at(p, step.block()), MType.I8);
+                    Ranges.Range r = sel.ranges.atUnsigned(p, step.block());
                     if (r == null || r.lo() + c < 0 || r.hi() + c > 0xFF) {
                         continue;   // it would wrap, and X would not
                     }

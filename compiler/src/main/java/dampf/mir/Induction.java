@@ -59,10 +59,7 @@ public final class Induction {
                         continue;
                     }
                     // the range in the loop head: it holds the value after the last round too
-                    Ranges.Range ri = ranges.at(i, h);
-                    if (widened) {
-                        ri = Ranges.unsigned(ri, MType.I8);
-                    }
+                    Ranges.Range ri = widened ? ranges.atUnsigned(i, h) : ranges.at(i, h);
                     if (ri == null) {
                         continue;
                     }
@@ -252,7 +249,7 @@ public final class Induction {
 
     /** An 8-bit counter does not wrap when it steps (so its zero extension steps by c as well). */
     private static boolean staysInByte(Instr.Phi i, Instr.Bin step, long c, Ranges ranges) {
-        Ranges.Range r = Ranges.unsigned(ranges.at(i, step.block()), MType.I8);
+        Ranges.Range r = ranges.atUnsigned(i, step.block());
         return r != null && r.lo() + c >= 0 && r.hi() + c <= 0xFF;
     }
 

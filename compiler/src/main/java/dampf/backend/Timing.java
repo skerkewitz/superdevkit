@@ -357,13 +357,13 @@ final class Timing {
         // the other operand in the comparison's type
         MType ct = q.type();
         int cw = ct.bits();
-        Ranges.Range yr = view(ranges.at(y, test), ct, unsigned,
+        Ranges.Range yr = view(ranges, y, test, unsigned,
                 unsigned ? 0 : -(1L << (cw - 1)), unsigned ? (1L << cw) - 1 : (1L << (cw - 1)) - 1);
         Ranges.Range start = null;
         for (int i = 0; i < p.from.size(); i++) {
             Block from = p.from.get(i);
             if (!loop.blocks().contains(from)) {
-                Ranges.Range r = view(ranges.at(p.op(i), from), t, asUnsigned, min, max);
+                Ranges.Range r = view(ranges, p.op(i), from, asUnsigned, min, max);
                 start = r.join(start);
             }
         }
@@ -435,10 +435,10 @@ final class Timing {
         return true;
     }
 
-    /** r in the signed or unsigned view of type t; the whole type if unknown or not one interval. */
-    private static Ranges.Range view(Ranges.Range r, MType t, boolean unsigned, long min, long max) {
-        Ranges.Range v = r == null ? null : unsigned ? Ranges.unsigned(r, t) : r;
-        return v == null ? new Ranges.Range(min, max) : v;
+    /** v's range in block b in the signed or unsigned reading; min..max if unknown. */
+    private static Ranges.Range view(Ranges ranges, Value v, Block b, boolean unsigned, long min, long max) {
+        Ranges.Range r = unsigned ? ranges.atUnsigned(v, b) : ranges.at(v, b);
+        return r == null ? new Ranges.Range(min, max) : r;
     }
 
     private static Instr.Pred negate(Instr.Pred p) {

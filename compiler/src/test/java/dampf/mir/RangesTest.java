@@ -108,6 +108,11 @@ class RangesTest {
 
     /** A loop that stays while counter PRED bound, stepping it from start by step; the counter's range. */
     private static Ranges.Range counter(String type, long start, String pred, long bound, long step) {
+        return counter(type, start, pred, bound, step, false);
+    }
+
+    /** The same, the signed or the unsigned range. */
+    private static Ranges.Range counter(String type, long start, String pred, long bound, long step, boolean unsigned) {
         String text = """
                 func @_count() -> i16 {
                 b0_entry:
@@ -129,7 +134,8 @@ class RangesTest {
         Interpreter in = new Interpreter(m, 1_000_000);
         in.observe(Ranges.checker(m));
         in.call("_count", List.of());   // every value lies in its range
-        return new Ranges(f).of((Instr.Phi) Loops.find(f).getFirst().head().instrs().getFirst());
+        Instr.Phi phi = (Instr.Phi) Loops.find(f).getFirst().head().instrs().getFirst();
+        return unsigned ? new Ranges(f).ofUnsigned(phi) : new Ranges(f).of(phi);
     }
 
     @Test
@@ -141,5 +147,45 @@ class RangesTest {
         assertEquals(new Ranges.Range(0, 300), counter("i16", 0, "ult", 300, 1));        // unsigned
         // a byte counter that really wraps (1, 2, ..., 127, -128, ..., -1, 0): its whole type
         assertEquals(new Ranges.Range(-128, 127), counter("i8", 1, "ne", 0, 1));
+    }
+
+    @Test
+    void bytesAbove127HaveAnUnsignedRange() {
+        // 0..128 and 0..199 are no signed intervals of a byte, but unsigned ones
+        assertEquals(new Ranges.Range(0, 129), counter("i8", 0, "ult", 129, 1, true));
+        assertEquals(new Ranges.Range(0, 200), counter("i8", 0, "ult", 200, 1, true));
+        assertEquals(new Ranges.Range(0, 255), counter("i8", 0, "ult", 255, 1, true));
+        assertEquals(new Ranges.Range(-128, 127), counter("i8", 0, "ult", 200, 1));   // the signed reading: all
+        // down: 200, 199, ..., 1, and 0 when the loop ends (with != 0, the canonical form of > 0,
+        // the step may wrap as far as the ranges know: that bound comes from the counted loop, L2)
+        assertEquals(new Ranges.Range(0, 200), counter("i8", 200, "uge", 1, -1, true));
+        assertEquals(new Ranges.Range(0, 255), counter("i8", 200, "ne", 0, -1, true));
+        assertEquals(new Ranges.Range(0, 255), counter("i8", 255, "uge", 1, -1, true));
+        // an unsigned condition bounds a byte above 127, and its zero extension gets that range
+        MModule m = MirParser.parse("""
+                func @_f(i8 %a) -> i16 {
+                b0_entry:
+                    %0 = cmp ult i8 %a, 200
+                    br %0, b1_low, b2_high
+                b1_low:
+                    %1 = zext i8 %a to i16
+                    ret i16 %1
+                b2_high:
+                    %2 = add i8 %a, -200
+                    %3 = zext i8 %2 to i16
+                    ret i16 %3
+                }
+                """);
+        MFunction f = m.function("_f");
+        Ranges r = new Ranges(f);
+        Value low = f.blocks().get(1).instrs().getFirst();
+        Value high = f.blocks().get(2).instrs().get(1);
+        assertEquals(new Ranges.Range(0, 199), r.of(low));
+        assertEquals(new Ranges.Range(0, 55), r.of(high));   // 200..255 - 200
+        Interpreter in = new Interpreter(m, 100_000);
+        in.observe(Ranges.checker(m));
+        for (long a = 0; a < 256; a++) {
+            in.call("_f", List.of(a));
+        }
     }
 }

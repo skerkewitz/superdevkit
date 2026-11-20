@@ -390,6 +390,10 @@ happens to be convertible: `Induction` (lines 64 and 255), `RangeNarrow` (208, 2
 Tests: the byte counters with bounds 129, 200 and 255, up and down, in `RangesTest` and in the
 spelling test. Retires what is left of `slow-u8-counter`, and the entry in *Tried and rejected*.
 
+Built (2026-11-20, [log](optimizations-log.md#unsigned-ranges-2026-11-20-on-the-spelling-families-and-the-examples)):
+as described; `slow-u8-counter` and the entry are gone, the byte gaps closed. A byte counting
+down with `!= 0` (the canonical form of `> 0`) still gets no bound from its test: L2.
+
 ### R3. An array access says nothing about its index (a decision: needs an ADR record)
 
 `a[i]` with a 16-bit `i` is indexed with X only if the ranges show `i >= 0` as a signed number

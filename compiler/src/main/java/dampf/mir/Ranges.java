@@ -5,28 +5,33 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Value range analysis: an interval for every integer value of a function, as signed numbers of
- * the value's type (an i8 holding 200 is -56 here; {@link #unsigned} gives the other view).
+ * Value range analysis: two intervals for every integer value of a function, one of its signed
+ * and one of its unsigned reading (an i8 holding 0..199 is the unsigned interval 0..199; its
+ * signed reading, 0..127 and -128..-57, is no interval and so the whole type). Both hold for
+ * every execution, and each tightens the other where it lies on one side of the sign change.
+ * {@link #of} and {@link #at} give the signed interval, {@link #ofUnsigned} and
+ * {@link #atUnsigned} the unsigned one.
  *
- * <p>Sources: constants, the operations (interval arithmetic; a result that may leave the type's
- * range is the whole range, because it wraps), and the conditions of branches: in a block whose
- * only predecessor branches on {@code cmp x, c} with a constant c, x is known to satisfy the
- * comparison (or its negation), in that block and every block it dominates.
+ * <p>Sources: constants, the operations (interval arithmetic in each reading; a result that may
+ * leave the reading's range is the whole range, because it wraps), and the conditions of
+ * branches: in a block whose only predecessor branches on {@code cmp x, c} with a constant c, x
+ * is known to satisfy the comparison (or its negation), in that block and every block it
+ * dominates; a signed comparison bounds the signed reading, an unsigned one the unsigned.
  *
  * <p>φs are joined over their incoming edges, with the conditions of the edge's source. Loops
- * are iterated until nothing changes; a value whose interval keeps growing is widened after
- * {@link #WIDEN_AFTER} changes, so the iteration ends: the end that moved goes to the type's
+ * are iterated until nothing changes; a value whose intervals keep growing is widened after
+ * {@link #WIDEN_AFTER} changes, so the iteration ends: the end that moved goes to the reading's
  * limit, the other stays (a counter from 0 upwards keeps 0; narrowing then takes back what
  * widening added at the top).
  *
  * <p>The ranges are claims about every execution, so a wrong one gives wrong code. The tests
- * check every value the interpreter computes against its range (see MirRunner).
+ * check every value the interpreter computes against both its intervals (see MirRunner).
  */
 public final class Ranges {
-    /** Changes of one value before it is widened to its type's range. */
+    /** Changes of one value before it is widened. */
     static final int WIDEN_AFTER = 24;
 
-    /** An interval of signed values, both ends included. */
+    /** An interval of values (signed or unsigned, as the context says), both ends included. */
     public record Range(long lo, long hi) {
         boolean within(long a, long b) {
             return lo >= a && hi <= b;
@@ -52,11 +57,25 @@ public final class Ranges {
         }
     }
 
-    private final Map<Value, Range> range = new HashMap<>();
-    private final Map<Block, Map<Value, Range>> refine = new HashMap<>();
+    /** The signed and the unsigned interval of one value (for an i1 both are 0..1). */
+    private record Both(Range s, Range u) {
+        Both join(Both o) {
+            return o == null ? this : new Both(s.join(o.s), u.join(o.u));
+        }
+
+        /** What both say; null if that is nothing (no execution gets there). */
+        Both meet(Both o) {
+            Range a = s.meet(o.s);
+            Range b = u.meet(o.u);
+            return a == null || b == null ? null : new Both(a, b);
+        }
+    }
+
+    private final Map<Value, Both> range = new HashMap<>();
+    private final Map<Block, Map<Value, Both>> refine = new HashMap<>();
 
     /** Ranges of a first pass, for conditions between two values (null in the first pass). */
-    private Map<Value, Range> prior;
+    private Map<Value, Both> prior;
     private boolean variableConditions; // NOPMD SingularField: set by conditions(), read by the constructor
 
     public Ranges(MFunction f) {
@@ -75,7 +94,7 @@ public final class Ranges {
 
     private void solve(MFunction f, Map<Block, Block> idom, List<Block> rpo) {
         for (Block b : rpo) {
-            Map<Value, Range> m = b == f.entry() ? new HashMap<>() : new HashMap<>(refine.get(idom.get(b)));
+            Map<Value, Both> m = b == f.entry() ? new HashMap<>() : new HashMap<>(refine.get(idom.get(b)));
             // the edge from the one predecessor that is not a back edge: its condition holds in b
             // (a value it tests is defined before b's loop, so the loop does not change it)
             Block entry = null;
@@ -100,20 +119,18 @@ public final class Ranges {
                     if (!isInt(i.type())) {
                         continue;
                     }
-                    Range r = eval(i, b);
+                    Both r = eval(i, b);
                     if (r == null) {
                         continue;
                     }
-                    Range old = range.get(i);
-                    Range next = r.join(old);
+                    Both old = range.get(i);
+                    Both next = r.join(old);
                     if (!next.equals(old)) {
-                        if (changes.merge(i, 1, Integer::sum) > WIDEN_AFTER) {
-                            // widen the end that moved, not the other: a counter from 0 upwards
-                            // keeps 0 (both moved: both go). An end at its limit cannot move
-                            // again, so a value is widened at most twice.
-                            Range whole = full(i.type());
-                            next = new Range(next.lo() < old.lo() ? whole.lo() : next.lo(),
-                                    next.hi() > old.hi() ? whole.hi() : next.hi());
+                        if (changes.merge(i, 1, Integer::sum) > WIDEN_AFTER && old != null) {
+                            // widen the ends that moved, not the others: a counter from 0 upwards
+                            // keeps 0. An end at its limit cannot move again, so each of the
+                            // four is widened at most once.
+                            next = new Both(widen(next.s, old.s, full(i.type())), widen(next.u, old.u, ufull(i.type())));
                         }
                         if (!next.equals(old)) {
                             range.put(i, next);
@@ -132,12 +149,15 @@ public final class Ranges {
             boolean narrower = false;
             for (Block b : rpo) {
                 for (Instr i : b.instrs()) {
-                    Range old = range.get(i);
+                    Both old = range.get(i);
                     if (old == null) {
                         continue;
                     }
-                    Range r = eval(i, b);
-                    Range both = r == null ? null : r.meet(old);
+                    Both r = eval(i, b);
+                    Both both = r == null ? null : r.meet(old);
+                    if (both != null) {
+                        both = reduce(both.s, both.u, i.type());
+                    }
                     if (both != null && !both.equals(old)) {
                         range.put(i, both);
                         narrower = true;
@@ -150,6 +170,10 @@ public final class Ranges {
         }
     }
 
+    private static Range widen(Range next, Range old, Range whole) {
+        return new Range(next.lo < old.lo ? whole.lo : next.lo, next.hi > old.hi ? whole.hi : next.hi);
+    }
+
     /** Rounds of narrowing after the widened fixpoint. */
     static final int NARROW_ROUNDS = 8;
 
@@ -157,6 +181,7 @@ public final class Ranges {
         return t == MType.I1 || t == MType.I8 || t == MType.I16 || t == MType.I32;
     }
 
+    /** The signed reading's whole range (0..1 for an i1). */
     public static Range full(MType t) {
         if (t == MType.I1) {
             return new Range(0, 1);
@@ -165,47 +190,116 @@ public final class Ranges {
         return new Range(-(1L << (w - 1)), (1L << (w - 1)) - 1);
     }
 
-    /** The range of a value where it is defined (null: an instruction never reached). */
-    public Range of(Value v) {
+    /** The unsigned reading's whole range. */
+    public static Range ufull(MType t) {
+        return t == MType.I1 ? new Range(0, 1) : new Range(0, (1L << t.bits()) - 1);
+    }
+
+    private static Both whole(MType t) {
+        return new Both(full(t), ufull(t));
+    }
+
+    /** The values of an unsigned interval as signed numbers of t, if one interval (else all of them). */
+    static Range signedOf(Range u, MType t) {
+        if (t == MType.I1) {
+            return u;
+        }
+        long m = 1L << t.bits();
+        long smax = (m >> 1) - 1;
+        if (u.hi <= smax) {
+            return u;
+        }
+        return u.lo > smax ? new Range(u.lo - m, u.hi - m) : full(t);
+    }
+
+    /** The values of a signed interval as unsigned numbers of t, if one interval (else all of them). */
+    static Range unsignedOf(Range s, MType t) {
+        if (t == MType.I1 || s.lo >= 0) {
+            return s;
+        }
+        long m = 1L << t.bits();
+        return s.hi < 0 ? new Range(s.lo + m, s.hi + m) : ufull(t);
+    }
+
+    /** Each reading tightened by the other where it lies on one side of the sign change. */
+    private static Both reduce(Range s, Range u, MType t) {
+        for (int round = 0; round < 2; round++) {
+            Range s2 = s.meet(signedOf(u, t));
+            Range u2 = u.meet(unsignedOf(s, t));
+            if (s2 == null || u2 == null) {
+                break;   // no value is both: no execution gets here, any answer will do
+            }
+            s = s2;
+            u = u2;
+        }
+        return new Both(s, u);
+    }
+
+    private Both both(Value v) {
         return switch (v) {
             case Value.Const k -> isInt(k.type()) ? point(k) : null;
             case Instr i -> range.get(i);
-            case Value.Param p when p.known != null -> p.known;
-            default -> isInt(v.type()) ? full(v.type()) : null;
+            case Value.Param p when p.known != null && isInt(p.type()) -> reduce(p.known, ufull(p.type()), p.type());
+            default -> isInt(v.type()) ? whole(v.type()) : null;
         };
     }
 
-    private static Range point(Value.Const k) {
-        long s = k.type() == MType.I1 ? k.bits() : k.type().signed(k.bits());
-        return new Range(s, s);
+    /** The signed range of a value where it is defined (null: an instruction never reached). */
+    public Range of(Value v) {
+        Both b = both(v);
+        return b == null ? null : b.s;
     }
 
-    /** The range of v as seen in block b: what the conditions on the way to b add. */
-    public Range at(Value v, Block b) {
-        Range r = of(v);
+    /** The unsigned range of a value where it is defined (null: an instruction never reached). */
+    public Range ofUnsigned(Value v) {
+        Both b = both(v);
+        return b == null ? null : b.u;
+    }
+
+    private static Both point(Value.Const k) {
+        MType t = k.type();
+        long s = t == MType.I1 ? k.bits() : t.signed(k.bits());
+        long u = t == MType.I1 ? k.bits() : k.bits() & ((1L << t.bits()) - 1);
+        return new Both(new Range(s, s), new Range(u, u));
+    }
+
+    private Both bothAt(Value v, Block b) {
+        Both r = both(v);
         if (r == null) {
             return null;
         }
-        Map<Value, Range> m = refine.get(b);
-        Range c = m == null ? null : m.get(v);
+        Map<Value, Both> m = refine.get(b);
+        Both c = m == null ? null : m.get(v);
         if (c != null) {
-            Range both = r.meet(c);
-            return both == null ? r : both;   // empty: b cannot be reached; any answer will do
+            Both x = r.meet(c);
+            return x == null ? r : reduce(x.s, x.u, v.type());   // empty: b cannot be reached; any answer will do
         }
         return r;
     }
 
+    /** The signed range of v as seen in block b: what the conditions on the way to b add. */
+    public Range at(Value v, Block b) {
+        Both r = bothAt(v, b);
+        return r == null ? null : r.s;
+    }
+
+    /** The unsigned range of v as seen in block b. */
+    public Range atUnsigned(Value v, Block b) {
+        Both r = bothAt(v, b);
+        return r == null ? null : r.u;
+    }
+
     /**
      * Checks every value an interpreter computes against the ranges of the module's functions
-     * (for tests): a value outside its range means the analysis is wrong.
+     * (for tests): a value outside either of its intervals means the analysis is wrong.
      */
     public static Interpreter.Observer checker(MModule m) {
-        Map<Instr, Range> all = new HashMap<>();
+        Map<Instr, Both> all = new HashMap<>();
         for (MFunction f : m.functions()) {
             Ranges r = new Ranges(f);
             for (Block b : f.blocks()) {
                 for (Instr i : b.instrs()) {
-                    Range g = r.of(i);
+                    Both g = r.range.get(i);
                     if (g != null) {
                         all.put(i, g);
                     }
@@ -215,12 +309,15 @@ public final class Ranges {
         return new Interpreter.Observer() {
             @Override
             public void value(Instr i, long bits) {
-                Range g = all.get(i);
+                Both g = all.get(i);
                 if (g != null) {
-                    long v = i.type() == MType.I1 ? bits : i.type().signed(bits);
-                    if (!g.contains(v)) {
+                    MType t = i.type();
+                    long v = t == MType.I1 ? bits : t.signed(bits);
+                    long u = t == MType.I1 ? bits : bits & ((1L << t.bits()) - 1);
+                    if (!g.s.contains(v) || !g.u.contains(u)) {
                         throw new IllegalStateException("range analysis is wrong: " + Printer.instr(i) + " in "
-                                + i.block() + " gave " + v + ", outside " + g + (i.pos() != null ? " (" + i.pos() + ")" : ""));
+                                + i.block() + " gave " + v + " (unsigned " + u + "), outside " + g.s + " (unsigned " + g.u + ")"
+                                + (i.pos() != null ? " (" + i.pos() + ")" : ""));
                     }
                 }
             }
@@ -238,25 +335,10 @@ public final class Ranges {
         };
     }
 
-    /** The values as unsigned numbers of type t, if they form one interval there (else null). */
-    public static Range unsigned(Range r, MType t) {
-        if (r == null) {
-            return null;
-        }
-        if (t == MType.I1 || r.lo >= 0) {
-            return r;
-        }
-        long m = 1L << t.bits();
-        if (r.hi < 0) {
-            return new Range(r.lo + m, r.hi + m);
-        }
-        return new Range(0, m - 1);
-    }
-
     // ------------------------------------------------------------------ conditions
 
     /** What b learns from the branch at the end of its only predecessor p. */
-    private void conditions(Block p, Block b, Map<Value, Range> m) {
+    private void conditions(Block p, Block b, Map<Value, Both> m) {
         if (!(p.terminator() instanceof Instr.Branch br) || br.ifTrue == br.ifFalse
                 || !(br.op(0) instanceof Instr.Cmp c)) {
             return;
@@ -278,63 +360,67 @@ public final class Ranges {
         }
     }
 
-    private Range priorOf(Value v) {
+    private Both priorOf(Value v) {
         return switch (v) {
             case Value.Const k -> point(k);
             case Instr i -> prior.get(i);
-            case Value.Param p when p.known != null -> p.known;
-            default -> full(v.type());
+            case Value.Param p when p.known != null -> reduce(p.known, ufull(p.type()), p.type());
+            default -> whole(v.type());
         };
     }
 
-    /** x pred y, where y lies in r: x is bounded by r's end on the far side. */
-    private static void bound(Map<Value, Range> m, Value x, Instr.Pred pred, Range r) {
+    /** x pred y, where y lies in r: x is bounded by r's end on the far side, in pred's reading. */
+    private static void bound(Map<Value, Both> m, Value x, Instr.Pred pred, Both r) {
         if (r == null) {
             return;
         }
         MType t = x.type();
-        Range u = unsigned(r, t);
         Long end = switch (pred) {
-            case SLT, SLE -> r.hi;
-            case SGT, SGE -> r.lo;
-            case ULT, ULE -> u == null ? null : u.hi;
-            case UGT, UGE -> u == null ? null : u.lo;
+            case SLT, SLE -> r.s.hi;
+            case SGT, SGE -> r.s.lo;
+            case ULT, ULE -> r.u.hi;
+            case UGT, UGE -> r.u.lo;
             default -> null;
         };
         if (end != null) {
-            constrain(m, x, pred, new Value.Const(t, end));
+            constrain(m, x, pred, new Value.Const(t, t.wrap(end)));
         }
     }
 
-    private static void constrain(Map<Value, Range> m, Value x, Instr.Pred pred, Value.Const k) {
+    /** x pred k: a signed comparison bounds x's signed reading, an unsigned one its unsigned reading. */
+    private static void constrain(Map<Value, Both> m, Value x, Instr.Pred pred, Value.Const k) {
         MType t = x.type();
         if (!isInt(t) || t == MType.I1) {
             return;
         }
         Range all = full(t);
+        Range uall = ufull(t);
         long s = t.signed(k.bits());
-        long u = k.bits();
-        long max = (1L << t.bits()) - 1;
-        Range r = switch (pred) {
+        long u = k.bits() & uall.hi;
+        Range sr = switch (pred) {
             case EQ -> new Range(s, s);
             case SLT -> new Range(all.lo, s - 1);
             case SLE -> new Range(all.lo, s);
             case SGT -> new Range(s + 1, all.hi);
             case SGE -> new Range(s, all.hi);
-            // unsigned: only where the unsigned interval is also one signed interval
-            case ULT -> u - 1 <= all.hi ? new Range(0, u - 1) : null;
-            case ULE -> u <= all.hi ? new Range(0, u) : null;
-            case UGT -> u + 1 > all.hi && u < max ? new Range(t.signed(u + 1), -1) : null;
-            case UGE -> u > all.hi ? new Range(t.signed(u), -1) : null;
-            default -> null;   // NE gives no interval
+            default -> all;
         };
-        if (r == null || r.lo > r.hi) {
-            return;
+        Range ur = switch (pred) {
+            case EQ -> new Range(u, u);
+            case ULT -> new Range(0, u - 1);
+            case ULE -> new Range(0, u);
+            case UGT -> new Range(u + 1, uall.hi);
+            case UGE -> new Range(u, uall.hi);
+            default -> uall;   // NE gives no interval
+        };
+        if (sr.lo > sr.hi || ur.lo > ur.hi || pred == Instr.Pred.NE) {
+            return;   // never true (or no interval): nothing to learn
         }
-        Range old = m.get(x);
-        Range both = old == null ? r : old.meet(r);
+        Both old = m.get(x);
+        Both c = new Both(sr, ur);
+        Both both = old == null ? c : old.meet(c);
         if (both != null) {
-            m.put(x, both);
+            m.put(x, reduce(both.s, both.u, t));
         }
     }
 
@@ -370,41 +456,42 @@ public final class Ranges {
 
     // ------------------------------------------------------------------ transfer functions
 
-    private Range eval(Instr i, Block b) {
+    private Both eval(Instr i, Block b) {
         MType t = i.type();
         if (i instanceof Instr.Phi p) {
-            Range r = null;
+            Both r = null;
             for (int k = 0; k < p.from.size(); k++) {
                 Block pred = p.from.get(k);
-                Range o = at(p.op(k), pred);
+                Both o = bothAt(p.op(k), pred);
                 if (o != null) {
                     // what the edge pred -> b adds: the condition of pred's branch that leads here
                     // (abs: x on the edge where x < 0 is false is not negative)
-                    Map<Value, Range> edge = new HashMap<>();
+                    Map<Value, Both> edge = new HashMap<>();
                     conditions(pred, b, edge);
-                    Range e = edge.get(p.op(k));
-                    Range both = e == null ? null : o.meet(e);
+                    Both e = edge.get(p.op(k));
+                    Both both = e == null ? null : o.meet(e);
                     r = (both != null ? both : o).join(r);
                 }
             }
             if (p.known != null) {
-                Range both = r == null ? null : r.meet(p.known);
-                r = both != null ? both : p.known;
+                Both known = reduce(p.known, ufull(t), t);
+                Both both = r == null ? null : r.meet(known);
+                r = both != null ? both : known;
             }
-            return r;
+            return r == null ? null : reduce(r.s, r.u, t);
         }
         return switch (i) {
             case Instr.Bin x -> {
-                Range a = at(x.op(0), b);
-                Range c = at(x.op(1), b);
-                yield a == null || c == null ? null : bin(x.op, t, a, c);
+                Both a = bothAt(x.op(0), b);
+                Both c = bothAt(x.op(1), b);
+                yield a == null || c == null ? null : reduce(bin(x.op, t, a.s, c.s), ubin(x.op, t, a.u, c.u), t);
             }
-            case Instr.Cmp c -> new Range(0, 1);
+            case Instr.Cmp c -> new Both(new Range(0, 1), new Range(0, 1));
             case Instr.Cast c -> {
-                Range a = at(c.op(0), b);
+                Both a = bothAt(c.op(0), b);
                 yield a == null && isInt(c.op(0).type()) ? null : cast(c, a);
             }
-            default -> full(t);
+            default -> whole(t);
         };
     }
 
@@ -499,25 +586,68 @@ public final class Ranges {
         };
     }
 
-    private static Range cast(Instr.Cast c, Range a) {
+    /** [lo, hi] as unsigned numbers of t, wrapped once if every value wraps, else the whole range. */
+    private static Range ufit(long lo, long hi, MType t) {
+        long m = 1L << t.bits();
+        if (lo >= 0 && hi < m) {
+            return new Range(lo, hi);
+        }
+        if (lo >= m && hi < 2 * m) {
+            return new Range(lo - m, hi - m);
+        }
+        if (hi < 0 && lo >= -m) {
+            return new Range(lo + m, hi + m);
+        }
+        return ufull(t);
+    }
+
+    /** The unsigned reading of a result from the unsigned readings of the operands. */
+    static Range ubin(Instr.BinOp op, MType t, Range a, Range b) {
+        if (t == MType.I1) {
+            return bin(op, t, a, b);   // one bit reads the same both ways
+        }
+        int w = t.bits();
+        Range all = ufull(t);
+        return switch (op) {
+            case ADD -> ufit(a.lo + b.lo, a.hi + b.hi, t);
+            case SUB -> ufit(a.lo - b.hi, a.hi - b.lo, t);
+            case MUL -> a.hi != 0 && b.hi > Long.MAX_VALUE / a.hi ? all : ufit(a.lo * b.lo, a.hi * b.hi, t);
+            case AND -> new Range(0, Math.min(a.hi, b.hi));
+            case OR -> new Range(Math.max(a.lo, b.lo), ones(Math.max(a.hi, b.hi)));
+            case XOR -> new Range(0, ones(Math.max(a.hi, b.hi)));
+            case SHL -> b.lo == b.hi && b.lo < w && (a.hi >>> (62 - b.lo)) == 0 ? ufit(a.lo << b.lo, a.hi << b.lo, t) : all;
+            case LSHR -> b.lo == b.hi ? (b.lo >= w ? new Range(0, 0) : new Range(a.lo >> b.lo, a.hi >> b.lo)) : new Range(0, a.hi);
+            case UDIV -> b.lo >= 1 ? new Range(a.lo / b.hi, a.hi / b.lo) : new Range(0, a.hi);
+            case UREM -> b.lo >= 1 ? new Range(0, Math.min(b.hi - 1, a.hi)) : new Range(0, a.hi);
+            case ASHR, SDIV, SREM -> all;   // reduce gives what the signed reading knows
+        };
+    }
+
+    /** The least number of the form 2^n - 1 that is at least v. */
+    private static long ones(long v) {
+        return v == 0 ? 0 : (Long.highestOneBit(v) << 1) - 1;
+    }
+
+    private static Both cast(Instr.Cast c, Both a) {
         MType from = c.op(0).type();
         MType to = c.type();
         return switch (c.kind) {
-            case ZEXT -> from == MType.I1 ? a : unsigned(a, from);
+            // the unsigned reading, now a non-negative number of the wider type
+            case ZEXT -> from == MType.I1 ? new Both(a.s, a.s) : new Both(a.u, a.u);
             case SEXT -> {
-                if (from == MType.I1) {
-                    yield new Range(-a.hi, -a.lo);   // 1 becomes -1
-                }
-                yield a;
+                Range r = from == MType.I1 ? new Range(-a.s.hi, -a.s.lo) : a.s;   // 1 becomes -1
+                yield reduce(r, unsignedOf(r, to), to);
             }
             case TRUNC -> {
                 if (to == MType.I1) {
-                    yield a.lo >= 0 && a.hi <= 1 ? a : new Range(0, 1);
+                    Range r = a.s.lo >= 0 && a.s.hi <= 1 ? a.s : new Range(0, 1);
+                    yield new Both(r, r);
                 }
                 Range all = full(to);
-                yield a.within(all.lo, all.hi) ? a : all;
+                Range uall = ufull(to);
+                yield reduce(a.s.within(all.lo, all.hi) ? a.s : all, a.u.within(0, uall.hi) ? a.u : uall, to);
             }
-            default -> full(to);
+            default -> whole(to);
         };
     }
 }

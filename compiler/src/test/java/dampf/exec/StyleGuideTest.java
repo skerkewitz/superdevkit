@@ -24,8 +24,8 @@ import org.junit.jupiter.api.io.TempDir;
  * compiler/src/test/resources/style is one rule, a pair of functions that compute the same thing two ways,
  * with the relation it claims in its first comment:
  * <pre>
- *   rule: slow-u8-counter
- *   claim: sum_u8_counter slower sum_u16_counter     (slower, faster, or same: within 5 %)
+ *   rule: slow-u16-counter-words
+ *   claim: fill_u16_counter slower fill_u8_counter     (slower, faster, or same: within 5 %)
  * </pre>
  * Each file is built with dampf; the claim is checked on the worst cases of the timing report, the
  * program runs on the PC and in dampf's emulator with the same results (so a fast form that

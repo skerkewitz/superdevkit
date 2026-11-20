@@ -1063,3 +1063,29 @@ counter of every bound family from 30 rounds on (the cliff at 24 rounds: `int16_
 cycles a round, now 25), `copy_i16` 8,825 → 2,517, `find_return_i16` 6,306 → 4,395; `fill_i16`
 and `pairs_i16` now cost what their `uint16_t` spellings cost. No example and no program of
 `BackendOutputTest` changed its code: none has a signed counter over more than 24 rounds.
+
+## Unsigned ranges (2026-11-20, on the spelling families and the examples)
+
+A range was one interval of signed values, so a byte holding 0..199 had none, and with it the
+loop counters over more than 127 rounds: their index went through a 24-bit pointer and their step
+was written in 8 bits. Every value now has two intervals, of its signed and of its unsigned
+reading, which tighten each other where one lies on one side of the sign change; a signed
+condition bounds the one, an unsigned the other
+([current-compiler-flaws.md](current-compiler-flaws.md#r2-bytes-above-127-have-no-range), R2).
+The tests check every computed value against both.
+
+The spelling families: the byte counters to 129 and 200 cost what the `uint16_t` ones cost
+(5,461 → 3,263 and 8,443 → 5,038 cycles, their gaps closed); `struct_down` 5,300 → 2,838,
+`pairs_down` 25,896 → 21,220, `k_u8_var_bound` -7 %. The style guide's `slow-u8-counter` no
+longer held (both 5,025 cycles) and went, with the entry in *Tried and rejected* that waited for
+unsigned byte ranges; `pairs_by_list` of `slow-index-list` 23,186 → 20,858.
+
+| | Before | After |
+| --- | ---: | ---: |
+| A counter, struct array | 191,283 | 191,283 |
+| B sorted list, struct array | 208,537 | 207,207 (-0.6 %) |
+| C counter, one array per field | 186,990 | 186,990 |
+| D sorted list, one array per field | 194,965 | 193,633 (-0.7 %) |
+
+The examples: Schach -0.2 %, Er-Tüp +0.1 %, the rest the same; geometric mean the same. Code
+changed in all seven and in 73 of the programs of `BackendOutputTest`.

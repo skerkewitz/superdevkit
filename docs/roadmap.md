@@ -102,7 +102,8 @@ Also in M9:
   - a loop counter's width changes the cost of the loop, and which width is cheaper depends on
     the array it indexes: over bytes an 8-bit counter is switched to 8 bits and back at each
     step (row 3 above), over words a 16-bit counter is kept in memory beside the stepped index
-    (induction variables): retires `slow-u8-counter` and `slow-u16-counter-words`;
+    (induction variables): retires `slow-u16-counter-words` (`slow-u8-counter` went with the
+    unsigned byte ranges of 2026-11-20);
   - an array with a 16-bit index goes through a 24-bit pointer unless a `DAMPF_RANGE` bounds the
     index, although an index past the end would be undefined in C: retires `fast-range-index`;
   - a pointer walk costs more than indexing (`o->x; o++`): retires `slow-pointer-walk`;

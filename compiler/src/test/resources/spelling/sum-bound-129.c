@@ -2,7 +2,6 @@
  * tolerance: 10
  * The loop of sum-bytes with the bound 129, for each counter type that holds it, up and down:
  * the value of a constant bound must not change the code.
- * gap: u8_up R2 0..129 is no interval of signed bytes, so the counter has no range
  * gap: u16_down L2,L3 i != 0 gives the range analysis no bound, so i - 1 is no index (24-bit pointer); i - 1 is also the step, and the X pattern wants a step with one user
  * gap: i16_down L3 the test i >= 0 is signed, and the X pattern takes eq, ne, ult and uge only
  */
