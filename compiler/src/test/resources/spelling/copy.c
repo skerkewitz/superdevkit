@@ -2,9 +2,8 @@
  * tolerance: 10
  * One byte array copied into another, by index with every counter type, up and down, and by
  * pointer.
- * gap: copy_ptr L5 three counters with one start and step (the two pointers' offsets and n)
  * gap: copy_ptr_end C6 the pointers are compared as 32-bit values every round
- * gap: copy_while_n L5 the pointers and n are counters with one start and step
+ * gap: copy_while_n L4,L5 n counts down where the pointers' offset counts up: n = 100 - offset, and the test could move to the offset
  */
 #include <stdint.h>
 

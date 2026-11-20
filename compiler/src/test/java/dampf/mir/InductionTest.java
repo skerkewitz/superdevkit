@@ -108,4 +108,45 @@ class InductionTest {
         assertTrue(up.contains("cmp ult i16") && up.contains(", 90"), up);
         assertFalse(up.contains("phi i8"), up);
     }
+    @Test
+    void twoCountersWithOneStartAndStepAreOne() {
+        // a counter and the offset of a pointer walked with it (x_ptr_walk); a third counter
+        // with another start stays
+        String text = """
+                global @_t : 100
+
+                func @_walk(i16 %s) -> i16 {
+                b0_entry:
+                    jump b1
+                b1:
+                    %0 = phi i16 [b0_entry, 0], [b2, %5]
+                    %1 = phi i16 [b0_entry, 0], [b2, %7]
+                    %2 = phi i16 [b0_entry, 0], [b2, %6]
+                    %10 = phi i16 [b0_entry, 1], [b2, %11]
+                    %3 = cmp ult i16 %0, 100
+                    br %3, b2, b3
+                b2:
+                    %4 = ptradd @_t, i16 %1
+                    %8 = load i8 %4
+                    %9 = zext i8 %8 to i16
+                    %12 = add i16 %9, %10
+                    %6 = add i16 %2, %12
+                    %5 = add i16 %0, 1
+                    %7 = add i16 %1, 1
+                    %11 = add i16 %10, 1
+                    jump b1
+                b3:
+                    ret i16 %2
+                }
+                """;
+        MModule m = MirParser.parse(text);
+        MFunction f = m.function("_walk");
+        assertTrue(Induction.run(f));
+        DeadCode.run(f);
+        Verifier.verify(m);
+        String printed = Printer.print(f);
+        assertEquals(3, Loops.find(f).getFirst().head().instrs().stream().filter(x -> x instanceof Instr.Phi).count(), printed);
+        assertEquals(new Interpreter(MirParser.parse(text), 100_000).call("_walk", List.of(0L)),
+                new Interpreter(m, 100_000).call("_walk", List.of(0L)));
+    }
 }

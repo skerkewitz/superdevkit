@@ -488,6 +488,9 @@ Steps, each its own commit:
 - **L5.** Two counters of one loop with the same start and step are one: replace the second by
   the first (`x_ptr_walk`: the counter and the pointer's offset). A counter that differs from
   another by a constant factor or offset is derived from it and falls under L4.
+  Built (2026-11-20, [log](optimizations-log.md#two-counters-with-one-start-and-step-are-one-2026-11-20-on-the-spelling-families-and-the-examples)):
+  the first sentence, before L4, which needed it (L4 made the second variable of `apply_s` in
+  the pair loops after inlining, and moved the loop test onto it). The second waits for L4.
 - **L6.** A counter read after the loop, in a loop with one exit and an exact number of rounds,
   is replaced there by its final value. (`i` used after the loop keeps it out of X today.)
 

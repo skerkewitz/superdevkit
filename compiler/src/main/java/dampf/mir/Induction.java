@@ -38,6 +38,10 @@ public final class Induction {
             }
         }
         Map<Instr, Value> replaced = new HashMap<>();
+        if (twins(loops, replaced)) {
+            DeadCode.replaceUses(f, replaced);
+            return true;   // the users have changed: the rest in the next run
+        }
         for (Block h : List.copyOf(f.blocks())) {
             for (Instr x : List.copyOf(h.instrs())) {
                 if (!(x instanceof Instr.Phi i)) {
@@ -95,6 +99,53 @@ public final class Induction {
         }
         DeadCode.replaceUses(f, replaced);
         return !replaced.isEmpty();
+    }
+
+    /**
+     * Two counters of one loop with the same type, step and start values hold the same value in
+     * every round: the second is replaced by the first (the counter and a pointer's offset of
+     * {@code *p++}, the offsets of two arrays walked together). Its step then repeats the first's
+     * and value numbering merges them. Returns whether any went.
+     */
+    private static boolean twins(List<CountedLoops.Loop> loops, Map<Instr, Value> replaced) {
+        for (CountedLoops.Loop loop : loops) {
+            List<CountedLoops.Counter> ks = loop.counters();
+            for (int x = 0; x < ks.size(); x++) {
+                for (int y = x + 1; y < ks.size(); y++) {
+                    Instr.Phi p = ks.get(x).phi();
+                    Instr.Phi q = ks.get(y).phi();
+                    if (replaced.containsKey(p) || replaced.containsKey(q) || p.type() != q.type()
+                            || ks.get(x).c() != ks.get(y).c() || !sameStarts(p, q, loop)) {
+                        continue;
+                    }
+                    replaced.put(q, p);
+                    if (q.known != null) {
+                        p.known = p.known == null ? q.known : p.known.meet(q.known) != null ? p.known.meet(q.known) : p.known;
+                    }
+                }
+            }
+        }
+        return !replaced.isEmpty();
+    }
+
+    /** Whether p and q get the same value on every way into the loop. */
+    private static boolean sameStarts(Instr.Phi p, Instr.Phi q, CountedLoops.Loop loop) {
+        for (int n = 0; n < p.from.size(); n++) {
+            Block from = p.from.get(n);
+            if (loop.blocks().contains(from)) {
+                continue;
+            }
+            int m = q.from.indexOf(from);
+            if (m < 0 || p.from.indexOf(from) != n) {
+                return false;
+            }
+            Value a = p.op(n);
+            Value b = q.op(m);
+            if (a != b && !(a instanceof Value.Const ka && b instanceof Value.Const kb && ka.bits() == kb.bits())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** i as a counter of the loop headed by h (CountedLoops), or null. */

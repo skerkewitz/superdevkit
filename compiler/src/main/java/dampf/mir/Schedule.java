@@ -10,6 +10,9 @@ import java.util.Map;
  * code generator can hand the value over in A without storing it (MirCodeGen's "forwarding"), and
  * the value's place is free for less time.
  *
+ * <p>A value that only φs read (a loop's step) goes to the end of its block, so that a counter
+ * read before it stays the counter for the whole block.
+ *
  * <p>Arithmetic, comparisons, casts and ptradds can move anywhere after their operands. A load
  * does not move past a store, a copy, a call or a volatile access (any of them may change what
  * it reads). Instructions with an effect never move.
@@ -21,12 +24,14 @@ public final class Schedule {
     public static boolean run(MFunction f) {
         Map<Instr, Integer> uses = new HashMap<>();
         Map<Instr, Instr> user = new HashMap<>();
+        Map<Instr, Boolean> onlyPhis = new HashMap<>();
         for (Block b : f.blocks()) {
             for (Instr i : b.instrs()) {
                 for (Value v : i.operands()) {
                     if (v instanceof Instr d) {
                         uses.merge(d, 1, Integer::sum);
                         user.put(d, i);
+                        onlyPhis.merge(d, i instanceof Instr.Phi, Boolean::logicalAnd);
                     }
                 }
             }
@@ -59,6 +64,36 @@ public final class Schedule {
                     changed = true;
                 }
             }
+            changed |= toEnd(is, onlyPhis);
+        }
+        return changed;
+    }
+
+    /**
+     * A value read only by φs (a loop's step, read on the way back) goes to the end of its block,
+     * before the comparison the branch reads: nothing in the block reads it, and a counter whose
+     * step comes last is still the counter for everything before (the code generator keeps such a
+     * counter in X).
+     */
+    private static boolean toEnd(List<Instr> is, Map<Instr, Boolean> onlyPhis) {
+        int end = is.size() - 1;   // the terminator
+        if (end > 0 && is.get(end - 1) instanceof Instr.Cmp c && is.get(end).operands().contains(c)) {
+            end--;
+        }
+        boolean changed = false;
+        for (int k = end - 1; k >= 0; k--) {
+            Instr i = is.get(k);
+            if (!(i instanceof Instr.Bin) || !onlyPhis.getOrDefault(i, false)) {
+                continue;
+            }
+            if (k == end - 1) {
+                end--;   // in place: the next one goes before it
+                continue;
+            }
+            is.remove(k);
+            is.add(end - 1, i);
+            end--;
+            changed = true;
         }
         return changed;
     }

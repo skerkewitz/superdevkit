@@ -8,7 +8,6 @@
  * gap: k_u8_var_bound C7 the global bound is loaded every round
  * gap: l_u16_local_bound R3 index not proved below 32 KB, so a 24-bit pointer
  * gap: m_u16_from1 L4 the index is i - 1, the X pattern wants i itself
- * gap: x_ptr_walk L5 two counters that always hold the same value, both kept
  * gap: y_ptr_end C6 the pointers are compared as 32-bit values every round
  */
 #include <stdint.h>

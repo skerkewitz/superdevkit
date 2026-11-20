@@ -1174,3 +1174,26 @@ at worst, `draw_cell` and `maze_clear_cell` 5,600 → 3,100: an index made 16-bi
 check now goes through no pointer); the others the same, geometric mean -0.3 %. Code changed in
 CatchMe only.
 
+## Two counters with one start and step are one (2026-11-20, on the spelling families and the examples)
+
+A pointer walked beside a counter (`*p++` with `i++`, two arrays copied together) becomes, after
+`PointerOffsets`, a second counter with the same start and step as the first: two variables in
+the frame where one would do, and neither in X. `Induction` now replaces the second by the first
+([current-compiler-flaws.md](current-compiler-flaws.md#flaw-l-four-passes-recognise-loops-each-differently),
+L5). `Schedule` puts a value only φs read (a step) at the end of its block: the merged step had
+come first, before the loads that read the counter, which kept it out of X.
+
+The spelling families: `x_ptr_walk` 6,145 → 2,736 and `copy_ptr` 8,428 → 2,715 (both gaps
+closed), `fill_ptr_walk` 3,288 → 2,071, `copy_while_n` 9,741 → 4,532; the rest of these are
+counters that step by different amounts (L4). The style guide's `pairs_by_list` 20,858 → 20,630.
+
+| | Before | After |
+| --- | ---: | ---: |
+| A counter, struct array | 191,283 | 179,353 (-6.2 %) |
+| B sorted list, struct array | 194,004 | 190,127 (-2.0 %) |
+| C counter, one array per field | 186,990 | 186,990 |
+| D sorted list, one array per field | 180,432 | 180,432 |
+
+The examples: CatchMe -0.5 %, Steinschlag -0.3 %, Schach +0.1 %, the rest the same; geometric
+mean -0.1 %. Code changed in five examples and 9 programs of `BackendOutputTest`.
+

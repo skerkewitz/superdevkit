@@ -10,7 +10,7 @@
  * gap: fill_u8_down C5 as h_u8_down of sum-bytes
  * gap: fill_while L4 as fill_u16
  * gap: fill_do L4 as fill_u16
- * gap: fill_ptr_walk L5 the pointer's offset and the counter have one start and step
+ * gap: fill_ptr_walk L4,L5 the pointer's offset and the counter step by different amounts: one is derived from the other, and the test could move to the offset
  * gap: fill_ptr_end C6 the pointers are compared as 32-bit values every round
  */
 #include <stdint.h>
