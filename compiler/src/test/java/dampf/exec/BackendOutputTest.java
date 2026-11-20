@@ -38,9 +38,17 @@ import org.junit.jupiter.api.Test;
  *
  * <p>Every run writes the assembly to {@code build/backend-output/}; an update also copies it to
  * {@code build/backend-output-ref/}, so a changed hash can be followed with a plain {@code diff -r}.
+ *
+ * <p>Beside the hashes, the direction (K3 of docs/current-compiler-flaws.md): the static worst
+ * case of every function of every example and of every member of the spelling families
+ * ({@code compiler/src/test/resources/cost-baseline.txt}, written by the same update). A hash
+ * says that the code changed; the diff of that file in a commit says which functions got slower.
  */
 class BackendOutputTest {
     private static final Path HASHES = Path.of("compiler/src/test/resources/backend-output.txt");
+    private static final Path COSTS = Path.of("compiler/src/test/resources/cost-baseline.txt");
+    /** The worst cases of the examples' functions, as record() finds them in their MIR builds. */
+    private static Map<String, Long> exampleCosts = new TreeMap<>();
     private static final Path OUT = Path.of("build/backend-output");
     private static final Path REF = Path.of("build/backend-output-ref");
     static final int RANDOM_PROGRAMS = 20;
@@ -49,6 +57,8 @@ class BackendOutputTest {
     @Test
     void theOutputIsAsRecorded() throws Exception {
         Map<String, String> now = new TreeMap<>();
+        Map<String, Long> costs = new TreeMap<>();
+        exampleCosts = costs;
         for (Case c : cases()) {
             for (Compiler.Backend b : Compiler.Backend.values()) {
                 if (c.replacements.isEmpty() || b == Compiler.Backend.NAIVE) {
@@ -59,11 +69,17 @@ class BackendOutputTest {
                 record(now, c, Compiler.Backend.MIR, true);
             }
         }
+        spellingCosts(costs);
+        StringBuilder costText = new StringBuilder("# The static worst case in CPU cycles of every function of every example and of\n"
+                + "# every member of the spelling families (one call through spelling_entry; -1: unbounded).\n"
+                + "# Written by BackendOutputTest with -PbackendOutput=update; its diff shows what got slower.\n");
+        costs.forEach((k, v) -> costText.append(k).append(' ').append(v).append('\n'));
         boolean update = "update".equals(System.getProperty("dampf.backendOutput"));
         if (update) {
             StringBuilder text = new StringBuilder();
             now.forEach((k, v) -> text.append(k).append(' ').append(v).append('\n'));
             Files.writeString(HASHES, text);
+            Files.writeString(COSTS, costText);
             copy(OUT, REF);
             return;
         }
@@ -88,6 +104,26 @@ class BackendOutputTest {
         assertTrue(differ.isEmpty(), "the back end's output changed for " + differ.size() + " of " + now.size()
                 + ": " + differ + "\nCompare build/backend-output with build/backend-output-ref (from the last update);"
                 + " if the change is meant, run with -PbackendOutput=update.");
+        assertEquals(Files.readString(COSTS), costText.toString(),
+                "the worst cases in cost-baseline.txt are not today's: run with -PbackendOutput=update");
+    }
+
+    /** The worst case of one call of every member of every spelling family, as SpellingTest builds it. */
+    private static void spellingCosts(Map<String, Long> costs) throws Exception {
+        Path dir = Files.createDirectories(OUT.resolve("spelling-costs"));
+        for (Path src : SpellingTest.files()) {
+            SpellingTest.Family fam = SpellingTest.parse(src);
+            for (SpellingTest.Member m : fam.members()) {
+                Path file = dir.resolve(fam.name() + "_" + m.name() + ".c");
+                Files.writeString(file, fam.text() + "\n" + (m.returns()
+                        ? "int32_t spelling_out;\nvoid spelling_entry(void) { spelling_out = (int32_t)" + m.name() + "(); }\n"
+                        : "void spelling_entry(void) { " + m.name() + "(); }\n"));
+                Compiler.Result r = Compiler.compile(new Compiler.Options(List.of(file), List.of(), List.of(), "spelling_entry",
+                        dir.resolve(fam.name() + "_" + m.name() + ".sfc")).withBackend(Compiler.Backend.MIR));
+                long[] bw = r.timing().get("_spelling_entry");
+                costs.put("spelling " + fam.name() + " " + m.name(), bw == null ? -1 : bw[1]);
+            }
+        }
     }
 
     private record Case(String name, List<Path> sources, List<Path> includes, List<String> defines, String entry,
@@ -178,6 +214,9 @@ class BackendOutputTest {
         assertEquals(new java.util.TreeSet<>(Files.readAllLines(r.rom().labels())), new java.util.TreeSet<>(Files.readAllLines(own.labels())),
                 key + ": the labels (own linker vs ld65)");
         compareDebugFiles(key, DbgMeaning.read(r.rom().dbg()), DbgMeaning.read(own.dbg()));
+        if (!layout && backend == Compiler.Backend.MIR && c.name.startsWith("example_") && c.replacements.isEmpty()) {
+            r.timing().forEach((f, bw) -> exampleCosts.put(c.name.substring("example_".length()) + " " + f, bw[1]));
+        }
         if (!r.timing().isEmpty()) {
             StringBuilder t = new StringBuilder();
             new TreeMap<>(r.timing()).forEach((f, bw) -> t.append(f).append(' ').append(bw[0]).append(' ').append(bw[1]).append('\n'));

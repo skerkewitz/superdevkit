@@ -706,6 +706,9 @@ slower for reasons [optimizations.md](optimizations.md#tried-and-rejected) could
   workload, as the `--tune` idea in [optimizations.md](optimizations.md#ideas-not-yet-built)
   says. Last, and only if the examples show a gain.
 
+Built (2026-11-20): K3 as described, from the MIR builds `BackendOutputTest` makes of the
+examples and one build per spelling member; the test also fails when the file is not current.
+
 ## Order of work
 
 | # | Step | Depends on | Changes code | Should close |
@@ -718,7 +721,7 @@ slower for reasons [optimizations.md](optimizations.md#tried-and-rejected) could
 | 6 | C5, C8, L4 to L6 | 5 | yes | `g`, `h`, `m`, `x`, `slow-u16-counter-words` (done 2026-11-20 with L4 and L5; C5 as far as L4 does it, C8 and L6 not built: no gap needs them yet) |
 | 7 | C6 pointer comparisons, C7 loads out of loops | 3 | yes | `y`, part of `j`, `k` (done 2026-11-20: all C6 and C7 gaps; `j` waits for R3) |
 | 8 | R3 indexes from array bounds (ADR) | 4 | yes | `l`, `fast-range-index` (done 2026-11-20, ADR record 46) |
-| 9 | K3 cost baseline | 1 | no | |
+| 9 | K3 cost baseline | 1 | no | (done 2026-11-20) |
 | 10 | B1 typed operands and virtual places (ADR) | 2 | no | |
 | 11 | B2 places assigned on LIR | 10 | little | the class of the frame bugs |
 | 12 | B3 X and Y by cost, then the patterns deleted | 11, K1 | yes | `j`, `k`, `l`, loops with calls |

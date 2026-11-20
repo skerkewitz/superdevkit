@@ -201,7 +201,10 @@ over when it left ([ADR record 40](adr/0040-the-examples-replace-blubber-blasen-
   (the same text again, and the LIR verifier passes), and builds every ROM with ca65 and ld65 and
   with dampf's own assembler and linker: the images must be the same byte for byte, the label
   files must name the same addresses, and the debug files must say the same (`DbgMeaning`: the
-  bytes of every line, symbols, segments, scopes, C symbols).
+  bytes of every line, symbols, segments, scopes, C symbols). Beside the hashes it keeps the
+  static worst case of every function of every example and of every spelling member
+  (`compiler/src/test/resources/cost-baseline.txt`, written by the same update): a hash says the
+  code changed, the diff of that file says which functions got slower.
 - **`LirTest`**: blocks, printer, parser and verifier of LIR on small hand-written pieces.
 - **`BookSourcesTest`** checks the bookkeeping of the generated book pages: the lock, the
   specs' sources, the pages' markers. Whether the pages are current is `./gradlew checkBook`,

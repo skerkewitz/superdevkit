@@ -175,7 +175,7 @@ class SpellingTest {
         return new Family(family.group(1), Integer.parseInt(tolerance.group(1)), gaps, members, setup, check, text);
     }
 
-    private static List<Path> files() throws URISyntaxException, IOException {
+    static List<Path> files() throws URISyntaxException, IOException {
         Path dir = Path.of(SpellingTest.class.getResource("/spelling").toURI());
         try (Stream<Path> s = Files.list(dir)) {
             return s.filter(p -> p.toString().endsWith(".c")).sorted().toList();
