@@ -2,10 +2,10 @@
  * tolerance: 10
  * The sum of a uint8_t t[8][16], row by row: two loops with every counter type, a row pointer,
  * one loop over all 128 elements, and one pointer over the whole table.
- * gap: rows_u16 C9 t[r][c] is ptradd (ptradd @t, r * 16), c: the row pointer is computed every inner round and read as [dp],y
- * gap: rows_u8 C9 as rows_u16
- * gap: rows_i16 C9 as rows_u16
- * gap: flat_index C9,C10 as rows_u16, and (i >> 4) * 16 + (i & 15) is not seen to be i
+ * gap: rows_u16 L4 t[r][c] is t + (r * 16 + c) (C9), and the sum is computed every inner round; L4 makes it a counter of the inner loop
+ * gap: rows_u8 L4 as rows_u16
+ * gap: rows_i16 L4 as rows_u16
+ * gap: rows_ptr L4 as rows_u16: row[c] is the same sum since C9 (before, the row pointer was computed once a row)
  * gap: flat_ptr C6 the pointers are compared as 32-bit values every round
  */
 #include <stdint.h>

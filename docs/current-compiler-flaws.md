@@ -332,6 +332,10 @@ so `g`, `h` and `m` wait for L.
 - **C10.** `(x >> k) << k` (and `* 2^k`) is `x & ~(2^k - 1)`, and the sum or `|` of `x & ~m` and
   `x & m` is x: `t[i >> 4][i & 15]` is `t` indexed by `i` (`flat_index`).
 
+Built (2026-11-20, [log](optimizations-log.md#two-dimensional-arrays-as-one-index-2026-11-20-on-the-spelling-families-and-the-examples)):
+C9 and C10. `flat_index` closed, Steinschlag 12.8 % faster; a row pointer kept by hand pays one
+addition a round until L4 (`rows_ptr` +3.5 %, Er-Tüp +0.2 %).
+
 Done when each rule has its test, the spelling test's gaps marked C1, C6 and C7 are closed or
 the remaining cause is named in their `gap:` line, and no pass handles a form the canonical
 form excludes.

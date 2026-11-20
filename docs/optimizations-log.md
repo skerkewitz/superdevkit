@@ -1032,3 +1032,20 @@ gaps now name that (L2, L3).
 The examples: Er-Tüp and CatchMe -0.1 %, Steinschlag +0.01 %, the rest the same; geometric mean
 the same. Code changed in all seven and in 112 of the 285 programs of `BackendOutputTest`; the
 style guide's `slow-compare-sum` 2 cycles slower on both sides.
+
+## Two-dimensional arrays as one index (2026-11-20, on the spelling families and the examples)
+
+`t[r][c]` was `ptradd (ptradd @t, r * 16), c`: a 24-bit pointer to the row, built in every round
+of the inner loop and read as `[dp],y`, since only a `ptradd` on a global or a slot itself is
+indexed with X. `Simplify` makes it `ptradd @t, r * 16 + c` (C9), and `(i >> 4) * 16 + (i & 15)`
+is `i` (C10, with `(x >> k) << k` as `x & -2^k`).
+
+The table family (`table-2d`): `flat_index` (`t[i >> 4][i & 15]`) 10,795 → 3,238 cycles, the
+family's cheapest now and its gap closed; `rows_u16` 7,950 → 5,774. `rows_ptr`, the row pointer
+written by hand, 5,578 → 5,774 (+3.5 %): `row[c]` is the same sum now, one addition in every inner
+round, where the pointer was built once a row. L4, which makes such a sum a counter of the inner
+loop, takes both to the flat loop's cost.
+
+The examples: Steinschlag -12.8 % (its cave is `cave[y][x]`), Er-Tüp +0.2 %, CatchMe and Schach
+the same on average (Schach's busiest ticks +0.4 %), the rest the same; geometric mean -1.9 %.
+The pair loops the same. Code changed in all seven examples and in 5 execution programs.

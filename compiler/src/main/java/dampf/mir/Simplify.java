@@ -25,6 +25,12 @@ import java.util.Map;
  *     {@code x >=u 1} is {@code x != 0}, {@code x <u 1} is {@code x == 0}, and the same for the
  *     signed least value; one whose outcome the type decides ({@code x >u 65535},
  *     {@code x >=s -32768}) is that constant.</li>
+ * <li>C9: no {@code ptradd (ptradd @g, a), b} with a variable b on a global or a slot: it is
+ *     {@code ptradd @g, a + b} (an element of a 2-D array, {@code t[r][c]}, is one index into
+ *     t). C keeps a pointer within its object, so the sum fits the offset's type.</li>
+ * <li>C10: {@code (x >> k) << k} and {@code (x >> k) * 2^k} are {@code x & -2^k}, and the sum
+ *     (or {@code |}, {@code ^}) of {@code x & m} and {@code x & ~m} is x ({@code t[i >> 4][i & 15]}
+ *     is {@code t} indexed by i).</li>
  * </ul>
  * Passes may rely on these: none handles the forms they exclude.
  */
@@ -328,6 +334,23 @@ public final class Simplify {
                 default -> { }
             }
         }
+        if ((b.op == Instr.BinOp.SHL || b.op == Instr.BinOp.MUL) && y instanceof Value.Const k
+                && x instanceof Instr.Bin r && (r.op == Instr.BinOp.LSHR || r.op == Instr.BinOp.ASHR)
+                && r.op(1) instanceof Value.Const rk) {
+            // C10: (x >> k) << k and (x >> k) * 2^k keep the bits of x from k up
+            long shift = b.op == Instr.BinOp.SHL ? k.bits()
+                    : Long.bitCount(k.bits()) == 1 ? Long.numberOfTrailingZeros(k.bits()) : -1;
+            if (shift == rk.bits() && shift > 0 && shift < t.bits()) {
+                return insert(b, new Instr.Bin(Instr.BinOp.AND, r.op(0), new Value.Const(t, t.wrap(-(1L << shift))), b.pos()));
+            }
+        }
+        if ((b.op == Instr.BinOp.ADD || b.op == Instr.BinOp.OR || b.op == Instr.BinOp.XOR)
+                && x instanceof Instr.Bin m && y instanceof Instr.Bin n && m.op == Instr.BinOp.AND && n.op == Instr.BinOp.AND
+                && m.op(0) == n.op(0) && m.op(1) instanceof Value.Const mk && n.op(1) instanceof Value.Const nk
+                && (mk.bits() & nk.bits()) == 0 && t.wrap(mk.bits() | nk.bits()) == ones) {
+            // C10: x & m and x & ~m have no bit in common and every bit together
+            return m.op(0);
+        }
         if (b.op == Instr.BinOp.SUB && y instanceof Value.Const k) {
             // C1: x - c is x + (-c)
             return insert(b, new Instr.Bin(Instr.BinOp.ADD, x, new Value.Const(t, t.wrap(-k.bits())), b.pos()));
@@ -368,10 +391,19 @@ public final class Simplify {
         };
     }
 
-    /** ptradd p, 0 is p; ptradd (ptradd p, a), b with constants is ptradd p, a + b. */
+    /**
+     * ptradd p, 0 is p; ptradd (ptradd p, a), b with constants is ptradd p, a + b; and with b a
+     * variable, on a global or a slot, ptradd @g, a + b (C9).
+     */
     private static Value ptrAdd(Instr.PtrAdd p) {
         if (p.op(1) instanceof Value.Const k && k.bits() == 0) {
             return p.op(0);
+        }
+        if (!(p.op(1) instanceof Value.Const) && p.op(0) instanceof Instr.PtrAdd inner
+                && (inner.op(0) instanceof Value.GlobalAddr || inner.op(0) instanceof Value.SlotAddr)
+                && inner.op(1).type() == p.op(1).type()) {
+            Instr sum = insert(p, new Instr.Bin(Instr.BinOp.ADD, inner.op(1), p.op(1), p.pos()));
+            return insert(p, new Instr.PtrAdd(inner.op(0), sum, p.pos()));
         }
         if (p.op(1) instanceof Value.Const k && p.op(0) instanceof Instr.PtrAdd inner
                 && inner.op(1) instanceof Value.Const j && k.type() == j.type()) {

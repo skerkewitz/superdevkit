@@ -18,7 +18,11 @@ class SimplifyTest {
 
     /** func @_f(i16 %a) -> i16 { body }, simplified until nothing changes; its text. */
     private static String simplified(String type, String body) {
-        String text = "func @_f(" + type + " %a) -> i32 {\nb0_entry:\n" + body + "}\n";
+        return simplified(type, body, "");
+    }
+
+    private static String simplified(String type, String body, String globals) {
+        String text = globals + "func @_f(" + type + " %a) -> i32 {\nb0_entry:\n" + body + "}\n";
         MModule plain = MirParser.parse(text);
         MModule m = MirParser.parse(text);
         MFunction f = m.function("_f");
@@ -93,5 +97,64 @@ class SimplifyTest {
         for (String p : new String[] {"eq", "ne", "ult", "uge", "slt", "sge"}) {
             assertTrue(compare("i16", p, 100).contains("cmp " + p + " i16 %a, 100"));
         }
+    }
+
+    @Test
+    void c9AnElementOfATwoDimensionalArrayIsOneIndexIntoIt() {
+        // t[r][c] with r = a & 7, c = a & 15: stored through one index, loaded through two
+        String text = """
+                global @_t : 128
+
+                func @_f(i16 %a) -> i32 {
+                b0_entry:
+                    %0 = and i16 %a, 7
+                    %1 = mul i16 %0, 16
+                    %2 = and i16 %a, 15
+                    %3 = add i16 %1, %2
+                    %4 = ptradd @_t, i16 %3
+                    %9 = trunc i16 %a to i8
+                    store i8 %4, %9
+                    %5 = ptradd @_t, i16 %1
+                    %6 = ptradd %5, i16 %2
+                    %7 = load i8 %6
+                    %8 = zext i8 %7 to i32
+                    ret i32 %8
+                }
+                """;
+        MModule plain = MirParser.parse(text);
+        MModule m = MirParser.parse(text);
+        MFunction f = m.function("_f");
+        for (int round = 0; round < 10 && (Simplify.run(f) | DeadCode.run(f)); round++) {
+            Verifier.verify(m);
+        }
+        String printed = Printer.print(f);
+        assertFalse(printed.matches("(?s).*ptradd %.*"), printed);   // no ptradd of a ptradd left
+        for (long a : EDGES) {
+            assertEquals(new Interpreter(plain, 1000).call("_f", List.of(a)), new Interpreter(m, 1000).call("_f", List.of(a)), printed);
+        }
+        // a constant second offset stays: the load folds it into its address
+        String c = simplified("i16", "    %0 = and i16 %a, 7\n    %1 = ptradd @_g, i16 %0\n    %2 = ptradd %1, i16 3\n"
+                + "    %3 = ptrtoint ptr %2 to i32\n    ret i32 %3\n", "global @_g : 16\n\n");
+        assertTrue(c.contains("ptradd %"), c);
+    }
+
+    @Test
+    void c10ShiftsAndMasksThatKeepEveryBitAreTheValue() {
+        // (a >> 4) * 16 + (a & 15) is a
+        String s = simplified("i16", "    %0 = lshr i16 %a, 4\n    %1 = mul i16 %0, 16\n    %2 = and i16 %a, 15\n"
+                + "    %3 = add i16 %1, %2\n    %4 = zext i16 %3 to i32\n    ret i32 %4\n");
+        assertFalse(s.contains("lshr") || s.contains("mul") || s.contains("add"), s);
+        // (a >> 3) << 3 is a & -8; with | and the other mask, a
+        s = simplified("i16", "    %0 = lshr i16 %a, 3\n    %1 = shl i16 %0, 3\n    %2 = and i16 %a, 7\n"
+                + "    %3 = or i16 %2, %1\n    %4 = zext i16 %3 to i32\n    ret i32 %4\n");
+        assertFalse(s.contains("lshr") || s.contains("shl") || s.contains("or "), s);
+        s = simplified("i16", "    %0 = ashr i16 %a, 2\n    %1 = shl i16 %0, 2\n    %2 = zext i16 %1 to i32\n    ret i32 %2\n");
+        assertTrue(s.contains("and i16 %a, -4"), s);
+        // other shift counts and masks that overlap stay
+        s = simplified("i16", "    %0 = lshr i16 %a, 4\n    %1 = mul i16 %0, 8\n    %2 = zext i16 %1 to i32\n    ret i32 %2\n");
+        assertTrue(s.contains("lshr") && s.contains("mul"), s);
+        s = simplified("i16", "    %0 = and i16 %a, 12\n    %1 = and i16 %a, -8\n    %2 = add i16 %0, %1\n"
+                + "    %3 = zext i16 %2 to i32\n    ret i32 %3\n");
+        assertTrue(s.contains("add"), s);
     }
 }
