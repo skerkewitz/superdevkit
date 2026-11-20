@@ -1,5 +1,7 @@
 package dampf.backend;
 
+import dampf.lir.LOperand;
+
 import dampf.mir.Block;
 import dampf.mir.CountedLoops;
 import dampf.mir.Instr;
@@ -545,10 +547,10 @@ final class SelectionPlan {
             for (Instr i : b.instrs()) {
                 if (i instanceof Instr.Load || i instanceof Instr.Store) {
                     FrameLayout.Address a = sel.layout.address(i.op(0));
-                    String f = sel.fixed(a.base(), a.offset());
+                    LOperand.Mem f = sel.fixed(a.base(), a.offset());
                     Value index = a.index() == null ? null : Selection.throughCopies(a.index());
                     if (index != null && f != null && index != v && index != step) {
-                        boolean viaY = !f.startsWith("z:") && !f.startsWith("f:")
+                        boolean viaY = f.width() != LOperand.Width.DP && f.width() != LOperand.Width.LONG
                                 && !(i instanceof Instr.Store s && s.op(1) instanceof Value.Const k && k.bits() == 0);
                         if (!viaY) {
                             return true;

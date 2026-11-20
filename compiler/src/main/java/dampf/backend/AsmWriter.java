@@ -46,6 +46,14 @@ final class AsmWriter {
     }
 
     /** An instruction; {@code operand} and {@code comment} may be null. */
+    void insOp(String mnemonic, dampf.lir.LOperand operand, String comment) {
+        ins(mnemonic, operand == null ? null : operand.text(), comment);
+    }
+
+    void insOp(String mnemonic, dampf.lir.LOperand operand, String comment, boolean relax) {
+        ins(mnemonic, operand == null ? null : operand.text(), comment, relax);
+    }
+
     void ins(String mnemonic, String operand, String comment) {
         ins(mnemonic, operand, comment, false);
     }

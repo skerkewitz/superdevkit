@@ -1,5 +1,7 @@
 package dampf.backend;
 
+import dampf.lir.LOperand;
+
 import dampf.mir.Instr;
 import dampf.mir.MType;
 import dampf.mir.Value;
@@ -24,25 +26,25 @@ final class MemorySelection {
      * is in Y already, or X holds another index and Y is free for it (two arrays indexed by two
      * values, such as two bubbles), as long as the instruction has an absolute,Y form.
      */
-    String fixedAt(FrameLayout.Address a, int k, String mnemonic) {
-        String f = sel.fixed(a.base(), a.offset() + k);
+    LOperand fixedAt(FrameLayout.Address a, int k, String mnemonic) {
+        LOperand.Mem f = sel.fixed(a.base(), a.offset() + k);
         if (f == null || a.index() == null) {
             return f;
         }
         Value ix = Selection.throughCopies(a.index());
         if (sel.xResident.containsKey(ix) || sel.xSteps.containsKey(ix)) {
-            return f + ",x";   // X holds the loop's index already (or the stepped one)
+            return f.indexed(LOperand.Index.X);   // X holds the loop's index already (or the stepped one)
         }
-        String index = sel.operand(a.index(), 0);
-        boolean yForm = ABS_Y.contains(mnemonic) && !f.startsWith("z:") && !f.startsWith("f:");
+        LOperand index = sel.operand(a.index(), 0);
+        boolean yForm = ABS_Y.contains(mnemonic) && f.width() != LOperand.Width.DP && f.width() != LOperand.Width.LONG;
         boolean preferY = sel.yIndexes.contains(Selection.throughCopies(a.index()));
         if (yForm && !index.equals(sel.xHolds)
-                && (index.equals(sel.yHolds) || preferY || sel.xTaken != null || sel.xHolds != null && !sel.xHolds.startsWith("#"))) {
+                && (index.equals(sel.yHolds) || preferY || sel.xTaken != null || sel.xHolds != null && !(sel.xHolds instanceof LOperand.Imm))) {
             sel.ins("ldy", index);
-            return f + ",y";
+            return f.indexed(LOperand.Index.Y);
         }
         sel.ins("ldx", index);
-        return f + ",x";
+        return f.indexed(LOperand.Index.X);
     }
 
     /** The instructions dampf uses with an absolute,Y operand (the 65816 has it for these). */
@@ -64,8 +66,8 @@ final class MemorySelection {
             // (never a loop counter kept in X: usesFitX counts only globals and slots it indexes)
             sel.ins("ldy", sel.operand(a.index(), 0));
         } else {
-            sel.ins("iny", null);
-            sel.ins("iny", null);
+            sel.ins("iny");
+            sel.ins("iny");
         }
     }
 
@@ -73,7 +75,7 @@ final class MemorySelection {
         MType t = l.type();
         FrameLayout.Address a = address(l.op(0));
         boolean direct = isFixed(a);
-        String via = direct ? null : via(a.base(), Selection.P);
+        LOperand via = direct ? null : via(a.base(), Selection.P);
         if (t.size == 1) {
             if (!direct) {
                 yAt(a, 0);
@@ -106,11 +108,11 @@ final class MemorySelection {
         Value v = s.op(1);
         MType t = v.type();
         boolean direct = isFixed(a);
-        String via = direct ? null : via(a.base(), Selection.P);
+        LOperand via = direct ? null : via(a.base(), Selection.P);
         if (direct && v instanceof Value.Const k && k.bits() == 0) {
             // STZ: no load of the zero (direct page, absolute and X-indexed; not long or [dp],y)
-            String at0 = fixedAt(a, 0, "stz");
-            if (!at0.startsWith("f:")) {
+            LOperand at0 = fixedAt(a, 0, "stz");
+            if (!(at0 instanceof LOperand.Mem m0 && m0.width() == LOperand.Width.LONG)) {
                 if (t.size == 1) {
                     sel.ins("sep", "#$20");
                     sel.ins("stz", at0);
@@ -147,14 +149,14 @@ final class MemorySelection {
      * The [dp],y operand for a pointer: its own place if that is in the direct page, else
      * dampf_ptr (or dampf_ptr+4) after copying it there, unless it is there already.
      */
-    String via(Value pointer, String dp) {
+    LOperand via(Value pointer, LOperand.Mem dp) {
         while (pointer instanceof Instr i && FrameLayout.transparent(i)) {
             pointer = i.op(0);   // the same bytes
         }
         if (pointer instanceof Value.Param || pointer instanceof Instr) {
             int p = sel.place.get(pointer);
             if (Selection.FRAME_START + p + 3 < 0x100) {
-                return "[" + Selection.FRAME + "+" + p + "],y";
+                return new LOperand.Mem(LOperand.Width.NONE, Selection.FRAME, p, LOperand.Index.Y, true);
             }
         }
         boolean first = dp.equals(Selection.P);
@@ -189,8 +191,8 @@ final class MemorySelection {
             sel.out.loopBound(loop, size / 2);   // Y counts down two bytes a round
             sel.ins("lda", Selection.VIA_P);
             sel.ins("sta", Selection.VIA_Q);
-            sel.ins("dey", null);
-            sel.ins("dey", null);
+            sel.ins("dey");
+            sel.ins("dey");
             sel.ins("bpl", loop);
         }
     }

@@ -80,6 +80,16 @@ public sealed interface LOperand {
             return indirect ? "[" + place + "]" + index.suffix : width.prefix + place + index.suffix;
         }
 
+        /** The same operand k bytes further on. */
+        public Mem plus(int k) {
+            return new Mem(width, base, offset + k, index, indirect);
+        }
+
+        /** The same address indexed by another register. */
+        public Mem indexed(Index by) {
+            return new Mem(width, base, offset, by, indirect);
+        }
+
         /** A place of the frame, read or written directly or through an index or as a pointer. */
         public boolean frame() {
             return base.equals(FRAME);

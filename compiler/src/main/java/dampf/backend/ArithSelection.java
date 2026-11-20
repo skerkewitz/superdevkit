@@ -1,5 +1,7 @@
 package dampf.backend;
 
+import dampf.lir.LOperand;
+
 import dampf.mir.Instr;
 import dampf.mir.MType;
 import dampf.mir.Ranges;
@@ -95,7 +97,7 @@ final class ArithSelection {
                     x = y;
                     y = s;
                 }
-                sel.ins(b.op == Instr.BinOp.ADD ? "clc" : "sec", null);
+                sel.ins(b.op == Instr.BinOp.ADD ? "clc" : "sec");
                 for (int w = 0; w < n; w++) {
                     sel.ins("lda", sel.operand(x, w));
                     sel.ins(b.op == Instr.BinOp.ADD ? "adc" : "sbc", sel.operand(y, w));
@@ -128,52 +130,52 @@ final class ArithSelection {
                     sel.result(b, 0);
                 } else if (n == 1) {
                     sel.ins("lda", sel.operand(y, 0));
-                    sel.ins("sta", "z:R0");
+                    sel.ins("sta", Selection.reg("R0"));
                     sel.ins("lda", sel.operand(x, 0));
                     sel.ins("jsl", "dampf_mul16");
                     sel.maskResult(b);
                     sel.result(b, 0);
                 } else {
-                    to32(x, "z:R0", "z:R2");
-                    to32(y, "z:R4", "z:R6");
+                    to32(x, Selection.reg("R0"), Selection.reg("R2"));
+                    to32(y, Selection.reg("R4"), Selection.reg("R6"));
                     sel.ins("jsl", "dampf_mul32");
-                    from32(b, "z:R8", "z:R10");
+                    from32(b, Selection.reg("R8"), Selection.reg("R10"));
                 }
             }
             case UDIV, UREM -> {
                 boolean rem = b.op == Instr.BinOp.UREM;
                 if (n == 1) {
                     sel.ins("lda", sel.operand(y, 0));
-                    sel.ins("sta", "z:R0");
+                    sel.ins("sta", Selection.reg("R0"));
                     sel.ins("lda", sel.operand(x, 0));
                     sel.ins("jsl", "dampf_udiv16");
                     if (rem) {
-                        sel.ins("lda", "z:R2");
+                        sel.ins("lda", Selection.reg("R2"));
                     }
                     sel.result(b, 0);
                 } else {
-                    to32(x, "z:R0", "z:R2");
-                    to32(y, "z:R4", "z:R6");
+                    to32(x, Selection.reg("R0"), Selection.reg("R2"));
+                    to32(y, Selection.reg("R4"), Selection.reg("R6"));
                     sel.ins("jsl", "dampf_udiv32");
-                    from32(b, rem ? "z:R12" : "z:R8", rem ? "z:R14" : "z:R10");
+                    from32(b, rem ? Selection.reg("R12") : Selection.reg("R8"), rem ? Selection.reg("R14") : Selection.reg("R10"));
                 }
             }
             case SDIV, SREM -> {
                 boolean rem = b.op == Instr.BinOp.SREM;
                 if (n == 1) {
-                    signExtend(x, t, "z:R0", "z:R2");
-                    signExtend(y, t, "z:R4", "z:R6");
+                    signExtend(x, t, Selection.reg("R0"), Selection.reg("R2"));
+                    signExtend(y, t, Selection.reg("R4"), Selection.reg("R6"));
                 } else {
-                    to32(x, "z:R0", "z:R2");
-                    to32(y, "z:R4", "z:R6");
+                    to32(x, Selection.reg("R0"), Selection.reg("R2"));
+                    to32(y, Selection.reg("R4"), Selection.reg("R6"));
                 }
                 sel.ins("jsl", "dampf_sdiv32");
                 if (n == 1) {
-                    sel.ins("lda", rem ? "z:R12" : "z:R8");
+                    sel.ins("lda", rem ? Selection.reg("R12") : Selection.reg("R8"));
                     sel.maskResult(b);
                     sel.result(b, 0);
                 } else {
-                    from32(b, rem ? "z:R12" : "z:R8", rem ? "z:R14" : "z:R10");
+                    from32(b, rem ? Selection.reg("R12") : Selection.reg("R8"), rem ? Selection.reg("R14") : Selection.reg("R10"));
                 }
             }
             case SHL, LSHR, ASHR -> shift(b);
@@ -191,7 +193,7 @@ final class ArithSelection {
             sel.ins("lda", Selection.imm(0));
             return;
         }
-        String xs = sel.operand(x, 0);
+        LOperand xs = sel.operand(x, 0);
         int top = (int) digits.getLast()[0];
         sel.ins("lda", xs);
         if (digits.getLast()[1] < 0) {
@@ -204,10 +206,10 @@ final class ArithSelection {
             sel.ins("asl", "a");
             if (k >= 0 && digits.get(k)[0] == pos) {
                 if (digits.get(k)[1] > 0) {
-                    sel.ins("clc", null);
+                    sel.ins("clc");
                     sel.ins("adc", xs);
                 } else {
-                    sel.ins("sec", null);
+                    sel.ins("sec");
                     sel.ins("sbc", xs);
                 }
                 k--;
@@ -215,14 +217,14 @@ final class ArithSelection {
         }
     }
 
-    void to32(Value v, String lo, String hi) {
+    void to32(Value v, LOperand lo, LOperand hi) {
         sel.ins("lda", sel.operand(v, 0));
         sel.ins("sta", lo);
         sel.ins("lda", sel.operand(v, 1));
         sel.ins("sta", hi);
     }
 
-    void from32(Instr d, String lo, String hi) {
+    void from32(Instr d, LOperand lo, LOperand hi) {
         sel.ins("lda", lo);
         sel.result(d, 0);
         sel.ins("lda", hi);
@@ -235,24 +237,24 @@ final class ArithSelection {
         int m = t == MType.I8 ? 0x80 : t == MType.I1 ? 1 : 0;
         if (m != 0) {
             sel.ins("eor", Selection.imm(m));     // (x ^ m) - m: sign-extends the top bit m
-            sel.ins("sec", null);
+            sel.ins("sec");
             sel.ins("sbc", Selection.imm(m));
         }
     }
 
     /** Stores A (a signed 16-bit number) to lo, and its sign (0 or $FFFF) to hi. */
-    void storeWithSign(String lo, String hi) {
+    void storeWithSign(LOperand lo, LOperand hi) {
         String positive = sel.label();
         sel.ins("sta", lo);
         sel.ins("ldx", Selection.imm(0));
         sel.ins("cmp", Selection.imm(0x8000));
         sel.ins("bcc", positive);
-        sel.ins("dex", null);
+        sel.ins("dex");
         sel.place(positive);
         sel.ins("stx", hi);
     }
 
-    void signExtend(Value v, MType t, String lo, String hi) {
+    void signExtend(Value v, MType t, LOperand lo, LOperand hi) {
         loadSigned16(v, t);
         storeWithSign(lo, hi);
     }
@@ -285,7 +287,7 @@ final class ArithSelection {
             sel.place(big);
             sel.ins("lda", Selection.imm(bits));
             sel.place(have);
-            sel.ins("tax", null);
+            sel.ins("tax");
         }
         String loop = sel.label();
         String done = sel.label();
@@ -307,14 +309,14 @@ final class ArithSelection {
                     sel.ins("ror", "a");
                 }
             }
-            sel.ins("dex", null);
+            sel.ins("dex");
             sel.ins("bne", loop);
             sel.place(done);
             sel.maskResult(b);
             sel.result(b, 0);
         } else {
-            String lo = sel.dest(b, 0);
-            String hi = sel.dest(b, 1);
+            LOperand lo = sel.dest(b, 0);
+            LOperand hi = sel.dest(b, 1);
             to32(x, lo, hi);
             sel.ins("cpx", Selection.imm(0));
             sel.ins("beq", done);
@@ -336,7 +338,7 @@ final class ArithSelection {
                     sel.ins("ror", lo);
                 }
             }
-            sel.ins("dex", null);
+            sel.ins("dex");
             sel.ins("bne", loop);
             sel.place(done);
         }
@@ -353,14 +355,14 @@ final class ArithSelection {
             }
             if (t == MType.I16 && count >= 8) {
                 // the bytes swap places: a shift by 8 in two instructions
-                sel.ins("xba", null);
+                sel.ins("xba");
                 switch (b.op) {
                     case SHL -> sel.ins("and", Selection.imm(0xFF00));
                     case LSHR -> sel.ins("and", Selection.imm(0x00FF));
                     default -> {
                         sel.ins("and", Selection.imm(0x00FF));
                         sel.ins("eor", Selection.imm(0x0080));   // sign-extend the byte
-                        sel.ins("sec", null);
+                        sel.ins("sec");
                         sel.ins("sbc", Selection.imm(0x0080));
                     }
                 }
@@ -380,8 +382,8 @@ final class ArithSelection {
             sel.result(b, 0);
             return;
         }
-        String lo = sel.dest(b, 0);
-        String hi = sel.dest(b, 1);
+        LOperand lo = sel.dest(b, 0);
+        LOperand hi = sel.dest(b, 1);
         to32(x, lo, hi);
         for (int k = 0; k < count; k++) {
             switch (b.op) {

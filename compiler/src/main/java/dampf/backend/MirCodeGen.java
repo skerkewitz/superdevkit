@@ -471,7 +471,7 @@ public final class MirCodeGen {
         sel.out.raw("        .segment \"" + NaiveCodeGen.codeSegment(f.name()) + "\"");
         sel.out.raw(".proc " + f.name());
         for (Value.Param p : f.params()) {
-            sel.out.note("parameter " + p.type() + " " + p + " at " + Selection.at(sel.place.get(p)));
+            sel.out.note("parameter " + p.type() + " " + p + " at " + Selection.at(sel.place.get(p)).text());
         }
         sel.layout = layouts.get(f);
         sel.ranges = sel.layout.ranges;
@@ -720,7 +720,7 @@ public final class MirCodeGen {
             case Instr.Cmp c -> sel.branch.cmp(c);
             case Instr.Cast c -> sel.arith.cast(c);
             case Instr.PtrAdd p -> {
-                sel.ins("clc", null);
+                sel.ins("clc");
                 if (p.op(1).type() == MType.I16 && sel.aHolds.contains(sel.operand(p.op(1), 0))) {
                     sel.ins("adc", sel.operand(p.op(0), 0));   // A has the offset already
                 } else {
@@ -780,11 +780,11 @@ public final class MirCodeGen {
                     Value v = r.op(0);
                     if (Selection.words(v.type()) == 2) {
                         sel.ins("lda", sel.operand(v, 1));
-                        sel.ins("tax", null);
+                        sel.ins("tax");
                     }
                     sel.ins("lda", sel.operand(v, 0));
                 }
-                sel.ins("rtl", null);
+                sel.ins("rtl");
             }
         }
     }

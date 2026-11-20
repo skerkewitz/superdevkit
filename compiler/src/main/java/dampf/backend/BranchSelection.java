@@ -1,5 +1,7 @@
 package dampf.backend;
 
+import dampf.lir.LOperand;
+
 import dampf.lir.BranchRelax;
 import dampf.mir.Block;
 import dampf.mir.Instr;
@@ -93,15 +95,15 @@ final class BranchSelection {
         Value y = swap ? a : b;
         int top = n - 1;
         int bias = !signed ? 0 : t == MType.I8 ? 0x80 : t == MType.I1 ? 1 : 0x8000;
-        String yTop = sel.operand(y, top);
+        LOperand yTop = sel.operand(y, top);
         if (bias != 0) {
             if (y instanceof Value.Const k) {
                 yTop = Selection.imm((k.bits() >> (16 * top)) ^ bias);
             } else {
                 sel.ins("lda", sel.operand(y, top));
                 sel.ins("eor", Selection.imm(bias));
-                sel.ins("sta", "z:R0");
-                yTop = "z:R0";
+                sel.ins("sta", Selection.reg("R0"));
+                yTop = Selection.reg("R0");
             }
         }
         if (n == 2) {
