@@ -6,8 +6,8 @@
  * gap: fill_i16 R1,L4 widening throws away the lower bound; the counter is kept beside the offset
  * gap: fill_u16_le L4 as fill_u16
  * gap: fill_u16_ne L2,L4 != gives the range analysis no bound; the counter is kept beside the offset
- * gap: fill_u16_down C1 the step is a sub, every loop pattern wants an add
- * gap: fill_u8_down C1 as fill_u16_down
+ * gap: fill_u16_down L2,L3 i != 0 gives the range analysis no bound, so i - 1 is no index (24-bit pointer); i - 1 is also the step, and the X pattern wants a step with one user
+ * gap: fill_u8_down L2,C5 as h_u8_down of sum-bytes
  * gap: fill_while L4 as fill_u16
  * gap: fill_do L3,L4 as fill_u16, and the test reads the stepped value
  * gap: fill_ptr_walk L5 the pointer's offset and the counter have one start and step

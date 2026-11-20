@@ -240,7 +240,8 @@ final class Timing {
             boolean ok = true;
             for (int k = 0; k < p.from.size(); k++) {
                 if (loop.blocks().contains(p.from.get(k))) {
-                    if (p.op(k) instanceof Instr.Bin s && (s.op == Instr.BinOp.ADD || s.op == Instr.BinOp.SUB)
+                    // canonical (Simplify): a step is phi + c, never phi - c
+                    if (p.op(k) instanceof Instr.Bin s && s.op == Instr.BinOp.ADD
                             && s.op(0) == p && s.op(1) instanceof Value.Const && (step == null || step == s)) {
                         step = s;
                     } else {
@@ -252,9 +253,6 @@ final class Timing {
                 continue;
             }
             long c = p.type().signed(((Value.Const) step.op(1)).bits());
-            if (step.op == Instr.BinOp.SUB) {
-                c = -c;
-            }
             for (Block test : everyRoundTests(loop)) {
                 best = Math.min(best, untilEqual(loop, test, p, c, ranges));
                 best = Math.min(best, untilBound(loop, test, p, c, ranges));

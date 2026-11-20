@@ -4,8 +4,8 @@
  * the value of a constant bound must not change the code.
  * gap: i16_up R1 more than 24 rounds: widening throws away the lower bound, signed compare, 24-bit pointer
  * gap: u8_up R2 0..129 is no interval of signed bytes, so the counter has no range
- * gap: u16_down C1 the step is a sub, every loop pattern wants an add; 24-bit pointer
- * gap: i16_down C1 the step is a sub, and the test i >= 0 is signed: the counter stays in memory
+ * gap: u16_down L2,L3 i != 0 gives the range analysis no bound, so i - 1 is no index (24-bit pointer); i - 1 is also the step, and the X pattern wants a step with one user
+ * gap: i16_down L3 the test i >= 0 is signed, and the X pattern takes eq, ne, ult and uge only
  */
 #include <stdint.h>
 

@@ -1005,3 +1005,30 @@ removes the pointer.
 The examples (`dev/bench_examples.sh`): Er-Tüp -1.6 %, Hello -0.7 %, CatchMe -0.5 %, Steinschlag
 -0.2 %, Schach, Mandelbrot and Mode 7 the same; geometric mean -0.4 %. Their code changed in all
 seven, and in 4 execution programs (`BackendOutputTest`, 31 hashes).
+
+## A canonical form for arithmetic and comparisons (2026-11-20, on the spelling families and the examples)
+
+`Simplify` writes every instruction in one form, so that later passes know one spelling
+([current-compiler-flaws.md](current-compiler-flaws.md#flaw-c-the-mir-has-no-canonical-form),
+C1 to C3): `x - c` is `x + (-c)`, a commutative operation has its constant on the right, and a
+comparison with a constant is one of `eq ne ult uge slt sge` (`x >= 1` unsigned is `x != 0`;
+one the type decides is folded). `Gvn` finds `b + a` as `a + b`. The passes that took `sub` as
+a step (`Timing`, `DeadLoops`, `ArithSelection.incDec`, `RangeChecks`) take the canonical form
+only.
+
+The loops that count down: their test is `i != 0` instead of `i >= 1`, about 5 % on the spelling
+members (`g_u16_down` 6,046 → 5,743, the `u16_down` of every bound family -5 %, `fill_u16_down`
+-5.8 %, `copy_down` -3.5 %, `m_u16_from1` -4.6 %); no gap closed. `i - 1` as an index and the step
+`i--` are now one instruction, so the step has two users and the counter stays out of X: the
+gaps now name that (L2, L3).
+
+| | Before | After |
+| --- | ---: | ---: |
+| A counter, struct array | 191,409 | 191,283 (-0.1 %) |
+| B sorted list, struct array | 209,197 | 208,537 (-0.3 %) |
+| C counter, one array per field | 187,116 | 186,990 (-0.1 %) |
+| D sorted list, one array per field | 195,624 | 194,965 (-0.3 %) |
+
+The examples: Er-Tüp and CatchMe -0.1 %, Steinschlag +0.01 %, the rest the same; geometric mean
+the same. Code changed in all seven and in 112 of the 285 programs of `BackendOutputTest`; the
+style guide's `slow-compare-sum` 2 cycles slower on both sides.

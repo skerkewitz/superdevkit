@@ -80,7 +80,7 @@ class NarrowTest {
         // (x - 16) >> 3: x - 16 can be below -32768, so 16 bits would give a different result
         assertEquals("""
                 %0 = sext i16 %x to i32
-                %1 = sub i32 %0, 16
+                %1 = add i32 %0, -16
                 %2 = ashr i32 %1, 3
                 %3 = trunc i32 %2 to i16
                 ret i16 %3
@@ -147,7 +147,7 @@ class NarrowTest {
         assertEquals("""
                 %0 = cmp sge i16 %d, 1
                 br %0, b1, b2
-                %1 = sub i16 %x, 64
+                %1 = add i16 %x, -64
                 jump b3
                 %2 = add i16 %x, 64
                 jump b3
@@ -181,7 +181,7 @@ class NarrowTest {
                 %0 = cmp slt i16 %sy, 16
                 br %0, b1, b2
                 ret i16 0
-                %1 = sub i16 %sy, 16
+                %1 = add i16 %sy, -16
                 %2 = lshr i16 %1, 3
                 ret i16 %2
                 """, optimize("""

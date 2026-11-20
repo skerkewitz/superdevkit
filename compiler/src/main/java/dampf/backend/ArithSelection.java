@@ -50,10 +50,10 @@ final class ArithSelection {
                 || b.op(0) instanceof Instr x && !stored(x) || !sel.operand(b.op(0), 0).equals(sel.dest(b, 0))) {
             return null;
         }
-        long c = b.type().signed(k.bits());
-        if (b.op == Instr.BinOp.SUB) {
-            c = -c;
+        if (b.op != Instr.BinOp.ADD) {
+            return null;   // canonical (Simplify): x - c is x + (-c)
         }
+        long c = b.type().signed(k.bits());
         String m = c == 1 ? "inc" : c == -1 ? "dec" : null;
         if (m != null && b.type() == MType.I8 && sel.masked.contains(b)) {
             // a clean result: an 8-bit INC/DEC keeps the high byte, which must be 0 already

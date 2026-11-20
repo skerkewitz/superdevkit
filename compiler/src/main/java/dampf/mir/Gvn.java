@@ -131,6 +131,11 @@ public final class Gvn {
         }
     }
 
+    private static boolean commutative(Instr i) {
+        return i instanceof Instr.Bin b && commutative(b.op)
+                || i instanceof Instr.Cmp c && (c.pred == Instr.Pred.EQ || c.pred == Instr.Pred.NE);
+    }
+
     private static boolean commutative(Instr.BinOp op) {
         return switch (op) {
             case ADD, MUL, AND, OR, XOR -> true;
@@ -151,6 +156,10 @@ public final class Gvn {
             return;   // two undefs need not be the same value
         }
         Value known = exprs.get(k);
+        if (known == null && k.operands().size() == 2 && commutative(i)) {
+            // a + b is b + a (the constant of one is on the right already, see key)
+            known = exprs.get(new ExprKey(k.what(), k.type(), List.of(k.operands().get(1), k.operands().get(0))));
+        }
         if (known != null) {
             replaced.put(i, known);
         } else {

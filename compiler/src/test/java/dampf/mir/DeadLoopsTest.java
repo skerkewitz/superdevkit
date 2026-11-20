@@ -55,7 +55,7 @@ class DeadLoopsTest {
         assertTrue(removes(loop("i16", "ult", 10, 1, "    %9 = mul i16 %0, 3")));   // a result nobody reads
         assertTrue(removes(loop("i8", "ult", 255, 1, "")));                       // 255 + 1 - 1 fits a byte
         assertTrue(removes(loop("i16", "ne", 7, 3, "")));                         // an odd step meets 7
-        assertTrue(removes(loop("i16", "sgt", -100, -2, "")));                    // counting down, signed
+        assertTrue(removes(loop("i16", "sge", -99, -2, "")));                     // counting down, signed (canonical: no sgt)
         assertTrue(removes(loop("i16", "uge", 4, -1, "")));
     }
 

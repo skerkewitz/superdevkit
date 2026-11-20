@@ -12,6 +12,21 @@ import java.util.Map;
  * {@code x & -1}, {@code x - x}, ... are simplified, branches on constants become jumps, blocks
  * that can no longer be reached go, φs whose operands are all the same value become that
  * value, and a block that only one block jumps to is merged into it.
+ *
+ * <p>It also writes every instruction in one <b>canonical form</b>, so that a later pass has
+ * to know one spelling (docs/current-compiler-flaws.md, flaw C). After it, and so after the
+ * optimizer, which runs it first in every round:
+ * <ul>
+ * <li>C1: no {@code sub x, c} with a constant c: it is {@code add x, -c} (a loop counting down
+ *     is stepped by an add, like one counting up).</li>
+ * <li>C2: a commutative operation ({@code add mul and or xor}) has a constant on the right.</li>
+ * <li>C3: a comparison with a constant has it on the right and is one of {@code eq ne ult uge
+ *     slt sge}: {@code x > c} is {@code x >= c + 1}, {@code x <= c} is {@code x < c + 1};
+ *     {@code x >=u 1} is {@code x != 0}, {@code x <u 1} is {@code x == 0}, and the same for the
+ *     signed least value; one whose outcome the type decides ({@code x >u 65535},
+ *     {@code x >=s -32768}) is that constant.</li>
+ * </ul>
+ * Passes may rely on these: none handles the forms they exclude.
  */
 public final class Simplify {
     private final Map<Instr, Value> replaced = new HashMap<>();
@@ -313,6 +328,10 @@ public final class Simplify {
                 default -> { }
             }
         }
+        if (b.op == Instr.BinOp.SUB && y instanceof Value.Const k) {
+            // C1: x - c is x + (-c)
+            return insert(b, new Instr.Bin(Instr.BinOp.ADD, x, new Value.Const(t, t.wrap(-k.bits())), b.pos()));
+        }
         if (x instanceof Value.Const k && k.bits() == 0) {
             switch (b.op) {
                 case ADD, OR, XOR -> {
@@ -335,7 +354,18 @@ public final class Simplify {
                 default -> { }
             }
         }
+        if (x instanceof Value.Const && commutative(b.op)) {
+            // C2: the constant on the right
+            return insert(b, new Instr.Bin(b.op, y, x, b.pos()));
+        }
         return null;
+    }
+
+    static boolean commutative(Instr.BinOp op) {
+        return switch (op) {
+            case ADD, MUL, AND, OR, XOR -> true;
+            default -> false;
+        };
     }
 
     /** ptradd p, 0 is p; ptradd (ptradd p, a), b with constants is ptradd p, a + b. */
@@ -379,10 +409,12 @@ public final class Simplify {
     }
 
     /**
-     * A comparison with a constant, written as {@code x < c} or {@code x >= c} with the constant
-     * on the right (the code generator compares a value with a constant immediate most cheaply):
+     * C3: a comparison with a constant has it on the right and is one of eq, ne, ult, uge, slt,
+     * sge (the code generator compares with a constant immediate and branches on one flag):
      * {@code c < x} is {@code x > c}, {@code x > c} is {@code x >= c + 1}, {@code x <= c} is
-     * {@code x < c + 1}, as long as c + 1 does not overflow.
+     * {@code x < c + 1}; then {@code x >= least + 1} is {@code x != least} and {@code x < least + 1}
+     * is {@code x == least} (least: 0 unsigned, the type's minimum signed). A comparison the
+     * type decides is that truth value.
      */
     private static Value canonical(Instr.Cmp c) {
         Value x = c.op(0);
@@ -398,31 +430,55 @@ public final class Simplify {
             return x == c.op(0) ? null : insert(c, new Instr.Cmp(p, x, y, c.pos()));
         }
         MType t = x.type();
-        long s = t.signed(k.bits());
-        long u = k.bits();
-        long smax = (1L << (t.bits() - 1)) - 1;
-        long umax = (1L << t.bits()) - 1;
-        Instr.Pred q = null;
-        long next = 0;
+        boolean signed = p == Instr.Pred.SLT || p == Instr.Pred.SLE || p == Instr.Pred.SGT || p == Instr.Pred.SGE;
+        long v = signed ? t.signed(k.bits()) : k.bits();
+        long max = signed ? (1L << (t.bits() - 1)) - 1 : (1L << t.bits()) - 1;
+        long least = signed ? -(1L << (t.bits() - 1)) : 0;
+        // x > c and x <= c with c + 1 when it exists; at the maximum the type decides
         switch (p) {
-            case SGT, SLE -> {
-                if (s < smax) {
-                    q = p == Instr.Pred.SGT ? Instr.Pred.SGE : Instr.Pred.SLT;
-                    next = s + 1;
+            case SGT, UGT -> {
+                if (v == max) {
+                    return truth(false);
+                }
+                p = p == Instr.Pred.SGT ? Instr.Pred.SGE : Instr.Pred.UGE;
+                v++;
+            }
+            case SLE, ULE -> {
+                if (v == max) {
+                    return truth(true);
+                }
+                p = p == Instr.Pred.SLE ? Instr.Pred.SLT : Instr.Pred.ULT;
+                v++;
+            }
+            default -> { }
+        }
+        // against the least value and the one after it
+        switch (p) {
+            case SGE, UGE -> {
+                if (v == least) {
+                    return truth(true);
+                }
+                if (v == least + 1) {
+                    p = Instr.Pred.NE;
+                    v = least;
                 }
             }
-            case UGT, ULE -> {
-                if (u < umax) {
-                    q = p == Instr.Pred.UGT ? Instr.Pred.UGE : Instr.Pred.ULT;
-                    next = u + 1;
+            case SLT, ULT -> {
+                if (v == least) {
+                    return truth(false);
+                }
+                if (v == least + 1) {
+                    p = Instr.Pred.EQ;
+                    v = least;
                 }
             }
             default -> { }
         }
-        if (q != null) {
-            return insert(c, new Instr.Cmp(q, x, new Value.Const(t, next), c.pos()));
+        Value.Const nk = new Value.Const(t, t.wrap(v));
+        if (x == c.op(0) && p == c.pred && nk.bits() == k.bits()) {
+            return null;
         }
-        return x == c.op(0) ? null : insert(c, new Instr.Cmp(p, x, y, c.pos()));
+        return insert(c, new Instr.Cmp(p, x, nk, c.pos()));
     }
 
     private static Instr insert(Instr at, Instr i) {

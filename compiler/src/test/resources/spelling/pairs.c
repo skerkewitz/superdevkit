@@ -6,7 +6,7 @@
  * gap: pairs_i16 R1 widening throws away the lower bound: signed compares, 24-bit pointers
  * gap: pairs_hoisted L4 as pairs_u16
  * gap: pairs_ptr C6 the pointers are compared as 32-bit values: b is computed every inner round, and the indexes into xs come on top
- * gap: pairs_down C1 j-- is a sub, every loop pattern wants an add
+ * gap: pairs_down L3 the inner counter goes down to a variable bound (j > i), which no loop pattern takes
  */
 #include <stdint.h>
 

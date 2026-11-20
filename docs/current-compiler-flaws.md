@@ -318,6 +318,13 @@ they handle today are deleted in the same step (search for `BinOp.SUB` in `Induc
   Insert the blocks where they are missing, in one place (`Loops` or a `LoopForm` pass), instead
   of each pass checking and giving up.
 
+Built (2026-11-20): C1 to C3 in `Simplify`, whose class comment is the definition of the form,
+and `SimplifyTest`. C2's second half is in `Gvn` instead (it finds `b + a` as `a + b`), since
+reordering the operands themselves changes which one selection hands on in A. The gain is small
+([log](optimizations-log.md#a-canonical-form-for-arithmetic-and-comparisons-2026-11-20-on-the-spelling-families-and-the-examples)):
+`i - 1` and `i--` became one instruction, which the X pattern refuses (a step with two users),
+so `g`, `h` and `m` wait for L.
+
 - **C9.** A `ptradd` of a `ptradd` of a global or a slot is one `ptradd` with the sum of the
   offsets: `t[r][c]` is `ptradd (ptradd @t, r * 16), c` today, so the row's pointer is computed
   every inner round and read as `[dp],y`, where `@t + (r * 16 + c)` is an index in X

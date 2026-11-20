@@ -91,10 +91,10 @@ public final class RangeChecks {
             a.insertBefore(old, and);
             check = new Instr.Cmp(Instr.Pred.EQ, and, new Value.Const(t, lo), old.pos());
         } else {
-            // (x - lo) <u count
+            // (x + -lo) <u count (canonical: no x - lo)
             Value v = ta.x;
             if (lo != 0) {
-                Instr.Bin sub = new Instr.Bin(Instr.BinOp.SUB, v, new Value.Const(t, lo), old.pos());
+                Instr.Bin sub = new Instr.Bin(Instr.BinOp.ADD, v, new Value.Const(t, t.wrap(-lo)), old.pos());
                 a.insertBefore(old, sub);
                 v = sub;
             }
@@ -148,16 +148,17 @@ public final class RangeChecks {
                 return new Test(x, kc.bits(), kc.bits(), inside);
             }
             case ULT, UGE -> {
-                // (y - lo) <u n: y in [lo, lo + n - 1], or y itself (lo = 0)
+                // (y + -lo) <u n: y in [lo, lo + n - 1], or y itself (lo = 0)
                 if (cmp.op(1) != k || kc.bits() == 0) {
                     return null;
                 }
                 long n = kc.bits();
                 boolean inside = cmp.pred == Instr.Pred.ULT;
-                if (x instanceof Instr.Bin s && s.op == Instr.BinOp.SUB && s.op(1) instanceof Value.Const l
+                if (x instanceof Instr.Bin s && s.op == Instr.BinOp.ADD && s.op(1) instanceof Value.Const l
                         && !(s.op(0) instanceof Value.Const)) {
-                    long hi = l.bits() + n - 1;
-                    return hi < 1L << x.type().bits() ? new Test(s.op(0), l.bits(), hi, inside) : null;
+                    long lo = x.type().wrap(-l.bits());
+                    long hi = lo + n - 1;
+                    return hi < 1L << x.type().bits() ? new Test(s.op(0), lo, hi, inside) : null;
                 }
                 return new Test(x, 0, n - 1, inside);
             }

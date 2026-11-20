@@ -134,7 +134,7 @@ The worst case of each function in CPU cycles, from the timing report; "is" is t
 test checks ("same": within 5 %).
 
 <!-- measurements: written by StyleGuideTest -->
-Measured 2026-11-19 (worst case of the timing report, code generator from MIR).
+Measured 2026-11-20 (worst case of the timing report, code generator from MIR).
 
 | Rule | This | CPU cycles | is | than this | CPU cycles |
 | --- | --- | ---: | --- | --- | ---: |
@@ -147,7 +147,7 @@ Measured 2026-11-19 (worst case of the timing report, code generator from MIR).
 | `same-multiply-width` | `multiply_bytes` | 417 | same | `multiply_words` | 411 |
 | `same-named-temporary` | `with_temporary` | 45 | same | `inline_expression` | 45 |
 | `slow-32-bit` | `xor_32` | 84 | slower | `xor_16_halves` | 36 |
-| `slow-compare-sum` | `compare_sum` | 162 | slower | `compare_sum_narrowed` | 96 |
+| `slow-compare-sum` | `compare_sum` | 164 | slower | `compare_sum_narrowed` | 98 |
 | `slow-divide-variable` | `divide_variables` | 816 | slower | `divide_constant` | 17 |
 | `slow-hand-shifts` | `times_40_by_shifts` | 45 | slower | `times_40` | 31 |
 | `slow-index-list` | `pairs_by_list` | 23,186 | slower | `pairs_by_counter` | 15,590 |

@@ -137,18 +137,13 @@ public final class DeadLoops {
 
     /**
      * Whether the loop ends: it stays while {@code cmp} is {@code staysIfTrue}, and cmp compares a
-     * counter of the head (or the counter after its step) with a constant.
+     * counter of the head (or the counter after its step) with a constant, in the canonical form
+     * (Simplify: the constant on the right, eq ne ult uge slt sge, which negation keeps).
      */
     private static boolean ends(Instr.Cmp cmp, boolean staysIfTrue, Loops.Loop loop) {
         Instr.Pred pred = staysIfTrue ? cmp.pred : negate(cmp.pred);
         Value a = cmp.op(0);
         Value b = cmp.op(1);
-        if (a instanceof Value.Const) {
-            Value t = a;
-            a = b;
-            b = t;
-            pred = swap(pred);
-        }
         if (!(b instanceof Value.Const n) || !(a instanceof Instr counter)) {
             return false;
         }
@@ -170,14 +165,12 @@ public final class DeadLoops {
         return switch (pred) {
             case NE -> (c & 1) != 0;
             case ULT -> c > 0 && un + c - 1 <= umax;
-            case ULE -> c > 0 && un + c <= umax;
-            case UGT -> c < 0 && un - (-c) + 1 >= 0;
             case UGE -> c < 0 && un - (-c) >= 0;
             case SLT -> c > 0 && sn + c - 1 <= smax;
-            case SLE -> c > 0 && sn + c <= smax;
-            case SGT -> c < 0 && sn + c + 1 >= smin;
             case SGE -> c < 0 && sn + c >= smin;
-            default -> false;   // EQ: stays while the counter equals N, which a step leaves at once or never
+            // EQ: stays while the counter equals N, which a step leaves at once or never; the
+            // others are not canonical, and not proved to end
+            default -> false;
         };
     }
 
@@ -216,17 +209,12 @@ public final class DeadLoops {
         return step;
     }
 
-    /** c if v is phi + c or phi - c (c a constant), else null. */
+    /** c if v is phi + c (c a constant; canonical, so no phi - c), else null. */
     private static Long constantStep(Instr.Phi phi, Value v) {
-        if (!(v instanceof Instr.Bin b) || b.op(0) != phi || !(b.op(1) instanceof Value.Const k)) {
+        if (!(v instanceof Instr.Bin b) || b.op != Instr.BinOp.ADD || b.op(0) != phi || !(b.op(1) instanceof Value.Const k)) {
             return null;
         }
-        long c = phi.type().signed(k.bits());
-        return switch (b.op) {
-            case ADD -> c;
-            case SUB -> -c;
-            default -> null;
-        };
+        return phi.type().signed(k.bits());
     }
 
     private static Instr.Pred negate(Instr.Pred p) {
@@ -244,18 +232,4 @@ public final class DeadLoops {
         };
     }
 
-    /** The predicate with its operands swapped: a &lt; b is b &gt; a. */
-    private static Instr.Pred swap(Instr.Pred p) {
-        return switch (p) {
-            case EQ, NE -> p;
-            case ULT -> Instr.Pred.UGT;
-            case ULE -> Instr.Pred.UGE;
-            case UGT -> Instr.Pred.ULT;
-            case UGE -> Instr.Pred.ULE;
-            case SLT -> Instr.Pred.SGT;
-            case SLE -> Instr.Pred.SGE;
-            case SGT -> Instr.Pred.SLT;
-            case SGE -> Instr.Pred.SLE;
-        };
-    }
 }

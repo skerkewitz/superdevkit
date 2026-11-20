@@ -4,13 +4,13 @@
  * type, direction, test and loop form. The appendix of docs/current-compiler-flaws.md.
  * gap: c_i16_lt100 R1 widening throws away the lower bound: signed compare, 24-bit pointer
  * gap: d_u8_ne100 L2 != gives the range analysis no bound, so the byte counter "might wrap"
- * gap: g_u16_down C1 the step is a sub, every loop pattern wants an add; 24-bit pointer
- * gap: h_u8_down C1 as g_u16_down, with an 8-bit DEC between SEP and REP
+ * gap: g_u16_down L2,L3 i != 0 gives the range analysis no bound, so i - 1 is no index (24-bit pointer); i - 1 is also the step, and the X pattern wants a step with one user
+ * gap: h_u8_down L2,C5 i != 0 gives the range analysis no bound; the byte counter's index is computed in 16 bits beside it
  * gap: i_u16_dowhile L3 the test reads the stepped value, the X pattern wants the phi
  * gap: j_u16_var_bound C7 the global bound is loaded every round; index not proved below 32 KB
  * gap: k_u8_var_bound C7 the global bound is loaded every round
  * gap: l_u16_local_bound R3 index not proved below 32 KB, so a 24-bit pointer
- * gap: m_u16_from1 C1 the index is i - 1, the X pattern wants i itself
+ * gap: m_u16_from1 L4 the index is i - 1, the X pattern wants i itself
  * gap: n_u16_ne100 L2 != gives the range analysis no bound
  * gap: x_ptr_walk L5 two counters that always hold the same value, both kept
  * gap: y_ptr_end C6 the pointers are compared as 32-bit values every round
