@@ -385,10 +385,13 @@ every round. Found by the spelling test: `fill_u16` costs 1,945 cycles as a func
 inlined, `pairs_u16` 29,523 inlined. Every small function with such a loop that dampf inlines is
 affected, in the examples too.
 
-Fix: copy `known` with the φ (one line; tried on 2026-11-20 and not kept: `fill_u16` inlined
-1,945, `pairs_u16` 21,411; 18 of the 90 members of the spelling families faster, `pairs_ptr` 3 %
-slower, which the step has to explain). Test: an `InlineTest` case where the callee's φ has
-`known` and the copy keeps it, and the spelling gaps marked R4.
+Fix: copy `known` with the φ. Test: an `InlineTest` case where the callee's φ has `known` and
+the copy keeps it, and the spelling gaps marked R4.
+
+Built (2026-11-20, [log](optimizations-log.md#ranges-kept-when-inlining-2026-11-20-on-the-spelling-families-and-the-examples)):
+18 of the 90 spelling members faster, none of the gaps closed alone (each has a second cause,
+mostly L4 or L5), `pairs_ptr` 3.4 % slower until C6; the examples 0.4 % faster on the geometric
+mean.
 
 ## Flaw L: four passes recognise loops, each differently
 

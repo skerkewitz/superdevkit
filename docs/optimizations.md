@@ -21,15 +21,18 @@ perfect assembly.
 Since 2026-11-19 dampf is measured on its examples: `dev/bench_examples.sh` gives the work per
 tick of each (master cycles without the main loop's waiting; it counts a frame as 262 lines of
 1,364, 357,368) and compares a
-change with a baseline on all of them ([testing.md](testing.md)). Code from MIR, FastROM:
+change with a baseline on all of them ([testing.md](testing.md)). Code from MIR, FastROM, measured
+on 2026-11-20:
 
 | Example | Work per tick, average | Busiest 60 ticks | In dampf's runtime |
 | --- | --- | --- | --- |
-| Er-Tüp | 152,423 | 291,129 | 2.6 % |
-| Schach | 415,317 | 589,575 | 1.0 % |
-| Steinschlag | 110,616 | 194,152 | 1.0 % |
-| Mandelbrot | 247,208 | 317,282 | 81.4 % |
-| Catchme | 51,523 | 159,723 | 19.1 % |
+| Er-Tüp | 150,135 | 285,123 | 2.6 % |
+| Schach | 417,574 | 591,501 | 1.0 % |
+| Steinschlag | 111,785 | 197,010 | 1.0 % |
+| Mandelbrot | 247,521 | 317,594 | 81.3 % |
+| Catchme | 52,215 | 154,739 | 18.8 % |
+| Hello | 60,916 | 62,016 | 65.9 % |
+| Mode 7 | 27,211 | 27,462 | 68.0 % |
 
 The naive code generator does 3.0 times the work on the geometric mean of all seven examples, from
 1.26 times (Mandelbrot, whose time is the runtime's 32-bit multiplication) to 6.4 times (Er-Tüp).
@@ -134,7 +137,10 @@ allowed (the platform layer uses them); this form does not need the rule against
 - Inlining larger functions with a single call site (2026-11-18): raising that limit from 150
   instructions to 200 made play slower (290,433 → 294,651 master clocks per tick), to 400 slower
   still (297,979), although no call is copied. Why is not clear: every frame access of the play
-  ticks still goes to the direct page. The limit for a single call site stays at 150.
+  ticks still goes to the direct page. The limit for a single call site stays at 150. A candidate
+  cause, found on 2026-11-20: inlining dropped the range of a loop's derived index variable, so
+  an inlined loop indexed through a 24-bit pointer ([log](optimizations-log.md#ranges-kept-when-inlining-2026-11-20-on-the-spelling-families-and-the-examples));
+  not measured again, since the game's code is no longer here.
 - `PointerRemat` for φ uses (2026-11-18): `best = v` in a loop keeps `v` computed in every round.
   Copying the chain to the end of the predecessor instead, with the condition that the chain
   then folds away completely (else the copy comes on top), made play slower (286,947 → 288,149

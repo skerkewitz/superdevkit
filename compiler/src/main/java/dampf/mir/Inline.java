@@ -223,6 +223,10 @@ public final class Inline {
             case Instr.Call x -> new Instr.Call(x.callee, x.type(), x.operands(), x.pos());
             case Instr.Phi x -> {
                 Instr.Phi p = new Instr.Phi(x.type(), x.pos());
+                // the copy takes the same values, so what a pass knew of them still holds (an
+                // induction variable's range: without it, the inlined loop indexes with a 24-bit
+                // pointer); a range that depends on a parameter's holds for every call site
+                p.known = x.known;
                 for (int k = 0; k < x.from.size(); k++) {
                     p.add(blocks.get(x.from.get(k)), x.op(k));
                 }

@@ -4,8 +4,8 @@
  * pointer.
  * gap: copy_i16 R1 widening throws away the lower bound: signed compare, 24-bit pointers
  * gap: copy_down C1 the step is a sub, every loop pattern wants an add
- * gap: copy_ptr R4,L5 the pointers' offsets lose their range when inlined; three counters with one start and step
- * gap: copy_ptr_end C6 the pointers are compared as 32-bit values; offsets lose their range when inlined (R4)
+ * gap: copy_ptr L5 three counters with one start and step (the two pointers' offsets and n)
+ * gap: copy_ptr_end C6 the pointers are compared as 32-bit values every round
  * gap: copy_while_n C1,L5 n-- is a sub; the pointers and n are counters with one start and step
  */
 #include <stdint.h>

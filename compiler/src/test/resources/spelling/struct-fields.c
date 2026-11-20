@@ -2,12 +2,12 @@
  * tolerance: 10
  * Two fields of every element moved: of an array of structs by index and by pointer, and of one
  * array per field. The style guide's fast-array-per-field.
- * gap: struct_u16 R4,L4 the derived offset loses its range when inlined; the counter is kept beside it; then the stride (split)
+ * gap: struct_u16 L4 the counter is kept beside the derived offset; then the stride (split)
  * gap: struct_u8 split a stride of 5 bytes takes TXA ADC TAX where the field arrays take INX INX: only splitting the array (roadmap M9 row 4) closes it
  * gap: struct_ptr C6 the pointers are compared as 32-bit values every round
- * gap: struct_ptr_count R4,L5 the pointer's offset loses its range when inlined; it and the counter have one start and step
+ * gap: struct_ptr_count L5 the pointer's offset and the counter have one start and step
  * gap: struct_down C1 the step is a sub, every loop pattern wants an add
- * gap: fields_u16 R4,L4 the derived offset loses its range when inlined; the counter is kept beside it
+ * gap: fields_u16 L4 the counter is kept beside the derived offset
  */
 #include <stdint.h>
 

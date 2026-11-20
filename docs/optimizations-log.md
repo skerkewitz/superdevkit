@@ -981,3 +981,27 @@ B gains little: its caller loads the index from the list and multiplies it there
 arrays of different sizes, so their parameters stay bytes. The examples are the same (none passes
 an index into an array of structs to a function that is not inlined).
 
+## Ranges kept when inlining (2026-11-20, on the spelling families and the examples)
+
+`Induction` replaces `i * C` by a variable stepped by C and gives its φ the range it knows
+(`Instr.Phi.known`), so the code generator indexes with X. `Inline` copied a φ without that
+field, and the passes do not derive it again, so an inlined loop computed a 24-bit pointer every
+round ([current-compiler-flaws.md](current-compiler-flaws.md#r4-inlining-drops-the-range-of-a-derived-variable),
+R4, found by the spelling test). The copy keeps it now.
+
+The spelling families (CPU cycles of one call, inlined): `fill_u16` 3,930 → 1,945, `pairs_u16`
+29,523 → 21,411, `struct_u16` 2,970 → 1,881, `fields_u16` 3,610 → 1,721; 18 of 90 members
+faster. `pairs_ptr` 30,417 → 31,437 (+3.4 %): its pointers are compared as 32-bit values, so the
+pointer is computed every inner round anyway and the X and Y indexes now come on top of it; C6
+removes the pointer.
+
+| | Before | After |
+| --- | ---: | ---: |
+| A counter, struct array | 193,421 | 191,409 (-1.0 %) |
+| B sorted list, struct array | 211,955 | 209,197 (-1.3 %) |
+| C counter, one array per field | 187,116 | 187,116 |
+| D sorted list, one array per field | 196,866 | 195,624 (-0.6 %) |
+
+The examples (`dev/bench_examples.sh`): Er-Tüp -1.6 %, Hello -0.7 %, CatchMe -0.5 %, Steinschlag
+-0.2 %, Schach, Mandelbrot and Mode 7 the same; geometric mean -0.4 %. Their code changed in all
+seven, and in 4 execution programs (`BackendOutputTest`, 31 hashes).

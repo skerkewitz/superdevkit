@@ -2,6 +2,7 @@ package dampf.mir;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -81,5 +82,42 @@ class InlineTest {
         assertFalse(count.contains("call"), count);
         assertEquals(5, run(plain));
         assertEquals(5, run(inlined));
+    }
+
+    @Test
+    void anInlinedPhiKeepsTheRangeAPassKnewOfIt() {
+        // what Induction leaves: the offset 2 * i stepped by 2, with the range it knows
+        MModule m = MirParser.parse("""
+                global @_w : 128
+
+                func @_fill() -> void {
+                b0_entry:
+                    jump b1
+                b1:
+                    %0 = phi i16 [b0_entry, 0], [b2, %3]
+                    %1 = cmp ult i16 %0, 128
+                    br %1, b2, b3
+                b2:
+                    %2 = ptradd @_w, i16 %0
+                    store i16 %2, 3073
+                    %3 = add i16 %0, 2
+                    jump b1
+                b3:
+                    ret
+                }
+
+                func @_main() -> void {
+                b0_entry:
+                    call void @_fill()
+                    ret
+                }
+                """);
+        Instr.Phi offset = (Instr.Phi) m.function("_fill").blocks().get(1).instrs().getFirst();
+        offset.known = new Ranges.Range(0, 128);
+        assertTrue(Inline.run(m));
+        List<Instr.Phi> copies = m.function("_main").blocks().stream().flatMap(b -> b.instrs().stream())
+                .filter(i -> i instanceof Instr.Phi).map(i -> (Instr.Phi) i).toList();
+        assertEquals(1, copies.size(), Printer.print(m.function("_main")));
+        assertEquals(new Ranges.Range(0, 128), copies.getFirst().known);
     }
 }
