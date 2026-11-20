@@ -33,8 +33,10 @@ final class PcReference {
         // the sanitized build finds undefined behaviour (it must run without a report); the values
         // come from a plain build, since gcc's -fsanitize=bounds itself miscompiles some code
         // (gcc 16.2.1: a[i] ^= (... ? ... : a[i]) gets a wrong index or value; clang and gcc without
-        // the bounds check agree with dampf; found by RandomLoopProgram, seed 1157)
-        exec(workDir, "gcc", "-std=c99", "-O1", "-Wall", "-fsanitize=undefined", "-fno-sanitize-recover=all",
+        // the bounds check agree with dampf; found by RandomLoopProgram, seed 1157). Optimized, the
+        // same code also gives a false report (a[i] -= (... ? a[i] : ...) "out of bounds" with an
+        // index the program never computes, seed 15241), so the sanitized build is not optimized.
+        exec(workDir, "gcc", "-std=c99", "-O0", "-Wall", "-fsanitize=undefined", "-fno-sanitize-recover=all",
                 "-idirafter", include, "-o", checked.toString(), c.toString());
         exec(workDir, checked.toString());
         exec(workDir, "gcc", "-std=c99", "-O1", "-Wall", "-idirafter", include, "-o", exe.toString(), c.toString());
