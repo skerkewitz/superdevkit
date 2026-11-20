@@ -437,7 +437,63 @@ public final class Simplify {
                 return truth(true);
             }
         }
+        if (x.type() == MType.PTR) {
+            Value offsets = offsets(c);
+            if (offsets != null) {
+                return offsets;
+            }
+        }
         return canonical(c);
+    }
+
+    /**
+     * C6: two addresses in the same global or frame slot compare as their 16-bit offsets,
+     * unsigned: C lets a pointer point into its object or one past it, so both offsets lie in
+     * 0..size ({@code p < data + 100} with p = data + i is {@code i < 100}). Null if they are not
+     * of one such object, or the comparison is a signed one.
+     */
+    private static Value offsets(Instr.Cmp c) {
+        if (switch (c.pred) {
+            case SLT, SLE, SGT, SGE -> true;
+            default -> false;
+        }) {
+            return null;
+        }
+        List<Value> a = new ArrayList<>();
+        List<Value> b = new ArrayList<>();
+        Value ba = base(c.op(0), a);
+        Value bb = base(c.op(1), b);
+        if (ba == null || bb == null || !ba.equals(bb) || !(ba instanceof Value.GlobalAddr || ba instanceof Value.SlotAddr)) {
+            return null;
+        }
+        return insert(c, new Instr.Cmp(c.pred, sum(a, c), sum(b, c), c.pos()));
+    }
+
+    /** The base of a chain of ptradds with 16-bit offsets, the offsets added to {@code offsets}; null if one is wider. */
+    private static Value base(Value v, List<Value> offsets) {
+        while (v instanceof Instr.PtrAdd p) {
+            if (p.op(1).type() != MType.I16) {
+                return null;
+            }
+            offsets.add(p.op(1));
+            v = p.op(0);
+        }
+        return v;
+    }
+
+    /** The sum of 16-bit offsets, before {@code at}: the constants folded. */
+    private static Value sum(List<Value> offsets, Instr at) {
+        long k = 0;
+        Value s = null;
+        for (Value v : offsets) {
+            if (v instanceof Value.Const c) {
+                k += c.bits();
+            } else {
+                s = s == null ? v : insert(at, new Instr.Bin(Instr.BinOp.ADD, s, v, at.pos()));
+            }
+        }
+        Value kc = new Value.Const(MType.I16, MType.I16.wrap(k));
+        return s == null ? kc : MType.I16.wrap(k) == 0 ? s : insert(at, new Instr.Bin(Instr.BinOp.ADD, s, kc, at.pos()));
     }
 
     /**

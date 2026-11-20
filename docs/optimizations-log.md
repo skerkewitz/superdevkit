@@ -1305,3 +1305,18 @@ The examples: Er-Tüp -0.5 %, Schach -0.4 %, CatchMe and Steinschlag -0.1 %, the
 geometric mean -0.2 %. Code changed in all seven examples and in 28 programs of
 `BackendOutputTest`; `sdevkit_sfx_play` one cycle cheaper at worst.
 
+## Pointers in one object compare as offsets (2026-11-20, on the spelling families)
+
+`for (p = data; p < data + 100; p++)` compared two 24-bit pointers every round, as 32-bit values.
+Two addresses in the same global or frame slot now compare as their 16-bit offsets, unsigned:
+C lets a pointer point into its object or one past it, so both lie in 0..size
+([current-compiler-flaws.md](current-compiler-flaws.md#flaw-c-the-mir-has-no-canonical-form),
+C6). `PointerOffsets` has made the walked pointer an offset already, so the loop is then a counter
+loop like any other.
+
+The spelling families: the seven C6 gaps closed. `y_ptr_end` 6,989 → 2,538, `copy_ptr_end`
+6,968 → 2,517, `fill_ptr_end` 4,228 → 1,233, `flat_ptr` 8,921 → 3,238, `find_ptr` 7,266 → 3,352,
+`pairs_ptr` 31,437 → 16,115 (now the cheapest pair loop), `struct_ptr` 2,948 → 1,521 (the stride
+is left, as for `struct_u16`). No example compares pointers: their code is the same, as are the
+pair loops; code changed in one program of `BackendOutputTest`.
+

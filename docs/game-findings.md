@@ -24,8 +24,8 @@ What the game would change: nothing it must. Where code was bent to follow those
 byte only for speed), write what reads best; the type of a stored value only matters for memory
 now. Measure with the timing report, as before.
 
-Still slower, so keep avoiding these (gaps that remain, measured on a loop over 100 bytes):
-ending a loop by comparing two pointers (`for (p = a; p < a + n; p++)`: up to three times the
-cycles, index instead); a bound in a global (`i < count`: 2.6 times; a local copy of it 2.2
-times, as the index is then not known to stay below 32,768); for both a `DAMPF_RANGE` on the
-bound or the index helps (`fast-range-index`).
+Ending a loop by comparing pointers (`for (p = a; p < a + n; p++)`) and a bound in a global
+(`i < count`) now cost what the counter does too. Still slower: a bound the compiler cannot
+prove keeps the index below 32,768 (`i < n` with any `n`: 2.2 times the cycles on a loop over
+100 bytes, through a 24-bit pointer); a `DAMPF_RANGE` on the bound or the index helps
+(`fast-range-index`).

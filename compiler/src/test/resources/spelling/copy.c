@@ -2,7 +2,6 @@
  * tolerance: 10
  * One byte array copied into another, by index with every counter type, up and down, and by
  * pointer.
- * gap: copy_ptr_end C6 the pointers are compared as 32-bit values every round
  */
 #include <stdint.h>
 

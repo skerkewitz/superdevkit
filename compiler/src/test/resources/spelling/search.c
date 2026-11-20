@@ -2,7 +2,6 @@
  * tolerance: 10
  * The index of the first element equal to a key (it is at index 90): with break, with return,
  * with the test in the loop's condition, by index with every counter type and by pointer.
- * gap: find_ptr C6 the pointers are compared as 32-bit values every round
  */
 #include <stdint.h>
 

@@ -309,6 +309,9 @@ they handle today are deleted in the same step (search for `BinOp.SUB` in `Induc
   compares the offsets as unsigned 16-bit values (C's rule that a pointer stays in its object,
   which `PointerOffsets` relies on already). Where one side is a pointer φ that `PointerOffsets`
   turns into an offset, the comparison must follow. `y_ptr_end` is the test.
+  Built (2026-11-20, [log](optimizations-log.md#pointers-in-one-object-compare-as-offsets-2026-11-20-on-the-spelling-families)):
+  in `Simplify`, for addresses in one global or frame slot; with `PointerOffsets` before it, the
+  pointer φs are offsets already. The seven C6 gaps closed.
 - **C7.** `Licm` moves a load out of a loop when nothing in the loop may write what it reads:
   no store or copy that may overlap (the rules `Gvn` uses: two different globals or slots never
   overlap), no call of a function that writes memory (`Gvn.writesMemory`), not volatile. Only
@@ -708,7 +711,7 @@ slower for reasons [optimizations.md](optimizations.md#tried-and-rejected) could
 | 4 | R4 ranges kept when inlining, R1 widening by end, R2 unsigned intervals | 1 | yes | the gaps marked R4, `c_i16_lt100`, the bound cliffs, `slow-u8-counter` |
 | 5 | L1 to L3 `CountedLoops` and its users | 3, 4 | yes | `d`, `i` (done 2026-11-20: `i`, `g`, `n` and the loops counting down closed; `d` waits for C5) |
 | 6 | C5, C8, L4 to L6 | 5 | yes | `g`, `h`, `m`, `x`, `slow-u16-counter-words` (done 2026-11-20 with L4 and L5; C5 as far as L4 does it, C8 and L6 not built: no gap needs them yet) |
-| 7 | C6 pointer comparisons, C7 loads out of loops | 3 | yes | `y`, part of `j`, `k` |
+| 7 | C6 pointer comparisons, C7 loads out of loops | 3 | yes | `y`, part of `j`, `k` (done 2026-11-20: all C6 and C7 gaps; `j` waits for R3) |
 | 8 | R3 indexes from array bounds (ADR) | 4 | yes | `l`, `fast-range-index` |
 | 9 | K3 cost baseline | 1 | no | |
 | 10 | B1 typed operands and virtual places (ADR) | 2 | no | |

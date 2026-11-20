@@ -157,4 +157,20 @@ class SimplifyTest {
                 + "    %3 = zext i16 %2 to i32\n    ret i32 %3\n");
         assertTrue(s.contains("add"), s);
     }
+    @Test
+    void c6TwoAddressesInOneObjectCompareAsTheirOffsets() {
+        // p < data + 100 with p = data + i: i < 100, unsigned in 16 bits
+        String s = simplified("i16", "    %0 = and i16 %a, 255\n    %1 = ptradd @_g, i16 %0\n    %2 = ptradd @_g, i16 100\n"
+                + "    %3 = cmp ult ptr %1, %2\n    %4 = zext i1 %3 to i32\n    ret i32 %4\n", "global @_g : 256\n\n");
+        assertTrue(s.contains("cmp ult i16 %") && !s.contains("ptr %"), s);
+        // two variable offsets, one through two ptradds; equality too
+        s = simplified("i16", "    %0 = and i16 %a, 127\n    %1 = ptradd @_g, i16 %0\n    %2 = ptradd %1, i16 3\n"
+                + "    %5 = lshr i16 %a, 9\n    %6 = ptradd @_g, i16 %5\n"
+                + "    %3 = cmp eq ptr %2, %6\n    %4 = zext i1 %3 to i32\n    ret i32 %4\n", "global @_g : 256\n\n");
+        assertTrue(s.contains("cmp eq i16") && !s.contains("cmp eq ptr"), s);
+        // different objects, or a pointer of unknown target: they stay pointers
+        s = simplified("i16", "    %0 = and i16 %a, 255\n    %1 = ptradd @_g, i16 %0\n    %2 = ptradd @_h, i16 100\n"
+                + "    %3 = cmp ult ptr %1, %2\n    %4 = zext i1 %3 to i32\n    ret i32 %4\n", "global @_g : 256\nglobal @_h : 256\n\n");
+        assertTrue(s.contains("cmp ult ptr"), s);
+    }
 }

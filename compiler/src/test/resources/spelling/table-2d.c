@@ -6,7 +6,6 @@
  * gap: rows_u8 collapse as rows_u16
  * gap: rows_i16 collapse as rows_u16
  * gap: rows_ptr collapse as rows_u16
- * gap: flat_ptr C6 the pointers are compared as 32-bit values every round
  */
 #include <stdint.h>
 
