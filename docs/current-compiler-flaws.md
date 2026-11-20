@@ -494,6 +494,13 @@ Steps, each its own commit:
 Done when the gaps marked L in the spelling test are closed and `Induction`, `SelectionPlan`,
 `Timing` and `DeadLoops` contain no loop recognition of their own.
 
+Built (2026-11-20): L1, `dampf.mir.CountedLoops` as described, its class comment the
+definition. `!=` counts as `<` (`>`) when a step of 1 (-1) starts on the near side of the
+bound. `CountedLoopsTest` has the forms of the spelling families, the loops to refuse, and
+random counting loops (three shapes, every predicate, zero-extended or not, constant or ranged
+start and bound) whose claims the interpreter checks; four mutations of the arithmetic each
+made it fail.
+
 ## Flaw B: no register allocation, and places are decided before the code exists
 
 **What is wrong.** Three things, in order of weight.

@@ -43,7 +43,9 @@ passes written as MIR text (`NarrowTest`, `GvnTest`, `InlineTest`, `LicmTest`, `
 `MirTextTest` prints the MIR of every execution program and of every example, parses it back
 and checks that it verifies and prints to the same text. `StrengthReduceTest` compares every
 reduced multiplication and division with the original in the interpreter (all 8-bit inputs,
-many constants).
+many constants). `CountedLoopsTest` does the same for the loop analysis: random counting
+loops run in the interpreter, which checks the number of head runs and every counter's value
+against what the analysis claims.
 
 **Execution tests** (`ExecutionTest`) are small C programs, each on one area. Each runs on the
 PC, in the MIR interpreter before and after the passes, and as both ROMs in dampf's emulator;
