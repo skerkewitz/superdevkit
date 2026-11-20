@@ -328,13 +328,27 @@ final class FrameLayout {
     /**
      * Whether the predecessors of s can write its φs directly: the write happens before the
      * predecessor's branch, so on the way to another target the φ must not be live there (its
-     * place may then hold anything; the interference graph keeps it from what is live there).
+     * place may then hold anything; the interference graph keeps it from what is live there), and
+     * the branch must not read it.
      */
     private boolean directPhis(Block s) {
         for (Block p : s.preds()) {
             Instr t = p.terminator();
             if (t instanceof Instr.Jump) {
                 continue;
+            }
+            // the branch itself reads after the writes: not a φ of s (a loop's exit test on its
+            // counter, at the end of the latch)
+            BitSet branch = new BitSet();
+            reads(t, branch);
+            for (Instr i : s.instrs()) {
+                if (!(i instanceof Instr.Phi phi)) {
+                    break;
+                }
+                Integer x = index.get(phi);
+                if (x != null && branch.get(x)) {
+                    return false;
+                }
             }
             for (Block other : t.successors()) {
                 if (other == s) {
