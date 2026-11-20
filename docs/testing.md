@@ -77,10 +77,27 @@ member costs at most the family's `tolerance` (percent) more than its cheapest m
 change closes fails the test until its line is removed. The costs are written to
 `compiler/build/reports/spelling.txt`.
 
-**Random programs** (`RandomProgramTest`, 50 per build) run like the execution tests, without
-the block counts and without Mesen. The generator makes programs free of undefined behaviour by construction (divisors
-made odd, shift counts masked, wide arithmetic in `uint32_t`) and favours boundary values like
-−32768, where sign and overflow handling go wrong.
+**Random programs** (`RandomProgramTest`) run like the execution tests, without the block counts
+and without Mesen. Two generators make programs free of undefined behaviour by construction
+(divisors made odd, shift counts masked, wide arithmetic in `uint32_t`) and favour boundary
+values like −32768, where sign and overflow handling go wrong:
+
+- `RandomProgram` (version 1): global scalars, expressions, `if` and short loops; seeds 1 to 50
+  in every build, always the same programs.
+- `RandomLoopProgram` (version 2): what the optimizer's loop and pointer passes work on. Arrays
+  of bytes, words and a struct, and a local array; counted loops with every counter type, up
+  and down, steps 1 to 5, the tests `<`, `<=`, `>`, `>=` and `!=`, as `for`, `while` and `do`,
+  with up to 300 rounds, constant, global and local bounds, `break` and `continue`, nested,
+  pair loops; helper functions, small (inlined) and large, with pointer parameters that get
+  one array or two; pointer walks and `switch`. A loop is made from the values its counter
+  takes, so it always ends and its counter never wraps; an index is a counter shifted into the
+  array's bounds or an expression modulo its length; calls are whole statements, so no
+  result depends on the order of evaluation. 50 seeds a build, new every day
+  (`LocalDate.now().toEpochDay() * 1000` onwards).
+
+A failure names its seed and the command that runs that program alone (`-PrandomSeed=S
+-Prandom=1`); `dev/bisect_passes.sh` with that command names the pass that broke it.
+`dev/random_soak.sh` runs 5,000 of each before a release.
 
 **The examples** (`ExamplesTest`, ADR record 38) build each example in `examples/` for the SNES
 and play the input of its `check.txt` in dampf's emulator, through the kit's own main loop; where

@@ -222,6 +222,28 @@ Done when a deliberately broken pass is caught: break one condition in each of `
 that 200 random programs find each. Write the four mutations and their results into the commit
 message.
 
+Built (2026-11-20): `RandomLoopProgram`, described in
+[testing.md](testing.md#the-layers) under *Random programs*; version 1 is unchanged, and the
+loop programs run 50 seeds a day. In its first 1,250 programs it found three bugs in dampf and
+one in gcc, each fixed or worked around in a commit of its own with an execution test:
+
+- `Lower`: the SSA construction returned a φ it had just removed (a `do` loop with a `?:` in its
+  body and a variable read after it); 18 of the first 50 programs.
+- `Selection` and `RegContents`: an element of a local array (`z:dampf_frame+0,x`) counted as a
+  fixed place, so a second load with another X was left out.
+- `FrameLayout.directPhis`: a φ reading another φ through a `zext` was written directly, and
+  lost the old value.
+- gcc 16.2.1 miscompiles `a[i] ^= (... ? ... : a[i])` under `-fsanitize=bounds`; the PC values
+  now come from a build without the sanitizer, which still runs to find undefined behaviour.
+
+The mutations, each in 200 loop programs (seeds 1 to 200) and, for comparison, 200 programs of
+version 1: `Induction.step` taking a `sub` for an `add`, 8 failures (version 1: none);
+`findXCounters` without "nothing in the loop needs X", 61 (none); `PointerOffsets` dropping the
+base offset of `p + k`, 114 (none); `Inline` copying a two-way φ with its operands swapped, 46,
+all through the MIR verifier (none). A first choice for `findXCounters`, without "the stepped
+value has one user", changed the code of none of the 285 programs of `BackendOutputTest`: the
+other conditions already exclude what it guards.
+
 ### T3. Find the pass that broke a program
 
 Add a limit on pass applications: `Optimizer.run` counts every pass call that reported a change,
