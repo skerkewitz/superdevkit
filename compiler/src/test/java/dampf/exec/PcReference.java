@@ -8,9 +8,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Runs a test program on the PC: compiled by gcc with the host's own headers, with the
+ * Runs a test program on the PC: compiled by gcc with the host's own headers, once with the
  * undefined behaviour sanitizer, so a test program with undefined behaviour fails instead of
- * passing by luck. Returns the values of the given globals after the entry function returned.
+ * passing by luck, and once without it for the values. Returns the values of the given globals
+ * after the entry function returned.
  */
 final class PcReference {
     private PcReference() {}
@@ -25,11 +26,18 @@ final class PcReference {
         }
         harness.append("    return 0;\n}\n");
         Path c = workDir.resolve("pc_harness.c");
+        Path checked = workDir.resolve("pc_harness_ub");
         Path exe = workDir.resolve("pc_harness");
         Files.writeString(c, harness);
+        String include = dampf.frontend.SystemHeaders.directory().toString();
+        // the sanitized build finds undefined behaviour (it must run without a report); the values
+        // come from a plain build, since gcc's -fsanitize=bounds itself miscompiles some code
+        // (gcc 16.2.1: a[i] ^= (... ? ... : a[i]) gets a wrong index or value; clang and gcc without
+        // the bounds check agree with dampf; found by RandomLoopProgram, seed 1157)
         exec(workDir, "gcc", "-std=c99", "-O1", "-Wall", "-fsanitize=undefined", "-fno-sanitize-recover=all",
-                "-idirafter", dampf.frontend.SystemHeaders.directory().toString(),
-                "-o", exe.toString(), c.toString());
+                "-idirafter", include, "-o", checked.toString(), c.toString());
+        exec(workDir, checked.toString());
+        exec(workDir, "gcc", "-std=c99", "-O1", "-Wall", "-idirafter", include, "-o", exe.toString(), c.toString());
         String out = exec(workDir, exe.toString());
         Map<String, Long> values = new LinkedHashMap<>();
         for (String line : out.strip().split("\n")) {
