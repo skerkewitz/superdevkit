@@ -323,7 +323,9 @@ and `SimplifyTest`. C2's second half is in `Gvn` instead (it finds `b + a` as `a
 reordering the operands themselves changes which one selection hands on in A. The gain is small
 ([log](optimizations-log.md#a-canonical-form-for-arithmetic-and-comparisons-2026-11-20-on-the-spelling-families-and-the-examples)):
 `i - 1` and `i--` became one instruction, which the X pattern refuses (a step with two users),
-so `g`, `h` and `m` wait for L.
+so `g`, `h` and `m` wait for L. C1 also brought a miscompilation, found by the random loop
+programs and fixed in its own commit: `c--` on a byte became `c + -1`, which the code generator
+found clean without a mask (`ADC #$00FF`) and then stepped with a 16-bit `DEC`.
 
 - **C9.** A `ptradd` of a `ptradd` of a global or a slot is one `ptradd` with the sum of the
   offsets: `t[r][c]` is `ptradd (ptradd @t, r * 16), c` today, so the row's pointer is computed

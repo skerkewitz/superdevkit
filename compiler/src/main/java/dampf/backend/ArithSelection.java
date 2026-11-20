@@ -55,8 +55,11 @@ final class ArithSelection {
         }
         long c = b.type().signed(k.bits());
         String m = c == 1 ? "inc" : c == -1 ? "dec" : null;
-        if (m != null && b.type() == MType.I8 && sel.masked.contains(b)) {
-            // a clean result: an 8-bit INC/DEC keeps the high byte, which must be 0 already
+        // A clean result: an 8-bit INC/DEC keeps the high byte, which must be 0 already. That is
+        // one that is masked, and also a DEC whose place must be clean without a mask: x + -1 on
+        // a byte is ADC #$00FF in 16 bits, which staysByte finds clean for x = 0 (255), where a
+        // 16-bit DEC gives $FFFF.
+        if (m != null && b.type() == MType.I8 && (sel.masked.contains(b) || c == -1 && sel.clean.contains(b))) {
             Value x = b.op(0);
             return x instanceof Value.Param || sel.clean.contains(x) ? m + "8" : null;
         }
