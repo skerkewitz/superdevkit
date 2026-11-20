@@ -1133,3 +1133,12 @@ Code changed in one program: `either`'s byte counter is now known not to pass 32
 worst case 2,520 → 2,584. The examples and the spelling families the same (no example's code
 changed).
 
+## Dead loops proved by the counted loop (2026-11-20, on the execution programs)
+
+`DeadLoops` proved a loop finite on its own: a counter compared with a constant, not
+zero-extended, and with `!=` only for an odd step. It now takes everything `CountedLoops`
+proves, from constants or else from the ranges of start and bound: `i < n` with any n, a byte
+compared zero-extended with a word below 256, and an even step that meets its constant exactly
+(`for (u = 0; u != 40; u += 2)`, which `exec/dead_loops.c` kept until now and loses). No example
+and no other program changed.
+

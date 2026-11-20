@@ -60,6 +60,49 @@ class DeadLoopsTest {
     }
 
     @Test
+    void whatTheCountedLoopProvesGoes() {
+        // an even step that meets a constant from a constant start
+        assertTrue(removes(loop("i16", "ne", 40, 2, "").replace("[b0_entry, %a]", "[b0_entry, 0]")));
+        // up to a parameter: the counter reaches it before it could wrap
+        assertTrue(removes(loop("i16", "ult", 0, 1, "").replace("%0, 0\n", "%0, %a\n")));
+        // a byte zero-extended and compared with a word below 256
+        assertTrue(removes("""
+                func @_main(i16 %a) -> i16 {
+                b0_entry:
+                    %9 = and i16 %a, 255
+                    jump b1_head
+                b1_head:
+                    %0 = phi i8 [b0_entry, 0], [b2_body, %2]
+                    %3 = zext i8 %0 to i16
+                    %1 = cmp ult i16 %3, %9
+                    br %1, b2_body, b3_end
+                b2_body:
+                    %2 = add i8 %0, 1
+                    jump b1_head
+                b3_end:
+                    ret i16 %a
+                }
+                """));
+        // ... but not with a word that may be 256 or more: the byte would wrap first
+        assertFalse(removes("""
+                func @_main(i16 %a) -> i16 {
+                b0_entry:
+                    jump b1_head
+                b1_head:
+                    %0 = phi i8 [b0_entry, 0], [b2_body, %2]
+                    %3 = zext i8 %0 to i16
+                    %1 = cmp ult i16 %3, %a
+                    br %1, b2_body, b3_end
+                b2_body:
+                    %2 = add i8 %0, 1
+                    jump b1_head
+                b3_end:
+                    ret i16 %a
+                }
+                """));
+    }
+
+    @Test
     void loopsThatMightNotEndStay() {
         assertFalse(removes(loop("i16", "ne", 7, 2, "")));       // 2, 4, 6, 8, ...: never 7 from an even start
         assertFalse(removes(loop("i8", "ule", 255, 1, "")));      // every byte is at most 255

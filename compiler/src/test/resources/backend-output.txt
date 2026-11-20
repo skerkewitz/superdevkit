@@ -68,11 +68,11 @@ exec_control.layout.timing 4b9cf18205fd4437cee24e2b
 exec_control.mir.s0 a5f0f27ce8922e04c7cf19c7
 exec_control.mir.timing 5b6ebd5b4a60a84216955445
 exec_control.naive.s0 6533ad9b09b6ac7916082991
-exec_dead_loops.layout.s0 5767899ff2aa9c61be9cc5a4
-exec_dead_loops.layout.timing dc2cf110a5ca88759790b5e1
-exec_dead_loops.mir.s0 b28779bd55ee8d1444b8604f
-exec_dead_loops.mir.timing f4a1754ae8e3c61ad6a8c0e1
-exec_dead_loops.naive.s0 655ad9fe30f8cc589038dee0
+exec_dead_loops.layout.s0 ded12ae79e7c8f530b43585d
+exec_dead_loops.layout.timing 673035e6648fb8a836e03ab0
+exec_dead_loops.mir.s0 60c7bc53abb80aedc3c9eb2a
+exec_dead_loops.mir.timing 1f53f57ac79f9db5a1227216
+exec_dead_loops.naive.s0 ad22bbd15353f8221f52ecc5
 exec_enums.layout.s0 092c926c7e1143263ae7ee43
 exec_enums.layout.timing 83dad7a58a73327d7a68e0e0
 exec_enums.mir.s0 89da6aaebe2d8e6c902d5e86

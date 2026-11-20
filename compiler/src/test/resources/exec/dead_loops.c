@@ -43,7 +43,7 @@ void test_main(void)
     for (u = 0; u < 37; u += 2) {                   /* stays: u is read after it */
     }
     out[2] = u;
-    for (u = 0; u != 40; u += 2) {                  /* stays: an even step is not proved to meet 40 */
+    for (u = 0; u != 40; u += 2) {                  /* goes: 0, 2, ..., 40 meets 40 */
     }
     out[3] = 7;
     for (i = 250; i < 255; i++) {                   /* stays: i is read after it */

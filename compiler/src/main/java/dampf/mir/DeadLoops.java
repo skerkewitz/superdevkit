@@ -12,9 +12,10 @@ import java.util.Set;
  * (sdevkit_dbg_box in a loop over the actors, ADR record 32), or a loop whose results nobody reads.
  *
  * <p>gcc keeps a C loop that might not end, so dampf removes only those it can prove finite: one way
- * out, and {@link CountedLoops} bounds how often its head runs from the test there, a counter
- * (not zero-extended) compared with a constant: it reaches the constant before it could wrap, or,
- * with {@code !=} and an odd step, meets every value of its type. Every way into the loop then
+ * out, and {@link CountedLoops} bounds how often its head runs from the test there: a counter
+ * that reaches its bound before it could wrap (from constants, or from the ranges of start and
+ * bound), or, with {@code !=}, meets a constant bound exactly or every value of its type with
+ * an odd step. Every way into the loop then
  * goes to the block the loop leaves to, with the values its φs took from the loop's exit, which
  * come from outside the loop.
  */
@@ -91,12 +92,10 @@ public final class DeadLoops {
                 return false;
             }
         }
-        // the one way out is the loop's only exit test
-        if (loop.exits().isEmpty() || loop.runs(CountedLoops.CONSTANTS) == CountedLoops.UNKNOWN) {
-            return false;
-        }
-        CountedLoops.Exit test = loop.exits().getFirst();
-        if (!(test.bound() instanceof Value.Const) || test.widened() || test.stay() == Instr.Pred.NE && (test.counter().c() & 1) == 0) {
+        // the one way out is the loop's only exit test: proved finite from constants, or else
+        // from the ranges of its start and bound
+        if (loop.exits().isEmpty() || loop.runs(CountedLoops.CONSTANTS) == CountedLoops.UNKNOWN
+                && loop.runs(CountedLoops.of(new Ranges(f))) == CountedLoops.UNKNOWN) {
             return false;
         }
         // the ways in go to where the loop goes out

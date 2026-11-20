@@ -512,7 +512,8 @@ L3, L4 and C5 now.
 Built (2026-11-20): L3 for `Timing` and `DeadLoops`, every hash and every bound kept. `Timing`
 asks `CountedLoops` how often a head runs (its own `untilEqual` and `untilBound` are gone);
 `DeadLoops` takes the loop's exit from it, still only on a constant, not zero-extended, and with
-`!=` only for an odd step, which is all its own proof took.
+`!=` only for an odd step, which is all its own proof took; the commit after it lifts that
+([log](optimizations-log.md#dead-loops-proved-by-the-counted-loop-2026-11-20-on-the-execution-programs)).
 
 ## Flaw B: no register allocation, and places are decided before the code exists
 
