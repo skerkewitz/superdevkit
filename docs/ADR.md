@@ -28,7 +28,7 @@ of its subject.
 | 11 | [Structs have no padding, and a `sizeof` that differs from the PC is an error](adr/0011-structs-have-no-padding-and-a-sizeof-that-differs.md) | Accepted | 2026-11-17 |
 | 12 | [LoROM with FastROM, code from bank $80, one segment per function, `JSL` for every call](adr/0012-lorom-with-fastrom-code-from-bank-80-one-segment.md) | Accepted | 2026-11-17 |
 | 13 | [Three IR levels, and HIR waits until something needs it](adr/0013-three-ir-levels-and-hir-waits-until-something.md) | Accepted | 2026-11-17 |
-| 14 | [LIR is basic blocks with explicit successors, and its text is ca65 source](adr/0014-lir-is-basic-blocks-with-explicit-successors-and.md) | Accepted | 2026-11-18 |
+| 14 | [LIR is basic blocks with explicit successors, and its text is ca65 source](adr/0014-lir-is-basic-blocks-with-explicit-successors-and.md) | Accepted; amended by 47 | 2026-11-18 |
 | 15 | [The naive code generator stays as an independent reference](adr/0015-the-naive-code-generator-stays-as-an-independent.md) | Accepted | 2026-11-17 |
 | 16 | [gcc with UBSan is the oracle, and the tests compare every global](adr/0016-gcc-with-ubsan-is-the-oracle-and-the-tests-compare.md) | Accepted | 2026-11-17 |
 | 17 | [dampf has its own emulator, validated against SingleStepTests and Mesen](adr/0017-dampf-has-its-own-emulator-validated-against.md) | Accepted | 2026-11-17 |
@@ -61,3 +61,4 @@ of its subject.
 | 44 | [Sound effects come from sfx.json, and Rachael plays the SNES's BRR](adr/0044-sound-effects-come-from-sfx-json-and-rachael-plays.md) | Accepted | 2026-11-19 |
 | 45 | [M5 is concluded as 0.6.0, and a version between milestones may carry features](adr/0045-m5-is-concluded-as-060-and-a-version-between.md) | Accepted | 2026-11-19 |
 | 46 | [An access to an array tells dampf its index is inside it](adr/0046-an-access-to-an-array-tells-dampf-its-index-is.md) | Accepted | 2026-11-20 |
+| 47 | [LIR operands are typed, and LIR names places before it has addresses](adr/0047-lir-operands-are-typed-and-lir-names-places-before.md) | Accepted; amends 14 | 2026-11-20 |
