@@ -310,11 +310,12 @@ final class SelectionPlan {
                 }
             }
         }
-        Set<Block> entries = new HashSet<>();   // where loops that have X load their start value
+        // where loops that have X load their start value, and the value
+        Map<Block, Value> entries = new HashMap<>();
         List<CountedLoops.Loop> all = CountedLoops.find(f);
         for (CountedLoops.Loop counted : all) {
             dampf.mir.Loops.Loop loop = counted.loop();
-            if (loop.blocks().stream().anyMatch(b -> sel.xBlocks.containsKey(b) || entries.contains(b)) || clobbersX(loop)) {
+            if (loop.blocks().stream().anyMatch(b -> sel.xBlocks.containsKey(b) || entries.containsKey(b)) || clobbersX(loop)) {
                 continue;
             }
             // the start value goes into X at the end of the blocks that enter the loop: X must be
@@ -363,8 +364,17 @@ final class SelectionPlan {
                 bestC = c;
                 bestUses = indexUses;
             }
+            // a block that enters two loops keeping X (one on each edge of its branch) sets X
+            // once: both must start from the same value
+            Instr.Phi chosen = best instanceof Instr.Phi bp ? bp : null;
+            if (chosen != null && enters.stream().anyMatch(e -> entries.containsKey(e)
+                    && !same(entries.get(e), chosen.op(chosen.from.indexOf(e))))) {
+                best = null;
+            }
             if (best != null && bestUses > 0) {
-                entries.addAll(enters);
+                for (Block e : enters) {
+                    entries.put(e, chosen.op(chosen.from.indexOf(e)));
+                }
                 sel.xResident.put(best, bestStep);
                 sel.xSteps.put(bestStep, bestC);
                 for (Block b : loop.blocks()) {
@@ -399,6 +409,11 @@ final class SelectionPlan {
             }
         }
         return false;
+    }
+
+    /** Whether two values are the same: one value, or equal constants. */
+    private static boolean same(Value a, Value b) {
+        return a == b || a instanceof Value.Const p && b instanceof Value.Const q && p.bits() == q.bits();
     }
 
     /** Whether u runs after the step in a round: later in the step's block, or in a block after it. */
