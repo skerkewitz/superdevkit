@@ -130,10 +130,11 @@ public final class LVerifier {
     }
 
     private static int after(LInstr i, int width) {
-        if ("#$20".equals(i.operand()) && i.mnemonic().equals("rep")) {
+        boolean widthBit = i.op() instanceof LOperand.Imm k && k.expr().equals("$20");
+        if (widthBit && i.mnemonic().equals("rep")) {
             return 16;
         }
-        if ("#$20".equals(i.operand()) && i.mnemonic().equals("sep")) {
+        if (widthBit && i.mnemonic().equals("sep")) {
             return 8;
         }
         return width;

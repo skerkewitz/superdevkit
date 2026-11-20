@@ -167,7 +167,7 @@ public final class RedundantLoads {
                  "txa", "tya", "tsx", "tcd", "tdc", "xba", "pla", "plx", "ply" -> N | Z;
             case "cmp", "cpx", "cpy", "asl", "lsr", "rol", "ror" -> N | Z | C;
             case "adc", "sbc" -> ALL;
-            case "bit" -> "#".equals(i.operand() == null ? "" : i.operand().substring(0, 1)) ? Z : N | V | Z;
+            case "bit" -> i.op() instanceof LOperand.Imm ? Z : N | V | Z;
             case "clc", "sec" -> C;
             case "clv" -> V;
             case "trb", "tsb" -> Z;
