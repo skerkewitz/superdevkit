@@ -1089,3 +1089,32 @@ unsigned byte ranges; `pairs_by_list` of `slow-index-list` 23,186 → 20,858.
 
 The examples: Schach -0.2 %, Er-Tüp +0.1 %, the rest the same; geometric mean the same. Code
 changed in all seven and in 73 of the programs of `BackendOutputTest`.
+
+## Counters take their range from the counted loop (2026-11-20, on the spelling families and the examples)
+
+The range analysis iterates a loop counter's interval, and a test with `!=` (the canonical form
+of `i > 0` going down, and of `i != 100`) bounds nothing it can iterate to: the byte counter of
+`i != 100` "might wrap", and `i - 1` in the body of `i != 0` might be -1, so it was no index and
+went through a 24-bit pointer. `Ranges` now meets each counter with the interval `CountedLoops`
+gives it (before and after widening), and `x != c` cuts c off an end of x's interval in the
+blocks where it holds ([current-compiler-flaws.md](current-compiler-flaws.md#flaw-l-four-passes-recognise-loops-each-differently),
+L2).
+
+The spelling families: `n_u16_ne100` 5,643 → 2,738 (its gap closed), `d_u8_ne100` 4,641 → 2,936,
+`g_u16_down` 5,743 → 3,743, `h_u8_down` 6,243 → 4,443, the `u16_down` of every bound family
+-35 % (7,339 → 4,779 for 128 rounds), `copy_down` 8,422 → 3,522, `fill_u16_ne` 3,094 → 1,945,
+`fill_u16_down` 3,158 → 2,390, `fill_u8_down` 3,478 → 2,710, `struct_down` 2,838 → 2,070. What
+is left of them is L3 (the step `i - 1` has two users), L4 and C5.
+
+| | Before | After |
+| --- | ---: | ---: |
+| A counter, struct array | 191,283 | 191,283 |
+| B sorted list, struct array | 207,207 | 194,004 (-6.4 %) |
+| C counter, one array per field | 186,990 | 186,990 |
+| D sorted list, one array per field | 193,633 | 180,432 (-6.8 %) |
+
+The examples: the same (Steinschlag -0.01 %); their code changed in all seven, and in 10
+programs of `BackendOutputTest`. Loop bounds of the timing analysis got tighter: a loop of
+`exec/dead_loops.c` that had none has one, and `add_up` of `exec/hint_range.c` (`while (k)`
+with k at most 7) 9,730 → 256 cycles at worst, since its counter now stays in its byte and
+`Induction` makes `k * 3` a variable of its own.

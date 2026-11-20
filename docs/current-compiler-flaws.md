@@ -501,6 +501,12 @@ random counting loops (three shapes, every predicate, zero-extended or not, cons
 start and bound) whose claims the interpreter checks; four mutations of the arithmetic each
 made it fail.
 
+Built (2026-11-20, [log](optimizations-log.md#counters-take-their-range-from-the-counted-loop-2026-11-20-on-the-spelling-families-and-the-examples)):
+L2. `Ranges` meets a counter φ with what `CountedLoops` says, before and after widening, and
+`x != c` cuts c off an end of x's interval where it holds, so that `i - 1` in the body of
+`i != 0` is an index. `n_u16_ne100` closed; the loops counting down lost 25 to 60 %, and wait for
+L3, L4 and C5 now.
+
 ## Flaw B: no register allocation, and places are decided before the code exists
 
 **What is wrong.** Three things, in order of weight.

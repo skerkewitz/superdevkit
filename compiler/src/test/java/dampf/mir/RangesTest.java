@@ -156,10 +156,10 @@ class RangesTest {
         assertEquals(new Ranges.Range(0, 200), counter("i8", 0, "ult", 200, 1, true));
         assertEquals(new Ranges.Range(0, 255), counter("i8", 0, "ult", 255, 1, true));
         assertEquals(new Ranges.Range(-128, 127), counter("i8", 0, "ult", 200, 1));   // the signed reading: all
-        // down: 200, 199, ..., 1, and 0 when the loop ends (with != 0, the canonical form of > 0,
-        // the step may wrap as far as the ranges know: that bound comes from the counted loop, L2)
+        // down: 200, 199, ..., 1, and 0 when the loop ends; with != 0, the canonical form of > 0,
+        // iterating finds no bound, the counted loop does (CountedLoops)
         assertEquals(new Ranges.Range(0, 200), counter("i8", 200, "uge", 1, -1, true));
-        assertEquals(new Ranges.Range(0, 255), counter("i8", 200, "ne", 0, -1, true));
+        assertEquals(new Ranges.Range(0, 200), counter("i8", 200, "ne", 0, -1, true));
         assertEquals(new Ranges.Range(0, 255), counter("i8", 255, "uge", 1, -1, true));
         // an unsigned condition bounds a byte above 127, and its zero extension gets that range
         MModule m = MirParser.parse("""
@@ -187,5 +187,44 @@ class RangesTest {
         for (long a = 0; a < 256; a++) {
             in.call("_f", List.of(a));
         }
+    }
+    @Test
+    void aCounterTestedWithNotEqualHasTheRangeOfItsLoop() {
+        // d_u8_ne100 and n_u16_ne100: iterating finds no bound, the counted loop 0..100
+        assertEquals(new Ranges.Range(0, 100), counter("i8", 0, "ne", 100, 1, true));
+        assertEquals(new Ranges.Range(0, 100), counter("i16", 0, "ne", 100, 1));
+        // g_u16_down: in the body i != 0 cuts 0 off, so i - 1 is an index 0..99
+        MModule m = MirParser.parse("""
+                global @_data : 100
+
+                func @_f() -> i16 {
+                b0_entry:
+                    jump b1_for
+                b1_for:
+                    %0 = phi i16 [b0_entry, 100], [b2_body, %3]
+                    %1 = phi i16 [b0_entry, 0], [b2_body, %7]
+                    %2 = cmp ne i16 %0, 0
+                    br %2, b2_body, b4_end
+                b2_body:
+                    %3 = add i16 %0, -1
+                    %4 = ptradd @_data, i16 %3
+                    %5 = load i8 %4
+                    %6 = zext i8 %5 to i16
+                    %7 = add i16 %1, %6
+                    jump b1_for
+                b4_end:
+                    ret i16 %1
+                }
+                """);
+        MFunction f = m.function("_f");
+        Ranges r = new Ranges(f);
+        Value phi = f.blocks().get(1).instrs().getFirst();
+        Value index = f.blocks().get(2).instrs().getFirst();
+        assertEquals(new Ranges.Range(0, 100), r.of(phi));
+        assertEquals(new Ranges.Range(1, 100), r.at(phi, f.blocks().get(2)));
+        assertEquals(new Ranges.Range(0, 99), r.of(index));
+        Interpreter in = new Interpreter(m, 100_000);
+        in.observe(Ranges.checker(m));
+        in.call("_f", List.of());
     }
 }

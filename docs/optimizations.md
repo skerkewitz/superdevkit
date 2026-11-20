@@ -86,9 +86,11 @@ play measures now is in *Where things stand*.
 
 ### Value ranges (B)
 
-`dampf.mir.Ranges` computes an interval for every integer value of a function from constants, the
-operations (masks, shifts, division and remainder included), the conditions on the path (against
-a constant and between two values) and loops (widening, then narrowing again). `ParamRanges` gives
+`dampf.mir.Ranges` computes a signed and an unsigned interval for every integer value of a
+function from constants, the operations (masks, shifts, division and remainder included), the
+conditions on the path (against a constant, `x != c` cutting c off an end, and between two
+values) and loops (widening, then narrowing again; a loop counter gets the interval its counted
+loop gives, `CountedLoops`). `ParamRanges` gives
 a parameter the join of its arguments at all call sites, for optimization only. `DAMPF_RANGE`
 adds a range at one point ([hints.md](hints.md)). The ranges are used by `RangeNarrow` (16 bits
 instead of 32, comparisons the range decides, unsigned operations and comparisons for values that

@@ -1,6 +1,7 @@
 package dampf.mir;
 
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -17,12 +18,15 @@ import java.util.Map;
  * branches: in a block whose only predecessor branches on {@code cmp x, c} with a constant c, x
  * is known to satisfy the comparison (or its negation), in that block and every block it
  * dominates; a signed comparison bounds the signed reading, an unsigned one the unsigned.
+ * {@code x != c} is no interval, but cuts c off an end of x's.
  *
  * <p>φs are joined over their incoming edges, with the conditions of the edge's source. Loops
  * are iterated until nothing changes; a value whose intervals keep growing is widened after
  * {@link #WIDEN_AFTER} changes, so the iteration ends: the end that moved goes to the reading's
  * limit, the other stays (a counter from 0 upwards keeps 0; narrowing then takes back what
- * widening added at the top).
+ * widening added at the top). A loop counter gets the interval {@link CountedLoops} derives from
+ * the loop's tests and the ranges of its start and bound, before and after widening: the counter
+ * of {@code i != 100} is 0..100, which no iteration finds.
  *
  * <p>The ranges are claims about every execution, so a wrong one gives wrong code. The tests
  * check every value the interpreter computes against both its intervals (see MirRunner).
@@ -73,6 +77,12 @@ public final class Ranges {
 
     private final Map<Value, Both> range = new HashMap<>();
     private final Map<Block, Map<Value, Both>> refine = new HashMap<>();
+    /** The values a block knows its values are not ({@code x != c}), as c's bits. */
+    private final Map<Block, Map<Value, Long>> notEqual = new HashMap<>();
+    /** The loop counters, with their loops. */
+    private final Map<Instr.Phi, CountedLoops.Loop> counters = new IdentityHashMap<>();
+    /** What each counter's loop said in the last evaluation of the counter. */
+    private final Map<Instr.Phi, Both> counted = new IdentityHashMap<>();
 
     /** Ranges of a first pass, for conditions between two values (null in the first pass). */
     private Map<Value, Both> prior;
@@ -81,6 +91,11 @@ public final class Ranges {
     public Ranges(MFunction f) {
         Map<Block, Block> idom = Cfg.idoms(f);
         List<Block> rpo = Cfg.reversePostorder(f);
+        for (CountedLoops.Loop l : CountedLoops.find(f, idom)) {
+            for (CountedLoops.Counter k : l.counters()) {
+                counters.put(k.phi(), l);
+            }
+        }
         solve(f, idom, rpo);
         if (variableConditions) {
             // a second pass: a condition between two values (r < n) bounds each by the other's
@@ -88,6 +103,8 @@ public final class Ranges {
             prior = new HashMap<>(range);
             range.clear();
             refine.clear();
+            notEqual.clear();
+            counted.clear();
             solve(f, idom, rpo);
         }
     }
@@ -95,6 +112,7 @@ public final class Ranges {
     private void solve(MFunction f, Map<Block, Block> idom, List<Block> rpo) {
         for (Block b : rpo) {
             Map<Value, Both> m = b == f.entry() ? new HashMap<>() : new HashMap<>(refine.get(idom.get(b)));
+            Map<Value, Long> ne = b == f.entry() ? new HashMap<>() : new HashMap<>(notEqual.get(idom.get(b)));
             // the edge from the one predecessor that is not a back edge: its condition holds in b
             // (a value it tests is defined before b's loop, so the loop does not change it)
             Block entry = null;
@@ -106,9 +124,10 @@ public final class Ranges {
                 }
             }
             if (entries == 1 && entry != b) {
-                conditions(entry, b, m);
+                conditions(entry, b, m, ne);
             }
             refine.put(b, m);
+            notEqual.put(b, ne);
         }
         Map<Instr, Integer> changes = new HashMap<>();
         boolean changed = true;
@@ -131,6 +150,12 @@ public final class Ranges {
                             // keeps 0. An end at its limit cannot move again, so each of the
                             // four is widened at most once.
                             next = new Both(widen(next.s, old.s, full(i.type())), widen(next.u, old.u, ufull(i.type())));
+                            // a counter keeps what its loop says
+                            Both c = i instanceof Instr.Phi p ? counted.get(p) : null;
+                            Both kept = c == null ? null : next.meet(c);
+                            if (kept != null) {
+                                next = reduce(kept.s, kept.u, i.type());
+                            }
                         }
                         if (!next.equals(old)) {
                             range.put(i, next);
@@ -272,9 +297,20 @@ public final class Ranges {
         Both c = m == null ? null : m.get(v);
         if (c != null) {
             Both x = r.meet(c);
-            return x == null ? r : reduce(x.s, x.u, v.type());   // empty: b cannot be reached; any answer will do
+            r = x == null ? r : reduce(x.s, x.u, v.type());   // empty: b cannot be reached; any answer will do
         }
-        return r;
+        Map<Value, Long> ne = notEqual.get(b);
+        Long k = ne == null ? null : ne.get(v);
+        return k == null ? r : cut(r, k, v.type());
+    }
+
+    /** r without the value whose bits are k, where k is an end of an interval. */
+    private static Both cut(Both r, long k, MType t) {
+        long sv = t.signed(k);
+        long uv = k & ((1L << t.bits()) - 1);
+        Range s = r.s.lo == sv && r.s.hi > sv ? new Range(sv + 1, r.s.hi) : r.s.hi == sv && r.s.lo < sv ? new Range(r.s.lo, sv - 1) : r.s;
+        Range u = r.u.lo == uv && r.u.hi > uv ? new Range(uv + 1, r.u.hi) : r.u.hi == uv && r.u.lo < uv ? new Range(r.u.lo, uv - 1) : r.u;
+        return s == r.s && u == r.u ? r : reduce(s, u, t);
     }
 
     /** The signed range of v as seen in block b: what the conditions on the way to b add. */
@@ -338,7 +374,7 @@ public final class Ranges {
     // ------------------------------------------------------------------ conditions
 
     /** What b learns from the branch at the end of its only predecessor p. */
-    private void conditions(Block p, Block b, Map<Value, Both> m) {
+    private void conditions(Block p, Block b, Map<Value, Both> m, Map<Value, Long> ne) {
         if (!(p.terminator() instanceof Instr.Branch br) || br.ifTrue == br.ifFalse
                 || !(br.op(0) instanceof Instr.Cmp c)) {
             return;
@@ -347,6 +383,13 @@ public final class Ranges {
         Instr.Pred pred = holds ? c.pred : negate(c.pred);
         Value x = c.op(0);
         Value y = c.op(1);
+        if (pred == Instr.Pred.NE && isInt(x.type()) && x.type() != MType.I1) {
+            if (y instanceof Value.Const k) {
+                ne.put(x, k.bits());
+            } else if (x instanceof Value.Const k) {
+                ne.put(y, k.bits());
+            }
+        }
         if (y instanceof Value.Const k) {
             constrain(m, x, pred, k);
         } else if (x instanceof Value.Const k) {
@@ -467,16 +510,31 @@ public final class Ranges {
                     // what the edge pred -> b adds: the condition of pred's branch that leads here
                     // (abs: x on the edge where x < 0 is false is not negative)
                     Map<Value, Both> edge = new HashMap<>();
-                    conditions(pred, b, edge);
+                    Map<Value, Long> edgeNe = new HashMap<>();
+                    conditions(pred, b, edge, edgeNe);
                     Both e = edge.get(p.op(k));
                     Both both = e == null ? null : o.meet(e);
-                    r = (both != null ? both : o).join(r);
+                    Both x = both != null ? both : o;
+                    Long ne = edgeNe.get(p.op(k));
+                    r = (ne == null ? x : cut(x, ne, t)).join(r);
                 }
             }
             if (p.known != null) {
                 Both known = reduce(p.known, ufull(t), t);
                 Both both = r == null ? null : r.meet(known);
                 r = both != null ? both : known;
+            }
+            CountedLoops.Loop loop = counters.get(p);
+            if (loop != null && r != null) {
+                // what the loop's tests say about its counter, from the ranges so far
+                CountedLoops.Interval iv = loop.interval(loop.counter(p), (v, at, unsigned) -> {
+                    Both x = bothAt(v, at);
+                    return x == null ? null : unsigned ? x.u : x.s;
+                });
+                Both c = new Both(iv.signed() != null ? iv.signed() : full(t), iv.unsigned() != null ? iv.unsigned() : ufull(t));
+                counted.put(p, c);
+                Both both = r.meet(c);
+                r = both != null ? both : r;
             }
             return r == null ? null : reduce(r.s, r.u, t);
         }

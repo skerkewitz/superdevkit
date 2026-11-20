@@ -2,7 +2,7 @@
  * tolerance: 10
  * The loop of sum-bytes with the bound 20, for each counter type that holds it, up and down:
  * the value of a constant bound must not change the code.
- * gap: u16_down L2,L3 i != 0 gives the range analysis no bound, so i - 1 is no index (24-bit pointer); i - 1 is also the step, and the X pattern wants a step with one user
+ * gap: u16_down L3 i - 1 is the step, and the X pattern wants a step with one user
  * gap: i16_down L3 the test i >= 0 is signed, and the X pattern takes eq, ne, ult and uge only
  */
 #include <stdint.h>

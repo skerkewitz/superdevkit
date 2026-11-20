@@ -366,7 +366,11 @@ public final class CountedLoops {
 
     /** The loops of f, innermost first, with their counters and exits. */
     public static List<Loop> find(MFunction f) {
-        Map<Block, Block> idom = Cfg.idoms(f);
+        return find(f, Cfg.idoms(f));
+    }
+
+    /** As {@link #find(MFunction)}, with the dominators the caller has. */
+    static List<Loop> find(MFunction f, Map<Block, Block> idom) {
         List<Loop> out = new ArrayList<>();
         for (Loops.Loop loop : Loops.find(f)) {
             out.add(analyse(loop, idom));
