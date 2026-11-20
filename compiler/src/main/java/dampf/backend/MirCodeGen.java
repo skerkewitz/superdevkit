@@ -611,7 +611,7 @@ public final class MirCodeGen {
     }
 
     /**
-     * A small loop head (only φs, a comparison and a branch) goes right after the block that
+     * A small loop head (only φs, pointer sums, a comparison and a branch) goes right after the block that
      * jumps back to it: that block falls through into the test, and the test branches back into
      * the loop. Per round one branch instead of a jump and a branch.
      */
@@ -637,7 +637,9 @@ public final class MirCodeGen {
 
     static boolean onlyTest(Block h) {
         for (Instr i : h.instrs()) {
-            if (!(i instanceof Instr.Phi || i instanceof Instr.Cmp || i.isTerminator())) {
+            // a pointer sum: mostly no code (the loads and stores add the offset themselves),
+            // left behind by PointerOffsets where the pointer was a φ of the head
+            if (!(i instanceof Instr.Phi || i instanceof Instr.Cmp || i instanceof Instr.PtrAdd || i.isTerminator())) {
                 return false;
             }
         }

@@ -1263,3 +1263,17 @@ being rotated), `struct_ptr_count` 1,943 → 1,583 (the stride, as `struct_u16`)
 guide's `move_by_pointer` 1,943 → 1,583, 4 % above `move_by_index`. The examples and the pair
 loops the same; code changed in 2 programs of `BackendOutputTest`.
 
+## Loop heads with a pointer sum are rotated (2026-11-20, on the spelling families and the examples)
+
+A loop head goes after its latch (the latch falls through into the test, which branches back:
+one branch a round instead of a jump and a branch) only when it holds nothing but φs, a
+comparison and the branch. `PointerOffsets` leaves a pointer sum in the head where the pointer
+was a φ, which mostly has no code (its loads and stores add the offset), and kept such loops
+unrotated. A head may now hold pointer sums too.
+
+The spelling families: `fill_ptr_walk` 1,359 → 1,233 (gap closed), `x_ptr_walk` 2,736 → 2,538,
+`copy_ptr` 2,715 → 2,517: each now costs what its indexed spelling costs. The style guide's
+`move_by_pointer` costs what `move_by_index` costs (1,521), so `slow-pointer-walk` became
+`same-pointer-walk`. The examples: Er-Tüp -0.1 %, the rest the same; code changed in Er-Tüp and
+2 programs of `BackendOutputTest`.
+

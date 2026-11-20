@@ -7,11 +7,13 @@ kit now offers or found, and what the game would change to use it.
 
 dampf (branch `flaws`, the plan in superdevkit's `docs/current-compiler-flaws.md`) now gives a
 counting loop the same code however it is written, within about 10 %. Three rules of
-`lib/C_STYLE.md` that told you how to write a counter are gone:
+`lib/C_STYLE.md` that told you how to write a counter are gone, and a fourth now says the
+opposite:
 
 - `slow-u8-counter` ("count with `uint16_t` over byte arrays"),
 - `slow-u16-counter-words` ("count with `uint8_t` over word arrays"),
-- `slow-word-array` ("an element of `uint16_t` costs a doubling of the index").
+- `slow-word-array` ("an element of `uint16_t` costs a doubling of the index"),
+- `slow-pointer-walk` ("index instead of walking with `o->x; o++`"), now `same-pointer-walk`.
 
 The loop's index becomes a variable of its own, stepped by the element size and kept in X. The
 counter itself goes when nothing else reads it. Also equal now: `i != n` and `i < n`, counting

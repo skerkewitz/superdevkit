@@ -1,6 +1,7 @@
-/* rule: slow-pointer-walk
- * claim: move_by_pointer slower move_by_index
- * Walking an array with a pointer (o++, o->x) costs more than indexing it (objs[i].x): index. */
+/* rule: same-pointer-walk
+ * claim: move_by_pointer same move_by_index
+ * Walking an array with a pointer beside a counter (o++, o->x) costs what indexing it costs
+ * (objs[i].x): the pointer's offset and the counter are one variable in X. */
 #include <stdint.h>
 
 typedef struct {

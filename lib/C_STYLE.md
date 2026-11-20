@@ -55,8 +55,6 @@ call its own statement.
 
 ## 3. Slow
 
-- **`slow-pointer-walk`** Index an array (`a[i].x`) instead of walking it with a pointer
-  (`o->x; o++`).
 - **`slow-index-list`** Walk all slots with a counter and skip the free ones
   (`if (!used(&a[j])) continue;`) rather than a list of the used slots' indexes
   (`&a[list[k]]`), unless most slots are free: dampf steps a counter's element offset by the
@@ -100,6 +98,8 @@ Write whichever reads better; these cost the same:
 - **`same-increment-form`** `i++` or `++i`;
 - **`same-index-form`** `a[i]` or `*(a + i)`;
 - **`same-loop-form`** `for` or the same loop as `while`;
+- **`same-pointer-walk`** an array walked with a pointer beside the loop's counter (`o->x; o++`)
+  or indexed (`a[i].x`);
 - **`same-named-temporary`** a named temporary or the expression written inline: a value used
   once stays in the accumulator either way;
 - **`same-multiply-width`** a multiplication of two bytes or of two 16-bit values: both call the
@@ -135,13 +135,13 @@ Measured 2026-11-20 (worst case of the timing report, code generator from MIR).
 | `same-loop-form` | `loop_for` | 5,025 | same | `loop_while` | 5,025 |
 | `same-multiply-width` | `multiply_bytes` | 417 | same | `multiply_words` | 411 |
 | `same-named-temporary` | `with_temporary` | 45 | same | `inline_expression` | 45 |
+| `same-pointer-walk` | `move_by_pointer` | 1,521 | same | `move_by_index` | 1,521 |
 | `slow-32-bit` | `xor_32` | 84 | slower | `xor_16_halves` | 36 |
 | `slow-compare-sum` | `compare_sum` | 164 | slower | `compare_sum_narrowed` | 98 |
 | `slow-divide-variable` | `divide_variables` | 816 | slower | `divide_constant` | 17 |
 | `slow-hand-shifts` | `times_40_by_shifts` | 45 | slower | `times_40` | 31 |
 | `slow-index-list` | `pairs_by_list` | 20,630 | slower | `pairs_by_counter` | 15,590 |
 | `slow-multiply-variable` | `multiply_variables` | 411 | slower | `multiply_constant` | 31 |
-| `slow-pointer-walk` | `move_by_pointer` | 1,583 | slower | `move_by_index` | 1,521 |
 | `slow-shift-above-8` | `shift_by_9` | 130 | slower | `shift_by_8_then_1` | 19 |
 | `slow-signed-divide` | `divide_signed` | 265 | slower | `divide_unsigned` | 17 |
 <!-- end of measurements -->

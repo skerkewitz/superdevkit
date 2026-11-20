@@ -104,7 +104,8 @@ Also in M9:
     to the derived offset, which also retired `slow-word-array`);
   - an array with a 16-bit index goes through a 24-bit pointer unless a `DAMPF_RANGE` bounds the
     index, although an index past the end would be undefined in C: retires `fast-range-index`;
-  - a pointer walk costs more than indexing (`o->x; o++`): retires `slow-pointer-walk`;
+  - a pointer walk cost more than indexing (`o->x; o++`): gone on 2026-11-20 (`same-pointer-walk`
+    now);
   - a multiplication of two bytes calls `dampf_mul16`, the SNES's 8 x 8 multiplier at
     `$4202`-`$4203` is not used: turns `same-multiply-width` into a rule for bytes;
   - a signed division by a power of two keeps its rounding correction when a `DAMPF_RANGE` proves
