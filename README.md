@@ -112,6 +112,7 @@ working documents it is written from.
 - [docs/archive](docs/archive): finished plans and reviews, kept as they were (the way to LIR and to dampf's own assembler and linker, the status review of 2026-11-18).
 - [docs/memory-map.md](docs/memory-map.md): where code, data, variables and pointers live.
 - [docs/testing.md](docs/testing.md): the test layers and how they work.
+- [docs/testing-ideas.md](docs/testing-ideas.md): how the large compilers are tested, and eight kinds of tests dampf does not have yet, as steps.
 - [docs/superdevkit-transition.md](docs/superdevkit-transition.md): the plan from here to superdevkit with its SNES, desktop and web targets, step by step.
 - [docs/brainstorm](docs/brainstorm): summaries of brainstorming sessions, the options weighed before a decision.
 - [docs/roadmap.md](docs/roadmap.md): milestones and their state, risks, open questions, the relation to Blubber Blasen.
