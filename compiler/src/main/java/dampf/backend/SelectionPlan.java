@@ -1,6 +1,7 @@
 package dampf.backend;
 
 import dampf.mir.Block;
+import dampf.mir.CountedLoops;
 import dampf.mir.Instr;
 import dampf.mir.MFunction;
 import dampf.mir.MType;
@@ -310,7 +311,8 @@ final class SelectionPlan {
             }
         }
         Set<Block> entries = new HashSet<>();   // where loops that have X load their start value
-        for (dampf.mir.Loops.Loop loop : dampf.mir.Loops.find(f)) {
+        for (CountedLoops.Loop counted : CountedLoops.find(f)) {
+            dampf.mir.Loops.Loop loop = counted.loop();
             if (loop.blocks().stream().anyMatch(b -> sel.xBlocks.containsKey(b) || entries.contains(b)) || clobbersX(loop)) {
                 continue;
             }
@@ -328,20 +330,13 @@ final class SelectionPlan {
                 if (!(i instanceof Instr.Phi p)) {
                     break;
                 }
-                if (p.type() != MType.I8 && p.type() != MType.I16) {
-                    continue;
-                }
-                Instr step = null;
+                CountedLoops.Counter counter = p.type() == MType.I8 || p.type() == MType.I16 ? counted.counter(p) : null;
+                Instr step = counter == null ? null : counter.step();
                 boolean ok = true;
                 for (int k = 0; k < p.from.size() && ok; k++) {
-                    if (loop.blocks().contains(p.from.get(k))) {
-                        if (!(p.op(k) instanceof Instr.Bin s) || s.op != Instr.BinOp.ADD || s.op(0) != p
-                                || !(s.op(1) instanceof Value.Const) || step != null && step != s) {
-                            ok = false;
-                        } else {
-                            step = s;
-                        }
-                    } else if (p.op(k) instanceof Instr d && (sel.xResident.containsKey(d) || sel.xSteps.containsKey(d))) {
+                    // a start value that another loop keeps in X has no place to load it from
+                    if (!loop.blocks().contains(p.from.get(k)) && p.op(k) instanceof Instr d
+                            && (sel.xResident.containsKey(d) || sel.xSteps.containsKey(d))) {
                         ok = false;
                     }
                 }
@@ -352,9 +347,8 @@ final class SelectionPlan {
                         || users.getOrDefault(step, List.of()).size() != 1) {
                     continue;
                 }
-                long c = MType.I16.signed(((Value.Const) step.op(1)).bits());
+                long c = counter.c();
                 if (p.type() == MType.I8) {
-                    c = MType.I8.signed(((Value.Const) step.op(1)).bits());
                     Ranges.Range r = sel.ranges.atUnsigned(p, step.block());
                     if (r == null || r.lo() + c < 0 || r.hi() + c > 0xFF) {
                         continue;   // it would wrap, and X would not
