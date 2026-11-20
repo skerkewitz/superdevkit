@@ -2,7 +2,7 @@
  * tolerance: 10
  * A constant stored into every element of a uint16_t array, by index with every counter type,
  * up and down, and by pointer. Was the style guide's slow-u16-counter-words.
- * gap: fill_ptr_walk L4,L5 the pointer's offset and the counter step by different amounts: one is derived from the other, and the test could move to the offset
+ * gap: fill_ptr_walk rotate the loop head computes the pointer (no code: the store adds the offset), so the loop is not rotated: a BCS out and a BRA back each round
  * gap: fill_ptr_end C6 the pointers are compared as 32-bit values every round
  */
 #include <stdint.h>

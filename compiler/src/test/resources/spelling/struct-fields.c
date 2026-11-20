@@ -5,7 +5,7 @@
  * gap: struct_u16 split as struct_u8
  * gap: struct_u8 split a stride of 5 bytes takes TXA ADC TAX where the field arrays take INX INX: only splitting the array (roadmap M9 row 4) closes it
  * gap: struct_ptr C6 the pointers are compared as 32-bit values every round
- * gap: struct_ptr_count L4,L5 the pointer's offset and the counter step by different amounts: one is derived from the other, and the test could move to the offset
+ * gap: struct_ptr_count split as struct_u8
  * gap: struct_down split as struct_u8
  */
 #include <stdint.h>

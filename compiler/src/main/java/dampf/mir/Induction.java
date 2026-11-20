@@ -526,6 +526,10 @@ public final class Induction {
             }
         }
         Affine af = new Affine(i, step, loop.blocks(), users, test);
+        if (!af.others && test != null && af.testReads != null && af.leaves.isEmpty()) {
+            sibling(af, loop, k, ranges, idom, replaced);
+            return;
+        }
         List<Instr> leaves = af.leaves.stream().filter(l -> !replaced.containsKey(l)).toList();
         boolean goes = !af.others && test != null && af.testReads != null && !leaves.isEmpty()
                 && leaves.size() == af.leaves.size();
@@ -617,13 +621,19 @@ public final class Induction {
      * the last round, which equality alone cannot say. Null if the test cannot move.
      */
     private static Move plan(Affine af, Instr l, CountedLoops.Loop loop, CountedLoops.Counter k, Ranges ranges) {
+        Ranges.Range b = af.offset(l, ranges, loop.head());
+        return b == null ? null : plan(af, af.factor(l), b, loop, k, ranges);
+    }
+
+    /** {@link #plan} for a variable a * i + b, b in the given interval. */
+    private static Move plan(Affine af, long a, Ranges.Range b, CountedLoops.Loop loop, CountedLoops.Counter k, Ranges ranges) {
         Instr.Cmp t = af.test;
         Instr.Phi i = k.phi();
         boolean counterLeft = t.op(0) == af.testReads;
         Value bound = counterLeft ? t.op(1) : t.op(0);
         Instr.Pred pred = counterLeft ? t.pred : Ranges.swap(t.pred);
         boolean widened = af.testReads instanceof Instr.Cast;
-        if (bound.type() != af.testReads.type() || af.factor(l) == 0 || MType.I16.wrap(af.factor(l)) == 0) {
+        if (bound.type() != af.testReads.type() || a == 0 || MType.I16.wrap(a) == 0) {
             return null;
         }
         boolean unsigned = switch (pred) {
@@ -660,11 +670,6 @@ public final class Induction {
         // the compared values, the counter's (or its step's: l of i + c is o after its step) and
         // the bound's; the leaf maps each x to a * x + b
         Ranges.Range x = xs.join(new Ranges.Range(xb.lo() + delta, xb.hi() + delta));
-        long a = af.factor(l);
-        Ranges.Range b = af.offset(l, ranges, loop.head());
-        if (b == null) {
-            return null;
-        }
         long y1 = a * x.lo();
         long y2 = a * x.hi();
         Ranges.Range y = new Ranges.Range(Math.min(y1, y2) + b.lo(), Math.max(y1, y2) + b.hi());
@@ -682,7 +687,7 @@ public final class Induction {
         Instr.Pred np = a > 0 ? p : Ranges.swap(p);
         np = fitsU ? toUnsigned(np) : toSigned(np);
         // a bound in a place: "at most B" is "less than B + 1", which a CPX tests
-        boolean constant = bound instanceof Value.Const && af.offset(l, ranges, loop.head()).lo() == af.offset(l, ranges, loop.head()).hi();
+        boolean constant = bound instanceof Value.Const && b.lo() == b.hi();
         boolean plusOne = (np == Instr.Pred.ULE || np == Instr.Pred.SLE) && !constant && y.hi() < (fitsU ? 0xFFFF : 0x7FFF);
         if (plusOne) {
             np = np == Instr.Pred.ULE ? Instr.Pred.ULT : Instr.Pred.SLT;
@@ -712,19 +717,93 @@ public final class Induction {
                 return;   // the leaf does not read i zero-extended
             }
         }
-        // l(N + delta) = l(N) + a * delta on the integers: added in 16 bits, after the zero
-        // extension (N + delta in N's own type could wrap: a byte 0 - 1 is 255)
         Value nb = af.clone(l, bound, widened, at, pos, memo);
-        long add = af.factor(l) * m.delta + (m.plusOne ? 1 : 0);
+        // a test of the stepped counter compares o after its step: l(i + c) = o + a * c
+        Value lhs = stepped ? o.op(o.from.indexOf(loop.latches().getFirst())) : o;
+        moveTo(t, lhs, nb, af.factor(l), m, at, replaced);
+    }
+
+    /**
+     * The new test: lhs pred' (nb + a * delta, plus one), the addition in 16 bits after the zero
+     * extension (N + delta in N's own type could wrap: a byte 0 - 1 is 255).
+     */
+    private static void moveTo(Instr.Cmp t, Value lhs, Value nb, long a, Move m, Block at, Map<Instr, Value> replaced) {
+        SourcePos pos = t.pos();
+        long add = a * m.delta + (m.plusOne ? 1 : 0);
         if (add != 0) {
             nb = nb instanceof Value.Const c ? new Value.Const(MType.I16, MType.I16.wrap(c.bits() + add))
                     : ins(at, new Instr.Bin(Instr.BinOp.ADD, nb, new Value.Const(MType.I16, MType.I16.wrap(add)), pos));
         }
-        // a test of the stepped counter compares o after its step: l(i + c) = o + a * c
-        Value lhs = stepped ? o.op(o.from.indexOf(loop.latches().getFirst())) : o;
         Instr.Cmp moved = new Instr.Cmp(m.pred, lhs, nb, pos);
         t.block().insertBefore(t, moved);
         replaced.put(t, moved);
+    }
+
+    /**
+     * A counter read only by its step and its test, beside a 16-bit counter s of the loop that is
+     * a * i + b for constants a and b (both start at constants, s steps by a times i's step): the
+     * test moves to s (L5; the pointer's offset beside a counter, which steps by the element
+     * size, or counts up where the counter counts down). The counter then goes.
+     */
+    private static void sibling(Affine af, CountedLoops.Loop loop, CountedLoops.Counter k, Ranges ranges,
+                                Map<Block, Block> idom, Map<Instr, Value> replaced) {
+        Instr.Phi i = k.phi();
+        for (CountedLoops.Counter s : loop.counters()) {
+            Instr.Phi o = s.phi();
+            if (s == k || o.type() != MType.I16 || replaced.containsKey(o) || s.c() % k.c() != 0) {
+                continue;
+            }
+            long a = s.c() / k.c();
+            Long b = null;
+            boolean ok = true;
+            for (int n = 0; n < i.from.size() && ok; n++) {
+                Block from = i.from.get(n);
+                if (loop.blocks().contains(from)) {
+                    continue;
+                }
+                int m = o.from.indexOf(from);
+                if (m < 0 || !(i.op(n) instanceof Value.Const ki) || !(o.op(m) instanceof Value.Const ko)) {
+                    ok = false;
+                    break;
+                }
+                long x = i.type() == MType.I8 ? ki.bits() & 0xFF : i.type().signed(ki.bits());
+                long bb = MType.I16.wrap(ko.bits() - a * x);
+                ok = b == null || b == bb;
+                b = bb;
+            }
+            if (!ok || b == null) {
+                continue;
+            }
+            long bs = MType.I16.signed(b);
+            Move m = plan(af, a, new Ranges.Range(bs, bs), loop, k, ranges);
+            if (m == null) {
+                continue;
+            }
+            Instr.Cmp t = af.test;
+            Value bound = t.op(0) == af.testReads ? t.op(1) : t.op(0);
+            Block at = idom.get(loop.head());
+            SourcePos pos = t.pos();
+            boolean widened = af.testReads instanceof Instr.Cast;
+            boolean stepped = af.testReads == k.step() || widened && ((Instr.Cast) af.testReads).op(0) == k.step();
+            // a * N + b
+            Value n = bound;
+            if (i.type() == MType.I8 && !widened) {
+                n = n instanceof Value.Const c ? new Value.Const(MType.I16, c.bits() & 0xFF)
+                        : ins(at, new Instr.Cast(Instr.CastKind.ZEXT, n, MType.I16, pos));
+            }
+            Value nb = n instanceof Value.Const c ? new Value.Const(MType.I16, MType.I16.wrap(c.bits() * a + b))
+                    : ins(at, new Instr.Bin(Instr.BinOp.ADD,
+                            ins(at, new Instr.Bin(Instr.BinOp.MUL, n, new Value.Const(MType.I16, MType.I16.wrap(a)), pos)),
+                            new Value.Const(MType.I16, b), pos));
+            // the stepped counter is compared: s after its step, computed where the test is
+            Value lhs = o;
+            if (stepped) {
+                lhs = new Instr.Bin(Instr.BinOp.ADD, o, new Value.Const(MType.I16, MType.I16.wrap(s.c())), pos);
+                t.block().insertBefore(t, (Instr) lhs);
+            }
+            moveTo(t, lhs, nb, a, m, at, replaced);
+            return;
+        }
     }
 
     private static Instr.Pred toUnsigned(Instr.Pred p) {

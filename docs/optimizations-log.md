@@ -1248,3 +1248,18 @@ could be one loop (`flat_index`, 3,238; not in the plan). The pair loops the sam
 The examples: Schach -0.5 %, Er-Tüp and Steinschlag -0.1 %, the rest the same; geometric mean
 -0.1 %. Code changed in six examples and 2 programs of `BackendOutputTest`.
 
+## A counter gives its test to a sibling (2026-11-20, on the spelling families)
+
+A pointer walked beside a counter that steps by another amount (`*p++` over words beside
+`i++`, `n--` beside the pointers' offsets counting up) is, after `PointerOffsets`, a second
+counter that is a * i + b of the first. L5 merged such counters only for a equal 1 and b equal
+0. A counter that nothing but its step and its loop test reads now gives the test to such a
+sibling, from constant starts (`Induction`, L5 second half, with the move of L4): `n != 0` with
+`o = 100 - n` is `o <= 99`, and the counter goes.
+
+The spelling families: `copy_while_n` 4,532 → 2,715 (gap closed), `fill_ptr_walk` 2,071 →
+1,359 (what is left: its loop head computes the pointer, without code, which keeps it from
+being rotated), `struct_ptr_count` 1,943 → 1,583 (the stride, as `struct_u16`). The style
+guide's `move_by_pointer` 1,943 → 1,583, 4 % above `move_by_index`. The examples and the pair
+loops the same; code changed in 2 programs of `BackendOutputTest`.
+

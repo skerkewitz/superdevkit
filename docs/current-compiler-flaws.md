@@ -495,7 +495,10 @@ Steps, each its own commit:
   another by a constant factor or offset is derived from it and falls under L4.
   Built (2026-11-20, [log](optimizations-log.md#two-counters-with-one-start-and-step-are-one-2026-11-20-on-the-spelling-families-and-the-examples)):
   the first sentence, before L4, which needed it (L4 made the second variable of `apply_s` in
-  the pair loops after inlining, and moved the loop test onto it). The second waits for L4.
+  the pair loops after inlining, and moved the loop test onto it). The second after L4
+  ([log](optimizations-log.md#a-counter-gives-its-test-to-a-sibling-2026-11-20-on-the-spelling-families)):
+  a counter read only by its step and its test moves the test to a counter of the loop that
+  is a * i + b, from constant starts.
 - **L6.** A counter read after the loop, in a loop with one exit and an exact number of rounds,
   is replaced there by its final value. (`i` used after the loop keeps it out of X today.)
 

@@ -331,4 +331,61 @@ class InductionTest {
             }
         }
     }
+    @Test
+    void aCounterReadOnlyByItsTestGivesItToASiblingCounter() {
+        // copy_while_n: n counts down from 100 to 0, the pointers' offset up by 1 (o = 100 - n);
+        // fill_ptr_walk: i < 64 beside an offset stepped by 2 (o = 2 * i)
+        String text = """
+                global @_t : 128
+
+                func @_down() -> void {
+                b0_entry:
+                    jump b1
+                b1:
+                    %0 = phi i16 [b0_entry, 100], [b2, %5]
+                    %1 = phi i16 [b0_entry, 0], [b2, %6]
+                    %3 = cmp ne i16 %0, 0
+                    br %3, b2, b3
+                b2:
+                    %4 = ptradd @_t, i16 %1
+                    store i8 %4, 7
+                    %5 = add i16 %0, -1
+                    %6 = add i16 %1, 1
+                    jump b1
+                b3:
+                    ret
+                }
+
+                func @_words() -> void {
+                b0_entry:
+                    jump b1
+                b1:
+                    %0 = phi i16 [b0_entry, 0], [b2, %5]
+                    %1 = phi i16 [b0_entry, 0], [b2, %6]
+                    %3 = cmp ult i16 %0, 64
+                    br %3, b2, b3
+                b2:
+                    %4 = ptradd @_t, i16 %1
+                    store i16 %4, 7
+                    %5 = add i16 %0, 1
+                    %6 = add i16 %1, 2
+                    jump b1
+                b3:
+                    ret
+                }
+                """;
+        MModule m = MirParser.parse(text);
+        Optimizer.run(m, true, false);
+        for (String f : List.of("_down", "_words")) {
+            assertEquals(1, headPhis(m, f), Printer.print(m.function(f)));
+            Interpreter want = new Interpreter(MirParser.parse(text), 100_000);
+            Interpreter got = new Interpreter(m, 100_000);
+            got.observe(Ranges.checker(m));
+            want.call(f, List.of());
+            got.call(f, List.of());
+            for (int a = 0; a < 128; a++) {
+                assertEquals(want.load(want.addressOf("_t") + a, 1), got.load(got.addressOf("_t") + a, 1), f + " t[" + a + "]");
+            }
+        }
+    }
 }
