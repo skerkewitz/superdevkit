@@ -270,7 +270,7 @@ public final class MirCodeGen {
             }
             Ranges r = written.get(f).ranges();
             SourcePos first = null;
-            for (dampf.mir.Loops.Loop loop : dampf.mir.Loops.find(f)) {
+            for (dampf.mir.CountedLoops.Loop loop : dampf.mir.CountedLoops.find(f)) {
                 if (Timing.headRuns(loop, r) >= Timing.UNBOUNDED) {
                     SourcePos at = loop.head().terminator().pos();
                     if (at != null && (first == null || at.line() < first.line())) {

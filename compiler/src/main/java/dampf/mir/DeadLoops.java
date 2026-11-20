@@ -1,7 +1,6 @@
 package dampf.mir;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -13,16 +12,11 @@ import java.util.Set;
  * (sdevkit_dbg_box in a loop over the actors, ADR record 32), or a loop whose results nobody reads.
  *
  * <p>gcc keeps a C loop that might not end, so dampf removes only those it can prove finite: one way
- * out, a branch in a block every round passes, on a counter compared with a constant, the counter a
- * φ of the head that every way back steps by the same constant c (or the stepped value itself):
- * <ul>
- *   <li>stays while the counter is not N: c odd, so the counter meets every value of its width;</li>
- *   <li>stays while the counter is below N (unsigned or signed), c &gt; 0: the counter reaches N
- *       before it could wrap, N + c - 1 fits the type (N + c for "at most N");</li>
- *   <li>stays while the counter is above N, c &lt; 0: the same downwards.</li>
- * </ul>
- * Every way into the loop then goes to the block the loop leaves to, with the values its φs took
- * from the loop's exit, which come from outside the loop.
+ * out, and {@link CountedLoops} bounds how often its head runs from the test there, a counter
+ * (not zero-extended) compared with a constant: it reaches the constant before it could wrap, or,
+ * with {@code !=} and an odd step, meets every value of its type. Every way into the loop then
+ * goes to the block the loop leaves to, with the values its φs took from the loop's exit, which
+ * come from outside the loop.
  */
 public final class DeadLoops {
     private DeadLoops() {}
@@ -34,12 +28,12 @@ public final class DeadLoops {
         while (again) {
             again = false;
             Map<Block, Block> idom = Cfg.idoms(f);
-            List<Loops.Loop> loops = Loops.find(f);
-            for (Loops.Loop loop : loops) {
+            List<CountedLoops.Loop> loops = CountedLoops.find(f);
+            for (CountedLoops.Loop loop : loops) {
                 // a loop around another: the other one is not proved finite (it would have gone
                 // first, innermost loops come first), so neither is this one
                 boolean nested = false;
-                for (Loops.Loop other : loops) {
+                for (CountedLoops.Loop other : loops) {
                     nested |= other != loop && loop.blocks().contains(other.head());
                 }
                 if (!nested && remove(f, loop, idom)) {
@@ -52,7 +46,7 @@ public final class DeadLoops {
         return changed;
     }
 
-    private static boolean remove(MFunction f, Loops.Loop loop, Map<Block, Block> idom) {
+    private static boolean remove(MFunction f, CountedLoops.Loop loop, Map<Block, Block> idom) {
         Set<Block> in = loop.blocks();
         // nothing with an effect, and only jumps and branches
         for (Block b : in) {
@@ -97,7 +91,12 @@ public final class DeadLoops {
                 return false;
             }
         }
-        if (!(br.op(0) instanceof Instr.Cmp cmp) || !ends(cmp, br.ifTrue != to, loop)) {
+        // the one way out is the loop's only exit test
+        if (loop.exits().isEmpty() || loop.runs(CountedLoops.CONSTANTS) == CountedLoops.UNKNOWN) {
+            return false;
+        }
+        CountedLoops.Exit test = loop.exits().getFirst();
+        if (!(test.bound() instanceof Value.Const) || test.widened() || test.stay() == Instr.Pred.NE && (test.counter().c() & 1) == 0) {
             return false;
         }
         // the ways in go to where the loop goes out
@@ -134,102 +133,4 @@ public final class DeadLoops {
         Cfg.removeUnreachable(f);
         return true;
     }
-
-    /**
-     * Whether the loop ends: it stays while {@code cmp} is {@code staysIfTrue}, and cmp compares a
-     * counter of the head (or the counter after its step) with a constant, in the canonical form
-     * (Simplify: the constant on the right, eq ne ult uge slt sge, which negation keeps).
-     */
-    private static boolean ends(Instr.Cmp cmp, boolean staysIfTrue, Loops.Loop loop) {
-        Instr.Pred pred = staysIfTrue ? cmp.pred : negate(cmp.pred);
-        Value a = cmp.op(0);
-        Value b = cmp.op(1);
-        if (!(b instanceof Value.Const n) || !(a instanceof Instr counter)) {
-            return false;
-        }
-        Long step = step(counter, loop);
-        if (step == null || step == 0) {
-            return false;
-        }
-        MType type = counter.type();
-        int w = type.bits();
-        if (w <= 1 || w > 32) {
-            return false;
-        }
-        long umax = (1L << w) - 1;
-        long smax = (1L << (w - 1)) - 1;
-        long smin = -(1L << (w - 1));
-        long c = step;
-        long un = n.bits() & umax;
-        long sn = type.signed(n.bits());
-        return switch (pred) {
-            case NE -> (c & 1) != 0;
-            case ULT -> c > 0 && un + c - 1 <= umax;
-            case UGE -> c < 0 && un - (-c) >= 0;
-            case SLT -> c > 0 && sn + c - 1 <= smax;
-            case SGE -> c < 0 && sn + c >= smin;
-            // EQ: stays while the counter equals N, which a step leaves at once or never; the
-            // others are not canonical, and not proved to end
-            default -> false;
-        };
-    }
-
-    /**
-     * The constant every way back steps the counter by: the counter is a φ of the head whose value
-     * from each latch is it plus (or minus) one constant, or such a stepped value of that φ.
-     */
-    private static Long step(Instr counter, Loops.Loop loop) {
-        Instr.Phi phi;
-        if (counter instanceof Instr.Phi p && p.block() == loop.head()) {
-            phi = p;
-        } else if (counter instanceof Instr.Bin s && s.op(0) instanceof Instr.Phi p && p.block() == loop.head()) {
-            phi = p;
-        } else {
-            return null;
-        }
-        Long step = null;
-        Set<Block> latches = new HashSet<>(loop.latches());
-        for (int k = 0; k < phi.from.size(); k++) {
-            if (!latches.contains(phi.from.get(k))) {
-                continue;
-            }
-            Long c = constantStep(phi, phi.operands().get(k));
-            if (c == null || (step != null && !step.equals(c))) {
-                return null;
-            }
-            step = c;
-        }
-        if (step == null) {
-            return null;
-        }
-        // the stepped value compared instead of the φ: the same step
-        if (counter != phi && !step.equals(constantStep(phi, counter))) {
-            return null;
-        }
-        return step;
-    }
-
-    /** c if v is phi + c (c a constant; canonical, so no phi - c), else null. */
-    private static Long constantStep(Instr.Phi phi, Value v) {
-        if (!(v instanceof Instr.Bin b) || b.op != Instr.BinOp.ADD || b.op(0) != phi || !(b.op(1) instanceof Value.Const k)) {
-            return null;
-        }
-        return phi.type().signed(k.bits());
-    }
-
-    private static Instr.Pred negate(Instr.Pred p) {
-        return switch (p) {
-            case EQ -> Instr.Pred.NE;
-            case NE -> Instr.Pred.EQ;
-            case ULT -> Instr.Pred.UGE;
-            case ULE -> Instr.Pred.UGT;
-            case UGT -> Instr.Pred.ULE;
-            case UGE -> Instr.Pred.ULT;
-            case SLT -> Instr.Pred.SGE;
-            case SLE -> Instr.Pred.SGT;
-            case SGT -> Instr.Pred.SLE;
-            case SGE -> Instr.Pred.SLT;
-        };
-    }
-
 }

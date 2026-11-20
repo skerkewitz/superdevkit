@@ -28,20 +28,21 @@ calls a function); a line with a branch gets no sum.
   one node: worst case = (rounds - 1) × the longest way round + the longest way out, best case =
   the shortest way out (no round). The rest is free of cycles: shortest and longest path to the
   return.
-- **Loop bounds** come from the code, as long as there are no hints. A counter φ that every way
-  back steps by the same constant c bounds how often the head runs, by the smallest bound of
-  these rules (each applies or not):
+- **Loop bounds** come from the code, as long as there are no hints, through the loop analysis
+  the optimizer uses too (`dampf.mir.CountedLoops`). A counter φ that every way back steps by
+  the same constant c bounds how often the head runs, by the smallest bound of these rules (each
+  applies or not):
   - a finite value range in the head and a step that cannot wrap: (hi - lo) / |c| + 1;
   - an ordered test that every round passes (in the head, or further down where it dominates
-    every way back) and that keeps the loop going while the counter, or the counter
-    zero-extended, is on the near side of another value (`i < n`, `i > rank`, `v >= 100`,
-    signed or unsigned): the counter cannot pass that value's extreme, and if the step cannot
-    wrap there, the head runs at most (extreme - start) / |c| + 2 times. This needs no range of
-    the counter itself, which an 8-bit unsigned counter does not have in the signed view of the
-    value ranges; an unknown start counts as the type's end;
-  - an equality test of the same kind (`k != 0` keeps going) with c = ±1: the counter meets the
-    constant after at most the distance modulo 2^w, so at most 2^w head runs even from the other
-    side.
+    every way back) and that keeps the loop going while the counter, or the counter after its
+    step (a `do` loop), either one possibly zero-extended, is on the near side of another value
+    (`i < n`, `i > rank`, `v >= 100`, signed or unsigned; the value may change in the loop, its
+    range counts): the counter cannot pass that value's extreme, and if the step cannot wrap
+    there, the head runs at most (extreme - first compared value) / |c| + 2 times. This needs
+    no range of the counter itself; an unknown start counts as the type's end;
+  - an equality test of the same kind (`k != 0` keeps going) on a value that stays the same:
+    with c = ±1 from the near side as the ordered test; from the far side the counter meets
+    the constant after the distance modulo 2^w; with any odd step after at most 2^w head runs.
 
   Other loops make the worst case "unbounded", some of them rightly: `for (y = t; y <= b; y++)`
   with an 8-bit `b` never ends when `b` is 255. A `DAMPF_RANGE` hint on the counter in the loop

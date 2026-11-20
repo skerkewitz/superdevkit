@@ -509,6 +509,11 @@ L2. `Ranges` meets a counter φ with what `CountedLoops` says, before and after 
 `i != 0` is an index. `n_u16_ne100` closed; the loops counting down lost 25 to 60 %, and wait for
 L3, L4 and C5 now.
 
+Built (2026-11-20): L3 for `Timing` and `DeadLoops`, every hash and every bound kept. `Timing`
+asks `CountedLoops` how often a head runs (its own `untilEqual` and `untilBound` are gone);
+`DeadLoops` takes the loop's exit from it, still only on a constant, not zero-extended, and with
+`!=` only for an odd step, which is all its own proof took.
+
 ## Flaw B: no register allocation, and places are decided before the code exists
 
 **What is wrong.** Three things, in order of weight.

@@ -2,7 +2,7 @@ package dampf.backend;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import dampf.mir.Loops;
+import dampf.mir.CountedLoops;
 import dampf.mir.MFunction;
 import dampf.mir.MirParser;
 import dampf.mir.Ranges;
@@ -32,6 +32,6 @@ class TimingTest {
                 }
                 """;
         MFunction f = MirParser.parse(loop).function("_clear");
-        assertEquals(769, Timing.headRuns(Loops.find(f).getFirst(), new Ranges(f)));
+        assertEquals(769, Timing.headRuns(CountedLoops.find(f).getFirst(), new Ranges(f)));
     }
 }
