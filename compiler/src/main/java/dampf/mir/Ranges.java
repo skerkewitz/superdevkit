@@ -18,7 +18,8 @@ import java.util.Map;
  * branches: in a block whose only predecessor branches on {@code cmp x, c} with a constant c, x
  * is known to satisfy the comparison (or its negation), in that block and every block it
  * dominates; a signed comparison bounds the signed reading, an unsigned one the unsigned.
- * {@code x != c} is no interval, but cuts c off an end of x's.
+ * {@code x != c} is no interval, but cuts c off an end of x's. A cast computed before such a
+ * condition on its operand is, where the condition holds, the cast of what is known there.
  *
  * <p>φs are joined over their incoming edges, with the conditions of the edge's source. Loops
  * are iterated until nothing changes; a value whose intervals keep growing is widened after
@@ -301,7 +302,20 @@ public final class Ranges {
         }
         Map<Value, Long> ne = notEqual.get(b);
         Long k = ne == null ? null : ne.get(v);
-        return k == null ? r : cut(r, k, v.type());
+        if (k != null) {
+            r = cut(r, k, v.type());
+        }
+        if (v instanceof Instr.Cast cv && isInt(cv.op(0).type()) && (cv.kind == Instr.CastKind.ZEXT || cv.kind == Instr.CastKind.SEXT
+                || cv.kind == Instr.CastKind.TRUNC)) {
+            // a cast defined before a condition on its operand: in b it is the cast of what b
+            // knows of the operand (zext(n) made before the test n < 13, read after it)
+            Both o = bothAt(cv.op(0), b);
+            Both x = o == null ? null : r.meet(cast(cv, o));
+            if (x != null) {
+                r = reduce(x.s, x.u, v.type());
+            }
+        }
+        return r;
     }
 
     /** r without the value whose bits are k, where k is an end of an interval. */

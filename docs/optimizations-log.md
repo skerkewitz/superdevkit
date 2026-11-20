@@ -1161,3 +1161,16 @@ The spelling families: 15 gaps closed. `i_u16_dowhile` 4,030 → 2,725, `g_u16_d
 style guide's measurements the same (no example's code changed); `exec/pointer_index.c` keeps a
 counter in X it kept in memory (worst case -25 cycles).
 
+## A cast follows its operand's condition (2026-11-20, on the examples)
+
+A condition bounds the value it tests, in the blocks where it holds; a zero extension of that
+value computed before the test kept the range it had there (`zext(n)` made before `n < 13`
+stayed 0..255 after it). In a block, the range of a cast is now also the cast of what the block
+knows of its operand. Found while moving loop tests to derived variables (L4), whose new bound
+`zext(n)` is computed in front of a `DAMPF_RANGE` test.
+
+The examples: CatchMe -2.3 %, its busiest 60 ticks -16 % (`maze_draw` 1,166,480 → 641,488 cycles
+at worst, `draw_cell` and `maze_clear_cell` 5,600 → 3,100: an index made 16-bit before its
+check now goes through no pointer); the others the same, geometric mean -0.3 %. Code changed in
+CatchMe only.
+

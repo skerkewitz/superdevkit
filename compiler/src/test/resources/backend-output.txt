@@ -1,5 +1,5 @@
-example_catchme.mir.s0 2eba9ced5ae066d347565859
-example_catchme.mir.timing a64c4023dba79f7c06037f19
+example_catchme.mir.s0 c4a833a33b7dd8337b438093
+example_catchme.mir.timing 1b9a556de465078a7fa7c043
 example_catchme.naive.s0 dce3da17afed0f9517fb68cd
 example_ertuep.mir.s0 a1c1750ea936d09be60364bf
 example_ertuep.mir.s1 779b4c6a9945f2c58da9480b

@@ -227,4 +227,25 @@ class RangesTest {
         in.observe(Ranges.checker(m));
         in.call("_f", List.of());
     }
+    @Test
+    void aCastMadeBeforeAConditionFollowsItsOperandAfterIt() {
+        // zext(n) is computed before the test n < 13; where the test holds, it is 0..12 too
+        MModule m = MirParser.parse("""
+                func @_f(i8 %n) -> i16 {
+                b0_entry:
+                    %0 = zext i8 %n to i16
+                    %1 = cmp ult i8 %n, 13
+                    br %1, b1_small, b2_big
+                b1_small:
+                    ret i16 %0
+                b2_big:
+                    ret i16 0
+                }
+                """);
+        MFunction f = m.function("_f");
+        Ranges r = new Ranges(f);
+        Value z = f.blocks().getFirst().instrs().getFirst();
+        assertEquals(new Ranges.Range(0, 255), r.of(z));
+        assertEquals(new Ranges.Range(0, 12), r.at(z, f.blocks().get(1)));
+    }
 }
