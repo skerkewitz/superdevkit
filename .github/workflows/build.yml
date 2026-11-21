@@ -1,4 +1,4 @@
-# The build of every pull request (ADR record 50): ./gradlew build on Linux, with the tools the
+# The build of every pull request (ADR-6FB9QJ3R): ./gradlew build on Linux, with the tools the
 # tests call: the runner's gcc, python3 and node, and cc65 from Ubuntu (BackendOutputTest
 # builds every ROM with ca65 and ld65 too). Mesen, raylib and Playwright are not there, and the
 # tests that need them skip. Pushes to develop and main are not built again:

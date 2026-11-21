@@ -10,7 +10,7 @@ import java.util.Set;
 import superdevkit.gfx.Png2Snes;
 
 /**
- * A project of the kit: its superdevkit.toml (ADR record 31), read and checked.
+ * A project of the kit: its superdevkit.toml (ADR-6F3CJZBY), read and checked.
  *
  * <pre>
  * name = "catchme"              # the program: build/snes/catchme.sfc, build/linux/catchme, ...

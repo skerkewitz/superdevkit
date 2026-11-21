@@ -13,7 +13,7 @@ import superdevkit.gfx.Png2Snes;
 import superdevkit.sfx.Sfx;
 
 /**
- * What {@code superdevkit build <target>} does for a project, as a list of steps (ADR record 31):
+ * What {@code superdevkit build <target>} does for a project, as a list of steps (ADR-6F3CJZBY):
  * {@code --plan} prints them, {@code --dry-run} checks that what each needs is there, and a build
  * runs them, printing each with {@code --verbose}. No step runs a shell: the converters and dampf
  * run in this Java, the desktop's C compiler is called directly, one call per file and one to link.
@@ -185,7 +185,7 @@ public final class Build {
     }
 
     /**
-     * build/snes/NAME.args: what the build compiles, as an argument file for dampf (ADR record 28),
+     * build/snes/NAME.args: what the build compiles, as an argument file for dampf (ADR-6F3CJW9N),
      * so dampf can be called with options of one's own: {@code dampf build @build/snes/NAME.args
      * -o other.sfc --backend naive} (dev/bench_examples.sh does). Absolute paths.
      */

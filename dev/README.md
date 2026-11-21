@@ -6,11 +6,11 @@ Mesen itself, the examples' art, and the desktop's build until the `superdevkit`
 first. The shell scripts that compile call `./gradlew -q installDist` and use
 `build/install/superdevkit/bin/dampf`; in an installed home (where the desktop build scripts are
 copied to `dev/`) they use its `bin/dampf` and `include/`. (Blubber Blasen's benchmark, playable ROM, replays and snapshot
-left with the game's code, ADR record 40.)
+left with the game's code, ADR-6F60Z819.)
 
 The scripts that run Mesen take `MESEN=<path>` for the
 executable (default: MesenCE in `.mesen/`, the Linux build before the Windows one; `mesen.sh`).
-`fetch_mesen.sh` puts it there ([ADR record 33](../docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md)).
+`fetch_mesen.sh` puts it there ([ADR-6F3CK1V6](../docs/adr/6F3CK1V6-mesence-is-the-emulator-for-the-console-checks.md)).
 The script copies the ROM and a Lua script into Mesen's folder, runs `--testrunner` there and
 moves the result into `build/`.
 
@@ -19,6 +19,7 @@ moves the result into `build/`.
 | `bench_examples.sh` | The examples' benchmark: builds every example that has a `check.txt` (`superdevkit build snes`), then with dampf again from the argument file the build wrote (`build/snes/<name>.args`) and the options given (a code generator option, a tuned parameter), plays its check in dampf's emulator (`dampf.emu.ExampleBench`) and prints a table: ticks, frames per tick, the work per tick (master cycles without the main loop's waiting) on average and in the busiest 60 ticks, and the share of dampf's runtime. With `BASELINE=<an earlier table>` also the ratio of the work to it, per example and as the geometric mean. | options for `dampf build`; `BASELINE` | Python 3 (the examples' converters) | `build/bench-examples/examples.txt`, the ROMs beside it |
 | `bisect_passes.sh` | Finds the pass application that breaks a program: runs the command with `DAMPF_OPT_LIMIT` set (dampf then stops its passes after that many applications, `dampf.util.PassLimit`), checks that it succeeds with no pass and fails with all, bisects to the smallest failing limit and names that application (pass and function). The command should check one program: `./gradlew -q :compiler:test --tests dampf.exec.ExecutionTest -Pexec=<name>`, a random program with `-PrandomSeed=<seed> -Prandom=1`, or a build and a check of your own. | `<command> [args...]` | | standard output |
 | `random_soak.sh` | A long run of random programs before a release: N programs of each generator (`RandomProgram` and `RandomLoopProgram`, docs/testing.md), one Gradle run each. A failure names its seed and the command that runs that program alone. | `[count, default 5000] [first seed, default today's]` | gcc | the test report |
+| `new_adr.sh` | Makes a new architecture decision record: its ID (the time and a hash of the title, [docs/ADR.md](../docs/ADR.md)), the file `docs/adr/<ID>-<start of the title>.md` with the parts of a record, and its row at the end of the table in `docs/ADR.md`. Prints the ID. | `"<title>"` | sha256sum | `docs/adr/`, `docs/ADR.md` |
 | `png_read.py` | A small PNG reader for the other dev scripts (`compare_shots.py`, `art/splash*.py`): 8-bit images, palette, grey, RGB, RGBA. The reader of the old Python converter, whose work `superdevkit png` does now. | | Python 3 | |
 | `sfx_tables.py` | Makes the integer tables of the sound converter once ([docs/sound.md](../docs/sound.md#the-conversion)): the windowed sinc of the resampling, the treble's high shelf per half dB, the gain per half dB, the trim threshold. The Java converter and the BRR Lab compute nothing with sin, cos or pow, so both give the same bytes. `--check` fails if the files are not what it makes. | `dev/sfx_tables.py [--check]` | Python 3 | `cli/src/main/resources/superdevkit/sfx/tables.txt`, the TABLES block of `tools/brr_lab.html` |
 | `fetch_mesen.sh` | Puts MesenCE (a pinned version) into `.mesen/`: the Linux and the Windows build, portable, with the settings the scripts and tests need (SNES joypads, Lua file access, no frame skipping); on Arch also the libraries the Linux build needs, into `.mesen/lib`. | | curl, unzip, Python 3 | `.mesen/`, `build/mesen/` |

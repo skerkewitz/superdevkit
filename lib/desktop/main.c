@@ -1,5 +1,5 @@
 /*
- * The desktop frontend of superdevkit (Linux and Windows; ADR records 32 and 39): a window with
+ * The desktop frontend of superdevkit (Linux and Windows; ADR-6F3CK03Z and ADR-6F60Z709): a window with
  * raylib, the keyboard and a gamepad as the SNES joypad, and the frame rhythm of sdevkit/loop.h
  * on Rachael (lib/rachael):
  *

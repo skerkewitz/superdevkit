@@ -1,7 +1,7 @@
 #ifndef SDEVKIT__RACHAEL_H
 #define SDEVKIT__RACHAEL_H
 
-/* Rachael's own interface (ADR record 34: internal names start with sdevkit__): what the
+/* Rachael's own interface (ADR-6F3CK2AR: internal names start with sdevkit__): what the
  * frontends (lib/desktop) and the tests call, and the state shared by ppu.c (memories, registers)
  * and render.c (the picture). Not for games: they see only sdevkit/snes.h. Taken over from
  * Blubber Blasen's src/snes (snes.h's PC side, snes_internal.h); 16 x 16 background tiles are new. */
@@ -104,7 +104,7 @@ void sdevkit__sfx_frame(void);
  * Counted in sdevkit__rachael.undrawn; the frontends report it as they report lost bytes. */
 uint8_t sdevkit__undrawn(uint8_t reg, uint8_t value);
 
-/* --- Music (music.c; ADR record 32) --------------------------------------------------------- */
+/* --- Music (music.c; ADR-6F3CK03Z) --------------------------------------------------------- */
 /* The track the game asked for (-1: none), and whether it changed since the frontend looked. The
  * frontend plays it from sdevkit__music_files, which the build writes (music_files.c next to the
  * program): the files of superdevkit.toml's [sound] music, in their order. */
@@ -119,7 +119,7 @@ extern const int sdevkit__music_count;
 
 void sdevkit__music_reset(void);   /* power on: no music */
 
-/* --- The debug registrations (debug.c; ADR record 32) --------------------------------------- */
+/* --- The debug registrations (debug.c; ADR-6F3CK03Z) --------------------------------------- */
 /* What the game registered with sdevkit_dbg_toggle, _range, _color and _action, for the desktop's
  * debug view, and the boxes sdevkit_dbg_box drew in the current tick. */
 #define SDEVKIT__DBG_MAX   32

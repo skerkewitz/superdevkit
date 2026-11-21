@@ -19,7 +19,7 @@ game reduces its own work in parallel; the current numbers are in
 
 dampf is the compiler of a development kit for SNES games, superdevkit; this repository is
 superdevkit's (ADR
-[record 29](adr/0029-superdevkit-is-the-project-and-dampf-is-its.md)). Next: the optimizer's work
+[ADR-6F3CJX8T](adr/6F3CJX8T-superdevkit-is-the-project-and-dampf-is-its.md)). Next: the optimizer's work
 on the game's costliest loop (its finding 9, M9) and the web (M8).
 
 ## Versions
@@ -31,9 +31,9 @@ concluded after 0.5.0 was in use, took the free 0.6.0. Every version before 1.0 
 the command line and the files dampf writes may change from one to the next. Publishing is a
 step of its own, not scheduled yet (see [Publishing](#publishing-not-scheduled)). What 1.0
 needs is an open question. The rule is ADR
-[record 26](adr/0026-milestone-n-is-version-0n0-and-the-first-public.md), amended by
-[record 29](adr/0029-superdevkit-is-the-project-and-dampf-is-its.md) and
-[record 45](adr/0045-m5-is-concluded-as-060-and-a-version-between.md).
+[ADR-6F3CJT1P](adr/6F3CJT1P-milestone-n-is-version-0n0-and-the-first-public.md), amended by
+[ADR-6F3CJX8T](adr/6F3CJX8T-superdevkit-is-the-project-and-dampf-is-its.md) and
+[ADR-6F60ZDMF](adr/6F60ZDMF-m5-is-concluded-as-060-and-a-version-between.md).
 
 ## Milestones
 
@@ -103,7 +103,7 @@ Also in M9:
     `slow-u8-counter` (unsigned byte ranges) and `slow-u16-counter-words` (the loop test moved
     to the derived offset, which also retired `slow-word-array`);
   - an array with a 16-bit index went through a 24-bit pointer unless a `DAMPF_RANGE` bounded
-    the index: gone on 2026-11-20 with `fast-range-index` (ADR record 46);
+    the index: gone on 2026-11-20 with `fast-range-index` (ADR-6F8NBESR);
   - a pointer walk cost more than indexing (`o->x; o++`): gone on 2026-11-20 (`same-pointer-walk`
     now);
   - a multiplication of two bytes calls `dampf_mul16`, the SNES's 8 x 8 multiplier at
@@ -126,7 +126,7 @@ game doing less work: the pair loop of `separate` (16 %) and the CPU partner (th
 ## M10: language, platform and usability (0.10.0)
 
 - **C in interrupt handlers.** Frames have fixed places (ADR
-  [record 6](adr/0006-no-recursion-no-free-function-pointers-and-no-heap.md)), so C called from
+  [ADR-6F0R668G](adr/6F0R668G-no-recursion-no-free-function-pointers-and-no-heap.md)), so C called from
   an NMI or IRQ would overwrite the frames of the code it interrupted, and the platform layer
   waits for the vertical blank instead. Nearly every SNES game has an NMI handler, and raster
   effects need an IRQ handler. The functions an interrupt reaches can get a frame area of their
@@ -136,13 +136,13 @@ game doing less work: the pair loop of `separate` (16 %) and the CPU partner (th
   *Intrinsics*).
 - **The open subset decision** 1 (plain `char` for text only) in [subset.md](subset.md); 2 and
   3 come with M9. Decision 4 is taken: `goto` stays rejected (ADR
-  [record 27](adr/0027-goto-and-labels-stay-rejected-and-a-forward-and.md)).
+  [ADR-6F3CJVHC](adr/6F3CJVHC-goto-and-labels-stay-rejected-and-a-forward-and.md)).
 - **Function pointers in constant tables**, allowed by design and not built.
 - **Hand-written assembly with the code generator from MIR:** `--replace` works only with the
   naive one, and a linked-in function has no way to declare its calling convention, direct page
   use and cycles for the timing analysis.
 - **dampf's own preprocessor**, so that using dampf needs nothing but Java (needed before the
-  first public release, ADR record 41): macro expansion
+  first public release, ADR-6F60Z9QJ): macro expansion
   following Prosser's algorithm, `#` and `##`, variadic macros with `__VA_OPT__`, `#if`
   arithmetic in `intmax_t`, line markers for the debug information. `gcc -E` stays in the tests
   as the oracle, on every test program, every example and generated macro cases. Today users on
@@ -181,7 +181,7 @@ would gain from variables shown with their C type (`uint8_t`, signed `int16_t`),
 and the locals of a function in their direct page places. The cc65 format already has fields
 for part of this (a storage class `sc` and an offset on `csym`) that Mesen ignores. The plan:
 dampf first fills what the format has, then a small patch teaches Mesen to read it, offered to
-MesenCE, where Mesen is maintained now ([record 33](adr/0033-mesence-is-the-emulator-for-the-console-checks.md)); NES developers who use cc65 would gain from it too. A patch from a compiler with
+MesenCE, where Mesen is maintained now ([ADR-6F3CK1V6](adr/6F3CK1V6-mesence-is-the-emulator-for-the-console-checks.md)); NES developers who use cc65 would gain from it too. A patch from a compiler with
 users is easier to argue for, so the patch waits until the dev kit is public. With it, the code from MIR
 writes the processor state line in the assembly as the naive code generator does.
 
@@ -206,7 +206,7 @@ Also in M12:
 - bank `$7F` for variables ([memory-map.md](memory-map.md));
 - subrange types (`DAMPF_RANGED`, `DAMPF_AS`), only when a profile shows a hot value whose range
   dampf cannot infer ([subrange-types.md](subrange-types.md), ADR
-  [record 23](adr/0023-value-ranges-are-inferred-first-and-subrange-types.md)).
+  [ADR-6F0R6Q5P](adr/6F0R6Q5P-value-ranges-are-inferred-first-and-subrange-types.md)).
 
 ## Not scheduled for the dev kit
 
@@ -222,7 +222,7 @@ the compiler moved into `compiler/` once a second build world makes it worth it.
 The dev kit goes public as superdevkit when it is useful to someone other than Blubber Blasen.
 What it takes:
 
-- **Own examples instead of Blubber Blasen.** Done on 2026-11-19 (ADR record 40): the snapshot,
+- **Own examples instead of Blubber Blasen.** Done on 2026-11-19 (ADR-6F60Z819): the snapshot,
   its replays and its hand-written function left the repository, and on 2026-11-19 the git
   history too (`git filter-repo`, force pushed), with the game's tools and tests. The examples
   took over their jobs: Er-Tüp is a test case of a whole game's size,
@@ -242,13 +242,13 @@ What it takes:
 - **The repository renamed** to superdevkit, with dampf as its compiler: done on 2026-11-19 (on
   GitHub, still private), the README and the documents follow it.
 - **The book's getting started on `hello`**, and `examples/m1` gone, with the book before the
-  release (ADR [record 43](adr/0043-the-book-is-brought-in-step-before-a-release-not.md); from M5).
-- **Before the first release** (ADR [record 41](adr/0041-the-release-is-a-zip-per-system-with-a-java.md)): dampf's own
+  release ([ADR-6F60ZB4N](adr/6F60ZB4N-the-book-is-brought-in-step-before-a-release-not.md); from M5).
+- **Before the first release** ([ADR-6F60Z9QJ](adr/6F60Z9QJ-the-release-is-a-zip-per-system-with-a-java.md)): dampf's own
   preprocessor (M10) and the graphics converter in Java in the CLI, so building for the SNES
   needs nothing but the download.
 - **Hosting:** a release on GitHub, a zip per system with a Java runtime (jlink) and raylib (ADR
-  record 41), a build on GitHub Actions (cc65 installed for the tests that
-  compare with ca65 and ld65; no Mesen; `checkBook` after `build`, ADR record 43), the book on
+  ADR-6F60Z9QJ), a build on GitHub Actions (cc65 installed for the tests that
+  compare with ca65 and ld65; no Mesen; `checkBook` after `build`, ADR-6F60ZB4N), the book on
   GitHub Pages.
 
 ## Future ideas
@@ -306,7 +306,7 @@ and the toolchain is tested on what only the console shows.
   another played it in Mesen for a minute with scripted input (screenshots; no byte may reach
   VRAM, CGRAM or OAM outside a vertical blank), and the replay test played a recording through
   the platform layer. The examples' checks do the same for every example now (ADR
-  [record 40](adr/0040-the-examples-replace-blubber-blasen-s-snapshot-as.md)).
+  [ADR-6F60Z819](adr/6F60Z819-the-examples-replace-blubber-blasen-s-snapshot-as.md)).
 
 The console showed things the benchmark could not. A tick that needs more than one frame waits for
 the next vertical blank, and the benchmark leaves out what `video.c` costs on the hardware. With the
@@ -399,16 +399,16 @@ Dates are 2026-11-17 unless a line says otherwise. The measurements are in [opti
   that day ([archive/status-2026-11-18.md](archive/status-2026-11-18.md)) to M5, M8 and M9. M5
   changed from publishing to cleanup and publishing, an alpha for use from Blubber Blasen's
   repository; dampf's own preprocessor moved from M5 to M8. Versions came in: milestone N is
-  0.N.0 (ADR [record 26](adr/0026-milestone-n-is-version-0n0-and-the-first-public.md)).
+  0.N.0 ([ADR-6F3CJT1P](adr/6F3CJT1P-milestone-n-is-version-0n0-and-the-first-public.md)).
 
 - **The dev kit** (2026-11-18). dampf became the compiler of superdevkit, a development kit for
   SNES games held in this repository (ADR
-  [record 29](adr/0029-superdevkit-is-the-project-and-dampf-is-its.md)). M5 changed to the game
+  [ADR-6F3CJX8T](adr/6F3CJX8T-superdevkit-is-the-project-and-dampf-is-its.md)). M5 changed to the game
   building with the dev kit; publishing left M5 and is not scheduled.
 
 - **The targets** (2026-11-18). After a brainstorming session
   ([summary](brainstorm/superdevkit-targets_2026-11-18.md)) the dev kit got its desktop and web
-  targets, split by target after M5: M7 Windows and Linux, M8 the web (ADR records 31 and 32;
+  targets, split by target after M5: M7 Windows and Linux, M8 the web (ADR-6F3CJZBY and ADR-6F3CK03Z;
   the plan is [superdevkit-transition.md](superdevkit-transition.md)). The milestones planned
   before moved from M7–M10 to M9–M12; the History above names them by their old numbers.
 
@@ -434,7 +434,7 @@ Dates are 2026-11-17 unless a line says otherwise. The measurements are in [opti
 The question was whether the optimizations reach the budget or the game also has to do less
 work. **Decided: compiler and game in parallel**, with 30 Hz game logic on the heaviest ticks as
 the fallback; the numbers and the options weighed are in ADR
-[record 22](adr/0022-the-compiler-and-the-game-work-in-parallel-towards.md). The request to the
+[ADR-6F0R6P51](adr/6F0R6P51-the-compiler-and-the-game-work-in-parallel-towards.md). The request to the
 game is the game's finding 1 (forwarded to it).
 
 ### M3 and M4
@@ -478,7 +478,7 @@ game is the game's finding 1 (forwarded to it).
 ### M5
 
 Concluded on 2026-11-19 as version 0.6.0 (ADR
-[record 45](adr/0045-m5-is-concluded-as-060-and-a-version-between.md)): Blubber Blasen builds its
+[ADR-6F60ZDMF](adr/6F60ZDMF-m5-is-concluded-as-060-and-a-version-between.md)): Blubber Blasen builds its
 SNES ROM from its own repository with a local install of the kit (`build_snes.sh`: dampf,
 `lib/snes`, `superdevkit sfx`), and the ROM plays four recordings of 36,000 ticks each (Arcade,
 with the CPU partner, Plus, Plus with the partner) with the PC's checksum on every tick, which
@@ -491,7 +491,7 @@ rhythm (`lib/include/sdevkit/loop.h`) belong to the library ([lib/README.md](../
 Every name a game can use starts with `sdevkit_` or `SDEVKIT_`, the desktop build checks that a
 game calls nothing else, and `tools/sdevkit_rename.py` converts code from the old names; the game
 switched, and the deprecated header that kept them went (ADR
-[record 34](adr/0034-every-name-of-the-console-api-starts-with.md)). dampf can be called by a
+[ADR-6F3CK2AR](adr/6F3CK2AR-every-name-of-the-console-api-starts-with.md)). dampf can be called by a
 game: argument files (`@file`, `--config`), every error of a run reported, `<string.h>` with
 `memset` and `memcpy`. Two miscompilations were found and fixed: a loop counter kept in X stepped
 before a later store whose address was formed from its old value
@@ -499,7 +499,7 @@ before a later store whose address was formed from its old value
 branch whose two sides start a loop each wrote both start values before branching while the
 frame layout let them share a place (`exec/regress_branch_phis.c`). The converter
 `tools/png2snes.py` and the examples came with it, and the game's snapshot left the repository
-(ADR [record 40](adr/0040-the-examples-replace-blubber-blasen-s-snapshot-as.md)).
+([ADR-6F60Z819](adr/6F60Z819-the-examples-replace-blubber-blasen-s-snapshot-as.md)).
 
 Its steps beyond the goal moved: random programs and execution tests that reach the optimizer to
 M9, the book's getting started on `hello` to the release work, the ROM on a console to the work
@@ -516,21 +516,21 @@ checksum per tick with the desktop). The examples give the same picture on the S
 pixel for pixel (`dev/compare_example.sh`); that comparison found a bug in `lib/snes`, whose
 `oamSetVisible` (now `sdevkit_oam_set_visible`) moved a sprite at a negative x to the right
 edge. Both are built on WSL: Linux with gcc, Windows with the MSVC of the Windows side
-(ADR [record 39](adr/0039-win64-is-built-with-msvc-for-now-from-wsl.md)), which plays with the gamepads WSL does not
+([ADR-6F60Z709](adr/6F60Z709-win64-is-built-with-msvc-for-now-from-wsl.md)), which plays with the gamepads WSL does not
 see and gives the same checksums and pictures as Linux.
 
 Built in M7 on 2026-11-19: sound effects on both platforms ([docs/sound.md](sound.md), ADR
-[record 44](adr/0044-sound-effects-come-from-sfx-json-and-rachael-plays.md)); Schach and
+[ADR-6F60ZC7C](adr/6F60ZC7C-sound-effects-come-from-sfx-json-and-rachael-plays.md)); Schach and
 Steinschlag use them; save RAM too (`sdevkit_sram`, `dampf --sram`; CatchMe keeps its high score
 there); and the debug view with the registrations of the console API (F1 on the desktop, empty on
 the SNES, where dampf removes the calls); and the `superdevkit` command with `init`, `build` and
-`run` for `snes`, `linux` and `win64` (ADR [record 31](adr/0031-the-superdevkit-command-builds-a-project-from-its.md)),
+`run` for `snes`, `linux` and `win64` ([ADR-6F3CJZBY](adr/6F3CJZBY-the-superdevkit-command-builds-a-project-from-its.md)),
 on a project file, `superdevkit.toml`, which every example has instead of its build script; the
 converters are Java in it, so building needs nothing but Java and a C compiler; `init` writes a
 `CLAUDE.md` into the new project that points to the kit's guides, `lib/C_STYLE.md` and
 `lib/SNES_HARDWARE.md`; and music on the desktop from the files the project lists, a stub on the
-SNES (ADR [record 32](adr/0032-desktop-and-web-are-for-prototyping-with-sound.md), with the names
-of [record 34](adr/0034-every-name-of-the-console-api-starts-with.md); [sound.md](sound.md#music)).
+SNES ([ADR-6F3CK03Z](adr/6F3CK03Z-desktop-and-web-are-for-prototyping-with-sound.md), with the names
+of [ADR-6F3CK2AR](adr/6F3CK2AR-every-name-of-the-console-api-starts-with.md); [sound.md](sound.md#music)).
 The steps are in [superdevkit-transition.md](superdevkit-transition.md#m7-windows-and-linux-070).
 
 Concluded on 2026-11-19 as version 0.7.0, with one part of its goal left to the game: the examples
@@ -553,16 +553,16 @@ both ways.
 ### Answered questions
 
 - An own assembler and linker: yes, in M6 (ADR
-  [record 19](adr/0019-dampf-assembles-and-links-itself-with-ca65-and.md)). An own debugger
-  stays a non-goal ([record 20](adr/0020-mesen-is-the-debugger-and-the-dbg-file-means-what.md)).
-- Build tool: Gradle ([record 2](adr/0002-java-25-antlr-with-the-grammars-v4-c-grammar-and.md)).
+  [ADR-6F3CJKHB](adr/6F3CJKHB-dampf-assembles-and-links-itself-with-ca65-and.md)). An own debugger
+  stays a non-goal ([ADR-6F3CJMJ5](adr/6F3CJMJ5-mesen-is-the-debugger-and-the-dbg-file-means-what.md)).
+- Build tool: Gradle ([ADR-6F0R624X](adr/6F0R624X-java-25-antlr-with-the-grammars-v4-c-grammar-and.md)).
 - Stage 2 platform API: no intrinsics needed; a platform layer in C with volatile register access
-  ([record 21](adr/0021-the-platform-layer-is-c-with-volatile-pointers-and.md)).
+  ([ADR-6F0R6NS5](adr/6F0R6NS5-the-platform-layer-is-c-with-volatile-pointers-and.md)).
 - Whole ROMs headless in tests: Mesen 2's test runner (`Mesen.exe --testrunner rom.sfc
   script.lua`), as the game's `tools/snesbench` does.
 - Mesen shows the C source with dampf's debug output: yes.
 - Licence: Apache License 2.0 with LLVM Exceptions
-  ([record 25](adr/0025-dampf-is-under-the-apache-license-20-with-llvm.md)).
+  ([ADR-6F0R6SCV](adr/6F0R6SCV-dampf-is-under-the-apache-license-20-with-llvm.md)).
 - What the Calypsi investigation finds: dampf is faster on the same scene; the order of the
   optimizations follows the plan above. Why Calypsi's results drifted from the PC's from tick 596
   on was not found; it is not pursued, since the game left Calypsi on 2026-11-19 and the kit no
@@ -573,7 +573,7 @@ both ways.
 Blubber Blasen is dampf's first user and was its main test case: its deterministic replays were
 the oracle for correctness, and its busiest scene the benchmark for speed, on a copy of its code
 in this repository. Since 2026-11-19 the dev kit's examples are both, and the game's code is no
-longer here ([ADR record 40](adr/0040-the-examples-replace-blubber-blasen-s-snapshot-as.md)); the
+longer here ([ADR-6F60Z819](adr/6F60Z819-the-examples-replace-blubber-blasen-s-snapshot-as.md)); the
 game builds with the kit from its own repository. What dampf finds worth changing in the game goes
 to a findings file the user forwards (`docs/game-findings.md`, created when there is one); when dampf is finished, `docs/game-guide.md` explains how
 to write game code that dampf compiles well.

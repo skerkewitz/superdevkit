@@ -222,7 +222,7 @@ final class Selection {
      * of any of them can be left out (after LDA x / STA y both are). Forgotten at labels, calls
      * and stores through pointers, and when an instruction changes A; a place is dropped when
      * something else writes it or a neighbouring byte. A frame place counts by its owner, not by
-     * its address: A holds that value wherever its place ends up (B2, ADR record 47).
+     * its address: A holds that value wherever its place ends up (B2, ADR-6F8NBFAQ).
      */
     final Holds aHolds = new Holds();
 

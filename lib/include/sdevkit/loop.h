@@ -2,7 +2,7 @@
 #define SDEVKIT_LOOP_H
 
 /*
- * The frame rhythm of superdevkit (ADR records 29 and 34): the library's main loop starts the
+ * The frame rhythm of superdevkit (ADR-6F3CJX8T and ADR-6F3CK2AR): the library's main loop starts the
  * console, then calls three functions that every game defines.
  *
  *   game_init(seed)    once, with the screen off;

@@ -1,10 +1,10 @@
 # lib: the library of superdevkit
 
-The library a game uses (ADR [record 29](../docs/adr/0029-superdevkit-is-the-project-and-dampf-is-its.md)):
+The library a game uses ([ADR-6F3CJX8T](../docs/adr/6F3CJX8T-superdevkit-is-the-project-and-dampf-is-its.md)):
 one console API, implemented once per platform. A game includes the headers in `include/sdevkit/`
 and is compiled together with the implementation of its platform; it calls nothing else. Every
 name it can use starts with `sdevkit_` or `SDEVKIT_`
-([record 34](../docs/adr/0034-every-name-of-the-console-api-starts-with.md)).
+([ADR-6F3CK2AR](../docs/adr/6F3CK2AR-every-name-of-the-console-api-starts-with.md)).
 
 | Folder | What |
 | --- | --- |
@@ -13,9 +13,9 @@ name it can use starts with `sdevkit_` or `SDEVKIT_`
 | `snes/` | The SNES: the API in C with registers as `volatile` pointers (`snes.c`, `hw.h`) and the main loop (`main.c`), compiled by dampf with the game. See its [README](snes/README.md). |
 | `rachael/` | The desktop (and the web, M8): [Rachael](#rachael), the SNES rebuilt in portable C (`ppu.c`, `render.c`). `rachael.h` is its interface to the frontends (`sdevkit__vblank`, `sdevkit__render`, ...), not for games. Taken over from Blubber Blasen's `src/snes`; new against the game's copy: 16 x 16 background tiles, and row y of the picture is scanline y + 1 as on the SNES. |
 | `sound/` | The sound effects' logic, the same on both (`sfx_voices.h`, included by `snes/sfx.c` and `rachael/sfx.c`; [docs/sound.md](../docs/sound.md)): the upload of the driver, the sample directory and the samples, the voices counted down in frames, the priorities, one key on per frame. The SNES sends the bytes through the ports to the SPC700, Rachael puts them into her audio RAM and her DSP (`rachael/dsp.c`). |
-| `desktop/` | The desktop's frontend (`main.c`, Linux and Windows): a window with raylib and the retro TV filter (`crt.c`, [RETRO-EFFECT.md](desktop/RETRO-EFFECT.md); Tab, `--no-crt`), the keyboard and a gamepad as the joypad, the frame rhythm of `loop.h`; `--check check.txt` plays without a window and writes screenshots, the checksums and the sound (`sound.txt`: every DSP write; `--wav file`: the DSP's output). The window plays the sound through raylib's audio stream. Every session in the window is recorded (the joypad and the checksum of every tick): F11 flags the moment and saves it as `<game>_rec_<n>.txt`, in the format of `check.txt`; `--replay file` plays it in the window, pausing at its marks and at the first tick whose checksum differs, with F5 (pause), F6 (a tick) and F7 (fast); `dev/replay.sh <rom> <recording>` plays it on the SNES side, in dampf's emulator. F1 opens the debug view beside the picture (`view.c`, ADR record 32): the run (pause, a tick, slow motion with F8, fast), what the game registered with `sdevkit_dbg_toggle`, `_range`, `_color` and `_action` to change while it runs, its boxes (`sdevkit_dbg_box`) over the picture, CGRAM, VRAM's tiles and the sprites; a change made there is noted in the recording, whose replay plays another game from there. `--view-shot file.png` draws the view after a check, in a hidden window. Save RAM (`sdevkit_sram`) is `<game>.srm` next to the program. Built by `superdevkit build linux` and `win64` (MSVC). |
+| `desktop/` | The desktop's frontend (`main.c`, Linux and Windows): a window with raylib and the retro TV filter (`crt.c`, [RETRO-EFFECT.md](desktop/RETRO-EFFECT.md); Tab, `--no-crt`), the keyboard and a gamepad as the joypad, the frame rhythm of `loop.h`; `--check check.txt` plays without a window and writes screenshots, the checksums and the sound (`sound.txt`: every DSP write; `--wav file`: the DSP's output). The window plays the sound through raylib's audio stream. Every session in the window is recorded (the joypad and the checksum of every tick): F11 flags the moment and saves it as `<game>_rec_<n>.txt`, in the format of `check.txt`; `--replay file` plays it in the window, pausing at its marks and at the first tick whose checksum differs, with F5 (pause), F6 (a tick) and F7 (fast); `dev/replay.sh <rom> <recording>` plays it on the SNES side, in dampf's emulator. F1 opens the debug view beside the picture (`view.c`, ADR-6F3CK03Z): the run (pause, a tick, slow motion with F8, fast), what the game registered with `sdevkit_dbg_toggle`, `_range`, `_color` and `_action` to change while it runs, its boxes (`sdevkit_dbg_box`) over the picture, CGRAM, VRAM's tiles and the sprites; a change made there is noted in the recording, whose replay plays another game from there. `--view-shot file.png` draws the view after a check, in a hidden window. Save RAM (`sdevkit_sram`) is `<game>.srm` next to the program. Built by `superdevkit build linux` and `win64` (MSVC). |
 | `web/` | The web, later (M8, [the plan](../docs/superdevkit-transition.md)). |
-| `splash/` | The splash screen every game starts with (ADR records 37 and 42): its course (`splash.h`, included by both main loops) and the logo (`splash_logo.h`: BG1 tiles and the stars as sprites, made by `dev/art/splash.py` from the parts that `dev/art/splash_parts.py` cuts from `dev/art/splash/logo_source.png`). |
+| `splash/` | The splash screen every game starts with (ADR-6F60Z5JJ and ADR-6F60ZA6T): its course (`splash.h`, included by both main loops) and the logo (`splash_logo.h`: BG1 tiles and the stars as sprites, made by `dev/art/splash.py` from the parts that `dev/art/splash_parts.py` cuts from `dev/art/splash/logo_source.png`). |
 | `C_STYLE.md` | How to write a game's C for dampf: rejected, allowed, slow, fast, no difference; its speed rules are measurements (`StyleGuideTest`). |
 | `SNES_HARDWARE.md` | What the SNES allows and punishes, which of it the kit has, and how each rule is checked. |
 
@@ -76,7 +76,7 @@ frontends, never Rachael itself. A difference in the picture between the SNES an
 a bug in Rachael (or in `snes/`); a difference between two PC targets is a bug in a frontend.
 
 The name is the replicant of Blade Runner who is so close to the real thing that only a very
-long Voight-Kampff test gives her away; the name is [ADR record 35](../docs/adr/0035-the-pseudo-snes-is-called-rachael.md).
+long Voight-Kampff test gives her away; the name is [ADR-6F60Z3ZB](../docs/adr/6F60Z3ZB-the-pseudo-snes-is-called-rachael.md).
 
 ## Rules
 

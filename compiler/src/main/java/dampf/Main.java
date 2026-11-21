@@ -17,7 +17,7 @@ import java.util.Locale;
  *
  * <pre>
  * dampf --version                                                      print dampf's version
- * dampf build|check|parse @file ...  (or --config file)                options from an argument file (ADR record 28);
+ * dampf build|check|parse @file ...  (or --config file)                options from an argument file (ADR-6F3CJW9N);
  *                                                                      a folder stands for its .c files
  * dampf parse [-I dir] [-D name[=value]] file.c ...                   preprocess and parse
  * dampf build [-I dir] [-D name[=value]] [--entry name] [--backend mir|naive] [--replace fn=file.s]
@@ -234,7 +234,7 @@ public final class Main {
         System.exit(errors == 0 ? 0 : 1);
     }
 
-    /** dampf's version, from {@code build.gradle.kts} (ADR record 26). */
+    /** dampf's version, from {@code build.gradle.kts} (ADR-6F3CJT1P). */
     public static String version() {
         try (var in = Main.class.getResourceAsStream("/dampf/version.properties")) {
             var properties = new java.util.Properties();

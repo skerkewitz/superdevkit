@@ -9,7 +9,7 @@ import java.util.Set;
  * Removes loops that do nothing (catalogue H): no store, copy, call or volatile load inside, no
  * value of theirs used after them, and a proof that they end. What is left of a loop whose body
  * went away, most often the calls of the debug view's empty functions on the SNES
- * (sdevkit_dbg_box in a loop over the actors, ADR record 32), or a loop whose results nobody reads.
+ * (sdevkit_dbg_box in a loop over the actors, ADR-6F3CK03Z), or a loop whose results nobody reads.
  *
  * <p>gcc keeps a C loop that might not end, so dampf removes only those it can prove finite: one way
  * out, and {@link CountedLoops} bounds how often its head runs from the test there: a counter

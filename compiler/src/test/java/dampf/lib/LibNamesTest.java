@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * The names of the dev kit (ADR record 34): a game reaches only names that start with
+ * The names of the dev kit (ADR-6F3CK2AR): a game reaches only names that start with
  * {@code sdevkit_} or {@code SDEVKIT_}, and the library takes no other name from it.
  */
 class LibNamesTest {

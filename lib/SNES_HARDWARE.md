@@ -97,8 +97,8 @@ What each function costs on the SNES, in CPU cycles, is the last column of the t
   build with `-Wall -Wextra` and fix every "may be used uninitialized".
 - **PAL** consoles run at 50 frames a second, NTSC at 60, with a longer vertical blank. One ROM
   runs on both with NTSC's limits; a game that counts in frames runs a sixth slower on PAL
-  (*documented*; decided in ADR record 36,
-  [docs/adr/0036](../docs/adr/0036-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md)).
+  (*documented*; decided in ADR-6F60Z4AZ,
+  [docs/adr/0036](../docs/adr/6F60Z4AZ-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md)).
 
 ## Not usable yet
 

@@ -240,7 +240,7 @@ public final class Interpreter {
 
     /**
      * The address of an access, checked: one based on a global or a frame slot must lie within
-     * that object (C makes any other access undefined, and dampf relies on it, ADR record 46).
+     * that object (C makes any other access undefined, and dampf relies on it, ADR-6F8NBESR).
      */
     private int inObject(Instr access, int address, int size, Frame frame) {
         Gvn.Location at = Gvn.locate(access.op(0));

@@ -11,7 +11,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** Argument files for dampf build, check and parse (ADR record 28). */
+/** Argument files for dampf build, check and parse (ADR-6F3CJW9N). */
 class ConfigFileTest {
 
     @Test

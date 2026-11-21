@@ -1,7 +1,7 @@
 # tools
 
-Tools of the dev kit for game developers (ADR [record 29](../docs/adr/0029-superdevkit-is-the-project-and-dampf-is-its.md)).
-The converters are part of the `superdevkit` command, in Java (ADR record 41: building needs nothing
+Tools of the dev kit for game developers ([ADR-6F3CJX8T](../docs/adr/6F3CJX8T-superdevkit-is-the-project-and-dampf-is-its.md)).
+The converters are part of the `superdevkit` command, in Java (ADR-6F60Z9QJ: building needs nothing
 but Java and, for the desktop, a C compiler): `superdevkit png` for pictures, `superdevkit sfx` for
 the sound effects, both run by `superdevkit build` from a project's `superdevkit.toml`. Here are the
 rest: a page for the browser and a script in Python 3 (no libraries beyond the standard ones). The
@@ -10,7 +10,7 @@ scripts for developing the dev kit itself are in [dev/](../dev/README.md).
 | Tool | What it does | Call | Writes |
 | --- | --- | --- | --- |
 | `brr_lab.html` | The editor of a game's sound effects, `assets/sfx/sfx.json` ([docs/sound.md](../docs/sound.md)): opens the folder (a new one starts with one effect per WAV file; WAV files from elsewhere are copied into it), shows the effects as cards (id, priority, the sizes of WAV and BRR, their ratio, the length; sortable) and the samples of the chosen one (the WAV file, which one is active, rate, treble, gain, trim, volume; one button sets the rate of all), plays each sample as the original and as the SNES plays it, the variants one after the other, and the effects with the voices and priorities of the file; shows the total against the audio RAM and the errors the build would stop on. Its conversion is the build's (`superdevkit sfx`), in JavaScript, with integers only: the same bytes, which `SfxTest` checks under Node. A browser page, so not Python; no network, no libraries. | open `tools/brr_lab.html` in a browser | `sfx.json` into the folder (Chrome, Edge) or as a download; a sample's `.brr` on request |
-| `sdevkit_rename.py` | Converts a game from the old names (PVSnesLib's, the `snesXxx` extensions, `KEY_*`, `u8`...) to the `sdevkit_` ones (ADR record 34): identifiers only, not strings or comments (`--comments` changes those too), and `"snes/snes.h"` to `"sdevkit/snes.h"`. A file that includes `raylib.h` (a frontend, with raylib's own `KEY_*`) is skipped with a warning. | `tools/sdevkit_rename.py [--dry-run] [--comments] folder_or_file...` | the files, in place; prints each file and how many names changed |
+| `sdevkit_rename.py` | Converts a game from the old names (PVSnesLib's, the `snesXxx` extensions, `KEY_*`, `u8`...) to the `sdevkit_` ones (ADR-6F3CK2AR): identifiers only, not strings or comments (`--comments` changes those too), and `"snes/snes.h"` to `"sdevkit/snes.h"`. A file that includes `raylib.h` (a frontend, with raylib's own `KEY_*`) is skipped with a warning. | `tools/sdevkit_rename.py [--dry-run] [--comments] folder_or_file...` | the files, in place; prints each file and how many names changed |
 
 The picture converter, `superdevkit png tiles|tiles2|palette|mode7 picture.png NAME out_dir [FIRST]`
 (`cli/src/main/java/superdevkit/gfx`): `tiles` cuts an image of up to 16 colours (indexed, or

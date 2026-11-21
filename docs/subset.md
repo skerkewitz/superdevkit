@@ -187,7 +187,7 @@ decided. Decisions 4 and 5 are decided. What dampf does today:
   generators; the code generator from MIR turns a pointer into one object into a 16-bit offset
   within a function and through parameters ([optimizations.md](optimizations.md#pointer-compression)); 16-bit
   pointers into RAM are not built;
-- decision 4: `goto` and labels are rejected (ADR [record 27](adr/0027-goto-and-labels-stay-rejected-and-a-forward-and.md));
+- decision 4: `goto` and labels are rejected ([ADR-6F3CJVHC](adr/6F3CJVHC-goto-and-labels-stay-rejected-and-a-forward-and.md));
 - decision 5: a `sizeof` that differs from the PC is rejected, except the element count.
 
 1. **Plain `char` for text.** The game uses `char` only for strings and name buffers. Plain
@@ -211,11 +211,11 @@ decided. Decisions 4 and 5 are decided. What dampf does today:
 4. **`goto`** (decided 2026-11-18). `goto` and labels stay rejected. If real code needs `goto`,
    dampf may allow a form that only jumps forward and out of statements, which keeps every loop
    with a single entry; unrestricted `goto` will not be built: ADR
-   [record 27](adr/0027-goto-and-labels-stay-rejected-and-a-forward-and.md), with the options weighed.
+   [ADR-6F3CJVHC](adr/6F3CJVHC-goto-and-labels-stay-rejected-and-a-forward-and.md), with the options weighed.
 
 5. **`sizeof` of pointers and padded structs** (decided 2026-11-17). A `sizeof` that differs
    from gcc's on x86-64 is rejected, except the element count `sizeof a / sizeof a[0]`: ADR
-   [record 11](adr/0011-structs-have-no-padding-and-a-sizeof-that-differs.md), with the options
+   [ADR-6F0R6BSK](adr/6F0R6BSK-structs-have-no-padding-and-a-sizeof-that-differs.md), with the options
    weighed.
 
 ## What the game has to change

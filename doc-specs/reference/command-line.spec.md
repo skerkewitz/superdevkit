@@ -2,7 +2,7 @@
 title: Command line
 sources:
   - compiler/src/main/java/dampf/ConfigFile.java
-  - docs/adr/0028-options-can-be-kept-in-an-argument-file-given-by.md
+  - docs/adr/6F3CJW9N-options-can-be-kept-in-an-argument-file-given-by.md
   - compiler/src/main/java/dampf/Main.java
   - compiler/src/main/java/dampf/Compiler.java
   - compiler/src/main/java/dampf/tools/*.java

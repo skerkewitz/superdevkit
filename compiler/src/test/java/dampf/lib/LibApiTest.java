@@ -16,7 +16,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
- * The console API of the dev kit (ADR records 29 and 34): every function
+ * The console API of the dev kit (ADR-6F3CJX8T and ADR-6F3CK2AR): every function
  * {@code lib/include/sdevkit/snes.h} declares exists in {@code lib/snes} and in {@code lib/rachael}
  * (the desktop), built or as a stub, and has its row in the table of {@code lib/README.md}.
  */

@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Runs a ROM headless in Mesen ({@code --testrunner} with a Lua script; MesenCE, ADR record 33).
+ * Runs a ROM headless in Mesen ({@code --testrunner} with a Lua script; MesenCE, ADR-6F3CK1V6).
  * The dampf runtime writes to $21FB when the entry function has returned; the script then reads
  * the globals and writes them to a file. Works with the Linux build (its libraries from
  * {@code lib/} next to it, dev/fetch_mesen.sh) and with the Windows build from WSL, whose paths

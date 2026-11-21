@@ -96,6 +96,6 @@ of variables together must fit into bank `$80`.
 ## Why
 
 Why RAM is laid out this way, and the alternatives weighed, are in ADR
-[record 9](adr/0009-all-variables-live-in-bank-7e-and-dbr-stays-7e.md); pointers in
-[record 10](adr/0010-pointers-are-4-bytes-and-no-object-crosses-a-bank.md), the ROM in
-[record 12](adr/0012-lorom-with-fastrom-code-from-bank-80-one-segment.md).
+[ADR-6F0R69B6](adr/6F0R69B6-all-variables-live-in-bank-7e-and-dbr-stays-7e.md); pointers in
+[ADR-6F0R6A8V](adr/6F0R6A8V-pointers-are-4-bytes-and-no-object-crosses-a-bank.md), the ROM in
+[ADR-6F0R6C4B](adr/6F0R6C4B-lorom-with-fastrom-code-from-bank-80-one-segment.md).

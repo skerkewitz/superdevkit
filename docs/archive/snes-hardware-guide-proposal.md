@@ -44,8 +44,8 @@ From `lib/rachael/render.c`, `lib/README.md` and `lib/snes/README.md` as of toda
 | Mode 7, and its multiplier at `$2134`-`$2136` | not built | not built |
 | Mosaic, high resolution, interlace | not built | not built |
 | Raster interrupts (H/V IRQ), the timers | not built (the game is never interrupted, `loop.h`) | not built |
-| Sound (SPC700, DSP) | not built | not built (planned with record 32) |
-| Save RAM | not built | not built (planned with record 32) |
+| Sound (SPC700, DSP) | not built | not built (planned with ADR-6F3CK03Z) |
+| Save RAM | not built | not built (planned with ADR-6F3CK03Z) |
 | Mouse, multitap, Super Scope | not built | not built |
 | The CPU's multiplier and divider (`$4202`-`$4206`) | used by no one; dampf's runtime multiplies in software | not needed: the game is compiled for the PC |
 
@@ -149,5 +149,5 @@ that the check reports.
 - Is a dummy in Rachael that draws nothing, but reports that it was used, enough to let a game
   use a feature? It keeps the desktop honest, but the desktop then cannot check that game's
   picture.
-- PAL: decided in ADR record 36 (one ROM with NTSC's limits, PAL a sixth slower for now); the
+- PAL: decided in ADR-6F60Z4AZ (one ROM with NTSC's limits, PAL a sixth slower for now); the
   guide states it as a rule.

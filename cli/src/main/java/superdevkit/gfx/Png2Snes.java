@@ -33,7 +33,7 @@ import superdevkit.AtomicWrite;
  *       NAME_PAL_SIZE, NAME_PAL_FIRST.</li>
  * </ul>
  *
- * The output is the bytes tools/png2snes.py made, which this replaces (ADR record 41: the kit's
+ * The output is the bytes tools/png2snes.py made, which this replaces (ADR-6F60Z9QJ: the kit's
  * converters in Java, so building needs nothing but Java).
  */
 public final class Png2Snes {

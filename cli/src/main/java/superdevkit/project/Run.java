@@ -5,10 +5,10 @@ import java.nio.file.Path;
 import java.util.List;
 
 /**
- * {@code superdevkit run}: after the build, starts the program (ADR record 31): the desktop's in its
+ * {@code superdevkit run}: after the build, starts the program (ADR-6F3CJZBY): the desktop's in its
  * window (the machine's own target by default: linux, also under WSL, whose windows WSLg shows; win64
  * on Windows), or the ROM in Mesen for snes (MESEN names it, else MesenCE in the kit's .mesen/,
- * ADR record 33). It waits until the program ends.
+ * ADR-6F3CK1V6). It waits until the program ends.
  */
 public final class Run {
     private Run() {

@@ -927,7 +927,7 @@ whose values nobody reads after it, and that is proved to end: one way out, on a
 with a constant, stepped by the same constant every round, so that the comparison fails before
 the counter could wrap (an odd step for `!=`). gcc keeps a C loop that might not end, so dampf
 keeps every loop it cannot prove finite, and every loop around one. The loops it finds are those
-left empty after inlining: the debug view's calls are empty functions on the SNES (ADR record 32),
+left empty after inlining: the debug view's calls are empty functions on the SNES (ADR-6F3CK03Z),
 and `for (i = 0; i < CATS; i++) sdevkit_dbg_box(...)` left a counting loop of 19 cycles in every
 tick of CatchMe.
 
@@ -1326,7 +1326,7 @@ A global or frame slot indexed by a 16-bit value was indexed with X only where t
 showed the index never negative, since X adds unsigned; otherwise every access computed a 24-bit
 pointer. C makes an access outside its object undefined, so a sum read only as the address of
 loads and stores (directly, or through a constant offset of at most 0) is now indexed with X
-without a range ([ADR record 46](adr/0046-an-access-to-an-array-tells-dampf-its-index-is.md),
+without a range ([ADR-6F8NBESR](adr/6F8NBESR-an-access-to-an-array-tells-dampf-its-index-is.md),
 R3). The MIR interpreter stops a program that accesses outside its object, so the tests catch a
 program the rule would break.
 
@@ -1340,7 +1340,7 @@ loops the same. Code changed in all seven examples and 4 programs of `BackendOut
 ## Places get their addresses on the code (2026-11-20, on the examples)
 
 The frame places were coloured on MIR before selection, by a prediction of the code; they are
-now coloured on the LIR selection wrote ([ADR record 48](adr/0048-frame-places-are-coloured-on-the-lir-and.md),
+now coloured on the LIR selection wrote ([ADR-6F8NBG4P](adr/6F8NBG4P-frame-places-are-coloured-on-the-lir-and.md),
 B2), with the predicted address as each place's first choice. That is about safety, not speed:
 a wrong prediction now costs a different address, not a miscompilation. Where a value handed on
 in A had a place nothing wrote, that place is gone, so three examples' frames lie 2 bytes lower
@@ -1354,7 +1354,7 @@ changed in three programs of `BackendOutputTest`.
 three miscompilations came from that prediction. Every φ now goes through its incoming place,
 the copies at the end of each predecessor and on entry are `LCopy`, and the colouring on the
 LIR coalesces them: the two places of a copy become one where they do not conflict, and the copy
-is then no code ([ADR record 49](adr/0049-phis-go-through-their-incoming-places-and-the.md), B2).
+is then no code ([ADR-6F8NBHZ6](adr/6F8NBHZ6-phis-go-through-their-incoming-places-and-the.md), B2).
 
 The way there, measured on the examples against the code before: without direct φs and without
 coalescing +8.5 %; greedy preference for a copy's other place +4.5 %; φs and their operands
@@ -1512,7 +1512,7 @@ spelling family `pairs` 7 % more and `fill_u16_down` 20 % more. Two causes were 
 (the steps going down and the flags above); what is left is mostly a choice selection makes
 before the register choice runs: where X holds something, it writes an index load with Y
 (`LDY i / LDA t,Y`), which then keeps Y from a better candidate (the count in `pairs`), while
-without that choice Schach does 1.8 % more work. Above the price of ADR record 24 for a step, so
+without that choice Schach does 1.8 % more work. Above the price of ADR-6F3CJR10 for a step, so
 the patterns stay; the register choice takes what they leave.
 
 ## A constant kept in A over a loop with its test at the top (2026-11-21, on the spelling families)
