@@ -176,6 +176,14 @@ over when it left ([ADR record 40](adr/0040-the-examples-replace-blubber-blasen-
   runner's gcc, python3 and node, and Ubuntu's cc65 (ca65 and ld65 for `BackendOutputTest`). Mesen, raylib and Playwright are not there: the execution
   tests run in dampf's emulator only, and `DesktopIsolationTest` and the BRR Lab's browser tests
   skip. A pull request is merged only when this build passes.
+- **Parallel test JVMs.** The compiler's test classes run in several JVMs at once, one per core
+  and at most 4 (`maxParallelForks`; `-PtestForks=n` sets the number, 1 runs them one after
+  the other). So a test class that writes files writes them where no other class does: into
+  its `@TempDir`, or into a folder of its own (`build/backend-output`, an example's
+  `build/timing/` and `build/reference/`). The one exception is an example's `build/gen/`,
+  which every class that compiles an example converts again: the conversions replace each file
+  atomically (`superdevkit.AtomicWrite`), so a class compiling from it never reads a file half
+  written.
 - **Mesen** (MesenCE in `.mesen/`, from `dev/fetch_mesen.sh`, or `-Pmesen=<path>`) runs the execution
   tests, and the examples in `dev/compare_example.sh`; the random programs run in dampf's emulator
   only.

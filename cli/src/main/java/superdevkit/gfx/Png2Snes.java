@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import superdevkit.AtomicWrite;
 
 /**
  * PNG to SNES graphics data, as C for dampf ({@code superdevkit png}, the converter of
@@ -200,8 +201,8 @@ public final class Png2Snes {
         h.add("#endif");
         h.add("");
         c.add(cArray(name + "_pal", pal));
-        Files.writeString(outDir.resolve(name + ".h"), String.join("\n", h), StandardCharsets.UTF_8);
-        Files.writeString(outDir.resolve(name + ".c"), String.join("\n", c), StandardCharsets.UTF_8);
+        AtomicWrite.writeString(outDir.resolve(name + ".h"), String.join("\n", h));
+        AtomicWrite.writeString(outDir.resolve(name + ".c"), String.join("\n", c));
     }
 
     private static void mode7(Path png, String name, Path outDir, int first, String source) throws IOException, ConvertException {
@@ -266,7 +267,7 @@ public final class Png2Snes {
                 "extern const uint8_t " + name + "_pal[" + pal.length + "];", "#endif", "");
         List<String> c = List.of(header(source), "#include \"" + name + ".h\"", "", cArray(name + "_map", map),
                 cArray(name + "_tiles", t), cArray(name + "_pal", pal));
-        Files.writeString(outDir.resolve(name + ".h"), String.join("\n", h), StandardCharsets.UTF_8);
-        Files.writeString(outDir.resolve(name + ".c"), String.join("\n", c), StandardCharsets.UTF_8);
+        AtomicWrite.writeString(outDir.resolve(name + ".h"), String.join("\n", h));
+        AtomicWrite.writeString(outDir.resolve(name + ".c"), String.join("\n", c));
     }
 }
