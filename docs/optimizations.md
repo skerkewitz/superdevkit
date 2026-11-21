@@ -134,7 +134,10 @@ allowed (the platform layer uses them); this form does not need the rule against
   ticks still goes to the direct page. The limit for a single call site stays at 150. A candidate
   cause, found on 2026-11-20: inlining dropped the range of a loop's derived index variable, so
   an inlined loop indexed through a 24-bit pointer ([log](optimizations-log.md#ranges-kept-when-inlining-2026-11-20-on-the-spelling-families-and-the-examples));
-  not measured again, since the game's code is no longer here.
+  not measured again, since the game's code is no longer here. On the examples (2026-11-21, K4
+  of [current-compiler-flaws.md](current-compiler-flaws.md)) 600 for every single call site made
+  Ertüp and Mandelbrot slower; 600 only for a call in a loop, to a callee without a loop of its
+  own, is built.
 - `PointerRemat` for φ uses (2026-11-18): `best = v` in a loop keeps `v` computed in every round.
   Copying the chain to the end of the predecessor instead, with the condition that the chain
   then folds away completely (else the copy comes on top), made play slower (286,947 → 288,149

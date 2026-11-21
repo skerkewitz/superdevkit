@@ -41,6 +41,10 @@ class RegisterChoiceTest {
 
     /** The code after the choice, one instruction per line, frame places by owner. */
     private static List<String> choose(LItem... items) {
+        return choose(dampf.util.PassLimit.none(), items);
+    }
+
+    private static List<String> choose(dampf.util.PassLimit limit, LItem... items) {
         LFunction f = new LFunction(new LDirective(LDirective.Kind.PROC, null, List.of("f"), null, ".proc f"));
         List<LItem> all = new ArrayList<>(List.of(items));
         all.add(ins("rtl"));
@@ -56,7 +60,7 @@ class RegisterChoiceTest {
                 return 2;
             }
         };
-        RegisterChoice.run(f, o -> Set.of(P, V, W).contains(o.key()), frame, Map.of(), false, false);
+        RegisterChoice.run(f, o -> Set.of(P, V, W).contains(o.key()), frame, Map.of(), false, false, List.of(), limit);
         List<String> out = new ArrayList<>();
         for (LItem it : f.items()) {
             if (it instanceof LInstr i) {
@@ -76,6 +80,23 @@ class RegisterChoiceTest {
                 choose(ins("lda", place(P)), ins("clc"), ins("adc", new LOperand.Imm("$0001")), ins("sta", place(V)),
                         ins("ldx", place(V)), ins("lda", global("_t", LOperand.Index.X)), ins("sta", global("_out", LOperand.Index.NONE)),
                         ins("lda", place(V)), ins("sta", global("_out2", LOperand.Index.NONE))));
+    }
+
+    @Test
+    void eachChoiceIsAnApplicationOfThePassLimit() {
+        // T3: dev/bisect_passes.sh can stop the choice before any group goes to a register, and names it
+        java.util.function.Supplier<LItem[]> code = () -> new LItem[] {ins("lda", place(P)), ins("clc"),
+                ins("adc", new LOperand.Imm("$0001")), ins("sta", place(V)), ins("ldx", place(V)),
+                ins("lda", global("_t", LOperand.Index.X)), ins("sta", global("_out", LOperand.Index.NONE)),
+                ins("lda", place(V)), ins("sta", global("_out2", LOperand.Index.NONE))};
+        dampf.util.PassLimit none = new dampf.util.PassLimit(0, "");
+        assertEquals(List.of("lda p", "clc", "adc #$0001", "sta v", "ldx v", "lda _t,x", "sta _out", "lda v", "sta _out2", "rtl"),
+                choose(none, code.get()));
+        assertEquals(0, none.applied());
+        dampf.util.PassLimit all = dampf.util.PassLimit.none();
+        choose(all, code.get());
+        assertEquals(1, all.applied());
+        assertEquals("RegisterChoice X on f", all.last());
     }
 
     @Test

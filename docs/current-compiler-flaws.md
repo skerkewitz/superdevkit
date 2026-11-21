@@ -260,7 +260,9 @@ Built (2026-11-20): `dampf.util.PassLimit`, described in
 `PointerParams`, `IndexParams`) count once per run, not per function. Two findings on the way:
 `IndexParams` gave one of two outputs depending on hash codes (fixed in the commit before), and
 code without the passes is up to ten times slower than with them, which the tests' emulator
-limit now allows for.
+limit now allows for. The decisions of B count since 2026-11-21: one place put in X or Y, and two
+places coalesced, are one application each (the miscompilations of B3 were in the choice of
+registers, which the limit could not name before).
 
 ### T4. Tests for the conditions of every pattern
 
@@ -545,6 +547,12 @@ With that the `do` loop and the loops counting down are closed. `SelectionPlan`,
 `DeadLoops` and `Induction` recognise no counter of their own any more; the 54 gap lines before
 L1 are 38, of which L4 names 19.
 
+A loop whose bound is its start plus a constant (2026-11-21): `CountedLoops` took the start and
+the bound as two ranges, so a row of a table walked from its offset o to o + 16 had as many
+rounds as o's range allowed. An exit that compares the counter with its own start plus K now
+bounds the head runs by K / |c| + 1. The `table-2d` rows 26,910 → 3,614 in the worst case; the
+code was already the same as the flat loop's.
+
 ## Flaw B: no register allocation, and places are decided before the code exists
 
 **What is wrong.** Three things, in order of weight.
@@ -707,7 +715,10 @@ the spelling family `pairs` 7 %. What is left is selection's choice of Y for an 
 holds something else, made before the register choice runs (it keeps Y from the count in
 `pairs`, and Schach needs it: 1.8 % without it). The patterns stay until the choice of the index
 register moves into `RegisterChoice` as well; the `xHolds`/`yHolds` bookkeeping with them.
-Registers across calls are not built.
+Registers across calls are not built: measured (2026-11-21, in dampf's emulator), the examples
+call 3 (Mode 7) to 65 (Schach) functions a tick, nearly all of them large ones that use X
+themselves (`make_move`, `attacked`, `next`); keeping a value in X across all of them would save
+at most 0.35 % of Schach's work and less elsewhere. Small leaf functions are inlined (K4).
 
 ### B4. A convention for A is not part of this
 
@@ -782,7 +793,13 @@ examples and one build per spelling member; the test also fails when the file is
 K1 (2026-11-21) as `Weights`, used by B3. K2 (2026-11-21) measured as rules rather than as the
 count of carried values: with the counter staying, no new variable at all made Steinschlag 15 %
 slower; none for the factors 2 and 4 (one or two shifts where the value is read) was the best of
-four variants (Schach −0.3 %, Ertüp −0.15 %), and is the rule now.
+four variants (Schach −0.3 %, Ertüp −0.15 %), and is the rule now. K4 (2026-11-21): the
+inlining limits measured on the examples (60 and 150 against 40, 80 and 120 for any callee, 100,
+300 and 600 for one call site): no pair is best for all, Steinschlag −14 % with 600 for one call
+site where Ertüp and Mandelbrot got slower. The gain was one call in every round of a loop
+(Steinschlag's `fall`); a local rule takes it: one call site in a loop, to a callee without a
+loop of its own, up to 600 instructions (Steinschlag −15.8 %, no example slower). Building both
+ways or `--tune` are not built: no measured case needs them now.
 
 ## Order of work
 

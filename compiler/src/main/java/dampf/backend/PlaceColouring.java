@@ -91,7 +91,16 @@ final class PlaceColouring {
      * {@code tracked}: the places whose liveness is followed (the function's own).
      */
     static Map<Place, Integer> colour(LFunction lf, Predicate<LOperand.Owner> tracked, Frame frame, int start) {
-        Analysis an = analyse(lf, tracked, frame);
+        return colour(lf, tracked, frame, start, dampf.util.PassLimit.none());
+    }
+
+    /**
+     * As above; every two places coalesced are one application in {@code limit} (T3). Without it
+     * the copy between them stays as code, which is right as well.
+     */
+    static Map<Place, Integer> colour(LFunction lf, Predicate<LOperand.Owner> tracked, Frame frame, int start,
+                                      dampf.util.PassLimit limit) {
+        Analysis an = analyse(lf, tracked, frame, limit);
         List<Group> groups = an.groups;
         List<Group> order = new ArrayList<>();
         for (Group g : groups) {
@@ -163,6 +172,10 @@ final class PlaceColouring {
     }
 
     static Analysis analyse(LFunction lf, Predicate<LOperand.Owner> tracked, Frame frame) {
+        return analyse(lf, tracked, frame, dampf.util.PassLimit.none());
+    }
+
+    private static Analysis analyse(LFunction lf, Predicate<LOperand.Owner> tracked, Frame frame, dampf.util.PassLimit limit) {
         Map<Place, Group> groupOf = new HashMap<>();
         List<Group> groups = new ArrayList<>();
         // the places, in the order the code names them
@@ -196,7 +209,7 @@ final class PlaceColouring {
         }
         Analysis an = new Analysis(groupOf, groups);
         List<Group[]> copies = interfere(lf, tracked, an, units);
-        coalesce(copies, groups, lf);
+        coalesce(copies, groups, lf, limit);
         return an;
     }
 
@@ -223,7 +236,7 @@ final class PlaceColouring {
      * they do not conflict (then the copy is no code). A group that conflicts with a member of a
      * coalesced group conflicts with the group (its bit set has the group's index).
      */
-    private static void coalesce(List<Group[]> copies, List<Group> groups, LFunction lf) {
+    private static void coalesce(List<Group[]> copies, List<Group> groups, LFunction lf, dampf.util.PassLimit limit) {
         for (Group[] c : copies) {
             Group a = rep(c[0]);
             Group b = rep(c[1]);
@@ -232,6 +245,10 @@ final class PlaceColouring {
                     || a.fixed != null && b.bytes > a.bytes || b.fixed != null && a.bytes > b.bytes) {
                 continue;   // (a fixed place cannot grow over its neighbours)
             }
+            if (!limit.allows()) {
+                break;
+            }
+            limit.count("Coalesce", lf.name());
             if (b.fixed != null || a.fixed == null && b.index < a.index) {
                 Group t = a;   // the fixed one, else the one the code names first, stays
                 a = b;

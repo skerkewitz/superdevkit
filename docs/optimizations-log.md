@@ -1563,3 +1563,27 @@ the value is read, was the best and is the rule: Schach −0.3 %, Ertüp −0.15
 geometric mean −0.1 %. Slower: the pair loop D +0.2 %, and in the worst case Ertüp's
 `checkpoint_before` 299 → 329 (its counter is read after the loop), Schach's `draw_moves` +0.3 %
 and `pairs_down` +0.2 %; Schach's `score_moves` −5.5 % and `search_clear` −21 % among the faster.
+
+## A large function called once in a loop is inlined (2026-11-21, on the examples)
+
+The inlining limits measured (K4): 40, 80 and 120 instructions for any callee instead of 60,
+and 100, 300 and 600 for a callee with one call site instead of 150. No pair was best for every
+example: 600 for one call site made Steinschlag 14 % faster and Ertüp 2.8 % and Mandelbrot 1.4 %
+slower, 40 made everything slower (Catch Me 13 %). The gain was one call in every round of a
+loop, Steinschlag's `fall`, called for every cell of the cave. A callee called once in a loop
+of its caller, without a loop of its own, is now inlined up to 600 instructions (with loops of
+their own the callees made Mandelbrot slower, where `compute` went into `main`): Steinschlag
+−15.8 %, Schach −0.2 %, the rest the same; geometric mean −2.5 %. The pair loops are the same;
+the worst case of `cave_scan_rows`, which has `fall` in it now, grew by 0.001 %.
+
+## A loop's bound as its start plus a constant (2026-11-21, on the spelling families)
+
+The two loops over the rows of a table (`table-2d`) cost 26,910 cycles in the worst case, the
+flat loop over the same 128 bytes 3,238: eight times as much, although the code of the rows is
+the flat loop's with an outer loop around it. The worst case was wrong, not the code: the inner
+loop runs from the row's offset o to o + 16, and `CountedLoops` bounded its rounds by o's range
+(up to 134) instead of by the difference. An exit that compares the counter with its own start
+plus a constant K now bounds the head runs by K / |c| + 1, for `<` and `>` where the start's range
+shows that no step wraps, and for `!=` with a step of one in any case. The rows 3,614, 12 %
+above the flat loop: the outer loop's rounds, which only collapsing the loops would remove.
+Ertüp's `sway_init` 1,639 → 883. The examples' work and the pair loops are the same.
