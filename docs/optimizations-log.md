@@ -1370,3 +1370,13 @@ The examples: Ertüp −1.4 %, Hello −0.3 %, Steinschlag −0.3 %, Schach −0
 the rest the same; geometric mean −0.3 %. The pair loops: B −0.4 %, C −0.2 %, D −0.5 %, A the
 same. The spelling family `fill-words`: `fill_do` 1,224 → 1,035, the constant kept in A over the
 loop; the other spellings test at the top of the loop and keep 1,233, a new gap (B6).
+
+## What the registers hold after a transfer (2026-11-21, on the examples)
+
+`RegContents`, which `RedundantLoads` and `IndexInY` ask what A, X and Y hold, took `TAX` and
+`TAY` for instructions that change A, and did not know `TXY` and `TYX` at all: after `TXY` it
+still said Y held what it was loaded with. Nothing wrote `TXY` or `TYX` yet, so no program was
+wrong; the choice of X and Y by cost (B3) writes them. Now a transfer from A leaves A known, and
+a transfer between X and Y copies what one holds to the other. `sdevkit_sram` 14 → 11 cycles (a
+load after `TAX`); the examples' work is the same. Code changed in 7 programs of
+`BackendOutputTest`.

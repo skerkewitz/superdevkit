@@ -87,7 +87,13 @@ public final class RegContents {
             case "ldx" -> x = trackable(op) ? op : null;
             case "inx", "dex", "tax", "tsx", "plx" -> x = null;
             case "iny", "dey", "tay", "ply" -> y = null;
-            case "jsl" -> {
+            case "txy" -> y = x;
+            case "tyx" -> x = y;
+            case "mvn", "mvp" -> {
+                x = null;
+                y = null;
+            }
+            case "jsl", "jsr" -> {
                 a.clear();
                 x = null;
                 y = null;
@@ -118,6 +124,7 @@ public final class RegContents {
                 }
             }
             case "stx", "sty", "stz", "cmp", "cpx", "cpy", "ldx", "ldy", "inx", "dex", "iny", "dey",
+                 "tax", "tay", "txy", "tyx",
                  "bcc", "bcs", "beq", "bne", "bmi", "bpl", "bvc", "bvs", "bra", "jmp", "clc", "sec" -> { }
             case "asl", "lsr", "rol", "ror", "inc", "dec" -> {
                 if (op == null || op instanceof LOperand.Acc) {
