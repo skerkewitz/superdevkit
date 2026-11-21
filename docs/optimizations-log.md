@@ -1587,3 +1587,14 @@ plus a constant K now bounds the head runs by K / |c| + 1, for `<` and `>` where
 shows that no step wraps, and for `!=` with a step of one in any case. The rows 3,614, 12 %
 above the flat loop: the outer loop's rounds, which only collapsing the loops would remove.
 Ertüp's `sway_init` 1,639 → 883. The examples' work and the pair loops are the same.
+
+## The rows of a table as one loop (2026-11-21, on the spelling families)
+
+After the bound of a row was known (the entry before), the two loops over the rows of a table
+(`table-2d`) cost 12 % more than one loop over the whole table: the outer loop's 8 rounds with the
+inner loop's entries and exits. `Collapse` takes such a nest, where the outer loop steps a row's
+offset by the row's length K from a constant, the inner loop walks the row in steps that divide
+K, and nothing else happens per row: the inner loop runs to the end of the last row and leaves
+to where the outer loop left, whose φs are read there through new φs of the exit. The four rows
+spellings cost 3,614 → 3,238, as the flat loop; their gaps are closed. Steinschlag does 9 cycles
+a tick less; the other examples, the pair loops and every other worst case are the same.

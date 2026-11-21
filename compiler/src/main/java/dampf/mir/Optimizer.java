@@ -99,6 +99,7 @@ public final class Optimizer {
                 changed |= pass("Gvn", f, () -> Gvn.run(m, f, writes));
                 changed |= pass("DeadCode", f, () -> DeadCode.run(f));
                 changed |= pass("DeadLoops", f, () -> DeadLoops.run(f));
+                changed |= pass("Collapse", f, () -> Collapse.run(f));
             }
         }
 
