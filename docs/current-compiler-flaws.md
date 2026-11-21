@@ -547,6 +547,12 @@ With that the `do` loop and the loops counting down are closed. `SelectionPlan`,
 `DeadLoops` and `Induction` recognise no counter of their own any more; the 54 gap lines before
 L1 are 38, of which L4 names 19.
 
+A loop whose bound is its start plus a constant (2026-11-21): `CountedLoops` took the start and
+the bound as two ranges, so a row of a table walked from its offset o to o + 16 had as many
+rounds as o's range allowed. An exit that compares the counter with its own start plus K now
+bounds the head runs by K / |c| + 1. The `table-2d` rows 26,910 → 3,614 in the worst case; the
+code was already the same as the flat loop's.
+
 ## Flaw B: no register allocation, and places are decided before the code exists
 
 **What is wrong.** Three things, in order of weight.

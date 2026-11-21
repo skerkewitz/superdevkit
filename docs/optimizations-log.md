@@ -1575,3 +1575,15 @@ of its caller, without a loop of its own, is now inlined up to 600 instructions 
 their own the callees made Mandelbrot slower, where `compute` went into `main`): Steinschlag
 −15.8 %, Schach −0.2 %, the rest the same; geometric mean −2.5 %. The pair loops are the same;
 the worst case of `cave_scan_rows`, which has `fall` in it now, grew by 0.001 %.
+
+## A loop's bound as its start plus a constant (2026-11-21, on the spelling families)
+
+The two loops over the rows of a table (`table-2d`) cost 26,910 cycles in the worst case, the
+flat loop over the same 128 bytes 3,238: eight times as much, although the code of the rows is
+the flat loop's with an outer loop around it. The worst case was wrong, not the code: the inner
+loop runs from the row's offset o to o + 16, and `CountedLoops` bounded its rounds by o's range
+(up to 134) instead of by the difference. An exit that compares the counter with its own start
+plus a constant K now bounds the head runs by K / |c| + 1, for `<` and `>` where the start's range
+shows that no step wraps, and for `!=` with a step of one in any case. The rows 3,614, 12 %
+above the flat loop: the outer loop's rounds, which only collapsing the loops would remove.
+Ertüp's `sway_init` 1,639 → 883. The examples' work and the pair loops are the same.

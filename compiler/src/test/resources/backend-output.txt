@@ -3,7 +3,7 @@ example_catchme.mir.timing 191eb330685d5f45390d06c0
 example_catchme.naive.s0 dce3da17afed0f9517fb68cd
 example_ertuep.mir.s0 57aa4d80cf3b98ea9cbf44d0
 example_ertuep.mir.s1 a7cc42a10847f01073430ac1
-example_ertuep.mir.timing df34951062035e25dba42e28
+example_ertuep.mir.timing 618b0e57780cc6a3a301ab78
 example_ertuep.naive.s0 150e3f7f22fccffaf48b79c9
 example_ertuep.naive.s1 271fab5356db15e34adebce3
 example_ertuep_reference.naive.s0 99fcb05688842d4e0d5df07c
@@ -99,9 +99,9 @@ exec_indexed_pointer.mir.s0 767d804f105db465d8986330
 exec_indexed_pointer.mir.timing 2286f488bb0cb96f4ad908be
 exec_indexed_pointer.naive.s0 09d19ebfc6f4459a2e1cd0b5
 exec_induction_tests_moved.layout.s0 d22c87e732e748fb58a56f3d
-exec_induction_tests_moved.layout.timing b9cc440a10dae0c41c432a83
+exec_induction_tests_moved.layout.timing 9dcb4ca6505bdafd1dbf20c7
 exec_induction_tests_moved.mir.s0 e2a7250fe54c256140d4b2a6
-exec_induction_tests_moved.mir.timing 032725f884c46dd34415a1f7
+exec_induction_tests_moved.mir.timing ce32e13beae6893291f1854e
 exec_induction_tests_moved.naive.s0 765ec13f8ad980ace112ccc9
 exec_locals.layout.s0 4a2b3ef4f0b46d9c9032ee27
 exec_locals.layout.timing 80299570be128a043a633650
@@ -134,9 +134,9 @@ exec_pointer_offsets.mir.s0 97233018cbfbbab06da4e9f3
 exec_pointer_offsets.mir.timing 39dce606ea34d1251d3f78e2
 exec_pointer_offsets.naive.s0 9338cbde7183fac37f73be7e
 exec_pointer_to_array.layout.s0 49fb715702d6142a027b4a6e
-exec_pointer_to_array.layout.timing 73c2f7ac714ce11e76b0ff4e
+exec_pointer_to_array.layout.timing dad3c0f13fa7e6a60b4e467c
 exec_pointer_to_array.mir.s0 339372194233c30d87c65460
-exec_pointer_to_array.mir.timing 496503657ce6c88feace0037
+exec_pointer_to_array.mir.timing 55336c115cb6d2649fe533f5
 exec_pointer_to_array.naive.s0 19baa06d0c01c4c887644745
 exec_pointer_to_int.layout.s0 49226342b75069dbf9c946f8
 exec_pointer_to_int.layout.timing 88af1c211d5a3163cc01a013

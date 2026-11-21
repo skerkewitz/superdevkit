@@ -275,7 +275,81 @@ public final class CountedLoops {
                     out.add(f);
                 }
             }
+            Fact d = distance(e, o);
+            if (d != null) {
+                out.add(d);
+            }
             return out;
+        }
+
+        /**
+         * An exit that compares the counter with its own start plus a constant K (a row of a table
+         * walked from its offset o to o + K), or that counts down from a bound plus K to the bound:
+         * the head runs at most K / |c| + 1 times, whatever the start is. For {@code <} and
+         * {@code >} the start's range must show that no step wraps; {@code !=} with a step of
+         * one reaches start + K after K steps in any case. Null where this does not apply.
+         */
+        private Fact distance(Exit e, Oracle o) {
+            Counter k = e.counter;
+            if (e.widened || !e.invariant(this)) {
+                return null;
+            }
+            Value start = null;
+            int startAt = -1;
+            for (int i = 0; i < k.phi.from.size(); i++) {
+                if (!blocks().contains(k.phi.from.get(i))) {
+                    if (start != null && start != k.phi.op(i)) {
+                        return null;
+                    }
+                    start = k.phi.op(i);
+                    startAt = i;
+                }
+            }
+            if (start == null) {
+                return null;
+            }
+            boolean up = k.c > 0;
+            Long dist = up ? plus(e.bound, start) : plus(start, e.bound);
+            long c = Math.abs(k.c);
+            MType t = k.phi.type();
+            if (dist == null || dist <= 0 || dist >= (1L << t.bits())) {
+                return null;
+            }
+            long runs = (dist + c - 1) / c + 1;
+            boolean unsigned;
+            switch (e.stay) {
+                case NE -> {
+                    return c == 1 ? new Fact(dist + 1, null, false, false) : null;
+                }
+                case ULT, UGT -> unsigned = true;
+                case SLT, SGT -> unsigned = false;
+                default -> {
+                    return null;
+                }
+            }
+            if (up != (e.stay == Instr.Pred.ULT || e.stay == Instr.Pred.SLT)) {
+                return null;
+            }
+            // no step wraps: going up, start + K + c fits; going down, start - K - c does
+            Ranges.Range all = unsigned ? Ranges.ufull(t) : Ranges.full(t);
+            Ranges.Range r = o.at(start, k.phi.from.get(startAt), unsigned);
+            if (r == null || (up ? r.hi() + dist + c > all.hi() : r.lo() - dist - c < all.lo())) {
+                return null;
+            }
+            return new Fact(runs, null, unsigned, false);
+        }
+
+        /** K if a is b + K (an addition of a constant), else null. */
+        private static Long plus(Value a, Value b) {
+            if (a instanceof Instr.Bin bin && bin.op == Instr.BinOp.ADD) {
+                if (bin.op(0) == b && bin.op(1) instanceof Value.Const kc) {
+                    return kc.bits();
+                }
+                if (bin.op(1) == b && bin.op(0) instanceof Value.Const kc) {
+                    return kc.bits();
+                }
+            }
+            return null;
         }
     }
 
