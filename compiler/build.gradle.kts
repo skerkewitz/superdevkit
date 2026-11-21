@@ -41,7 +41,7 @@ tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
     // Language level and API of the current LTS release (25); any newer JDK can build it.
     options.release = 25
-    options.compilerArgs.addAll(listOf("-Xlint:all", "-Xlint:-serial"))
+    options.compilerArgs.addAll(listOf("-Xlint:all", "-Xlint:-serial", "-Werror"))
 }
 
 tasks.test {

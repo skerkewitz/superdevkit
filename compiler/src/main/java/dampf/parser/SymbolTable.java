@@ -4,7 +4,7 @@ package dampf.parser;
 import java.util.HashSet;
 import java.util.Stack;
 
-public class SymbolTable {
+public final class SymbolTable {
     private Stack<Symbol> scopeStack = new Stack<>();
     private int blockCounter = 0;
 
