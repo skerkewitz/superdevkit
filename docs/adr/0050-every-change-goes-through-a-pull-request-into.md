@@ -16,13 +16,17 @@ on GitHub.
   the released versions. Both change only through pull requests on GitHub, a one-line fix
   included.
 - Each change is made on a branch of its own, created from the latest `origin/develop`, in a
-  worktree of its own under `/home/tropper/develop_projects/superdevkit-wt/<branch>`. Claude does
+  worktree of its own in `superdevkit-wt/<branch>` next to the main checkout. Claude does
   not edit, build or switch branches in the main checkout. A session there sees `develop` either
   without a change or with all of it.
 - When the change is done and verified, its pull request into `develop` says what changed and
   why, how it was verified (build, replays, measurements), what follows from it (generated code,
   the C guide, the game, the documents) and what is left open. The `pr` skill
   (`.claude/skills/pr`) has the steps and the template; it is refined as the workflow is.
+- Everything sent to GitHub (commits, descriptions, comments) is written as public text, since
+  the repository will be public. It names no paths on the user's machine, no user names, no
+  passwords, tokens or keys, and nothing from Claude's memory or the session that the repository
+  does not already contain. The skill checks each push and each text before it is sent.
 - The user reviews on GitHub. Claude answers feedback with new commits on the same branch and
   does not force-push while the review runs. The pull requests are opened from the user's GitHub
   account, and GitHub does not let an author approve their own pull request. The approval is
