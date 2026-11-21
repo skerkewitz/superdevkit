@@ -115,14 +115,14 @@ today's). A DMA function also uses as many bytes of the vertical blank's 5,700 a
 | `sdevkit_dma_copy_vram_column` | built | built | 116 |
 | `sdevkit_dma_copy_cgram` | built | built | 100 |
 | `sdevkit_dma_clear_vram` | built | built | 111 |
-| `sdevkit_bg_set_gfx_ptr` | built | built | 81 to 191 |
+| `sdevkit_bg_set_gfx_ptr` | built | built | 79 to 189 |
 | `sdevkit_bg_set_map_ptr` | built | built | 35 |
 | `sdevkit_bg_set_scroll` | built | built | 78 |
 | `sdevkit_bg_set_enable` | built | built | 57 to 169 |
 | `sdevkit_bg_set_disable` | built | built | 60 to 172 |
 | `sdevkit_bg_set_enable_sub` | built | built | 57 to 169 |
 | `sdevkit_bg_set_disable_sub` | built | built | 60 to 172 |
-| `sdevkit_bg_init_tile_set` | built | built | 602 to 792 |
+| `sdevkit_bg_init_tile_set` | built | built | 600 to 790 |
 | `sdevkit_bg_init_map_set` | built | built | 145 |
 | `sdevkit_oam_init` | built | built | 23 to 102,679 |
 | `sdevkit_oam_init_gfx_set` | built | built | 246 to 356 |

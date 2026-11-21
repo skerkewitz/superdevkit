@@ -240,4 +240,54 @@ class RegisterChoiceTest {
         }
         return out;
     }
+
+    @Test
+    void anIndexInYIsAddressedWithY() {
+        // X holds another index while v is live: v goes to Y, and its LDX / LDA t,X is LDA t,Y
+        assertEquals(List.of("lda p", "inc a", "tay", "ldx #$0005", "lda _a,x", "sta _o", "lda _t,y", "sta _o2", "tya", "sta _o3",
+                        "ldx #$0007", "lda _c,x", "sta _o4", "rtl"),
+                choose(ins("lda", place(P)), ins("inc", new LOperand.Acc()), ins("sta", place(V)),
+                        ins("ldx", new LOperand.Imm("$0005")), ins("lda", global("_a", LOperand.Index.X)), ins("sta", global("_o", LOperand.Index.NONE)),
+                        ins("ldx", place(V)), ins("lda", global("_t", LOperand.Index.X)), ins("sta", global("_o2", LOperand.Index.NONE)),
+                        ins("lda", place(V)), ins("sta", global("_o3", LOperand.Index.NONE)),
+                        ins("ldx", new LOperand.Imm("$0007")), ins("lda", global("_c", LOperand.Index.X)), ins("sta", global("_o4", LOperand.Index.NONE))));
+    }
+
+    @Test
+    void aPlaceGoesToXForALoopOnly() {
+        // v is an operand of SBC before and after the loop, so it lives in memory there; in the
+        // loop it is X: loaded before, stored after (the loop changes it)
+        LFunction f = new LFunction(new LDirective(LDirective.Kind.PROC, null, List.of("f"), null, ".proc f"));
+        f.rebuild(new ArrayList<>(List.of(
+                ins("lda", place(P)), ins("inc", new LOperand.Acc()), ins("sta", place(V)),
+                ins("lda", global("_g", LOperand.Index.NONE)), ins("sec"), ins("sbc", place(V)), ins("sta", global("_o1", LOperand.Index.NONE)),
+                new dampf.lir.LLabel("loop"),
+                ins("ldx", place(V)), ins("lda", global("_t", LOperand.Index.X)), ins("sta", global("_o2", LOperand.Index.NONE)),
+                ins("inc", place(V)), ins("lda", place(V)), ins("cmp", new LOperand.Imm("$0010")), ins("bcc", new LOperand.Label("loop")),
+                ins("lda", global("_h", LOperand.Index.NONE)), ins("sec"), ins("sbc", place(V)), ins("sta", global("_o3", LOperand.Index.NONE)),
+                ins("rtl"))));
+        java.util.Set<dampf.lir.LBlock> loop = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        loop.add(f.block("loop"));
+        PlaceColouring.Frame frame = new PlaceColouring.Frame() {
+            @Override
+            public Integer fixed(PlaceColouring.Place p) {
+                return p.key() == P ? 0 : null;
+            }
+
+            @Override
+            public int bytes(PlaceColouring.Place p) {
+                return 2;
+            }
+        };
+        Map<dampf.lir.LBlock, Double> weights = Map.of(f.block("loop"), 8.0);
+        RegisterChoice.run(f, o -> Set.of(P, V, W).contains(o.key()), frame, weights, false, false, List.of(loop));
+        List<String> out = new ArrayList<>();
+        for (LInstr i : f.instrs()) {
+            out.add(i.mnemonic() + (i.op() == null ? "" : i.op() instanceof LOperand.Mem m && m.owner() != null ? " " + m.owner().key()
+                    : " " + i.op().text()));
+        }
+        assertEquals(List.of("lda p", "inc a", "sta v", "lda _g", "sec", "sbc v", "sta _o1", "ldx v",
+                "lda _t,x", "sta _o2", "inx", "cpx #$0010", "bcc loop",
+                "stx v", "lda _h", "sec", "sbc v", "sta _o3", "rtl"), out);
+    }
 }

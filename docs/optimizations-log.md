@@ -1464,3 +1464,26 @@ The examples, against the code before: Steinschlag −1.5 %, Hello −0.8 %, Cat
 −0.1 %. No function's worst case got slower; of the style guide's examples `pairs_by_list` costs
 24 cycles more (a store `DeadStores` cannot prove dead, now kept from A instead of `TAX`).
 Without selection's patterns the examples are 0.2 % slower than with them (Ertüp 0.8 %).
+
+## A register for one loop, and an index in Y (2026-11-21, on the examples)
+
+Two things selection's patterns did that `RegisterChoice` could not, found in Ertüp's
+`carousel_collide`: a value kept in X in one loop and in memory around it, and a loop counter in
+Y used as the index (`LDA t,Y`), which leaves X free for something else.
+
+- Splitting (B3): a candidate may take a register for one loop only. It is loaded at the end of
+  the blocks that enter the loop (where it is live into it) and stored at the start of the blocks
+  the loop leaves to (where the loop changes it and it is live there); a block that enters the loop
+  and goes elsewhere too, or one left to from outside as well, keeps it out, as do X, Y or the
+  flags read at the head from outside. The load and the store name the owner live there, so the
+  check of the places follows them. The loops are MIR's, their LIR blocks found by label.
+- A place in Y whose `LDX p` is followed only by accesses with an absolute,Y form takes those
+  accesses with Y (what `IndexInY` does after the passes; here before, so X is free).
+
+The first version put the store after a loop in front of the exit block's label, where comments
+before the label belong to the block above: a random loop program (seed 20778026) and Ertüp
+computed wrong values; it goes right after the label now.
+
+The examples, against the code before: Ertüp −0.5 %, Schach −0.2 %, Catch Me −0.1 %, the rest the
+same; geometric mean −0.2 %. The pair loops and the spelling families the same; no function's
+worst case got slower.

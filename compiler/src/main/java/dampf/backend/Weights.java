@@ -37,6 +37,35 @@ final class Weights {
         return out;
     }
 
+    /** The LIR blocks of each loop of f: those under the labels of the loop's MIR blocks. */
+    static java.util.List<java.util.Set<LBlock>> loops(MFunction f, LFunction lf) {
+        java.util.Set<String> names = new java.util.HashSet<>();
+        for (Block b : f.blocks()) {
+            names.add(b.name());
+        }
+        Map<String, java.util.List<LBlock>> under = new HashMap<>();
+        String current = null;
+        for (LBlock b : lf.blocks()) {
+            for (LItem it : b.items()) {
+                if (it instanceof LLabel l && names.contains(l.name())) {
+                    current = l.name();
+                }
+            }
+            if (current != null) {
+                under.computeIfAbsent(current, k -> new java.util.ArrayList<>()).add(b);
+            }
+        }
+        java.util.List<java.util.Set<LBlock>> out = new java.util.ArrayList<>();
+        for (Loops.Loop l : Loops.find(f)) {
+            java.util.Set<LBlock> blocks = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+            for (Block b : l.blocks()) {
+                blocks.addAll(under.getOrDefault(b.name(), java.util.List.of()));
+            }
+            out.add(blocks);
+        }
+        return out;
+    }
+
     /** The weight of each LIR block of lf, from the MIR blocks' weights by name. */
     static Map<LBlock, Double> of(LFunction lf, Map<String, Double> byName) {
         Map<LBlock, Double> out = new IdentityHashMap<>();

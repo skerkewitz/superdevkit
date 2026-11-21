@@ -66,7 +66,7 @@ public final class IndexInY {
      * until X is written are such accesses, Y stays, and X is not read after that (at the end of
      * the block: not live out).
      */
-    private static List<Integer> convertible(List<LItem> items, int k, boolean liveOut) {
+    public static List<Integer> convertible(List<LItem> items, int k, boolean liveOut) {
         List<Integer> uses = new ArrayList<>();
         boolean flagsSet = false;   // N and Z of the LDX are overwritten before anything reads them
         for (int j = k + 1; j < items.size(); j++) {
