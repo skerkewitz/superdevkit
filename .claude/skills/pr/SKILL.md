@@ -19,6 +19,7 @@ Paths and names used below:
 - `WT` = `MAIN/../superdevkit-wt/<branch>`, the worktree of a change, in a folder next to the
   main checkout.
 - `REPO` = `skerkewitz/superdevkit`.
+- `USER` = `skerkewitz`, the user's GitHub account, which reviews every pull request.
 
 ## Working as the app
 
@@ -126,11 +127,12 @@ fold a second change into the branch.
 5. Open it:
 
    ```
-   gh-as-bot gh pr create -R REPO --base develop --head <branch> --title "<title>" --body-file <file>
+   gh-as-bot gh pr create -R REPO --base develop --head <branch> --reviewer USER --title "<title>" --body-file <file>
    ```
 
    The title is a short sentence in the style of the commit log ("K4: a large function called
-   once in a loop is inlined"). Give the user the link.
+   once in a loop is inlined"). The user is asked for a review on every pull request. Give the
+   user the link.
 6. CI builds the branch. When it has finished, check that the build of the last commit passed:
    `gh-as-bot gh run list -R REPO --branch <branch> --limit 1 --json headSha,status,conclusion`;
    its `headSha` must be the pull request's last commit. (`gh pr checks` does not work: it needs
@@ -266,7 +268,7 @@ The user decides when `develop` is released. Two pull requests and a tag:
 3. Release pull request, from `develop` itself:
 
    ```
-   gh-as-bot gh pr create -R REPO --base main --head develop --title "Release <version>" --body-file <file>
+   gh-as-bot gh pr create -R REPO --base main --head develop --reviewer USER --title "Release <version>" --body-file <file>
    ```
 
    The description lists the pull requests in the release, with one line each, and what the
