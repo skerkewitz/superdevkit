@@ -246,7 +246,13 @@ final class RegisterChoice {
                         region.set(round.position().get(x));   // r is g's over the whole form
                     }
                     benefit += w * fused;
-                    reads++;
+                    // a read: the load of the CPX form or of the step, unless A holds it already
+                    // (then CPX q saves nothing); LDA q / STA p as LDX q reads nothing of g
+                    LItem load = ((LInstr) it).mnemonic().equals("lda") ? it
+                            : stepForm(an, g, items, k) != null ? items.get(stepForm(an, g, items, k).get(0)) : null;
+                    if (load != null && !round.free().contains(load)) {
+                        reads++;
+                    }
                 } else if (named && done.contains(it)) {
                     // replaced with the instruction after it
                 } else if (named) {
@@ -269,7 +275,10 @@ final class RegisterChoice {
                         return null;
                     }
                     if (rp.flagsChanged() && (flags & (RedundantLoads.N | RedundantLoads.Z)) != 0) {
-                        return null;   // a branch reads what the old instruction left in N and Z
+                        rp = keepFlags(rp, r, items, k, flags);
+                        if (rp == null) {
+                            return null;   // a branch reads what the old instruction left in N and Z
+                        }
                     }
                     if (rp.writesReg() && rLive) {
                         return null;   // r holds something else that is read later
@@ -457,6 +466,56 @@ final class RegisterChoice {
         }
     }
 
+    /**
+     * A replacement that changes N and Z where a branch reads them, made to keep them, or null:
+     * where they describe A (the instruction that set them last set them from A), {@code STA p}
+     * as {@code TAX} sets them the same, and {@code STZ p} as {@code LDX #0} is followed by
+     * {@code CMP #0}; a {@code LDX p} that goes becomes {@code CPX #0}. Both compares set the carry:
+     * only where it is not read.
+     */
+    private static Replacement keepFlags(Replacement rp, Reg r, List<LItem> items, int k, int flagsAfter) {
+        LInstr i = (LInstr) items.get(k);
+        boolean carry = (flagsAfter & CARRY) != 0;
+        if (i.mnemonic().equals("sta") && nzFromA(items, k)) {
+            return new Replacement(rp.items(), rp.before(), false, rp.writesReg());
+        }
+        if (i.mnemonic().equals("stz") && nzFromA(items, k) && !carry) {
+            List<LItem> out = new ArrayList<>(rp.items());
+            out.add(new LInstr("cmp", new LOperand.Imm("$0000"), null, true, true, false));
+            return new Replacement(out, rp.before(), false, rp.writesReg());
+        }
+        if (i.mnemonic().equals(r.load) && rp.items().isEmpty() && !carry) {
+            return new Replacement(List.of(new LInstr(r == Reg.X ? "cpx" : "cpy", new LOperand.Imm("$0000"), null, true, true, false)),
+                    rp.before(), false, false);
+        }
+        return null;
+    }
+
+    /** Whether N and Z before item k were last set from A's 16 bits (in this block). */
+    private static boolean nzFromA(List<LItem> items, int k) {
+        for (int j = k - 1; j >= 0; j--) {
+            if (!(items.get(j) instanceof LInstr p)) {
+                if (items.get(j) instanceof LCopy || items.get(j) instanceof LMark) {
+                    return false;
+                }
+                continue;
+            }
+            if ((RedundantLoads.writes(p) & (RedundantLoads.N | RedundantLoads.Z)) == 0) {
+                continue;      // a store, CLC, a width change: the flags stay
+            }
+            if (!p.m16()) {
+                return false;
+            }
+            return switch (p.mnemonic()) {
+                case "lda", "and", "ora", "eor", "adc", "sbc", "txa", "tya", "pla" -> true;
+                case "asl", "lsr", "rol", "ror", "inc", "dec" -> p.op() == null || p.op() instanceof LOperand.Acc;
+                case "tax", "tay" -> p.x16();
+                default -> false;
+            };
+        }
+        return false;
+    }
+
     private static Replacement one(String mnemonic, LInstr old, int before, boolean flagsChanged, boolean writesReg) {
         return new Replacement(List.of(new LInstr(mnemonic, (LOperand) null, old.comment(), old.m16(), old.x16(), false)),
                 before, flagsChanged, writesReg);
@@ -580,6 +639,27 @@ final class RegisterChoice {
         return form;
     }
 
+    /**
+     * The items of {@code LDA q} and one or more {@code STA p} of g after it, where q is something
+     * X (Y) loads as well (an immediate, or a place without an index); as indexes, the load first;
+     * null if it is no such form. With A not read afterwards it is {@code LDX q}.
+     */
+    private static List<Integer> loadForm(Analysis an, Group g, List<LItem> items, int k) {
+        List<Integer> stores = new ArrayList<>();
+        int j = k;
+        while (j >= 0 && items.get(j) instanceof LInstr st && plainOf(an, g, st, "sta")) {
+            stores.add(0, j);
+            j = prev(items, j);
+        }
+        if (j < 0 || !(items.get(j) instanceof LInstr q) || !q.mnemonic().equals("lda") || !q.m16() || touches(an, g, q)
+                || !comparable(q.op())) {
+            return null;
+        }
+        List<Integer> form = new ArrayList<>(List.of(j));
+        form.addAll(stores);
+        return form;
+    }
+
     /** Whether item k ends a step of g ({@code STA p} after {@code LDA p / CLC / ADC #c}). */
     private static boolean isStep(List<LItem> items, int k) {
         return items.get(k) instanceof LInstr i && i.mnemonic().equals("sta");
@@ -610,6 +690,17 @@ final class RegisterChoice {
                 return (double) (before - 2 * Math.abs(n));
             }
         }
+        if (plainOf(an, g, i, "sta") && !aLiveAfter.getOrDefault(i, true)) {
+            List<Integer> form = loadForm(an, g, items, k);
+            if (form != null) {
+                int before = 0;
+                for (int x : form) {
+                    before += ((LInstr) items.get(x)).cycles();
+                }
+                LInstr q = (LInstr) items.get(form.get(0));
+                return (double) (before - new LInstr(r.load, q.op(), null, true, true, false).cycles());
+            }
+        }
         if (plainOf(an, g, i, "lda")) {
             int n = next(items, k);
             if (n >= 0 && items.get(n) instanceof LInstr cmp && cmp.mnemonic().equals("cmp") && cmp.m16()
@@ -634,6 +725,18 @@ final class RegisterChoice {
     private static List<LItem> fusedReplace(Analysis an, Group g, Reg r, List<LItem> items, int k, Map<LItem, List<LItem>> replace,
                                             java.util.Set<LItem> done) {
         LInstr i = (LInstr) items.get(k);
+        List<Integer> load = i.mnemonic().equals("sta") ? loadForm(an, g, items, k) : null;
+        if (load != null && stepForm(an, g, items, k) == null) {
+            LInstr q = (LInstr) items.get(load.get(0));
+            List<LItem> all = new ArrayList<>();
+            for (int x : load) {
+                replace.put(items.get(x), x == load.get(0) ? List.of(new LInstr(r.load, q.op(), q.comment(), true, true, false))
+                        : List.of());
+                done.add(items.get(x));
+                all.add(items.get(x));
+            }
+            return all;
+        }
         if (i.mnemonic().equals("sta")) {
             List<Integer> form = stepForm(an, g, items, k);
             int n = step((LInstr) items.get(form.get(2)), (LInstr) items.get(form.get(1)));
@@ -692,6 +795,10 @@ final class RegisterChoice {
         String m = i.mnemonic();
         if (m.equals("rtl") || m.equals("rts")) {
             return returnsA;
+        }
+        if (m.equals("jsl") || m.equals("jsr")) {
+            // a runtime routine takes A; a C function takes its arguments in its frame
+            return !(i.op() instanceof LOperand.Label l) || l.name().startsWith("dampf_");
         }
         if (m.equals("lda")) {
             return !i.m16();   // 8 bits: the high byte stays

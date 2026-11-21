@@ -188,4 +188,56 @@ class RegisterChoiceTest {
                         ins("lda", place(V)), ins("eor", new LOperand.Imm("$8000")), ins("cmp", new LOperand.Imm("$002A")),
                         ins("bcc", new LOperand.Label("loop"))));
     }
+
+    @Test
+    void aConstantStoredToAPlaceInXIsLoadedIntoX() {
+        // LDA #k / STA v with A not read afterwards: LDX #k
+        assertEquals(List.of("ldx #$0040", "lda _t,x", "sta _out", "lda _u,x", "sta _out2", "rtl"),
+                choose(ins("lda", new LOperand.Imm("$0040")), ins("sta", place(V)),
+                        ins("ldx", place(V)), ins("lda", global("_t", LOperand.Index.X)), ins("sta", global("_out", LOperand.Index.NONE)),
+                        ins("ldx", place(V)), ins("lda", global("_u", LOperand.Index.X)), ins("sta", global("_out2", LOperand.Index.NONE))));
+    }
+
+    @Test
+    void aZeroStoredBeforeABranchKeepsTheFlagsOfA() {
+        // STZ v between AND (which sets Z from A) and BNE: LDX #0, then CMP #0 sets Z from A again
+        assertEquals(List.of("lda _g", "and #$00FF", "ldx #$0000", "cmp #$0000", "bne skip", "inx", "skip:", "lda _t,x", "sta _out",
+                        "lda _u,x", "sta _out2", "rtl"),
+                chooseWithLabels(ins("lda", global("_g", LOperand.Index.NONE)), ins("and", new LOperand.Imm("$00FF")), ins("stz", place(V)),
+                        ins("bne", new LOperand.Label("skip")), ins("inc", place(V)),
+                        new dampf.lir.LLabel("skip"),
+                        ins("ldx", place(V)), ins("lda", global("_t", LOperand.Index.X)), ins("sta", global("_out", LOperand.Index.NONE)),
+                        ins("ldx", place(V)), ins("lda", global("_u", LOperand.Index.X)), ins("sta", global("_out2", LOperand.Index.NONE))));
+    }
+
+    /** As choose(), with labels in the result. */
+    private static List<String> chooseWithLabels(LItem... items) {
+        LFunction f = new LFunction(new LDirective(LDirective.Kind.PROC, null, List.of("f"), null, ".proc f"));
+        List<LItem> all = new ArrayList<>(List.of(items));
+        all.add(ins("rtl"));
+        f.rebuild(all);
+        PlaceColouring.Frame frame = new PlaceColouring.Frame() {
+            @Override
+            public Integer fixed(PlaceColouring.Place p) {
+                return p.key() == P ? 0 : null;
+            }
+
+            @Override
+            public int bytes(PlaceColouring.Place p) {
+                return 2;
+            }
+        };
+        RegisterChoice.run(f, o -> Set.of(P, V, W).contains(o.key()), frame, Map.of(), false, false);
+        List<String> out = new ArrayList<>();
+        for (LItem it : f.items()) {
+            if (it instanceof LInstr i) {
+                String op = i.op() == null ? "" : i.op() instanceof LOperand.Mem m && m.owner() != null ? " " + m.owner().key()
+                        : " " + i.op().text();
+                out.add(i.mnemonic() + op);
+            } else if (it instanceof dampf.lir.LLabel l) {
+                out.add(l.name() + ":");
+            }
+        }
+        return out;
+    }
 }

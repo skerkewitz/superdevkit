@@ -697,8 +697,10 @@ take it, and a group read only by such loads is left to `RedundantLoads` and `De
 reads X only where the function returns a high word. The examples do 1.9 % less work than with
 the patterns alone. Then `CPX` for a comparison and `INX` for a small step (both where A is not
 read afterwards, from the liveness of A on the LIR), and calls taken for what they are (they
-write X and Y, read neither): 1.5 % less again. Without the patterns the examples are still 0.4 %
-slower (Ertüp, Schach), so they stay for now; registers across calls and splitting are not built.
+write X and Y, read neither): 1.5 % less again. `LDX q` for a load and a store, flags kept
+where they describe A, and calls that take no A: 0.5 % less again. Without the patterns the
+examples are still 0.2 % slower (Ertüp 0.8 %), so they stay for now; registers across calls and
+splitting are not built.
 
 ### B4. A convention for A is not part of this
 

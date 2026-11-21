@@ -1439,3 +1439,28 @@ loops: A −3.6 %, C −2.7 %, D −2.1 %, B −1.3 %. The spelling families: `s
 `pairs_down` 38,047 → 37,827; no function's worst case got slower. Without selection's patterns
 (`findXCounters`, `findYIndexes`, `IndexInY`) the examples are still 0.4 % slower than with them
 (Ertüp, Schach), so the patterns stay.
+
+## Loads into X, flags that describe A, and calls that take no A (2026-11-21, on the examples)
+
+Comparing `RegisterChoice` without selection's patterns with the patterns showed what it still
+missed; three things, each useful with the patterns as well:
+
+- `LDA q / STA p` (q an immediate or a place without an index) is `LDX q` where A is not read
+  afterwards (a constant start value: `LDX #$0040` instead of `LDA #$0040 / TAX`);
+- a branch that reads N and Z after a store no longer keeps a place out of X where the flags
+  describe A (the instruction that set them last set them from A): `STA p` as `TAX` sets them
+  the same, `STZ p` as `LDX #0` gets a `CMP #0` after it, a `LDX p` that goes becomes `CPX #0`
+  (where the carry is not read); a loop counter whose φ copy stood between `AND #$00FF` and `BNE`
+  stayed in memory before;
+- a call reads A only if it calls a runtime routine; a C function takes its arguments in its
+  frame, so A is dead after a loop that ends in a call, and the loop's test is `CPX`.
+
+A load A holds already counts as no read for the `CPX` form either (it saved nothing there:
+Catch Me's `glyph` got a `TAX` in its loop at first), and `LDA q / STA p` as `LDX q` reads
+nothing of the place.
+
+The examples, against the code before: Steinschlag −1.5 %, Hello −0.8 %, Catch Me −0.7 %, Ertüp
+−0.7 %, Schach −0.1 %, Mandelbrot −0.1 %, Mode 7 the same; geometric mean −0.5 %. The pair loops
+−0.1 %. No function's worst case got slower; of the style guide's examples `pairs_by_list` costs
+24 cycles more (a store `DeadStores` cannot prove dead, now kept from A instead of `TAX`).
+Without selection's patterns the examples are 0.2 % slower than with them (Ertüp 0.8 %).
