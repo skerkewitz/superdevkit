@@ -14,6 +14,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+import superdevkit.AtomicWrite;
 
 /**
  * {@code superdevkit sfx}: a game's {@code sfx.json} to its samples as C and a header with one name
@@ -317,8 +318,8 @@ public final class Sfx {
             throw new Failure(errors);
         }
         Files.createDirectories(out);
-        Files.writeString(out.resolve(name + ".h"), header(bank, name, json), StandardCharsets.UTF_8);
-        Files.writeString(out.resolve(name + ".c"), source(bank, done, name, json), StandardCharsets.UTF_8);
+        AtomicWrite.writeString(out.resolve(name + ".h"), header(bank, name, json));
+        AtomicWrite.writeString(out.resolve(name + ".c"), source(bank, done, name, json));
         List<String> lines = new ArrayList<>();
         for (Converted c : done) {
             Conversion.Result r = c.result();

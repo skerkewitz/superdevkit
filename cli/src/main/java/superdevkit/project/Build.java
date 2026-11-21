@@ -82,7 +82,7 @@ public final class Build {
                 }
                 h.append("#define MUSIC_COUNT ").append(p.music().size()).append("\n#endif\n");
                 Files.createDirectories(gen);
-                Files.writeString(gen.resolve("music.h"), h.toString(), StandardCharsets.UTF_8);
+                superdevkit.AtomicWrite.writeString(gen.resolve("music.h"), h.toString());
             }));
         }
         if (p.sfx() != null) {

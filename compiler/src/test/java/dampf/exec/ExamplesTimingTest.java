@@ -28,7 +28,7 @@ class ExamplesTimingTest {
         List<Path> examples = ExamplesTest.examples();
         return examples.stream().map(ex -> DynamicTest.dynamicTest(ex.getFileName().toString(), () -> {
             String name = ex.getFileName().toString();
-            Compiler.Result r = ExamplesTest.compile(ex, ex.resolve("build/" + name + "_timing.sfc"));
+            Compiler.Result r = ExamplesTest.compile(ex, ex.resolve("build/timing/" + name + "_timing.sfc"));
             EmulatorRunner.CallCheck calls = new EmulatorRunner(FRAMES * FRAME).checkCalls(r.rom(), r.timing());
             assertTrue(calls.calls() > 1000, name + ": only " + calls.calls() + " calls measured");
             assertTrue(calls.wrong().isEmpty(), name + ": calls outside their static bounds: " + calls.wrong());

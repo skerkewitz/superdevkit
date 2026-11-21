@@ -50,6 +50,11 @@ tasks.test {
     // `./gradlew test --tests X` runs in both subprojects; X is in one of them
     filter { isFailOnNoMatchingTests = false }
     maxHeapSize = "2g"
+    // Test classes run in parallel JVMs, one per core and at most 4, since each may take 2 GB
+    // (-PtestForks=n sets the number). A class that writes files writes them where no other class
+    // does, and the conversions into an example's build/gen write atomically (docs/testing.md).
+    maxParallelForks = providers.gradleProperty("testForks").orNull?.toInt()
+        ?: Runtime.getRuntime().availableProcessors().coerceIn(1, 4)
     // a last resort: the program tests have their own limits (a hang fails the test, see ExecutionTest)
     timeout.set(Duration.ofHours(2))
     // dampf's headers from the sources (SystemHeaders), so that the paths in the output are the

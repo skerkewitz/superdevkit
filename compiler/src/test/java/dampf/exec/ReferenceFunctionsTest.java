@@ -45,10 +45,10 @@ class ReferenceFunctionsTest {
         return refs.entrySet().stream().map(e -> DynamicTest.dynamicTest(e.getKey().getFileName() + " " + e.getValue().keySet(), () -> {
             Path ex = e.getKey();
             String name = ex.getFileName().toString();
-            Compiler.Options o = ExamplesTest.options(ex, ex.resolve("build/" + name + "_reference.sfc"));
+            Compiler.Options o = ExamplesTest.options(ex, ex.resolve("build/reference/" + name + "_reference.sfc"));
             Compiler.Result ref = Compiler.compile(new Compiler.Options(o.sources(), o.includeDirs(), o.defines(), o.entry(),
                     o.output(), e.getValue(), Compiler.Backend.NAIVE));
-            Compiler.Result mir = ExamplesTest.compile(ex, ex.resolve("build/" + name + "_test.sfc"));
+            Compiler.Result mir = ExamplesTest.compile(ex, ex.resolve("build/reference/" + name + "_test.sfc"));
             ExampleCheck.Input input = ExampleCheck.parse(ex.resolve("check.txt"));
             List<String> expected = ExampleCheck.run(Files.readAllBytes(mir.rom().rom()), input, 40 * input.ticks() + 2000).lines();
             List<String> got = ExampleCheck.run(Files.readAllBytes(ref.rom().rom()), input, 40 * input.ticks() + 2000).lines();
