@@ -461,9 +461,10 @@ final class RegisterChoice {
         return true;
     }
 
-    /** What one round of choosing knows of the code, whatever the candidate. */
     /**
-     * {@code free}: the loads of A that RedundantLoads will take anyway (A holds what they load on
+     * What one round of choosing knows of the code, whatever the candidate.
+     *
+     * <p>{@code free}: the loads of A that RedundantLoads will take anyway (A holds what they load on
      * every way in, by {@link dampf.lir.RegContents}): they cost nothing now, so a register saves
      * nothing there.
      */
