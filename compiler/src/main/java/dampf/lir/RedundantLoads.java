@@ -492,7 +492,7 @@ public final class RedundantLoads {
             case "bvc", "bvs" -> V;
             case "php" -> ALL;
             case "lda", "ldx", "ldy", "sta", "stx", "sty", "stz", "and", "ora", "eor", "cmp", "cpx", "cpy", "bit",
-                 "inc", "dec", "inx", "iny", "dex", "dey", "asl", "lsr", "tax", "tay", "txa", "tya", "tsx", "txs",
+                 "inc", "dec", "inx", "iny", "dex", "dey", "asl", "lsr", "tax", "tay", "txa", "tya", "txy", "tyx", "tsx", "txs",
                  "tcd", "tdc", "xba", "pha", "phx", "phy", "pla", "plx", "ply", "clc", "sec", "clv", "rep", "sep",
                  "jmp", "jml", "bra", "brl", "jsl", "jsr", "rtl", "rts", "trb", "tsb", "nop" -> 0;
             default -> ALL;   // not known here: may read anything

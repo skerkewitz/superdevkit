@@ -1525,3 +1525,13 @@ stored in every round is loaded once. The spellings of `fill-words` cost 1,233 �
 spelling families are the same. A first version also moved the load after a loop into the loop
 when the entry held the value and the body did not (Catch Me's `best_load`, 547 → 571 in the
 worst case): the load must lie on the loop, and the ways that get it must not.
+
+## TXY and TYX read no flags (2026-11-21, on the examples)
+
+`RedundantLoads.reads` did not know `TXY` and `TYX`, which the choice of registers writes (B3),
+and took them as reading every flag: N, Z, C and V were live before each of them. A random loop
+program (seed 35675) crashed the compiler with it: a φ copy before a `TYX` was to become `LDY`,
+and the choice asked how to keep the flags a branch would read after it, which it can only answer
+for an instruction (it now leaves such a copy where it is). With the two known, fewer flags count
+as live, and the passes that ask take more: Schach −0.8 %, Catch Me −0.2 %, the rest the same;
+geometric mean −0.1 %. No function's worst case got slower.

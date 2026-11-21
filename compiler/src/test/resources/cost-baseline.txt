@@ -1,7 +1,7 @@
 # The static worst case in CPU cycles of every function of every example and of
 # every member of the spelling families (one call through spelling_entry; -1: unbounded).
 # Written by BackendOutputTest with -PbackendOutput=update; its diff shows what got slower.
-catchme _actors_draw 7084
+catchme _actors_draw 7068
 catchme _actors_hide 152
 catchme _actors_reset 770
 catchme _actors_scare 363
@@ -46,7 +46,7 @@ catchme _memset_3 3014638
 catchme _mouse_move -1
 catchme _new_game -1
 catchme _number -1
-catchme _put 1588
+catchme _put 1584
 catchme _random16 204
 catchme _ready -1
 catchme _reverse 18
@@ -63,7 +63,7 @@ catchme _sdevkit__splash_sprites 15790
 catchme _sdevkit__start 115743
 catchme _sdevkit__wait_vblank -1
 catchme _sdevkit_bg_init_map_set 145
-catchme _sdevkit_bg_init_tile_set 790
+catchme _sdevkit_bg_init_tile_set 776
 catchme _sdevkit_bg_set_disable 729
 catchme _sdevkit_bg_set_disable_sub 729
 catchme _sdevkit_bg_set_enable 707
@@ -197,7 +197,7 @@ ertuep _ending 257567
 ertuep _enemies_update 180006
 ertuep _enemy_destroyed 157277
 ertuep _enemy_hit 157365
-ertuep _enemy_spawn 1488
+ertuep _enemy_spawn 1481
 ertuep _fade_to 33
 ertuep _festzelt_drunk 53
 ertuep _festzelt_hash 485
@@ -262,7 +262,7 @@ ertuep _new_game 226478
 ertuep _objects_clear 17107
 ertuep _organ 5001
 ertuep _overlap 119
-ertuep _part_spawn 185
+ertuep _part_spawn 178
 ertuep _parts_update 2165
 ertuep _path_at 1684
 ertuep _picture 295441
@@ -288,7 +288,7 @@ ertuep _sdevkit__splash_sprites 15790
 ertuep _sdevkit__start 115743
 ertuep _sdevkit__wait_vblank -1
 ertuep _sdevkit_bg_init_map_set 145
-ertuep _sdevkit_bg_init_tile_set 813
+ertuep _sdevkit_bg_init_tile_set 799
 ertuep _sdevkit_bg_set_disable 729
 ertuep _sdevkit_bg_set_disable_sub 729
 ertuep _sdevkit_bg_set_enable 707
@@ -381,7 +381,7 @@ ertuep _tuba 4670
 ertuep _tuba_2 10823
 ertuep _vcount 74
 ertuep _waves_from 12865
-ertuep _waves_spawn 18766
+ertuep _waves_spawn 18689
 ertuep dampf_mul16 367
 ertuep dampf_mul32 1968
 ertuep dampf_sdiv32 2594
@@ -410,7 +410,7 @@ hello _sdevkit__splash_sprites 15790
 hello _sdevkit__start 115743
 hello _sdevkit__wait_vblank -1
 hello _sdevkit_bg_init_map_set 145
-hello _sdevkit_bg_init_tile_set 790
+hello _sdevkit_bg_init_tile_set 776
 hello _sdevkit_bg_set_disable 729
 hello _sdevkit_bg_set_disable_sub 729
 hello _sdevkit_bg_set_enable 707
@@ -473,12 +473,12 @@ hello dampf_mul32 1968
 hello dampf_sdiv32 2594
 hello dampf_udiv16 772
 hello dampf_udiv32 2432
-mandelbrot _compute 78355
+mandelbrot _compute 78307
 mandelbrot _cycle_palette 5135
 mandelbrot _dma0 94
 mandelbrot _dma_source 61
 mandelbrot _game_init 1527815
-mandelbrot _game_tick 79174
+mandelbrot _game_tick 79126
 mandelbrot _game_vblank 381
 mandelbrot _high_byte 41
 mandelbrot _high_shift 18
@@ -498,7 +498,7 @@ mandelbrot _sdevkit__splash_sprites 15790
 mandelbrot _sdevkit__start 115743
 mandelbrot _sdevkit__wait_vblank -1
 mandelbrot _sdevkit_bg_init_map_set 145
-mandelbrot _sdevkit_bg_init_tile_set 813
+mandelbrot _sdevkit_bg_init_tile_set 799
 mandelbrot _sdevkit_bg_set_disable 729
 mandelbrot _sdevkit_bg_set_disable_sub 729
 mandelbrot _sdevkit_bg_set_enable 707
@@ -587,7 +587,7 @@ mode7 _sdevkit__splash_sprites 15790
 mode7 _sdevkit__start 115743
 mode7 _sdevkit__wait_vblank -1
 mode7 _sdevkit_bg_init_map_set 145
-mode7 _sdevkit_bg_init_tile_set 813
+mode7 _sdevkit_bg_init_tile_set 799
 mode7 _sdevkit_bg_set_disable 729
 mode7 _sdevkit_bg_set_disable_sub 729
 mode7 _sdevkit_bg_set_enable 707
@@ -694,7 +694,7 @@ schach _leave -1
 schach _left_in_check -1
 schach _list_legal -1
 schach _main -1
-schach _make_move 1615
+schach _make_move 1580
 schach _make_null 252
 schach _move_cursor 192
 schach _move_made -1
@@ -711,7 +711,7 @@ schach _panel_yellow -1
 schach _perft -1
 schach _piece_index 31
 schach _piece_of_char 84
-schach _play_move 1708
+schach _play_move 1673
 schach _player -1
 schach _player_turn -1
 schach _promote -1
@@ -731,7 +731,7 @@ schach _sdevkit__splash_sprites 15790
 schach _sdevkit__start 115743
 schach _sdevkit__wait_vblank -1
 schach _sdevkit_bg_init_map_set 145
-schach _sdevkit_bg_init_tile_set 813
+schach _sdevkit_bg_init_tile_set 799
 schach _sdevkit_bg_set_disable 729
 schach _sdevkit_bg_set_disable_sub 729
 schach _sdevkit_bg_set_enable 707
@@ -804,7 +804,7 @@ schach _think -1
 schach _title -1
 schach _to_tt 41
 schach _tt_store 255
-schach _unmake_move 553
+schach _unmake_move 526
 schach _unmake_null 127
 schach _vcount 74
 schach dampf_mul16 367
@@ -948,7 +948,7 @@ steinschlag _sdevkit__splash_sprites 15790
 steinschlag _sdevkit__start 115743
 steinschlag _sdevkit__wait_vblank -1
 steinschlag _sdevkit_bg_init_map_set 145
-steinschlag _sdevkit_bg_init_tile_set 813
+steinschlag _sdevkit_bg_init_tile_set 799
 steinschlag _sdevkit_bg_set_disable 729
 steinschlag _sdevkit_bg_set_disable_sub 729
 steinschlag _sdevkit_bg_set_enable 707

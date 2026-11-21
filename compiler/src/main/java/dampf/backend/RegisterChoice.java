@@ -833,7 +833,9 @@ final class RegisterChoice {
      * only where it is not read.
      */
     private static Replacement keepFlags(Replacement rp, Reg r, List<LItem> items, int k, int flagsAfter) {
-        LInstr i = (LInstr) items.get(k);
+        if (!(items.get(k) instanceof LInstr i)) {
+            return null;   // a φ copy as LDX / STX: what it leaves in N and Z is not known here
+        }
         boolean carry = (flagsAfter & CARRY) != 0;
         if (i.mnemonic().equals("sta") && nzFromA(items, k)) {
             return new Replacement(rp.items(), rp.before(), false, rp.writesReg());
