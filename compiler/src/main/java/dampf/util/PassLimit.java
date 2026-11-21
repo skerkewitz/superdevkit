@@ -14,11 +14,12 @@ import java.util.function.IntSupplier;
  * is wrong with all passes and right with none is then bisected to the first limit n at which it
  * is wrong, and the n-th application is the one that broke it ({@code dev/bisect_passes.sh}).
  *
- * <p>An application is one pass on one function (inlining: one call site). The passes that work
- * on the whole module at once ({@code ParamRanges}, {@code PointerParams}, {@code IndexParams})
- * count once per run. Not counted, and always done: lowering, the code generator's selection
- * (its {@code SelectionPlan} decisions included) and {@code BranchRelax}, which are part of
- * making code at all.
+ * <p>An application is one pass on one function (inlining: one call site; the choice of
+ * registers: one place put in X or Y; the colouring of the places: two places coalesced). The
+ * passes that work on the whole module at once ({@code ParamRanges}, {@code PointerParams},
+ * {@code IndexParams}) count once per run. Not counted, and always done: lowering, the code
+ * generator's selection (its {@code SelectionPlan} decisions included), the colouring itself and
+ * {@code BranchRelax}, which are part of making code at all.
  *
  * <p>The limit comes from {@code dampf build --opt-limit n}, or else from the system property
  * {@value #PROPERTY} (the tests: {@code -PoptLimit=n}) or the environment variable {@value #ENV}.

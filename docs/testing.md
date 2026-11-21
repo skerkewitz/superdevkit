@@ -180,7 +180,7 @@ over when it left ([ADR record 40](adr/0040-the-examples-replace-blubber-blasen-
 - **The pass limit** (`dampf.util.PassLimit`, as LLVM's `-opt-bisect-limit`): `dampf build
   --opt-limit n`, `-PoptLimit=n` for the tests, or `DAMPF_OPT_LIMIT=n`, stops the MIR and LIR
   passes after n applications that changed something (one pass on one function; inlining one
-  call; the passes on the whole module once). `dev/bisect_passes.sh <command>` runs a check
+  call; one place put in a register; two places coalesced; the passes on the whole module once). `dev/bisect_passes.sh <command>` runs a check
   command with smaller and smaller limits and names the application that breaks a program, for
   example `dev/bisect_passes.sh ./gradlew -q :compiler:test --tests dampf.exec.ExecutionTest
   -Pexec=loops` (`-Pexec` runs one execution program). Selection and its decisions are not

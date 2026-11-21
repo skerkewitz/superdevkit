@@ -260,7 +260,9 @@ Built (2026-11-20): `dampf.util.PassLimit`, described in
 `PointerParams`, `IndexParams`) count once per run, not per function. Two findings on the way:
 `IndexParams` gave one of two outputs depending on hash codes (fixed in the commit before), and
 code without the passes is up to ten times slower than with them, which the tests' emulator
-limit now allows for.
+limit now allows for. The decisions of B count since 2026-11-21: one place put in X or Y, and two
+places coalesced, are one application each (the miscompilations of B3 were in the choice of
+registers, which the limit could not name before).
 
 ### T4. Tests for the conditions of every pattern
 
