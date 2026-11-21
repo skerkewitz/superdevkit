@@ -1412,3 +1412,30 @@ Mode 7 −0.3 %, Mandelbrot −0.1 %; geometric mean −1.9 %. The pair loops: C
 3,712 → 2,603), `pairs` 38,086 → 35,323, `table-2d` 27,033 → 26,928; no function's worst case
 got slower. The style guide's measurements moved (`compare_sum_narrowed` 98 → 88,
 `pairs_by_list` 18,170 → 17,531); every rule holds.
+
+## Steps and comparisons in X and Y, and calls that take no registers (2026-11-21, on the examples, the spelling families and the pair loops)
+
+`RegisterChoice` took a counter in X as `TXA / ADC #2 / TAX` and `TXA / CMP q` where selection's
+pattern writes `INX / INX` and `CPX q`; and it took every call for an instruction that reads X
+and Y, so no value lived in a register over the code before a call. Now, with the liveness of A
+on the LIR (`RTL` reads it unless the function returns nothing):
+
+- `LDA p / CLC / ADC #c / STA p` (in either order of `CLC` and `LDA`, with one or more stores of
+  the place) is c times `INX` (`DEX` for `SBC`), c up to 3, where A, the carry and V are not read
+  afterwards;
+- `LDA p / CMP q` is `CPX q` where A is not read afterwards;
+- a call writes X and Y but reads neither: a C function takes its arguments in its frame, and a
+  runtime routine in A and R0 to R6;
+- `TAX` right after `TAX` (two stores of one group) is one.
+
+Two rewrites of one block could disagree: a load left out because A held the place after a store
+or a load that the step or the comparison form then replaced (a random loop program, seed
+20778041, compared the wrong value). A store a step may take and a load before a `CMP` no longer
+count as holding the place.
+
+The examples, against the code before: Schach −3.0 %, Steinschlag −2.4 %, Catch Me −1.8 %,
+Ertüp −1.3 %, Hello −1.0 %, Mode 7 −0.8 %, Mandelbrot −0.1 %; geometric mean −1.5 %. The pair
+loops: A −3.6 %, C −2.7 %, D −2.1 %, B −1.3 %. The spelling families: `search` 2,563 → 2,361,
+`pairs_down` 38,047 → 37,827; no function's worst case got slower. Without selection's patterns
+(`findXCounters`, `findYIndexes`, `IndexInY`) the examples are still 0.4 % slower than with them
+(Ertüp, Schach), so the patterns stay.

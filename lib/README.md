@@ -135,7 +135,7 @@ today's). A DMA function also uses as many bytes of the vertical blank's 5,700 a
 | `sdevkit_reg_write` | built | built | 25 |
 | `sdevkit_hdma_set` | built | built | 87 |
 | `sdevkit_hdma_enable` | built | built | 21 |
-| `sdevkit_dma_fits` | built | built | 83 to 90 |
+| `sdevkit_dma_fits` | built | built | 81 to 86 |
 | `sdevkit_mode7_load_map` | built | built | 116 |
 | `sdevkit_mode7_load_tiles` | built | built | 116 |
 | `sdevkit_mode7_set_matrix` | built | built | 117 |

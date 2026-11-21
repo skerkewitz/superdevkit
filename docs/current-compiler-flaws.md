@@ -695,8 +695,10 @@ live range meets no chosen one's. Beyond the table: `LDA q / ADC p` (also `AND`,
 is `TXA / ADC q`; a load A holds already costs nothing in the benefit, as `RedundantLoads` would
 take it, and a group read only by such loads is left to `RedundantLoads` and `DeadStores`; `RTL`
 reads X only where the function returns a high word. The examples do 1.9 % less work than with
-the patterns alone; `CPX` for a comparison, registers across calls, splitting, and deleting the
-patterns are not built.
+the patterns alone. Then `CPX` for a comparison and `INX` for a small step (both where A is not
+read afterwards, from the liveness of A on the LIR), and calls taken for what they are (they
+write X and Y, read neither): 1.5 % less again. Without the patterns the examples are still 0.4 %
+slower (Ertüp, Schach), so they stay for now; registers across calls and splitting are not built.
 
 ### B4. A convention for A is not part of this
 

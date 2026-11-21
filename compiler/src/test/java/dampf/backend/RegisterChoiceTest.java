@@ -56,7 +56,7 @@ class RegisterChoiceTest {
                 return 2;
             }
         };
-        RegisterChoice.run(f, o -> Set.of(P, V, W).contains(o.key()), frame, Map.of(), false);
+        RegisterChoice.run(f, o -> Set.of(P, V, W).contains(o.key()), frame, Map.of(), false, false);
         List<String> out = new ArrayList<>();
         for (LItem it : f.items()) {
             if (it instanceof LInstr i) {
@@ -152,5 +152,40 @@ class RegisterChoiceTest {
                         ins("ldx", place(V)), ins("lda", global("_t", LOperand.Index.X)), ins("sta", global("_out", LOperand.Index.NONE)),
                         ins("lda", global("_g", LOperand.Index.NONE)), ins("clc"), ins("adc", place(V)),
                         ins("sta", global("_out2", LOperand.Index.NONE))));
+    }
+
+    @Test
+    void aLoopCounterStepsAndComparesInX() {
+        // v = 0; loop: t[v] = 1; v = v + 2; while v < 16 (A is not read after the loop)
+        assertEquals(List.of("ldx #$0000", "lda #$0001", "sta _t,x", "inx", "inx", "cpx #$0010", "bcc loop", "rtl"),
+                choose(ins("stz", place(V)),
+                        new dampf.lir.LLabel("loop"),
+                        ins("lda", new LOperand.Imm("$0001")), ins("ldx", place(V)), ins("sta", global("_t", LOperand.Index.X)),
+                        ins("clc"), ins("lda", place(V)), ins("adc", new LOperand.Imm("$0002")), ins("sta", place(V)),
+                        ins("lda", place(V)), ins("cmp", new LOperand.Imm("$0010")), ins("bcc", new LOperand.Label("loop"))));
+    }
+
+    @Test
+    void aCallAfterTheLastUseDoesNotKeepAValueOutOfX() {
+        // a call writes X and Y, but takes no arguments in them: X is free again before it
+        assertEquals(List.of("lda p", "inc a", "tax", "lda _t,x", "sta _out", "lda _u,x", "sta _out2", "jsl g", "rtl"),
+                choose(ins("lda", place(P)), ins("inc", new LOperand.Acc()), ins("sta", place(V)),
+                        ins("ldx", place(V)), ins("lda", global("_t", LOperand.Index.X)), ins("sta", global("_out", LOperand.Index.NONE)),
+                        ins("ldx", place(V)), ins("lda", global("_u", LOperand.Index.X)), ins("sta", global("_out2", LOperand.Index.NONE)),
+                        ins("jsl", new LOperand.Label("g"))));
+    }
+
+    @Test
+    void aStepInXLeavesNothingInA() {
+        // the loop's test reloads v, which A held after STA v; as INX the step leaves A as it
+        // was, so the reload stays (TXA) (a random loop program, seed 20778041)
+        assertEquals(List.of("ldx #$0000", "lda #$7FFF", "sta _g", "inx", "inx", "inx", "txa", "eor #$8000", "cmp #$002A",
+                        "bcc loop", "rtl"),
+                choose(ins("stz", place(V)),
+                        new dampf.lir.LLabel("loop"),
+                        ins("lda", new LOperand.Imm("$7FFF")), ins("sta", global("_g", LOperand.Index.NONE)),
+                        ins("clc"), ins("lda", place(V)), ins("adc", new LOperand.Imm("$0003")), ins("sta", place(V)),
+                        ins("lda", place(V)), ins("eor", new LOperand.Imm("$8000")), ins("cmp", new LOperand.Imm("$002A")),
+                        ins("bcc", new LOperand.Label("loop"))));
     }
 }

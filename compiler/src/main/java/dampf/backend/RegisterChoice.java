@@ -84,8 +84,9 @@ final class RegisterChoice {
      * in A, and X for a high word; Y is never returned).
      */
     static int run(LFunction lf, Predicate<LOperand.Owner> tracked, PlaceColouring.Frame frame, Map<LBlock, Double> weights,
-                   boolean highWordInX) {
+                   boolean highWordInX, boolean resultInA) {
         returnsX = highWordInX;
+        returnsA = resultInA;
         int n = 0;
         for (Reg r : Reg.values()) {
             while (true) {
@@ -95,7 +96,7 @@ final class RegisterChoice {
                     position.put(it, position.size());
                 }
                 Round round = new Round(RedundantLoads.flagsLiveOut(lf), registerLiveOut(lf, r), readUnits(an), position, named(lf, an),
-                        freeLoads(lf));
+                        freeLoads(lf), aLiveOut(lf));
                 List<Plan> plans = new ArrayList<>();
                 for (Group g : an.groups) {
                     if (g.into != null || g.fixed != null || g.direct || g.bytes != 2 || !allTracked(g, tracked)) {
@@ -145,7 +146,7 @@ final class RegisterChoice {
      * nothing there.
      */
     private record Round(Map<LBlock, Integer> flagsOut, Map<LBlock, Boolean> rLiveOut, BitSet read, Map<LItem, Integer> position,
-                         Map<LBlock, java.util.Set<Group>> named, java.util.Set<LItem> free) {}
+                         Map<LBlock, java.util.Set<Group>> named, java.util.Set<LItem> free, Map<LBlock, Boolean> aLiveOut) {}
 
     private static java.util.Set<LItem> freeLoads(LFunction lf) {
         java.util.Set<LItem> out = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
@@ -222,16 +223,33 @@ final class RegisterChoice {
             }
             int flags = flagsOut.getOrDefault(b, 0);
             boolean rLive = rLiveOut.getOrDefault(b, false);
+            boolean aLive = round.aLiveOut().getOrDefault(b, true);
             double w = weights.getOrDefault(b, 1.0);
             List<LItem> items = b.items();
+            Map<LItem, Boolean> aLiveAfter = new IdentityHashMap<>();
+            java.util.Set<LItem> done = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
             for (int k = items.size() - 1; k >= 0; k--) {
                 LItem it = items.get(k);
+                aLiveAfter.put(it, aLive);
                 boolean gLiveAfter = live.intersects(units);
                 boolean named = touches(an, g, it);
                 if (gLiveAfter || named) {
                     region.set(round.position().get(it));
                 }
-                if (named) {
+                Double fused = named && !done.contains(it) ? fused(an, g, r, items, k, aLiveAfter, flags, round.free()) : null;
+                if (fused != null) {
+                    // a step or a comparison of g, more than one instruction (see fused)
+                    if (rLive && isStep(items, k)) {
+                        return null;   // r holds something else that is read later
+                    }
+                    for (LItem x : fusedReplace(an, g, r, items, k, replace, done)) {
+                        region.set(round.position().get(x));   // r is g's over the whole form
+                    }
+                    benefit += w * fused;
+                    reads++;
+                } else if (named && done.contains(it)) {
+                    // replaced with the instruction after it
+                } else if (named) {
                     boolean nz = (flags & (RedundantLoads.N | RedundantLoads.Z)) != 0;
                     // A has it already: RedundantLoads would take the load, unless a branch reads its flags
                     Replacement rp = it instanceof LInstr i && i.mnemonic().equals("lda") && i.m16() && !nz && aHolds(an, g, items, k)
@@ -279,6 +297,14 @@ final class RegisterChoice {
                     if (reads(i, r)) {
                         rLive = true;
                     }
+                    if (writesA(i)) {
+                        aLive = false;
+                    }
+                    if (readsA(i)) {
+                        aLive = true;
+                    }
+                } else if (it instanceof LCopy) {
+                    aLive = false;     // LDA, STA (or nothing): A is written before it is read
                 }
             }
         }
@@ -303,8 +329,14 @@ final class RegisterChoice {
             boolean mine = touches(an, g, i) && i.op() instanceof LOperand.Mem m && m.owner().word() == 0
                     && m.index() == LOperand.Index.NONE && !m.indirect();
             switch (i.mnemonic()) {
-                case "lda", "sta" -> {
-                    return mine && i.m16();
+                case "lda" -> {
+                    // (not a load the CPX form may take with the CMP after it)
+                    int n = next(items, j);
+                    return mine && i.m16() && !(n >= 0 && items.get(n) instanceof LInstr c && c.mnemonic().equals("cmp"));
+                }
+                case "sta" -> {
+                    // (not a store a step form may replace with INX: A would not hold g then)
+                    return mine && i.m16() && stepForm(an, g, items, j) == null;
                 }
                 case "stz", "inc", "dec", "stx", "sty" -> {
                     if (mine) {
@@ -444,9 +476,186 @@ final class RegisterChoice {
         List<LItem> out = new ArrayList<>();
         for (LItem it : lf.items()) {
             List<LItem> r = replace.get(it);
-            out.addAll(r != null ? r : List.of(it));
+            for (LItem n : r != null ? r : List.of(it)) {
+                // TAX right after TAX (two stores of the same place, now one register): one is enough
+                if (n instanceof LInstr i && TRANSFERS.contains(i.mnemonic()) && last(out) instanceof LInstr p
+                        && p.mnemonic().equals(i.mnemonic()) && p.m16() == i.m16()) {
+                    continue;
+                }
+                out.add(n);
+            }
         }
         lf.rebuild(out);
+    }
+
+    private static final java.util.Set<String> TRANSFERS = java.util.Set.of("tax", "tay", "txa", "tya");
+
+    /** The last instruction of out, or null if a label or nothing comes after it. */
+    private static LItem last(List<LItem> out) {
+        for (int k = out.size() - 1; k >= 0; k--) {
+            if (out.get(k) instanceof LInstr) {
+                return out.get(k);
+            }
+            if (out.get(k) instanceof dampf.lir.LLabel || out.get(k) instanceof LCopy || out.get(k) instanceof LMark) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    // ------------------------------------------------------------------ forms of more than one instruction
+
+    /** The instruction before k in the block (comments skipped), -1 if none. */
+    private static int prev(List<LItem> items, int k) {
+        for (int j = k - 1; j >= 0; j--) {
+            if (items.get(j) instanceof LInstr) {
+                return j;
+            }
+            if (items.get(j) instanceof LCopy || items.get(j) instanceof LMark) {
+                return -1;
+            }
+        }
+        return -1;
+    }
+
+    /** The instruction after k in the block, -1 if none. */
+    private static int next(List<LItem> items, int k) {
+        for (int j = k + 1; j < items.size(); j++) {
+            if (items.get(j) instanceof LInstr) {
+                return j;
+            }
+            if (items.get(j) instanceof LCopy || items.get(j) instanceof LMark) {
+                return -1;
+            }
+        }
+        return -1;
+    }
+
+    private static boolean plainOf(Analysis an, Group g, LInstr i, String mnemonic) {
+        return i.mnemonic().equals(mnemonic) && i.m16() && i.x16() && touches(an, g, i) && i.op() instanceof LOperand.Mem m
+                && m.index() == LOperand.Index.NONE && !m.indirect() && m.owner().word() == 0;
+    }
+
+    /** A small constant step: ADC #1 to #3 after CLC, or SBC #1 to #3 after SEC; its size, else 0. */
+    private static int step(LInstr i, LInstr carry) {
+        if (!(i.op() instanceof LOperand.Imm k) || k.value() == null || k.value() < 1 || k.value() > 3 || !i.m16()) {
+            return 0;
+        }
+        if (i.mnemonic().equals("adc") && carry.mnemonic().equals("clc")) {
+            return k.value().intValue();
+        }
+        if (i.mnemonic().equals("sbc") && carry.mnemonic().equals("sec")) {
+            return -k.value().intValue();
+        }
+        return 0;
+    }
+
+    /**
+     * The items of a step of g that ends with the store at k: {@code LDA p / CLC / ADC #c} (or
+     * {@code CLC / LDA p / ADC #c}) and
+     * then one or more {@code STA p} (the value and the φ's incoming place it was coalesced with),
+     * as indexes: load, carry, operation, stores; null if it is no such step.
+     */
+    private static List<Integer> stepForm(Analysis an, Group g, List<LItem> items, int k) {
+        List<Integer> stores = new ArrayList<>();
+        int j = k;
+        while (j >= 0 && items.get(j) instanceof LInstr st && plainOf(an, g, st, "sta")) {
+            stores.add(0, j);
+            j = prev(items, j);
+        }
+        int a = j;
+        int c = a < 0 ? -1 : prev(items, a);
+        int l = c < 0 ? -1 : prev(items, c);
+        if (c >= 0 && items.get(c) instanceof LInstr first && first.mnemonic().equals("lda") && l >= 0) {
+            int t = c;         // CLC / LDA p / ADC #c, as selection writes it
+            c = l;
+            l = t;
+        }
+        if (l < 0 || !(items.get(l) instanceof LInstr load) || !plainOf(an, g, load, "lda")
+                || step((LInstr) items.get(a), (LInstr) items.get(c)) == 0) {
+            return null;
+        }
+        List<Integer> form = new ArrayList<>(List.of(l, c, a));
+        form.addAll(stores);
+        return form;
+    }
+
+    /** Whether item k ends a step of g ({@code STA p} after {@code LDA p / CLC / ADC #c}). */
+    private static boolean isStep(List<LItem> items, int k) {
+        return items.get(k) instanceof LInstr i && i.mnemonic().equals("sta");
+    }
+
+    /**
+     * The weighted-less cycles saved by a form of g that spans instructions, at item k, or null:
+     * <ul>
+     * <li>{@code LDA p / CLC / ADC #c / STA p} with c up to 3 (or {@code SEC / SBC}) is c times
+     *     {@code INX} ({@code DEX}), where A and the carry are not read afterwards;</li>
+     * <li>{@code LDA p / CMP q} is {@code CPX q}, where A is not read afterwards.</li>
+     * </ul>
+     */
+    private static Double fused(Analysis an, Group g, Reg r, List<LItem> items, int k, Map<LItem, Boolean> aLiveAfter, int flagsAfter,
+                                java.util.Set<LItem> free) {
+        if (!(items.get(k) instanceof LInstr i)) {
+            return null;
+        }
+        if (plainOf(an, g, i, "sta") && !aLiveAfter.getOrDefault(i, true)
+                && (flagsAfter & (CARRY | OVERFLOW)) == 0) {   // INX sets N and Z as ADC would, not C and V
+            List<Integer> form = stepForm(an, g, items, k);
+            if (form != null) {
+                int before = 0;
+                for (int x : form) {
+                    before += ((LInstr) items.get(x)).cycles();
+                }
+                int n = step((LInstr) items.get(form.get(2)), (LInstr) items.get(form.get(1)));
+                return (double) (before - 2 * Math.abs(n));
+            }
+        }
+        if (plainOf(an, g, i, "lda")) {
+            int n = next(items, k);
+            if (n >= 0 && items.get(n) instanceof LInstr cmp && cmp.mnemonic().equals("cmp") && cmp.m16()
+                    && comparable(cmp.op()) && !touches(an, g, cmp) && !aLiveAfter.getOrDefault(cmp, true)) {
+                LInstr cpx = new LInstr(r == Reg.X ? "cpx" : "cpy", cmp.op(), cmp.comment(), true, true, false);
+                return (double) ((free.contains(i) ? 0 : i.cycles()) + cmp.cycles() - cpx.cycles());
+            }
+        }
+        return null;
+    }
+
+    private static final int CARRY = 4;
+    private static final int OVERFLOW = 8;
+
+    /** An operand CPX and CPY take: an immediate, or direct page or absolute without an index. */
+    private static boolean comparable(LOperand op) {
+        return op instanceof LOperand.Imm
+                || op instanceof LOperand.Mem m && m.index() == LOperand.Index.NONE && !m.indirect() && m.width() != LOperand.Width.LONG;
+    }
+
+    /** Puts the replacement of the form fused() found at k into replace, and its items into done; returns them all. */
+    private static List<LItem> fusedReplace(Analysis an, Group g, Reg r, List<LItem> items, int k, Map<LItem, List<LItem>> replace,
+                                            java.util.Set<LItem> done) {
+        LInstr i = (LInstr) items.get(k);
+        if (i.mnemonic().equals("sta")) {
+            List<Integer> form = stepForm(an, g, items, k);
+            int n = step((LInstr) items.get(form.get(2)), (LInstr) items.get(form.get(1)));
+            List<LItem> steps = new ArrayList<>();
+            for (int s = 0; s < Math.abs(n); s++) {
+                steps.add(new LInstr(n > 0 ? r.inc : r.dec, (LOperand) null, null, true, true, false));
+            }
+            List<LItem> all = new ArrayList<>();
+            for (int x : form) {
+                replace.put(items.get(x), x == form.get(2) ? steps : List.of());
+                done.add(items.get(x));
+                all.add(items.get(x));
+            }
+            return all;
+        } else {
+            int n = next(items, k);
+            LInstr cmp = (LInstr) items.get(n);
+            replace.put(i, List.of());
+            replace.put(cmp, List.of(new LInstr(r == Reg.X ? "cpx" : "cpy", cmp.op(), cmp.comment(), true, true, false)));
+            done.add(cmp);
+            return List.of(i, cmp);
+        }
     }
 
     // ------------------------------------------------------------------ what reads and writes X and Y
@@ -468,13 +677,85 @@ final class RegisterChoice {
         };
     }
 
-    /** Whether the function being looked at returns a high word in X (one function at a time). */
+    /** Whether the function being looked at returns a high word in X, and a value in A (one function at a time). */
     private static boolean returnsX;
+    private static boolean returnsA;
+
+    /** Instructions that read neither A nor its high byte. */
+    private static final java.util.Set<String> NO_A = java.util.Set.of("ldx", "ldy", "stx", "sty", "stz", "inx", "iny", "dex",
+            "dey", "cpx", "cpy", "txy", "tyx", "tsx", "txs", "clc", "sec", "cli", "sei", "clv", "rep", "sep", "bra", "brl", "jmp",
+            "jml", "beq", "bne", "bcc", "bcs", "bmi", "bpl", "bvc", "bvs", "nop", "phx", "phy", "plx", "ply", "txa", "tya", "pla",
+            "tdc", "tsc");
+
+    /** Whether i reads A (any byte of it); what is not known reads it. */
+    static boolean readsA(LInstr i) {
+        String m = i.mnemonic();
+        if (m.equals("rtl") || m.equals("rts")) {
+            return returnsA;
+        }
+        if (m.equals("lda")) {
+            return !i.m16();   // 8 bits: the high byte stays
+        }
+        if (Set_OF_MEMORY_RMW.contains(m)) {
+            return i.op() == null || i.op() instanceof LOperand.Acc;
+        }
+        return !NO_A.contains(m);
+    }
+
+    private static final java.util.Set<String> Set_OF_MEMORY_RMW = java.util.Set.of("inc", "dec", "asl", "lsr", "rol", "ror");
+
+    /** Whether i writes all of A. */
+    static boolean writesA(LInstr i) {
+        return switch (i.mnemonic()) {
+            case "lda" -> i.m16();
+            case "txa", "tya", "pla", "tdc", "tsc" -> i.m16();
+            default -> false;
+        };
+    }
+
+    /** Whether A is read at the end of each block before it is written. */
+    private static Map<LBlock, Boolean> aLiveOut(LFunction lf) {
+        Map<LBlock, Boolean> in = new IdentityHashMap<>();
+        Map<LBlock, Boolean> out = new IdentityHashMap<>();
+        boolean changed = true;
+        while (changed) {
+            changed = false;
+            for (int k = lf.blocks().size() - 1; k >= 0; k--) {
+                LBlock b = lf.blocks().get(k);
+                boolean live = false;
+                for (LBlock s : b.successors()) {
+                    live |= in.getOrDefault(s, false);
+                }
+                out.put(b, live);
+                List<LItem> items = b.items();
+                for (int j = items.size() - 1; j >= 0; j--) {
+                    if (items.get(j) instanceof LInstr i) {
+                        if (writesA(i)) {
+                            live = false;
+                        }
+                        if (readsA(i)) {
+                            live = true;
+                        }
+                    } else if (items.get(j) instanceof LCopy) {
+                        live = false;
+                    }
+                }
+                if (in.getOrDefault(b, false) != live) {
+                    in.put(b, live);
+                    changed = true;
+                }
+            }
+        }
+        return out;
+    }
 
     static boolean reads(LInstr i, Reg r) {
         String m = i.mnemonic();
-        if (m.equals("jsl") || m.equals("jsr") || m.equals("mvn") || m.equals("mvp")) {
-            return true;       // a callee (a runtime routine) may take it
+        if (m.equals("mvn") || m.equals("mvp")) {
+            return true;
+        }
+        if (m.equals("jsl") || m.equals("jsr")) {
+            return false;      // a C function takes its arguments in its frame, a runtime routine in A and R0..R6
         }
         if (m.equals("rtl") || m.equals("rts")) {
             return r == Reg.X && returnsX;

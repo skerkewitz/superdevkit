@@ -306,7 +306,8 @@ public final class MirCodeGen {
         LFunction lf = codes.get(f).function();
         java.util.function.Predicate<LOperand.Owner> tracked = o -> own.contains(o.key());
         Map<String, Double> weights = Weights.of(f, blockCounts == null ? null : name -> blockCounts.apply(f.name(), name));
-        RegisterChoice.run(lf, tracked, frame, Weights.of(lf, weights), Selection.words(f.result()) == 2);
+        RegisterChoice.run(lf, tracked, frame, Weights.of(lf, weights), Selection.words(f.result()) == 2,
+                f.result() != MType.VOID);
         Map<PlaceColouring.Place, Integer> at = PlaceColouring.colour(lf, tracked, frame, newBase + l.slotsEnd);
         int end = newBase + l.slotsEnd;
         for (Map.Entry<PlaceColouring.Place, Integer> e : at.entrySet()) {
