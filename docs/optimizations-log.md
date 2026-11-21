@@ -1535,3 +1535,19 @@ and the choice asked how to keep the flags a branch would read after it, which i
 for an instruction (it now leaves such a copy where it is). With the two known, fewer flags count
 as live, and the passes that ask take more: Schach −0.8 %, Catch Me −0.2 %, the rest the same;
 geometric mean −0.1 %. No function's worst case got slower.
+
+## Loops over bytes in 8 bits from entry to exit (2026-11-21, on the examples and the spelling families)
+
+Measured first (B5): outside the main loop's waiting, `SEP`/`REP #$20` are 0.5 % (Mandelbrot)
+to 4.5 % (Catch Me) of the examples' work, nearly all of it around byte stores in 16-bit code;
+a pair with nothing between them that depends on the width was 0.8 % of Ertüp's work, in one
+loop (the `memset` of the sprite table's high part), and nothing elsewhere. `ByteLoops` takes that
+case: a loop whose code needs A in 8 bits only, and loads and logic whose low byte is the same in
+8 bits, runs in 8 bits from its entry to its exits (`SEP` before the loop, `REP` where it is left).
+The text must say the width (ca65 and `LParser` follow `REP`/`SEP` in the order of the text), so
+a loop whose entry lies elsewhere in the text keeps its switches.
+
+The examples, against the code before: Ertüp −0.8 %, Schach −0.1 %, the rest the same; geometric
+mean −0.1 %. The spelling family `copy` 2,517 → 1,823; the kit's start-up (`sdevkit__reset_ppu`)
+12,307 → 8,737 in the worst case. No function's worst case got slower; the pair loops are the
+same.

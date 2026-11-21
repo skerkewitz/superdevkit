@@ -218,7 +218,7 @@ public final class RedundantLoads {
     }
 
     /** Whether A is read at the end of each block before it is written. */
-    private Map<LBlock, Boolean> aLiveOut(LFunction f) {
+    Map<LBlock, Boolean> aLiveOut(LFunction f) {
         Map<LBlock, Boolean> in = new IdentityHashMap<>();
         Map<LBlock, Boolean> out = new IdentityHashMap<>();
         boolean changed = true;
@@ -249,7 +249,7 @@ public final class RedundantLoads {
         return out;
     }
 
-    private boolean aLiveAtStart(LBlock b, Map<LBlock, Boolean> aLiveOut) {
+    boolean aLiveAtStart(LBlock b, Map<LBlock, Boolean> aLiveOut) {
         boolean live = aLiveOut.getOrDefault(b, true);
         List<LInstr> code = b.instrs();
         for (int j = code.size() - 1; j >= 0; j--) {

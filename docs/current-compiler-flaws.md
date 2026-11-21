@@ -727,6 +727,15 @@ value kept zero-extended in two bytes is read differently in each mode) and is i
 B3. After C5 the most frequent case, the 8-bit step of a byte counter, is gone already, so
 measure what is left before building it.
 
+Measured (2026-11-21, in dampf's emulator, without the main loop's waiting): `SEP`/`REP #$20`
+take 0.5 % (Mandelbrot) to 4.5 % (Catch Me) of the examples' work, nearly all of it around byte
+stores in 16-bit code, where a switch is needed. A pair with nothing between them that depends
+on the width came to 0.8 % in Ertüp and nothing elsewhere; it was one loop (`memset` of the
+sprite table's high part: `SEP / STZ t,X / REP / INX / CPX / BCC`). So the general problem is not
+built, only its loop case: `ByteLoops` runs a loop whose code needs A in 8 bits only (and loads
+and logic whose low byte is the same in 8 bits, as `ByteStretches` takes them) in 8 bits from
+its entry to its exits.
+
 ### B6. A value kept in A over a loop
 
 `RedundantLoads` moves a load that starts a block, redundant on some ways in, to the ways that

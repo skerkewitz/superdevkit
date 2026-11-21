@@ -7,8 +7,8 @@ catchme _actors_reset 770
 catchme _actors_scare 363
 catchme _add_score -1
 catchme _aligned 40
-catchme _best_load 547
-catchme _best_save 521
+catchme _best_load 525
+catchme _best_save 499
 catchme _can_go 228
 catchme _cat_speed 116
 catchme _cats_move -1
@@ -38,7 +38,7 @@ catchme _maze_clear_cell 2869
 catchme _maze_draw 586992
 catchme _maze_reset 33682
 catchme _memcpy 5046223
-catchme _memcpy_2 148
+catchme _memcpy_2 126
 catchme _memcpy_3 5046223
 catchme _memset 3014638
 catchme _memset_2 3014638
@@ -54,13 +54,13 @@ catchme _save_sum 221
 catchme _sdevkit__frame -1
 catchme _sdevkit__oam_upload 94
 catchme _sdevkit__read_pads -1
-catchme _sdevkit__reset_ppu 12307
-catchme _sdevkit__reset_video 115701
+catchme _sdevkit__reset_ppu 8737
+catchme _sdevkit__reset_video 112131
 catchme _sdevkit__sfx_frame -1
 catchme _sdevkit__splash -1
 catchme _sdevkit__splash_frame -1
-catchme _sdevkit__splash_sprites 15790
-catchme _sdevkit__start 115743
+catchme _sdevkit__splash_sprites 11994
+catchme _sdevkit__start 112173
 catchme _sdevkit__wait_vblank -1
 catchme _sdevkit_bg_init_map_set 145
 catchme _sdevkit_bg_init_tile_set 776
@@ -141,7 +141,7 @@ ertuep _aim 347
 ertuep _autopilot 15087
 ertuep _barrel 670
 ertuep _beermat 149
-ertuep _begin 635
+ertuep _begin 443
 ertuep _big 283
 ertuep _boss_aim_y 72
 ertuep _boss_collide 212951
@@ -181,7 +181,7 @@ ertuep _dartboard 1757
 ertuep _dicecup 1214
 ertuep _dma0 94
 ertuep _dma_source 61
-ertuep _draw_all 295365
+ertuep _draw_all 295173
 ertuep _draw_bullets 7865
 ertuep _draw_enemies 92554
 ertuep _draw_items 4657
@@ -189,11 +189,11 @@ ertuep _draw_parts 4829
 ertuep _draw_player 1356
 ertuep _draw_shots 4717
 ertuep _draw_sprite 228
-ertuep _draw_title_logo 15949
+ertuep _draw_title_logo 15757
 ertuep _effects 5822
 ertuep _effects_vblank 460
 ertuep _end_of_stage 6770
-ertuep _ending 257567
+ertuep _ending 255965
 ertuep _enemies_update 180006
 ertuep _enemy_destroyed 157277
 ertuep _enemy_hit 157365
@@ -253,19 +253,19 @@ ertuep _memset 3014638
 ertuep _memset_2 3014638
 ertuep _memset_3 3014638
 ertuep _memset_4 3014638
-ertuep _memset_5 6076
+ertuep _memset_5 4514
 ertuep _memset_6 3014638
-ertuep _memset_7 5212
+ertuep _memset_7 3874
 ertuep _mettigel 1235
 ertuep _near 144
-ertuep _new_game 226478
-ertuep _objects_clear 17107
+ertuep _new_game 224876
+ertuep _objects_clear 16273
 ertuep _organ 5001
 ertuep _overlap 119
 ertuep _part_spawn 178
 ertuep _parts_update 2165
 ertuep _path_at 1684
-ertuep _picture 295441
+ertuep _picture 295249
 ertuep _place_chairs 8309
 ertuep _play -1
 ertuep _player_start 76
@@ -273,19 +273,19 @@ ertuep _player_update 19209
 ertuep _pretzel 270
 ertuep _random16 68
 ertuep _receipts 1044
-ertuep _respawn 226260
+ertuep _respawn 224658
 ertuep _room_at 39
 ertuep _scaled 457
 ertuep _sdevkit__frame -1
 ertuep _sdevkit__oam_upload 94
 ertuep _sdevkit__read_pads -1
-ertuep _sdevkit__reset_ppu 12307
-ertuep _sdevkit__reset_video 115701
+ertuep _sdevkit__reset_ppu 8737
+ertuep _sdevkit__reset_video 112131
 ertuep _sdevkit__sfx_frame -1
 ertuep _sdevkit__splash -1
 ertuep _sdevkit__splash_frame -1
-ertuep _sdevkit__splash_sprites 15790
-ertuep _sdevkit__start 115743
+ertuep _sdevkit__splash_sprites 11994
+ertuep _sdevkit__start 112173
 ertuep _sdevkit__wait_vblank -1
 ertuep _sdevkit_bg_init_map_set 145
 ertuep _sdevkit_bg_init_tile_set 799
@@ -361,20 +361,20 @@ ertuep _solid_at 180
 ertuep _spit_bottles 5434
 ertuep _split_on 131
 ertuep _spr 241
-ertuep _sprites_hide_all 4146
-ertuep _stage_init 25865
+ertuep _sprites_hide_all 3954
+ertuep _stage_init 25295
 ertuep _stage_scroll 7294
 ertuep _stage_select 149
-ertuep _stage_start 170718
+ertuep _stage_start 170148
 ertuep _stage_vblank 2664
-ertuep _start_demo 233068
+ertuep _start_demo 231466
 ertuep _start_ruckel 5789
 ertuep _stein 5569
 ertuep _step 41
 ertuep _sway 1552
 ertuep _sway_init 1639
 ertuep _tentacles 3196
-ertuep _title 237910
+ertuep _title 236308
 ertuep _title_stage 3809
 ertuep _toward 185
 ertuep _tuba 4670
@@ -401,13 +401,13 @@ hello _print_number -1
 hello _sdevkit__frame -1
 hello _sdevkit__oam_upload 94
 hello _sdevkit__read_pads -1
-hello _sdevkit__reset_ppu 12307
-hello _sdevkit__reset_video 115701
+hello _sdevkit__reset_ppu 8737
+hello _sdevkit__reset_video 112131
 hello _sdevkit__sfx_frame -1
 hello _sdevkit__splash -1
 hello _sdevkit__splash_frame -1
-hello _sdevkit__splash_sprites 15790
-hello _sdevkit__start 115743
+hello _sdevkit__splash_sprites 11994
+hello _sdevkit__start 112173
 hello _sdevkit__wait_vblank -1
 hello _sdevkit_bg_init_map_set 145
 hello _sdevkit_bg_init_tile_set 776
@@ -473,12 +473,12 @@ hello dampf_mul32 1968
 hello dampf_sdiv32 2594
 hello dampf_udiv16 772
 hello dampf_udiv32 2432
-mandelbrot _compute 78307
+mandelbrot _compute 77868
 mandelbrot _cycle_palette 5135
 mandelbrot _dma0 94
 mandelbrot _dma_source 61
 mandelbrot _game_init 1527815
-mandelbrot _game_tick 79126
+mandelbrot _game_tick 78687
 mandelbrot _game_vblank 381
 mandelbrot _high_byte 41
 mandelbrot _high_shift 18
@@ -489,13 +489,13 @@ mandelbrot _pixel_done 209
 mandelbrot _sdevkit__frame -1
 mandelbrot _sdevkit__oam_upload 94
 mandelbrot _sdevkit__read_pads -1
-mandelbrot _sdevkit__reset_ppu 12307
-mandelbrot _sdevkit__reset_video 115701
+mandelbrot _sdevkit__reset_ppu 8737
+mandelbrot _sdevkit__reset_video 112131
 mandelbrot _sdevkit__sfx_frame -1
 mandelbrot _sdevkit__splash -1
 mandelbrot _sdevkit__splash_frame -1
-mandelbrot _sdevkit__splash_sprites 15790
-mandelbrot _sdevkit__start 115743
+mandelbrot _sdevkit__splash_sprites 11994
+mandelbrot _sdevkit__start 112173
 mandelbrot _sdevkit__wait_vblank -1
 mandelbrot _sdevkit_bg_init_map_set 145
 mandelbrot _sdevkit_bg_init_tile_set 799
@@ -578,13 +578,13 @@ mode7 _make_tiles 30868
 mode7 _sdevkit__frame -1
 mode7 _sdevkit__oam_upload 94
 mode7 _sdevkit__read_pads -1
-mode7 _sdevkit__reset_ppu 12307
-mode7 _sdevkit__reset_video 115701
+mode7 _sdevkit__reset_ppu 8737
+mode7 _sdevkit__reset_video 112131
 mode7 _sdevkit__sfx_frame -1
 mode7 _sdevkit__splash -1
 mode7 _sdevkit__splash_frame -1
-mode7 _sdevkit__splash_sprites 15790
-mode7 _sdevkit__start 115743
+mode7 _sdevkit__splash_sprites 11994
+mode7 _sdevkit__start 112173
 mode7 _sdevkit__wait_vblank -1
 mode7 _sdevkit_bg_init_map_set 145
 mode7 _sdevkit_bg_init_tile_set 799
@@ -657,7 +657,7 @@ schach _book_find -1
 schach _book_init 14
 schach _book_seed 15
 schach _chess_hash 665
-schach _chess_init 4948240
+schach _chess_init 4947350
 schach _child -1
 schach _clear_promotion 2582
 schach _console_turn -1
@@ -666,7 +666,7 @@ schach _dma_source 61
 schach _draw_board -1
 schach _draw_labels 8406
 schach _draw_level -1
-schach _draw_moves 124682
+schach _draw_moves 123198
 schach _draw_promotion -1
 schach _draw_sprites 492
 schach _draw_square 375
@@ -722,13 +722,13 @@ schach _score_moves 25165534
 schach _sdevkit__frame -1
 schach _sdevkit__oam_upload 94
 schach _sdevkit__read_pads -1
-schach _sdevkit__reset_ppu 12307
-schach _sdevkit__reset_video 115701
+schach _sdevkit__reset_ppu 8737
+schach _sdevkit__reset_video 112131
 schach _sdevkit__sfx_frame -1
 schach _sdevkit__splash -1
 schach _sdevkit__splash_frame -1
-schach _sdevkit__splash_sprites 15790
-schach _sdevkit__start 115743
+schach _sdevkit__splash_sprites 11994
+schach _sdevkit__start 112173
 schach _sdevkit__wait_vblank -1
 schach _sdevkit_bg_init_map_set 145
 schach _sdevkit_bg_init_tile_set 799
@@ -782,10 +782,10 @@ schach _sdevkit_sram 11
 schach _search_clear 86037
 schach _search_run -1
 schach _search_start -1
-schach _set_fen 82151
-schach _set_start 82172
+schach _set_fen 81171
+schach _set_start 81192
 schach _set_x8 733
-schach _setup_from_board 45023
+schach _setup_from_board 44805
 schach _sfx_dsp -1
 schach _sfx_upload -1
 schach _sfx_upload_begin -1
@@ -812,13 +812,13 @@ schach dampf_mul32 1968
 schach dampf_sdiv32 2594
 schach dampf_udiv16 772
 schach dampf_udiv32 2432
-spelling copy copy_down 2517
-spelling copy copy_i16 2517
-spelling copy copy_ptr 2517
-spelling copy copy_ptr_end 2517
-spelling copy copy_u16 2517
-spelling copy copy_u8 2517
-spelling copy copy_while_n 2517
+spelling copy copy_down 1823
+spelling copy copy_i16 1823
+spelling copy copy_ptr 1823
+spelling copy copy_ptr_end 1823
+spelling copy copy_u16 1823
+spelling copy copy_u8 1823
+spelling copy copy_while_n 1823
 spelling fill-words fill_do 1035
 spelling fill-words fill_i16 1044
 spelling fill-words fill_ptr_end 1044
@@ -939,13 +939,13 @@ steinschlag _round_top 31
 steinschlag _sdevkit__frame -1
 steinschlag _sdevkit__oam_upload 94
 steinschlag _sdevkit__read_pads -1
-steinschlag _sdevkit__reset_ppu 12307
-steinschlag _sdevkit__reset_video 115701
+steinschlag _sdevkit__reset_ppu 8737
+steinschlag _sdevkit__reset_video 112131
 steinschlag _sdevkit__sfx_frame -1
 steinschlag _sdevkit__splash -1
 steinschlag _sdevkit__splash_frame -1
-steinschlag _sdevkit__splash_sprites 15790
-steinschlag _sdevkit__start 115743
+steinschlag _sdevkit__splash_sprites 11994
+steinschlag _sdevkit__start 112173
 steinschlag _sdevkit__wait_vblank -1
 steinschlag _sdevkit_bg_init_map_set 145
 steinschlag _sdevkit_bg_init_tile_set 799

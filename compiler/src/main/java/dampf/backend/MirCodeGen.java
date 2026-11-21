@@ -172,6 +172,7 @@ public final class MirCodeGen {
             limit.apply("IndexInY", f.name(), () -> new IndexInY().run(lf));
             limit.apply("Peephole", f.name(), () -> new Peephole(Selection.FRAME_START).run(lf));
             limit.apply("ByteStretches", f.name(), () -> ByteStretches.run(lf));
+            limit.apply("ByteLoops", f.name(), () -> dampf.lir.ByteLoops.run(lf, resultInA));
             limit.apply("KnownCarry", f.name(), () -> KnownCarry.run(lf));
             limit.apply("DeadStores", f.name(), () -> new DeadStores(ownValueBytes(f)).run(lf));
             BranchRelax.run(lf);
