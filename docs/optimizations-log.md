@@ -1487,3 +1487,11 @@ computed wrong values; it goes right after the label now.
 The examples, against the code before: Ertüp −0.5 %, Schach −0.2 %, Catch Me −0.1 %, the rest the
 same; geometric mean −0.2 %. The pair loops and the spelling families the same; no function's
 worst case got slower.
+
+A miscompilation in the step before (`LDA q / STA p` as `LDX q`, 2026-11-21): a load left out
+because A held the place after `STA p` relied on that store, which the load form of the same
+or a later round could take, so A never got the value (a random loop program, seed 27879,
+compared the wrong number; the soak found it after the commit). A store the load form may take
+no longer counts as holding the place where a load is left out; to judge only what
+`RedundantLoads` would do (the commutative form) it still does. No code of the tests or the
+examples changed.

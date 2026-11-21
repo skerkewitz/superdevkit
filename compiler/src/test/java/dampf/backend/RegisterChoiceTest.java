@@ -290,4 +290,18 @@ class RegisterChoiceTest {
                 "lda _t,x", "sta _o2", "inx", "cpx #$0010", "bcc loop",
                 "stx v", "lda _h", "sec", "sbc v", "sta _o3", "rtl"), out);
     }
+
+    @Test
+    void aLoadLeftOutNeverReliesOnAStoreTheLoadFormTakes() {
+        // v = g1, w = g6, both indexes later (registers); the reload of v before EOR must stay
+        // (A held v after STA v only while LDA _g1 / STA v was not LDY _g1; a random loop
+        // program, seed 27879, compared the wrong value)
+        List<String> out = choose(ins("lda", global("_g1", LOperand.Index.NONE)), ins("sta", place(V)),
+                ins("lda", global("_g6", LOperand.Index.NONE)), ins("sta", place(W)),
+                ins("lda", place(V)), ins("eor", new LOperand.Imm("$8000")), ins("sta", global("_r", LOperand.Index.NONE)),
+                ins("ldx", place(W)), ins("lda", global("_t", LOperand.Index.X)), ins("sta", global("_o", LOperand.Index.NONE)),
+                ins("ldx", place(V)), ins("lda", global("_u", LOperand.Index.X)), ins("sta", global("_o2", LOperand.Index.NONE)));
+        String before = out.get(out.indexOf("eor #$8000") - 1);
+        assertEquals(true, before.equals("tya") || before.equals("txa") || before.equals("lda v") || before.equals("lda _g1"), out.toString());
+    }
 }

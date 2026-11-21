@@ -529,6 +529,14 @@ final class RegisterChoice {
      * earlier in the block and not changed since (by owner, as {@link PlaceColouring} follows copies).
      */
     private static boolean aHolds(Analysis an, Group g, List<LItem> items, int k) {
+        return aHolds(an, g, items, k, false);
+    }
+
+    /**
+     * {@code estimate}: only to judge what RedundantLoads would do with the code as it is (no load
+     * is left out on it), so a store another form may take still counts.
+     */
+    private static boolean aHolds(Analysis an, Group g, List<LItem> items, int k, boolean estimate) {
         for (int j = k - 1; j >= 0; j--) {
             if (items.get(j) instanceof LCopy) {
                 return false;
@@ -545,8 +553,9 @@ final class RegisterChoice {
                     return mine && i.m16() && !(n >= 0 && items.get(n) instanceof LInstr c && c.mnemonic().equals("cmp"));
                 }
                 case "sta" -> {
-                    // (not a store a step form may replace with INX: A would not hold g then)
-                    return mine && i.m16() && stepForm(an, g, items, j) == null;
+                    // (not a store a step form may replace with INX, or LDA q / STA p with LDX q:
+                    // A would not hold g then)
+                    return mine && i.m16() && (estimate || stepForm(an, g, items, j) == null && loadForm(an, g, items, j) == null);
                 }
                 case "stz", "inc", "dec", "stx", "sty" -> {
                     if (mine) {
@@ -583,7 +592,7 @@ final class RegisterChoice {
             }
             // (not where A holds g before the load: RedundantLoads makes that LDA q / ADC p alone)
             return i.mnemonic().equals("lda") && i.m16() && i.op() != null && !touches(an, g, i)
-                    && !(i.op() instanceof LOperand.Mem q && q.indirect()) && !aHolds(an, g, items, j) ? j : -1;
+                    && !(i.op() instanceof LOperand.Mem q && q.indirect()) && !aHolds(an, g, items, j, true) ? j : -1;
         }
         return -1;
     }
