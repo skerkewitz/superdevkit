@@ -687,6 +687,17 @@ the execution tests for meaning); the gaps marked B in the spelling test; the ex
 before and after. The roadmap's estimate for register allocation was 10 to 20 % of the game's
 cycles; treat it as an estimate until measured.
 
+Built so far (2026-11-21): the choice beside the patterns (`RegisterChoice`), inside the
+colouring of B2: a candidate is a group of places after coalescing (a φ and its copies are one),
+before the groups get addresses, so a group in a register takes no place. Legal, free and
+benefit as above, the whole live range, X then Y, greedy; one round takes every candidate whose
+live range meets no chosen one's. Beyond the table: `LDA q / ADC p` (also `AND`, `ORA`, `EOR`)
+is `TXA / ADC q`; a load A holds already costs nothing in the benefit, as `RedundantLoads` would
+take it, and a group read only by such loads is left to `RedundantLoads` and `DeadStores`; `RTL`
+reads X only where the function returns a high word. The examples do 1.9 % less work than with
+the patterns alone; `CPX` for a comparison, registers across calls, splitting, and deleting the
+patterns are not built.
+
 ### B4. A convention for A is not part of this
 
 A stays the working register of selection: operands are loaded into it and results stored from
@@ -744,6 +755,7 @@ slower for reasons [optimizations.md](optimizations.md#tried-and-rejected) could
 
 Built (2026-11-20): K3 as described, from the MIR builds `BackendOutputTest` makes of the
 examples and one build per spelling member; the test also fails when the file is not current.
+K1 (2026-11-21) as `Weights`, used by B3.
 
 ## Order of work
 

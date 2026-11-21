@@ -115,34 +115,34 @@ today's). A DMA function also uses as many bytes of the vertical blank's 5,700 a
 | `sdevkit_dma_copy_vram_column` | built | built | 116 |
 | `sdevkit_dma_copy_cgram` | built | built | 100 |
 | `sdevkit_dma_clear_vram` | built | built | 111 |
-| `sdevkit_bg_set_gfx_ptr` | built | built | 85 to 195 |
+| `sdevkit_bg_set_gfx_ptr` | built | built | 81 to 191 |
 | `sdevkit_bg_set_map_ptr` | built | built | 35 |
-| `sdevkit_bg_set_scroll` | built | built | 84 |
-| `sdevkit_bg_set_enable` | built | built | 61 to 173 |
-| `sdevkit_bg_set_disable` | built | built | 64 to 176 |
-| `sdevkit_bg_set_enable_sub` | built | built | 61 to 173 |
-| `sdevkit_bg_set_disable_sub` | built | built | 64 to 176 |
-| `sdevkit_bg_init_tile_set` | built | built | 592 to 782 |
+| `sdevkit_bg_set_scroll` | built | built | 78 |
+| `sdevkit_bg_set_enable` | built | built | 57 to 169 |
+| `sdevkit_bg_set_disable` | built | built | 60 to 172 |
+| `sdevkit_bg_set_enable_sub` | built | built | 57 to 169 |
+| `sdevkit_bg_set_disable_sub` | built | built | 60 to 172 |
+| `sdevkit_bg_init_tile_set` | built | built | 602 to 792 |
 | `sdevkit_bg_init_map_set` | built | built | 145 |
-| `sdevkit_oam_init` | built | built | 23 to 103,703 |
+| `sdevkit_oam_init` | built | built | 23 to 102,679 |
 | `sdevkit_oam_init_gfx_set` | built | built | 246 to 356 |
 | `sdevkit_oam_init_gfx_attr` | built | built | 37 to 147 |
-| `sdevkit_oam_set` | built | built | 315 to 427 |
-| `sdevkit_oam_set_xy` | built | built | 139 to 251 |
-| `sdevkit_oam_set_ex` | built | built | 80 to 192 |
+| `sdevkit_oam_set` | built | built | 293 to 405 |
+| `sdevkit_oam_set_xy` | built | built | 131 to 243 |
+| `sdevkit_oam_set_ex` | built | built | 76 to 188 |
 | `sdevkit_oam_set_visible` | built | built | 6 |
-| `sdevkit_oam_clear` | built | built | 19 to 103,699 |
+| `sdevkit_oam_clear` | built | built | 19 to 102,675 |
 | `sdevkit_reg_write` | built | built | 25 |
-| `sdevkit_hdma_set` | built | built | 93 |
+| `sdevkit_hdma_set` | built | built | 87 |
 | `sdevkit_hdma_enable` | built | built | 21 |
-| `sdevkit_dma_fits` | built | built | 87 to 92 |
+| `sdevkit_dma_fits` | built | built | 83 to 90 |
 | `sdevkit_mode7_load_map` | built | built | 116 |
 | `sdevkit_mode7_load_tiles` | built | built | 116 |
 | `sdevkit_mode7_set_matrix` | built | built | 117 |
 | `sdevkit_mode7_set_center` | built | built | 65 |
 | `sdevkit_mode7_set_select` | built | built | 21 |
 | `sdevkit_sfx_init` | built | built | 51 to unbounded |
-| `sdevkit_sfx_play` | built | built | 39 to 166 |
+| `sdevkit_sfx_play` | built | built | 39 to 158 |
 | `sdevkit_music_play` | empty, not built yet: dampf removes the calls (`DebugCallsTest`) | built (the track's file, over and over, in the window) | 6 |
 | `sdevkit_music_stop` | empty, not built yet: dampf removes the calls | built | 6 |
 | `sdevkit_sram` | built (the cartridge's battery RAM at $70:0000, `dampf --sram`) | built (`<game>.srm` next to the program) | 11 |

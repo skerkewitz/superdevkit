@@ -14,8 +14,8 @@ import java.util.Map;
  * flags are not read.
  */
 public final class RedundantLoads {
-    static final int N = 1;
-    static final int Z = 2;
+    public static final int N = 1;
+    public static final int Z = 2;
     static final int C = 4;
     static final int V = 8;
     private static final int ALL = N | Z | C | V;
@@ -217,7 +217,7 @@ public final class RedundantLoads {
     }
 
     /** The flags live at the end of each block. */
-    static Map<LBlock, Integer> flagsLiveOut(LFunction f) {
+    public static Map<LBlock, Integer> flagsLiveOut(LFunction f) {
         Map<LBlock, List<LBlock>> preds = new IdentityHashMap<>();
         for (LBlock b : f.blocks()) {
             for (LBlock s : b.successors()) {
@@ -253,7 +253,7 @@ public final class RedundantLoads {
     }
 
     /** The flags an instruction reads. */
-    static int reads(LInstr i) {
+    public static int reads(LInstr i) {
         return switch (i.mnemonic()) {
             case "beq", "bne" -> Z;
             case "bmi", "bpl" -> N;
@@ -269,10 +269,10 @@ public final class RedundantLoads {
     }
 
     /** The flags an instruction sets for sure. */
-    static int writes(LInstr i) {
+    public static int writes(LInstr i) {
         return switch (i.mnemonic()) {
             case "lda", "ldx", "ldy", "and", "ora", "eor", "inc", "dec", "inx", "iny", "dex", "dey", "tax", "tay",
-                 "txa", "tya", "tsx", "tcd", "tdc", "xba", "pla", "plx", "ply" -> N | Z;
+                 "txa", "tya", "txy", "tyx", "tsx", "tcd", "tdc", "xba", "pla", "plx", "ply" -> N | Z;
             case "cmp", "cpx", "cpy", "asl", "lsr", "rol", "ror" -> N | Z | C;
             case "adc", "sbc" -> ALL;
             case "bit" -> i.op() instanceof LOperand.Imm ? Z : N | V | Z;

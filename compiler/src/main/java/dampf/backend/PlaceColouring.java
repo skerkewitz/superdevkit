@@ -69,8 +69,8 @@ final class PlaceColouring {
 
     }
 
-    /** A set of places that share one address: the members of a mark. */
-    private static final class Group {
+    /** A set of places that share one address: the members of a mark, and the places coalesced with them. */
+    static final class Group {
         final List<Place> members = new ArrayList<>();
         Integer fixed;
         boolean external;
@@ -91,40 +91,8 @@ final class PlaceColouring {
      * {@code tracked}: the places whose liveness is followed (the function's own).
      */
     static Map<Place, Integer> colour(LFunction lf, Predicate<LOperand.Owner> tracked, Frame frame, int start) {
-        Map<Place, Group> groupOf = new HashMap<>();
-        List<Group> groups = new ArrayList<>();
-        // the places, in the order the code names them
-        for (LItem it : lf.items()) {
-            for (LOperand.Owner o : owners(it)) {
-                group(Place.of(o), groupOf, groups, frame);
-            }
-        }
-        for (LItem it : lf.items()) {
-            if (it instanceof LMark m) {
-                for (LMark.Copy c : m.copies()) {
-                    if (c.to().word() != c.from().word()) {
-                        throw new IllegalStateException("a copy between different bytes of two places in " + lf.name());
-                    }
-                    merge(groupOf.get(Place.of(c.to())), groupOf.get(Place.of(c.from())), groupOf, groups, lf);
-                }
-            }
-        }
-        for (int k = 0; k < groups.size(); k++) {
-            groups.get(k).index = k;
-        }
-        int units = 0;
-        for (Group g : groups) {
-            g.first = units;
-            units += g.bytes;
-        }
-        for (LInstr i : lf.instrs()) {
-            if (i.op() instanceof LOperand.Mem m && m.indirect() && m.owner() != null) {
-                groupOf.get(Place.of(m.owner())).direct = true;
-            }
-        }
-        List<Group[]> copies = interfere(lf, tracked, groupOf, units);
-        coalesce(copies, groups, lf);
-
+        Analysis an = analyse(lf, tracked, frame);
+        List<Group> groups = an.groups;
         List<Group> order = new ArrayList<>();
         for (Group g : groups) {
             if (g.into != null) {
@@ -165,6 +133,73 @@ final class PlaceColouring {
         return out;
     }
 
+    /**
+     * What the colouring and the choice of registers ({@link RegisterChoice}) know of lf's places:
+     * the groups (marked places as one, coalesced), what every item reads and writes of them, and
+     * the bytes live into every block.
+     */
+    static final class Analysis {
+        final Map<Place, Group> groupOf;
+        final List<Group> groups;
+        Map<LItem, Access> access;
+        Map<LBlock, BitSet> liveIn;
+        List<Group> byUnit;
+
+        Analysis(Map<Place, Group> groupOf, List<Group> groups) {
+            this.groupOf = groupOf;
+            this.groups = groups;
+        }
+
+        /** The group a place is in after coalescing. */
+        Group of(Place p) {
+            Group g = groupOf.get(p);
+            return g == null ? null : rep(g);
+        }
+
+        /** The bytes live at the end of b. */
+        BitSet liveOut(LBlock b) {
+            return PlaceColouring.liveOut(b, liveIn);
+        }
+    }
+
+    static Analysis analyse(LFunction lf, Predicate<LOperand.Owner> tracked, Frame frame) {
+        Map<Place, Group> groupOf = new HashMap<>();
+        List<Group> groups = new ArrayList<>();
+        // the places, in the order the code names them
+        for (LItem it : lf.items()) {
+            for (LOperand.Owner o : owners(it)) {
+                group(Place.of(o), groupOf, groups, frame);
+            }
+        }
+        for (LItem it : lf.items()) {
+            if (it instanceof LMark m) {
+                for (LMark.Copy c : m.copies()) {
+                    if (c.to().word() != c.from().word()) {
+                        throw new IllegalStateException("a copy between different bytes of two places in " + lf.name());
+                    }
+                    merge(groupOf.get(Place.of(c.to())), groupOf.get(Place.of(c.from())), groupOf, groups, lf);
+                }
+            }
+        }
+        for (int k = 0; k < groups.size(); k++) {
+            groups.get(k).index = k;
+        }
+        int units = 0;
+        for (Group g : groups) {
+            g.first = units;
+            units += g.bytes;
+        }
+        for (LInstr i : lf.instrs()) {
+            if (i.op() instanceof LOperand.Mem m && m.indirect() && m.owner() != null) {
+                groupOf.get(Place.of(m.owner())).direct = true;
+            }
+        }
+        Analysis an = new Analysis(groupOf, groups);
+        List<Group[]> copies = interfere(lf, tracked, an, units);
+        coalesce(copies, groups, lf);
+        return an;
+    }
+
     /** The address of a placed group a copy goes between with g, where g fits (exactly on it), or null. */
     private static Integer partner(Group g, List<Group> groups) {
         for (int x = g.samePlaceOnly.nextSetBit(0); x >= 0; x = g.samePlaceOnly.nextSetBit(x + 1)) {
@@ -176,7 +211,7 @@ final class PlaceColouring {
         return null;
     }
 
-    private static Group rep(Group g) {
+    static Group rep(Group g) {
         while (g.into != null) {
             g = g.into;
         }
@@ -304,17 +339,18 @@ final class PlaceColouring {
 
     /**
      * What an item reads and writes: indexes of place bytes. {@code copyOf}: the group whose byte
-     * at the same offset each written byte copies (A was loaded from it), or null.
+     * at the same offset each written byte copies (A was loaded from it or stored to it), or null.
      */
-    private record Access(List<Integer> reads, List<Integer> writes, Group copyOf) {}
+    record Access(List<Integer> reads, List<Integer> writes, Group copyOf) {}
 
     /**
      * The interference graph: a place written while a byte of another one is live after the
-     * write conflicts with it, unless the write stores what A was loaded from that byte at the
+     * write conflicts with it, unless the write stores what A was loaded from (or stored to) that byte at the
      * same offset of the other place (a copy: the two may share exactly the same address, see
      * {@code samePlaceOnly}). Marks are copies of places in the same group.
      */
-    private static List<Group[]> interfere(LFunction lf, Predicate<LOperand.Owner> tracked, Map<Place, Group> groupOf, int units) {
+    private static List<Group[]> interfere(LFunction lf, Predicate<LOperand.Owner> tracked, Analysis an, int units) {
+        Map<Place, Group> groupOf = an.groupOf;
         List<Group[]> copies = new ArrayList<>();
         Map<LItem, Access> access = new IdentityHashMap<>();
         List<Group> byUnit = new ArrayList<>();
@@ -327,7 +363,7 @@ final class PlaceColouring {
             }
         }
         for (LBlock b : lf.blocks()) {
-            // what A was loaded from (a group and the byte of it), forgotten when A or that place changes
+            // what A was loaded from or stored to (a group and the byte of it), forgotten when A or that place changes
             Group aFrom = null;
             int aByte = -1;
             boolean aWide = false;
@@ -396,8 +432,16 @@ final class PlaceColouring {
                         aByte = plain ? t.owner().word() : -1;
                         aWide = i.m16();
                     }
-                    case "sta", "stx", "sty", "stz", "ldx", "ldy", "cpx", "cpy", "cmp", "clc", "sec",
-                         "inx", "dex", "iny", "dey", "txy", "tyx", "nop" -> { }
+                    case "sta" -> {
+                        // A equals what it stored: a store of A to another place copies this one
+                        if (t != null && t.writes() && aFrom == null) {
+                            aFrom = groupOf.get(Place.of(t.owner()));
+                            aByte = t.owner().word();
+                            aWide = i.m16();
+                        }
+                    }
+                    case "stx", "sty", "stz", "ldx", "ldy", "cpx", "cpy", "cmp", "clc", "sec",
+                         "inx", "dex", "iny", "dey", "tax", "tay", "txy", "tyx", "nop" -> { }
                     default -> aFrom = null;
                 }
             }
@@ -460,6 +504,9 @@ final class PlaceColouring {
                 transfer(a, live);
             }
         }
+        an.access = access;
+        an.liveIn = liveIn;
+        an.byUnit = byUnit;
         return copies;
     }
 

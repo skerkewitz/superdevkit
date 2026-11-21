@@ -121,7 +121,7 @@ The worst case of each function in CPU cycles, from the timing report; "is" is t
 test checks ("same": within 5 %).
 
 <!-- measurements: written by StyleGuideTest -->
-Measured 2026-11-20 (worst case of the timing report, code generator from MIR).
+Measured 2026-11-21 (worst case of the timing report, code generator from MIR).
 
 | Rule | This | CPU cycles | is | than this | CPU cycles |
 | --- | --- | ---: | --- | --- | ---: |
@@ -134,10 +134,10 @@ Measured 2026-11-20 (worst case of the timing report, code generator from MIR).
 | `same-named-temporary` | `with_temporary` | 45 | same | `inline_expression` | 45 |
 | `same-pointer-walk` | `move_by_pointer` | 1,521 | same | `move_by_index` | 1,521 |
 | `slow-32-bit` | `xor_32` | 84 | slower | `xor_16_halves` | 36 |
-| `slow-compare-sum` | `compare_sum` | 164 | slower | `compare_sum_narrowed` | 98 |
+| `slow-compare-sum` | `compare_sum` | 164 | slower | `compare_sum_narrowed` | 88 |
 | `slow-divide-variable` | `divide_variables` | 816 | slower | `divide_constant` | 17 |
-| `slow-hand-shifts` | `times_40_by_shifts` | 45 | slower | `times_40` | 31 |
-| `slow-index-list` | `pairs_by_list` | 18,170 | slower | `pairs_by_counter` | 15,590 |
+| `slow-hand-shifts` | `times_40_by_shifts` | 41 | slower | `times_40` | 31 |
+| `slow-index-list` | `pairs_by_list` | 17,531 | slower | `pairs_by_counter` | 15,493 |
 | `slow-multiply-variable` | `multiply_variables` | 411 | slower | `multiply_constant` | 31 |
 | `slow-shift-above-8` | `shift_by_9` | 130 | slower | `shift_by_8_then_1` | 19 |
 | `slow-signed-divide` | `divide_signed` | 265 | slower | `divide_unsigned` | 17 |

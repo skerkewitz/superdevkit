@@ -1380,3 +1380,35 @@ wrong; the choice of X and Y by cost (B3) writes them. Now a transfer from A lea
 a transfer between X and Y copies what one holds to the other. `sdevkit_sram` 14 → 11 cycles (a
 load after `TAX`); the examples' work is the same. Code changed in 7 programs of
 `BackendOutputTest`.
+
+## Places in X and Y by cost (2026-11-21, on the examples, the spelling families and the pair loops)
+
+Selection keeps a value in X or Y only where one of its patterns matches (a loop's counter, an
+index that prefers Y); everything else lives in the frame. `RegisterChoice` (B3 of
+[current-compiler-flaws.md](current-compiler-flaws.md#b3-x-and-y-assigned-by-cost)) now looks at
+every group of places left after coalescing, before they get addresses: it goes to X, then Y, for
+its whole live range where every instruction that names it has a form with the register
+(`LDA p` is `TXA`, `STA p` `TAX`, `LDX p` goes, `INC p` is `INX`, a φ copy `LDX`/`STX`, `LDA q /
+ADC p` is `TXA / ADC q`), nothing else writes the register while it is live, no flag a branch
+reads changes, and the cycles saved, weighted by `Weights` (K1: the profile's count, else 8 to the
+power of the loop depth), are more than none. Loads `RedundantLoads` would take anyway count as
+free.
+
+The way there, against the code before: the first version broke Schach, which showed that
+`RegContents` did not know `TXY` (fixed in the commit before); then −0.9 %; no `TAX` for stores
+nobody reads, and loads A holds already counted as such −1.0 %; `RTL` reading X only for a high
+word (Y was never free before a return) −1.9 %. A reload that set the flags for a branch was
+dropped (a random loop program, seed 20778008; now it is `TXA`), and a store of A right after
+another store was not seen as a copy by the colouring (`i_u16_dowhile` got a `TAY` in its loop;
+now the colouring coalesces it); that copy let the colouring put a value into a callee's
+parameter place (a random loop program, seed 22125; fixed in the commit before); the commutative
+form and the free loads left −1.9 %.
+Compiling took up to 3.7 times as long until one round took every candidate whose live range meets
+no chosen one's: Ertüp 7.6 → 8.2 s.
+
+The examples: Schach −3.3 %, Steinschlag −3.3 %, Ertüp −3.1 %, Catch Me −2.7 %, Hello −0.7 %,
+Mode 7 −0.3 %, Mandelbrot −0.1 %; geometric mean −1.9 %. The pair loops: C −2.8 %, D −1.5 %, B
+−0.8 %, A +0.1 %. The spelling families: `search` 3,672 → 2,563 (the counter in X; `find_ptr`
+3,712 → 2,603), `pairs` 38,086 → 35,323, `table-2d` 27,033 → 26,928; no function's worst case
+got slower. The style guide's measurements moved (`compare_sum_narrowed` 98 → 88,
+`pairs_by_list` 18,170 → 17,531); every rule holds.
