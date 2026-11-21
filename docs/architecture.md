@@ -30,8 +30,9 @@ constants as one range check (`RangeChecks`), a bit chosen by a bit
 (`BitSelect`), 8.8 values read as bytes (`ByteLoads`), width narrowing (`Narrow`, and
 `RangeNarrow` with the value ranges of `Ranges`), loop-invariant code (`Licm`), induction
 variables (`Induction`), pointer compression (`PointerOffsets`), multiplication and division by
-constants (`StrengthReduce`), common subexpressions and redundant loads (`Gvn`) and dead code
-removal (`DeadCode`), repeated until nothing changes; then parameter ranges from the calls
+constants (`StrengthReduce`), common subexpressions and redundant loads (`Gvn`), dead code
+removal (`DeadCode`, `DeadLoops`) and two loops over the rows of a table as one (`Collapse`),
+repeated until nothing changes; then parameter ranges from the calls
 (`ParamRanges`), inlining (`Inline`) and pointer parameters as offsets (`PointerParams`), and the
 passes once more; last, the order of the instructions for the code generator (`Schedule`). The
 code generator itself first gives loop exits their own blocks (`ExitEdges`), copies return blocks

@@ -898,10 +898,10 @@ spelling sum-bytes x_ptr_walk 2538
 spelling sum-bytes y_ptr_end 2538
 spelling table-2d flat_index 3238
 spelling table-2d flat_ptr 3238
-spelling table-2d rows_i16 3614
-spelling table-2d rows_ptr 3622
-spelling table-2d rows_u16 3614
-spelling table-2d rows_u8 3614
+spelling table-2d rows_i16 3238
+spelling table-2d rows_ptr 3238
+spelling table-2d rows_u16 3238
+spelling table-2d rows_u8 3238
 steinschlag _add_score -1
 steinschlag _approach 183
 steinschlag _blast 491427

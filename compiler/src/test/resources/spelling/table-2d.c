@@ -2,10 +2,6 @@
  * tolerance: 10
  * The sum of a uint8_t t[8][16], row by row: two loops with every counter type, a row pointer,
  * one loop over all 128 elements, and one pointer over the whole table.
- * gap: rows_u16 collapse the rows lie one after another, so the two loops could be one of 128 rounds (flat_index): the outer loop's 8 rounds with the inner loop's entries and exits are 12 % (not in the plan)
- * gap: rows_u8 collapse as rows_u16
- * gap: rows_i16 collapse as rows_u16
- * gap: rows_ptr collapse as rows_u16
  */
 #include <stdint.h>
 
