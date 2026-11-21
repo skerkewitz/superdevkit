@@ -248,4 +248,44 @@ class RangesTest {
         assertEquals(new Ranges.Range(0, 255), r.of(z));
         assertEquals(new Ranges.Range(0, 12), r.at(z, f.blocks().get(1)));
     }
+
+    private static final String UNTIL_NOT_EQUAL = """
+            global @_n : 2
+            global @_a : 128
+
+            func @_f() -> void {
+            b0_entry:
+                jump b1_while
+            b1_while:
+                %0 = phi i16 [b0_entry, 1], [b5_next, %3]
+                %1 = load i16 @_n
+                %2 = cmp ne i16 %0, %1
+                br %2, b2_do, b3_end
+            b2_do:
+                %4 = and i16 %0, 63
+                %5 = mul i16 %4, 2
+                %6 = ptradd @_a, i16 %5
+                %7 = load i16 %6
+                %8 = cmp ne i16 %7, 0
+                br %8, b3_end, b4_step
+            b4_step:
+                %9 = cmp ugt i16 %0, %0
+                br %9, b3_end, b5_next
+            b5_next:
+                %3 = add i16 %0, 1
+                jump b1_while
+            b3_end:
+                ret
+            }
+            """;
+
+    @Test
+    void wideningIsNotTakenBackByTheCountersOwnBound() {
+        // while (c != n) c++: what the loop's test says about c comes from c's own range so far;
+        // cutting the widened range back to it every round grew it by one a round (a random loop
+        // program, seed 29469, took 77 s to compile)
+        MFunction f = MirParser.parse(UNTIL_NOT_EQUAL).function("_f");
+        Ranges r = new Ranges(f);
+        assertTrue(r.rounds() < 8 * Ranges.WIDEN_AFTER, "rounds: " + r.rounds());   // two passes; without the fix 131,074
+    }
 }

@@ -110,6 +110,13 @@ public final class Ranges {
         }
     }
 
+    /** Rounds of the fixpoints so far (for tests: widening keeps them few). */
+    private int rounds;
+
+    int rounds() {
+        return rounds;
+    }
+
     private void solve(MFunction f, Map<Block, Block> idom, List<Block> rpo) {
         for (Block b : rpo) {
             Map<Value, Both> m = b == f.entry() ? new HashMap<>() : new HashMap<>(refine.get(idom.get(b)));
@@ -134,6 +141,7 @@ public final class Ranges {
         boolean changed = true;
         while (changed) {
             changed = false;
+            rounds++;
             for (Block b : rpo) {
                 for (Instr i : b.instrs()) {
                     if (!isInt(i.type())) {
@@ -146,13 +154,16 @@ public final class Ranges {
                     Both old = range.get(i);
                     Both next = r.join(old);
                     if (!next.equals(old)) {
-                        if (changes.merge(i, 1, Integer::sum) > WIDEN_AFTER && old != null) {
+                        int n = changes.merge(i, 1, Integer::sum);
+                        if (n > WIDEN_AFTER && old != null) {
                             // widen the ends that moved, not the others: a counter from 0 upwards
                             // keeps 0. An end at its limit cannot move again, so each of the
                             // four is widened at most once.
                             next = new Both(widen(next.s, old.s, full(i.type())), widen(next.u, old.u, ufull(i.type())));
-                            // a counter keeps what its loop says
-                            Both c = i instanceof Instr.Phi p ? counted.get(p) : null;
+                            // a counter keeps what its loop says, unless that moves on as well (a
+                            // bound whose own range is still growing would take the widening back
+                            // every round, one step a round); the narrowing below gives it back
+                            Both c = i instanceof Instr.Phi p && n <= 2 * WIDEN_AFTER ? counted.get(p) : null;
                             Both kept = c == null ? null : next.meet(c);
                             if (kept != null) {
                                 next = reduce(kept.s, kept.u, i.type());
