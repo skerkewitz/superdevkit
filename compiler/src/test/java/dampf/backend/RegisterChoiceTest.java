@@ -304,4 +304,20 @@ class RegisterChoiceTest {
         String before = out.get(out.indexOf("eor #$8000") - 1);
         assertEquals(true, before.equals("tya") || before.equals("txa") || before.equals("lda v") || before.equals("lda _g1"), out.toString());
     }
+
+    @Test
+    void anIndexStaysInXWhereTheCommutativeFormNeedsIt() {
+        // v in Y (X is taken while v is live); LDA t,X / CLC / ADC v becomes TYA / CLC / ADC t,X,
+        // which needs X = v: the LDX before stays (as TYX), the access is not made Y-indexed
+        // (a random loop program, seed 29577)
+        List<String> out = choose(ins("lda", place(P)), ins("inc", new LOperand.Acc()), ins("sta", place(V)),
+                ins("ldx", new LOperand.Imm("$0005")), ins("lda", global("_a", LOperand.Index.X)), ins("sta", global("_o", LOperand.Index.NONE)),
+                ins("ldx", place(V)), ins("lda", global("_t", LOperand.Index.X)), ins("clc"), ins("adc", place(V)),
+                ins("sta", global("_t", LOperand.Index.X)),
+                ins("ldx", new LOperand.Imm("$0007")), ins("lda", global("_c", LOperand.Index.X)), ins("sta", global("_o4", LOperand.Index.NONE)));
+        int adc = out.indexOf("adc _t,x");
+        if (adc >= 0) {
+            assertEquals(true, out.subList(0, adc).contains("tyx") || out.subList(0, adc).contains("ldx v"), out.toString());
+        }
+    }
 }

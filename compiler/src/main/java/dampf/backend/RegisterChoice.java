@@ -307,6 +307,27 @@ final class RegisterChoice {
         return live;
     }
 
+    /**
+     * The X-indexed accesses after {@code LDX p} at k that take Y instead with p in Y
+     * ({@link IndexInY#convertible}), or null; also null where p is written before the last of them
+     * (INC p is INY with p in Y: Y would not hold what X was loaded with) or where an item up to
+     * it has a replacement already (TXA / ADC t,X for LDA t,X / ADC p still needs X).
+     */
+    private static List<Integer> yIndexed(Analysis an, BitSet units, Map<LItem, List<LItem>> replace, List<LItem> items,
+                                          int k, boolean xLiveOut) {
+        List<Integer> uses = IndexInY.convertible(items, k, xLiveOut);
+        if (uses == null) {
+            return null;
+        }
+        for (int j = k + 1; j <= uses.getLast(); j++) {
+            PlaceColouring.Access a = an.access.get(items.get(j));
+            if (replace.containsKey(items.get(j)) || a != null && a.writes().stream().anyMatch(units::get)) {
+                return null;
+            }
+        }
+        return uses;
+    }
+
     private static boolean allTracked(Group g, Predicate<LOperand.Owner> tracked) {
         for (Place p : g.members) {
             if (!tracked.test(new LOperand.Owner(p.key(), p.incoming(), 0))) {
@@ -438,13 +459,17 @@ final class RegisterChoice {
                 } else if (named && done.contains(it)) {
                     // replaced with the instruction after it
                 } else if (named && r == Reg.Y && it instanceof LInstr ldx && plainOf(an, g, ldx, "ldx")
-                        && IndexInY.convertible(items, k, round.otherLiveOut().getOrDefault(b, true)) != null) {
-                    // LDX p / LDA t,X with p in Y: LDA t,Y (X keeps what it held; the patterns' choice of Y for an index)
-                    for (int u : IndexInY.convertible(items, k, round.otherLiveOut().getOrDefault(b, true))) {
+                        && yIndexed(an, units, replace, items, k, round.otherLiveOut().getOrDefault(b, true)) != null) {
+                    // LDX p / LDA t,X with p in Y: LDA t,Y (X keeps what it held)
+                    List<Integer> uses = yIndexed(an, units, replace, items, k, round.otherLiveOut().getOrDefault(b, true));
+                    for (int u : uses) {
                         LInstr use = (LInstr) items.get(u);
                         LOperand.Mem m = (LOperand.Mem) use.op();
                         replace.put(use, List.of(use.withOperand(new LOperand.Mem(m.width(), m.base(), m.offset(), LOperand.Index.Y, false))));
-                        region.set(round.position().get(use));
+                    }
+                    // Y must hold g up to the last of them: no other candidate takes Y in between
+                    for (int j = k; j <= uses.getLast(); j++) {
+                        region.set(round.position().get(items.get(j)));
                     }
                     replace.put(it, List.of());
                     benefit += w * (round.free().contains(it) ? 0 : ldx.cycles());
