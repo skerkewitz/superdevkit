@@ -64,4 +64,5 @@ of its subject.
 | 47 | [LIR operands are typed, and LIR names places before it has addresses](adr/0047-lir-operands-are-typed-and-lir-names-places-before.md) | Accepted; amends 14 | 2026-11-20 |
 | 48 | [Frame places are coloured on the LIR, and FrameLayout only proposes](adr/0048-frame-places-are-coloured-on-the-lir-and.md) | Accepted; amended by 49 | 2026-11-20 |
 | 49 | [φs go through their incoming places, and the colouring coalesces the copies](adr/0049-phis-go-through-their-incoming-places-and-the.md) | Accepted; amends 48 | 2026-11-20 |
-| 50 | [Every change goes through a pull request into develop, and a release through one into main](adr/0050-every-change-goes-through-a-pull-request-into.md) | Accepted | 2026-11-21 |
+| 50 | [Every change goes through a pull request into develop, and a release through one into main](adr/0050-every-change-goes-through-a-pull-request-into.md) | Accepted; amended by 51 | 2026-11-21 |
+| 51 | [Claude works on GitHub as an app of its own, and the user approves](adr/0051-claude-works-on-github-as-an-app-of-its-own-and.md) | Accepted; amends 50 | 2026-11-21 |

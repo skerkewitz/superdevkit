@@ -13,6 +13,9 @@ docs/architecture.md; the other docs are linked from the README.
   `develop`, merged by Claude after the user's approval. A release is a pull request from
   `develop` into `main` and a tag. The steps are the `pr` skill. The main checkout stays on
   `develop`: never edit, build or switch branches in it.
+- Claude works on GitHub as an app of its own (ADR record 51): every `gh` command, `git commit`
+  and `git push` runs through the `gh-as-bot` wrapper (`gh-as-bot git push ...`), never plain.
+  Claude never approves a pull request, and merges one only after the user has approved it.
 - Build and test: `./gradlew build`. The execution, random and replay tests run in dampf's own
   emulator (`dampf.emu`, validated against the SingleStepTests suite and against Mesen); the
   execution tests also run in Mesen when `.mesen/` exists (not in git; `dev/fetch_mesen.sh` puts
