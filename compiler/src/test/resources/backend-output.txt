@@ -22,8 +22,8 @@ example_schach.mir.s1 0a14c01e48be1e0eb216a049
 example_schach.mir.timing 53f24a7e0ec118c94a1fa723
 example_schach.naive.s0 841a007aa2f1f5cb504eb97b
 example_schach.naive.s1 3740445420623edcea7daf92
-example_steinschlag.mir.s0 727a508c0519d568099e0ee8
-example_steinschlag.mir.timing c7f01d70660775d2e0acc0fe
+example_steinschlag.mir.s0 71b2feb1584ed0878c2a6279
+example_steinschlag.mir.timing 63ccb7b9b95f6d4fde9c8da8
 example_steinschlag.naive.s0 62d322172d4bfa2b9f15fb46
 exec_arith32.layout.s0 16b76446335a2518c59aa12a
 exec_arith32.layout.timing 2f84804a3ebb88a9fefa5c1e
@@ -113,6 +113,11 @@ exec_loop_bounds.layout.timing 34f96a8cde9b89ac0ba3c3f2
 exec_loop_bounds.mir.s0 899618b49295aade8ea14256
 exec_loop_bounds.mir.timing 68137be78571110aca6ad9e9
 exec_loop_bounds.naive.s0 5308f43bcd51fcf2af837670
+exec_loop_collapse.layout.s0 272fb6637e4cfd48feecf3ab
+exec_loop_collapse.layout.timing ac67a8c76f0add6420a75802
+exec_loop_collapse.mir.s0 619349efc0fb8c4621af22e7
+exec_loop_collapse.mir.timing 8462b58e03016aecc3d74eb2
+exec_loop_collapse.naive.s0 0786442424eb091973b136de
 exec_loop_test_moved.layout.s0 b5b5d30e206392e94b705cac
 exec_loop_test_moved.layout.timing 7fccc6d8e705fcce0bca3ae3
 exec_loop_test_moved.mir.s0 7d2231874510451b30cd4a80
@@ -133,10 +138,10 @@ exec_pointer_offsets.layout.timing b6c229f3c2df0fb7300147cc
 exec_pointer_offsets.mir.s0 97233018cbfbbab06da4e9f3
 exec_pointer_offsets.mir.timing 39dce606ea34d1251d3f78e2
 exec_pointer_offsets.naive.s0 9338cbde7183fac37f73be7e
-exec_pointer_to_array.layout.s0 49fb715702d6142a027b4a6e
-exec_pointer_to_array.layout.timing dad3c0f13fa7e6a60b4e467c
-exec_pointer_to_array.mir.s0 339372194233c30d87c65460
-exec_pointer_to_array.mir.timing 55336c115cb6d2649fe533f5
+exec_pointer_to_array.layout.s0 070204890a2ffb50df612e1e
+exec_pointer_to_array.layout.timing c6594ba5ebee753d69f27449
+exec_pointer_to_array.mir.s0 763824a23803a4d57ba769cd
+exec_pointer_to_array.mir.timing 4cf2447eca6f6fde1cd5bb7e
 exec_pointer_to_array.naive.s0 19baa06d0c01c4c887644745
 exec_pointer_to_int.layout.s0 49226342b75069dbf9c946f8
 exec_pointer_to_int.layout.timing 88af1c211d5a3163cc01a013

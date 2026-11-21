@@ -553,6 +553,13 @@ rounds as o's range allowed. An exit that compares the counter with its own star
 bounds the head runs by K / |c| + 1. The `table-2d` rows 26,910 → 3,614 in the worst case; the
 code was already the same as the flat loop's.
 
+The rows of a table as one loop (2026-11-21, not in the plan before): the 12 % left were the
+outer loop's rounds with the inner loop's entries and exits. `Collapse` turns two loops whose
+rows lie one after another into one loop over the table (its class comment has the conditions):
+the inner loop runs to the end of the last row and leaves where the outer loop did. The four
+`table-2d` gaps are closed; the rows cost what the flat loop costs, 3,225. Of the gap lines only
+the `struct-fields` ones are left, which only splitting the array closes (roadmap M9 row 4).
+
 ## Flaw B: no register allocation, and places are decided before the code exists
 
 **What is wrong.** Three things, in order of weight.
