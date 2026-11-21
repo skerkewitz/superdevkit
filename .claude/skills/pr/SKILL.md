@@ -202,8 +202,13 @@ the comment.
 
 1. Check the approval. It is the user saying so in the session, or a comment or review by the
    user (without `🤖`) that approves the pull request. Without it, stop.
-2. Check that it can be merged: `gh pr view <N> -R REPO --json mergeable,mergeStateStatus` and,
-   once the repository has CI, `gh pr checks <N> -R REPO`. If `develop` has moved and the branch
+2. Check that it can be merged: `gh pr view <N> -R REPO --json mergeable,mergeStateStatus`, and
+   that the CI build of the branch's last commit passed:
+   `gh run list -R REPO --branch <branch> --limit 1 --json headSha,status,conclusion`; its
+   `headSha` must be the pull request's last commit. (`gh pr checks` does not work: it needs the
+   Checks permission, which a fine-grained token cannot have.) If the build failed,
+   `gh run view <id> -R REPO --log-failed` shows why, and `gh run download <id> -R REPO -n
+   test-reports -D <scratchpad folder>` fetches the test reports. If `develop` has moved and the branch
    conflicts, merge `origin/develop` into the branch in `WT`, resolve, verify, push, and tell the
    user what the resolution did before merging.
 3. Merge with a merge commit, and keep the branch for now (`--delete-branch` would try to

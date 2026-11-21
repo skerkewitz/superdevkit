@@ -1,0 +1,40 @@
+# The build of every pull request (ADR record 50): ./gradlew build on Linux, with the tools the
+# tests call: the runner's gcc, python3 and node, and cc65 from Ubuntu (BackendOutputTest
+# builds every ROM with ca65 and ld65 too). Mesen, raylib and Playwright are not there, and the
+# tests that need them skip. Pushes to develop and main are not built again:
+# they arrive only through pull requests, and the minutes of a private repository are limited.
+name: build
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25
+      - uses: gradle/actions/setup-gradle@v5
+      - run: sudo apt-get update -q && sudo apt-get install -y -q cc65
+      - run: gcc --version | head -1 && python3 --version && node --version && ca65 --version
+      - run: ./gradlew build
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            compiler/build/reports/tests/
+            cli/build/reports/tests/
+          retention-days: 7
