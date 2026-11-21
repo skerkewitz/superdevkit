@@ -1,23 +1,39 @@
 ---
 name: pr
-description: The kit's workflow for every change, from branch to release (ADR record 50). Start a change on its own branch and worktree made from develop, open its pull request into develop with what changed, how it was verified and what follows from it, answer review comments on GitHub, merge after the user's approval and clean up; and make a release (version pull request into develop, pull request from develop into main, tag). Use it for every change to the repository, when the user asks to implement or fix something, to open or update a pull request, to look at feedback on a PR, to merge one, or to make a release, or invokes /pr.
+description: The kit's workflow for every change, from branch to release (ADR records 50 and 51). Start a change on its own branch and worktree made from develop, open its pull request into develop with what changed, how it was verified and what follows from it, answer review comments on GitHub, clean up after the user has merged; and make a release (version pull request into develop, pull request from develop into main, tag). Use it for every change to the repository, when the user asks to implement or fix something, to open or update a pull request, to look at feedback on a PR, to clean up after a merge, or to make a release, or invokes /pr.
 ---
 
 # pr: every change through a pull request
 
-The rules are in ADR record 50. In short: `develop` is the next release and `main` holds the
-released versions. Both change only through pull requests, and every change has its own branch
-and worktree. The user reviews on GitHub; Claude merges after the approval and cleans up.
+The rules are in ADR records 50 and 51. In short: `develop` is the next release and `main` holds
+the released versions. Both change only through pull requests, and every change has its own
+branch and worktree. Claude works on GitHub as an app of its own. The user reviews, approves and
+merges on GitHub; Claude cleans up after the merge.
 
 Paths and names used below:
 
 - `MAIN` = the main checkout, the folder that holds the repository's `.git`. From any worktree:
   `dirname "$(git rev-parse --path-format=absolute --git-common-dir)"`. It stays on `develop`.
   Never edit, build, commit or switch branches in it. The one exception is the fast-forward
-  after a merge (see `merge`).
+  after a merge (see `cleanup`).
 - `WT` = `MAIN/../superdevkit-wt/<branch>`, the worktree of a change, in a folder next to the
   main checkout.
 - `REPO` = `skerkewitz/superdevkit`.
+
+## Working as the app
+
+Every `gh` command, every `git push` and every git command that writes a commit or a tag
+(`commit`, a `merge` that is not a fast-forward, `rebase`, `tag`) runs through the
+`gh-as-bot` wrapper (ADR record 51): `gh-as-bot gh pr create ...`, `gh-as-bot git push ...`.
+It fetches a token of Claude's GitHub App for the one command and makes the app the git author
+and committer. A plain `gh` or `git push` acts as the user: never use one, and if the wrapper
+fails, stop and tell the user. The commands below all carry the wrapper. The wrapper reads
+standard input while it fetches the token, so a text never goes in through it: give a commit
+message as a file (`git commit -F <file>`) and a body with `--body-file <file>`, not `-F -`.
+
+Claude never approves or merges a pull request; that is the user's, on GitHub. The app's token
+cannot read `gh api user` (HTTP 403 is the expected answer). To check that the wrapper works,
+ask for something the app can reach: `gh-as-bot gh api repos/REPO --jq .full_name`.
 
 ## Everything sent to GitHub is public
 
@@ -59,7 +75,8 @@ takes a force-push or the deletion of a revision on GitHub, and that is the user
 - `/pr start <branch>`: create the branch and its worktree.
 - `/pr open`: verify the branch and open its pull request into `develop`.
 - `/pr feedback <N>`: read the review of pull request N and answer it.
-- `/pr merge <N>`: merge pull request N after the approval, then clean up.
+- `/pr cleanup <N>`: after the user has merged pull request N, update the main checkout and
+  remove the worktree and the branch.
 - `/pr release`: make a release (two pull requests and a tag).
 - `/pr status`: list the open pull requests, the worktrees and the branches, and say what each
   waits for.
@@ -80,12 +97,12 @@ when the work is done. Long unattended runs follow the same steps; the run is th
    git -C MAIN fetch origin
    git -C MAIN worktree add --no-track -b <branch> WT origin/develop
    [ -d MAIN/.mesen ] && ln -s MAIN/.mesen WT/.mesen
-   git -C WT push -u origin <branch>
+   gh-as-bot git -C WT push -u origin <branch>
    ```
 
    With the link the execution tests also run in Mesen in the worktree (`.gitignore` ignores it).
 3. Do all work in `WT`: edits, builds, tests, benchmarks, commits. Commit each step that is done
-   and verified, and push it. Follow CLAUDE.md as everywhere: a language feature needs an
+   and verified (`gh-as-bot git -C WT commit ...`), and push it. Follow CLAUDE.md as everywhere: a language feature needs an
    execution test, game code follows `lib/C_STYLE.md`, decisions get an ADR record, the book is
    left alone until the release.
 
@@ -95,9 +112,9 @@ fold a second change into the branch.
 ## open
 
 1. Bring the branch up to date with `develop`. As long as nobody has reviewed it, rebase:
-   `git -C WT fetch origin && git -C WT rebase origin/develop`, then
-   `git -C WT push --force-with-lease`. Once a pull request is open, merge instead
-   (`git -C WT merge origin/develop`) and never force-push.
+   `git -C WT fetch origin && gh-as-bot git -C WT rebase origin/develop`, then
+   `gh-as-bot git -C WT push --force-with-lease`. Once a pull request is open, merge instead
+   (`gh-as-bot git -C WT merge origin/develop`) and never force-push.
 2. Verify in `WT`: `./gradlew build` must pass. Add what the change needs on top: replays
    (`-Preplays`) and the benchmark (`dev/bench_examples.sh`) for changes to dampf's output, the
    numbers before and after for anything that claims to be faster or smaller. Note what you ran
@@ -109,11 +126,17 @@ fold a second change into the branch.
 5. Open it:
 
    ```
-   gh pr create -R REPO --base develop --head <branch> --title "<title>" --body-file <file>
+   gh-as-bot gh pr create -R REPO --base develop --head <branch> --title "<title>" --body-file <file>
    ```
 
    The title is a short sentence in the style of the commit log ("K4: a large function called
    once in a loop is inlined"). Give the user the link.
+6. CI builds the branch. When it has finished, check that the build of the last commit passed:
+   `gh-as-bot gh run list -R REPO --branch <branch> --limit 1 --json headSha,status,conclusion`;
+   its `headSha` must be the pull request's last commit. (`gh pr checks` does not work: it needs
+   the Checks permission.) If the build failed, `gh-as-bot gh run view <id> -R REPO --log-failed`
+   shows why, and `gh-as-bot gh run download <id> -R REPO -n test-reports -D <scratchpad folder>`
+   fetches the test reports. Fix it as a change to the open pull request.
 
 ### Template
 
@@ -166,9 +189,9 @@ Commits: <hash> <subject>, ...
 Verified: what was run again and what came out.
 ```
 
-Post it with `gh pr comment <N> -R REPO --body-file <file>`, after the leak check. A merge of
+Post it with `gh-as-bot gh pr comment <N> -R REPO --body-file <file>`, after the leak check. A merge of
 `develop` without conflicts needs only a line ("Merged develop at <hash>; build passed"). If the
-fix changes what the description says, update the description too (`gh pr edit`), and say so in
+fix changes what the description says, update the description too (`gh-as-bot gh pr edit`), and say so in
 the comment.
 
 ## feedback
@@ -176,49 +199,37 @@ the comment.
 1. Read everything on the pull request:
 
    ```
-   gh pr view <N> -R REPO --comments
-   gh api repos/REPO/pulls/<N>/reviews
-   gh api repos/REPO/pulls/<N>/comments
+   gh-as-bot gh pr view <N> -R REPO --comments
+   gh-as-bot gh api repos/REPO/pulls/<N>/reviews
+   gh-as-bot gh api repos/REPO/pulls/<N>/comments
    ```
 
    The last call gives the comments on lines of the diff, with `id`, `path`, `line` and
    `in_reply_to_id`.
-2. The pull requests and every comment Claude writes appear under the user's account. Claude's
-   comments therefore start with `🤖`; a comment without it is the user's.
+2. The pull requests and every comment Claude writes appear under the app's name, with `[bot]`
+   after it. Claude's comments start with `🤖` all the same; a comment from the user's account is
+   the user's.
 3. For each point: if it asks for a change, make it in `WT` as a new commit, verify as in
    `open`, push. If it asks a question, answer it. If you disagree, say so with the reason and
    leave the decision to the user. Answer a comment on a line in its thread:
 
    ```
-   gh api repos/REPO/pulls/<N>/comments/<id>/replies -f body="🤖 ..."
+   gh-as-bot gh api repos/REPO/pulls/<N>/comments/<id>/replies -f body="🤖 ..."
    ```
 
    and after the push write the comment of "Changes to an open pull request", one section per
    point of the review.
 4. If the description no longer fits (new numbers, a changed approach), update it with
-   `gh pr edit <N> -R REPO --body-file <file>`.
+   `gh-as-bot gh pr edit <N> -R REPO --body-file <file>`.
 
-## merge
+## cleanup
 
-1. Check the approval. It is the user saying so in the session, or a comment or review by the
-   user (without `🤖`) that approves the pull request. Without it, stop.
-2. Check that it can be merged: `gh pr view <N> -R REPO --json mergeable,mergeStateStatus`, and
-   that the CI build of the branch's last commit passed:
-   `gh run list -R REPO --branch <branch> --limit 1 --json headSha,status,conclusion`; its
-   `headSha` must be the pull request's last commit. (`gh pr checks` does not work: it needs the
-   Checks permission, which a fine-grained token cannot have.) If the build failed,
-   `gh run view <id> -R REPO --log-failed` shows why, and `gh run download <id> -R REPO -n
-   test-reports -D <scratchpad folder>` fetches the test reports. If `develop` has moved and the branch
-   conflicts, merge `origin/develop` into the branch in `WT`, resolve, verify, push, and tell the
-   user what the resolution did before merging.
-3. Merge with a merge commit, and keep the branch for now (`--delete-branch` would try to
-   switch the main checkout):
+The user merges on GitHub. Claude never does, not even after an approval in the session; if
+the user asks Claude to merge, say that the merge is theirs.
 
-   ```
-   gh pr merge <N> -R REPO --merge
-   ```
-
-4. Fast-forward the main checkout, but only if it has no changes to tracked files (another
+1. Check that the pull request is merged:
+   `gh-as-bot gh pr view <N> -R REPO --json state,headRefName`. If `state` is not `MERGED`, stop.
+2. Fast-forward the main checkout, but only if it has no changes to tracked files (another
    session may be working there); otherwise tell the user it is behind:
 
    ```
@@ -226,13 +237,14 @@ the comment.
    [ -z "$(git -C MAIN status --porcelain --untracked-files=no)" ] && git -C MAIN merge --ff-only origin/develop
    ```
 
-5. Clean up. `git worktree remove` refuses a worktree with changes; if it does, stop and ask.
+3. Clean up. `git worktree remove` refuses a worktree with changes; if it does, stop and ask.
+   If GitHub has deleted the branch already, the last line has nothing left to do.
 
    ```
    rm -f WT/.mesen
    git -C MAIN worktree remove WT
    git -C MAIN branch -d <branch>
-   git -C MAIN push origin --delete <branch>
+   gh-as-bot git -C MAIN push origin --delete <branch>
    ```
 
 ## release
@@ -250,35 +262,36 @@ The user decides when `develop` is released. Two pull requests and a tag:
 
    `open` it with the title "Version <version>". Under What, list the pull requests merged since
    the last tag: `git log --first-parent --oneline v<last>..origin/develop`, or all of
-   `develop`'s history if there is no tag yet. Merge it as usual after the approval.
+   `develop`'s history if there is no tag yet. The user merges it; then `cleanup`.
 3. Release pull request, from `develop` itself:
 
    ```
-   gh pr create -R REPO --base main --head develop --title "Release <version>" --body-file <file>
+   gh-as-bot gh pr create -R REPO --base main --head develop --title "Release <version>" --body-file <file>
    ```
 
    The description lists the pull requests in the release, with one line each, and what the
    user of the kit notices (new features, changes to the command line, the subset, the files
    dampf writes).
-4. After the approval: `gh pr merge <N> -R REPO --merge`. Never pass `--delete-branch` here:
-   `develop` stays.
-5. Tag the merge commit on `main` and push the tag:
+4. The user merges it, with a merge commit, and keeps `develop`. There is nothing to clean up.
+5. Once it is merged, tag the merge commit on `main` and push the tag:
 
    ```
    git -C MAIN fetch origin
-   git -C MAIN tag -a v<version> origin/main -m "superdevkit <version>"
-   git -C MAIN push origin v<version>
+   gh-as-bot git -C MAIN tag -a v<version> origin/main -m "superdevkit <version>"
+   gh-as-bot git -C MAIN push origin v<version>
    ```
 
 ## status
 
 ```
-gh pr list -R REPO --state open
+gh-as-bot gh pr list -R REPO --state open
 git -C MAIN worktree list
 git -C MAIN branch -a --no-merged origin/develop
 ```
 
-For each open pull request say whether it waits for the user (review), for Claude (feedback
-to answer, conflicts) or is approved and ready to merge. Name worktrees whose branch is merged
+For each open pull request say whether it waits for the user (review, merge) or for Claude
+(feedback to answer, a failed CI build, conflicts with `develop`). For a conflict, merge
+`origin/develop` into the branch in `WT` (`gh-as-bot git -C WT merge origin/develop`), resolve, verify, push, and say in the comment what the
+resolution did. Name worktrees whose branch is merged
 or gone; remove them only if they are under `superdevkit-wt` and clean, and ask about the others,
 which may belong to another session.
