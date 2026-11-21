@@ -171,6 +171,11 @@ over when it left ([ADR record 40](adr/0040-the-examples-replace-blubber-blasen-
   - against Mesen on Blubber Blasen's benchmark, while it was here: the same checksums on all
     3,610 ticks, and the same master cycles per tick within a few cycles out of millions
     (`dampf bench`); and on every example's check, the same checksums every tick.
+- **GitHub Actions** (`.github/workflows/build.yml`) runs `./gradlew build` for every pull
+  request (ADR record 50), with JDK 25 on Ubuntu and the
+  runner's gcc, python3 and node. Mesen, raylib and Playwright are not there: the execution
+  tests run in dampf's emulator only, and `DesktopIsolationTest` and the BRR Lab's browser tests
+  skip. A pull request is merged only when this build passes.
 - **Mesen** (MesenCE in `.mesen/`, from `dev/fetch_mesen.sh`, or `-Pmesen=<path>`) runs the execution
   tests, and the examples in `dev/compare_example.sh`; the random programs run in dampf's emulator
   only.
