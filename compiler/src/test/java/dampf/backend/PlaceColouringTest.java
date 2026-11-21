@@ -3,6 +3,7 @@ package dampf.backend;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
+import dampf.lir.LCopy;
 import dampf.lir.LDirective;
 import dampf.lir.LFunction;
 import dampf.lir.LInstr;
@@ -36,7 +37,7 @@ class PlaceColouringTest {
         return new LInstr(m, op, null, true, true, false);
     }
 
-    private static Map<PlaceColouring.Place, Integer> colour(Map<Object, Integer> predicted, LItem... items) {
+    private static Map<PlaceColouring.Place, Integer> colour(LItem... items) {
         LFunction f = new LFunction(new LDirective(LDirective.Kind.PROC, null, List.of("f"), null, ".proc f"));
         List<LItem> all = new ArrayList<>(List.of(items));
         all.add(ins("rtl", null));
@@ -52,10 +53,6 @@ class PlaceColouringTest {
                 return p.key() == Q ? 4 : 2;
             }
 
-            @Override
-            public Integer predicted(PlaceColouring.Place p) {
-                return predicted.get(p.key());
-            }
         };
         return PlaceColouring.colour(f, o -> Set.of(P, V, W, Q).contains(o.key()), frame, 2);
     }
@@ -66,8 +63,8 @@ class PlaceColouringTest {
 
     @Test
     void valuesLiveAtOnceGetTheirOwnPlaces() {
-        var m = colour(Map.of(),
-                ins("lda", place(P)), ins("sta", place(V)),
+        var m = colour(
+                ins("lda", place(P)), ins("inc", new LOperand.Acc()), ins("sta", place(V)),
                 ins("inc", new LOperand.Acc()), ins("sta", place(W)),
                 ins("lda", place(V)), ins("adc", place(W)));
         assertEquals(0, at(m, P));
@@ -77,29 +74,39 @@ class PlaceColouringTest {
 
     @Test
     void aValueDeadBeforeTheNextIsWrittenSharesItsPlace() {
-        var m = colour(Map.of(),
-                ins("lda", place(P)), ins("sta", place(V)),
+        var m = colour(
+                ins("lda", place(P)), ins("inc", new LOperand.Acc()), ins("sta", place(V)),
                 ins("lda", place(V)), ins("inc", new LOperand.Acc()), ins("sta", place(W)),
                 ins("lda", place(W)));
         assertEquals(at(m, V), at(m, W));
     }
 
     @Test
-    void aPredictionThatFitsIsKeptAndOneThatDoesNotIsNot() {
-        var m = colour(Map.of(V, 8, W, 8),
-                ins("lda", place(P)), ins("sta", place(V)),
-                ins("inc", new LOperand.Acc()), ins("sta", place(W)),
-                ins("lda", place(V)), ins("adc", place(W)));
-        assertEquals(8, at(m, V));
-        assertNotEquals(8, at(m, W));
+    void theTwoPlacesOfACopyBecomeOne() {
+        // v = p + 1; w = copy of v; v dead after the copy: one place, the copy needs no code
+        var m = colour(
+                ins("lda", place(P)), ins("inc", new LOperand.Acc()), ins("sta", place(V)),
+                new LCopy(place(W), place(V)),
+                ins("lda", place(W)));
+        assertEquals(at(m, V), at(m, W));
+    }
+
+    @Test
+    void aCopyWhoseSourceStaysLiveIsStillOne() {
+        // the copy's bytes are equal, so v and w may share although v is read after it
+        var m = colour(
+                ins("lda", place(P)), ins("inc", new LOperand.Acc()), ins("sta", place(V)),
+                new LCopy(place(W), place(V)),
+                ins("lda", place(W)), ins("adc", place(V)));
+        assertEquals(at(m, V), at(m, W));
     }
 
     @Test
     void aCopyMayShareExactlyTheSamePlaceButNotHalfOfIt() {
         // q (4 bytes) copied word by word to v and w; q's high word is still read after v is
         // written, so v may not take q's place; w copies q's low word where q is dead
-        var m = colour(Map.of(Q, 2, V, 4, W, 2),
-                ins("lda", place(P)), ins("sta", place(Q)), ins("sta", place(Q, 2)),
+        var m = colour(
+                ins("lda", place(P)), ins("inc", new LOperand.Acc()), ins("sta", place(Q)), ins("sta", place(Q, 2)),
                 ins("lda", place(Q)), ins("sta", place(V)),
                 ins("lda", place(Q, 2)), ins("adc", place(V)),
                 ins("lda", place(Q)), ins("sta", place(W)),
@@ -110,8 +117,8 @@ class PlaceColouringTest {
 
     @Test
     void placesMarkedAsSharedAreOne() {
-        var m = colour(Map.of(V, 2, W, 6),
-                ins("lda", place(P)), ins("sta", place(V)),
+        var m = colour(
+                ins("lda", place(P)), ins("inc", new LOperand.Acc()), ins("sta", place(V)),
                 new LMark(List.of(new LMark.Copy(new LOperand.Owner(W, false, 0), new LOperand.Owner(V, false, 0), 2))),
                 ins("inc", place(W)), ins("lda", place(W)));
         assertEquals(at(m, V), at(m, W));
@@ -121,10 +128,10 @@ class PlaceColouringTest {
     void aPointerReadAsIndirectComesFirst() {
         LOperand.Mem pointer = new LOperand.Mem(LOperand.Width.NONE, LOperand.FRAME, 0, LOperand.Index.Y, true,
                 new LOperand.Owner(Q, false, 0));
-        var m = colour(Map.of(V, 2, Q, 300),
-                ins("lda", place(P)), ins("sta", place(V)), ins("sta", place(Q)), ins("sta", place(Q, 2)),
+        var m = colour(
+                ins("lda", place(P)), ins("inc", new LOperand.Acc()), ins("sta", place(V)), ins("sta", place(Q)), ins("sta", place(Q, 2)),
                 ins("lda", pointer), ins("adc", place(V)));
-        assertEquals(2, at(m, Q));   // the predicted 300 is not in the direct page
+        assertEquals(2, at(m, Q));   // first, though the code names v first
         assertEquals(6, at(m, V));
     }
 }

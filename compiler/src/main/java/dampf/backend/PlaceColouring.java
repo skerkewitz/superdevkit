@@ -1,6 +1,7 @@
 package dampf.backend;
 
 import dampf.lir.LBlock;
+import dampf.lir.LCopy;
 import dampf.lir.LFunction;
 import dampf.lir.LInstr;
 import dampf.lir.LItem;
@@ -20,14 +21,14 @@ import java.util.function.Predicate;
 
 /**
  * Gives the frame places of one function their addresses after selection, from its LIR (B2 of
- * docs/current-compiler-flaws.md, ADR record 47): liveness of the places' bytes over the code
- * selection wrote, an interference graph (a place written while another one is live, unless the
- * write copies that one), and greedy colouring by byte ranges. Places selection relied on sharing
- * (its marks, {@link LMark}) are one place. Parameters, frame slots, φ incoming places, callee
- * parameters and the values computed in them are fixed ({@link Frame#fixed}).
- *
- * <p>Each place takes the address {@code FrameLayout} predicted for it if that address is free,
- * else the lowest free one; a pointer read as {@code [place],y} must lie in the direct page.
+ * docs/current-compiler-flaws.md, ADR records 48 and 49): liveness of the places' bytes over the
+ * code selection wrote, an interference graph (a place written while another one is live, unless
+ * the write copies those bytes of it), coalescing (the two places of a copy become one where they
+ * do not conflict: a φ copy, {@link LCopy}, then needs no code), and greedy colouring by byte
+ * ranges, in the order of the code. Places selection relied on sharing (its marks, {@link LMark})
+ * are one place. Parameters, frame slots, callee parameters and the values computed in them are
+ * fixed ({@link Frame#fixed}); a pointer read as {@code [place],y} is coloured first and must
+ * lie in the direct page.
  */
 final class PlaceColouring {
     private PlaceColouring() {}
@@ -57,19 +58,18 @@ final class PlaceColouring {
         /** The bytes of a place. */
         int bytes(Place p);
 
-        /** The address predicted for a coloured place (its first choice), or null. */
-        Integer predicted(Place p);
     }
 
     /** A set of places that share one address: the members of a mark. */
     private static final class Group {
         final List<Place> members = new ArrayList<>();
         Integer fixed;
-        Integer predicted;
         int bytes;
         boolean direct;   // read as [place],y: must lie in the direct page
         int first;        // its first byte's index in the liveness bit sets
         int at = -1;
+        /** The group this one was coalesced into, or null. */
+        Group into;
         final BitSet conflicts = new BitSet();
         /** Groups a copy goes between: they may have exactly the same address, but not overlap otherwise. */
         final BitSet samePlaceOnly = new BitSet();
@@ -112,10 +112,14 @@ final class PlaceColouring {
                 groupOf.get(Place.of(m.owner())).direct = true;
             }
         }
-        interfere(lf, tracked, groupOf, units);
+        List<Group[]> copies = interfere(lf, tracked, groupOf, units);
+        coalesce(copies, groups, lf);
 
         List<Group> order = new ArrayList<>();
         for (Group g : groups) {
+            if (g.into != null) {
+                continue;   // coalesced into another
+            }
             if (g.fixed != null) {
                 if (g.direct && !inDirectPage(g.fixed)) {
                     throw new IllegalStateException("a pointer of " + lf.name() + " read as [place],y is not in the direct page");
@@ -125,13 +129,12 @@ final class PlaceColouring {
                 order.add(g);
             }
         }
-        order.sort(Comparator.comparing((Group g) -> !g.direct)
-                .thenComparing(g -> g.predicted == null ? Integer.MAX_VALUE : g.predicted));
+        order.sort(Comparator.comparing((Group g) -> !g.direct));   // (stable: else in the order of the code)
         for (Group g : order) {
             int o;
-            if (g.predicted != null && g.predicted >= start && blocker(g, g.predicted, groups) == null
-                    && (!g.direct || inDirectPage(g.predicted))) {
-                o = g.predicted;
+            Integer partner = partner(g, groups);
+            if (partner != null && partner >= start && (!g.direct || inDirectPage(partner))) {
+                o = partner;   // a copy's other place: the copy needs no code
             } else {
                 o = start;
                 for (Group n = blocker(g, o, groups); n != null; n = blocker(g, o, groups)) {
@@ -146,10 +149,74 @@ final class PlaceColouring {
         Map<Place, Integer> out = new LinkedHashMap<>();
         for (Group g : groups) {
             for (Place p : g.members) {
-                out.put(p, g.at);
+                out.put(p, rep(g).at);
             }
         }
         return out;
+    }
+
+    /** The address of a placed group a copy goes between with g, where g fits (exactly on it), or null. */
+    private static Integer partner(Group g, List<Group> groups) {
+        for (int x = g.samePlaceOnly.nextSetBit(0); x >= 0; x = g.samePlaceOnly.nextSetBit(x + 1)) {
+            Group n = groups.get(x);
+            if (n.at >= 0 && !g.conflicts.get(x) && blocker(g, n.at, groups) == null) {
+                return n.at;
+            }
+        }
+        return null;
+    }
+
+    private static Group rep(Group g) {
+        while (g.into != null) {
+            g = g.into;
+        }
+        return g;
+    }
+
+    /**
+     * Aggressive coalescing: the two places of each copy, in the order of the code, become one if
+     * they do not conflict (then the copy is no code). A group that conflicts with a member of a
+     * coalesced group conflicts with the group (its bit set has the group's index).
+     */
+    private static void coalesce(List<Group[]> copies, List<Group> groups, LFunction lf) {
+        for (Group[] c : copies) {
+            Group a = rep(c[0]);
+            Group b = rep(c[1]);
+            if (a == b || a.conflicts.get(b.index) || b.conflicts.get(a.index)
+                    || a.fixed != null && b.fixed != null && !a.fixed.equals(b.fixed)
+                    || a.fixed != null && b.bytes > a.bytes || b.fixed != null && a.bytes > b.bytes) {
+                continue;   // (a fixed place cannot grow over its neighbours)
+            }
+            if (b.fixed != null || a.fixed == null && b.index < a.index) {
+                Group t = a;   // the fixed one, else the one the code names first, stays
+                a = b;
+                b = t;
+            }
+            b.into = a;
+            a.bytes = Math.max(a.bytes, b.bytes);
+            a.direct |= b.direct;
+            for (BitSet[] sets : List.of(new BitSet[] {b.conflicts, a.conflicts}, new BitSet[] {b.samePlaceOnly, a.samePlaceOnly})) {
+                BitSet from = sets[0];
+                for (int x = from.nextSetBit(0); x >= 0; x = from.nextSetBit(x + 1)) {
+                    Group n = groups.get(x);
+                    (sets[0] == b.conflicts ? n.conflicts : n.samePlaceOnly).set(a.index);
+                    (sets[0] == b.conflicts ? rep(n).conflicts : rep(n).samePlaceOnly).set(a.index);
+                }
+                sets[1].or(from);
+            }
+        }
+        for (Group g : groups) {
+            if (g.into == null) {
+                // what conflicts with a coalesced member conflicts with its group
+                for (BitSet s : List.of(g.conflicts, g.samePlaceOnly)) {
+                    BitSet reps = new BitSet();
+                    for (int x = s.nextSetBit(0); x >= 0; x = s.nextSetBit(x + 1)) {
+                        reps.set(rep(groups.get(x)).index);
+                    }
+                    s.or(reps);
+                }
+            }
+        }
     }
 
     /** A pointer's three bytes at this address are in the direct page ([dp],y). */
@@ -187,6 +254,9 @@ final class PlaceColouring {
                 out.add(c.to());
                 out.add(c.from());
             }
+        } else if (it instanceof LCopy c) {
+            out.add(c.to().owner());
+            out.add(c.from().owner());
         }
         return out;
     }
@@ -197,7 +267,6 @@ final class PlaceColouring {
             g = new Group();
             g.members.add(p);
             g.fixed = frame.fixed(p);
-            g.predicted = g.fixed == null ? frame.predicted(p) : null;
             g.bytes = frame.bytes(p);
             groupOf.put(p, g);
             groups.add(g);
@@ -217,12 +286,10 @@ final class PlaceColouring {
             groupOf.put(p, a);
         }
         a.fixed = a.fixed != null ? a.fixed : b.fixed;
-        a.predicted = a.fixed != null ? null : a.predicted != null ? a.predicted : b.predicted;
         a.bytes = Math.max(a.bytes, b.bytes);
         groups.remove(b);
     }
 
-    /** What an item reads and writes: indexes of place bytes. */
     /**
      * What an item reads and writes: indexes of place bytes. {@code copyOf}: the group whose byte
      * at the same offset each written byte copies (A was loaded from it), or null.
@@ -235,7 +302,8 @@ final class PlaceColouring {
      * same offset of the other place (a copy: the two may share exactly the same address, see
      * {@code samePlaceOnly}). Marks are copies of places in the same group.
      */
-    private static void interfere(LFunction lf, Predicate<LOperand.Owner> tracked, Map<Place, Group> groupOf, int units) {
+    private static List<Group[]> interfere(LFunction lf, Predicate<LOperand.Owner> tracked, Map<Place, Group> groupOf, int units) {
+        List<Group[]> copies = new ArrayList<>();
         Map<LItem, Access> access = new IdentityHashMap<>();
         List<Group> byUnit = new ArrayList<>();
         for (int k = 0; k < units; k++) {
@@ -267,6 +335,24 @@ final class PlaceColouring {
                         }
                     }
                     access.put(m, new Access(r, w, null));
+                    continue;
+                }
+                if (it instanceof LCopy c) {
+                    // LDA from, STA to, or nothing: what A holds afterwards is not known
+                    Group from = groupOf.get(Place.of(c.from().owner()));
+                    Group to = groupOf.get(Place.of(c.to().owner()));
+                    List<Integer> r = new ArrayList<>();
+                    List<Integer> w = new ArrayList<>();
+                    for (int k = 0; k < 2; k++) {
+                        if (tracked.test(c.from().owner())) {
+                            r.add(from.first + c.from().owner().word() + k);
+                        }
+                        if (tracked.test(c.to().owner())) {
+                            w.add(to.first + c.to().owner().word() + k);
+                        }
+                    }
+                    access.put(c, new Access(r, w, from));
+                    aFrom = null;
                     continue;
                 }
                 if (!(it instanceof LInstr i)) {
@@ -339,15 +425,21 @@ final class PlaceColouring {
                 if (a == null) {
                     continue;
                 }
+                // the offsets (in its group) of the bytes a copy writes: the same bytes of the source may share
+                BitSet copied = new BitSet();
+                for (int w : a.writes()) {
+                    copied.set(w - byUnit.get(w).first);
+                }
                 for (int w : a.writes()) {
                     Group g = byUnit.get(w);
                     if (a.copyOf() != null && a.copyOf() != g) {
                         g.samePlaceOnly.set(a.copyOf().index);
                         a.copyOf().samePlaceOnly.set(g.index);
+                        copies.add(new Group[] {g, a.copyOf()});
                     }
                     for (int x = live.nextSetBit(0); x >= 0; x = live.nextSetBit(x + 1)) {
                         Group n = byUnit.get(x);
-                        if (n != g && !(n == a.copyOf() && x - n.first == w - g.first)) {
+                        if (n != g && !(n == a.copyOf() && copied.get(x - n.first))) {
                             g.conflicts.set(n.index);
                             n.conflicts.set(g.index);
                         }
@@ -356,6 +448,7 @@ final class PlaceColouring {
                 transfer(a, live);
             }
         }
+        return copies;
     }
 
     private static BitSet liveOut(LBlock b, Map<LBlock, BitSet> liveIn) {

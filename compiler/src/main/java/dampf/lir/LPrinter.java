@@ -51,6 +51,7 @@ public final class LPrinter {
             case LSourceLine s -> sourceLine(s);
             case LFunction f -> throw new IllegalArgumentException("a function is not one line");
             case LMark m -> throw new IllegalArgumentException("a mark is taken out before the text is written");
+            case LCopy c -> throw new IllegalArgumentException("a copy is expanded before the text is written");
         };
     }
 

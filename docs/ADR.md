@@ -62,4 +62,5 @@ of its subject.
 | 45 | [M5 is concluded as 0.6.0, and a version between milestones may carry features](adr/0045-m5-is-concluded-as-060-and-a-version-between.md) | Accepted | 2026-11-19 |
 | 46 | [An access to an array tells dampf its index is inside it](adr/0046-an-access-to-an-array-tells-dampf-its-index-is.md) | Accepted | 2026-11-20 |
 | 47 | [LIR operands are typed, and LIR names places before it has addresses](adr/0047-lir-operands-are-typed-and-lir-names-places-before.md) | Accepted; amends 14 | 2026-11-20 |
-| 48 | [Frame places are coloured on the LIR, and FrameLayout only proposes](adr/0048-frame-places-are-coloured-on-the-lir-and.md) | Accepted | 2026-11-20 |
+| 48 | [Frame places are coloured on the LIR, and FrameLayout only proposes](adr/0048-frame-places-are-coloured-on-the-lir-and.md) | Accepted; amended by 49 | 2026-11-20 |
+| 49 | [φs go through their incoming places, and the colouring coalesces the copies](adr/0049-phis-go-through-their-incoming-places-and-the.md) | Accepted; amends 48 | 2026-11-20 |

@@ -634,9 +634,13 @@ instead of by address, so a load it leaves out stays right wherever the places e
 changed). Then the places got their addresses on the LIR ([record 48](adr/0048-frame-places-are-coloured-on-the-lir-and.md),
 `PlaceColouring`), `FrameLayout`'s prediction kept as each place's first choice: three examples
 changed, frames 2 bytes smaller where a value handed on in A had a place it never used. Without
-the prediction as first choice the execution and random tests pass too; that is the next step.
-Left of B2: φs through their incoming places, those coloured as well, and `FrameLayout` reduced
-to what is about MIR.
+the prediction as first choice the execution and random tests pass too. Then every φ went
+through its incoming place, the copies as `LCopy`, coalesced by the colouring, with no
+prediction as first choice ([record 49](adr/0049-phis-go-through-their-incoming-places-and-the.md)):
+`FrameLayout` has no direct φs any more, and the examples do 0.3 % less work. Left of B2:
+`FrameLayout` still predicts places for selection's decisions (a value stepped in its operand's
+place, a pointer in the direct page, a value handed on in A); B3 is where those become choices
+on the LIR.
 
 ### B3. X and Y assigned by cost
 
@@ -701,6 +705,15 @@ value kept zero-extended in two bytes is read differently in each mode) and is i
 B3. After C5 the most frequent case, the 8-bit step of a byte counter, is gone already, so
 measure what is left before building it.
 
+### B6. A value kept in A over a loop
+
+`RedundantLoads` moves a load that starts a block, redundant on some ways in, to the ways that
+only jump there (B2). In a `do`-loop the load of a constant starts the loop block, so it moves
+to the entry and A keeps the constant over the loop (`fill_do`, 1,035 cycles). Where the test
+is at the top, the load starts the body, whose only way in is the test: it can move past the test
+only where A is dead after the loop, which needs the liveness of A on the LIR (`RTL` reads A
+unless the function returns nothing) (`fill_u16` and the other spellings of `fill-words`, 1,233).
+
 ## Flaw K: no decision uses the cost model
 
 **What is wrong.** dampf knows the exact cycles of every instruction, and has a static timing
@@ -748,7 +761,7 @@ examples and one build per spelling member; the test also fails when the file is
 | 10 | B1 typed operands and virtual places (ADR) | 2 | no | |
 | 11 | B2 places assigned on LIR | 10 | little | the class of the frame bugs |
 | 12 | B3 X and Y by cost, then the patterns deleted | 11, K1 | yes | `j`, `k`, `l`, loops with calls |
-| 13 | B5, K2, K4 | 12 | yes | |
+| 13 | B5, B6, K2, K4 | 12 | yes | the `fill-words` gaps (B6) |
 
 Steps 3 to 8 are small (each a few hundred lines with tests) and remove most of the table at the
 top. Steps 10 to 12 are the large ones and the only ones that change the architecture. Do 1 and

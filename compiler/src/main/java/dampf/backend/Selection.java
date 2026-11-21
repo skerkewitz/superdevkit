@@ -71,8 +71,6 @@ final class Selection {
         return t.size <= 2 ? 1 : 2;
     }
 
-    final Set<Block> direct = new HashSet<>();
-
     /** Every function's value ranges, computed with the checks of the hints (see {@link dampf.mir.Hints}). */
 
     void layout() {
@@ -99,7 +97,6 @@ final class Selection {
             FrameLayout l = new FrameLayout(f, hintRanges.get(f));
             gen.layouts.put(f, l);
             gen.frameSize.put(f, l.size);
-            direct.addAll(l.direct);
         }
         for (MFunction f : gen.module.functions()) {
             FrameLayout l = gen.layouts.get(f);
@@ -228,6 +225,23 @@ final class Selection {
      * its address: A holds that value wherever its place ends up (B2, ADR record 47).
      */
     final Holds aHolds = new Holds();
+
+    /**
+     * A word copy between two frame places ({@link dampf.lir.LCopy}): it may become no code, so A
+     * holds nothing known afterwards.
+     */
+    void copy(LOperand.Mem to, LOperand.Mem from) {
+        flushHeld();
+        if (m8) {
+            ins("lda", from);
+            ins("sta", to);
+            return;
+        }
+        out.copy(to, from);
+        aHolds.clear();
+        nzFromA = false;
+        lastTransfer = false;
+    }
 
     /** Operands, a frame place matched by address and owner ({@link #same}). */
     static final class Holds {

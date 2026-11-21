@@ -1347,3 +1347,26 @@ in A had a place nothing wrote, that place is gone, so three examples' frames li
 (Ertüp, Schach, Steinschlag). No addressing form changed with them, so no cycle count did: the
 examples' timings, the worst cases of `cost-baseline.txt` and the pair loops are the same. Code
 changed in three programs of `BackendOutputTest`.
+
+## φs through their incoming places, the copies coalesced (2026-11-20, on the examples)
+
+`FrameLayout` let the predecessors write a block's φs directly where it predicted that was safe;
+three miscompilations came from that prediction. Every φ now goes through its incoming place,
+the copies at the end of each predecessor and on entry are `LCopy`, and the colouring on the
+LIR coalesces them: the two places of a copy become one where they do not conflict, and the copy
+is then no code ([ADR record 49](adr/0049-phis-go-through-their-incoming-places-and-the.md), B2).
+
+The way there, measured on the examples against the code before: without direct φs and without
+coalescing +8.5 %; greedy preference for a copy's other place +4.5 %; φs and their operands
+paired in `FrameLayout`'s prediction (so selection steps a counter in place) and aggressive
+coalescing +2.4 %; no value handed on in A where it is predicted in the φ's own place +1.2 %; a
+loop head's load moved to the entry where the back edge holds it in A (`RedundantLoads`) +0.9 %;
+a copy conflicting only in the bytes it does not copy (an i8 copy is 2 bytes, both copied) −0.4 %;
+no load moved into the long form of a conditional branch, a block that only jumps and that the
+branch falls through into (`BranchRelax` could not fold it back: a cycle per round in the
+`search` family) −0.3 %.
+
+The examples: Ertüp −1.4 %, Hello −0.3 %, Steinschlag −0.3 %, Schach −0.2 %, Catch Me +0.2 %,
+the rest the same; geometric mean −0.3 %. The pair loops: B −0.4 %, C −0.2 %, D −0.5 %, A the
+same. The spelling family `fill-words`: `fill_do` 1,224 → 1,035, the constant kept in A over the
+loop; the other spellings test at the top of the loop and keep 1,233, a new gap (B6).

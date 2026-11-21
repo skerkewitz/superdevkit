@@ -113,7 +113,7 @@ final class SelectionPlan {
 
     /**
      * Whether the code at the end of b starts with a φ copy that loads v (and v is read nowhere
-     * else there): the first copy that is not left out because the operand shares the φ's place.
+     * else there): then v is handed on in A and stored into the incoming place from it.
      */
     boolean firstPhiCopyReads(Block b, Instr v) {
         for (Block s : new LinkedHashSet<>(b.terminator().successors())) {
@@ -125,14 +125,9 @@ final class SelectionPlan {
                     return false;   // the copies end with LDX for it: keep it simple
                 }
                 Value op = p.op(p.from.indexOf(b));
-                int to = sel.direct.contains(s) ? sel.place.get(p) : sel.incoming.get(p);
-                if (sel.operand(op, 0).equals(Selection.at(to)) && (Selection.words(p.type()) == 1 || sel.operand(op, 1).equals(Selection.at(to + 2)))) {
-                    if (op == v) {
-                        return false;   // v's place is the φ's: it must be stored
-                    }
-                    continue;           // no code
-                }
-                return op == v && Selection.words(p.type()) == 1;
+                // (every copy is code or an LCopy, which leaves nothing known in A) v predicted
+                // in the φ's own place is stored there (perhaps stepped in place): the copies coalesce
+                return op == v && Selection.words(p.type()) == 1 && !java.util.Objects.equals(sel.place.get(v), sel.place.get(p));
             }
         }
         return false;

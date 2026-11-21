@@ -28,6 +28,114 @@ public final class RedundantLoads {
 
     /** Removes (or turns into CMP #0) the redundant loads; returns how many changed. */
     public int run(LFunction f) {
+        int hoisted = hoist(f);
+        return hoisted + remove(f);
+    }
+
+    /**
+     * A load that starts a block (its flags not read) and is redundant on some ways in, not on
+     * others that only jump there: it moves to the end of those, so it is redundant on all (a
+     * loop head that loads its counter, which the back edge holds in A already and the entry
+     * does not). No way gets a load more; the ways that held it lose one.
+     */
+    int hoist(LFunction f) {
+        Map<LBlock, RegContents.State> entries = contents.entries(f);
+        Map<LBlock, Integer> flagsOut = flagsLiveOut(f);
+        Map<LBlock, List<LBlock>> preds = new IdentityHashMap<>();
+        for (LBlock b : f.blocks()) {
+            for (LBlock t : b.successors()) {
+                preds.computeIfAbsent(t, k -> new ArrayList<>()).add(b);
+            }
+        }
+        int changed = 0;
+        for (LBlock b : f.blocks()) {
+            List<LBlock> in = preds.getOrDefault(b, List.of());
+            List<LInstr> code = b.instrs();
+            if (in.size() < 2 || code.isEmpty() || in.contains(b) || b == f.blocks().getFirst()) {
+                continue;
+            }
+            LInstr load = code.getFirst();
+            LOperand op = load.op();
+            if (op == null || !(load.mnemonic().equals("lda") && load.m16() || load.mnemonic().equals("ldx")
+                    || load.mnemonic().equals("ldy"))) {
+                continue;
+            }
+            int live = flagsOut.getOrDefault(b, 0);
+            for (int k = code.size() - 1; k > 0; k--) {
+                live = (live & ~writes(code.get(k))) | reads(code.get(k));
+            }
+            if ((live & (N | Z)) != 0) {
+                continue;
+            }
+            List<LBlock> missing = new ArrayList<>();
+            boolean someHold = false;
+            boolean ok = true;
+            for (LBlock p : in) {
+                RegContents.State st = entries.get(p);
+                if (st == null) {
+                    ok = false;
+                    break;
+                }
+                for (LInstr i : p.instrs()) {
+                    st = contents.after(i, st);
+                }
+                boolean held = switch (load.mnemonic()) {
+                    case "lda" -> st.a().contains(op);
+                    case "ldx" -> op.equals(st.x());
+                    default -> op.equals(st.y());
+                };
+                if (held) {
+                    someHold = true;
+                    continue;
+                }
+                LInstr last = p.last();
+                boolean jumps = last != null && switch (last.mnemonic()) {
+                    case "jmp", "bra", "brl" -> true;
+                    default -> false;
+                };
+                if (p.successors().size() != 1 || longBranch(p, preds)
+                        || last != null && !jumps && !last.fallsThrough()
+                        || last != null && (last.m16() != load.m16() || last.x16() != load.x16())) {
+                    ok = false;
+                    break;
+                }
+                missing.add(p);
+            }
+            if (!ok || !someHold || missing.isEmpty()) {
+                continue;
+            }
+            for (LBlock p : missing) {
+                List<LItem> items = p.items();
+                LInstr last = p.last();
+                boolean jumps = last != null && !last.fallsThrough();
+                int at = jumps ? items.lastIndexOf(last) : items.size();
+                items.add(at, new LInstr(load.mnemonic(), op, null, load.m16(), load.x16(), false));
+                changed++;
+            }
+        }
+        if (changed > 0) {
+            f.rebuild(f.items());
+        }
+        return changed;
+    }
+
+    /**
+     * A block that only jumps and that a conditional branch falls through into: the long form of
+     * that branch, which BranchRelax folds back into it unless something is put in between.
+     */
+    private static boolean longBranch(LBlock p, Map<LBlock, List<LBlock>> preds) {
+        if (p.instrs().size() != 1 || p.last().fallsThrough()) {
+            return false;
+        }
+        for (LBlock q : preds.getOrDefault(p, List.of())) {
+            if (q.last() != null && q.last().isConditionalBranch()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private int remove(LFunction f) {
         Map<LBlock, RegContents.State> entries = contents.entries(f);
         Map<LBlock, Integer> flagsOut = flagsLiveOut(f);
         int changed = 0;

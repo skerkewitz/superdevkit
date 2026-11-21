@@ -94,6 +94,11 @@ final class AsmWriter {
         }
     }
 
+    /** A word copy between two frame places, expanded once they have addresses ({@link dampf.lir.LCopy}). */
+    void copy(dampf.lir.LOperand.Mem to, dampf.lir.LOperand.Mem from) {
+        unit.add(new dampf.lir.LCopy(to, from));
+    }
+
     /** A comment indented like an instruction. */
     void note(String text) {
         unit.add(LDirective.note(text));

@@ -27,39 +27,33 @@ import java.util.Set;
  *     operands are used there.</li>
  * <li>A load or store at {@code ptradd p, c} (a constant 0..32767) reads p itself; such a ptradd
  *     that only loads and stores use is not computed at all ("folded").</li>
- * <li>A block whose φs do not read each other and are not live into the other side of a
- *     predecessor's branch gets its φs written at the end of each predecessor ("direct"); else
- *     the predecessors write an "incoming" place, which the block copies on entry. A branch
- *     writes the direct φs of both its sides, so these all conflict with each other.</li>
+ * <li>The predecessors of a block write its φs' "incoming" places, which the block copies on
+ *     entry; the places are coloured on the code, where the copies coalesce, so the incoming
+ *     place is predicted on the φ's own.</li>
  * <li>A cast that only copies bytes ({@link #transparent}) has no place; its users read its
  *     source.</li>
  * <li>An instruction with a 2-word result may write its first word before it has read all its
  *     operands, so such a result never shares a place with an operand of the same instruction.
  *     A 1-word result is stored once, after every read.</li>
- * <li>A φ and its operands prefer the same place (then the copy at the end of the predecessor
- *     is no copy at all).</li>
+ * <li>A φ and its operands prefer the same place (then the copies are no code).</li>
  * </ul>
- * Parameters (written by the caller), memory slots (their address may be anywhere) and incoming
- * places get places of their own.
+ * Parameters (written by the caller) and memory slots (their address may be anywhere) get places
+ * of their own. The places are a prediction: selection decides with them (whether a value is
+ * stepped in place, whether a pointer lies in the direct page), and {@link PlaceColouring} gives
+ * the addresses on the code it wrote (ADR record 48).
  */
 final class FrameLayout {
     final Set<Instr> fused = new HashSet<>();
     final Set<Instr> folded = new HashSet<>();
-    final Set<Block> direct = new HashSet<>();
     /** Offsets in the frame: parameters, slots and values. */
     final Map<Object, Integer> offset = new IdentityHashMap<>();
     final Map<Instr.Phi, Integer> incoming = new IdentityHashMap<>();
     int size;
-    /** Where the values' places begin: after the parameters, slots and incoming places. */
-    int valuesStart;
+    /** The end of the parameters and slots: the places the code colours begin there. */
+    int slotsEnd;
 
     private final MFunction f;
     private final List<Value> values = new ArrayList<>();
-    /**
-     * Pairs that may have exactly the same place but must not overlap otherwise (a direct φ and
-     * the operand it gets from a predecessor). If they also interfere, the graph says so.
-     */
-    private final Map<Integer, Set<Integer>> samePlaceOnly = new HashMap<>();
     private final Map<Value, Integer> index = new IdentityHashMap<>();
 
     /** The value ranges of the function (indexed addressing needs a non-negative index). */
@@ -77,6 +71,7 @@ final class FrameLayout {
             offset.put(s, size);
             size += Math.max(1, s.size());
         }
+        slotsEnd = size;
         for (Block b : f.blocks()) {
             for (Instr i : b.instrs()) {
                 if (needsPlace(i)) {
@@ -86,20 +81,15 @@ final class FrameLayout {
             }
         }
         liveOut = liveOut();
-        for (Block b : f.blocks()) {
-            if (directPhis(b)) {
-                direct.add(b);
-            }
-        }
+        colour(interference());
+        // a φ's incoming place is predicted on its own place: the copies coalesce (B2)
         for (Block b : f.blocks()) {
             for (Instr i : b.instrs()) {
-                if (i instanceof Instr.Phi p && !direct.contains(b)) {
-                    incoming.put(p, size);
-                    size += bytes(p.type());
+                if (i instanceof Instr.Phi p && offset.containsKey(p)) {
+                    incoming.put(p, offset.get(p));
                 }
             }
         }
-        colour(interference());
     }
 
     private Map<Block, BitSet> liveOut;
@@ -373,61 +363,6 @@ final class FrameLayout {
         };
     }
 
-    /**
-     * Whether the predecessors of s can write its φs directly: the write happens before the
-     * predecessor's branch, so on the way to another target the φ must not be live there (its
-     * place may then hold anything; the interference graph keeps it from what is live there), and
-     * the branch must not read it.
-     */
-    private boolean directPhis(Block s) {
-        for (Block p : s.preds()) {
-            Instr t = p.terminator();
-            if (t instanceof Instr.Jump) {
-                continue;
-            }
-            // the branch itself reads after the writes: not a φ of s (a loop's exit test on its
-            // counter, at the end of the latch)
-            BitSet branch = new BitSet();
-            reads(t, branch);
-            for (Instr i : s.instrs()) {
-                if (!(i instanceof Instr.Phi phi)) {
-                    break;
-                }
-                Integer x = index.get(phi);
-                if (x != null && branch.get(x)) {
-                    return false;
-                }
-            }
-            for (Block other : t.successors()) {
-                if (other == s) {
-                    continue;
-                }
-                BitSet in = liveIn.get(other);
-                for (Instr i : s.instrs()) {
-                    if (!(i instanceof Instr.Phi phi)) {
-                        break;
-                    }
-                    Integer x = index.get(phi);
-                    if (x != null && in.get(x)) {
-                        return false;
-                    }
-                }
-            }
-        }
-        for (Instr i : s.instrs()) {
-            if (i instanceof Instr.Phi p) {
-                for (Value v : p.operands()) {
-                    // through a transparent cast too: it has no place, it reads the φ's own
-                    // (l = c with a byte counter c is zext c; writing c's φ first lost the old c)
-                    if (Selection.throughCopies(v) instanceof Instr.Phi q && q.block() == s) {
-                        return false;
-                    }
-                }
-            }
-        }
-        return true;
-    }
-
     // ------------------------------------------------------------------ liveness
 
     /** The values the code for instruction i reads (where it reads them). */
@@ -533,48 +468,6 @@ final class FrameLayout {
         Map<Block, BitSet> out = liveOut;
         for (Block b : f.blocks()) {
             BitSet live = (BitSet) out.get(b).clone();
-            // direct φs of the successors are written here, while everything live at the end still
-            // is, and before the terminator reads its condition
-            Instr t = b.terminator();
-            BitSet atEnd = (BitSet) live.clone();
-            if (t != null) {
-                reads(t, atEnd);
-            }
-            if (t != null) {
-                // the direct φs of all successors are written here, one after the other: those of
-                // a branch's two sides conflict with each other as much as those of one side
-                List<Integer> written = new ArrayList<>();
-                for (Block s : new LinkedHashSet<>(t.successors())) {
-                    if (direct.contains(s)) {
-                        written.addAll(phis(s));
-                    }
-                }
-                for (Block s : new LinkedHashSet<>(t.successors())) {
-                    if (direct.contains(s)) {
-                        List<Integer> phis = phis(s);
-                        for (int p : phis) {
-                            // the φ gets its operand's value here, so this write lets the two share a
-                            // place, but only exactly the same one (any other overlap would mix
-                            // their words); they still conflict if they do anywhere else
-                            BitSet others = (BitSet) atEnd.clone();
-                            Value own = ownOperand((Instr.Phi) values.get(p), b);
-                            if (own != null) {
-                                int o = index.get(own);
-                                others.clear(o);
-                                samePlaceOnly.computeIfAbsent(p, k -> new HashSet<>()).add(o);
-                                samePlaceOnly.computeIfAbsent(o, k -> new HashSet<>()).add(p);
-                            }
-                            interfere(g, p, others);
-                            for (int q : written) {
-                                if (p != q) {
-                                    g[p].set(q);
-                                    g[q].set(p);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
             List<Instr> is = b.instrs();
             for (int j = is.size() - 1; j >= 0; j--) {
                 Instr i = is.get(j);
@@ -593,35 +486,19 @@ final class FrameLayout {
                 }
                 live.or(used);
             }
-            if (!direct.contains(b)) {
-                // the φs are copied in from their incoming places on entry, one after the other
-                List<Integer> phis = phis(b);
-                for (int p : phis) {
-                    interfere(g, p, live);
-                    for (int q : phis) {
-                        if (p != q) {
-                            g[p].set(q);
-                            g[q].set(p);
-                        }
+            // the φs are copied in from their incoming places on entry, one after the other
+            List<Integer> phis = phis(b);
+            for (int p : phis) {
+                interfere(g, p, live);
+                for (int q : phis) {
+                    if (p != q) {
+                        g[p].set(q);
+                        g[q].set(p);
                     }
                 }
             }
         }
         return g;
-    }
-
-    /** The operand φ p gets from b, if it has a place of its own of the φ's size (else null). */
-    private Value ownOperand(Instr.Phi p, Block b) {
-        Value v = null;
-        for (int k = 0; k < p.from.size(); k++) {
-            if (p.from.get(k) == b) {
-                if (v != null && v != p.op(k)) {
-                    return null;
-                }
-                v = p.op(k);
-            }
-        }
-        return v != null && v != p && index.containsKey(v) && bytes(v.type()) == bytes(p.type()) ? v : null;
     }
 
     private List<Integer> phis(Block b) {
@@ -651,22 +528,13 @@ final class FrameLayout {
                 return false;
             }
         }
-        for (int x : samePlaceOnly.getOrDefault(v, Set.of())) {
-            int xl = bytes(values.get(x).type());
-            if (at[x] >= 0 && at[x] < o + len && o < at[x] + xl && !(at[x] == o && xl == len)) {
-                return false;
-            }
-        }
         return true;
     }
 
-    /** The values that would like the same place: a direct φ and its operands. */
+    /** The values that would like the same place: a φ and its operands. */
     private Map<Integer, List<Integer>> affinities() {
         Map<Integer, List<Integer>> a = new HashMap<>();
         for (Block b : f.blocks()) {
-            if (!direct.contains(b)) {
-                continue;
-            }
             for (Instr i : b.instrs()) {
                 if (i instanceof Instr.Phi p && index.containsKey(p)) {
                     for (Value v : p.operands()) {
@@ -685,7 +553,6 @@ final class FrameLayout {
     /** Gives every value the lowest offset that no interfering value covers (a partner's, if free). */
     private void colour(BitSet[] g) {
         int base = size;
-        valuesStart = size;
         int[] at = new int[values.size()];
         java.util.Arrays.fill(at, -1);
         Map<Integer, List<Integer>> partners = affinities();
@@ -712,13 +579,6 @@ final class FrameLayout {
                 for (int x = g[v].nextSetBit(0); x >= 0; x = g[v].nextSetBit(x + 1)) {
                     int xl = bytes(values.get(x).type());
                     if (at[x] >= 0 && at[x] < o + len && o < at[x] + xl) {
-                        o = at[x] + xl;
-                        moved = true;
-                    }
-                }
-                for (int x : samePlaceOnly.getOrDefault(v, Set.of())) {
-                    int xl = bytes(values.get(x).type());
-                    if (at[x] >= 0 && at[x] < o + len && o < at[x] + xl && !(at[x] == o && xl == len)) {
                         o = at[x] + xl;
                         moved = true;
                     }

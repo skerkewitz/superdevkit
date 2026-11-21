@@ -58,7 +58,14 @@ import java.util.TreeMap;
  *
  * <p><b>φs</b> get a second place, "incoming": every predecessor stores its operand there right
  * before its jump, and the block copies it into the φ's own place on entry. That is correct for
- * any set of φs (also when they swap values), with no analysis.
+ * any set of φs (also when they swap values), with no analysis. The copies are {@link
+ * dampf.lir.LCopy}: where the colouring of the places on the code gives both sides of one the same
+ * address (coalescing, ADR record 49), it is no code.
+ *
+ * <p><b>Places</b> are named by their owners during selection; {@link FrameLayout} proposes
+ * addresses for selection's decisions, and after selection {@link PlaceColouring} gives them their
+ * addresses on the code, callees first ({@link #colourPlaces}), checked by {@link
+ * dampf.lir.PlaceCheck} (ADR record 48).
  */
 public final class MirCodeGen {
     /** What selection shares, and the selection of each kind of instruction. */
@@ -258,7 +265,6 @@ public final class MirCodeGen {
         path.remove(f);
         FrameLayout l = layouts.get(f);
         int newBase = b;
-        int oldBase = base.get(f);
         java.util.Set<Object> own = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
         own.addAll(f.params());
         for (Block blk : f.blocks()) {
@@ -267,9 +273,6 @@ public final class MirCodeGen {
         PlaceColouring.Frame frame = new PlaceColouring.Frame() {
             @Override
             public Integer fixed(PlaceColouring.Place p) {
-                if (p.incoming()) {
-                    return newBase + l.incoming.get((Instr.Phi) p.key());
-                }
                 if (p.key() instanceof Value.Param q) {
                     MFunction g = paramOwner.get(q);
                     return (g == f ? newBase : placedBase.get(g)) + layouts.get(g).offset.get(q);
@@ -293,16 +296,10 @@ public final class MirCodeGen {
                     default -> throw new IllegalStateException("a place of " + p.key());
                 };
             }
-
-            @Override
-            public Integer predicted(PlaceColouring.Place p) {
-                Integer at = l.offset.get(p.key());
-                return at == null ? null : newBase + at;
-            }
         };
         Map<PlaceColouring.Place, Integer> at = PlaceColouring.colour(codes.get(f).function(), o -> own.contains(o.key()),
-                frame, newBase + l.valuesStart);
-        int end = newBase + l.valuesStart;
+                frame, newBase + l.slotsEnd);
+        int end = newBase + l.slotsEnd;
         for (Map.Entry<PlaceColouring.Place, Integer> e : at.entrySet()) {
             if (own.contains(e.getKey().key()) && !(e.getKey().key() instanceof Instr i && argumentOf.containsKey(i))) {
                 end = Math.max(end, e.getValue() + frame.bytes(e.getKey()));
@@ -635,12 +632,11 @@ public final class MirCodeGen {
             for (Instr i : b.instrs()) {
                 if (i instanceof Instr.Phi p) {
                     sel.out.note(Printer.instr(p));
-                    if (sel.direct.contains(b) || sel.xResident.containsKey(p)) {
-                        continue;   // set by the predecessors (or kept in X)
+                    if (sel.xResident.containsKey(p)) {
+                        continue;   // kept in X
                     }
                     for (int w = 0; w < Selection.words(p.type()); w++) {
-                        sel.ins("lda", sel.incomingOf(p, w));
-                        sel.ins("sta", sel.placeOf(p, w));
+                        sel.copy(sel.placeOf(p, w), sel.incomingOf(p, w));
                     }
                     continue;
                 }
@@ -751,12 +747,29 @@ public final class MirCodeGen {
 
     /**
      * Gives every frame operand its address from its owner (ADR record 47): word w of a value, a
-     * φ's incoming place, a frame slot, as the layout placed them. The places are still the ones
-     * {@link FrameLayout} assigned before selection, so the addresses do not change; an operand of
-     * the frame without an owner, or one whose owner says another address, is a bug of selection.
-     * This is where places assigned on LIR (B2 of docs/current-compiler-flaws.md) will come in.
+     * φ's incoming place, a frame slot, as {@link #colourPlaces} placed them, and expands the φ
+     * copies ({@link dampf.lir.LCopy}). An operand of the frame without an owner is a bug of
+     * selection.
      */
     void assignPlaces(LFunction lf) {
+        // the φ copies: LDA, STA, or nothing where both places got the same address
+        List<dampf.lir.LItem> expanded = new ArrayList<>();
+        for (dampf.lir.LItem it : lf.items()) {
+            if (it instanceof dampf.lir.LCopy c) {
+                LOperand to = assign(c.to());
+                LOperand from = assign(c.from());
+                if (!to.equals(from)) {
+                    expanded.add(new dampf.lir.LInstr("lda", from, null, true, true, false));
+                    expanded.add(new dampf.lir.LInstr("sta", to, null, true, true, false));
+                } else {
+                    // one place: for the check, the bytes are the other owner's now
+                    expanded.add(new dampf.lir.LMark(List.of(new dampf.lir.LMark.Copy(c.to().owner(), c.from().owner(), 2))));
+                }
+            } else {
+                expanded.add(it);
+            }
+        }
+        lf.rebuild(expanded);
         for (dampf.lir.LBlock b : lf.blocks()) {
             List<dampf.lir.LItem> items = b.items();
             for (int k = 0; k < items.size(); k++) {
@@ -888,19 +901,16 @@ public final class MirCodeGen {
                     }
                     continue;        // (along the back edge the step has updated X already)
                 }
-                boolean direct = sel.direct.contains(s);
                 for (int w = 0; w < Selection.words(p.type()); w++) {
-                    LOperand to = direct ? sel.placeOf(p, w) : sel.incomingOf(p, w);
-                    if (sel.operand(v, w).equals(to)) {
-                        // the operand shares the φ's place: a copy without code
-                        if (sel.operand(v, w) instanceof LOperand.Mem from && from.owner() != null
-                                && to instanceof LOperand.Mem toPlace) {
-                            sel.out.mark(List.of(new dampf.lir.LMark.Copy(toPlace.owner(), from.owner(), 2)));
-                        }
-                        continue;
-                    }
+                    LOperand to = sel.incomingOf(p, w);
                     if (sel.operand(v, w).equals(Selection.imm(0)) && !sel.aHolds.contains(Selection.imm(0))) {
                         sel.ins("stz", to);   // no load of the zero
+                        continue;
+                    }
+                    // (a value A holds, perhaps handed on and never stored, is stored from A)
+                    if (sel.operand(v, w) instanceof LOperand.Mem from && from.owner() != null && from.frame()
+                            && to instanceof LOperand.Mem toPlace && !sel.aHolds.contains(from)) {
+                        sel.copy(toPlace, from);
                         continue;
                     }
                     sel.ins("lda", sel.operand(v, w));

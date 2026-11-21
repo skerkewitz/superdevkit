@@ -124,14 +124,14 @@ today's). A DMA function also uses as many bytes of the vertical blank's 5,700 a
 | `sdevkit_bg_set_disable_sub` | built | built | 64 to 176 |
 | `sdevkit_bg_init_tile_set` | built | built | 592 to 782 |
 | `sdevkit_bg_init_map_set` | built | built | 145 |
-| `sdevkit_oam_init` | built | built | 23 to 104,215 |
+| `sdevkit_oam_init` | built | built | 23 to 103,703 |
 | `sdevkit_oam_init_gfx_set` | built | built | 246 to 356 |
 | `sdevkit_oam_init_gfx_attr` | built | built | 37 to 147 |
 | `sdevkit_oam_set` | built | built | 315 to 427 |
 | `sdevkit_oam_set_xy` | built | built | 139 to 251 |
 | `sdevkit_oam_set_ex` | built | built | 80 to 192 |
 | `sdevkit_oam_set_visible` | built | built | 6 |
-| `sdevkit_oam_clear` | built | built | 23 to 103,703 |
+| `sdevkit_oam_clear` | built | built | 19 to 103,699 |
 | `sdevkit_reg_write` | built | built | 25 |
 | `sdevkit_hdma_set` | built | built | 93 |
 | `sdevkit_hdma_enable` | built | built | 21 |
