@@ -58,12 +58,22 @@ final class PlaceColouring {
         /** The bytes of a place. */
         int bytes(Place p);
 
+        /**
+         * Whether a fixed place lies outside the function's frame: a callee's parameter, or a value
+         * computed into one. The callee may change it, which the liveness here does not see, so
+         * nothing is coalesced with it.
+         */
+        default boolean external(Place p) {
+            return false;
+        }
+
     }
 
     /** A set of places that share one address: the members of a mark. */
     private static final class Group {
         final List<Place> members = new ArrayList<>();
         Integer fixed;
+        boolean external;
         int bytes;
         boolean direct;   // read as [place],y: must lie in the direct page
         int first;        // its first byte's index in the liveness bit sets
@@ -159,7 +169,7 @@ final class PlaceColouring {
     private static Integer partner(Group g, List<Group> groups) {
         for (int x = g.samePlaceOnly.nextSetBit(0); x >= 0; x = g.samePlaceOnly.nextSetBit(x + 1)) {
             Group n = groups.get(x);
-            if (n.at >= 0 && !g.conflicts.get(x) && blocker(g, n.at, groups) == null) {
+            if (n.at >= 0 && !n.external && !g.conflicts.get(x) && blocker(g, n.at, groups) == null) {
                 return n.at;
             }
         }
@@ -182,7 +192,7 @@ final class PlaceColouring {
         for (Group[] c : copies) {
             Group a = rep(c[0]);
             Group b = rep(c[1]);
-            if (a == b || a.conflicts.get(b.index) || b.conflicts.get(a.index)
+            if (a == b || a.conflicts.get(b.index) || b.conflicts.get(a.index) || a.external || b.external
                     || a.fixed != null && b.fixed != null && !a.fixed.equals(b.fixed)
                     || a.fixed != null && b.bytes > a.bytes || b.fixed != null && a.bytes > b.bytes) {
                 continue;   // (a fixed place cannot grow over its neighbours)
@@ -267,6 +277,7 @@ final class PlaceColouring {
             g = new Group();
             g.members.add(p);
             g.fixed = frame.fixed(p);
+            g.external = g.fixed != null && frame.external(p);
             g.bytes = frame.bytes(p);
             groupOf.put(p, g);
             groups.add(g);
@@ -286,6 +297,7 @@ final class PlaceColouring {
             groupOf.put(p, a);
         }
         a.fixed = a.fixed != null ? a.fixed : b.fixed;
+        a.external |= b.external;
         a.bytes = Math.max(a.bytes, b.bytes);
         groups.remove(b);
     }

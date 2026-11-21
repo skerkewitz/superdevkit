@@ -289,6 +289,12 @@ public final class MirCodeGen {
             }
 
             @Override
+            public boolean external(PlaceColouring.Place p) {
+                return p.key() instanceof Value.Param q && paramOwner.get(q) != f
+                        || p.key() instanceof Instr i && argumentOf.containsKey(i);
+            }
+
+            @Override
             public int bytes(PlaceColouring.Place p) {
                 return switch (p.key()) {
                     case Value.Slot s -> Math.max(1, s.size());

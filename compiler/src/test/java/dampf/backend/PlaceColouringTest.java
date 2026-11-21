@@ -22,6 +22,8 @@ class PlaceColouringTest {
     private static final String V = "v";
     private static final String W = "w";
     private static final String Q = "q";
+    /** A value computed into a callee's parameter place (fixed, outside the frame). */
+    private static final String A = "a";
 
     private static LOperand.Mem place(Object key) {
         return place(key, 0);
@@ -45,7 +47,7 @@ class PlaceColouringTest {
         PlaceColouring.Frame frame = new PlaceColouring.Frame() {
             @Override
             public Integer fixed(PlaceColouring.Place p) {
-                return p.key() == P ? 0 : null;
+                return p.key() == P ? Integer.valueOf(0) : p.key() == A ? Integer.valueOf(100) : null;
             }
 
             @Override
@@ -53,8 +55,13 @@ class PlaceColouringTest {
                 return p.key() == Q ? 4 : 2;
             }
 
+            @Override
+            public boolean external(PlaceColouring.Place p) {
+                return p.key() == A;
+            }
+
         };
-        return PlaceColouring.colour(f, o -> Set.of(P, V, W, Q).contains(o.key()), frame, 2);
+        return PlaceColouring.colour(f, o -> Set.of(P, V, W, Q, A).contains(o.key()), frame, 2);
     }
 
     private static int at(Map<PlaceColouring.Place, Integer> m, Object key) {
@@ -133,5 +140,18 @@ class PlaceColouringTest {
                 ins("lda", pointer), ins("adc", place(V)));
         assertEquals(2, at(m, Q));   // first, though the code names v first
         assertEquals(6, at(m, V));
+    }
+
+    @Test
+    void nothingIsCoalescedWithAPlaceOutsideTheFrame() {
+        // a, an argument computed in the callee's parameter place, copied to v: the callee may
+        // change its parameter, so v must not live there although the copy would allow it
+        var m = colour(
+                ins("lda", place(P)), ins("inc", new LOperand.Acc()), ins("sta", place(A)),
+                new LCopy(place(V), place(A)),
+                ins("jsl", new LOperand.Label("callee")),
+                ins("lda", place(V)));
+        assertEquals(100, at(m, A));
+        assertNotEquals(100, at(m, V));
     }
 }
