@@ -38,7 +38,8 @@ docs/architecture.md; the other docs are linked from the README.
 - Blubber Blasen (the first user and test case) is at `/mnt/d/Develop/AiProject/BlubberBlasen`
   (Windows `D:\Develop\AiProject\BlubberBlasen`). Its `tools/snesbench` is the benchmark that
   compares compilers in Mesen headless (`Mesen.exe --testrunner` with a Lua script).
-- Code targets Java 25 (`options.release = 25`); the machine has JDK 27.
+- Code targets Java 25 (`options.release = 25`); the machine has JDK 27. javac runs with
+  `-Xlint:all -Werror`: a warning fails the build, in CI too.
 - Preprocessing is `gcc -E -nostdinc -undef -D__DAMPF__=1` with dampf's own `<stdint.h>`.
   Do not let host headers or host macros in.
 - The grammar files under `compiler/src/main/antlr` are vendored unchanged from grammars-v4; changes to
