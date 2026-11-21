@@ -2,16 +2,6 @@
  * tolerance: 10
  * A constant stored into every element of a uint16_t array, by index with every counter type,
  * up and down, and by pointer. Was the style guide's slow-u16-counter-words.
- * gap: fill_u16 B6 the constant is loaded in the body every round; fill_do keeps it in A
- * gap: fill_u8 B6 the constant is loaded in the body every round; fill_do keeps it in A
- * gap: fill_i16 B6 the constant is loaded in the body every round; fill_do keeps it in A
- * gap: fill_u16_le B6 the constant is loaded in the body every round; fill_do keeps it in A
- * gap: fill_u16_ne B6 the constant is loaded in the body every round; fill_do keeps it in A
- * gap: fill_u16_down B6 the constant is loaded in the body every round; fill_do keeps it in A
- * gap: fill_u8_down B6 the constant is loaded in the body every round; fill_do keeps it in A
- * gap: fill_while B6 the constant is loaded in the body every round; fill_do keeps it in A
- * gap: fill_ptr_walk B6 the constant is loaded in the body every round; fill_do keeps it in A
- * gap: fill_ptr_end B6 the constant is loaded in the body every round; fill_do keeps it in A
  */
 #include <stdint.h>
 

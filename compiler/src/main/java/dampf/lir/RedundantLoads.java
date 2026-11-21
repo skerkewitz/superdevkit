@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Removes loads of a value the register holds already, by what {@link RegContents} finds on every
@@ -21,15 +22,245 @@ public final class RedundantLoads {
     private static final int ALL = N | Z | C | V;
 
     private final RegContents contents;
+    /** Whether the function returns a value in A (RTL reads A); true where unknown. */
+    private final boolean resultInA;
 
     public RedundantLoads() {
+        this(true);
+    }
+
+    public RedundantLoads(boolean resultInA) {
         this.contents = new RegContents();
+        this.resultInA = resultInA;
     }
 
     /** Removes (or turns into CMP #0) the redundant loads; returns how many changed. */
     public int run(LFunction f) {
-        int hoisted = hoist(f);
+        int hoisted = 0;
+        for (int round = 0; round < 64 && hoistOverTest(f) > 0; round++) {
+            hoisted++;   // one at a time: a load moved changes what the registers hold after it
+        }
+        hoisted += hoist(f);
         return hoisted + remove(f);
+    }
+
+    /**
+     * A load of A that starts a loop's body, whose only way in is the loop's test (B6 of
+     * docs/current-compiler-flaws.md): where the test reads and writes no A, and A is not read
+     * where the loop is left, the load can be thought of at the test's start, and moves to the
+     * ways into the test that do not hold it already (the entry), as {@link #hoist} does. The
+     * back edge holds it when the body leaves A as it was: a constant stored every round is
+     * loaded once, before the loop. The body lies on the loop (it reaches the test again) and the
+     * ways that get the load do not (the test does not reach them): a load after the loop never
+     * moves into it. Moves one load; returns 1, or 0 where there is none.
+     */
+    int hoistOverTest(LFunction f) {
+        Map<LBlock, RegContents.State> entries = contents.entries(f);
+        Map<LBlock, Integer> flagsOut = flagsLiveOut(f);
+        Map<LBlock, Boolean> aLive = aLiveOut(f);
+        Map<LBlock, List<LBlock>> preds = new IdentityHashMap<>();
+        for (LBlock b : f.blocks()) {
+            for (LBlock t : b.successors()) {
+                preds.computeIfAbsent(t, k -> new ArrayList<>()).add(b);
+            }
+        }
+        for (LBlock b : f.blocks()) {
+            List<LBlock> in = preds.getOrDefault(b, List.of());
+            List<LInstr> code = b.instrs();
+            if (in.size() != 1 || code.isEmpty() || b == f.blocks().getFirst()) {
+                continue;
+            }
+            LBlock h = in.getFirst();
+            LBlock via = b;
+            if (h.successors().size() == 1 && h.instrs().size() == 1 && !h.instrs().getFirst().fallsThrough()
+                    && preds.getOrDefault(h, List.of()).size() == 1) {
+                via = h;               // the long form of the test's branch: a block that only jumps to b
+                h = preds.get(h).getFirst();
+            }
+            LInstr load = code.getFirst();
+            LOperand op = load.op();
+            if (h == b || h.successors().size() != 2 || !h.successors().contains(via) || !load.mnemonic().equals("lda")
+                    || !load.m16() || op == null
+                    || !(op instanceof LOperand.Imm || op instanceof LOperand.Mem m && m.index() == LOperand.Index.NONE && !m.indirect())) {
+                continue;
+            }
+            LBlock exit = h.successors().get(0) == via ? h.successors().get(1) : h.successors().get(0);
+            if (exit == b || aLiveAtStart(exit, aLive) || !leavesA(h) || !reaches(b, h)) {
+                continue;
+            }
+            // the flags of the load in b are not read, nor N and Z where the test starts
+            int live = flagsOut.getOrDefault(b, 0);
+            for (int k = code.size() - 1; k > 0; k--) {
+                live = (live & ~writes(code.get(k))) | reads(code.get(k));
+            }
+            int atTest = flagsOut.getOrDefault(h, 0);
+            for (int k = h.instrs().size() - 1; k >= 0; k--) {
+                atTest = (atTest & ~writes(h.instrs().get(k))) | reads(h.instrs().get(k));
+            }
+            if ((live & (N | Z)) != 0 || (atTest & (N | Z)) != 0) {
+                continue;
+            }
+            List<LBlock> missing = new ArrayList<>();
+            boolean someHold = false;
+            boolean ok = true;
+            for (LBlock p : preds.getOrDefault(h, List.of())) {
+                RegContents.State st = entries.get(p);
+                if (st == null) {
+                    ok = false;
+                    break;
+                }
+                for (LInstr i : p.instrs()) {
+                    st = contents.after(i, st);
+                }
+                RegContents.State loaded = contents.after(new LInstr("lda", op, null, true, load.x16(), false), st);
+                for (LInstr i : h.instrs()) {
+                    st = contents.after(i, st);   // (the test may write the loaded place)
+                    loaded = contents.after(i, loaded);
+                }
+                if (st.a().contains(op)) {
+                    someHold = true;
+                    continue;
+                }
+                if (!loaded.a().contains(op)) {
+                    ok = false;            // the test writes the loaded place: a load before it is stale in b
+                    break;
+                }
+                LInstr last = p.last();
+                boolean jumps = last != null && switch (last.mnemonic()) {
+                    case "jmp", "bra", "brl" -> true;
+                    default -> false;
+                };
+                if (p.successors().size() != 1 || longBranch(p, preds) || last != null && !jumps && !last.fallsThrough()
+                        || last != null && (last.m16() != load.m16() || last.x16() != load.x16())) {
+                    ok = false;
+                    break;
+                }
+                if (reaches(h, p)) {
+                    ok = false;            // p is on the loop: the load would run every round
+                    break;
+                }
+                missing.add(p);
+            }
+            if (!ok || !someHold || missing.isEmpty()) {
+                continue;
+            }
+            for (LBlock p : missing) {
+                List<LItem> items = p.items();
+                LInstr last = p.last();
+                boolean jumps = last != null && !last.fallsThrough();
+                items.add(jumps ? items.lastIndexOf(last) : items.size(), new LInstr("lda", op, null, true, load.x16(), false));
+            }
+            b.items().remove(load);
+            f.rebuild(f.items());
+            return 1;
+        }
+        return 0;
+    }
+
+    /** Whether a path of one edge or more leads from a to b. */
+    private static boolean reaches(LBlock a, LBlock b) {
+        java.util.Set<LBlock> seen = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        java.util.ArrayDeque<LBlock> work = new java.util.ArrayDeque<>(a.successors());
+        while (!work.isEmpty()) {
+            LBlock x = work.pop();
+            if (x == b) {
+                return true;
+            }
+            if (seen.add(x)) {
+                work.addAll(x.successors());
+            }
+        }
+        return false;
+    }
+
+    /** Whether the test block's code leaves A alone: it neither reads nor writes it. */
+    private static boolean leavesA(LBlock h) {
+        for (LInstr i : h.instrs()) {
+            switch (i.mnemonic()) {
+                case "cpx", "cpy", "ldx", "ldy", "inx", "iny", "dex", "dey", "stx", "sty",
+                     "bcc", "bcs", "beq", "bne", "bmi", "bpl", "bvc", "bvs", "bra", "brl", "jmp", "clc", "sec" -> { }
+                default -> {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    /** Instructions that read no byte of A. */
+    private static final java.util.Set<String> NO_A = java.util.Set.of("ldx", "ldy", "stx", "sty", "stz", "inx", "iny", "dex",
+            "dey", "cpx", "cpy", "txy", "tyx", "tsx", "txs", "clc", "sec", "cli", "sei", "clv", "rep", "sep", "bra", "brl", "jmp",
+            "jml", "beq", "bne", "bcc", "bcs", "bmi", "bpl", "bvc", "bvs", "nop", "phx", "phy", "plx", "ply", "txa", "tya", "pla",
+            "tdc", "tsc");
+
+    private boolean readsA(LInstr i) {
+        String m = i.mnemonic();
+        if (m.equals("rtl") || m.equals("rts")) {
+            return resultInA;
+        }
+        if (m.equals("jsl") || m.equals("jsr")) {
+            return !(i.op() instanceof LOperand.Label l) || l.name().startsWith("dampf_");
+        }
+        if (m.equals("lda")) {
+            return !i.m16();
+        }
+        if (Set.of("inc", "dec", "asl", "lsr", "rol", "ror").contains(m)) {
+            return i.op() == null || i.op() instanceof LOperand.Acc;
+        }
+        return !NO_A.contains(m);
+    }
+
+    private static boolean writesA(LInstr i) {
+        return switch (i.mnemonic()) {
+            case "lda", "txa", "tya", "pla", "tdc", "tsc" -> i.m16();
+            default -> false;
+        };
+    }
+
+    /** Whether A is read at the end of each block before it is written. */
+    private Map<LBlock, Boolean> aLiveOut(LFunction f) {
+        Map<LBlock, Boolean> in = new IdentityHashMap<>();
+        Map<LBlock, Boolean> out = new IdentityHashMap<>();
+        boolean changed = true;
+        while (changed) {
+            changed = false;
+            for (int k = f.blocks().size() - 1; k >= 0; k--) {
+                LBlock b = f.blocks().get(k);
+                boolean live = false;
+                for (LBlock s : b.successors()) {
+                    live |= in.getOrDefault(s, false);
+                }
+                out.put(b, live);
+                List<LInstr> code = b.instrs();
+                for (int j = code.size() - 1; j >= 0; j--) {
+                    if (writesA(code.get(j))) {
+                        live = false;
+                    }
+                    if (readsA(code.get(j))) {
+                        live = true;
+                    }
+                }
+                if (in.getOrDefault(b, false) != live) {
+                    in.put(b, live);
+                    changed = true;
+                }
+            }
+        }
+        return out;
+    }
+
+    private boolean aLiveAtStart(LBlock b, Map<LBlock, Boolean> aLiveOut) {
+        boolean live = aLiveOut.getOrDefault(b, true);
+        List<LInstr> code = b.instrs();
+        for (int j = code.size() - 1; j >= 0; j--) {
+            if (writesA(code.get(j))) {
+                live = false;
+            }
+            if (readsA(code.get(j))) {
+                live = true;
+            }
+        }
+        return live;
     }
 
     /**

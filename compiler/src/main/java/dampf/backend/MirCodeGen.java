@@ -167,7 +167,8 @@ public final class MirCodeGen {
             assignPlaces(lf);
             checkPlaces(f, lf);
             lf.rebuild(lf.items().stream().filter(it -> !(it instanceof dampf.lir.LMark)).toList());
-            limit.apply("RedundantLoads", f.name(), () -> new RedundantLoads().run(lf));
+            boolean resultInA = f.result() != MType.VOID;
+            limit.apply("RedundantLoads", f.name(), () -> new RedundantLoads(resultInA).run(lf));
             limit.apply("IndexInY", f.name(), () -> new IndexInY().run(lf));
             limit.apply("Peephole", f.name(), () -> new Peephole(Selection.FRAME_START).run(lf));
             limit.apply("ByteStretches", f.name(), () -> ByteStretches.run(lf));

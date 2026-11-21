@@ -16,7 +16,7 @@ default of `dampf build`) selects instructions once per function (`Selection` an
 kind of instruction, with `FrameLayout` proposing the places); the places get their addresses on
 the code (`PlaceColouring`, checked by `PlaceCheck`, ADR record 48), and some go to X or Y
 instead where that saves cycles (`RegisterChoice`); the LIR passes then remove loads of what a
-register holds (`RedundantLoads`, `IndexInY`, on `RegContents`), apply peephole rules
+register holds or move them out of a loop (`RedundantLoads`, `IndexInY`, on `RegContents`), apply peephole rules
 (`Peephole`), run short 16-bit stretches between byte stores in 8 bits (`ByteStretches`), drop a
 `CLC` or `SEC` where the carry is known (`KnownCarry`) and remove stores nobody
 reads (`DeadStores`), choose the branch forms (`BranchRelax`) and number the local labels

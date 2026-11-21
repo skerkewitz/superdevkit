@@ -1514,3 +1514,14 @@ before the register choice runs: where X holds something, it writes an index loa
 (`LDY i / LDA t,Y`), which then keeps Y from a better candidate (the count in `pairs`), while
 without that choice Schach does 1.8 % more work. Above the price of ADR record 24 for a step, so
 the patterns stay; the register choice takes what they leave.
+
+## A constant kept in A over a loop with its test at the top (2026-11-21, on the spelling families)
+
+`RedundantLoads` moves a load that starts a loop's body over the loop's test to the entry, where
+the test leaves A alone (`CPX`, branches) and A is not read after the loop (B6): a constant
+stored in every round is loaded once. The spellings of `fill-words` cost 1,233 → 1,044, against
+1,035 of `fill_do`, whose load moved to the entry already; their ten gaps are closed. Steinschlag's
+`hud_clear` has a worst case of 1,057 instead of 1,246. The examples, the pair loops and the other
+spelling families are the same. A first version also moved the load after a loop into the loop
+when the entry held the value and the body did not (Catch Me's `best_load`, 547 → 571 in the
+worst case): the load must lie on the loop, and the ways that get it must not.

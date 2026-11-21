@@ -83,4 +83,65 @@ class RedundantLoadsTest {
         new RedundantLoads().run(f);
         assertEquals(before, code(f));
     }
+
+    @Test
+    void aConstantTheBodyLoadsMovesBeforeTheLoopsTest() {
+        // for (i = 0; i < n; i++) t[i] = c: the body's LDA #c moves to the entry; the test (CPX)
+        // leaves A alone, and the function returns nothing, so A is dead after the loop
+        LFunction f = function(
+                ins("ldx", "#$0000"),
+                ins("bra", "test"),
+                "body:",
+                ins("lda", "#$0C01"),
+                ins("sta", "_w,x"),
+                ins("inx", null),
+                "test:",
+                ins("cpx", "#$0040"),
+                ins("bcc", "body"),
+                ins("rtl", null));
+        new RedundantLoads(false).run(f);
+        assertEquals(List.of("ldx #$0000", "lda #$0C01", "bra test", "sta _w,x", "inx", "cpx #$0040", "bcc body", "rtl"), code(f));
+    }
+
+    @Test
+    void notWhereTheFunctionReturnsA() {
+        LFunction f = function(
+                ins("ldx", "#$0000"),
+                ins("bra", "test"),
+                "body:",
+                ins("lda", "#$0C01"),
+                ins("sta", "_w,x"),
+                ins("inx", null),
+                "test:",
+                ins("cpx", "#$0040"),
+                ins("bcc", "body"),
+                ins("rtl", null));
+        new RedundantLoads(true).run(f);
+        assertEquals(List.of("ldx #$0000", "bra test", "lda #$0C01", "sta _w,x", "inx", "cpx #$0040", "bcc body", "rtl"), code(f));
+    }
+
+    @Test
+    void aLoadAfterTheLoopDoesNotMoveIntoIt() {
+        // the entry leaves _k in A, the body does not: the load after the loop (also reached only
+        // from the test) would move to the end of the body and run every round (catchme's best_load)
+        LFunction f = function(
+                ins("lda", "_k"),
+                ins("ldx", "#$0000"),
+                ins("bra", "test"),
+                "body:",
+                ins("txa", null),
+                ins("sta", "_w,x"),
+                ins("inx", null),
+                "test:",
+                ins("cpx", "#$0007"),
+                ins("bcc", "body"),
+                ins("bra", "done"),
+                "done:",
+                ins("lda", "_k"),
+                ins("sta", "_m"),
+                ins("rtl", null));
+        List<String> before = code(f);
+        new RedundantLoads(false).hoistOverTest(f);
+        assertEquals(before, code(f));
+    }
 }

@@ -736,6 +736,10 @@ is at the top, the load starts the body, whose only way in is the test: it can m
 only where A is dead after the loop, which needs the liveness of A on the LIR (`RTL` reads A
 unless the function returns nothing) (`fill_u16` and the other spellings of `fill-words`, 1,233).
 
+Built (2026-11-21): `RedundantLoads.hoistOverTest`, as described; the test may be reached through
+the long form of its branch, and must neither read nor write A. The spellings of `fill-words`
+cost 1,044, `fill_do` 1,035.
+
 ## Flaw K: no decision uses the cost model
 
 **What is wrong.** dampf knows the exact cycles of every instruction, and has a static timing

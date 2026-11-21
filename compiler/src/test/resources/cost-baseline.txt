@@ -820,16 +820,16 @@ spelling copy copy_u16 2517
 spelling copy copy_u8 2517
 spelling copy copy_while_n 2517
 spelling fill-words fill_do 1035
-spelling fill-words fill_i16 1233
-spelling fill-words fill_ptr_end 1233
-spelling fill-words fill_ptr_walk 1233
-spelling fill-words fill_u16 1233
-spelling fill-words fill_u16_down 1233
-spelling fill-words fill_u16_le 1233
-spelling fill-words fill_u16_ne 1233
-spelling fill-words fill_u8 1233
-spelling fill-words fill_u8_down 1233
-spelling fill-words fill_while 1233
+spelling fill-words fill_i16 1044
+spelling fill-words fill_ptr_end 1044
+spelling fill-words fill_ptr_walk 1044
+spelling fill-words fill_u16 1044
+spelling fill-words fill_u16_down 1044
+spelling fill-words fill_u16_le 1044
+spelling fill-words fill_u16_ne 1044
+spelling fill-words fill_u8 1044
+spelling fill-words fill_u8_down 1044
+spelling fill-words fill_while 1044
 spelling pairs pairs_down 37827
 spelling pairs pairs_hoisted 35323
 spelling pairs pairs_i16 35323
@@ -922,7 +922,7 @@ steinschlag _game_vblank 1442
 steinschlag _high_byte 41
 steinschlag _high_shift 18
 steinschlag _hud -1
-steinschlag _hud_clear 1246
+steinschlag _hud_clear 1057
 steinschlag _hud_gems -1
 steinschlag _hud_lives -1
 steinschlag _hud_number -1
