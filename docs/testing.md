@@ -101,7 +101,8 @@ values like −32768, where sign and overflow handling go wrong:
 
 A failure names its seed and the command that runs that program alone (`-PrandomSeed=S
 -Prandom=1`); `dev/bisect_passes.sh` with that command names the pass that broke it.
-`dev/random_soak.sh` runs 5,000 of each before a release.
+`dev/random_soak.sh` runs 5,000 of each before a release, in shares that run at once (as many
+as half the cores, `JOBS=n` to change it).
 
 **The examples** (`ExamplesTest`, ADR record 38) build each example in `examples/` for the SNES
 and play the input of its `check.txt` in dampf's emulator, through the kit's own main loop; where

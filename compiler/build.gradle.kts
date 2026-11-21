@@ -93,6 +93,17 @@ tasks.test {
     if (coverage) finalizedBy(tasks.jacocoTestReport)
 }
 
+// The class path of the tests in a file, for dev/random_soak.sh, which runs several shares of the
+// random programs at once as plain Java processes (dampf.exec.RandomSoak)
+tasks.register("soakClasspath") {
+    dependsOn(tasks.testClasses)
+    val classpath = sourceSets.test.get().runtimeClasspath
+    val out = layout.buildDirectory.file("soak/classpath.txt")
+    inputs.files(classpath)
+    outputs.file(out)
+    doLast { out.get().asFile.writeText(classpath.asPath) }
+}
+
 jacoco {
     toolVersion = "0.8.16"
 }

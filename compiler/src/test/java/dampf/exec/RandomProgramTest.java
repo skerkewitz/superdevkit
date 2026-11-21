@@ -25,7 +25,7 @@ import org.junit.jupiter.api.io.TempDir;
  * (version 2: arrays, counted loops, helpers, pointers, the optimizer's loop passes) with 50 seeds
  * a day, from {@code LocalDate.now().toEpochDay() * 1000}, so every day tries new programs.
  * {@code -Prandom=N} runs N programs of each, {@code -PrandomSeed=S} starts both at seed S;
- * {@code dev/random_soak.sh} runs thousands before a release.
+ * {@code dev/random_soak.sh} runs thousands before a release, in shares at once ({@link RandomSoak}).
  */
 class RandomProgramTest {
     @TempDir
@@ -35,21 +35,34 @@ class RandomProgramTest {
         return Integer.getInteger("dampf.random.count", 50);
     }
 
+    static final String RANDOM = "randomProgramsMatchGcc";
+    static final String LOOP = "loopProgramsMatchGcc";
+
     @TestFactory
     Stream<DynamicTest> randomProgramsMatchGcc() {
-        long first = Long.getLong("dampf.random.seed", 1);
+        long first = Long.getLong("dampf.random.seed", firstSeed(RANDOM));
         return LongStream.range(first, first + count()).mapToObj(seed -> DynamicTest.dynamicTest("seed " + seed,
-                () -> check(seed, new RandomProgram(seed).generate(10, 30), "randomProgramsMatchGcc")));
+                () -> check(seed, RANDOM, tmp)));
     }
 
     @TestFactory
     Stream<DynamicTest> loopProgramsMatchGcc() {
-        long first = Long.getLong("dampf.random.seed", LocalDate.now().toEpochDay() * 1000);
+        long first = Long.getLong("dampf.random.seed", firstSeed(LOOP));
         return LongStream.range(first, first + count()).mapToObj(seed -> DynamicTest.dynamicTest("seed " + seed,
-                () -> check(seed, new RandomLoopProgram(seed).generate(), "loopProgramsMatchGcc")));
+                () -> check(seed, LOOP, tmp)));
     }
 
-    private void check(long seed, String program, String factory) {
+    /** The first seed of a generator when none is given: 1, or today's for the loop programs. */
+    static long firstSeed(String factory) {
+        return factory.equals(LOOP) ? LocalDate.now().toEpochDay() * 1000 : 1;
+    }
+
+    /**
+     * Runs the program of a generator ({@link #RANDOM} or {@link #LOOP}) with this seed on the PC
+     * and on the SNES, in a folder of its own under tmp; throws (an AssertionError) if they differ.
+     */
+    static void check(long seed, String factory, Path tmp) {
+        String program = factory.equals(LOOP) ? new RandomLoopProgram(seed).generate() : new RandomProgram(seed).generate(10, 30);
         String again = "seed " + seed + " (again: ./gradlew :compiler:test --tests 'dampf.exec.RandomProgramTest." + factory
                 + "' -PrandomSeed=" + seed + " -Prandom=1)";
         assertTimeoutPreemptively(java.time.Duration.ofMinutes(2), () -> {

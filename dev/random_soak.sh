@@ -6,15 +6,47 @@
 #   dev/random_soak.sh                 5,000 of each, today's seeds
 #   dev/random_soak.sh 20000           20,000 of each
 #   dev/random_soak.sh 5000 1234000    starting at seed 1234000
+#   JOBS=4 dev/random_soak.sh          at most 4 Java processes at once (default: half the cores)
+# The programs of each generator are split into JOBS shares; each share is one Java process
+# (dampf.exec.RandomSoak, up to 2 GB of heap) that checks its programs one after another, as
+# RandomProgramTest does. The logs are in build/soak/. The JVMs compile with C1 only and collect
+# with one thread: with C2, eight of them spent two thirds of the machine's time compiling
+# (100 programs of each: 133 s with C2, 95 s with C1). JAVA_OPTS replaces these options.
 set -e
 cd "$(dirname "$0")/.."
 COUNT=${1:-5000}
-if [ -n "$2" ]; then
-    SEED="-PrandomSeed=$2"
-else
-    SEED=""
+JOBS=${JOBS:-$(( $(nproc) / 2 ))}
+[ "$JOBS" -ge 1 ] || JOBS=1
+./gradlew -q :compiler:soakClasspath
+CP=$(cat compiler/build/soak/classpath.txt)
+OUT=$(pwd)/build/soak
+rm -rf "$OUT"
+mkdir -p "$OUT"
+JAVA="java -Xmx2g ${JAVA_OPTS:--XX:+UseSerialGC -XX:TieredStopAtLevel=1} -Ddampf.include=compiler/src/main/resources/dampf/include -cp $CP dampf.exec.RandomSoak"
+SHARE=$(( (COUNT + JOBS - 1) / JOBS ))
+for gen in loop random; do
+    first=${2:-$($JAVA first $gen)}
+    done=0
+    while [ "$done" -lt "$COUNT" ]; do
+        n=$SHARE
+        [ $(( done + n )) -le "$COUNT" ] || n=$(( COUNT - done ))
+        echo "$gen $(( first + done )) $n"
+        done=$(( done + n ))
+    done
+done > "$OUT/shares.txt"
+echo "$(wc -l < "$OUT/shares.txt") shares of up to $SHARE programs, $JOBS at once"
+# each share: its log, and its last line (the count) when it ends
+xargs -P "$JOBS" -L 1 sh -c "$JAVA \"\$0\" \"\$1\" \"\$2\" \"$OUT/tmp-\$0-\$1\" > \"$OUT/\$0-\$1.log\" 2>&1; tail -n 1 \"$OUT/\$0-\$1.log\"" \
+    < "$OUT/shares.txt" || true
+rm -rf "$OUT"/tmp-*
+FAILURES=$(grep -h " FAILED: " "$OUT"/*.log | cut -c1-300 || true)
+if [ -n "$FAILURES" ]; then
+    echo "$FAILURES"
+    echo "random programs FAILED (the messages in $OUT/*.log)"
+    exit 1
 fi
-# one Gradle run per generator: the test task stops after 2 hours, and 5,000 loop programs take
-# about 85 minutes
-./gradlew :compiler:test --tests 'dampf.exec.RandomProgramTest.loopProgramsMatchGcc' -Prandom="$COUNT" $SEED
-./gradlew :compiler:test --tests 'dampf.exec.RandomProgramTest.randomProgramsMatchGcc' -Prandom="$COUNT" $SEED
+if [ "$(grep -l " failed$" "$OUT"/*.log | wc -l)" -ne "$(wc -l < "$OUT/shares.txt")" ]; then
+    echo "a share did not finish (see $OUT/*.log)"
+    exit 1
+fi
+echo "random programs: all $(( COUNT * 2 )) passed"
