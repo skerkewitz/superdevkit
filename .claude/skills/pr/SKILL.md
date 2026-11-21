@@ -11,11 +11,48 @@ and worktree. The user reviews on GitHub; Claude merges after the approval and c
 
 Paths and names used below:
 
-- `MAIN` = `/home/tropper/develop_projects/superdevkit`, the main checkout. It stays on
-  `develop`. Never edit, build, commit or switch branches in it. The one exception is the
-  fast-forward after a merge (see `merge`).
-- `WT` = `/home/tropper/develop_projects/superdevkit-wt/<branch>`, the worktree of a change.
+- `MAIN` = the main checkout, the folder that holds the repository's `.git`. From any worktree:
+  `dirname "$(git rev-parse --path-format=absolute --git-common-dir)"`. It stays on `develop`.
+  Never edit, build, commit or switch branches in it. The one exception is the fast-forward
+  after a merge (see `merge`).
+- `WT` = `MAIN/../superdevkit-wt/<branch>`, the worktree of a change, in a folder next to the
+  main checkout.
 - `REPO` = `skerkewitz/superdevkit`.
+
+## Everything sent to GitHub is public
+
+The repository will be public one day, and with it every pull request, comment, commit message
+and committed file. GitHub keeps the edit history of descriptions and comments, and a merge
+commit keeps the commits of its branch, so neither an edit nor a later commit takes text back.
+Before every `git push`, `gh pr create`, `gh pr edit`, `gh pr comment` and `gh api ... -f body=`,
+check what goes out (the new commits' diff and messages, and the text) for:
+
+- paths on the user's machine: home folders, WSL mounts (`/mnt/<drive>/`), Windows drives and
+  user folders, the session's scratchpad, `/tmp/claude-*`. Name a place by its path in the
+  repository (`tools/`, `docs/testing.md`) or say where it is ("next to the main checkout").
+  Paths already in the repository may be quoted as they are;
+- user names, host names, email addresses (the author line of a commit is the exception), and
+  anything else about the user's machine or accounts;
+- passwords, tokens and keys (`github_pat_`, `ghp_`, `gho_`, private key blocks, cloud keys),
+  and files that hold them (`.env`, `*.pem`, credential files, `.claude/settings.local.json`);
+- anything from Claude's memory or the conversation that the repository does not already
+  contain. Some of the user's plans are private on purpose; when unsure, leave it out or ask;
+- the game's code and data (ADR record 40): say what a change means for the game without
+  quoting it.
+
+The mechanical part of the check, for the lines a branch adds and for a text before it is sent:
+
+```
+LEAK='/home/|/Users/|/mnt/[a-z]/|[A-Za-z]:\\|/tmp/claude|github_pat_|gh[opsu]_[A-Za-z0-9]{20}|PRIVATE KEY|AKIA[0-9A-Z]{16}|password *[:=]'
+git -C WT diff origin/develop... | grep '^+' | grep -nE "$LEAK"
+git -C WT log --format=%B origin/develop.. | grep -nE "$LEAK"
+grep -nE "$LEAK" <text file>
+```
+
+Look at every hit; a hit can be harmless (this skill's own pattern, a path that is in the
+repository already). The pattern does not find the rest of the list above: read the text for
+it. If something has already gone out, stop and tell the user what and where. Removing it
+takes a force-push or the deletion of a revision on GitHub, and that is the user's decision.
 
 ## Invocation
 
@@ -68,7 +105,8 @@ fold a second change into the branch.
 3. Write the description to a file in the scratchpad, following the template below and the
    `sker-natural-writing` skill. It is written for the user reviewing on GitHub, who has not
    watched the work.
-4. Open it:
+4. Check the branch and the description for leaks (see "Everything sent to GitHub is public").
+5. Open it:
 
    ```
    gh pr create -R REPO --base develop --head <branch> --title "<title>" --body-file <file>
