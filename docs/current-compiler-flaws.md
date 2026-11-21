@@ -715,7 +715,10 @@ the spelling family `pairs` 7 %. What is left is selection's choice of Y for an 
 holds something else, made before the register choice runs (it keeps Y from the count in
 `pairs`, and Schach needs it: 1.8 % without it). The patterns stay until the choice of the index
 register moves into `RegisterChoice` as well; the `xHolds`/`yHolds` bookkeeping with them.
-Registers across calls are not built.
+Registers across calls are not built: measured (2026-11-21, in dampf's emulator), the examples
+call 3 (Mode 7) to 65 (Schach) functions a tick, nearly all of them large ones that use X
+themselves (`make_move`, `attacked`, `next`); keeping a value in X across all of them would save
+at most 0.35 % of Schach's work and less elsewhere. Small leaf functions are inlined (K4).
 
 ### B4. A convention for A is not part of this
 
