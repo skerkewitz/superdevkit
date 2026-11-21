@@ -15,7 +15,10 @@ import java.util.Set;
  * constant or a value from outside the loop) becomes a variable of its own that starts at the
  * same expression on the start value and grows by {@code a * c}: an addition per round instead
  * of the arithmetic. That is done for a value with a factor a other than 1 (the offset of
- * {@code array[i]} for an array of structs, {@code (i - 1) * 2}, {@code r * 16 + c} of a table).
+ * {@code array[i]} for an array of structs, {@code (i - 1) * 2}, {@code r * 16 + c} of a table);
+ * where the counter stays (something else reads it), not for a factor of 2 or 4: one or two
+ * shifts where the value is read cost less than a second variable carried from round to round
+ * (K2 of docs/current-compiler-flaws.md, measured on the examples).
  *
  * <p>If nothing but such values, the step and one loop test read the counter, every one becomes
  * a variable (also {@code i - 1} and {@code r * 16 + c}), and the test moves to the first
@@ -543,6 +546,10 @@ public final class Induction {
         for (Instr l : leaves) {
             if (!goes && af.factor(l) == 1) {
                 continue;   // i + b beside i: nothing saved
+            }
+            long a2 = Math.abs((long) (short) MType.I16.wrap(af.factor(l)));
+            if (!goes && (a2 == 2 || a2 == 4)) {
+                continue;   // beside i, one or two shifts where it is read cost less than a second variable (K2)
             }
             Ranges.Range r = ri == null ? null : af.range(l, ri, ranges, loop.head());
             // the same a * i + b, however it is computed, is one variable

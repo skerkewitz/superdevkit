@@ -3,7 +3,7 @@
 # Written by BackendOutputTest with -PbackendOutput=update; its diff shows what got slower.
 catchme _actors_draw 7068
 catchme _actors_hide 152
-catchme _actors_reset 770
+catchme _actors_reset 730
 catchme _actors_scare 363
 catchme _add_score -1
 catchme _aligned 40
@@ -117,7 +117,7 @@ catchme _sfx_dsp -1
 catchme _sfx_upload -1
 catchme _sfx_upload_begin -1
 catchme _sfx_upload_end -1
-catchme _sfx_voice 1790
+catchme _sfx_voice 1666
 catchme _sfx_voices_frame -1
 catchme _sfx_voices_init -1
 catchme _sfx_voices_play 158
@@ -145,7 +145,7 @@ ertuep _begin 443
 ertuep _big 283
 ertuep _boss_aim_y 72
 ertuep _boss_collide 212951
-ertuep _boss_draw 167892
+ertuep _boss_draw 157717
 ertuep _boss_start 37647
 ertuep _boss_update 19469
 ertuep _boss_vblank 2351
@@ -160,30 +160,30 @@ ertuep _bullets_update 6545
 ertuep _caps_flying 465
 ertuep _carousel_aim_y 20
 ertuep _carousel_collide 68912
-ertuep _carousel_draw 3226
+ertuep _carousel_draw 3150
 ertuep _carousel_start 7679
 ertuep _carousel_update 19365
 ertuep _carousel_view 1783
 ertuep _cell_entry 51
 ertuep _chair_radius 46
-ertuep _checkpoint_before 299
+ertuep _checkpoint_before 329
 ertuep _checkpoint_reached 155
 ertuep _coin_ring 5154
 ertuep _collect 16721
 ertuep _collide -1
 ertuep _cos1024 77
-ertuep _crate_grow 730
+ertuep _crate_grow 662
 ertuep _crate_update 502
-ertuep _crate_volley 1967
+ertuep _crate_volley 1909
 ertuep _crown_damage 5825
 ertuep _damage 5876
 ertuep _dartboard 1757
 ertuep _dicecup 1214
 ertuep _dma0 94
 ertuep _dma_source 61
-ertuep _draw_all 295173
+ertuep _draw_all 284454
 ertuep _draw_bullets 7865
-ertuep _draw_enemies 92554
+ertuep _draw_enemies 92010
 ertuep _draw_items 4657
 ertuep _draw_parts 4829
 ertuep _draw_player 1356
@@ -193,7 +193,7 @@ ertuep _draw_title_logo 15757
 ertuep _effects 5822
 ertuep _effects_vblank 460
 ertuep _end_of_stage 6770
-ertuep _ending 255965
+ertuep _ending 255907
 ertuep _enemies_update 180006
 ertuep _enemy_destroyed 157277
 ertuep _enemy_hit 157365
@@ -207,7 +207,7 @@ ertuep _festzelt_unload 24
 ertuep _festzelt_vblank 296
 ertuep _festzelt_view 4038
 ertuep _finish 10794
-ertuep _fire 2846
+ertuep _fire 2788
 ertuep _fire_at_ship 967
 ertuep _fire_cork 1024
 ertuep _fly 381
@@ -222,12 +222,12 @@ ertuep _high_shift 18
 ertuep _hop 249
 ertuep _hud_blank_below 13329
 ertuep _hud_clear_row1 1041
-ertuep _hud_crate 645
+ertuep _hud_crate 577
 ertuep _hud_lives 248
 ertuep _hud_message 5777
 ertuep _hud_pfand 10353
 ertuep _hud_pfand_at 10325
-ertuep _hud_play 17161
+ertuep _hud_play 17103
 ertuep _hud_put 60
 ertuep _hud_sekt 134
 ertuep _hud_text 4159
@@ -236,7 +236,7 @@ ertuep _in_box 106
 ertuep _item_spawn 494
 ertuep _items_update 5752
 ertuep _kettle_collide 212918
-ertuep _kettle_update 12752
+ertuep _kettle_update 12612
 ertuep _load_stage_gfx 3539
 ertuep _lose_life 284
 ertuep _machine_collide 76066
@@ -258,14 +258,14 @@ ertuep _memset_6 3014638
 ertuep _memset_7 3874
 ertuep _mettigel 1235
 ertuep _near 144
-ertuep _new_game 224876
+ertuep _new_game 224818
 ertuep _objects_clear 16273
 ertuep _organ 5001
 ertuep _overlap 119
 ertuep _part_spawn 178
 ertuep _parts_update 2165
 ertuep _path_at 1684
-ertuep _picture 295249
+ertuep _picture 284530
 ertuep _place_chairs 8309
 ertuep _play -1
 ertuep _player_start 76
@@ -273,7 +273,7 @@ ertuep _player_update 19209
 ertuep _pretzel 270
 ertuep _random16 68
 ertuep _receipts 1044
-ertuep _respawn 224658
+ertuep _respawn 224600
 ertuep _room_at 39
 ertuep _scaled 457
 ertuep _sdevkit__frame -1
@@ -343,7 +343,7 @@ ertuep _sfx_dsp -1
 ertuep _sfx_upload -1
 ertuep _sfx_upload_begin -1
 ertuep _sfx_upload_end -1
-ertuep _sfx_voice 1790
+ertuep _sfx_voice 1666
 ertuep _sfx_voices_frame -1
 ertuep _sfx_voices_init -1
 ertuep _sfx_voices_play 158
@@ -354,7 +354,7 @@ ertuep _shots_update 9302
 ertuep _sin1024 72
 ertuep _sine 24
 ertuep _slot 10962
-ertuep _slot_machine 5599
+ertuep _slot_machine 5565
 ertuep _slot_reel 271
 ertuep _small 274
 ertuep _solid_at 180
@@ -367,13 +367,13 @@ ertuep _stage_scroll 7294
 ertuep _stage_select 149
 ertuep _stage_start 170148
 ertuep _stage_vblank 2664
-ertuep _start_demo 231466
+ertuep _start_demo 231340
 ertuep _start_ruckel 5789
 ertuep _stein 5569
 ertuep _step 41
 ertuep _sway 1552
 ertuep _sway_init 1639
-ertuep _tentacles 3196
+ertuep _tentacles 3087
 ertuep _title 236308
 ertuep _title_stage 3809
 ertuep _toward 185
@@ -463,7 +463,7 @@ hello _sfx_dsp -1
 hello _sfx_upload -1
 hello _sfx_upload_begin -1
 hello _sfx_upload_end -1
-hello _sfx_voice 1790
+hello _sfx_voice 1666
 hello _sfx_voices_frame -1
 hello _sfx_voices_init -1
 hello _sfx_voices_play 158
@@ -552,7 +552,7 @@ mandelbrot _sfx_dsp -1
 mandelbrot _sfx_upload -1
 mandelbrot _sfx_upload_begin -1
 mandelbrot _sfx_upload_end -1
-mandelbrot _sfx_voice 1790
+mandelbrot _sfx_voice 1666
 mandelbrot _sfx_voices_frame -1
 mandelbrot _sfx_voices_init -1
 mandelbrot _sfx_voices_play 158
@@ -640,7 +640,7 @@ mode7 _sfx_dsp -1
 mode7 _sfx_upload -1
 mode7 _sfx_upload_begin -1
 mode7 _sfx_upload_end -1
-mode7 _sfx_voice 1790
+mode7 _sfx_voice 1666
 mode7 _sfx_voices_frame -1
 mode7 _sfx_voices_init -1
 mode7 _sfx_voices_play 158
@@ -657,16 +657,16 @@ schach _book_find -1
 schach _book_init 14
 schach _book_seed 15
 schach _chess_hash 665
-schach _chess_init 4947350
+schach _chess_init 4932758
 schach _child -1
 schach _clear_promotion 2582
 schach _console_turn -1
 schach _dma0 94
 schach _dma_source 61
 schach _draw_board -1
-schach _draw_labels 8406
+schach _draw_labels 7986
 schach _draw_level -1
-schach _draw_moves 123198
+schach _draw_moves 123519
 schach _draw_promotion -1
 schach _draw_sprites 492
 schach _draw_square 375
@@ -716,9 +716,9 @@ schach _player -1
 schach _player_turn -1
 schach _promote -1
 schach _repeated 7902
-schach _repetitions 23263
+schach _repetitions 23260
 schach _rnd32 1468
-schach _score_moves 25165534
+schach _score_moves 23789289
 schach _sdevkit__frame -1
 schach _sdevkit__oam_upload 94
 schach _sdevkit__read_pads -1
@@ -779,18 +779,18 @@ schach _sdevkit_set_screen_on -1
 schach _sdevkit_sfx_init -1
 schach _sdevkit_sfx_play 158
 schach _sdevkit_sram 11
-schach _search_clear 86037
+schach _search_clear 67601
 schach _search_run -1
 schach _search_start -1
-schach _set_fen 81171
-schach _set_start 81192
+schach _set_fen 80527
+schach _set_start 80548
 schach _set_x8 733
-schach _setup_from_board 44805
+schach _setup_from_board 44161
 schach _sfx_dsp -1
 schach _sfx_upload -1
 schach _sfx_upload_begin -1
 schach _sfx_upload_end -1
-schach _sfx_voice 1790
+schach _sfx_voice 1666
 schach _sfx_voices_frame -1
 schach _sfx_voices_init -1
 schach _sfx_voices_play 158
@@ -830,12 +830,12 @@ spelling fill-words fill_u16_ne 1044
 spelling fill-words fill_u8 1044
 spelling fill-words fill_u8_down 1044
 spelling fill-words fill_while 1044
-spelling pairs pairs_down 37827
-spelling pairs pairs_hoisted 35323
-spelling pairs pairs_i16 35323
+spelling pairs pairs_down 37897
+spelling pairs pairs_hoisted 34864
+spelling pairs pairs_i16 34864
 spelling pairs pairs_ptr 34864
-spelling pairs pairs_u16 35323
-spelling pairs pairs_u8 35323
+spelling pairs pairs_u16 34864
+spelling pairs pairs_u8 34864
 spelling search find_break_u16 2361
 spelling search find_break_u8 2361
 spelling search find_cond_u16 2361
@@ -1002,7 +1002,7 @@ steinschlag _sfx_dsp -1
 steinschlag _sfx_upload -1
 steinschlag _sfx_upload_begin -1
 steinschlag _sfx_upload_end -1
-steinschlag _sfx_voice 1790
+steinschlag _sfx_voice 1666
 steinschlag _sfx_voices_frame -1
 steinschlag _sfx_voices_init -1
 steinschlag _sfx_voices_play 158

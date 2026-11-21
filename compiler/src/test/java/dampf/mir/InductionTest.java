@@ -388,4 +388,44 @@ class InductionTest {
             }
         }
     }
+
+    @Test
+    void besideACounterThatStaysAWordIndexIsShiftedWhereItIsRead() {
+        // the counter is also added to the sum, so it stays: i * 2 gets no variable of its own
+        // (one shift where it is read costs less than a second variable, K2); i * 3 does
+        String text = """
+                global @_w : 240
+
+                func @_words() -> i16 {
+                b0_entry:
+                    jump b1
+                b1:
+                    %0 = phi i16 [b0_entry, 0], [b2, %5]
+                    %1 = phi i16 [b0_entry, 0], [b2, %6]
+                    %2 = cmp ult i16 %0, 40
+                    br %2, b2, b3
+                b2:
+                    %3 = mul i16 %0, FACTOR
+                    %7 = ptradd @_w, i16 %3
+                    %8 = load i16 %7
+                    %9 = add i16 %8, %0
+                    %6 = add i16 %1, %9
+                    %5 = add i16 %0, 1
+                    jump b1
+                b3:
+                    ret i16 %1
+                }
+                """;
+        for (int factor : new int[] { 2, 3 }) {
+            String program = text.replace("FACTOR", Integer.toString(factor));
+            MModule plain = MirParser.parse(program);
+            MModule optimized = MirParser.parse(program);
+            Optimizer.run(optimized, true, false);
+            String words = Printer.print(optimized.function("_words"));
+            long phis = words.lines().filter(l -> l.contains("= phi")).count();
+            assertEquals(factor == 2 ? 2 : 3, phis, words);
+            assertEquals(new Interpreter(plain, 1_000_000).call("_words", List.of()),
+                    new Interpreter(optimized, 1_000_000).call("_words", List.of()));
+        }
+    }
 }

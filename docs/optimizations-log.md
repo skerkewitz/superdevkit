@@ -1551,3 +1551,15 @@ The examples, against the code before: Ertüp −0.8 %, Schach −0.1 %, the res
 mean −0.1 %. The spelling family `copy` 2,517 → 1,823; the kit's start-up (`sdevkit__reset_ppu`)
 12,307 → 8,737 in the worst case. No function's worst case got slower; the pair loops are the
 same.
+
+## No second variable for a word index beside a counter that stays (2026-11-21, on the examples)
+
+`Induction` made a variable of its own for every `a * i + b` with a factor other than 1, also
+where the counter stays because something else reads it; the loop then carries both (K2). Four
+rules were measured against that, with the counter staying: no new variable at all (Steinschlag
++14.8 %, the pair loops A, B and D up to +0.9 %: out); none for the factor 2; none for 2 and 4;
+none for 2, 4 and 8 (Mode 7's `make_tiles` slower). None for 2 and 4, one or two shifts where
+the value is read, was the best and is the rule: Schach −0.3 %, Ertüp −0.15 %, the rest the same;
+geometric mean −0.1 %. Slower: the pair loop D +0.2 %, and in the worst case Ertüp's
+`checkpoint_before` 299 → 329 (its counter is read after the loop), Schach's `draw_moves` +0.3 %
+and `pairs_down` +0.2 %; Schach's `score_moves` −5.5 % and `search_clear` −21 % among the faster.

@@ -779,7 +779,10 @@ slower for reasons [optimizations.md](optimizations.md#tried-and-rejected) could
 
 Built (2026-11-20): K3 as described, from the MIR builds `BackendOutputTest` makes of the
 examples and one build per spelling member; the test also fails when the file is not current.
-K1 (2026-11-21) as `Weights`, used by B3.
+K1 (2026-11-21) as `Weights`, used by B3. K2 (2026-11-21) measured as rules rather than as the
+count of carried values: with the counter staying, no new variable at all made Steinschlag 15 %
+slower; none for the factors 2 and 4 (one or two shifts where the value is read) was the best of
+four variants (Schach −0.3 %, Ertüp −0.15 %), and is the rule now.
 
 ## Order of work
 
