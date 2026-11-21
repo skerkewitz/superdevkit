@@ -120,4 +120,45 @@ class InlineTest {
         assertEquals(1, copies.size(), Printer.print(m.function("_main")));
         assertEquals(new Ranges.Range(0, 128), copies.getFirst().known);
     }
+
+    /** A function of about 200 instructions (above the limit for one call site): a chain of additions, with a loop if asked. */
+    private static String large(String name, boolean loop) {
+        StringBuilder sb = new StringBuilder("func @" + name + "(i16 %x) -> i16 {\nb0_entry:\n");
+        String last = "%x";
+        if (loop) {
+            sb.append("    jump b1\nb1:\n    %l0 = phi i16 [b0_entry, %x], [b2, %l1]\n    %l2 = cmp ult i16 %l0, 9\n")
+                    .append("    br %l2, b2, b3\nb2:\n    %l1 = add i16 %l0, 1\n    jump b1\nb3:\n");
+            last = "%l0";
+        }
+        for (int k = 0; k < 200; k++) {
+            sb.append("    %a").append(k).append(" = ").append(k % 2 == 0 ? "add" : "xor").append(" i16 ").append(last)
+                    .append(", ").append(k + 3).append("\n");
+            last = "%a" + k;
+        }
+        return sb.append("    ret i16 ").append(last).append("\n}\n").toString();
+    }
+
+    /** A caller: one call of callee in a loop of 4 rounds, or before it. */
+    private static String caller(String name, String callee, boolean inLoop) {
+        String call = "    %c = call i16 @" + callee + "(i16 %0)\n";
+        return "func @" + name + "() -> i16 {\nb0_entry:\n" + (inLoop ? "" : call.replace("%0)", "7)"))
+                + "    jump b1\nb1:\n    %0 = phi i16 [b0_entry, 0], [b2, %2]\n    %1 = phi i16 [b0_entry, 0], [b2, %3]\n"
+                + "    %4 = cmp ult i16 %0, 4\n    br %4, b2, b3\nb2:\n" + (inLoop ? call : "")
+                + "    %3 = add i16 %1, " + (inLoop ? "%c" : "%c") + "\n    %2 = add i16 %0, 1\n    jump b1\nb3:\n    ret i16 %1\n}\n";
+    }
+
+    @Test
+    void aLargeFunctionCalledOnceInALoopIsInlinedWhereItHasNoLoop() {
+        String program = large("_plain", false) + large("_once", false) + large("_looping", true)
+                + caller("_inLoop", "_plain", true) + caller("_before", "_once", false) + caller("_withLoop", "_looping", true);
+        MModule plain = MirParser.parse(program);
+        MModule inlined = MirParser.parse(program);
+        Optimizer.run(inlined, true);
+        assertFalse(Printer.print(inlined.function("_inLoop")).contains("call"), "a call in every round goes");
+        assertTrue(Printer.print(inlined.function("_before")).contains("call"), "a call outside a loop stays (above 150)");
+        assertTrue(Printer.print(inlined.function("_withLoop")).contains("call"), "a callee with a loop of its own stays");
+        for (String f : List.of("_inLoop", "_before", "_withLoop")) {
+            assertEquals(new Interpreter(plain, 1_000_000).call(f, List.of()), new Interpreter(inlined, 1_000_000).call(f, List.of()), f);
+        }
+    }
 }

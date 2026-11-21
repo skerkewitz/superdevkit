@@ -906,7 +906,7 @@ steinschlag _add_score -1
 steinschlag _approach 183
 steinschlag _blast 491427
 steinschlag _camera 448
-steinschlag _cave_scan_rows 392762850
+steinschlag _cave_scan_rows 392767638
 steinschlag _cave_start -1
 steinschlag _cave_tick_begin 24
 steinschlag _cell_changed 279

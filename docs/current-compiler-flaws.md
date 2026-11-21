@@ -782,7 +782,13 @@ examples and one build per spelling member; the test also fails when the file is
 K1 (2026-11-21) as `Weights`, used by B3. K2 (2026-11-21) measured as rules rather than as the
 count of carried values: with the counter staying, no new variable at all made Steinschlag 15 %
 slower; none for the factors 2 and 4 (one or two shifts where the value is read) was the best of
-four variants (Schach −0.3 %, Ertüp −0.15 %), and is the rule now.
+four variants (Schach −0.3 %, Ertüp −0.15 %), and is the rule now. K4 (2026-11-21): the
+inlining limits measured on the examples (60 and 150 against 40, 80 and 120 for any callee, 100,
+300 and 600 for one call site): no pair is best for all, Steinschlag −14 % with 600 for one call
+site where Ertüp and Mandelbrot got slower. The gain was one call in every round of a loop
+(Steinschlag's `fall`); a local rule takes it: one call site in a loop, to a callee without a
+loop of its own, up to 600 instructions (Steinschlag −15.8 %, no example slower). Building both
+ways or `--tune` are not built: no measured case needs them now.
 
 ## Order of work
 

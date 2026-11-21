@@ -14,13 +14,20 @@ import java.util.Map;
  * field are shared, and so on.
  *
  * <p>Inlined are functions of at most {@link #SMALL} instructions, and functions with a single
- * call site of at most {@link #SINGLE} instructions, as long as the caller stays below
- * {@link #CALLER_LIMIT}. Callees are inlined bottom-up: the call graph has no cycles, so the
+ * call site of at most {@link #SINGLE} instructions, or {@link #SINGLE_IN_LOOP} where that call
+ * lies in a loop of the caller and the callee has no loop of its own (the call is paid in every
+ * round), as long as the caller stays below {@link #CALLER_LIMIT}. Callees are inlined bottom-up: the call graph has no cycles, so the
  * leaves first, then the functions that called them.
  */
 public final class Inline {
     static final int SMALL = 60;
     static final int SINGLE = 150;
+    /**
+     * A single call site in a loop, of a callee without loops (K4 of
+     * docs/current-compiler-flaws.md: Steinschlag's {@code fall}, called for every cell; a callee
+     * with a loop of its own made Mandelbrot slower when inlined so).
+     */
+    static final int SINGLE_IN_LOOP = 600;
     static final int CALLER_LIMIT = 1500;
 
     private Inline() {}
@@ -63,7 +70,9 @@ public final class Inline {
                         if (i instanceof Instr.Call c && i.block() == b) {
                             MFunction callee = m.function(c.callee);
                             int n = size(callee);
-                            boolean small = n <= SMALL || n <= SINGLE && sites.getOrDefault(c.callee, 0) == 1;
+                            boolean single = sites.getOrDefault(c.callee, 0) == 1
+                                    && (n <= SINGLE || n <= SINGLE_IN_LOOP && inLoop(f, b) && Loops.find(callee).isEmpty());
+                            boolean small = n <= SMALL || single;
                             if (callee != f && small && size(f) + n <= CALLER_LIMIT && limit.allows()) {
                                 inline(f, c, callee);
                                 limit.count("Inline " + callee.name(), f.name());
@@ -84,6 +93,16 @@ public final class Inline {
             }
         }
         return changed;
+    }
+
+    /** Whether block b lies in a loop of f. */
+    private static boolean inLoop(MFunction f, Block b) {
+        for (Loops.Loop l : Loops.find(f)) {
+            if (l.blocks().contains(b)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     static int size(MFunction f) {
