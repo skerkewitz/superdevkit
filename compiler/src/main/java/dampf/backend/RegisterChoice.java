@@ -143,7 +143,131 @@ final class RegisterChoice {
                 n += chosen;
             }
         }
+        if (n > 0) {
+            dropFlagTransfers(lf);
+        }
         return n;
+    }
+
+    /** N and Z describe the value of: A, X, Y (bits), as far as known. */
+    private static final int NZ_A = 1;
+    private static final int NZ_X = 2;
+    private static final int NZ_Y = 4;
+
+    /** Which registers' values N and Z describe after i, given before (a bit set of NZ_A, NZ_X, NZ_Y). */
+    private static int nzAfter(LInstr i, int before) {
+        String m = i.mnemonic();
+        if ((RedundantLoads.writes(i) & (RedundantLoads.N | RedundantLoads.Z)) == 0) {
+            // the flags stay; a register that changes without setting them is no longer described
+            boolean a = writesA(i) || readsA(i) && !m.equals("sta") && !m.equals("pha") && !m.startsWith("t") && !m.equals("cmp");
+            int out = before;
+            if (writes(i, Reg.X)) {
+                out &= ~NZ_X;
+            }
+            if (writes(i, Reg.Y)) {
+                out &= ~NZ_Y;
+            }
+            if (a || m.equals("rep") || m.equals("sep")) {
+                out &= ~NZ_A;
+            }
+            return m.equals("rep") || m.equals("sep") ? 0 : out;
+        }
+        if (!i.m16() || !i.x16()) {
+            return 0;
+        }
+        return switch (m) {
+            case "txa", "tax" -> NZ_A | NZ_X;
+            case "tya", "tay" -> NZ_A | NZ_Y;
+            case "ldx", "inx", "dex", "plx", "tyx" -> NZ_X;
+            case "ldy", "iny", "dey", "ply", "txy" -> NZ_Y;
+            case "lda", "and", "ora", "eor", "adc", "sbc", "pla", "xba" -> NZ_A;
+            case "asl", "lsr", "rol", "ror", "inc", "dec" -> i.op() == null || i.op() instanceof LOperand.Acc ? NZ_A : 0;
+            default -> 0;
+        };
+    }
+
+    /**
+     * Takes out a {@code TXA} or {@code TYA} that only sets N and Z for a branch where they describe
+     * that register on every way in already (a loop test after {@code DEX}, entered after
+     * {@code LDX}), A not read afterwards and the carry untouched by both.
+     */
+    private static void dropFlagTransfers(LFunction lf) {
+        Map<LBlock, List<LBlock>> preds = new IdentityHashMap<>();
+        for (LBlock b : lf.blocks()) {
+            for (LBlock t : b.successors()) {
+                preds.computeIfAbsent(t, k -> new ArrayList<>()).add(b);
+            }
+        }
+        Map<LBlock, Integer> out = new IdentityHashMap<>();
+        boolean changed = true;
+        while (changed) {
+            changed = false;
+            for (LBlock b : lf.blocks()) {
+                int st = entry(b, lf, preds, out);
+                for (LItem it : b.items()) {
+                    // (a φ copy becomes LDA / STA, which sets N and Z from what it copies)
+                    st = it instanceof LInstr i ? nzAfter(i, st) : it instanceof LCopy ? 0 : st;
+                }
+                if (!Integer.valueOf(st).equals(out.get(b))) {
+                    out.put(b, st);
+                    changed = true;
+                }
+            }
+        }
+        Map<LBlock, Boolean> aLive = aLiveOut(lf);
+        boolean any = false;
+        for (LBlock b : lf.blocks()) {
+            List<LItem> items = b.items();
+            // A read after each instruction, backwards
+            Map<LItem, Boolean> aAfter = new IdentityHashMap<>();
+            boolean live = aLive.getOrDefault(b, true);
+            for (int k = items.size() - 1; k >= 0; k--) {
+                aAfter.put(items.get(k), live);
+                if (items.get(k) instanceof LInstr i) {
+                    if (writesA(i)) {
+                        live = false;
+                    }
+                    if (readsA(i)) {
+                        live = true;
+                    }
+                }
+            }
+            int st = entry(b, lf, preds, out);
+            for (int k = 0; k < items.size(); k++) {
+                if (items.get(k) instanceof LCopy) {
+                    st = 0;
+                }
+                if (!(items.get(k) instanceof LInstr i)) {
+                    continue;
+                }
+                int described = i.mnemonic().equals("txa") ? NZ_X : i.mnemonic().equals("tya") ? NZ_Y : 0;
+                if (described != 0 && (st & described) != 0 && !aAfter.get(i) && i.m16() && i.x16()) {
+                    items.remove(k--);
+                    any = true;
+                    continue;
+                }
+                st = nzAfter(i, st);
+            }
+        }
+        if (any) {
+            lf.rebuild(lf.items());
+        }
+    }
+
+    /** What N and Z describe where b starts: on every way in (nothing for the first block). */
+    private static int entry(LBlock b, LFunction lf, Map<LBlock, List<LBlock>> preds, Map<LBlock, Integer> out) {
+        if (b == lf.blocks().getFirst()) {
+            return 0;
+        }
+        int st = NZ_A | NZ_X | NZ_Y;
+        List<LBlock> in = preds.getOrDefault(b, List.of());
+        if (in.isEmpty()) {
+            return 0;
+        }
+        for (LBlock p : in) {
+            st &= out.getOrDefault(p, NZ_A | NZ_X | NZ_Y);
+        }
+        return st;
     }
 
     /**
@@ -830,9 +954,18 @@ final class RegisterChoice {
                 && m.index() == LOperand.Index.NONE && !m.indirect() && m.owner().word() == 0;
     }
 
-    /** A small constant step: ADC #1 to #3 after CLC, or SBC #1 to #3 after SEC; its size, else 0. */
+    /**
+     * A small constant step: ADC #1 to #3 (or #-1 to #-3, as MIR writes x - c) after CLC, or SBC
+     * #1 to #3 after SEC; its size, else 0.
+     */
     private static int step(LInstr i, LInstr carry) {
-        if (!(i.op() instanceof LOperand.Imm k) || k.value() == null || k.value() < 1 || k.value() > 3 || !i.m16()) {
+        if (!(i.op() instanceof LOperand.Imm k) || k.value() == null || !i.m16()) {
+            return 0;
+        }
+        if (i.mnemonic().equals("adc") && carry.mnemonic().equals("clc") && k.value() >= 0xFFFD) {
+            return (int) (k.value() - 0x10000);
+        }
+        if (k.value() < 1 || k.value() > 3) {
             return 0;
         }
         if (i.mnemonic().equals("adc") && carry.mnemonic().equals("clc")) {

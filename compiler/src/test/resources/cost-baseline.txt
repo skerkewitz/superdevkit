@@ -166,7 +166,7 @@ ertuep _carousel_update 19365
 ertuep _carousel_view 1783
 ertuep _cell_entry 51
 ertuep _chair_radius 46
-ertuep _checkpoint_before 311
+ertuep _checkpoint_before 299
 ertuep _checkpoint_reached 155
 ertuep _coin_ring 5154
 ertuep _collect 16721

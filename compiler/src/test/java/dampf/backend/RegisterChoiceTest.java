@@ -320,4 +320,31 @@ class RegisterChoiceTest {
             assertEquals(true, out.subList(0, adc).contains("tyx") || out.subList(0, adc).contains("ldx v"), out.toString());
         }
     }
+
+    @Test
+    void aCounterGoingDownStepsWithDexAndTestsTheFlagsOfIt() {
+        // v = 126; loop: t[v] = 1; v = v - 2 (ADC #$FFFE, as MIR writes it); while v >= 0: the
+        // step is DEX DEX, and the test needs no TXA (N describes X on both ways in)
+        assertEquals(List.of("ldx #$007E", "bra test", "body:", "lda #$0001", "sta _t,x", "dex", "dex", "test:", "bpl body", "rtl"),
+                chooseWithLabels(ins("lda", new LOperand.Imm("$007E")), ins("sta", place(V)), ins("bra", new LOperand.Label("test")),
+                        new dampf.lir.LLabel("body"),
+                        ins("lda", new LOperand.Imm("$0001")), ins("ldx", place(V)), ins("sta", global("_t", LOperand.Index.X)),
+                        ins("clc"), ins("lda", place(V)), ins("adc", new LOperand.Imm("$FFFE")), ins("sta", place(V)),
+                        new dampf.lir.LLabel("test"),
+                        ins("lda", place(V)), ins("bpl", new LOperand.Label("body"))));
+    }
+
+    @Test
+    void aTransferForTheFlagsStaysAfterAPhiCopy() {
+        // LDY sets N and Z from Y, but the φ copy between (LDA / STA once expanded) sets them from A:
+        // the TYA before BEQ stays (a random loop program, seed 32199)
+        List<String> out = chooseWithLabels(ins("lda", global("_g", LOperand.Index.NONE)), ins("sta", place(V)),
+                new LCopy(place(W), place(P)),
+                ins("lda", place(V)), ins("beq", new LOperand.Label("done")),
+                ins("lda", place(W)), ins("sta", global("_o", LOperand.Index.NONE)),
+                new dampf.lir.LLabel("done"),
+                ins("ldy", place(V)), ins("lda", global("_t", LOperand.Index.Y)), ins("sta", global("_o2", LOperand.Index.NONE)));
+        int beq = out.indexOf("beq done");
+        assertEquals(true, beq > 0 && !out.get(beq - 1).startsWith("copy") && !out.get(beq - 1).startsWith("sta"), out.toString());
+    }
 }

@@ -1495,3 +1495,22 @@ compared the wrong number; the soak found it after the commit). A store the load
 no longer counts as holding the place where a load is left out; to judge only what
 `RedundantLoads` would do (the commutative form) it still does. No code of the tests or the
 examples changed.
+
+## Counters going down, and loop tests on the flags of X (2026-11-21, on the examples); the patterns stay
+
+`RegisterChoice` takes `CLC / ADC #-1` to `#-3` (MIR writes x - c as x + -c) as `DEX`, and after
+the choice drops a `TXA` or `TYA` that only sets N and Z for a branch where they describe that
+register on every way in already (a loop test after `DEX`, entered after `LDX`); a φ copy between
+counts as setting them (it becomes `LDA` / `STA`: two random loop programs, seeds 32199 and 33005,
+branched on the wrong value before that). The examples, against the code before: Hello −0.2 %,
+Ertüp −0.1 %, Catch Me −0.1 %, Schach −0.1 %; geometric mean −0.1 %; no function's worst case
+changed.
+
+Deleting selection's patterns (`findXCounters`, `findYIndexes`, `IndexInY`) was tried (B3): the
+examples did 0.2 % more work (Ertüp 0.8 %), the pair loops B, C and D 0.5 to 3.2 % more, the
+spelling family `pairs` 7 % more and `fill_u16_down` 20 % more. Two causes were found and closed
+(the steps going down and the flags above); what is left is mostly a choice selection makes
+before the register choice runs: where X holds something, it writes an index load with Y
+(`LDY i / LDA t,Y`), which then keeps Y from a better candidate (the count in `pairs`), while
+without that choice Schach does 1.8 % more work. Above the price of ADR record 24 for a step, so
+the patterns stay; the register choice takes what they leave.

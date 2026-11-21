@@ -700,8 +700,14 @@ read afterwards, from the liveness of A on the LIR), and calls taken for what th
 write X and Y, read neither): 1.5 % less again. `LDX q` for a load and a store, flags kept
 where they describe A, and calls that take no A: 0.5 % less again. Splitting (a register for
 one loop, loaded before it and stored after it) and an index in Y addressed with Y: 0.2 % less
-again. Without the patterns the examples are still 0.2 % slower (Ertüp 0.9 %); registers across
-calls are not built.
+again; counters going down (`DEX`) and loop tests on the flags of X: 0.1 % less again.
+
+Deleting the patterns was tried after that: the examples 0.2 % slower, the pair loops up to 3.2 %,
+the spelling family `pairs` 7 %. What is left is selection's choice of Y for an index where X
+holds something else, made before the register choice runs (it keeps Y from the count in
+`pairs`, and Schach needs it: 1.8 % without it). The patterns stay until the choice of the index
+register moves into `RegisterChoice` as well; the `xHolds`/`yHolds` bookkeeping with them.
+Registers across calls are not built.
 
 ### B4. A convention for A is not part of this
 
