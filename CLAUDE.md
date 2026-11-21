@@ -8,6 +8,11 @@ superdevkit home that a game outside the repository uses (the book's Getting sta
 Read README.md first (what and why), then docs/roadmap.md (milestones and their state) and
 docs/architecture.md; the other docs are linked from the README.
 
+- Every change goes through a pull request (ADR record 50): its own branch from `origin/develop`
+  in its own worktree in `superdevkit-wt/` next to the main checkout, a pull request into
+  `develop`, merged by Claude after the user's approval. A release is a pull request from
+  `develop` into `main` and a tag. The steps are the `pr` skill. The main checkout stays on
+  `develop`: never edit, build or switch branches in it.
 - Build and test: `./gradlew build`. The execution, random and replay tests run in dampf's own
   emulator (`dampf.emu`, validated against the SingleStepTests suite and against Mesen); the
   execution tests also run in Mesen when `.mesen/` exists (not in git; `dev/fetch_mesen.sh` puts

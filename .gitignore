@@ -5,7 +5,7 @@ build/
 *.iml
 out/
 .vscode/
-.mesen/
+.mesen
 node_modules/
 tools/lab_test/test-results/
 tools/lab_test/playwright-report/
