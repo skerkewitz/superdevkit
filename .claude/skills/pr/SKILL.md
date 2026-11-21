@@ -150,6 +150,27 @@ out if there is nothing.
 Scale it to the change. A one-line fix gets a sentence under What and one under Verified; a
 week of optimisation gets tables.
 
+## Changes to an open pull request
+
+Every push to a pull request that is already open gets a comment, so the user can follow what
+changed since they last looked. This holds whatever caused the change: a review comment, the
+user's word in the session, something Claude found itself, a merge of `develop`, a resolved
+conflict. After the push, one comment per push:
+
+```
+🤖 <short title of the fix>
+
+Problem: what was wrong or missing, and how it came up (review comment, own check, failed build).
+Fix: what was changed and why this way.
+Commits: <hash> <subject>, ...
+Verified: what was run again and what came out.
+```
+
+Post it with `gh pr comment <N> -R REPO --body-file <file>`, after the leak check. A merge of
+`develop` without conflicts needs only a line ("Merged develop at <hash>; build passed"). If the
+fix changes what the description says, update the description too (`gh pr edit`), and say so in
+the comment.
+
 ## feedback
 
 1. Read everything on the pull request:
@@ -172,8 +193,8 @@ week of optimisation gets tables.
    gh api repos/REPO/pulls/<N>/comments/<id>/replies -f body="🤖 ..."
    ```
 
-   and finish with one comment on the pull request that lists what changed, with the commits:
-   `gh pr comment <N> -R REPO --body-file <file>`.
+   and after the push write the comment of "Changes to an open pull request", one section per
+   point of the review.
 4. If the description no longer fits (new numbers, a changed approach), update it with
    `gh pr edit <N> -R REPO --body-file <file>`.
 

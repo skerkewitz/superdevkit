@@ -28,7 +28,8 @@ on GitHub.
   passwords, tokens or keys, and nothing from Claude's memory or the session that the repository
   does not already contain. The skill checks each push and each text before it is sent.
 - The user reviews on GitHub. Claude answers feedback with new commits on the same branch and
-  does not force-push while the review runs. The pull requests are opened from the user's GitHub
+  does not force-push while the review runs. Every push to an open pull request gets a comment
+  that says what the problem was and how it was fixed, whoever found it. The pull requests are opened from the user's GitHub
   account, and GitHub does not let an author approve their own pull request. The approval is
   therefore the user's word, in a comment on the pull request or in the session, and branch
   protection asks for a pull request but for no approving review.
