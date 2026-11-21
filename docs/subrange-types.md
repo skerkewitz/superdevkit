@@ -318,7 +318,7 @@ A list threaded through `bubbles[16]` has at most 16 elements **if it has no cyc
 
 ## 11. Where it fits into the milestones
 
-Decided 2026-11-17 (ADR [record 23](adr/0023-value-ranges-are-inferred-first-and-subrange-types.md)):
+Decided 2026-11-17 ([ADR-6F0R6Q5P](adr/6F0R6Q5P-value-ranges-are-inferred-first-and-subrange-types.md)):
 the parts that need no language change come first, and declared subrange types only when a
 profile shows a hot value whose range dampf cannot infer. That last part (`DAMPF_RANGED`,
 `DAMPF_AS`, the types carried through the front end, the checks of sections 5 and 6, the debug

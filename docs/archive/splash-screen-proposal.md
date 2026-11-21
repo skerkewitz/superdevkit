@@ -1,7 +1,7 @@
 # Proposal: a splash screen in every game made with superdevkit
 
-Archived 2026-11-19: built (ADR record 37,
-[../adr/0037-every-game-starts-with-the-kit-s-splash-screen.md](../adr/0037-every-game-starts-with-the-kit-s-splash-screen.md)),
+Archived 2026-11-19: built (ADR-6F60Z5JJ,
+[../adr/6F60Z5JJ-every-game-starts-with-the-kit-s-splash-screen.md](../adr/6F60Z5JJ-every-game-starts-with-the-kit-s-splash-screen.md)),
 with two changes by the user: no movement besides the fades, and the logo stays three seconds; a
 button pressed while it fades in or stays ends it once it has faded in. So "Movement" below is not
 built, and the splash cannot be switched off, only shortened. The picture is made by
@@ -100,7 +100,7 @@ judgement, not legal advice.
 - A jingle with it, once the kit has sound effects ([sound-effects-proposal.md](sound-effects-proposal.md))?
   Short, a few KB of BRR, loaded with the effects and played as the logo fades in.
 - PAL: two seconds are 100 frames there, not 120; the splash counts time in frames, so it lasts a
-  sixth longer on PAL, as the games do (ADR record 36).
+  sixth longer on PAL, as the games do (ADR-6F60Z4AZ).
 
 ## Steps
 

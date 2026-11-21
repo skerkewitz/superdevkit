@@ -1,11 +1,11 @@
 ---
 name: pr
-description: The kit's workflow for every change, from branch to release (ADR records 50 and 51). Start a change on its own branch and worktree made from develop, open its pull request into develop with what changed, how it was verified and what follows from it, answer review comments on GitHub, merge after the user's approval and clean up; and make a release (version pull request into develop, pull request from develop into main, tag). Use it for every change to the repository, when the user asks to implement or fix something, to open or update a pull request, to look at feedback on a PR, to merge one, or to make a release, or invokes /pr.
+description: The kit's workflow for every change, from branch to release (ADR-6FB9QJ3R and ADR-6FB9QKSV). Start a change on its own branch and worktree made from develop, open its pull request into develop with what changed, how it was verified and what follows from it, answer review comments on GitHub, merge after the user's approval and clean up; and make a release (version pull request into develop, pull request from develop into main, tag). Use it for every change to the repository, when the user asks to implement or fix something, to open or update a pull request, to look at feedback on a PR, to merge one, or to make a release, or invokes /pr.
 ---
 
 # pr: every change through a pull request
 
-The rules are in ADR records 50 and 51. In short: `develop` is the next release and `main` holds
+The rules are in ADR-6FB9QJ3R and ADR-6FB9QKSV. In short: `develop` is the next release and `main` holds
 the released versions. Both change only through pull requests, and every change has its own
 branch and worktree. Claude works on GitHub as an app of its own. The user reviews and approves
 on GitHub; Claude merges after the approval and cleans up.
@@ -25,7 +25,7 @@ Paths and names used below:
 
 Every `gh` command, every `git push` and every git command that writes a commit or a tag
 (`commit`, a `merge` that is not a fast-forward, `rebase`, `tag`) runs through the
-`gh-as-bot` wrapper (ADR record 51): `gh-as-bot gh pr create ...`, `gh-as-bot git push ...`.
+`gh-as-bot` wrapper (ADR-6FB9QKSV): `gh-as-bot gh pr create ...`, `gh-as-bot git push ...`.
 It fetches a token of Claude's GitHub App for the one command and makes the app the git author
 and committer. A plain `gh` or `git push` acts as the user: never use one, and if the wrapper
 fails, stop and tell the user. The commands below all carry the wrapper. The wrapper reads
@@ -55,7 +55,7 @@ check what goes out (the new commits' diff and messages, and the text) for:
   and files that hold them (`.env`, `*.pem`, credential files, `.claude/settings.local.json`);
 - anything from Claude's memory or the conversation that the repository does not already
   contain. Some of the user's plans are private on purpose; when unsure, leave it out or ask;
-- the game's code and data (ADR record 40): say what a change means for the game without
+- the game's code and data (ADR-6F60Z819): say what a change means for the game without
   quoting it.
 
 The mechanical part of the check, for the lines a branch adds and for a text before it is sent:
@@ -150,7 +150,7 @@ What the change does, in a few sentences. The reason for it, if the title does n
 ## How
 
 How it is done, as much as a reviewer needs to read the diff: the approach, the files that
-matter, anything surprising. Decisions with an ADR record are cited by number.
+matter, anything surprising. Decisions with an ADR record are cited by their ID (`ADR-<ID>`).
 
 ## Verified
 
@@ -264,11 +264,11 @@ the comment.
 
 The user decides when `develop` is released. Two pull requests and a tag:
 
-1. Version. Propose the next one by the rule in the roadmap ("Versions", ADR record 45): the
+1. Version. Propose the next one by the rule in the roadmap ("Versions", ADR-6F60ZDMF): the
    last number rises, the middle one when a milestone is concluded. The user confirms it.
 2. Preparation, as a normal change: `start release-<version>`, then in `WT`:
    - `./gradlew checkBook`, then `/docs-gen stale` for the pages it lists, until `checkBook`
-     passes (ADR record 43);
+     passes (ADR-6F60ZB4N);
    - raise the version in `build.gradle.kts` and in the status line of `README.md`; if a
      milestone is concluded, mark it in `docs/roadmap.md`;
    - `./gradlew build`.

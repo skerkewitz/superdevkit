@@ -1,4 +1,4 @@
-# Sourced by the dev scripts that run a ROM in Mesen (ADR record 33: MesenCE, dev/fetch_mesen.sh).
+# Sourced by the dev scripts that run a ROM in Mesen (ADR-6F3CK1V6: MesenCE, dev/fetch_mesen.sh).
 # Sets MESEN, the executable: the one MESEN names, else the Linux build in .mesen/, else the
 # Windows build there (from WSL). MESEN_DIR is its folder, where the scripts put the ROM and the
 # Lua script; Mesen runs portable there and the scripts' relative file names land there too.

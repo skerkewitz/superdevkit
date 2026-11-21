@@ -104,7 +104,7 @@ A failure names its seed and the command that runs that program alone (`-Prandom
 `dev/random_soak.sh` runs 5,000 of each before a release, in shares that run at once (as many
 as half the cores, `JOBS=n` to change it).
 
-**The examples** (`ExamplesTest`, ADR record 38) build each example in `examples/` for the SNES
+**The examples** (`ExamplesTest`, ADR-6F60Z67N) build each example in `examples/` for the SNES
 and play the input of its `check.txt` in dampf's emulator, through the kit's own main loop; where
 raylib was fetched, the same input is played on the desktop (Rachael). After every tick both
 compute a checksum of the game's state: the bytes the game names with `sdevkit_dbg_hash`, then
@@ -155,7 +155,7 @@ tick's checksum must be the normal build's.
 Until 2026-11-19 a copy of Blubber Blasen's code was a layer of its own: its benchmark of 3,610
 ticks against a PC build, its recorded games played on both sides and through the platform layer
 in Mesen, the static timing checked on every call of the benchmark. The examples took those jobs
-over when it left ([ADR record 40](adr/0040-the-examples-replace-blubber-blasen-s-snapshot-as.md)).
+over when it left ([ADR-6F60Z819](adr/6F60Z819-the-examples-replace-blubber-blasen-s-snapshot-as.md)).
 
 ## Supporting pieces
 
@@ -172,7 +172,7 @@ over when it left ([ADR record 40](adr/0040-the-examples-replace-blubber-blasen-
     3,610 ticks, and the same master cycles per tick within a few cycles out of millions
     (`dampf bench`); and on every example's check, the same checksums every tick.
 - **GitHub Actions** (`.github/workflows/build.yml`) runs `./gradlew build` for every pull
-  request (ADR record 50), with JDK 25 on Ubuntu, the
+  request (ADR-6FB9QJ3R), with JDK 25 on Ubuntu, the
   runner's gcc, python3 and node, and Ubuntu's cc65 (ca65 and ld65 for `BackendOutputTest`). Mesen, raylib and Playwright are not there: the execution
   tests run in dampf's emulator only, and `DesktopIsolationTest` and the BRR Lab's browser tests
   skip. A pull request is merged only when this build passes.
@@ -211,7 +211,7 @@ over when it left ([ADR record 40](adr/0040-the-examples-replace-blubber-blasen-
   hash; one that changes code records new ones (`-PbackendOutput=update`, which also keeps a copy
   of the assembly in `build/backend-output-ref/` for diffing) together with the examples'
   benchmark (`dev/bench_examples.sh`) in [optimizations-log.md](optimizations-log.md), and never in the same step as a move (ADR
-  [record 24](adr/0024-a-refactoring-step-may-cost-about-1-speed-if-the.md)). It also reads every assembly file back as LIR
+  [ADR-6F3CJR10](adr/6F3CJR10-a-refactoring-step-may-cost-about-1-speed-if-the.md)). It also reads every assembly file back as LIR
   (the same text again, and the LIR verifier passes), and builds every ROM with ca65 and ld65 and
   with dampf's own assembler and linker: the images must be the same byte for byte, the label
   files must name the same addresses, and the debug files must say the same (`DbgMeaning`: the
@@ -224,7 +224,7 @@ over when it left ([ADR record 40](adr/0040-the-examples-replace-blubber-blasen-
   over another value's live byte) that runs in every compile.
 - **`BookSourcesTest`** checks the bookkeeping of the generated book pages: the lock, the
   specs' sources, the pages' markers. Whether the pages are current is `./gradlew checkBook`,
-  run before a release and not part of `build` (ADR record 43).
+  run before a release and not part of `build` (ADR-6F60ZB4N).
 - **Coverage and static analysis**, not part of `./gradlew build`: JaCoCo coverage
   (`-Pcoverage`, off by default because it slows the emulator), PMD (findings do not fail the
   build) and CPD for copied code.

@@ -2,7 +2,7 @@
 #define SDEVKIT_SNES_H
 
 /*
- * The console API of superdevkit (ADR records 29 and 34): how a game draws on the SNES. Every
+ * The console API of superdevkit (ADR-6F3CJX8T and ADR-6F3CK2AR): how a game draws on the SNES. Every
  * name a game can use starts with sdevkit_ or SDEVKIT_; nothing else of the kit is meant for it.
  *
  * lib/snes implements it on the console, compiled by dampf with the game; lib/rachael
@@ -146,7 +146,7 @@ extern uint8_t sdevkit_oam_memory[128 * 4 + 8 * 4];
 #define SDEVKIT_PPU_CGADSUB 0x31
 #define SDEVKIT_PPU_COLDATA 0x32
 
-/* --- PVSnesLib's functions, renamed (ADR record 34) ------------------------------------ */
+/* --- PVSnesLib's functions, renamed (ADR-6F3CK2AR) ------------------------------------ */
 /* video.h */
 void sdevkit_set_mode(uint8_t mode, uint8_t size);            /* BGMODE; shows BG1..BG3 and sprites on the main screen */
 void sdevkit_set_brightness(uint8_t level);              /* 0: screen off (forced blank), 1..15: on, that bright */
@@ -260,7 +260,7 @@ void sdevkit_sfx_init(const sdevkit_sfx_bank *bank);
  * without an active sample, or before sdevkit_sfx_init, does nothing. */
 void sdevkit_sfx_play(uint8_t id);
 
-/* --- Music (sdevkit_music_*, ADR record 32) ---------------------------------------------- */
+/* --- Music (sdevkit_music_*, ADR-6F3CK03Z) ---------------------------------------------- */
 /* A game's music is listed in its superdevkit.toml ([sound] music = ["assets/music/title.ogg",
  * ...]); the build writes music.h with a number per track (MUSIC_TITLE, ..., MUSIC_COUNT), never a
  * file name. On the desktop the track plays from its file (OGG, MP3, WAV, QOA, XM, MOD), over
@@ -270,7 +270,7 @@ void sdevkit_sfx_play(uint8_t id);
 void sdevkit_music_play(uint8_t track);
 void sdevkit_music_stop(void);
 
-/* --- Save RAM (sdevkit_sram, ADR record 32) ---------------------------------------------- */
+/* --- Save RAM (sdevkit_sram, ADR-6F3CK03Z) ---------------------------------------------- */
 /* Battery-backed RAM on the cartridge, kept while the console is off: high scores, settings, a
  * saved game. A game asks for it in its build (dampf --sram BYTES, which defines
  * SDEVKIT_SRAM_SIZE; the desktop build gets the same -DSDEVKIT_SRAM_SIZE); without, the size is
@@ -301,7 +301,7 @@ const uint16_t *sdevkit_dbg_vram(void);
  * memory itself. On Rachael it hashes. */
 void sdevkit_dbg_hash(const void *data, uint16_t bytes);
 
-/* The debug view (ADR record 32), on the desktop: F1 opens it beside the picture. A game registers
+/* The debug view (ADR-6F3CK03Z), on the desktop: F1 opens it beside the picture. A game registers
  * once, in game_init, what it wants to change while it runs, and the view lists it; per tick it
  * can draw boxes over the picture (collision boxes, a target). On the SNES the functions are empty
  * and dampf removes the calls, so the game needs no #ifdef. name is a string constant (the view

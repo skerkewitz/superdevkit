@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * The desktop build lets a game reach only the console API (ADR record 34, superdevkit build linux):
+ * The desktop build lets a game reach only the console API (ADR-6F3CK2AR, superdevkit build linux):
  * the host's headers are not there, and a function of raylib or libc declared by hand stops the
  * build. Skipped where raylib was not fetched (a superdevkit build linux before: the tests download nothing).
  */

@@ -1,5 +1,5 @@
 /*
- * The debug registrations on Rachael (ADR record 32): what the game registered for the desktop's
+ * The debug registrations on Rachael (ADR-6F3CK03Z): what the game registered for the desktop's
  * debug view (lib/desktop/view.c), and the boxes of the current tick. The frontend clears the
  * registrations at power on (sdevkit__dbg_reset, before game_init) and the boxes before each
  * game_tick.

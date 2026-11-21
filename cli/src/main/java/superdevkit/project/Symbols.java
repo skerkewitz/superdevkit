@@ -14,7 +14,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Checks that a game's object files reach nothing but superdevkit's console API (ADR record 34):
+ * Checks that a game's object files reach nothing but superdevkit's console API (ADR-6F3CK2AR):
  * every symbol they leave undefined is declared in the kit's public headers (read from them, so the
  * list cannot fall behind), defined by one of the game's own objects, or one the C compiler calls
  * on its own. Reads the objects itself: ELF (gcc, clang) and COFF (MSVC), so no nm is needed.
@@ -71,7 +71,7 @@ public final class Symbols {
             for (String u : tables.get(i).undefined) {
                 if (!allowed.contains(u)) {
                     bad.add(objects.get(i).getFileName() + ": uses " + u + ", which is not part of superdevkit's console API "
-                            + "(lib/include/sdevkit, ADR record 34)");
+                            + "(lib/include/sdevkit, ADR-6F3CK2AR)");
                 }
             }
         }

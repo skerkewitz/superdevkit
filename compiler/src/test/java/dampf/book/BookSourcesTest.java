@@ -17,7 +17,7 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * The bookkeeping of the generated pages: the lock, the specs' sources and the pages' markers.
  * Whether the pages are current is not checked here, since the book is brought in step before a
- * release, not with every change ({@code ./gradlew checkBook}, ADR record 43).
+ * release, not with every change ({@code ./gradlew checkBook}, ADR-6F60ZB4N).
  */
 class BookSourcesTest {
 

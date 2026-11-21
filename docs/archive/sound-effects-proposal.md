@@ -5,7 +5,7 @@ on purpose; this is about sound effects only.
 
 ## What a game sees
 
-A game calls `sdevkit_sfx_play(SFX_JUMP)` where something happens, as ADR record 32 has it. The
+A game calls `sdevkit_sfx_play(SFX_JUMP)` where something happens, as ADR-6F3CK03Z has it. The
 numbers come from a file of the game's assets, never from file names:
 
 - `assets/sfx/sfx.json` lists the effects, next to their WAV files, with the settings of the
@@ -104,14 +104,14 @@ against the real decoder; the Java one does the same.
 
 ## Rachael plays BRR, not WAV
 
-Record 32 has the desktop play the effects from their files. That would make the desktop sound
+ADR-6F3CK03Z has the desktop play the effects from their files. That would make the desktop sound
 clear where the console sounds dull, and the difference would only show on the console. Instead
 both targets get the same BRR bytes from the build, and Rachael has a small DSP: BRR decoding, the
 pitch, the Gaussian interpolation with the chip's table, the voices' volume, key on and key off.
 Envelopes beyond a fixed one, echo, noise and pitch modulation come later; until then Rachael
 reports a write to their registers, as she reports a lost byte. The DSP's output is integers
 only, so it can later be compared with Mesen's sample for sample, as the pictures are pixel for
-pixel. This changes record 32, so it becomes a new record.
+pixel. This changes ADR-6F3CK03Z, so it becomes a new record.
 
 ## The SNES side: a forwarding driver, the logic in C
 
@@ -125,7 +125,7 @@ protocol.
 Everything else is C in `lib/snes`, the same code on Rachael:
 
 - `sdevkit_sfx_play(id)` puts the effect in a queue; the main loop sends the queue in the vertical
-  blank (record 32).
+  blank (ADR-6F3CK03Z).
 - A free voice takes the effect. If all are busy, the effect replaces the voice with the lowest
   priority below its own, the older one of equal priority; if its priority is lower than every
   playing one, it is dropped.
@@ -167,7 +167,7 @@ need no licence and can be made again. Their settings are then chosen in the Lab
 3. Rachael's DSP, and the desktop frontend's audio output (raylib's audio stream, 32 kHz).
 4. The forwarding driver, the upload at start and the voices in `lib/snes`; the check in Mesen.
 5. Schach with its five effects; then Steinschlag with its effects and two voices.
-6. The new record (it changes record 32), the rows in `lib/README.md`, the hardware guide's sound
+6. The new record (it changes ADR-6F3CK03Z), the rows in `lib/README.md`, the hardware guide's sound
    section, and the finding for Blubber Blasen.
 
 ## Open questions
@@ -178,5 +178,5 @@ need no licence and can be made again. Their settings are then chosen in the Lab
   or first only "the same effects started in the same frames".
 - Whether `sdevkit_sfx_play` takes a volume or a pan as well, or the file's values are enough for
   now.
-- A jingle with the splash screen (ADR record 37): short, a few KB of BRR, loaded with the effects
+- A jingle with the splash screen (ADR-6F60Z5JJ): short, a few KB of BRR, loaded with the effects
   and played as the logo fades in; and whether a button that shortens the splash cuts it off.

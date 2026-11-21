@@ -28,7 +28,7 @@ works for less time.
 
 | File | What |
 | --- | --- |
-| `superdevkit.toml` | the project: its sources, its pictures (converted into `build/gen`), its save RAM (ADR record 31) |
+| `superdevkit.toml` | the project: its sources, its pictures (converted into `build/gen`), its save RAM (ADR-6F3CJZBY) |
 | `src/catchme.h` | what the files share |
 | `src/game.c` | the course of the game (title, ready, play, a life lost, a level cleared, game over), score and lives, and the frame rhythm: `game_init`, `game_tick`, `game_vblank` (`sdevkit/loop.h`) |
 | `src/maze.c` | the maze as text, the background map in RAM, the walls drawn from their neighbours, the status line |

@@ -14,7 +14,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 /**
- * raylib for a desktop target, ready-built and pinned to one version (ADR record 31): found in the
+ * raylib for a desktop target, ready-built and pinned to one version (ADR-6F3CJZBY): found in the
  * kit (raylib/&lt;system&gt;/ in a release, build/raylib/&lt;system&gt;/ in the repository), or
  * fetched from raylib's releases on GitHub into the kit's folder once. Unpacked in Java, so it
  * needs no curl, tar or unzip.

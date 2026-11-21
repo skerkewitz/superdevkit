@@ -8,7 +8,7 @@ plugins {
 }
 
 // dampf, superdevkit's compiler, with its emulator and the tests of the whole kit (the version is
-// the root project's, ADR record 26). The tests and stampBook run in the repository's top folder,
+// the root project's, ADR-6F3CJT1P). The tests and stampBook run in the repository's top folder,
 // where the paths they name begin.
 
 
@@ -71,7 +71,7 @@ tasks.test {
         rootProject.fileTree("reference"), rootProject.fileTree("tools"), rootProject.fileTree("dev"),
         rootProject.fileTree("lib"), rootProject.file("README.md"), rootProject.file("CLAUDE.md"),
     ).withPathSensitivity(PathSensitivity.RELATIVE).withPropertyName("documentsAndExamples")
-    // Execution tests run ROMs in Mesen too (MesenCE, ADR record 33): -Pmesen=<path>, or the one in
+    // Execution tests run ROMs in Mesen too (MesenCE, ADR-6F3CK1V6): -Pmesen=<path>, or the one in
     // .mesen/ (dev/fetch_mesen.sh), the Linux build before the Windows one
     val mesen = providers.gradleProperty("mesen").orNull
         ?: listOf(".mesen/Mesen", ".mesen/Mesen.exe").map { rootProject.layout.projectDirectory.file(it).asFile }
@@ -180,7 +180,7 @@ application {
     applicationDefaultJvmArgs = listOf("-Ddampf.include=__APP_HOME__/include")
 }
 
-// The launcher finds the installation's folder, and the jars in java/ (ADR record 41: the kit's
+// The launcher finds the installation's folder, and the jars in java/ (ADR-6F60Z9QJ: the kit's
 // library is lib/ in the release)
 tasks.startScripts {
     doLast {
@@ -215,7 +215,7 @@ tasks.register<JavaExec>("stampBook") {
 }
 
 // Lists the generated book pages older than their sources and fails if there are any. Not part
-// of `build`: the book is brought in step before a release (ADR record 43).
+// of `build`: the book is brought in step before a release (ADR-6F60ZB4N).
 tasks.register<JavaExec>("checkBook") {
     group = "verification"
     description = "Fails when a generated book page is older than its spec or sources"

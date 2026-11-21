@@ -202,7 +202,7 @@ music = ["assets/music/title.ogg", { file = "assets/music/boss-2.xm", name = "bo
 The build writes `build/gen/music.h` with a number per track, its place in the list
 (`MUSIC_TITLE 0`, `MUSIC_BOSS 1`, `MUSIC_COUNT 2`; the name is the file's without its extension,
 unless `name` gives one), and the game calls `sdevkit_music_play(MUSIC_TITLE)` and
-`sdevkit_music_stop()` (ADR record 32: numbers, never file names). On the desktop the track plays
+`sdevkit_music_stop()` (ADR-6F3CK03Z: numbers, never file names). On the desktop the track plays
 from its file, over and over, until another one or the stop; the same track again goes on
 playing, and the music pauses with the run. A desktop build copies the files into
 `build/<target>/music/` and compiles their list (`music_files.c`) with the frontend, so the game's

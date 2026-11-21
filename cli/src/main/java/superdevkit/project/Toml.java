@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * A TOML reader of the kit's own (ADR record 31), for the subset superdevkit.toml uses: comments,
+ * A TOML reader of the kit's own (ADR-6F3CJZBY), for the subset superdevkit.toml uses: comments,
  * {@code key = value} with bare keys, {@code [table]} headers (one level), basic strings
  * ({@code "..."}, with \\ \" \n \t \\uXXXX) and literal strings ({@code '...'}), integers (with
  * a sign and underscores), booleans, arrays (over several lines, a comma after the last value

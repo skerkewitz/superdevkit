@@ -21,7 +21,7 @@ ROM with the kit and plays its recordings with the PC's checksums; with M7 a gam
 on the SNES, Linux and Windows with the `superdevkit` command, with sound effects, save RAM, music
 on the desktop and a debug view. The
 milestones and versions are in [docs/roadmap.md](docs/roadmap.md), why the kit is the project and
-dampf its compiler in [ADR record 29](docs/adr/0029-superdevkit-is-the-project-and-dampf-is-its.md).
+dampf its compiler in [ADR-6F3CJX8T](docs/adr/6F3CJX8T-superdevkit-is-the-project-and-dampf-is-its.md).
 
 `./gradlew installDist` writes a superdevkit home to `build/install/superdevkit`: the compiler,
 the library, the tools, the examples, the desktop build and the book, all a game needs. A game
@@ -41,7 +41,7 @@ game left, [docs/sound.md](docs/sound.md)). During play the
 game took 0.79 frames per tick ([docs/optimizations.md](docs/optimizations.md#where-things-stand)). Since
 2026-11-19 the kit's own examples (`examples/`) are dampf's test cases and its benchmark
 (`dev/bench_examples.sh`), and the game's code is no longer in this repository
-([ADR record 40](docs/adr/0040-the-examples-replace-blubber-blasen-s-snapshot-as.md)). dampf computes a best and a
+([ADR-6F60Z819](docs/adr/6F60Z819-the-examples-replace-blubber-blasen-s-snapshot-as.md)). dampf computes a best and a
 worst case in CPU cycles for every function, and a function over its cycle budget
 (`DAMPF_BUDGET`) fails the build ([docs/timing.md](docs/timing.md)). The naive code generator,
 straight from the AST, stays as an independent reference (`--backend naive`): every test program
@@ -150,14 +150,14 @@ dev/bench_examples.sh                  # the benchmark: the work per tick of eve
 
 The tests run in dampf's own emulator (`dampf.emu`) and, when `.mesen/` holds a Mesen (not in
 git), headless in Mesen as well: `dev/fetch_mesen.sh` puts MesenCE there, the Linux and the
-Windows build, with the settings the tests need ([ADR record 33](docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md)).
+Windows build, with the settings the tests need ([ADR-6F3CK1V6](docs/adr/6F3CK1V6-mesence-is-the-emulator-for-the-console-checks.md)).
 The Linux build is taken when it is there; from WSL the Windows `Mesen.exe` works too. All Gradle switches are listed in the book's
 [testing](docs/book/inside/testing.md) page, the scripts in [dev/README.md](dev/README.md).
 
 ## Using superdevkit
 
 A game is a folder with a `superdevkit.toml` (its name, the kit's version, its sources, pictures,
-sound effects and save RAM; ADR record 31), and the `superdevkit` command builds it:
+sound effects and save RAM; ADR-6F3CJZBY), and the `superdevkit` command builds it:
 
 ```bash
 superdevkit init mygame --from catchme   # a new project, a copy of an example
@@ -197,7 +197,7 @@ blocks by a profile. `parse` only preprocesses and parses. `check` runs the fron
 file alone, then on all of them together (recursion, functions defined nowhere or twice). Every
 error of a run is reported, one per top-level declaration at most. `@file` (or `--config file`)
 reads options from an argument file: one per line, paths relative to the file, and a folder
-stands for the `.c` files in it ([ADR record 28](docs/adr/0028-options-can-be-kept-in-an-argument-file-given-by.md)).
+stands for the `.c` files in it ([ADR-6F3CJW9N](docs/adr/6F3CJW9N-options-can-be-kept-in-an-argument-file-given-by.md)).
 `dampf mir`, `dampf profile` and `dampf bench` are tools for working on dampf with a benchmark
 ROM that reports through their ports, such as Blubber Blasen's `bench.c` in the game's repository.
 
@@ -212,7 +212,7 @@ step through C.
 ## Repository layout
 
 The top level shows what a release of superdevkit holds (ADR
-[record 41](docs/adr/0041-the-release-is-a-zip-per-system-with-a-java.md)), and the folders for
+[ADR-6F60Z9QJ](docs/adr/6F60Z9QJ-the-release-is-a-zip-per-system-with-a-java.md)), and the folders for
 developing it. `./gradlew installDist` writes the distribution in that shape to
 `build/install/superdevkit`: a superdevkit home with all a game needs (`bin/`, `java/`,
 `include/`, `lib/`, `tools/`, `examples/`, the desktop build in `dev/`), so a game outside this

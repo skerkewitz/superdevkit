@@ -50,7 +50,7 @@ pointers to arrays (`const uint8_t (*rows)[16]`).
 One rule of C that the checks find the hard way: **the order in which a call's arguments are
 evaluated is open**, and dampf need not choose gcc's. Two calls with side effects in one call's
 arguments (`spawn(random16() & 31, random16() & 15)`) may run in another order on the SNES than
-on the PC, and the game the checks compare (ADR record 38) is no longer the same. Give each such
+on the PC, and the game the checks compare (ADR-6F60Z67N) is no longer the same. Give each such
 call its own statement.
 
 ## 3. Slow
@@ -112,7 +112,7 @@ Write whichever reads better; these cost the same:
 - **`DAMPF_RANGE(v, lo, hi)`** only where a measurement shows it changes the code. Today that is
   a loop the timing report calls unbounded (a hint on its counter gives it a bound); an index
   into an array needs none since 2026-11-20 (an access outside the array is undefined in C, and
-  dampf relies on that, ADR record 46). A hint states a fact: a wrong one makes wrong code on the SNES and stops the
+  dampf relies on that, ADR-6F8NBESR). A hint states a fact: a wrong one makes wrong code on the SNES and stops the
   program on the PC.
 
 ## Measurements

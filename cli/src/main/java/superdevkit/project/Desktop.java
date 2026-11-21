@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
- * The desktop targets (ADR records 31, 32 and 39): the game on Rachael, with the kit's frontend
+ * The desktop targets (ADR-6F3CJZBY, ADR-6F3CK03Z and ADR-6F60Z709): the game on Rachael, with the kit's frontend
  * and raylib, built by the system's C compiler in three steps, as dev/build_desktop.sh did:
  *
  * <ol>
@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit;
  * </ol>
  *
  * {@code linux}: gcc or clang ({@code CC}, default cc), build/linux/NAME. {@code win64}: MSVC,
- * found with vswhere, on Windows or from WSL (ADR record 39), build/win64/NAME.exe. One call per
+ * found with vswhere, on Windows or from WSL (ADR-6F60Z709), build/win64/NAME.exe. One call per
  * file and one to link; MSVC's run in a batch file after vcvars64, which sets up its environment.
  */
 final class Desktop {
@@ -52,7 +52,7 @@ final class Desktop {
             throw new Build.Failure("the target linux builds on Linux (or WSL); here it is win64");
         }
         if (target.equals("win64") && !windows() && !wsl()) {
-            throw new Build.Failure("the target win64 builds on Windows or WSL, with MSVC (ADR record 39)");
+            throw new Build.Failure("the target win64 builds on Windows or WSL, with MSVC (ADR-6F60Z709)");
         }
         List<Build.Step> steps = new ArrayList<>();
         Path ray = Raylib.folder(kit, target);
@@ -274,7 +274,7 @@ final class Desktop {
     // ------------------------------------------------------------------ both
 
     private static Build.Step symbols(Project p, Kit kit, List<Path> objects) {
-        return new Build.Step("check", "the game's objects call nothing but lib/include/sdevkit (ADR record 34)",
+        return new Build.Step("check", "the game's objects call nothing but lib/include/sdevkit (ADR-6F3CK2AR)",
                 List.of(), out -> {
                     List<String> bad = Symbols.check(kit.lib().resolve("include/sdevkit"), objects);
                     if (!bad.isEmpty()) {

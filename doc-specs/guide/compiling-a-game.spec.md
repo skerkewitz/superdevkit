@@ -4,7 +4,7 @@ sources:
   - compiler/src/main/java/dampf/ConfigFile.java
   - examples/ertuep/superdevkit.toml
   - examples/ertuep/README.md
-  - docs/adr/0028-options-can-be-kept-in-an-argument-file-given-by.md
+  - docs/adr/6F3CJW9N-options-can-be-kept-in-an-argument-file-given-by.md
   - README.md
   - compiler/src/main/java/dampf/Main.java
   - compiler/src/main/java/dampf/Compiler.java
@@ -25,7 +25,7 @@ the cycles go.
 
 1. **Many files, one call** – all `.c` files on one command line, `-I` for include directories
    and `-D` for defines, the entry function; then the same kept in an argument file
-   (`@ertuep.args`, ADR record 28): its lines, folders standing for their `.c` files, and the
+   (`@ertuep.args`, ADR-6F3CJW9N): its lines, folders standing for their `.c` files, and the
    `dampf build` call Er-Tüp's `build.sh` makes after converting its PNG files, and what it
    prints. Before it, the shortest call for a game of the reader's own (its `.c` files, `-I`,
    `-o`, the entry function by default `main`), with the launcher from

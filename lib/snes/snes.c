@@ -1,5 +1,5 @@
 /*
- * The console API of superdevkit (lib/include/sdevkit/snes.h, ADR record 34) on the real SNES,
+ * The console API of superdevkit (lib/include/sdevkit/snes.h, ADR-6F3CK2AR) on the real SNES,
  * for dampf.
  *
  * PVSnesLib's functions, renamed, do what PVSnesLib's do, as sdevkit/snes.h describes them; the

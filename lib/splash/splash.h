@@ -1,5 +1,5 @@
 /*
- * The splash screen of every game made with superdevkit (ADR records 37 and 42): the kit's logo
+ * The splash screen of every game made with superdevkit (ADR-6F60Z5JJ and ADR-6F60ZA6T): the kit's logo
  * fades in from black, stays three seconds and fades out, then the game starts. A button pressed
  * while it fades in or stays ends it as soon as it has faded in. It runs before game_init, in the
  * library's main loop on every platform: lib/snes/main.c and lib/desktop/main.c include this file,

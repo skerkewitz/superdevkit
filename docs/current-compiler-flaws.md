@@ -31,11 +31,11 @@ contain no arrays, calls or real loops.
 - A step that changes generated code records new hashes (`./gradlew test -PbackendOutput=update`),
   measures all examples against the commit before it (`dev/bench_examples.sh` with `BASELINE=`),
   and writes both into [optimizations-log.md](optimizations-log.md). A step that only moves code
-  keeps every hash. Never both in one step (ADR record 24).
+  keeps every hash. Never both in one step (ADR-6F3CJR10).
 - A step that closes a gap the C style guide measures breaks that rule's claim in
   `StyleGuideTest`. Change or retire the rule in the same commit (`STYLE_GUIDE=update` writes the
   table). Each step below names the rules it should retire.
-- Correctness before speed: every result matches gcc bit for bit (ADR record 4). A step that
+- Correctness before speed: every result matches gcc bit for bit (ADR-6F0R64GD). A step that
   makes something faster and one test fail is not done.
 - A step that does not give what this document expects is still reported: write the measurement
   and the reason into the log, revert the change, and correct this document.
@@ -411,7 +411,7 @@ down with `!= 0` (the canonical form of `> 0`) still gets no bound from its test
 ([FrameLayout.java:181](../compiler/src/main/java/dampf/backend/FrameLayout.java#L181)); otherwise
 the address is computed into a 24-bit pointer every time (`l_u16_local_bound`, and the C guide's
 `fast-range-index`). But C makes an access outside the object undefined, no object is larger
-than 32 KB (ADR record 10), and `PointerOffsets` already relies on that rule.
+than 32 KB (ADR-6F0R6A8V), and `PointerOffsets` already relies on that rule.
 
 Fix: a `ptradd` whose base is a global or a slot itself and whose every use is the address of a
 load or store (directly, or through a constant `ptradd` that is folded) is indexable without a
@@ -426,7 +426,7 @@ fails on a wrong hint, and the PC build's UBSan catches most cases already
 gcc's code tolerates by reading a neighbour, reads another address on the SNES. Retires
 `fast-range-index`.
 
-Built (2026-11-20, ADR record 46, [log](optimizations-log.md#an-index-into-an-array-is-inside-it-2026-11-20-on-the-spelling-families-and-the-examples)):
+Built (2026-11-20, ADR-6F8NBESR, [log](optimizations-log.md#an-index-into-an-array-is-inside-it-2026-11-20-on-the-spelling-families-and-the-examples)):
 the interpreter's check first, then the first step, with a constant offset after the index only
 when it is at most 0 (`a[i].y` still needs the range). The second step is not built: no
 measured case needs it. `l` and `j` closed, `fast-range-index` retired.
@@ -595,24 +595,24 @@ tries combinations of register assignments and keeps the cheapest by cycles. dam
 places are such imaginary registers already, and static frames in a program without recursion
 are what llvm-mos does too. What is missing is the order: allocation after selection, by cost.
 
-**The fix.** In four steps. B1 and B2 should change no code quality by more than ADR record 24
+**The fix.** In four steps. B1 and B2 should change no code quality by more than ADR-6F3CJR10
 allows; B3 is where the speed comes from.
 
-### B1. Virtual places in LIR (a decision: amends ADR record 14)
+### B1. Virtual places in LIR (a decision: amends ADR-6F3CJEQA)
 
 Selection writes operands that name a value, not an address: word w of MIR value %n, a φ's
 incoming place, a temporary. Give `LInstr` a typed operand instead of a string (a sealed type:
 immediate, symbol plus offset, virtual place with word and width, each with its addressing
 form), so a pass asks an instruction what it reads and writes. Until a later phase assigns
 addresses, the LIR text names the places symbolically; after it, the text is ca65 source as
-ADR record 14 says. The record that amends it says that LIR has these two stages.
+ADR-6F3CJEQA says. The record that amends it says that LIR has these two stages.
 
 Move the passes that read operand text (`RegContents`, `RedundantLoads`, `DeadStores`,
 `IndexInY`, `Peephole`, `KnownCarry`, `ByteStretches`) to the typed operands. This is a move:
 with the places assigned exactly as `FrameLayout` assigns them today, every hash of
 `BackendOutputTest` must stay.
 
-Built (2026-11-20, ADR record 47), in six commits that kept every hash: `LOperand` (`BackendOutputTest`
+Built (2026-11-20, ADR-6F8NBFAQ), in six commits that kept every hash: `LOperand` (`BackendOutputTest`
 checks that every operand dampf writes is typed); the LIR passes on it; selection writing it;
 and every frame operand owned by what it belongs to (a value's word, a φ's incoming place, a
 frame slot, a callee's parameter), with `MirCodeGen.assignPlaces` after selection giving each
@@ -646,12 +646,12 @@ another (`LMark`: a φ copy into a direct φ, an in-place step); the marks go be
 passes. Its first run found a miscompilation (`ConstAddressTest`, the scroll registers of the
 kit's `sdevkit_bg_set_scroll`). Selection then learnt to match what A, X and Y hold by owner
 instead of by address, so a load it leaves out stays right wherever the places end up (no hash
-changed). Then the places got their addresses on the LIR ([record 48](adr/0048-frame-places-are-coloured-on-the-lir-and.md),
+changed). Then the places got their addresses on the LIR ([ADR-6F8NBG4P](adr/6F8NBG4P-frame-places-are-coloured-on-the-lir-and.md),
 `PlaceColouring`), `FrameLayout`'s prediction kept as each place's first choice: three examples
 changed, frames 2 bytes smaller where a value handed on in A had a place it never used. Without
 the prediction as first choice the execution and random tests pass too. Then every φ went
 through its incoming place, the copies as `LCopy`, coalesced by the colouring, with no
-prediction as first choice ([record 49](adr/0049-phis-go-through-their-incoming-places-and-the.md)):
+prediction as first choice ([ADR-6F8NBHZ6](adr/6F8NBHZ6-phis-go-through-their-incoming-places-and-the.md)):
 `FrameLayout` has no direct φs any more, and the examples do 0.3 % less work. Left of B2:
 `FrameLayout` still predicts places for selection's decisions (a value stepped in its operand's
 place, a pointer in the direct page, a value handed on in A); B3 is where those become choices
@@ -683,7 +683,7 @@ Assign greedily by benefit. Build it beside the patterns first and compare on th
 families and all examples; when it gives the same or better code everywhere, delete
 `findXCounters`, `findYIndexes`, `IndexInY` and the `xHolds`/`yHolds` bookkeeping in `Selection`
 in a separate step. If it stays behind the patterns somewhere, write down where and why before
-deciding (ADR record 24 sets the price that may be paid).
+deciding (ADR-6F3CJR10 sets the price that may be paid).
 
 After that, two extensions that the patterns could never have:
 
@@ -819,7 +819,7 @@ ways or `--tune` are not built: no measured case needs them now.
 | 5 | L1 to L3 `CountedLoops` and its users | 3, 4 | yes | `d`, `i` (done 2026-11-20: `i`, `g`, `n` and the loops counting down closed; `d` waits for C5) |
 | 6 | C5, C8, L4 to L6 | 5 | yes | `g`, `h`, `m`, `x`, `slow-u16-counter-words` (done 2026-11-20 with L4 and L5; C5 as far as L4 does it, C8 and L6 not built: no gap needs them yet) |
 | 7 | C6 pointer comparisons, C7 loads out of loops | 3 | yes | `y`, part of `j`, `k` (done 2026-11-20: all C6 and C7 gaps; `j` waits for R3) |
-| 8 | R3 indexes from array bounds (ADR) | 4 | yes | `l`, `fast-range-index` (done 2026-11-20, ADR record 46) |
+| 8 | R3 indexes from array bounds (ADR) | 4 | yes | `l`, `fast-range-index` (done 2026-11-20, ADR-6F8NBESR) |
 | 9 | K3 cost baseline | 1 | no | (done 2026-11-20) |
 | 10 | B1 typed operands and virtual places (ADR) | 2 | no | |
 | 11 | B2 places assigned on LIR | 10 | little | the class of the frame bugs |

@@ -133,7 +133,7 @@ Once data decides the path, there is a best and a worst case, both exact. Bounds
 function, bottom-up over the call graph, which has no cycles since the subset has no recursion.
 They are computed on the structure of the code; unrestricted `goto` would need a more general
 analysis, which is why the subset rejects `goto` (ADR
-[record 27](adr/0027-goto-and-labels-stay-rejected-and-a-forward-and.md)). Loops need a bound: a constant trip count, or a hint checked as an assertion on the
+[ADR-6F3CJVHC](adr/6F3CJVHC-goto-and-labels-stay-rejected-and-a-forward-and.md)). Loops need a bound: a constant trip count, or a hint checked as an assertion on the
 PC ([hints.md](hints.md)).
 
 The worst case may count paths that never occur together (two branches never both taken). The

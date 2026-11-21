@@ -4,7 +4,7 @@
  * They are static functions in the header, so every file that includes it has its own copy and
  * none of them clashes with another; dampf compiles only what is called. The sizes are 16 bits
  * and the value a byte, since dampf has no plain int and no object is larger than 32 KB (ADR
- * record 10); a call written for the standard header (memset(buf, 0, sizeof buf)) works the same
+ * ADR-6F0R6A8V); a call written for the standard header (memset(buf, 0, sizeof buf)) works the same
  * way. On the PC the host's <string.h> comes first (gcc -idirafter), and does the same.
  *
  * Written in C for now; a copy with MVN or DMA comes with the fine tuning (roadmap M12).

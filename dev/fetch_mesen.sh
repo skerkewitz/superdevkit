@@ -1,5 +1,5 @@
 #!/bin/sh
-# Fetches MesenCE (ADR record 33), the emulator of the console checks and the debugger, into
+# Fetches MesenCE (ADR-6F3CK1V6), the emulator of the console checks and the debugger, into
 # .mesen/ (not in git): the Linux build (Mesen) and the Windows build (Mesen.exe) side by side.
 # Both run portable: they keep their settings and files in .mesen/, next to settings.json.
 #   dev/fetch_mesen.sh

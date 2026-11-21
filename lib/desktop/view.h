@@ -1,7 +1,7 @@
 #ifndef SDEVKIT__DEBUG_VIEW_H
 #define SDEVKIT__DEBUG_VIEW_H
 
-/* The desktop's debug view (view.c, ADR record 32): a panel beside the picture, F1 opens it. */
+/* The desktop's debug view (view.c, ADR-6F3CK03Z): a panel beside the picture, F1 opens it. */
 #include "raylib.h"
 
 #define SDEVKIT__PANEL_W 340   /* the panel's width in window pixels; the picture keeps the rest */

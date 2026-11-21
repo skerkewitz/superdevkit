@@ -3,38 +3,40 @@
 The repository of superdevkit, a development kit for SNES games, and of dampf, its compiler: a
 C-subset compiler for the 65816 / SNES, written in Java. Two Gradle subprojects: `compiler/` (dampf, its emulator and the tests of the
 whole kit, which run in the repository's top folder) and `cli/` (the `superdevkit` command, M7);
-`./gradlew installDist` writes the distribution to `build/install/superdevkit` (ADR record 41), a
+`./gradlew installDist` writes the distribution to `build/install/superdevkit` (ADR-6F60Z9QJ), a
 superdevkit home that a game outside the repository uses (the book's Getting started).
 Read README.md first (what and why), then docs/roadmap.md (milestones and their state) and
 docs/architecture.md; the other docs are linked from the README.
 
-- Every change goes through a pull request (ADR record 50): its own branch from `origin/develop`
+- Every change goes through a pull request (ADR-6FB9QJ3R): its own branch from `origin/develop`
   in its own worktree in `superdevkit-wt/` next to the main checkout, a pull request into
   `develop`, merged by Claude after the user's approval. A release is a pull request from
   `develop` into `main` and a tag. The steps are the `pr` skill. The main checkout stays on
   `develop`: never edit, build or switch branches in it.
-- Claude works on GitHub as an app of its own (ADR record 51): every `gh` command, `git commit`
+- Claude works on GitHub as an app of its own (ADR-6FB9QKSV): every `gh` command, `git commit`
   and `git push` runs through the `gh-as-bot` wrapper (`gh-as-bot git push ...`), never plain.
   Claude never approves a pull request, and merges one only after the user has approved it.
 - Build and test: `./gradlew build`. The execution, random and replay tests run in dampf's own
   emulator (`dampf.emu`, validated against the SingleStepTests suite and against Mesen); the
   execution tests also run in Mesen when `.mesen/` exists (not in git; `dev/fetch_mesen.sh` puts
-  MesenCE there, ADR record 33).
+  MesenCE there, ADR-6F3CK1V6).
 - A new language feature needs an execution test in `compiler/src/test/resources/exec/` (PC vs SNES).
 - Game code (the examples, Schach, anything in `examples/`) follows `lib/C_STYLE.md` (C for
   dampf; its speed rules are tests, `StyleGuideTest`) and `lib/SNES_HARDWARE.md` (the hardware
   and what the kit has). A change to dampf that breaks a rule of the C guide changes the rule in
   the same commit.
 - dampf is tested and measured on its examples (`examples/`, `dev/bench_examples.sh`); the game's
-  code is not in this repository (ADR record 40). Never run Mesen or write files inside the
+  code is not in this repository (ADR-6F60Z819). Never run Mesen or write files inside the
   game's own folders: another agent is working there.
 - Why a decision was taken is in `docs/ADR.md` (the table of all records with their status) and
-  `docs/adr/NNNN-<start-of-title>.md` (one file per record: `# N. Title`, then **Context.**,
-  **Decision.**, **Alternatives.** where there were any, **Consequences.**). A decision made or
-  changed is a new file plus its row; never edit an existing record, change the status of the
-  records it supersedes or amends in the table instead. An open question becomes a record only
-  when it is decided. Cite records by number ("ADR record 6"); a record of another project with its name in front
-  ("gosu-flint's record 32"). `AdrTest` checks table and files.
+  `docs/adr/<ID>-<start-of-title>.md` (one file per record: `# ADR-<ID>: Title`, then
+  **Context.**, **Decision.**, **Alternatives.** where there were any, **Consequences.**). The ID
+  is the time the record was made and a hash of its title (ADR-6FCBBNSH); `dev/new_adr.sh
+  "Title"` makes the ID, the file and the row. A decision made or changed is a new record; never
+  edit an existing one, change the status of the records it supersedes or amends in the table
+  instead. An open question becomes a record only when it is decided. Cite records by ID
+  ("ADR-6F0R668G"), never by their former numbers; a record of another project with its name in
+  front ("gosu-flint's record 32"). `AdrTest` checks table, files and citations.
 - Anything worth changing in the game goes into `docs/game-findings.md` (written for the AI working
   on the game; the user forwards it). The findings so far were forwarded on 2026-11-19 and the file
   deleted: start it anew when there is a new one.
@@ -51,7 +53,7 @@ docs/architecture.md; the other docs are linked from the README.
   specs in `doc-specs/` (see its README); never edit a page that starts with `<!-- GENERATED`.
   The book is for the users and describes a release; while developing, keep `docs/*.md`, the
   READMEs and the code current, and leave the book alone. It is brought in step once at the end
-  of a release cycle (ADR record 43). Before a release, `./gradlew checkBook` lists
+  of a release cycle (ADR-6F60ZB4N). Before a release, `./gradlew checkBook` lists
   the stale pages; `/docs-gen stale` regenerates them, `./gradlew stampBook -Pspecs=...` stamps
   a page the change does not touch.
 - Correctness comes before speed: every behaviour must match gcc on x86-64 bit for bit.

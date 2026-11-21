@@ -4,7 +4,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * The operand of an LIR instruction, typed (ADR record 47): what a pass asks of an instruction
+ * The operand of an LIR instruction, typed (ADR-6F8NBFAQ): what a pass asks of an instruction
  * (does it read a frame place, which one, is it indexed) without parsing text. {@link #text}
  * gives the operand as ca65 writes it, and {@link #of} reads that text back: the two agree for
  * every operand dampf writes; anything else is kept as {@link Raw} text.
@@ -24,7 +24,7 @@ public sealed interface LOperand {
     }
 
     /**
-     * Whose a frame place is (ADR record 47): word {@code word} of a MIR value (or of a callee's
+     * Whose a frame place is (ADR-6F8NBFAQ): word {@code word} of a MIR value (or of a callee's
      * parameter), the incoming place of a φ ({@code incoming}), or byte {@code word} of a frame slot.
      * {@code key} is the MIR object, compared by identity. The phase that assigns the places
      * gives every owned operand its address.

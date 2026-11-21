@@ -50,7 +50,7 @@ public final class LInstr implements LItem {
         return operand;
     }
 
-    /** The operand, typed (ADR record 47); null if none. */
+    /** The operand, typed (ADR-6F8NBFAQ); null if none. */
     public LOperand op() {
         return op;
     }

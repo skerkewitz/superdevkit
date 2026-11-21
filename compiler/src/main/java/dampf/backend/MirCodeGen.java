@@ -60,12 +60,12 @@ import java.util.TreeMap;
  * before its jump, and the block copies it into the φ's own place on entry. That is correct for
  * any set of φs (also when they swap values), with no analysis. The copies are {@link
  * dampf.lir.LCopy}: where the colouring of the places on the code gives both sides of one the same
- * address (coalescing, ADR record 49), it is no code.
+ * address (coalescing, ADR-6F8NBHZ6), it is no code.
  *
  * <p><b>Places</b> are named by their owners during selection; {@link FrameLayout} proposes
  * addresses for selection's decisions, and after selection {@link PlaceColouring} gives them their
  * addresses on the code, callees first ({@link #colourPlaces}), checked by {@link
- * dampf.lir.PlaceCheck} (ADR record 48).
+ * dampf.lir.PlaceCheck} (ADR-6F8NBG4P).
  */
 public final class MirCodeGen {
     /** What selection shares, and the selection of each kind of instruction. */
@@ -758,7 +758,7 @@ public final class MirCodeGen {
     }
 
     /**
-     * Gives every frame operand its address from its owner (ADR record 47): word w of a value, a
+     * Gives every frame operand its address from its owner (ADR-6F8NBFAQ): word w of a value, a
      * φ's incoming place, a frame slot, as {@link #colourPlaces} placed them, and expands the φ
      * copies ({@link dampf.lir.LCopy}). An operand of the frame without an owner is a bug of
      * selection.

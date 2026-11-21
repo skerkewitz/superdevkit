@@ -1,5 +1,5 @@
 /*
- * The desktop's debug view (ADR record 32): F1 opens a panel at the window's right edge, beside the
+ * The desktop's debug view (ADR-6F3CK03Z): F1 opens a panel at the window's right edge, beside the
  * picture. Four tabs:
  *
  *   Game      the run (pause, a single tick, slow motion, fast) and what the game registered with

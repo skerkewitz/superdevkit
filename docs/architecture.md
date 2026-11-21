@@ -14,7 +14,7 @@ blocks with the accumulator width each runs in, whose text is the ca65 source da
 once struct splitting needs it. The code generator from MIR (`dampf.backend.MirCodeGen`, the
 default of `dampf build`) selects instructions once per function (`Selection` and the classes per
 kind of instruction, with `FrameLayout` proposing the places); the places get their addresses on
-the code (`PlaceColouring`, checked by `PlaceCheck`, ADR record 48), and some go to X or Y
+the code (`PlaceColouring`, checked by `PlaceCheck`, ADR-6F8NBG4P), and some go to X or Y
 instead where that saves cycles (`RegisterChoice`); the LIR passes then remove loads of what a
 register holds or move them out of a loop (`RedundantLoads`, `IndexInY`, on `RegContents`), apply peephole rules
 (`Peephole`), run short 16-bit stretches between byte stores in 8 bits (`ByteStretches`) and
@@ -106,7 +106,7 @@ three (`Printer`/`MirParser`, `Verifier`, `Interpreter`).
 ### Deliberately not more than three
 
 Why three levels and not more, and why HIR waits: ADR
-[record 13](adr/0013-three-ir-levels-and-hir-waits-until-something.md).
+[ADR-6F0R6DZD](adr/6F0R6DZD-three-ir-levels-and-hir-waits-until-something.md).
 
 ## Core and target
 
@@ -171,4 +171,4 @@ touches, are not computed yet ([timing.md](timing.md)).
 
 Java 25, ANTLR 4 with the vendored C grammar from grammars-v4
 (`compiler/src/main/antlr/dampf/parser/README.md`), and Gradle with the wrapper; the reasons are in ADR
-[record 2](adr/0002-java-25-antlr-with-the-grammars-v4-c-grammar-and.md).
+[ADR-6F0R624X](adr/6F0R624X-java-25-antlr-with-the-grammars-v4-c-grammar-and.md).
