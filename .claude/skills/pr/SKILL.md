@@ -1,21 +1,21 @@
 ---
 name: pr
-description: The kit's workflow for every change, from branch to release (ADR records 50 and 51). Start a change on its own branch and worktree made from develop, open its pull request into develop with what changed, how it was verified and what follows from it, answer review comments on GitHub, clean up after the user has merged; and make a release (version pull request into develop, pull request from develop into main, tag). Use it for every change to the repository, when the user asks to implement or fix something, to open or update a pull request, to look at feedback on a PR, to clean up after a merge, or to make a release, or invokes /pr.
+description: The kit's workflow for every change, from branch to release (ADR records 50 and 51). Start a change on its own branch and worktree made from develop, open its pull request into develop with what changed, how it was verified and what follows from it, answer review comments on GitHub, merge after the user's approval and clean up; and make a release (version pull request into develop, pull request from develop into main, tag). Use it for every change to the repository, when the user asks to implement or fix something, to open or update a pull request, to look at feedback on a PR, to merge one, or to make a release, or invokes /pr.
 ---
 
 # pr: every change through a pull request
 
 The rules are in ADR records 50 and 51. In short: `develop` is the next release and `main` holds
 the released versions. Both change only through pull requests, and every change has its own
-branch and worktree. Claude works on GitHub as an app of its own. The user reviews, approves and
-merges on GitHub; Claude cleans up after the merge.
+branch and worktree. Claude works on GitHub as an app of its own. The user reviews and approves
+on GitHub; Claude merges after the approval and cleans up.
 
 Paths and names used below:
 
 - `MAIN` = the main checkout, the folder that holds the repository's `.git`. From any worktree:
   `dirname "$(git rev-parse --path-format=absolute --git-common-dir)"`. It stays on `develop`.
   Never edit, build, commit or switch branches in it. The one exception is the fast-forward
-  after a merge (see `cleanup`).
+  after a merge (see `merge`).
 - `WT` = `MAIN/../superdevkit-wt/<branch>`, the worktree of a change, in a folder next to the
   main checkout.
 - `REPO` = `skerkewitz/superdevkit`.
@@ -32,7 +32,8 @@ fails, stop and tell the user. The commands below all carry the wrapper. The wra
 standard input while it fetches the token, so a text never goes in through it: give a commit
 message as a file (`git commit -F <file>`) and a body with `--body-file <file>`, not `-F -`.
 
-Claude never approves or merges a pull request; that is the user's, on GitHub. The app's token
+Claude never approves a pull request; that is the user's, on GitHub. Claude merges only after
+the user's approval (see `merge`). The app's token
 cannot read `gh api user` (HTTP 403 is the expected answer). To check that the wrapper works,
 ask for something the app can reach: `gh-as-bot gh api repos/REPO --jq .full_name`.
 
@@ -76,8 +77,7 @@ takes a force-push or the deletion of a revision on GitHub, and that is the user
 - `/pr start <branch>`: create the branch and its worktree.
 - `/pr open`: verify the branch and open its pull request into `develop`.
 - `/pr feedback <N>`: read the review of pull request N and answer it.
-- `/pr cleanup <N>`: after the user has merged pull request N, update the main checkout and
-  remove the worktree and the branch.
+- `/pr merge <N>`: merge pull request N after the user's approval, then clean up.
 - `/pr release`: make a release (two pull requests and a tag).
 - `/pr status`: list the open pull requests, the worktrees and the branches, and say what each
   waits for.
@@ -224,14 +224,26 @@ the comment.
 4. If the description no longer fits (new numbers, a changed approach), update it with
    `gh-as-bot gh pr edit <N> -R REPO --body-file <file>`.
 
-## cleanup
+## merge
 
-The user merges on GitHub. Claude never does, not even after an approval in the session; if
-the user asks Claude to merge, say that the merge is theirs.
+1. Check the approval: an approving review by `USER` on GitHub, or the user's word in the
+   session. `gh-as-bot gh pr view <N> -R REPO --json reviews,commits` shows the reviews and when
+   the commits came. If commits were pushed after the approving review, the approval needs the
+   user's word that it still holds, or a new review. Claude never approves. Without an
+   approval, stop.
+2. Check that it can be merged: `gh-as-bot gh pr view <N> -R REPO --json mergeStateStatus`
+   must say `CLEAN`, and `gh-as-bot gh pr checks <N> -R REPO` must show the build passed. If
+   `develop` has moved and the branch conflicts, merge `origin/develop` into the branch in
+   `WT` (`gh-as-bot git -C WT merge origin/develop`), resolve, verify, push, and tell the user
+   what the resolution did before merging.
+3. Merge with a merge commit, and keep the branch for now (`--delete-branch` would try to
+   switch the main checkout):
 
-1. Check that the pull request is merged:
-   `gh-as-bot gh pr view <N> -R REPO --json state,headRefName`. If `state` is not `MERGED`, stop.
-2. Fast-forward the main checkout, but only if it has no changes to tracked files (another
+   ```
+   gh-as-bot gh pr merge <N> -R REPO --merge
+   ```
+
+4. Fast-forward the main checkout, but only if it has no changes to tracked files (another
    session may be working there); otherwise tell the user it is behind:
 
    ```
@@ -239,8 +251,7 @@ the user asks Claude to merge, say that the merge is theirs.
    [ -z "$(git -C MAIN status --porcelain --untracked-files=no)" ] && git -C MAIN merge --ff-only origin/develop
    ```
 
-3. Clean up. `git worktree remove` refuses a worktree with changes; if it does, stop and ask.
-   If GitHub has deleted the branch already, the last line has nothing left to do.
+5. Clean up. `git worktree remove` refuses a worktree with changes; if it does, stop and ask.
 
    ```
    rm -f WT/.mesen
@@ -264,7 +275,7 @@ The user decides when `develop` is released. Two pull requests and a tag:
 
    `open` it with the title "Version <version>". Under What, list the pull requests merged since
    the last tag: `git log --first-parent --oneline v<last>..origin/develop`, or all of
-   `develop`'s history if there is no tag yet. The user merges it; then `cleanup`.
+   `develop`'s history if there is no tag yet. Merge it as usual after the approval.
 3. Release pull request, from `develop` itself:
 
    ```
@@ -274,8 +285,9 @@ The user decides when `develop` is released. Two pull requests and a tag:
    The description lists the pull requests in the release, with one line each, and what the
    user of the kit notices (new features, changes to the command line, the subset, the files
    dampf writes).
-4. The user merges it, with a merge commit, and keeps `develop`. There is nothing to clean up.
-5. Once it is merged, tag the merge commit on `main` and push the tag:
+4. After the approval: `gh-as-bot gh pr merge <N> -R REPO --merge`. Never pass
+   `--delete-branch` here: `develop` stays.
+5. Tag the merge commit on `main` and push the tag:
 
    ```
    git -C MAIN fetch origin
@@ -291,9 +303,7 @@ git -C MAIN worktree list
 git -C MAIN branch -a --no-merged origin/develop
 ```
 
-For each open pull request say whether it waits for the user (review, merge) or for Claude
-(feedback to answer, a failed CI build, conflicts with `develop`). For a conflict, merge
-`origin/develop` into the branch in `WT` (`gh-as-bot git -C WT merge origin/develop`), resolve, verify, push, and say in the comment what the
-resolution did. Name worktrees whose branch is merged
-or gone; remove them only if they are under `superdevkit-wt` and clean, and ask about the others,
-which may belong to another session.
+For each open pull request say whether it waits for the user (review), for Claude (feedback
+to answer, a failed CI build, conflicts with `develop`) or is approved and ready to merge. Name
+worktrees whose branch is merged or gone; remove them only if they are under `superdevkit-wt`
+and clean, and ask about the others, which may belong to another session.
