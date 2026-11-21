@@ -24,7 +24,7 @@ public final class Inline {
     static final int SINGLE = 150;
     /**
      * A single call site in a loop, of a callee without loops (K4 of
-     * docs/current-compiler-flaws.md: Steinschlag's {@code fall}, called for every cell; a callee
+     * docs/archive/compiler-flaws.md: Steinschlag's {@code fall}, called for every cell; a callee
      * with a loop of its own made Mandelbrot slower when inlined so).
      */
     static final int SINGLE_IN_LOOP = 600;

@@ -819,6 +819,8 @@ spelling copy copy_ptr_end 1823
 spelling copy copy_u16 1823
 spelling copy copy_u8 1823
 spelling copy copy_while_n 1823
+spelling field-arrays fields_u16 1361
+spelling field-arrays fields_u8 1361
 spelling fill-words fill_do 1035
 spelling fill-words fill_i16 1044
 spelling fill-words fill_ptr_end 1044
@@ -843,8 +845,6 @@ spelling search find_ptr 2401
 spelling search find_return_i16 2364
 spelling search find_return_u16 2364
 spelling search find_return_u8 2364
-spelling struct-fields fields_u16 1361
-spelling struct-fields fields_u8 1361
 spelling struct-fields struct_down 1585
 spelling struct-fields struct_ptr 1521
 spelling struct-fields struct_ptr_count 1521

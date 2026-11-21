@@ -986,7 +986,7 @@ an index into an array of structs to a function that is not inlined).
 `Induction` replaces `i * C` by a variable stepped by C and gives its φ the range it knows
 (`Instr.Phi.known`), so the code generator indexes with X. `Inline` copied a φ without that
 field, and the passes do not derive it again, so an inlined loop computed a 24-bit pointer every
-round ([current-compiler-flaws.md](current-compiler-flaws.md#r4-inlining-drops-the-range-of-a-derived-variable),
+round ([archive/compiler-flaws.md](archive/compiler-flaws.md#r4-inlining-drops-the-range-of-a-derived-variable),
 R4, found by the spelling test). The copy keeps it now.
 
 The spelling families (CPU cycles of one call, inlined): `fill_u16` 3,930 → 1,945, `pairs_u16`
@@ -1009,7 +1009,7 @@ seven, and in 4 execution programs (`BackendOutputTest`, 31 hashes).
 ## A canonical form for arithmetic and comparisons (2026-11-20, on the spelling families and the examples)
 
 `Simplify` writes every instruction in one form, so that later passes know one spelling
-([current-compiler-flaws.md](current-compiler-flaws.md#flaw-c-the-mir-has-no-canonical-form),
+([archive/compiler-flaws.md](archive/compiler-flaws.md#flaw-c-the-mir-has-no-canonical-form),
 C1 to C3): `x - c` is `x + (-c)`, a commutative operation has its constant on the right, and a
 comparison with a constant is one of `eq ne ult uge slt sge` (`x >= 1` unsigned is `x != 0`;
 one the type decides is folded). `Gvn` finds `b + a` as `a + b`. The passes that took `sub` as
@@ -1056,7 +1056,7 @@ The range analysis widened a value that changed more than 24 times to its type's
 both ends. A signed counter from 0 upwards lost its 0, the loop's condition only brought the
 upper end back, and the counter was "-32,768..100": a signed comparison, and the array access
 through a 24-bit pointer. Now only the end that moved is widened
-([current-compiler-flaws.md](current-compiler-flaws.md#r1-widening-throws-away-the-bound-that-did-not-move), R1).
+([archive/compiler-flaws.md](archive/compiler-flaws.md#r1-widening-throws-away-the-bound-that-did-not-move), R1).
 
 Eight gaps of the spelling test closed: `c_i16_lt100` 6,146 → 2,538 cycles, the `int16_t`
 counter of every bound family from 30 rounds on (the cliff at 24 rounds: `int16_t i < 30` was 61
@@ -1071,7 +1071,7 @@ loop counters over more than 127 rounds: their index went through a 24-bit point
 was written in 8 bits. Every value now has two intervals, of its signed and of its unsigned
 reading, which tighten each other where one lies on one side of the sign change; a signed
 condition bounds the one, an unsigned the other
-([current-compiler-flaws.md](current-compiler-flaws.md#r2-bytes-above-127-have-no-range), R2).
+([archive/compiler-flaws.md](archive/compiler-flaws.md#r2-bytes-above-127-have-no-range), R2).
 The tests check every computed value against both.
 
 The spelling families: the byte counters to 129 and 200 cost what the `uint16_t` ones cost
@@ -1097,7 +1097,7 @@ of `i > 0` going down, and of `i != 100`) bounds nothing it can iterate to: the 
 `i != 100` "might wrap", and `i - 1` in the body of `i != 0` might be -1, so it was no index and
 went through a 24-bit pointer. `Ranges` now meets each counter with the interval `CountedLoops`
 gives it (before and after widening), and `x != c` cuts c off an end of x's interval in the
-blocks where it holds ([current-compiler-flaws.md](current-compiler-flaws.md#flaw-l-four-passes-recognise-loops-each-differently),
+blocks where it holds ([archive/compiler-flaws.md](archive/compiler-flaws.md#flaw-l-four-passes-recognise-loops-each-differently),
 L2).
 
 The spelling families: `n_u16_ne100` 5,643 → 2,738 (its gap closed), `d_u8_ne100` 4,641 → 2,936,
@@ -1152,7 +1152,7 @@ its own that kept every hash) and a step anywhere in the round, once a round: be
 holds the counter, after it the stepped value, which the fused exit test (`CPX`) and array
 indexes may read. The counter must not be read after the step, nor either value after the loop.
 A signed test against 0 of a 16-bit counter is `CPX #0` and `BMI`/`BPL`
-([current-compiler-flaws.md](current-compiler-flaws.md#flaw-l-four-passes-recognise-loops-each-differently),
+([archive/compiler-flaws.md](archive/compiler-flaws.md#flaw-l-four-passes-recognise-loops-each-differently),
 L3; `exec/x_stepped.c` has the cases).
 
 The spelling families: 15 gaps closed. `i_u16_dowhile` 4,030 → 2,725, `g_u16_down` 3,743 →
@@ -1179,7 +1179,7 @@ CatchMe only.
 A pointer walked beside a counter (`*p++` with `i++`, two arrays copied together) becomes, after
 `PointerOffsets`, a second counter with the same start and step as the first: two variables in
 the frame where one would do, and neither in X. `Induction` now replaces the second by the first
-([current-compiler-flaws.md](current-compiler-flaws.md#flaw-l-four-passes-recognise-loops-each-differently),
+([archive/compiler-flaws.md](archive/compiler-flaws.md#flaw-l-four-passes-recognise-loops-each-differently),
 L5). `Schedule` puts a value only φs read (a step) at the end of its block: the merged step had
 come first, before the loads that read the counter, which kept it out of X.
 
@@ -1204,7 +1204,7 @@ only, so a 16-bit counter stayed in memory beside the offset it stepped (the sty
 `slow-u16-counter-words`), and `i - 1`, `(i - 1) * 2` or `r * 16 + c` were computed every round.
 It now takes any affine value of a counter: the zero extension of a byte counter, `+` a constant,
 a value from outside the loop or another affine value, `*` and `<<` a constant
-([current-compiler-flaws.md](current-compiler-flaws.md#flaw-l-four-passes-recognise-loops-each-differently),
+([archive/compiler-flaws.md](archive/compiler-flaws.md#flaw-l-four-passes-recognise-loops-each-differently),
 L4). A value with a factor other than 1 becomes a variable, as before; if nothing but such
 values, the step and one loop test read the counter, every one does, and the test moves to the
 first: `i < 64` with `o = i * 2` is `o <= 126`, which `Simplify` writes `o < 127`. The move is
@@ -1282,7 +1282,7 @@ The spelling families: `fill_ptr_walk` 1,359 → 1,233 (gap closed), `x_ptr_walk
 `Licm` moved arithmetic only, so a loop's bound in a global (`i < count`) was loaded every
 round. It now moves a load whose address does not change in the loop when nothing in the loop
 may write what it reads: no store or copy that may overlap it, no call of a function that may
-write memory, not volatile ([current-compiler-flaws.md](current-compiler-flaws.md#flaw-c-the-mir-has-no-canonical-form),
+write memory, not volatile ([archive/compiler-flaws.md](archive/compiler-flaws.md#flaw-c-the-mir-has-no-canonical-form),
 C7). Outside the loop's head only from a global (bank $7E, all RAM) or a known place of a frame
 slot, which can be read once more than the program does. Whether two accesses may overlap is
 `Gvn`'s rule, which now follows a variable offset too: `t[i]` stays in `t`, as C's pointers do,
@@ -1310,7 +1310,7 @@ geometric mean -0.2 %. Code changed in all seven examples and in 28 programs of
 `for (p = data; p < data + 100; p++)` compared two 24-bit pointers every round, as 32-bit values.
 Two addresses in the same global or frame slot now compare as their 16-bit offsets, unsigned:
 C lets a pointer point into its object or one past it, so both lie in 0..size
-([current-compiler-flaws.md](current-compiler-flaws.md#flaw-c-the-mir-has-no-canonical-form),
+([archive/compiler-flaws.md](archive/compiler-flaws.md#flaw-c-the-mir-has-no-canonical-form),
 C6). `PointerOffsets` has made the walked pointer an offset already, so the loop is then a counter
 loop like any other.
 
@@ -1385,7 +1385,7 @@ load after `TAX`); the examples' work is the same. Code changed in 7 programs of
 
 Selection keeps a value in X or Y only where one of its patterns matches (a loop's counter, an
 index that prefers Y); everything else lives in the frame. `RegisterChoice` (B3 of
-[current-compiler-flaws.md](current-compiler-flaws.md#b3-x-and-y-assigned-by-cost)) now looks at
+[archive/compiler-flaws.md](archive/compiler-flaws.md#b3-x-and-y-assigned-by-cost)) now looks at
 every group of places left after coalescing, before they get addresses: it goes to X, then Y, for
 its whole live range where every instruction that names it has a form with the register
 (`LDA p` is `TXA`, `STA p` `TAX`, `LDX p` goes, `INC p` is `INX`, a φ copy `LDX`/`STX`, `LDA q /

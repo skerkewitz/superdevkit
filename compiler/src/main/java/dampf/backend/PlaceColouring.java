@@ -21,7 +21,7 @@ import java.util.function.Predicate;
 
 /**
  * Gives the frame places of one function their addresses after selection, from its LIR (B2 of
- * docs/current-compiler-flaws.md, ADR-6F8NBG4P and ADR-6F8NBHZ6): liveness of the places' bytes over the
+ * docs/archive/compiler-flaws.md, ADR-6F8NBG4P and ADR-6F8NBHZ6): liveness of the places' bytes over the
  * code selection wrote, an interference graph (a place written while another one is live, unless
  * the write copies those bytes of it), coalescing (the two places of a copy become one where they
  * do not conflict: a φ copy, {@link LCopy}, then needs no code), and greedy colouring by byte

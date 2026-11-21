@@ -5,7 +5,7 @@ kit now offers or found, and what the game would change to use it.
 
 ## 1. Loop counters: any width, any spelling (2026-11-20)
 
-dampf (branch `flaws`, the plan in superdevkit's `docs/current-compiler-flaws.md`) now gives a
+dampf (branch `flaws`, the plan in superdevkit's `docs/archive/compiler-flaws.md`) now gives a
 counting loop the same code however it is written, within about 10 %. Three rules of
 `lib/C_STYLE.md` that told you how to write a counter are gone, and a fourth now says the
 opposite:

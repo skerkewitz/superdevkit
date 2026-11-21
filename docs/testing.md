@@ -70,7 +70,7 @@ the register writes she does not draw. Each fails when its document is no longer
 game's tests of its pseudo SNES): small scenes rendered and checked pixel by pixel.
 
 **The spelling test** (`SpellingTest`) checks that the same work, written the ways a programmer
-would write it, costs the same ([current-compiler-flaws.md](current-compiler-flaws.md), T1).
+would write it, costs the same ([archive/compiler-flaws.md](archive/compiler-flaws.md), T1).
 Each file in `compiler/src/test/resources/spelling/` is a family: its functions without
 parameters are its members, with an optional `setup` and `check`. The test generates a
 `test_main` that runs every member (after `setup`) on the PC and on the SNES, and requires the

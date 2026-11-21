@@ -23,7 +23,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * The same work, written the ways a programmer would write it, should cost the same
- * (docs/current-compiler-flaws.md, T1). Each file in compiler/src/test/resources/spelling is a
+ * (docs/archive/compiler-flaws.md, T1). Each file in compiler/src/test/resources/spelling is a
  * family: its functions without parameters (any result type, void too), except {@code setup}
  * and {@code check}, are its members, and all do the same thing. The header says:
  * <pre>

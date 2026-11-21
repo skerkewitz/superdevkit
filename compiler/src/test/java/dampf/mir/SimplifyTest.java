@@ -8,7 +8,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
- * The canonical form Simplify writes (its class comment; docs/current-compiler-flaws.md, flaw C):
+ * The canonical form Simplify writes (its class comment; docs/archive/compiler-flaws.md, flaw C):
  * each rule on MIR text, the result printed, and the interpreter checks that the function means
  * the same for the edge values of its type.
  */

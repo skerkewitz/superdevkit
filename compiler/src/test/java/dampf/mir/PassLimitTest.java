@@ -12,7 +12,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
- * The pass limit (docs/current-compiler-flaws.md, T3): with the limit n the optimizer stops after n
+ * The pass limit (docs/archive/compiler-flaws.md, T3): with the limit n the optimizer stops after n
  * applications that changed something, with 0 it changes nothing, and with the number of
  * applications the passes make anyway it gives what it gives without a limit. The execution tests
  * run with any limit too ({@code -PoptLimit=n}), which checks that the program is right at every

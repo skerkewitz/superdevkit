@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.function.Function;
 
 /**
- * How often a block runs, for decisions that weigh cycles (K1 of docs/current-compiler-flaws.md):
+ * How often a block runs, for decisions that weigh cycles (K1 of docs/archive/compiler-flaws.md):
  * the profile's count where there is one ({@code --block-counts}), else 8 to the power of the
  * block's loop depth. A LIR block weighs what the MIR block weighs whose code it is part of (the
  * last MIR block label above it); the cycles of an instruction are {@link dampf.lir.LInstr#cycles}.

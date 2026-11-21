@@ -71,13 +71,13 @@ FastROM, 12 hardware registers at constant addresses) are in [History](#history)
 
 | # | Idea | Likely gain | Effort | Notes |
 | --- | --- | --- | --- | --- |
-| 2 | Register allocation: values in A, X and Y over several instructions instead of a direct page place each | 10-20 % | high | Loads and stores of direct page values are the largest share of the cycles. With one accumulator, choosing what lives where is the hard part. Today one pass per pattern (loop counters in X, indexes in Y, values handed on in A, `PointerRemat`, `ByteStretches`); a common model of what lives where comes first. Next steps: stores moved to the path that needs them, fewer reloads. |
-| 3 | 8-bit stretches: the M flag followed (`REP`/`SEP`) across blocks, `uint8_t` code in 8-bit mode | 5-10 % | high | Fewer `AND #$00FF`, and 8-bit accesses are a cycle cheaper. Only a small start: 8-bit mode kept across C lines within a block. |
-| 4 | Arrays of structs as one array per field (catalogue D, `DAMPF_SPLIT`), with HIR to do it in | 5-10 % in the bubble loops | high | `separate`, `bubbles_update` and `bubbles_draw` are 30 %. Needs a subset decision or a hint, since the layout then differs from the PC. |
+| 2 | Register allocation: values in A, X and Y over several instructions instead of a direct page place each | 10-20 % | high | Loads and stores of direct page values are the largest share of the cycles. With one accumulator, choosing what lives where is the hard part. Today one pass per pattern (loop counters in X, indexes in Y, values handed on in A, `PointerRemat`, `ByteStretches`); a common model of what lives where comes first. Built by 2026-11-21 (the compiler flaws, step B): places get their addresses on the LIR (`PlaceColouring`, ADR-6F8NBG4P) and go to X or Y by cost (`RegisterChoice`), also for one loop only. Left: the choice of the index register is still selection's (`findXCounters`, `findYIndexes`, `IndexInY`; deleting them cost up to 3 % on the pair loops), whether `findForwards` and `Schedule` are still needed, `FrameLayout`'s predictions for selection; registers across calls were measured at 0.35 % at most and are not built. |
+| 3 | 8-bit stretches: the M flag followed (`REP`/`SEP`) across blocks, `uint8_t` code in 8-bit mode | 5-10 % | high | Fewer `AND #$00FF`, and 8-bit accesses are a cycle cheaper. Built: 8-bit mode across C lines within a block (`ByteStretches`), loops over bytes in 8 bits from entry to exit (`ByteLoops`, 2026-11-21). Measured then: the other switches are 0.5 to 4.5 % of the examples' work and nearly all around byte stores, where they are needed; the general placement is not built. |
+| 4 | Arrays of structs as one array per field (catalogue D, `DAMPF_SPLIT`), with HIR to do it in | 5-10 % in the bubble loops | high | `separate`, `bubbles_update` and `bubbles_draw` are 30 %. Needs a subset decision or a hint, since the layout then differs from the PC. Measured against it: in the game's pair loop (its finding 9) one array per field was 16 % slower for the counted loop and 1 % slower for the sorted list, and in `exec/pair_loops.c` 1.9 % slower for the counted loop; a loop that moves two fields of every element gains about 12 % (the spelling families `struct-fields` and `field-arrays`). The game reaches its objects through pointers (1,516 `->`), so a split needs to know where each pointer points. Taken up when a measured loop gains clearly, as the hint `DAMPF_SPLIT`. |
 | 5 | 8-bit index registers, arrays aligned to pages | 2-4 % | high | `LDA abs,X` a cycle cheaper; needs the X flag followed and the alignment in the memory map. |
 | 6 | Comparisons on the flags: `BIT` for bit tests | 2-4 % for the whole row | low to medium | Done for `CMP #0`. Most remaining `CMP #imm` compare with other constants and feed `BCC`/`BCS`. |
 | 7 | Calling convention (catalogue C): the first argument in A, `JMP` for tail calls | 1-3 % | medium | `ground_px` is called 12,000 times in 800 ticks. |
-| 9 | Value ranges from array bounds | 1-2 % | medium | More 8-bit narrowing, fewer masks. |
+| 9 | Value ranges from array bounds | 1-2 % | medium | More 8-bit narrowing, fewer masks. Built 2026-11-20 as far as an index into an array goes (ADR-6F8NBESR). |
 
 Also in M9:
 
@@ -115,11 +115,12 @@ Also in M9:
   - a constant shift above 8 is a loop (`shl 9` as `ldx #9; asl; dex; bne`; found in Schach's
     Zobrist table): retires `slow-shift-above-8`.
 
-The order (decided 2026-11-20): the steps of [current-compiler-flaws.md](current-compiler-flaws.md#order-of-work),
+The order (decided 2026-11-20) was the plan in [archive/compiler-flaws.md](archive/compiler-flaws.md),
 an analysis of why the same loop costs between 25 and 138 cycles a round depending on its
-spelling. Tests and a canonical form come before register allocation; rows 2, 3 and 9 and the
-gaps of the style guide above are its steps B3, B5, R3 and C/L. The split of struct arrays (4)
-once its subset question is decided, and 5 and 7, come after it. The rest has to come from the
+spelling: tests and a canonical form before register allocation; rows 2, 3 and 9 and the gaps of
+the style guide above were its steps B3, B5, R3 and C/L. It was done on 2026-11-21; what it left
+is in rows 2 to 4. The split of struct arrays (4) once a measured loop asks for it, and 5 and 7,
+come after it. The rest has to come from the
 game doing less work: the pair loop of `separate` (16 %) and the CPU partner (the game's finding
 1, forwarded to it), as the checkpoint after M2 concluded.
 

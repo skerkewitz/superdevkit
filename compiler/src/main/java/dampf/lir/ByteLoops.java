@@ -10,7 +10,7 @@ import java.util.Set;
 
 /**
  * A loop whose code needs A in 8 bits only runs in 8 bits from its entry to its exits (B5 of
- * docs/current-compiler-flaws.md, for loops): in {@code SEP #$20 / STZ t,X / REP #$20 / INX /
+ * docs/archive/compiler-flaws.md, for loops): in {@code SEP #$20 / STZ t,X / REP #$20 / INX /
  * CPX #n / BCC} the {@code SEP} moves before the loop and the {@code REP} to where it is left,
  * 6 cycles a round. Every block boundary of dampf's code runs with 16 bits; inside the loop that
  * no longer holds, and {@link LVerifier} follows the width across the blocks.
