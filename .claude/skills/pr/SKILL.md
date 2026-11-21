@@ -133,12 +133,12 @@ fold a second change into the branch.
    The title is a short sentence in the style of the commit log ("K4: a large function called
    once in a loop is inlined"). The user is asked for a review on every pull request. Give the
    user the link.
-6. CI builds the branch. When it has finished, check that the build of the last commit passed:
-   `gh-as-bot gh run list -R REPO --branch <branch> --limit 1 --json headSha,status,conclusion`;
-   its `headSha` must be the pull request's last commit. (`gh pr checks` does not work: it needs
-   the Checks permission.) If the build failed, `gh-as-bot gh run view <id> -R REPO --log-failed`
-   shows why, and `gh-as-bot gh run download <id> -R REPO -n test-reports -D <scratchpad folder>`
-   fetches the test reports. Fix it as a change to the open pull request.
+6. CI builds the pull request's last commit. Wait for it and check that it passed:
+   `gh-as-bot gh pr checks <N> -R REPO --watch` (run it in the background; a build takes
+   minutes). If the build failed, `gh-as-bot gh run view <id> -R REPO --log-failed` shows why
+   (the id is in the link `gh pr checks` prints), and
+   `gh-as-bot gh run download <id> -R REPO -n test-reports -D <scratchpad folder>` fetches the
+   test reports. Fix it as a change to the open pull request.
 
 ### Template
 
