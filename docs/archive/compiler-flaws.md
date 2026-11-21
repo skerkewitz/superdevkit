@@ -1,11 +1,22 @@
-# Current compiler flaws
+# Compiler flaws
+
+Done on 2026-11-21 (0.7.4): every step below is built, or was measured and is not built, and says
+so where it stands. Of the signs that the work is done (the end of [Order of work](#order-of-work)),
+the C guide has no rule on how to write a loop counter and `dev/bisect_passes.sh` names the pass,
+the choice of registers and the coalescing included. The spelling test's last gaps, five in
+`struct-fields`, were not closed: an array of structs against one array per field is a choice of
+data layout, not a spelling, so those members became a family of their own, and the difference
+stays in the C guide (`fast-array-per-field`). What is left (splitting arrays of structs, the
+choice of the index register in `RegisterChoice` so that selection's patterns can go, whether
+`findForwards` and `Schedule` are still needed, `FrameLayout`'s predictions) is in the roadmap's
+M9. Below is the plan as it was carried out.
 
 What is structurally wrong with dampf's optimizer and back end, measured on 2026-11-20 at commit
 `5bd65bb` (0.7.1), and how to fix it, step by step. Written so that someone who has not seen the
 code, a person or an AI, can do the work: every flaw has its evidence, the place in the code, the
 change and the test that shows the change worked.
 
-The plan is the order of M9 since 2026-11-20 ([roadmap.md](roadmap.md#m9-the-optimizer-090)):
+The plan is the order of M9 since 2026-11-20 ([roadmap.md](../roadmap.md#m9-the-optimizer-090)):
 the roadmap's rows 2, 3 and 9 and "the gaps the C style guide measures" are the steps B, B5, R3
 and C/L here. A step that takes a decision (they are marked) writes its ADR record when it is
 taken.
@@ -30,7 +41,7 @@ contain no arrays, calls or real loops.
   makes untrue (`docs/*.md`, the READMEs, `lib/C_STYLE.md`). Leave the book alone (CLAUDE.md).
 - A step that changes generated code records new hashes (`./gradlew test -PbackendOutput=update`),
   measures all examples against the commit before it (`dev/bench_examples.sh` with `BASELINE=`),
-  and writes both into [optimizations-log.md](optimizations-log.md). A step that only moves code
+  and writes both into [optimizations-log.md](../optimizations-log.md). A step that only moves code
   keeps every hash. Never both in one step (ADR-6F3CJR10).
 - A step that closes a gap the C style guide measures breaks that rule's claim in
   `StyleGuideTest`. Change or retire the rule in the same commit (`STYLE_GUIDE=update` writes the
@@ -89,7 +100,7 @@ reaches the same code.
 | Function | Cycles a round | Cause |
 | --- | ---: | --- |
 | `int16_t i; i < 20` | 25 | fewer than 24 rounds: the range analysis iterates to the end |
-| `int16_t i; i < 30` | 61 | more than 24 changes: the counter is widened to the whole type ([Ranges.java:108](../compiler/src/main/java/dampf/mir/Ranges.java#L108)) |
+| `int16_t i; i < 30` | 61 | more than 24 changes: the counter is widened to the whole type ([Ranges.java:108](../../compiler/src/main/java/dampf/mir/Ranges.java#L108)) |
 | `uint8_t i; i < 128` | 25 | 0..127 is an interval of signed bytes |
 | `uint8_t i; i < 129` | 42 | 0..128 is not, so the counter has no range and stays in memory |
 
@@ -116,7 +127,7 @@ little here:
 - The known miscompilations (the commits `b33eeba`, `02fa308`, and the one
   `exec/regress_x_step_address.c` reproduces) were in lines the tests ran. They were wrong for a
   combination of conditions no test had.
-- [RandomProgram.java](../compiler/src/test/java/dampf/exec/RandomProgram.java) writes global
+- [RandomProgram.java](../../compiler/src/test/java/dampf/exec/RandomProgram.java) writes global
   scalars, expressions, `if`, and `for (k = 0; k < n; k++)` with n from 1 to 4. No arrays, no
   calls, no pointers, no structs, no locals. So no random program reaches `Inline`, `Induction`,
   `PointerOffsets`, `PointerParams`, `ParamRanges`, the counters in X or the indexes in Y. The
@@ -132,7 +143,7 @@ little here:
 ### T1. A test for spellings
 
 Add `SpellingTest` beside `StyleGuideTest`
-([StyleGuideTest.java](../compiler/src/test/java/dampf/exec/StyleGuideTest.java) is the model:
+([StyleGuideTest.java](../../compiler/src/test/java/dampf/exec/StyleGuideTest.java) is the model:
 it builds a file, reads the worst cases from `Compiler.Result.timing()`, runs the program
 against gcc with `PcReference` and `EmulatorRunner`, and checks the static bounds with
 `Timing.check`).
@@ -223,7 +234,7 @@ that 200 random programs find each. Write the four mutations and their results i
 message.
 
 Built (2026-11-20): `RandomLoopProgram`, described in
-[testing.md](testing.md#the-layers) under *Random programs*; version 1 is unchanged, and the
+[testing.md](../testing.md#the-layers) under *Random programs*; version 1 is unchanged, and the
 loop programs run 50 seeds a day. In its first 1,250 programs it found three bugs in dampf and
 one in gcc, each fixed or worked around in a commit of its own with an execution test:
 
@@ -256,7 +267,7 @@ about exactly this: a miscompilation should name its pass without anyone reading
 generator.
 
 Built (2026-11-20): `dampf.util.PassLimit`, described in
-[testing.md](testing.md#supporting-pieces). The passes on the whole module (`ParamRanges`,
+[testing.md](../testing.md#supporting-pieces). The passes on the whole module (`ParamRanges`,
 `PointerParams`, `IndexParams`) count once per run, not per function. Two findings on the way:
 `IndexParams` gave one of two outputs depending on hash codes (fixed in the commit before), and
 code without the passes is up to ten times slower than with them, which the tests' emulator
@@ -275,8 +286,8 @@ step that touches it, not as one big step: several of these patterns go away in 
 ## Flaw C: the MIR has no canonical form
 
 **What is wrong.** A pass that looks for "a counter stepped by a constant" asks for
-`add φ, const` ([Induction.java:203](../compiler/src/main/java/dampf/mir/Induction.java#L203),
-[SelectionPlan.java:338](../compiler/src/main/java/dampf/backend/SelectionPlan.java#L338)). `i--`
+`add φ, const` ([Induction.java:203](../../compiler/src/main/java/dampf/mir/Induction.java#L203),
+[SelectionPlan.java:338](../../compiler/src/main/java/dampf/backend/SelectionPlan.java#L338)). `i--`
 is lowered to `sub φ, 1`, so loops that count down are no counters to these passes, while
 `Timing.headRuns` and `DeadLoops` accept both forms. `Simplify.canonical` already puts a
 comparison's constant on the right and turns `x <= c` into `x < c + 1`; arithmetic has nothing
@@ -311,14 +322,14 @@ they handle today are deleted in the same step (search for `BinOp.SUB` in `Induc
   compares the offsets as unsigned 16-bit values (C's rule that a pointer stays in its object,
   which `PointerOffsets` relies on already). Where one side is a pointer φ that `PointerOffsets`
   turns into an offset, the comparison must follow. `y_ptr_end` is the test.
-  Built (2026-11-20, [log](optimizations-log.md#pointers-in-one-object-compare-as-offsets-2026-11-20-on-the-spelling-families)):
+  Built (2026-11-20, [log](../optimizations-log.md#pointers-in-one-object-compare-as-offsets-2026-11-20-on-the-spelling-families)):
   in `Simplify`, for addresses in one global or frame slot; with `PointerOffsets` before it, the
   pointer φs are offsets already. The seven C6 gaps closed.
 - **C7.** `Licm` moves a load out of a loop when nothing in the loop may write what it reads:
   no store or copy that may overlap (the rules `Gvn` uses: two different globals or slots never
   overlap), no call of a function that writes memory (`Gvn.writesMemory`), not volatile. Only
   from a block every round passes, as now. `j_u16_var_bound` and `k_u8_var_bound` are the tests.
-  Built (2026-11-20, [log](optimizations-log.md#loads-out-of-loops-2026-11-20-on-the-spelling-families-and-the-examples)):
+  Built (2026-11-20, [log](../optimizations-log.md#loads-out-of-loops-2026-11-20-on-the-spelling-families-and-the-examples)):
   as described; a load outside the head moves only from a global or a frame slot. The X
   pattern also compares with a byte bound through its zero extension. `k` closed, `j` waits for
   R3 as `l` does.
@@ -330,7 +341,7 @@ they handle today are deleted in the same step (search for `BinOp.SUB` in `Induc
 Built (2026-11-20): C1 to C3 in `Simplify`, whose class comment is the definition of the form,
 and `SimplifyTest`. C2's second half is in `Gvn` instead (it finds `b + a` as `a + b`), since
 reordering the operands themselves changes which one selection hands on in A. The gain is small
-([log](optimizations-log.md#a-canonical-form-for-arithmetic-and-comparisons-2026-11-20-on-the-spelling-families-and-the-examples)):
+([log](../optimizations-log.md#a-canonical-form-for-arithmetic-and-comparisons-2026-11-20-on-the-spelling-families-and-the-examples)):
 `i - 1` and `i--` became one instruction, which the X pattern refuses (a step with two users),
 so `g`, `h` and `m` wait for L. C1 also brought a miscompilation, found by the random loop
 programs and fixed in its own commit: `c--` on a byte became `c + -1`, which the code generator
@@ -343,7 +354,7 @@ found clean without a mask (`ADC #$00FF`) and then stepped with a 16-bit `DEC`.
 - **C10.** `(x >> k) << k` (and `* 2^k`) is `x & ~(2^k - 1)`, and the sum or `|` of `x & ~m` and
   `x & m` is x: `t[i >> 4][i & 15]` is `t` indexed by `i` (`flat_index`).
 
-Built (2026-11-20, [log](optimizations-log.md#two-dimensional-arrays-as-one-index-2026-11-20-on-the-spelling-families-and-the-examples)):
+Built (2026-11-20, [log](../optimizations-log.md#two-dimensional-arrays-as-one-index-2026-11-20-on-the-spelling-families-and-the-examples)):
 C9 and C10. `flat_index` closed, Steinschlag 12.8 % faster; a row pointer kept by hand pays one
 addition a round until L4 (`rows_ptr` +3.5 %, Er-Tüp +0.2 %).
 
@@ -359,7 +370,7 @@ counter in memory. Three weaknesses make it say "unknown" for ordinary loops.
 
 ### R1. Widening throws away the bound that did not move
 
-[Ranges.java:108](../compiler/src/main/java/dampf/mir/Ranges.java#L108): after 24 changes a value
+[Ranges.java:108](../../compiler/src/main/java/dampf/mir/Ranges.java#L108): after 24 changes a value
 is widened to its type's whole range. For `int16_t i` from 0 upwards only the upper end grows,
 but the lower end is thrown away too, and narrowing with `i < 100` can only bring the upper end
 back. So `i` is "-32,768..100", the comparison stays signed and the array access goes through a
@@ -375,15 +386,15 @@ bound before `WIDEN_AFTER`. Tests: `RangesTest` with a signed counter up, a sign
 an unsigned counter, and a counter that really wraps; `c_i16_lt100` in the spelling test;
 `Ranges.checker` runs in every execution and random test as now.
 
-Built (2026-11-20, [log](optimizations-log.md#widening-by-the-end-that-moved-2026-11-20-on-the-spelling-families)):
+Built (2026-11-20, [log](../optimizations-log.md#widening-by-the-end-that-moved-2026-11-20-on-the-spelling-families)):
 eight gaps closed, the cliff at 24 rounds gone; no example changed its code.
 
 ### R2. Bytes above 127 have no range
 
 A range is one interval of signed values. An `i8` that holds 0..199 is not one, so it is the
 whole range; conditions with an unsigned constant above the signed maximum give nothing
-([Ranges.java:318](../compiler/src/main/java/dampf/mir/Ranges.java#L318)), and so does
-`uge x, 1`. [optimizations.md](optimizations.md#tried-and-rejected) records the consequence
+([Ranges.java:318](../../compiler/src/main/java/dampf/mir/Ranges.java#L318)), and so does
+`uge x, 1`. [optimizations.md](../optimizations.md#tried-and-rejected) records the consequence
 ("it needs unsigned ranges for bytes").
 
 Fix: keep two intervals for every value, one of its signed and one of its unsigned reading, both
@@ -401,14 +412,14 @@ happens to be convertible: `Induction` (lines 64 and 255), `RangeNarrow` (208, 2
 Tests: the byte counters with bounds 129, 200 and 255, up and down, in `RangesTest` and in the
 spelling test. Retires what is left of `slow-u8-counter`, and the entry in *Tried and rejected*.
 
-Built (2026-11-20, [log](optimizations-log.md#unsigned-ranges-2026-11-20-on-the-spelling-families-and-the-examples)):
+Built (2026-11-20, [log](../optimizations-log.md#unsigned-ranges-2026-11-20-on-the-spelling-families-and-the-examples)):
 as described; `slow-u8-counter` and the entry are gone, the byte gaps closed. A byte counting
 down with `!= 0` (the canonical form of `> 0`) still gets no bound from its test: L2.
 
 ### R3. An array access says nothing about its index (a decision: needs an ADR record)
 
 `a[i]` with a 16-bit `i` is indexed with X only if the ranges show `i >= 0` as a signed number
-([FrameLayout.java:181](../compiler/src/main/java/dampf/backend/FrameLayout.java#L181)); otherwise
+([FrameLayout.java:181](../../compiler/src/main/java/dampf/backend/FrameLayout.java#L181)); otherwise
 the address is computed into a 24-bit pointer every time (`l_u16_local_bound`, and the C guide's
 `fast-range-index`). But C makes an access outside the object undefined, no object is larger
 than 32 KB (ADR-6F0R6A8V), and `PointerOffsets` already relies on that rule.
@@ -426,7 +437,7 @@ fails on a wrong hint, and the PC build's UBSan catches most cases already
 gcc's code tolerates by reading a neighbour, reads another address on the SNES. Retires
 `fast-range-index`.
 
-Built (2026-11-20, ADR-6F8NBESR, [log](optimizations-log.md#an-index-into-an-array-is-inside-it-2026-11-20-on-the-spelling-families-and-the-examples)):
+Built (2026-11-20, ADR-6F8NBESR, [log](../optimizations-log.md#an-index-into-an-array-is-inside-it-2026-11-20-on-the-spelling-families-and-the-examples)):
 the interpreter's check first, then the first step, with a constant offset after the index only
 when it is at most 0 (`a[i].y` still needs the range). The second step is not built: no
 measured case needs it. `l` and `j` closed, `fast-range-index` retired.
@@ -435,7 +446,7 @@ measured case needs it. `l` and `j` closed, `fast-range-index` retired.
 
 `Induction` gives the variable it derives for `i * C` the range it knows (`Instr.Phi.known`);
 the selection then indexes with X, since the offset is never negative. `Inline` copies a φ
-without that field ([Inline.java:224](../compiler/src/main/java/dampf/mir/Inline.java#L224)), and
+without that field ([Inline.java:224](../../compiler/src/main/java/dampf/mir/Inline.java#L224)), and
 the passes do not derive it again in the caller, so the inlined loop computes a 24-bit pointer
 every round. Found by the spelling test: `fill_u16` costs 1,945 cycles as a function and 3,930
 inlined, `pairs_u16` 29,523 inlined. Every small function with such a loop that dampf inlines is
@@ -444,7 +455,7 @@ affected, in the examples too.
 Fix: copy `known` with the φ. Test: an `InlineTest` case where the callee's φ has `known` and
 the copy keeps it, and the spelling gaps marked R4.
 
-Built (2026-11-20, [log](optimizations-log.md#ranges-kept-when-inlining-2026-11-20-on-the-spelling-families-and-the-examples)):
+Built (2026-11-20, [log](../optimizations-log.md#ranges-kept-when-inlining-2026-11-20-on-the-spelling-families-and-the-examples)):
 18 of the 90 spelling members faster, none of the gaps closed alone (each has a second cause,
 mostly L4 or L5), `pairs_ptr` 3.4 % slower until C6; the examples 0.4 % faster on the geometric
 mean.
@@ -456,9 +467,9 @@ found by:
 
 | Where | Accepts | Also demands |
 | --- | --- | --- |
-| [Induction.step](../compiler/src/main/java/dampf/mir/Induction.java#L203) | `add` only, constant on either side | moves the loop test only for `i8` counters ([line 90](../compiler/src/main/java/dampf/mir/Induction.java#L90)) |
-| [SelectionPlan.findXCounters](../compiler/src/main/java/dampf/backend/SelectionPlan.java#L300) | `add φ, const` only | the step last in the latch, the latch ends in a jump, the step has one user, compared only with constants by `eq`, `ne`, `ult`, `uge`, not used after the loop |
-| [Timing.headRuns](../compiler/src/main/java/dampf/backend/Timing.java#L230) | `add` and `sub` | its own two forms of exit test |
+| [Induction.step](../../compiler/src/main/java/dampf/mir/Induction.java#L203) | `add` only, constant on either side | moves the loop test only for `i8` counters ([line 90](../../compiler/src/main/java/dampf/mir/Induction.java#L90)) |
+| [SelectionPlan.findXCounters](../../compiler/src/main/java/dampf/backend/SelectionPlan.java#L300) | `add φ, const` only | the step last in the latch, the latch ends in a jump, the step has one user, compared only with constants by `eq`, `ne`, `ult`, `uge`, not used after the loop |
+| [Timing.headRuns](../../compiler/src/main/java/dampf/backend/Timing.java#L230) | `add` and `sub` | its own two forms of exit test |
 | `DeadLoops` | the φ or the stepped value in the test | one way out, its own proof that the loop ends |
 
 `Ranges` then finds the counter's interval a fifth way, by iteration. No pass can ask how many
@@ -499,18 +510,18 @@ Steps, each its own commit:
   loop test to a derived variable for every counter type when the number of rounds shows the
   variable does not wrap, and when the counter then has no other use. Retires
   `slow-u16-counter-words`.
-  Built (2026-11-20, [log](optimizations-log.md#affine-values-of-a-counter-as-variables-the-loop-test-on-them-2026-11-20-on-the-spelling-families-and-the-examples)):
+  Built (2026-11-20, [log](../optimizations-log.md#affine-values-of-a-counter-as-variables-the-loop-test-on-them-2026-11-20-on-the-spelling-families-and-the-examples)):
   L4 as described, for every affine value (also `r * 16 + c`, and a byte counter's zero
   extension); `slow-u16-counter-words` and `slow-word-array` retired. Then the X pattern takes a
   test against a 16-bit bound in a place (`CPX` on it), which a moved test often has
-  ([log](optimizations-log.md#a-counter-in-x-compared-with-a-value-in-its-place-2026-11-20-on-the-spelling-families-and-the-examples)).
+  ([log](../optimizations-log.md#a-counter-in-x-compared-with-a-value-in-its-place-2026-11-20-on-the-spelling-families-and-the-examples)).
 - **L5.** Two counters of one loop with the same start and step are one: replace the second by
   the first (`x_ptr_walk`: the counter and the pointer's offset). A counter that differs from
   another by a constant factor or offset is derived from it and falls under L4.
-  Built (2026-11-20, [log](optimizations-log.md#two-counters-with-one-start-and-step-are-one-2026-11-20-on-the-spelling-families-and-the-examples)):
+  Built (2026-11-20, [log](../optimizations-log.md#two-counters-with-one-start-and-step-are-one-2026-11-20-on-the-spelling-families-and-the-examples)):
   the first sentence, before L4, which needed it (L4 made the second variable of `apply_s` in
   the pair loops after inlining, and moved the loop test onto it). The second after L4
-  ([log](optimizations-log.md#a-counter-gives-its-test-to-a-sibling-2026-11-20-on-the-spelling-families)):
+  ([log](../optimizations-log.md#a-counter-gives-its-test-to-a-sibling-2026-11-20-on-the-spelling-families)):
   a counter read only by its step and its test moves the test to a counter of the loop that
   is a * i + b, from constant starts.
 - **L6.** A counter read after the loop, in a loop with one exit and an exact number of rounds,
@@ -525,10 +536,10 @@ bound. `CountedLoopsTest` has the forms of the spelling families, the loops to r
 random counting loops (three shapes, every predicate, zero-extended or not, constant or ranged
 start and bound) whose claims the interpreter checks; four mutations of the arithmetic each
 made it fail. A bound may change in the loop, unlike the description above
-([log](optimizations-log.md#bounds-that-change-in-the-loop-2026-11-20-on-the-execution-programs)):
+([log](../optimizations-log.md#bounds-that-change-in-the-loop-2026-11-20-on-the-execution-programs)):
 `Timing` takes such bounds, and an ordered test needs only their range.
 
-Built (2026-11-20, [log](optimizations-log.md#counters-take-their-range-from-the-counted-loop-2026-11-20-on-the-spelling-families-and-the-examples)):
+Built (2026-11-20, [log](../optimizations-log.md#counters-take-their-range-from-the-counted-loop-2026-11-20-on-the-spelling-families-and-the-examples)):
 L2. `Ranges` meets a counter φ with what `CountedLoops` says, before and after widening, and
 `x != c` cuts c off an end of x's interval where it holds, so that `i - 1` in the body of
 `i != 0` is an index. `n_u16_ne100` closed; the loops counting down lost 25 to 60 %, and wait for
@@ -538,11 +549,11 @@ Built (2026-11-20): L3 for `Timing` and `DeadLoops`, every hash and every bound 
 asks `CountedLoops` how often a head runs (its own `untilEqual` and `untilBound` are gone);
 `DeadLoops` takes the loop's exit from it, still only on a constant, not zero-extended, and with
 `!=` only for an odd step, which is all its own proof took; the commit after it lifts that
-([log](optimizations-log.md#dead-loops-proved-by-the-counted-loop-2026-11-20-on-the-execution-programs)). Then `Induction`: its counters are those of `CountedLoops` (with
+([log](../optimizations-log.md#dead-loops-proved-by-the-counted-loop-2026-11-20-on-the-execution-programs)). Then `Induction`: its counters are those of `CountedLoops` (with
 one step instruction), every hash kept. Last `findXCounters`: its counters from `CountedLoops` (every hash
 kept), then a step anywhere in the round, its stepped value read in X by the exit test and as
 an index, and a signed test against 0
-([log](optimizations-log.md#counters-in-x-read-after-their-step-2026-11-20-on-the-spelling-families-and-the-execution-programs)).
+([log](../optimizations-log.md#counters-in-x-read-after-their-step-2026-11-20-on-the-spelling-families-and-the-execution-programs)).
 With that the `do` loop and the loops counting down are closed. `SelectionPlan`, `Timing`,
 `DeadLoops` and `Induction` recognise no counter of their own any more; the 54 gap lines before
 L1 are 38, of which L4 names 19.
@@ -568,8 +579,8 @@ the `struct-fields` ones are left, which only splitting the array closes (roadma
    where a pattern says so: `findForwards` (a result handed on in A to the next instruction),
    `findXCounters` (a loop counter in X, with the conditions listed under L), `findYIndexes`,
    and on LIR `RedundantLoads`, `IndexInY`, and the selector's own `aHolds`, `xHolds`, `yHolds`
-   ([SelectionPlan.java](../compiler/src/main/java/dampf/backend/SelectionPlan.java),
-   [Selection.java:212](../compiler/src/main/java/dampf/backend/Selection.java#L212)). Each
+   ([SelectionPlan.java](../../compiler/src/main/java/dampf/backend/SelectionPlan.java),
+   [Selection.java:212](../../compiler/src/main/java/dampf/backend/Selection.java#L212)). Each
    pattern is all or nothing. A loop whose counter is also added to something
    (`o_u16_i_used`) keeps the counter in memory, although `TXA` would do. A loop that calls a
    function has no register at all, since every call is taken to destroy X and Y.
@@ -577,7 +588,7 @@ the `struct-fields` ones are left, which only splitting the array closes (roadma
    will write: which comparison is evaluated at the branch, which `ptradd` is never computed,
    in which order a two-word result is written, where φ copies go. Its class comment lists six
    such assumptions
-   ([FrameLayout.java:19](../compiler/src/main/java/dampf/backend/FrameLayout.java#L19)). A
+   ([FrameLayout.java:19](../../compiler/src/main/java/dampf/backend/FrameLayout.java#L19)). A
    wrong prediction is a miscompilation that no verifier sees, because the liveness is computed
    on one representation and the reads and writes happen in another. The φ bug of `b33eeba` and
    the two-loops bug of `02fa308` were both this; the X bug of `regress_x_step_address.c` was the
@@ -646,12 +657,12 @@ another (`LMark`: a φ copy into a direct φ, an in-place step); the marks go be
 passes. Its first run found a miscompilation (`ConstAddressTest`, the scroll registers of the
 kit's `sdevkit_bg_set_scroll`). Selection then learnt to match what A, X and Y hold by owner
 instead of by address, so a load it leaves out stays right wherever the places end up (no hash
-changed). Then the places got their addresses on the LIR ([ADR-6F8NBG4P](adr/6F8NBG4P-frame-places-are-coloured-on-the-lir-and.md),
+changed). Then the places got their addresses on the LIR ([ADR-6F8NBG4P](../adr/6F8NBG4P-frame-places-are-coloured-on-the-lir-and.md),
 `PlaceColouring`), `FrameLayout`'s prediction kept as each place's first choice: three examples
 changed, frames 2 bytes smaller where a value handed on in A had a place it never used. Without
 the prediction as first choice the execution and random tests pass too. Then every φ went
 through its incoming place, the copies as `LCopy`, coalesced by the colouring, with no
-prediction as first choice ([ADR-6F8NBHZ6](adr/6F8NBHZ6-phis-go-through-their-incoming-places-and-the.md)):
+prediction as first choice ([ADR-6F8NBHZ6](../adr/6F8NBHZ6-phis-go-through-their-incoming-places-and-the.md)):
 `FrameLayout` has no direct φs any more, and the examples do 0.3 % less work. Left of B2:
 `FrameLayout` still predicts places for selection's decisions (a value stepped in its operand's
 place, a pointer in the direct page, a value handed on in A); B3 is where those become choices
@@ -775,7 +786,7 @@ is used by the assembler, the listing, the verifier and the profile tool only. E
 pattern matches, on the belief that it pays off. `Induction` makes a new variable for every
 product whether or not the old counter can then go (`fill_u16_counter`: two counters, one in
 memory). The inlining limits are numbers tuned on one game, and raising one made the game
-slower for reasons [optimizations.md](optimizations.md#tried-and-rejected) could not name.
+slower for reasons [optimizations.md](../optimizations.md#tried-and-rejected) could not name.
 
 **The fix.**
 
@@ -792,7 +803,7 @@ slower for reasons [optimizations.md](optimizations.md#tried-and-rejected) could
   slower, which is what a reviewer needs and what the hash hides.
 - **K4.** For choices where no local rule is right (the inlining limits): build the function
   both ways and keep the cheaper by the static bounds, or do it per program with the user's
-  workload, as the `--tune` idea in [optimizations.md](optimizations.md#ideas-not-yet-built)
+  workload, as the `--tune` idea in [optimizations.md](../optimizations.md#ideas-not-yet-built)
   says. Last, and only if the examples show a gain.
 
 Built (2026-11-20): K3 as described, from the MIR builds `BackendOutputTest` makes of the
@@ -838,7 +849,7 @@ named by `dev/bisect_passes.sh` down to one pass on one function.
 ## Appendix: the loop spellings
 
 The functions of the table, with the `test_main` they were measured with. The spelling test has
-them as its first family ([sum-bytes.c](../compiler/src/test/resources/spelling/sum-bytes.c)),
+them as its first family ([sum-bytes.c](../../compiler/src/test/resources/spelling/sum-bytes.c)),
 with a `setup` in place of `test_main` and two more spellings. `test_main` fills `data` and stores every result; the loops' time does not depend
 on what `data` holds.
 

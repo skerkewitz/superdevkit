@@ -11,7 +11,7 @@ import java.util.Set;
 /**
  * Counted loops: for every loop of {@link Loops#find}, its counters, the tests that end it, and
  * from these how often its head runs and which values each counter takes
- * (docs/current-compiler-flaws.md, flaw L). The one place that recognises a counting loop; it
+ * (docs/archive/compiler-flaws.md, flaw L). The one place that recognises a counting loop; it
  * works on the canonical form of {@link Simplify} (a step is {@code add φ, c}, never a
  * subtraction; a comparison with a constant has the constant on the right).
  *

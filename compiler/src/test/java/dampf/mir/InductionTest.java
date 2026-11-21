@@ -151,7 +151,7 @@ class InductionTest {
                 new Interpreter(m, 100_000).call("_walk", List.of(0L)));
     }
 
-    // the forms of L4 (docs/current-compiler-flaws.md): i - 1 from 1 to n, (i - 1) * 2 counting
+    // the forms of L4 (docs/archive/compiler-flaws.md): i - 1 from 1 to n, (i - 1) * 2 counting
     // down, r * 16 + c in a table, a stride of 5 (strength reduction makes it x * 4 + x), a
     // byte counter to a byte bound that may be 0, and a counter something else reads
     private static final String FORMS = """

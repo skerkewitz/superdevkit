@@ -1,7 +1,7 @@
 /* family: sum-bytes
  * tolerance: 10
  * The sum of data[0] to data[99] into a uint16_t, by index and by pointer, with every counter
- * type, direction, test and loop form. The appendix of docs/current-compiler-flaws.md.
+ * type, direction, test and loop form. The appendix of docs/archive/compiler-flaws.md.
  */
 #include <stdint.h>
 

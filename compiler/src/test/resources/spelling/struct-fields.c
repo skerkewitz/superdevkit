@@ -1,12 +1,9 @@
 /* family: struct-fields
  * tolerance: 10
- * Two fields of every element moved: of an array of structs by index and by pointer, and of one
- * array per field. The style guide's fast-array-per-field.
- * gap: struct_u16 split as struct_u8
- * gap: struct_u8 split a stride of 5 bytes takes TXA ADC TAX where the field arrays take INX INX: only splitting the array (roadmap M9 row 4) closes it
- * gap: struct_ptr split as struct_u8
- * gap: struct_ptr_count split as struct_u8
- * gap: struct_down split as struct_u8
+ * Two fields of every element of an array of structs moved, by index and by pointer. One array per
+ * field (field-arrays.c) is about 12 % cheaper: a stride of 5 bytes takes TXA ADC TAX where a field
+ * array takes INX INX. That is a choice of data layout, not of spelling, and the C guide says so
+ * (fast-array-per-field); splitting the array is roadmap M9 row 4.
  */
 #include <stdint.h>
 
@@ -46,5 +43,3 @@ void struct_u8(void) { uint8_t i; for (i = 0; i < 32; i++) { objs[i].x = (int16_
 void struct_ptr(void) { Obj *o; for (o = objs; o < objs + 32; o++) { o->x = (int16_t)(o->x + 2); o->y = (int16_t)(o->y - 1); } }
 void struct_ptr_count(void) { Obj *o = objs; uint16_t i; for (i = 0; i < 32; i++, o++) { o->x = (int16_t)(o->x + 2); o->y = (int16_t)(o->y - 1); } }
 void struct_down(void) { uint16_t i; for (i = 32; i > 0; i--) { objs[i - 1].x = (int16_t)(objs[i - 1].x + 2); objs[i - 1].y = (int16_t)(objs[i - 1].y - 1); } }
-void fields_u16(void) { uint16_t i; for (i = 0; i < 32; i++) { px[i] = (int16_t)(px[i] + 2); py[i] = (int16_t)(py[i] - 1); } }
-void fields_u8(void) { uint8_t i; for (i = 0; i < 32; i++) { px[i] = (int16_t)(px[i] + 2); py[i] = (int16_t)(py[i] - 1); } }

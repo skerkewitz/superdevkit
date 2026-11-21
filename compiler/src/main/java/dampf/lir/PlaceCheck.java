@@ -11,7 +11,7 @@ import java.util.Set;
 
 /**
  * Checks the frame places of a function's LIR against what its code reads and writes (B2 of
- * docs/current-compiler-flaws.md, ADR-6F8NBFAQ), by the owners of the operands: no byte of a
+ * docs/archive/compiler-flaws.md, ADR-6F8NBFAQ), by the owners of the operands: no byte of a
  * place is read on a path where it was not written, and no write to a place lands on a byte
  * that another owner's live value is in (unless it writes back what is there already: a copy
  * between two values that share the place). The places assigned before the code existed made

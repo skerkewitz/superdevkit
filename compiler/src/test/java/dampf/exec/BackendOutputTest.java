@@ -39,7 +39,7 @@ import org.junit.jupiter.api.Test;
  * <p>Every run writes the assembly to {@code build/backend-output/}; an update also copies it to
  * {@code build/backend-output-ref/}, so a changed hash can be followed with a plain {@code diff -r}.
  *
- * <p>Beside the hashes, the direction (K3 of docs/current-compiler-flaws.md): the static worst
+ * <p>Beside the hashes, the direction (K3 of docs/archive/compiler-flaws.md): the static worst
  * case of every function of every example and of every member of the spelling families
  * ({@code compiler/src/test/resources/cost-baseline.txt}, written by the same update). A hash
  * says that the code changed; the diff of that file in a commit says which functions got slower.

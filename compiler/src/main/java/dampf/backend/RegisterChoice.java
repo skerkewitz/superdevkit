@@ -21,7 +21,7 @@ import java.util.function.Predicate;
 
 /**
  * Keeps places in X or Y instead of the frame where that saves cycles (B3 of
- * docs/current-compiler-flaws.md), on the LIR selection wrote, before the places get addresses.
+ * docs/archive/compiler-flaws.md), on the LIR selection wrote, before the places get addresses.
  * A candidate is a group of places ({@link PlaceColouring.Analysis}: marked places and coalesced
  * copies as one) of one word; it goes to register R for its whole live range when
  *

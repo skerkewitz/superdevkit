@@ -14,7 +14,7 @@ import java.util.Map;
  * value, and a block that only one block jumps to is merged into it.
  *
  * <p>It also writes every instruction in one <b>canonical form</b>, so that a later pass has
- * to know one spelling (docs/current-compiler-flaws.md, flaw C). After it, and so after the
+ * to know one spelling (docs/archive/compiler-flaws.md, flaw C). After it, and so after the
  * optimizer, which runs it first in every round:
  * <ul>
  * <li>C1: no {@code sub x, c} with a constant c: it is {@code add x, -c} (a loop counting down

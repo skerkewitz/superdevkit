@@ -9,7 +9,7 @@ import java.util.Random;
  * programs; {@link RandomProgram}, version 1, stays as it was so its seeds keep their programs).
  * Where version 1 writes scalars and short loops, these have what {@code Induction},
  * {@code PointerOffsets}, {@code PointerParams}, {@code Inline}, the counters in X and the
- * indexes in Y work on (docs/current-compiler-flaws.md, T2):
+ * indexes in Y work on (docs/archive/compiler-flaws.md, T2):
  * <ul>
  * <li>global arrays of {@code uint8_t}, {@code uint16_t}, {@code int16_t} and of a small struct,
  *     lengths from 8 to 300, and a local array;</li>
