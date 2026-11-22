@@ -1654,3 +1654,19 @@ copies through a pointer 1,823 → 3,219 without `Schedule`. Against it, some fu
 is open in the roadmap (M9, row 2). Without `Schedule` dampf also stopped on Ertüp, which led to
 the bug of the entry before.
 
+## A loaded value goes right before a store through a pointer (2026-11-22, on the examples)
+
+`memcpy` was 10 % faster without `Schedule` (the entry on `findForwards` and `Schedule`). A store's
+address and value are both read by the store alone, so each wanted the place right before it, and
+`Schedule` moved them in turns until its limit of rounds. In `memcpy` the address won: the loaded
+byte was stored in a temporary and loaded back while the address was computed, 8 cycles a byte.
+Where the address is a pointer plus a variable, whose sum needs A, and the value is a load, the
+load now comes right before the store. `memcpy` 5,046,223 → 4,521,943 at its worst case (10.4 %);
+every other worst case, the examples' work and the pair loops are the same.
+
+Wider rules measured worse. The value last for every store made Schach 0.5 % slower: its stores
+into global arrays need no A for the address, and the new order took Y from the counter of `next`.
+Only the other operand left in place made seven worst cases larger. What stays open is a computed
+value stored at an index into a global: value last makes Ertüp's `hud_lives` 12 % faster and
+Schach's `draw_square` slower, so that choice needs a cost model.
+

@@ -10,6 +10,9 @@ import java.util.Map;
  * code generator can hand the value over in A without storing it (MirCodeGen's "forwarding"), and
  * the value's place is free for less time.
  *
+ * <p>A store through a pointer plus a variable, whose value is a load, has that load right before
+ * it, after its address ({@link #loadedValue}).
+ *
  * <p>A value that only φs read (a loop's step) goes to the end of its block, so that a counter
  * read before it stays the counter for the whole block.
  *
@@ -52,14 +55,21 @@ public final class Schedule {
                         continue;
                     }
                     int at = is.indexOf(u);
-                    if (at == k + 1) {
-                        continue;   // right before its user already
+                    if (u instanceof Instr.Store st) {
+                        Instr value = loadedValue(st, b, uses);
+                        if (value != null && i != value) {
+                            continue;   // the loaded value has the place before the store
+                        }
                     }
-                    if (i instanceof Instr.Load && !clear(is, k + 1, at)) {
+                    int target = at;
+                    if (target == k + 1) {
+                        continue;   // in its place already
+                    }
+                    if (i instanceof Instr.Load && !clear(is, k + 1, target)) {
                         continue;
                     }
                     is.remove(k);
-                    is.add(at - 1, i);
+                    is.add(target - 1, i);
                     moved = true;
                     changed = true;
                 }
@@ -96,6 +106,21 @@ public final class Schedule {
             changed = true;
         }
         return changed;
+    }
+
+    /**
+     * A store's value, if it is a load of this block only the store reads and the store's address
+     * is a pointer plus a variable, whose sum is computed in A: the load then goes right before the
+     * store, after the address, and is handed to the store in A. Without this rule the value and
+     * the address took the place before the store in turns, and the loaded value could end up
+     * stored and loaded again while the address was computed. An address into a global or a frame
+     * slot needs no A, and there the order decides which register stays free for a counter.
+     */
+    private static Instr loadedValue(Instr.Store s, Block b, Map<Instr, Integer> uses) {
+        boolean sumInA = s.op(0) instanceof Instr.PtrAdd p && !(p.op(1) instanceof Value.Const)
+                && !(p.op(0) instanceof Value.GlobalAddr) && !(p.op(0) instanceof Value.SlotAddr);
+        return sumInA && s.op(1) instanceof Instr.Load l && l.block() == b && movable(l) && uses.getOrDefault(l, 0) == 1
+                ? l : null;
     }
 
     private static boolean movable(Instr i) {
