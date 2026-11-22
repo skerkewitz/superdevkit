@@ -118,39 +118,172 @@ R16 = dampf_regs+16
         .a16
         .i16
 
-; A = A * R0, low 16 bits of the product. Destroys R0, R2, X.
+; The CPU's 8 x 8 multiplier: write the factors to WRMPYA and WRMPYB, and the product is in RDMPY
+; 8 CPU cycles after the write to WRMPYB. LDA long reads in its 5th cycle, so at least 4 cycles lie
+; between the cycle that writes WRMPYB and that instruction. (A 16-bit STA writes WRMPYB in its
+; first write cycle: its second counts. Three cycles give wrong products, here and in Mesen.)
+WRMPYA = $004202
+WRMPYB = $004203
+RDMPY  = $004216
+
+; A = A * R0, low 16 bits of the product: al*bl + (al*bh + ah*bl) * 256. Destroys R0, R2, X.
 dampf_mul16:
-        sta     z:R2            ; multiplicand
-        lda     #0
-        ldx     #16
-@loop:  asl     a               ; product <<= 1
-        asl     z:R0            ; next multiplier bit, from the top, into C
-        bcc     @skip
+        sta     z:R2            ; a
+        sep     #$20
+        .a8
+        sta     f:WRMPYA        ; al
+        lda     z:R0
+        sta     f:WRMPYB        ; al * bl
+        rep     #$20
+        .a16
+        nop
+        lda     f:RDMPY
+        tax
+        sep     #$20
+        .a8
+        lda     z:R0+1
+        sta     f:WRMPYB        ; al * bh
+        lda     z:R2+1
+        xba                     ; B = ah
+        lda     f:RDMPY         ; only its low byte reaches the result
+        sta     z:R0+1
+        xba
+        sta     f:WRMPYA        ; ah
+        lda     z:R0
+        sta     f:WRMPYB        ; ah * bl
+        stx     z:R2            ; al * bl
+        lda     z:R2+1
         clc
-        adc     z:R2
-@skip:  dex
-        bne     @loop
+        adc     z:R0+1
+        clc
+        adc     f:RDMPY
+        xba                     ; B = the high byte of the result
+        lda     z:R2
+        rep     #$20
+        .a16
         rtl
 
-; R8:R10 = R0:R2 * R4:R6, low 32 bits of the product. Destroys R4, R6, X.
+; R8:R10 = R0:R2 * R4:R6, low 32 bits of the product, from the ten products of a byte of each
+; whose place is below 4. WRMPYB is written in 16 bits: the second byte goes to $4204, the
+; divider's dividend, which nothing here reads. X counts the carries into the top byte.
+; Destroys R4, R6, X.
 dampf_mul32:
-        stz     z:R8
+        ldx     #0
         stz     z:R10
-        ldx     #32
-@loop:  asl     z:R8            ; product <<= 1
-        rol     z:R10
-        asl     z:R4            ; next multiplier bit, from the top, into C
-        rol     z:R6
-        bcc     @skip
-        clc
-        lda     z:R8
-        adc     z:R0
+        sep     #$20
+        .a8
+        lda     z:R0
+        sta     f:WRMPYA        ; a0
+        rep     #$20
+        .a16
+        lda     z:R4
+        sta     f:WRMPYB        ; a0 * b0, place 0
+        nop
+        nop
+        lda     f:RDMPY
         sta     z:R8
-        lda     z:R10
-        adc     z:R2
+        lda     z:R4+1
+        sta     f:WRMPYB        ; a0 * b1, place 1
+        clc
+        nop
+        lda     f:RDMPY
+        adc     z:R8+1
+        sta     z:R8+1
+        bcc     @a01
+        inx
+@a01:   lda     z:R6
+        sta     f:WRMPYB        ; a0 * b2, place 2
+        clc
+        nop
+        lda     f:RDMPY
+        adc     z:R10
         sta     z:R10
-@skip:  dex
-        bne     @loop
+        lda     z:R6+1
+        sta     f:WRMPYB        ; a0 * b3, place 3: only the low byte counts
+        nop
+        nop
+        lda     f:RDMPY
+        xba
+        and     #$FF00
+        clc
+        adc     z:R10
+        sta     z:R10
+        sep     #$20
+        .a8
+        lda     z:R0+1
+        sta     f:WRMPYA        ; a1
+        rep     #$20
+        .a16
+        lda     z:R4
+        sta     f:WRMPYB        ; a1 * b0, place 1
+        clc
+        nop
+        lda     f:RDMPY
+        adc     z:R8+1
+        sta     z:R8+1
+        bcc     @a10
+        inx
+@a10:   lda     z:R4+1
+        sta     f:WRMPYB        ; a1 * b1, place 2
+        clc
+        nop
+        lda     f:RDMPY
+        adc     z:R10
+        sta     z:R10
+        lda     z:R6
+        sta     f:WRMPYB        ; a1 * b2, place 3
+        nop
+        nop
+        lda     f:RDMPY
+        xba
+        and     #$FF00
+        clc
+        adc     z:R10
+        sta     z:R10
+        sep     #$20
+        .a8
+        lda     z:R2
+        sta     f:WRMPYA        ; a2
+        rep     #$20
+        .a16
+        lda     z:R4
+        sta     f:WRMPYB        ; a2 * b0, place 2
+        clc
+        nop
+        lda     f:RDMPY
+        adc     z:R10
+        sta     z:R10
+        lda     z:R4+1
+        sta     f:WRMPYB        ; a2 * b1, place 3
+        nop
+        nop
+        lda     f:RDMPY
+        xba
+        and     #$FF00
+        clc
+        adc     z:R10
+        sta     z:R10
+        sep     #$20
+        .a8
+        lda     z:R2+1
+        sta     f:WRMPYA        ; a3
+        rep     #$20
+        .a16
+        lda     z:R4
+        sta     f:WRMPYB        ; a3 * b0, place 3
+        nop
+        nop
+        lda     f:RDMPY
+        xba
+        and     #$FF00
+        clc
+        adc     z:R10
+        sta     z:R10
+        txa                     ; the carries into place 3
+        xba
+        clc
+        adc     z:R10
+        sta     z:R10
         rtl
 
 ; Unsigned A / R0: quotient in A, remainder in R2. Destroys R4, X.
