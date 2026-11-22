@@ -28,7 +28,8 @@ class DesktopIsolationTest {
         return Files.isRegularFile(Path.of("build/raylib/linux/lib/libraylib.a"));
     }
 
-    private static boolean web() {
+    /** The web builds here: raylib was fetched for the web, and emcc runs. */
+    static boolean webBuilds() {
         if (!Files.isRegularFile(Path.of("build/raylib/web/lib/libraylib.a"))) {
             return false;
         }
@@ -47,7 +48,7 @@ class DesktopIsolationTest {
         if (linux()) {
             t.add("linux");
         }
-        if (web()) {
+        if (webBuilds()) {
             t.add("web");
         }
         assumeTrue(!t.isEmpty(), "raylib not fetched for linux or web (or no emcc)");

@@ -35,7 +35,7 @@ scalar elements (`a[2]`, `s.x`), must have the same values on both sides. Pointe
 | Unit tests | One pass or component against expected output | JVM | Milliseconds |
 | Execution tests | `compiler/src/test/resources/exec/*.c` against gcc | dampf's emulator, and Mesen when there is one | Seconds |
 | Random programs | Generated programs against gcc | dampf's emulator | Minutes for many |
-| Examples | Each example's `check.txt` played on the SNES and on the desktop, a checksum per tick, and the same DSP writes in the same ticks ([docs/sound.md](sound.md#the-checks)) | dampf's emulator and Rachael; Mesen in `dev/compare_example.sh` | Under a minute |
+| Examples | Each example's `check.txt` played on the SNES, on the desktop and on the web, a checksum per tick, and the same DSP writes in the same ticks ([docs/sound.md](sound.md#the-checks)) | dampf's emulator, Rachael, and Rachael in headless Chromium (Playwright) when installed; Mesen in `dev/compare_example.sh` | Five minutes, two of them the web |
 | The BRR Lab | Every use of `tools/brr_lab.html`, and its bytes against `superdevkit sfx` ([tools/lab_test](../tools/lab_test/README.md)) | Headless Chromium (Playwright), when installed | 10 seconds |
 | Timing on the examples | Every call of every example against its static bounds | dampf's emulator | 20 seconds |
 
@@ -121,6 +121,14 @@ cycles of a range of ticks to the functions of the ROM, and with the ROM's `.dbg
 its C lines, which shows where in a function, and in the functions dampf inlined, the time goes. `dev/compare_example.sh` compares Mesen's checksums with the desktop's too,
 with the pictures.
 
+Where emcc runs, raylib was fetched for the web and Playwright is installed in
+[tools/web_check](../tools/web_check/README.md), each example is also built for the web and its
+check played in headless Chromium: the web's `main` takes `--check` like the desktop's, and
+`web_check.js` hands the page the file and fetches the results, into `build/web-check`. The test
+compares them with the SNES's as it compares the desktop's, so emcc's WebAssembly (32-bit
+pointers and `long`) computed the same game as gcc and dampf. The check has no window: the
+browser's frames and the clock that steps the game by them (ADR-6FCVAA30) are not part of it.
+
 **Recordings.** Every session in the desktop's window is recorded, the joypad and the checksum of
 every tick; F11 saves it in the format of `check.txt` (with `mark` and `hash` lines, which the
 other players skip), so a bug seen on the desktop can be played again: in the window
@@ -174,7 +182,7 @@ over when it left ([ADR-6F60Z819](adr/6F60Z819-the-examples-replace-blubber-blas
 - **GitHub Actions** (`.github/workflows/build.yml`) runs `./gradlew build` for every pull
   request (ADR-6FB9QJ3R), with JDK 25 on Ubuntu, the
   runner's gcc, python3 and node, and Ubuntu's cc65 (ca65 and ld65 for `BackendOutputTest`). Mesen, raylib, Emscripten and Playwright are not there: the execution
-  tests run in dampf's emulator only, and `DesktopIsolationTest`, the symbol check of WebAssembly
+  tests run in dampf's emulator only, `ExamplesTest` plays the SNES only, and `DesktopIsolationTest`, the symbol check of WebAssembly
   objects (`ProjectTest`) and the BRR Lab's browser tests skip. A pull request is merged only when this build passes.
 - **Parallel test JVMs.** The compiler's test classes run in several JVMs at once, one per core
   and at most 4 (`maxParallelForks`; `-PtestForks=n` sets the number, 1 runs them one after

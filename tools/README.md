@@ -26,4 +26,5 @@ identical 8 x 8 tiles once, at most 256, the map of 128 tiles a row). It writes 
 
 The rename script's tests are in `compiler/src/test/python` (`test_sdevkit_rename.py`, run by
 `ToolsTest`); the converters' are Java (`Png2SnesTest`, `SfxTest`). The BRR Lab's tests are Playwright tests in a browser, in
-[`lab_test`](lab_test/README.md) (`BrrLabTest` runs them).
+[`lab_test`](lab_test/README.md) (`BrrLabTest` runs them). [`web_check`](web_check/README.md)
+plays an example's `check.txt` in its web build in headless Chromium, for `ExamplesTest`.
