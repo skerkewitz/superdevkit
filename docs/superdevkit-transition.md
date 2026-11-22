@@ -47,7 +47,7 @@ The kit:
 | --- | --- | --- |
 | M5 | 0.6.0 (planned as 0.5.0) | Blubber Blasen builds its SNES ROM with the dev kit from its own repository; the examples build for the SNES |
 | M7 | 0.7.0 | Windows and Linux: Rachael and the desktop frontend in the kit, the CLI with `init`, `build`, `run`; the examples and Blubber Blasen run on the desktop from the kit |
-| M8 | 0.8.0 | The web: the same games in the browser; Blubber Blasen drops its own PC side |
+| M8 | 0.8.0 | The web: the same games in the browser; Blubber Blasen's web build from the kit (its own desktop frontend goes with M10, the roadmap) |
 
 The milestones planned before (the optimizer, language and platform, timing and debugging, fine
 tuning) move from M7–M10 to M9–M12 (ADR-6F3CJT1P on renumbering). macOS, `bundle`/`deploy`, the
@@ -239,7 +239,8 @@ ticks, its sound and its recording against the SNES's. What is left:
   unchanged and plays its two checks (3,600 ticks each) in the browser with every checksum the
   recorded one; it is asked to keep its debug switches out of the web and to drop its CMake web
   build after release 0.8.0. `src/snes` is gone already. `src/platform` stays for the game's
-  desktop until the kit's window has the game's development features (the game's ADR-0010).
+  desktop until the kit's window has the game's development features (the game's ADR-0010),
+  planned for M10 in the [roadmap](roadmap.md#m10-language-platform-and-usability-0100).
 
 ## Not scheduled
 
