@@ -1654,6 +1654,25 @@ copies through a pointer 1,823 → 3,219 without `Schedule`. Against it, some fu
 is open in the roadmap (M9, row 2). Without `Schedule` dampf also stopped on Ertüp, which led to
 the bug of the entry before.
 
+## Multiplication on the CPU's multiplier (2026-11-22, on the examples)
+
+`dampf_mul16` and `dampf_mul32` were loops of 16 and 32 shifts and adds, 287 to 367 and 1,168 to
+1,968 cycles, and Mandelbrot spent 87 % of its work in the runtime. The SNES has an 8 x 8 multiplier at
+`$4202`/`$4203` with the product in `$4216` after 8 CPU cycles. `dampf_mul16` now adds up the three
+byte products that reach the low 16 bits (108 cycles), `dampf_mul32` the ten that reach the low 32
+(398 to 400). Where both factors of a 16-bit product are below 256 by their ranges, or the result is
+a byte, the code goes to the multiplier directly, without a call: `(uint16_t)(ua * ub)` costs 62
+cycles in the C guide's measurement against 140 for two `uint16_t`.
+
+The emulator used to give the product at once, so a read that comes too early would have passed
+every test here and failed on a console. It now adds one bit per CPU cycle (`MultiplierTest`). With
+the runtime's wait one cycle shorter, both dampf's emulator and Mesen give wrong products.
+
+On the examples: Mandelbrot 230,944 → 76,575 (0.332), Mode 7 24,940 → 11,649 (0.467), Ertüp 0.981,
+Catch Me 0.990, the rest the same; geometric mean 0.763. 48 worst cases are smaller and none is
+larger. The pair loops multiply by constants and are the same. `same-multiply-width` is now
+`fast-multiply-bytes`.
+
 ## A loaded value goes right before a store through a pointer (2026-11-22, on the examples)
 
 `memcpy` was 10 % faster without `Schedule` (the entry on `findForwards` and `Schedule`). A store's

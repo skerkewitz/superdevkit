@@ -1,7 +1,7 @@
-/* rule: same-multiply-width
- * claim: multiply_bytes same multiply_words
- * A multiplication of two bytes costs as much as one of two 16-bit values: both call the runtime
- * (the SNES's 8 x 8 multiplier is not used). Narrowing the factors buys nothing. */
+/* rule: fast-multiply-bytes
+ * claim: multiply_bytes faster multiply_words
+ * Two bytes are multiplied on the SNES's 8 x 8 multiplier, without a call; two 16-bit values whose
+ * range dampf does not know call the runtime. */
 #include <stdint.h>
 
 uint8_t ua = 12, ub = 40;
