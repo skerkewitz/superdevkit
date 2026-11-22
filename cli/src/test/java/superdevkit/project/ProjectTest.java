@@ -307,6 +307,53 @@ class ProjectTest {
     }
 
     @Test
+    void definesReachTheGameOnTheirTargetOnly() throws Exception {
+        assumeTrue(!Desktop.windows(), "the plan of linux");
+        Files.createDirectories(tmp.resolve("src"));
+        Files.writeString(tmp.resolve("src/g.c"), """
+                #include "sdevkit/loop.h"
+                #if !defined(ON_SNES) || LEVELS != 3 || defined(ON_DESKTOP)
+                #error the defines of [snes] did not arrive
+                #endif
+                void game_init(uint16_t seed) { (void)seed; }
+                void game_tick(const uint16_t pad[SDEVKIT_PADS]) { (void)pad; }
+                void game_vblank(void) { }
+                """);
+        project("""
+                name = "g"
+                kit = "%s"
+                sources = ["src"]
+                [snes]
+                defines = ["ON_SNES", "LEVELS=3"]
+                [desktop]
+                defines = ["ON_DESKTOP"]
+                [web]
+                defines = ["ON_WEB=1"]
+                """.formatted(Path.of("").toAbsolutePath().toString().replace("\\", "/")));
+        String snes = run("build", "snes", tmp.toString(), "--plan");
+        assertTrue(snes.contains(" -D ON_SNES -D LEVELS=3 --entry main") && !snes.contains("ON_DESKTOP"), snes);
+        String built = run("build", "snes", tmp.toString());
+        assertTrue(built.startsWith("0\n"), built);
+        assertTrue(Files.readString(tmp.resolve("build/snes/g.args")).contains("-D LEVELS=3\n"));
+        String linux = run("build", "linux", tmp.toString(), "--plan");
+        assertTrue(linux.lines().anyMatch(l -> l.contains("-c src/g.c") && l.contains(" -DON_DESKTOP ")), linux);
+        assertTrue(linux.lines().noneMatch(l -> l.contains("lib/rachael") && l.contains("ON_DESKTOP")), "only the game's files: " + linux);
+        String web = run("build", "web", tmp.toString(), "--plan");
+        assertTrue(web.lines().anyMatch(l -> l.contains("-c src/g.c") && l.contains(" -DON_WEB=1 ")), web);
+    }
+
+    @Test
+    void aDefineWithASpaceIsRefused() {
+        assertTrue(error("""
+                name = "g"
+                superdevkit = "0.9"
+                sources = ["src"]
+                [desktop]
+                defines = ["A B"]
+                """).contains("NAME=VALUE"));
+    }
+
+    @Test
     void anUnknownKeyOfBuildIsRefused() {
         assertTrue(error("""
                 name = "g"

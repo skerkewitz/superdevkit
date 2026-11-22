@@ -186,6 +186,9 @@ in the game's folder; they may write files that `sources` lists:
 before = ["./make_levels.sh"]
 ```
 
+The tables `[snes]`, `[desktop]` (`linux` and `win64`) and `[web]` can name `defines` for the game's
+own files on that target, such as `defines = ["DEV_TOOLS", "LEVELS=3"]`.
+
 A game with a build system of its own gets the kit's generated files with `superdevkit gen`: the
 conversions into `build/gen`, and with music the tracks and their list in `build/gen/music`.
 

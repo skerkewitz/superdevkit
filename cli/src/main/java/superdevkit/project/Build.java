@@ -203,7 +203,7 @@ public final class Build {
         } catch (ConfigFile.Error e) {
             throw new Failure(e.getMessage());
         }
-        return new Compiler.Options(sources, includes(p, kit), List.of(), "main", rom)
+        return new Compiler.Options(sources, includes(p, kit), p.definesFor("snes"), "main", rom)
                 .withBackend(Compiler.Backend.MIR).withSram(p.sram());
     }
 
@@ -225,6 +225,9 @@ public final class Build {
         StringBuilder line = new StringBuilder("build");
         for (Path i : includes(p, kit)) {
             line.append(" -I ").append(rel(p, i));
+        }
+        for (String d : p.definesFor("snes")) {
+            line.append(" -D ").append(d);
         }
         line.append(" --entry main");
         if (p.sram() > 0) {
@@ -266,6 +269,9 @@ public final class Build {
         for (Path i : o.includeDirs()) {
             s.append("-I ").append(i.toAbsolutePath().normalize()).append('\n');
         }
+        for (String d : o.defines()) {
+            s.append("-D ").append(d).append('\n');
+        }
         s.append("--entry ").append(o.entry()).append('\n');
         if (o.sram() > 0) {
             s.append("--sram ").append(o.sram()).append('\n');
@@ -287,6 +293,9 @@ public final class Build {
                         "-isystem", kit.dampfInclude().toString()));
                 if (p.sram() > 0) {
                     args.add("-DSDEVKIT_SRAM_SIZE=" + p.sram());
+                }
+                for (String d : p.definesFor("snes")) {
+                    args.add("-D" + d);
                 }
                 for (Path i : includes(p, kit)) {
                     args.add("-I");
