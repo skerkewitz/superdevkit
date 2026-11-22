@@ -1,10 +1,11 @@
 <!-- GENERATED from doc-specs/guide/getting-started.spec.md by /docs-gen. Do not edit; change the spec or its sources. -->
 # Getting started
 
-A superdevkit home is one folder that holds everything the kit has: dampf, the `superdevkit`
-command, the kit's library, the tools, the examples and this book. A game lives in a folder of its
-own, anywhere on the disk, with a [project file](/glossary#project-file), `superdevkit.toml`,
-that names the kit's version; the home's `superdevkit` command builds it.
+A [superdevkit home](/glossary#superdevkit-home) is one folder that holds everything the kit has:
+dampf, the `superdevkit` command, the kit's library, the tools, the examples and this book. A
+game lives in a folder of its own, anywhere on the disk, with a
+[project file](/glossary#project-file), `superdevkit.toml`, that names the kit's version; the
+home's `superdevkit` command builds it.
 
 ## What you need
 
@@ -13,22 +14,26 @@ that names the kit's version; the home's `superdevkit` command builds it.
 | JDK 25 or newer | building the home and running dampf and `superdevkit` (the code targets Java 25) |
 | a C compiler (`cc`, gcc or clang) | the desktop build |
 | [Mesen](/glossary#mesen) (MesenCE) | running the ROM and stepping through the C source |
-| Emscripten (`emcc`) | only the build for the browser |
+| [Emscripten](/glossary#emscripten) (`emcc`) | only the build for the browser |
 
 dampf preprocesses, assembles and links the ROM with its own preprocessor, assembler and linker,
-so the SNES build needs nothing but Java. The preprocessor is a subset of C99's: `#include` and
-`#define` work as on the PC, with dampf's own `<stdint.h>`.
-[ca65 and ld65](/glossary#ca65-and-ld65) from cc65 2.19 and clang are needed only to develop the
-kit, since its tests build every program with ca65 and ld65 as well and compare the ROMs, and
-take clang as the reference on the PC; the README of the repository says how to install them.
+so the SNES build needs nothing but Java. Its preprocessor handles a subset of C99's directives
+and macros, with dampf's own `<stdint.h>`; [The C subset](/reference/c-subset#preprocessor) says
+which.
+
+Only to develop the kit do you need [ca65 and ld65](/glossary#ca65-and-ld65) from cc65 2.19, and
+clang. The kit's tests build every program with ca65 and ld65 as well and compare the ROMs, and
+they take clang as the reference on the PC. The README of the repository says how to install
+them.
 
 The desktop build links with raylib, OpenGL and X11, so the system needs their libraries. The kit
 fetches raylib itself on the first desktop build.
 
 ## Get superdevkit
 
-Today the home is built from the repository. In a checkout, run the command below; Gradle comes
-with the wrapper in the repository, so there is nothing to install for it:
+Today the home is built from a checkout of the repository, which is not public yet
+([roadmap](/inside/roadmap#publishing-not-scheduled)). In the checkout, run the command below;
+Gradle comes with the wrapper in the repository, so there is nothing to install for it:
 
 ```sh
 ./gradlew installDist
@@ -39,9 +44,15 @@ self-contained: copy it anywhere you like, for example to `~/superdevkit`. Copy 
 anything of your own into it, since the next `installDist` empties `build/install/superdevkit`
 first. Release downloads come later ([roadmap](/inside/roadmap)).
 
-This page writes `<home>` for the folder you copied. Put `<home>/bin` on your `PATH`; the page
-writes `superdevkit` and `dampf` without their folder from here on. Check that the shell finds
-the right one:
+This page writes `<home>` for the folder you copied. Put `<home>/bin` on your `PATH`, for a home
+in `~/superdevkit` with this line in `~/.bashrc` (or your shell's start-up file):
+
+```sh
+export PATH="$HOME/superdevkit/bin:$PATH"
+```
+
+The page writes `superdevkit` and `dampf` without their folder from here on. Check that a new
+shell finds the right one:
 
 ```sh
 superdevkit --version
@@ -51,7 +62,7 @@ superdevkit --version
 superdevkit 0.8.0
 ```
 
-`./gradlew build` also runs the tests, which you need only when you work on the kit itself;
+The tests run with `./gradlew build`, which you need only when you work on the kit itself;
 [Testing](/inside/testing) describes them.
 
 ## What is in the home
@@ -59,19 +70,23 @@ superdevkit 0.8.0
 | Folder | What it holds |
 | --- | --- |
 | `bin/` | the launchers: `dampf`, the compiler, and `superdevkit`, the kit's command (with `.bat` files for Windows) |
-| `java/` | the jars of the two programs |
+| `java/` | the jars of the two programs and of what they depend on |
 | `include/` | dampf's own headers: `<stdint.h>`, `<string.h>` and `<dampf.h>` |
-| `lib/` | the kit's library: the headers of the console API (`include/`), the SNES side (`snes/`), the desktop and web side (`rachael/`, `desktop/`, `web/`), the sound effects (`sound/`), the splash screen; `C_STYLE.md` and `SNES_HARDWARE.md` |
+| `lib/` | the kit's library: the headers of the [console API](/glossary#console-api) (`include/`), the SNES side (`snes/`), the desktop and web side (`rachael/`, `desktop/`, `web/`), the sound effects (`sound/`), the splash screen; `C_STYLE.md` and `SNES_HARDWARE.md` |
 | `tools/` | tools for game developers: `brr_lab.html`, the editor of a game's sound effects, `sdevkit_rename.py` and `web_check` |
 | `examples/` | the kit's examples to read and copy, each with a `README.md` and a `superdevkit.toml` |
 | `dev/` | `replay.sh`, which plays a desktop recording on the SNES side |
 | `docs/` | this book, as Markdown files that link to each other |
 
+The two include folders are easy to mix up: `<home>/include` holds dampf's own headers, which
+take the place of the PC's, and `<home>/lib/include` the console API a game calls,
+`sdevkit/snes.h` and `sdevkit/loop.h`.
+
 The `README.md` at the top of the home points to this page. The first desktop build adds
 `raylib/`, the raylib it fetched.
 
-`lib/C_STYLE.md` says how to write a game's C for dampf, and `lib/SNES_HARDWARE.md` what the SNES
-allows and which of it the kit has.
+Two guides in `lib/` are for writing a game: `C_STYLE.md` says how to write a game's C for dampf,
+and `SNES_HARDWARE.md` what the SNES allows and which of it the kit has.
 
 ## A first game
 
@@ -106,12 +121,12 @@ sources = ["src"]
 tiles = ["assets/font_gfx.png", "assets/ball_gfx.png"]
 ```
 
-`name` names the ROM and the programs, `sources` the game's C files and folders, and `[graphics]`
-the PNG files the build converts into C. The line `superdevkit = "0.8"` says which kit builds the
-game: the `superdevkit` command takes its own home, and refuses a game that asks for another
-version. In the home, the examples have `kit = "../.."` there instead, the kit two folders up; a
-plain copy of `<home>/examples/hello` works as well once that line is replaced by
-`superdevkit = "0.8"`.
+In the project file, `name` names the ROM and the programs, `sources` the game's C files and
+folders, and `[graphics]` the PNG files the build converts into C. The line
+`superdevkit = "0.8"` says which kit builds the game: the `superdevkit` command takes its own
+home, and refuses a game that asks for another version. In the home, the examples have
+`kit = "../.."` there instead, the kit two folders up; a plain copy of `<home>/examples/hello`
+works as well once that line is replaced by `superdevkit = "0.8"`.
 
 Build the ROM, in the game's folder:
 
@@ -156,15 +171,15 @@ functions and the calls the game makes in them.
 
 ## What you get
 
-`~/mygame/build/snes/` now holds, next to `mygame.sfc`:
+After the build, `~/mygame/build/snes/` holds, next to `mygame.sfc`:
 
 - **`mygame.s`**: the generated 65816 assembly, with the C source line and a comment for each
   instruction.
 - **`mygame.dbg`**: the debug file, in ld65's format, which lets Mesen show the C source while
   you step.
 - **`mygame.lbl`**: a label file.
-- **`mygame.timing.txt`**: the best and worst case of each function in CPU cycles, from entry to
-  return.
+- **`mygame.timing.txt`**: the [timing report](/glossary#timing-report), the best and worst
+  case of each function in CPU cycles, from entry to return.
 - **`dampf_runtime.s`**: the assembly of the [runtime](/glossary#runtime), the start-up code
   dampf links into every ROM.
 - **`mygame.args`**: what the build compiled, as an [args file](/glossary#args-file) for dampf,
@@ -203,10 +218,10 @@ The program is named after the game. To build it and play it in a window, run:
 superdevkit run
 ```
 
-`run` without a target builds and starts the desktop program of this machine, `linux` (also
-under WSL, whose window WSLg shows), and waits until you close it. The keyboard is the joypad:
-the arrows, Z (B), X (A), A (Y), S (X), Q and W (L and R), Enter (Start). The arrows move the
-ball, and the picture is the one the SNES shows, pixel for pixel.
+Without a target, `run` builds and starts the desktop program of this machine, `linux` (also
+under [WSL](/glossary#wsl), whose window WSLg shows), and waits until you close it. The keyboard
+is the joypad: the arrows, Z (B), X (A), A (Y), S (X), Q and W (L and R), Enter (Start). The
+arrows move the ball, and the picture is the one the SNES shows, pixel for pixel.
 [The desktop](/guide/the-desktop) has the rest: the retro TV filter, the debug view, recordings
 and the check that plays a game without a window.
 
@@ -218,22 +233,33 @@ it in the browser; [The web](/guide/the-web) describes it.
 
 Open `build/snes/mygame.sfc` in Mesen with `mygame.dbg` next to it. In the debugger's integration
 settings, let Mesen load `.dbg` files automatically; it then shows `hello.c` in the debugger and
-you can step through `game_tick` line by line in the C source. The debug file names the C sources
-relative to itself, the kit's library in the home among them, so Mesen finds them as long as the
-game and the home stay where they were when you built the ROM.
-
-`superdevkit run snes` builds the ROM and starts Mesen with it, once the environment variable
-`MESEN` holds the path of the Mesen program.
+you can step through `game_tick` line by line in the C source. The debug file names the C
+sources, the kit's library in the home among them, by paths relative to itself. So the game and
+the home must keep their places relative to each other: move one of them, and Mesen finds the
+sources again only after the next build.
 
 From WSL, the Windows Mesen works. Open the ROM through the `\\wsl.localhost\...` path of the
 game's folder, so that Mesen also finds the debug file and the sources.
+
+To build the ROM and start Mesen with it in one step, run `superdevkit run snes`. It takes the
+Mesen program that the environment variable `MESEN` names, else `.mesen/Mesen` or
+`.mesen/Mesen.exe` in the home. The home comes without a Mesen, so set `MESEN` to the Linux
+build of MesenCE that you unpacked:
+
+```sh
+export MESEN=~/mesen/Mesen
+superdevkit run snes
+```
+
+From WSL, open the ROM in the Windows Mesen through the `\\wsl.localhost\...` path, as above.
 
 [Debugging in Mesen](/guide/debugging) has more on stepping through C code.
 
 ## When something goes wrong
 
-**Not in the game's folder.** `superdevkit build` and `run` take the game in the current folder,
-or in the folder named after the target (`superdevkit build snes ~/mygame`). Where there is no
+**Not in the game's folder.** The commands `build` and `run` take the game in the current folder,
+or in a folder given after the target: `superdevkit build snes ~/mygame`. A folder alone,
+`superdevkit run ~/mygame`, builds and runs the desktop program. Where there is no
 `superdevkit.toml`, they stop:
 
 ```
@@ -259,14 +285,14 @@ type `float` to `src/hello.c`, after `ball_y`:
 static float ball_speed = 2.0f;
 ```
 
-`superdevkit build snes` now stops with the first error:
+Now `superdevkit build snes` stops with the first error:
 
 ```
 error: dampf: ~/mygame/src/hello.c:30:1: error: 'float' is not supported: dampf has no floating point
 ```
 
-`dampf check` runs only the [front end](/glossary#front-end) and lists every error of every file.
-Give it the args file the build wrote, from `~/mygame`:
+To see every error of every file at once, run `dampf check`, which runs only the
+[front end](/glossary#front-end). Give it the args file the build wrote, from `~/mygame`:
 
 ```sh
 dampf check @build/snes/mygame.args
@@ -283,9 +309,9 @@ ok      <home>/lib/snes/snes.c
 FAILS   <home>/lib/snes/main.c:44:5: error: function 'game_vblank' is called but never defined   (the 5 file(s) together)
 ```
 
-`dampf check` checks every file alone, then the files that passed together, as one program. The
-last line follows from the first: `hello.c` failed, so the files checked together have no
-`game_vblank`. Fix the first error of a file first; errors that follow from it then go away.
+It checks every file alone, then the files that passed together, as one program. The last line
+follows from the first: `hello.c` failed, so the files checked together have no `game_vblank`.
+Fix the first error of a file first; errors that follow from it then go away.
 
 [The C subset](/reference/c-subset) lists what dampf accepts,
 [The superdevkit command](/reference/superdevkit) describes `init`, `build` and `run` with all

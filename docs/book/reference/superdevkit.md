@@ -37,12 +37,12 @@ superdevkit init mygame                  # a copy of examples/hello
 superdevkit init mygame --from catchme   # a copy of examples/catchme
 ```
 
-`NAME` has letters, digits, `_` and `-` only. Without `--from` the example is `hello`; with it,
-any folder of the home's `examples/` that has a `superdevkit.toml`. The copy leaves out the
-example's `build/` folder and changes two things:
+The name may have letters, digits, `_` and `-` only. Without `--from` the example is `hello`;
+with it, any folder of the home's `examples/` that has a `superdevkit.toml`. The copy leaves out
+the example's `build/` folder and changes two things:
 
 - **The project file.** `name` in `superdevkit.toml` becomes `NAME`, and the examples' `kit`
-  line (the path to the kit's repository, which the examples are part of) becomes
+  line (the path to the kit's folder, which the examples are part of) becomes
   `superdevkit = "0.8"`, the version of the kit that made the copy.
 - **`CLAUDE.md`.** A new file that tells an AI working on the game to read the kit's guides
   first, `lib/C_STYLE.md` (C for dampf) and `lib/SNES_HARDWARE.md` (the hardware and what the
@@ -56,16 +56,21 @@ superdevkit init: <folder>/mygame, from the example hello
 ```
 
 With `--plan` or `--dry-run`, `init` prints what it would copy and change and writes nothing.
-It stops with status 1 when the folder is there already, when the example does not exist, and
-when `superdevkit` was not started through the home's launcher and so does not know the home.
+It stops with status 1 when the name has other characters, when the folder is there already,
+when the example does not exist, and when `superdevkit` was not started through the home's
+launcher and so does not know the home:
+
+```
+error: a project's name has letters, digits, _ and - only: my game
+```
 
 ## build
 
 Use `build` to build the game in a folder for one [target](/glossary#target):
 
 ```sh
-superdevkit build snes                    # the game in the current folder
-superdevkit build linux examples/ertuep   # the game in examples/ertuep
+superdevkit build snes            # the game in the current folder
+superdevkit build linux ../chess  # the game in the folder ../chess
 ```
 
 The folder defaults to the current one and must hold a `superdevkit.toml`, the
@@ -86,11 +91,12 @@ The targets differ in the compiler and in what they need the first time:
 | `snes` | dampf, in the same Java | nothing | `build/snes/NAME.sfc` |
 | `linux` | the system's C compiler (`CC`, default `cc`) | raylib 5.5 for Linux | `build/linux/NAME` |
 | `win64` | MSVC (Visual Studio's C++ tools for x64) | raylib 5.5 for MSVC | `build/win64/NAME.exe` |
-| `web` | Emscripten's `emcc` (`EMCC`) | raylib 5.5 for WebAssembly | `build/web/index.html` |
+| `web` | [Emscripten](/glossary#emscripten)'s `emcc` (`EMCC`) | raylib 5.5 for WebAssembly | `build/web/index.html` |
 
 raylib draws the window and plays the sound of the desktop and web builds. The command fetches
-the ready-built package from raylib's releases on GitHub and unpacks it into the home's
-`raylib/` folder, once per system; after that a build needs no network.
+the ready-built package from raylib's releases on GitHub and unpacks it into `raylib/<system>/`
+of the kit's folder (`build/raylib/<system>/` in a checkout of the repository), once for each of
+`linux`, `windows` and `web`; after that a build needs no network.
 
 ### snes
 
@@ -114,10 +120,11 @@ dampf build @build/snes/mygame.args -o out.sfc --backend naive
 ### linux
 
 The desktop program is built on [Rachael](/glossary#rachael) in three steps. Each of the game's
-C files is compiled alone, as on the SNES, without the host's headers: `-nostdinc
--ffreestanding`, dampf's `include/` and the kit's `lib/include`, with `-std=c99 -O2 -g -Wall
--Wextra`. A check then reads the game's object files and stops the build when one of them calls
-a function that is not part of the kit's console API (`lib/include/sdevkit`):
+C files is compiled alone, as on the SNES, without the host's headers:
+`-nostdinc -ffreestanding`, dampf's `include/` and the kit's `lib/include`, with
+`-std=c99 -O2 -g -Wall -Wextra`. A check then reads the game's object files and stops the build
+when one of them calls a function that is not part of the kit's
+[console API](/glossary#console-api) (`lib/include/sdevkit`):
 
 ```
 error: check: src_game.o: uses printf, which is not part of superdevkit's console API (lib/include/sdevkit, ADR-6F3CK2AR)
@@ -126,7 +133,7 @@ error: check: src_game.o: uses printf, which is not part of superdevkit's consol
 Last, the objects are linked with `lib/rachael`, the desktop's frontend `lib/desktop` and raylib
 into `build/linux/NAME`. The objects go to `build/linux/obj/`, which each build empties first,
 and the project's music to `build/linux/music/`, next to the program. The target builds on
-Linux and under WSL, not on Windows.
+Linux and under [WSL](/glossary#wsl), not on Windows.
 
 ### win64
 
@@ -156,10 +163,10 @@ with `error: unknown option --name`, the usage and status 2.
   and each step as it runs.
 - **`--plan`** prints the steps without running them, then checks like `--dry-run`.
 - **`--dry-run`** runs nothing and checks that every file the steps need is there: the sources,
-  the pictures, `sfx.json` and the music. Each missing one is a line
-  `missing: <path> (for <step>)`. It ends with `everything the build needs is there` and
-  status 0, or with the number missing and status 1. It does not check that a C compiler is
-  installed.
+  the pictures, `sfx.json`, the music and, for `web`, the kit's page `lib/web/shell.html`. Each
+  missing one is a line `missing: <path> (for <step>)` on the standard error stream. It ends
+  with `everything the build needs is there` and status 0, or with the number missing and
+  status 1. It does not check that a C compiler is installed.
 - **`--debug`** builds without optimization: `-O0` instead of `-O2` for `linux` and `web`,
   `/Od` instead of `/O2` for `win64`. For `web` it also adds `-g` and defines
   `SDEVKIT_WEB_DEBUG`, for the kit and the game's own files: only such a page has the debug view
@@ -193,12 +200,14 @@ Use `run` to build the game and start it:
 superdevkit run                  # the desktop program of this machine
 superdevkit run snes             # the ROM in Mesen
 superdevkit run web              # the page in the browser
-superdevkit run examples/hello   # the desktop program of the game in examples/hello
+superdevkit run ../chess         # the desktop program of the game in ../chess
 ```
 
 Without a target it builds for the machine's own desktop: `win64` on Windows, `linux` on Linux
-and under WSL. A single word that is not a target is taken as the folder. `run` takes the same
-options as `build`; `--plan` shows the step that starts the game as the last one.
+and under WSL, and `linux` on every other system too. macOS is not a target of the kit
+([Limits](/reference/limits)). A single word that is not a target is taken as the folder. `run`
+takes the same options as `build`; `--plan` shows the step that starts the game as the last
+one.
 
 - **`linux` and `win64`** start the program in the game's folder and wait until it ends. A
   program that ends with a status other than 0 makes `run` fail:
@@ -241,8 +250,9 @@ is an error with status 1.
 
 ## sfx
 
-Use `sfx` to convert a game's sound effects, as the BRR Lab saves them in `sfx.json`, into C.
-In the same game:
+Use `sfx` to convert a game's sound effects into C, as the BRR Lab saves them in `sfx.json`.
+The BRR Lab is the kit's editor of sound effects, `tools/brr_lab.html` in the home. In the same
+game:
 
 ```sh
 superdevkit sfx assets/sfx/sfx.json sfx out
@@ -251,15 +261,12 @@ superdevkit sfx assets/sfx/sfx.json sfx out
 It writes `NAME.c` (the samples) and `NAME.h` (`SFX_` and the id in capitals for each effect,
 `SFX_COUNT`, and the bank `NAME_bank` for `sdevkit_sfx_init`) into `out_dir`. `NAME` is a C name
 in small letters. It prints a line for each effect and how much of the audio RAM the samples
-take:
+take; here with the lines of four of Schach's five effects left out:
 
 ```
 superdevkit sfx: out/sfx.c and .h
   put          put.wav             585 bytes  16.00 kHz    5 frames
-  take         take.wav           1080 bytes  16.00 kHz    9 frames
-  your_move    your_move.wav      3123 bytes  16.00 kHz   22 frames
-  check        check.wav          2070 bytes  16.00 kHz   15 frames
-  mate         mate.wav           6948 bytes  16.00 kHz   48 frames
+  ...
   13806 bytes of 64448 in the audio RAM (21.4 %)
 ```
 
@@ -296,10 +303,11 @@ The kit reads the file with a TOML reader of its own, which takes the part of TO
 needs: `#` comments, `key = value` with bare keys, `[table]` headers one level deep, strings in
 double or single quotes, whole numbers (with a sign and `_`), `true` and `false`, arrays (over
 several lines, with a comma after the last value allowed) and inline tables `{ key = value }`
-on one line. Anything else, and a key given twice, stops the build with the line:
+on one line. Anything else, and a key given twice, stops the build with the number of the line,
+here for a second `name` in line 6:
 
 ```
-error: superdevkit.toml:4: the key 'name' is there twice
+error: superdevkit.toml:6: the key 'name' is there twice
 ```
 
 A key the kit does not know is an error too, at the top as in a table, and names the keys it
@@ -309,7 +317,8 @@ knows:
 error: superdevkit.toml: unknown key 'colour' (known: graphics, include, kit, name, sound, sources, sram, superdevkit)
 ```
 
-Every path in the file is relative to the folder of `superdevkit.toml`.
+Every path in the file is relative to the folder of `superdevkit.toml`. A copy made with
+[init](#init) has `superdevkit = "0.8"` in place of the `kit` line.
 
 ### name
 
@@ -400,17 +409,30 @@ A table with two keys, both optional:
 | `MESEN` | `run snes`: the Mesen program | `.mesen/Mesen`, then `.mesen/Mesen.exe` in the kit's folder |
 | `BROWSER` | `run web`: a command that takes the page's address | the system's default browser |
 
-The default browser is opened with `xdg-open` on Linux, `open` on macOS, and Windows' `start`
-on Windows and from WSL. Set `BROWSER=true` to serve the page without opening a browser. The
-`win64` target reads no variable: it finds Visual Studio in its standard folder.
+The default browser is opened with `xdg-open` on Linux and Windows' `start` on Windows and from
+WSL; the command also has `open` for macOS, which is not a target of the kit. Set
+`BROWSER=true` to serve the page without opening a browser. The `win64` target reads no
+variable: it finds Visual Studio in its standard folder.
 
 ## Exit status
 
 | Status | When |
 |---|---|
-| 0 | the command did its work; `--plan` and `--dry-run` found every file there; `--version` |
-| 1 | an error: in the project file, a version or kit that does not fit, a step of the build that failed, a file missing under `--plan` or `--dry-run`, `init` that cannot copy, a picture or sound file that cannot be converted, a program started by `run` that ended with a status other than 0 |
-| 2 | a usage error: no command, a command or option it does not know, too many or too few arguments, a target it does not know, a `png` kind it does not know |
+| 0 | the command did its work, or `--plan` and `--dry-run` found every file there |
+| 1 | an error in the project, the build or a conversion |
+| 2 | a usage error |
+
+Status 1 comes from:
+
+- an error in the project file, or a version or kit that does not fit;
+- a step of the build that failed, or a file missing under `--plan` or `--dry-run`;
+- `init` with a name it does not take, or that cannot copy the example;
+- a picture or a sound file that `png` or `sfx` cannot convert;
+- a program started by `run` that ended with a status other than 0.
+
+Status 2 comes from no command, a command or option it does not know, too many or too few
+arguments, a target it does not know, and a `png` kind it does not know.
 
 Errors go to the standard error stream and start with `error:`; a failed build step names its
-tool after it, as in `error: check: ...`.
+tool after it, as in `error: check: ...`. The `missing:` lines of `--dry-run` go there too,
+without `error:`.

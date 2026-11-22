@@ -8,7 +8,7 @@ file and writes a `.c` file with the picture's tiles and colours as constant arr
 file that declares them, into the game's `build/gen/` folder. The build adds that folder to the
 include path and to the program, so the arrays are compiled with the rest of the game, into the
 ROM or the program for the PC, and the game copies them into [VRAM](/glossary#vram), the video
-memory, with calls of the [console API](/reference/console-api). The converter is part of the
+memory, with calls of the [console API](/glossary#console-api). The converter is part of the
 `superdevkit` command and needs nothing but Java, no image library.
 
 ## Tiles and palettes
@@ -86,8 +86,7 @@ tiles = ["assets/font_gfx.png", "assets/ball_gfx.png"]
 
 The game includes the two headers and hands the arrays to the console API in `game_init`, which
 runs with the screen off, so the copies into VRAM can happen at once. This is cut from
-`examples/hello/src/hello.c`, with the lines that do not concern the graphics and some comments
-left out:
+`examples/hello/src/hello.c` to the uploads, with some comments left out:
 
 ```c
 #include "font_gfx.h"
@@ -114,26 +113,46 @@ void game_init(uint16_t seed)
 }
 ```
 
-The call [`sdevkit_bg_init_tile_set`](/reference/console-api#sdevkit-bg-init-tile-set) copies
-tiles and palette of a background layer; its first `0` is the layer, numbered 0 to 3 for BG1 to
-BG4, and its second the number of the palette the colours go to.
-[`sdevkit_oam_init_gfx_set`](/reference/console-api#sdevkit-oam-init-gfx-set) copies those of
-the sprites, and its `0` is the number of the sprites' palette. A palette of its own goes to
-CGRAM with `sdevkit_dma_copy_cgram(pal_ginger_pal, address, PAL_GINGER_PAL_SIZE)`, where the
-address counts colours. After `game_init`, copy into VRAM and CGRAM only in the
-[vertical blank](/glossary#vertical-blank), in `game_vblank` (see
-[the frame rhythm](/reference/console-api#the-frame-rhythm)). Where the tiles and palettes go in
-VRAM, and how many there may be, is on [The SNES hardware](/guide/snes-hardware).
+The arguments of the calls say where everything goes; VRAM addresses count 16-bit words, CGRAM
+addresses colours. The call `sdevkit_set_mode(SDEVKIT_BG_MODE1, 0)` switches to mode 1; in place
+of its `0`, `SDEVKIT_BG3_MODE1_PRIORITY_HIGH` would put the BG3 tiles of priority 1 above
+everything. Then
+[`sdevkit_bg_init_tile_set`](/reference/console-api#sdevkit-bg-init-tile-set) copies tiles and
+palette of a background layer. Its first `0` is the layer, numbered 0 to 3 for BG1 to BG4, and
+the tiles go to VRAM word `VRAM_FONT`. Its second `0` is the number of the palette, and
+`SDEVKIT_BG_16COLORS` the colour mode, 16 colours a palette: the palette's colours go to CGRAM
+from colour 16 times its number on, here from colour 0. The call `sdevkit_bg_set_map_ptr` puts
+the layer's map, 32 x 32 entries, at VRAM word `VRAM_MAP`.
 
-`tiles` writes tiles and a palette, but no map. A background layer also needs one: a table of
-16-bit entries in VRAM, one for each tile of the layer, that says which tile is drawn there. The
-game makes the map itself. `hello.c` keeps its map of 32 x 32 entries in RAM, and its function
-`print` writes text into it in code, each character as the number of its tile in the font.
-`sdevkit_bg_set_map_ptr` tells the layer where in VRAM its map lies, and
-`sdevkit_dma_copy_vram` copies the map there; whenever the text changes, `game_vblank` copies it
-again. An entry of hello's map is a tile number alone, so every character takes palette 0. The
-map entry macros of the [console API](/reference/console-api#backgrounds) build an entry that
-names a palette as well, or mirrors the tile:
+For the sprites,
+[`sdevkit_oam_init_gfx_set`](/reference/console-api#sdevkit-oam-init-gfx-set) copies their tiles
+to VRAM word `VRAM_SPRITES` and their colours to the sprite palette its `0` names, and
+`SDEVKIT_OBJ_SIZE16_L32` makes a small sprite 16 x 16 pixels and a large one 32 x 32. The sprite
+palettes are the upper half of CGRAM: sprite palette n starts at colour 128 + 16 n, so hello's
+ball takes its colours from colour 128 on.
+
+A palette of its own goes to CGRAM with `sdevkit_dma_copy_cgram`, whose address is the first
+colour. CatchMe puts the colours of one of its cats, `pal_ginger`, into sprite palette 1:
+
+```c
+sdevkit_dma_copy_cgram(pal_ginger_pal, 128 + 16 * 1, PAL_GINGER_PAL_SIZE);
+```
+
+After `game_init`, copy into VRAM and CGRAM only in the
+[vertical blank](/glossary#vertical-blank), in `game_vblank` (see
+[the frame rhythm](/reference/console-api#the-frame-rhythm)). How VRAM is laid out, and how many
+tiles and sprites there may be, is on [The console API](/reference/console-api) and
+[The SNES hardware](/guide/snes-hardware).
+
+A conversion with `tiles` writes tiles and a palette, but no map. A background layer also needs
+one: a table of 16-bit entries in VRAM, one for each tile of the layer, that says which tile is
+drawn there. The game makes the map itself. `hello.c` keeps its map of 32 x 32 entries in RAM,
+and its function `print` writes text into it in code, each character as the number of its tile
+in the font. Then `sdevkit_dma_copy_vram` copies the map to `VRAM_MAP`, where
+`sdevkit_bg_set_map_ptr` told the layer to look for it; whenever the text changes, `game_vblank`
+copies it again. An entry of hello's map is a tile number alone, so every character takes
+palette 0. The map entry macros of the [console API](/reference/console-api#backgrounds) build
+an entry that names a palette as well, or mirrors the tile:
 
 ```c
 map[row * 32 + column] = SDEVKIT_BG_TIL_NUM(tile) | SDEVKIT_BG_TIL_PAL(1);
@@ -161,16 +180,23 @@ A picture whose highest index would go past colour 255 is an error.
 
 The converter cuts the picture into 8 x 8 blocks and stores identical blocks once. More than 256
 different blocks is an error, because mode 7 has 256 tiles and cannot flip one to reuse it. The
-converter names the first tile that does not fit, by column and row. Run by hand on such a
-picture (see [Converting in the build](#converting-in-the-build)), it prints:
+converter names the first tile that does not fit, by column and row. A race track drawn as a
+ring of road with kerbs on grass, 1024 x 1024 pixels in four colours, is such a picture: wherever
+the curved edges cross a tile, they make a block of their own. Converted by hand (see
+[Converting in the build](#converting-in-the-build)) in the game's folder:
+
+```sh
+superdevkit png mode7 assets/track.png track build/gen
+```
 
 ```
-error: assets/arena.png: more than 256 different tiles of 8 x 8 (at tile 0, 2); mode 7 has 256 and cannot flip them
+error: assets/track.png: more than 256 different tiles of 8 x 8 (at tile 81, 30); mode 7 has 256 and cannot flip them
 ```
 
-In a build the same message starts with `error: png:` and names the PNG by its full path.
+With `mode7 = ["assets/track.png"]` in the `[graphics]` table, `superdevkit build` stops with the
+same message, which then starts with `error: png:` and names the PNG by its full path.
 
-For the name `festzelt` it writes:
+For Er-Tüp's Festzelt, converted with the name `festzelt`, the converter writes:
 
 | Name | What it is |
 |---|---|
@@ -181,7 +207,10 @@ For the name `festzelt` it writes:
 
 The size of `festzelt_tiles` is `FESTZELT_TILES_SIZE` bytes, and `FESTZELT_TILE_COUNT` counts its
 tiles. Er-Tüp's Festzelt uses 249 tiles and 72 colours. A game loads such a picture with the
-`sdevkit_mode7_*` calls and copies the colours to where `first` put them:
+`sdevkit_mode7_*` calls and copies the colours to where `first` put them. The `0` of
+`sdevkit_mode7_load_tiles` is the byte address of the tiles to start at, and the `0` of
+`sdevkit_mode7_load_map` the map entry to start at (row times 128 plus column), so both fill
+from the start:
 
 ```c
 sdevkit_set_mode(SDEVKIT_BG_MODE7, 0);
@@ -227,7 +256,8 @@ Every `superdevkit build`, whatever its [target](/glossary#target), converts the
 so that `build/gen/` holds the C before the compiler reads it. Then it hands that folder to the
 compiler twice: `-I build/gen` lets the game include `ball_gfx.h`, and `build/gen/` compiles
 `ball_gfx.c` and the others as part of the program. Use `--plan` to see the steps without
-running them. In `examples/hello`, with the path of the home written as `<home>`:
+running them. In a copy of hello, made with `superdevkit init hello`, and with the path of the
+home written as `<home>`:
 
 ```sh
 superdevkit build snes --plan
@@ -246,15 +276,22 @@ The builds for the desktop and the web convert in the same way and compile the f
 `build/gen/` with the game's own (see [The desktop](/guide/the-desktop) and
 [The web](/guide/the-web)).
 
-To convert one picture by hand, outside a build, give `superdevkit png` the kind, the PNG file,
-the name, the folder to write to and, for `mode7` only, the first colour:
+To convert one picture by hand, outside a build, run `superdevkit png`. Its usage line says
+what it takes: the kind, the PNG file, the name, the folder to write to and, for `mode7` only,
+the first colour:
+
+```
+superdevkit png tiles|tiles2|palette|mode7 picture.png NAME out_dir [FIRST]
+```
+
+In a copy of Er-Tüp, this converts the Festzelt as the build does:
 
 ```sh
 superdevkit png mode7 assets/festzelt.png festzelt build/gen 33
 ```
 
-Its usage and exit status are on [The superdevkit command](/reference/superdevkit), with every
-key of `superdevkit.toml`.
+Its exit status is on [The superdevkit command](/reference/superdevkit), with every key of
+`superdevkit.toml`.
 
 ## Sound
 
@@ -284,11 +321,19 @@ Steinschlag's, `examples/steinschlag/assets/sfx/sfx.json`, cut to its first two 
 
 The member `voices` says how many of the eight voices the effects use. Each effect has an `id`,
 which names it in C, a `priority`, and a list of samples: variants of the effect, of which at
-most one is `active`. Only the active sample is read, converted and put into the game; the
-others keep their settings, so that you can swap the sound and keep the old one at hand. An
-effect without an active sample keeps its name and plays nothing, and the game builds unchanged.
-A sample's `rate` is the rate the S-DSP plays it at; `treble`, `gain` and `trim` shape the sound
-before it is encoded, and `volume` is the voice's volume while it plays.
+most one is `active`. The priority is a number, 0 when left out, that decides which effect gives
+way when the voices are busy: the higher wins. Only the active sample is read, converted and put
+into the game; the others keep their settings, so that you can swap the sound and keep the old
+one at hand. An effect without an active sample keeps its name and plays nothing, and the game
+builds unchanged. The other members of a sample set how it sounds:
+
+| Member | What it does | Default |
+|---|---|---|
+| `rate` | the rate the S-DSP plays the sample at, in Hz | 16000 |
+| `treble` | boosts the highs before encoding, in dB, against the dull sound of the S-DSP's interpolation | 0 |
+| `gain` | scales the sound before encoding, in dB, so that it uses the range of BRR | 0 |
+| `trim` | when `true`, cuts what is quieter than -50 dB at the start and the end | `true` |
+| `volume` | the voice's volume register while it plays, 127 at most | 100 |
 
 The game names the file in the `[sound]` table of its `superdevkit.toml`:
 
@@ -301,7 +346,8 @@ Then `superdevkit build` converts it with `superdevkit sfx`, after the pictures,
 `build/gen/sfx.c`, the BRR of every active sample and the tables of the effects, and
 `build/gen/sfx.h`, which names them. It prints what each effect takes, and the total against
 the 64,448 bytes of audio RAM that the driver leaves to the samples. This is what
-`superdevkit build snes` prints in `examples/steinschlag`:
+`superdevkit build snes` prints in a copy of Steinschlag, made with
+`superdevkit init steinschlag --from steinschlag`:
 
 ```
     dig          dig.wav             369 bytes  11.00 kHz    5 frames
@@ -315,9 +361,10 @@ built build/snes/steinschlag.sfc
 ```
 
 The build stops, with the line in the file, when an effect has two active samples, an active
-sample's WAV file is missing, two effects have the same `id`, or the samples do not fit into the
-audio RAM. The header gives each effect a number, its place in the list, named `SFX_` and the
-`id` in capitals; this is Steinschlag's `sfx.h`, cut to the names:
+sample's WAV file is missing or two effects have the same `id`. When the samples do not fit into
+the audio RAM, it stops with the total and lists the largest samples, each with its line. The
+header gives each effect a number, its place in the list, named `SFX_` and the `id` in capitals;
+this is Steinschlag's `sfx.h`, cut to the names:
 
 ```c
 #define SFX_DIG     0
@@ -335,18 +382,28 @@ extern const sdevkit_sfx_bank sfx_bank;
 A game that plays an effect the file does not list stops at the compiler, since the name is not
 in the header. The game includes `sfx.h`, hands the bank to `sdevkit_sfx_init` once in
 `game_init`, while the screen is off, and calls `sdevkit_sfx_play` where the sound happens. Cut
-from `examples/steinschlag/src/game.c`:
+from `examples/steinschlag/src/game.c`, where `play` is what
+`game_tick` runs while a cave is played:
 
 ```c
+static void play(uint16_t pad)
+{
+    /* ... */
+        if (time_left == 0 && !miner_dead) {
+            cave[miner_y][miner_x] = K_BLAST;     /* out of time: the miner's lamp goes off */
+            cell_changed(miner_x, miner_y);
+            miner_dead = 1;
+            sdevkit_sfx_play(SFX_CRUSHED);
+        }
+    /* ... */
+}
+
 void game_init(uint16_t seed)
 {
     /* ... */
     sdevkit_sfx_init(&sfx_bank);
     /* ... */
 }
-
-    /* in play, which game_tick calls: out of time, the miner's lamp goes off */
-    sdevkit_sfx_play(SFX_CRUSHED);
 ```
 
 An effect asked for in a [tick](/glossary#tick) starts after the tick, once the main loop has
@@ -355,12 +412,11 @@ voice of the lowest priority that is not above its own, of two equal ones the ol
 playing effect has a higher priority, the new one is dropped. A voice is free again when its
 effect has played to its end, the length in [frames](/glossary#frame) that the build printed.
 
-On the SNES, `sdevkit_sfx_init` sends a small driver and the samples to the SPC700 through its
-boot code, one byte at a time. That is slow: about 350 bytes a frame as measured in
-[Mesen](/glossary#mesen), so Schach's 13.8 KB take 40 frames. On the desktop and the web,
-[Rachael](/glossary#rachael) plays the same bytes with a DSP of her own, which decodes the BRR
-and interpolates between its samples as the S-DSP does. Which voice an effect gets is the same C
-code on both, so the choice is the same on the SNES and on the PC, frame by frame.
+On the SNES, `sdevkit_sfx_init` sends a small driver and the samples to the SPC700; the upload
+takes about a frame per 350 bytes, during `game_init` with the screen off. On the desktop and
+the web, [Rachael](/glossary#rachael) plays the same bytes with a DSP of her own, which decodes
+the BRR and interpolates between its samples as the S-DSP does. Which voice an effect gets is
+the same C code on both, so the choice is the same on the SNES and on the PC, frame by frame.
 
 The BRR Lab, `<home>/tools/brr_lab.html`, is the editor of `sfx.json`. Open it in a browser and
 open the game's folder `assets/sfx` with it; a folder without `sfx.json` starts with one effect

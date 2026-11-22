@@ -44,11 +44,17 @@ it writes, finding what does not fit the subset, and measuring where the cycles 
 
 ## Pay attention to
 
-- Commands run as the *Using dampf* section of `README.md` and Er-Tüp's README show, from the
-  top of the repository, after `superdevkit build snes examples/ertuep` has written the argument
-  file; run them and copy what they print, cut where long. The argument file and dampf's output
+- Commands run as the *Using dampf* section of `README.md` and Er-Tüp's README show, on a copy
+  of Er-Tüp made with `superdevkit init ertuep --from ertuep` (the reader's home has the
+  examples), after `superdevkit build snes` has written the argument file; run them and copy what they print, cut where long. The argument file and dampf's output
   name absolute paths; show them cut (`.../examples/ertuep/...`) and say so.
-- A reader compiling their own game passes its paths; say so.
+- A reader compiling their own game passes its paths; say so. A game written against the console
+  API has no `main` of its own and needs `-I <home>/lib/include` and `<home>/lib/snes` in the
+  call; show such a call (checked by building a copy of an example with it), and say that
+  `superdevkit build snes` writes it into the argument file anyway.
+- The page's reader has an installed home (style guide, *Examples*): the examples are in it, but
+  their `build/` folders only after a build, and `reference/` only in the repository; say so
+  where the `--replace` example uses it.
 - Say in one sentence that a ROM of a game needs a [platform layer](/glossary#platform-layer)
   for the library it calls, compiled with it (`lib/snes` in Er-Tüp's argument file).
 - Budgets and the timing file come from the code generator from MIR; say so where `--replace`

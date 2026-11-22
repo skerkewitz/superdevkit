@@ -23,6 +23,7 @@ sources:
   - examples/steinschlag/src/steinschlag.h
   - examples/steinschlag/src/game.c
   - lib/include/sdevkit/snes.h
+  - lib/snes/snes.c
   - lib/SNES_HARDWARE.md
 audience: Game programmers who have pictures and sounds made on the PC and want them in a game
 ---
@@ -67,7 +68,10 @@ game uploads the arrays with the console API.
    `sfx.h` in `build/gen/` (BRR, the SNES's sample format, and the 64 KB audio RAM, in a
    sentence). One example from `examples/steinschlag` (its `superdevkit.toml`, part of its
    `sfx.json`, what the header names, `sdevkit_sfx_init` in `game_init` and `sdevkit_sfx_play`
-   where it happens). What happens when the voices are busy, in two or three sentences. Where
+   where it happens). The members of an effect's sample that the example shows (`rate`,
+   `treble`, `gain`, `trim`, `volume`, `priority`), each with its unit and default in a phrase
+   (the table of docs/sound.md); their full ranges stay in docs/sound.md. What happens when the
+   voices are busy, in two or three sentences. Where
    effects play: on the SNES through the SPC700 and on the desktop and the web through
    Rachael's DSP, the same choice of voice frame by frame. Then, in one short paragraph, what
    `tools/brr_lab.html` is for: the editor of `sfx.json`, which plays each sample as the SNES
@@ -89,7 +93,10 @@ game uploads the arrays with the console API.
 
 ## Out of scope
 
-- VRAM layout and the limits of tiles and sprites: [The SNES hardware](/guide/snes-hardware).
+- The VRAM layout and the limits of tiles and sprites: [The console API](/reference/console-api)
+  and [The SNES hardware](/guide/snes-hardware); but say where the hello calls put their tiles,
+  maps and palettes (the arguments of the calls shown), and that sprite palette n starts at CGRAM
+  colour 128 + 16 n.
 - The API calls themselves: [The console API](/reference/console-api).
 - Every key of `superdevkit.toml` and the options of `superdevkit png` and `superdevkit sfx`:
   [The superdevkit command](/reference/superdevkit).

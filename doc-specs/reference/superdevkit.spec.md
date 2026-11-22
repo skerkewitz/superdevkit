@@ -29,7 +29,9 @@ The page opens, before the first H2, with the usage lines exactly as `superdevki
    first time) and what it writes under `build/<target>/`. The options `--verbose`, `--plan`,
    `--dry-run` and `--debug`, with what `--debug` means per target. The argument file a SNES
    build writes (`build/snes/<name>.args`) and that `dampf` takes it.
-3. **run** – the default target, and what each target starts (the desktop's program, Mesen for
+3. **run** – the default target (macOS is not a target: say so, linking
+   [Limits](/reference/limits), where the default target and the browser command are
+   described), and what each target starts (the desktop's program, Mesen for
    `snes`, the browser for `web`).
 4. **png** – the converter: its kinds (`tiles`, `tiles2`, `palette`, `mode7`), arguments and what
    it writes. Short: [Graphics and sound](/guide/graphics-and-sound) explains its use.

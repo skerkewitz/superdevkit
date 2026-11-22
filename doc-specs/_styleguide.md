@@ -104,9 +104,14 @@ The README, the working documents and the tests are complete; the book is select
   can be seen on.
   Names say what the code does (`player_x`, `add3`), not `foo` or `x`.
 - Every example C program is valid in the subset and compiles with dampf; every command shown
-  runs as shown, from the top of the repository or, for a game, in its folder, with `<home>` for
-  the [superdevkit home](/glossary#superdevkit-home); every message shown is what dampf prints for
-  exactly the code shown. `/docs-gen` checks them by running dampf.
+  runs as shown, with `<home>` for the [superdevkit home](/glossary#superdevkit-home); every
+  message shown is what dampf prints for exactly the code shown. `/docs-gen` checks them by
+  running dampf.
+- The user guide's reader has an installed home, not the repository: a command runs in a game's
+  folder (a copy of an example, made with `superdevkit init`, works) or names the home's files
+  through `<home>`. What works only in a checkout of the repository (its `reference/`, its
+  tests, the examples' `build/` folders before a build) says so where it is shown. Inside pages
+  may run from the top of the repository.
 - Assembly shown as dampf's output is copied from what dampf writes for the C shown, not written
   by hand. It may be cut to the lines that matter, with `; ...` where lines are left out.
 

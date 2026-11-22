@@ -12,6 +12,7 @@ sources:
   - cli/src/main/java/superdevkit/project/Symbols.java
   - docs/adr/6F60Z709-win64-is-built-with-msvc-for-now-from-wsl.md
   - dev/replay.sh
+  - dev/example_check.lua
   - compiler/src/main/java/dampf/emu/ExampleCheck.java
   - examples/hello/check.txt
 audience: Game programmers who build their game for the PC to play, test and debug it there before it runs on the SNES
