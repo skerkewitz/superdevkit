@@ -50,7 +50,7 @@ pointers to arrays (`const uint8_t (*rows)[16]`).
 One rule of C that the checks find the hard way: **the order in which a call's arguments are
 evaluated is open**, and dampf need not choose gcc's. Two calls with side effects in one call's
 arguments (`spawn(random16() & 31, random16() & 15)`) may run in another order on the SNES than
-on the PC, and the game the checks compare (ADR record 38) is no longer the same. Give each such
+on the PC, and the game the checks compare (ADR-6F60Z67N) is no longer the same. Give each such
 call its own statement.
 
 ## 3. Slow
@@ -69,9 +69,6 @@ call its own statement.
   for negative values, and a `DAMPF_RANGE` that proves `v` is not negative does not remove it.
 - **`slow-hand-shifts`** Write a multiplication by a constant as a multiplication: `va * 40`, not
   `(va << 5) + (va << 3)`. dampf finds the shifts itself, and better.
-- **`slow-shift-above-8`** Split a shift by a constant above 8: `(uint16_t)(v << 8) << 1`, not
-  `v << 9` (a row of 512 bytes in a table). A shift by 8 is a byte move, one above 8 a loop of
-  single shifts.
 - **`slow-32-bit`** Keep 32-bit values out of hot code: every operation on one goes through
   memory, more than twice the cost of a 16-bit one. A value only combined bit by bit (a hash) can
   be two `uint16_t` halves.
@@ -112,7 +109,7 @@ Write whichever reads better; these cost the same:
 - **`DAMPF_RANGE(v, lo, hi)`** only where a measurement shows it changes the code. Today that is
   a loop the timing report calls unbounded (a hint on its counter gives it a bound); an index
   into an array needs none since 2026-11-20 (an access outside the array is undefined in C, and
-  dampf relies on that, ADR record 46). A hint states a fact: a wrong one makes wrong code on the SNES and stops the
+  dampf relies on that, ADR-6F8NBESR). A hint states a fact: a wrong one makes wrong code on the SNES and stops the
   program on the PC.
 
 ## Measurements
@@ -121,7 +118,7 @@ The worst case of each function in CPU cycles, from the timing report; "is" is t
 test checks ("same": within 5 %).
 
 <!-- measurements: written by StyleGuideTest -->
-Measured 2026-11-21 (worst case of the timing report, code generator from MIR).
+Measured 2026-11-22 (worst case of the timing report, code generator from MIR).
 
 | Rule | This | CPU cycles | is | than this | CPU cycles |
 | --- | --- | ---: | --- | --- | ---: |
@@ -139,6 +136,5 @@ Measured 2026-11-21 (worst case of the timing report, code generator from MIR).
 | `slow-hand-shifts` | `times_40_by_shifts` | 41 | slower | `times_40` | 31 |
 | `slow-index-list` | `pairs_by_list` | 17,505 | slower | `pairs_by_counter` | 15,493 |
 | `slow-multiply-variable` | `multiply_variables` | 399 | slower | `multiply_constant` | 31 |
-| `slow-shift-above-8` | `shift_by_9` | 130 | slower | `shift_by_8_then_1` | 19 |
-| `slow-signed-divide` | `divide_signed` | 265 | slower | `divide_unsigned` | 17 |
+| `slow-signed-divide` | `divide_signed` | 63 | slower | `divide_unsigned` | 17 |
 <!-- end of measurements -->

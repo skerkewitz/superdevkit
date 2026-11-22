@@ -18,7 +18,7 @@ import java.util.Set;
  * {@code array[i]} for an array of structs, {@code (i - 1) * 2}, {@code r * 16 + c} of a table);
  * where the counter stays (something else reads it), not for a factor of 2 or 4: one or two
  * shifts where the value is read cost less than a second variable carried from round to round
- * (K2 of docs/current-compiler-flaws.md, measured on the examples).
+ * (K2 of docs/archive/compiler-flaws.md, measured on the examples).
  *
  * <p>If nothing but such values, the step and one loop test read the counter, every one becomes
  * a variable (also {@code i - 1} and {@code r * 16 + c}), and the test moves to the first

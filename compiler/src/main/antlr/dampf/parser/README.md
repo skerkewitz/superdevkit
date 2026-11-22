@@ -9,10 +9,12 @@ Domino and the other contributors of grammars-v4 and carry no licence notice of 
 BSD licence of the grammar files is Sam Harwell's and covers only those (see `NOTICE`). Changes:
 
 - all support classes are in package `dampf.parser`;
-- `CLexerBase` no longer runs a preprocessor: dampf runs `gcc -E` itself and lexes its output;
+- `CLexerBase` no longer runs a preprocessor: dampf runs its own and lexes its output;
 - `CParserBase` no longer reads options from the `sun.java.command` system property;
 - `CParserBase.EnterDeclaration` no longer declares struct and union tags as type names (C keeps
-  tags in a namespace of their own; declaring them broke `typedef struct S {...} S;`).
+  tags in a namespace of their own; declaring them broke `typedef struct S {...} S;`);
+- `SymbolTable` is `final`: its constructor calls `define`, which javac's `this-escape` check
+  reports as long as a subclass could override it, and the build treats warnings as errors.
 
 The grammar parses C23 plus GNU extensions, which is far more than the dampf subset. That is on
 purpose: the subset checker reports what is not supported, with a clear message, instead of a

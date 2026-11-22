@@ -89,13 +89,13 @@ RAM and battery) and its RAM size the smallest of 2, 4, 8, 16 and 32 KB that hol
 - **ROM data** is read with 24-bit long addresses, because DBR points to RAM.
 - The image is padded to a power of two, and the header gets its size and checksum.
 
-Limits: a single function or constant object can be at most 32 KB (the game's own asset rule,
-ADR-0006, already keeps graphics within that), and the start-up code, runtime and initial values
+Limits: a single function or constant object can be at most 32 KB (the game's asset
+rule, Blubber Blasen's record 6, already keeps graphics within that), and the start-up code, runtime and initial values
 of variables together must fit into bank `$80`.
 
 ## Why
 
 Why RAM is laid out this way, and the alternatives weighed, are in ADR
-[record 9](adr/0009-all-variables-live-in-bank-7e-and-dbr-stays-7e.md); pointers in
-[record 10](adr/0010-pointers-are-4-bytes-and-no-object-crosses-a-bank.md), the ROM in
-[record 12](adr/0012-lorom-with-fastrom-code-from-bank-80-one-segment.md).
+[ADR-6F0R69B6](adr/6F0R69B6-all-variables-live-in-bank-7e-and-dbr-stays-7e.md); pointers in
+[ADR-6F0R6A8V](adr/6F0R6A8V-pointers-are-4-bytes-and-no-object-crosses-a-bank.md), the ROM in
+[ADR-6F0R6C4B](adr/6F0R6C4B-lorom-with-fastrom-code-from-bank-80-one-segment.md).

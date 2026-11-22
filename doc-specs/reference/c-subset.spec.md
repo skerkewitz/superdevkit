@@ -8,6 +8,8 @@ sources:
   - compiler/src/main/resources/dampf/include/stdint.h
   - compiler/src/main/resources/dampf/include/dampf.h
   - compiler/src/main/java/dampf/frontend/AstBuilder.java
+  - compiler/src/main/java/dampf/frontend/Preprocessor.java
+  - compiler/src/main/java/dampf/frontend/pp/*.java
   - compiler/src/test/resources/exec/pointer_to_int.c
   - compiler/src/main/java/dampf/check/CallGraph.java
   - compiler/src/test/java/dampf/frontend/*.java
@@ -40,7 +42,8 @@ compiled silently. Link [Writing C for dampf](/guide/writing-c) for the introduc
    from a pointer to an integer (the SNES address `bank << 16 | address`; on the PC another
    number, so only distances within one object agree). One short example writing a PPU
    register; point to `lib/snes` as the code that uses both.
-9. **Preprocessor** – what `gcc -E` is called with, the predefined `__DAMPF__`.
+9. **Preprocessor** – dampf's own, a subset of C99's, so using dampf needs no C compiler: what
+   it has, what it rejects (with the message), the predefined `__DAMPF__`.
 10. **Whole program** – one program from all files, `static` names local to their file.
 11. **Open decisions** – the decisions of `docs/subset.md` that are not settled, each with what
     dampf does today.

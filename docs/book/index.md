@@ -2,9 +2,9 @@
 layout: home
 
 hero:
-  name: dampf
-  text: A C compiler for the Super Nintendo
-  tagline: Fast 65816 code from a subset of C, with the same results as gcc on the PC.
+  name: superdevkit
+  text: A development kit for Super Nintendo games in C
+  tagline: dampf compiles the game for the SNES; the same code runs on Linux, Windows and in the browser.
   actions:
     - theme: brand
       text: What is dampf?
@@ -14,10 +14,12 @@ hero:
       link: /guide/getting-started
     - theme: alt
       text: Reference
-      link: /reference/command-line
+      link: /reference/superdevkit
 
 features:
-  - title: One target
+  - title: One game, four targets
+    details: superdevkit build snes, linux, win64 or web. On the PC the game runs on Rachael, the SNES rebuilt in C, with the same picture and the same checksum every tick as the ROM.
+  - title: One target for dampf
     details: The 65816 and the SNES, nothing else. dampf makes assumptions a general compiler cannot, such as compiling the whole program at once.
   - title: Same result as the PC
     details: The same source builds with gcc on the PC and computes the same values bit for bit on the SNES. Every test program is compared with gcc.

@@ -1,5 +1,5 @@
 /* <string.h>: memset and memcpy, on bytes, on a struct and on an array of structs, with sizeof.
- * The struct has no padding on the PC either (its sizeof is the same on both, ADR record 11). */
+ * The struct has no padding on the PC either (its sizeof is the same on both, ADR-6F0R6BSK). */
 #include <stdint.h>
 #include <string.h>
 

@@ -1,14 +1,14 @@
 # Prefixing the console API with `sdevkit_`
 
-Archived 2026-11-19: steps 0 to 7 are built (see "Outcome" below); the decision is ADR record 34
-([../adr/0034-every-name-of-the-console-api-starts-with.md](../adr/0034-every-name-of-the-console-api-starts-with.md)).
+Archived 2026-11-19: steps 0 to 7 are built (see "Outcome" below); the decision is ADR-6F3CK2AR
+([../adr/6F3CK2AR-every-name-of-the-console-api-starts-with.md](../adr/6F3CK2AR-every-name-of-the-console-api-starts-with.md)).
 Step 8, removing the compatibility headers in `lib/include/snes/` once Blubber Blasen uses the new
 names, is tracked in [superdevkit-transition.md](../superdevkit-transition.md) (M5) and, for the
 game, in [game-findings.md](../game-findings.md) (finding 8).
 
 A plan for renaming superdevkit's console API so that every name a game can use starts with
 `sdevkit_`, and for making sure on every platform that a game reaches nothing else. It amends
-ADR records 29 and 32; the decision is ADR record 34. Decided with the user on 2026-11-18; this document is the brief for the
+ADR-6F3CJX8T and ADR-6F3CK03Z; the decision is ADR-6F3CK2AR. Decided with the user on 2026-11-18; this document is the brief for the
 implementation.
 
 ## What was decided
@@ -248,7 +248,7 @@ which dampf compiled silently (roadmap M10: warnings where gcc warns).
 Each step leaves `./gradlew build` green, the replays passing with `-Preplays`, and is one
 commit on the branch `prefix` (from `m5`, merged back into it; the rules for autonomous runs).
 
-**Step 0. ADR.** Write ADR record 34 with the decision and the reasons above, amending records 29
+**Step 0. ADR.** Write ADR-6F3CK2AR with the decision and the reasons above, amending ADR-6F3CJX8T
 (header layout, `SDK_HAS_SOUND`) and 32 (the names of the sound, save RAM and debug calls). The
 records themselves stay unchanged: their rows in `docs/ADR.md` say "amended by 34".
 

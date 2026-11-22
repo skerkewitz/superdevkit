@@ -1,6 +1,6 @@
 # Transition to LIR
 
-Archived 2026-11-18: all three phases are done. The decisions taken here are ADR records 14, 19,
+Archived 2026-11-18: all three phases are done. The decisions taken here are ADR-6F3CJEQA, ADR-6F3CJKHB,
 20 and 24 ([ADR.md](../ADR.md)); the rule for steps that only move code is in
 [testing.md](../testing.md) (`BackendOutputTest`); the optimizations this plan left for later
 are in [roadmap.md](../roadmap.md), M7 and M10. The text below is the plan as it stood then.
@@ -227,15 +227,15 @@ leave the list of things a user needs, and stay in the list for developing dampf
 
 **LIR is made of basic blocks with explicit successors, and the cycles of a C line belong to
 `Timing`** (2026-11-18): ADR
-[record 14](../adr/0014-lir-is-basic-blocks-with-explicit-successors-and.md). The extra risk in
+[ADR-6F3CJEQA](../adr/6F3CJEQA-lir-is-basic-blocks-with-explicit-successors-and.md). The extra risk in
 phase A is the builder that cuts `AsmWriter`'s stream into blocks. It sits behind
 `BackendOutputTest`: the printer must turn the blocks back into the same text.
 
 **The debug file means what ld65's means; the text may differ** (2026-11-18): ADR
-[record 20](../adr/0020-mesen-is-the-debugger-and-the-dbg-file-means-what.md).
+[ADR-6F3CJMJ5](../adr/6F3CJMJ5-mesen-is-the-debugger-and-the-dbg-file-means-what.md).
 
 **A step may cost some speed if the code gets much cleaner** (2026-11-18): ADR
-[record 24](../adr/0024-a-refactoring-step-may-cost-about-1-speed-if-the.md). The work happens on
+[ADR-6F3CJR10](../adr/6F3CJR10-a-refactoring-step-may-cost-about-1-speed-if-the.md). The work happens on
 the branch `lir`, one commit per step, and is merged after review.
 
 **Phase B in the order B2, B3a, B4, B3b, B3c, B1, B5** (2026-11-18). B1 splits `MirCodeGen` into

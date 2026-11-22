@@ -8,7 +8,7 @@ plugins {
 }
 
 // dampf, superdevkit's compiler, with its emulator and the tests of the whole kit (the version is
-// the root project's, ADR record 26). The tests and stampBook run in the repository's top folder,
+// the root project's, ADR-6F3CJT1P). The tests and stampBook run in the repository's top folder,
 // where the paths they name begin.
 
 
@@ -41,7 +41,7 @@ tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
     // Language level and API of the current LTS release (25); any newer JDK can build it.
     options.release = 25
-    options.compilerArgs.addAll(listOf("-Xlint:all", "-Xlint:-serial"))
+    options.compilerArgs.addAll(listOf("-Xlint:all", "-Xlint:-serial", "-Werror"))
 }
 
 tasks.test {
@@ -50,6 +50,11 @@ tasks.test {
     // `./gradlew test --tests X` runs in both subprojects; X is in one of them
     filter { isFailOnNoMatchingTests = false }
     maxHeapSize = "2g"
+    // Test classes run in parallel JVMs, one per core and at most 4, since each may take 2 GB
+    // (-PtestForks=n sets the number). A class that writes files writes them where no other class
+    // does, and the conversions into an example's build/gen write atomically (docs/testing.md).
+    maxParallelForks = providers.gradleProperty("testForks").orNull?.toInt()
+        ?: Runtime.getRuntime().availableProcessors().coerceIn(1, 4)
     // a last resort: the program tests have their own limits (a hang fails the test, see ExecutionTest)
     timeout.set(Duration.ofHours(2))
     // dampf's headers from the sources (SystemHeaders), so that the paths in the output are the
@@ -66,7 +71,7 @@ tasks.test {
         rootProject.fileTree("reference"), rootProject.fileTree("tools"), rootProject.fileTree("dev"),
         rootProject.fileTree("lib"), rootProject.file("README.md"), rootProject.file("CLAUDE.md"),
     ).withPathSensitivity(PathSensitivity.RELATIVE).withPropertyName("documentsAndExamples")
-    // Execution tests run ROMs in Mesen too (MesenCE, ADR record 33): -Pmesen=<path>, or the one in
+    // Execution tests run ROMs in Mesen too (MesenCE, ADR-6F3CK1V6): -Pmesen=<path>, or the one in
     // .mesen/ (dev/fetch_mesen.sh), the Linux build before the Windows one
     val mesen = providers.gradleProperty("mesen").orNull
         ?: listOf(".mesen/Mesen", ".mesen/Mesen.exe").map { rootProject.layout.projectDirectory.file(it).asFile }
@@ -75,6 +80,9 @@ tasks.test {
     // Random programs: -Prandom=<count> (default 50), -PrandomSeed=<first seed>
     providers.gradleProperty("random").orNull?.let { systemProperty("dampf.random.count", it) }
     providers.gradleProperty("randomSeed").orNull?.let { systemProperty("dampf.random.seed", it) }
+    // RandomMacrosTest: -PppRandom=N macro programs from -PppSeed=S (default 300 from 1)
+    providers.gradleProperty("ppRandom").orNull?.let { systemProperty("pp.random", it) }
+    providers.gradleProperty("ppSeed").orNull?.let { systemProperty("pp.seed", it) }
     // At most n pass applications (dampf.util.PassLimit, dev/bisect_passes.sh): -PoptLimit=n or
     // DAMPF_OPT_LIMIT; the last one is appended to the file DAMPF_OPT_LIMIT_LOG names. As system
     // properties they are inputs of the task, so a new limit runs the tests again.
@@ -175,7 +183,7 @@ application {
     applicationDefaultJvmArgs = listOf("-Ddampf.include=__APP_HOME__/include")
 }
 
-// The launcher finds the installation's folder, and the jars in java/ (ADR record 41: the kit's
+// The launcher finds the installation's folder, and the jars in java/ (ADR-6F60Z9QJ: the kit's
 // library is lib/ in the release)
 tasks.startScripts {
     doLast {
@@ -210,7 +218,7 @@ tasks.register<JavaExec>("stampBook") {
 }
 
 // Lists the generated book pages older than their sources and fails if there are any. Not part
-// of `build`: the book is brought in step before a release (ADR record 43).
+// of `build`: the book is brought in step before a release (ADR-6F60ZB4N).
 tasks.register<JavaExec>("checkBook") {
     group = "verification"
     description = "Fails when a generated book page is older than its spec or sources"

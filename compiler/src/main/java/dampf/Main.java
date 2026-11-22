@@ -17,7 +17,7 @@ import java.util.Locale;
  *
  * <pre>
  * dampf --version                                                      print dampf's version
- * dampf build|check|parse @file ...  (or --config file)                options from an argument file (ADR record 28);
+ * dampf build|check|parse @file ...  (or --config file)                options from an argument file (ADR-6F3CJW9N);
  *                                                                      a folder stands for its .c files
  * dampf parse [-I dir] [-D name[=value]] file.c ...                   preprocess and parse
  * dampf build [-I dir] [-D name[=value]] [--entry name] [--backend mir|naive] [--replace fn=file.s]
@@ -28,7 +28,7 @@ import java.util.Locale;
  *                                                                      --sram: battery-backed save RAM, defines SDEVKIT_SRAM_SIZE;
  *                                                                      --assembler ca65: ca65 and ld65 instead of dampf's own;
  *                                                                      --opt-limit: at most n pass applications, see PassLimit)
- * dampf check [-I dir] [-D name[=value]] file.c ...                   front end: first problem per file, then the
+ * dampf check [-I dir] [-D name[=value]] file.c ...                   front end: every problem per file, then the
  *                                                                      files that pass together (recursion, calls of
  *                                                                      functions defined nowhere, double definitions)
  * dampf profile rom.sfc profile.txt [top] [--skip file.c ...] [--instructions] [--blocks file]
@@ -185,7 +185,7 @@ public final class Main {
             for (Path f : files) {
                 try {
                     AstBuilder b = new AstBuilder(SystemHeaders.directory());
-                    Parser.Result parsed = Parser.parse(new Preprocessor("gcc", SystemHeaders.directory(), includes, defines).run(f), f.toString());
+                    Parser.Result parsed = Parser.parse(new Preprocessor(SystemHeaders.directory(), includes, defines).run(f), f.toString());
                     b.addFile(parsed);
                     passed.add(parsed);
                     ok++;
@@ -214,7 +214,7 @@ public final class Main {
             }
             System.exit(ok == files.size() && whole ? 0 : 1);
         }
-        Preprocessor pp = new Preprocessor("gcc", SystemHeaders.directory(), includes, defines);
+        Preprocessor pp = new Preprocessor(SystemHeaders.directory(), includes, defines);
         int errors = 0;
         for (Path f : files) {
             Parser.Result r;
@@ -234,7 +234,7 @@ public final class Main {
         System.exit(errors == 0 ? 0 : 1);
     }
 
-    /** dampf's version, from {@code build.gradle.kts} (ADR record 26). */
+    /** dampf's version, from {@code build.gradle.kts} (ADR-6F3CJT1P). */
     public static String version() {
         try (var in = Main.class.getResourceAsStream("/dampf/version.properties")) {
             var properties = new java.util.Properties();

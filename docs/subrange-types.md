@@ -72,7 +72,7 @@ DAMPF_RANGED(int8_t,  Speed, -4, 4);
 - **PC build:** expands to `typedef uint8_t Lane;` plus a compile-time check (`_Static_assert`) that the base type can hold the whole range.
 - **dampf build:** expands to a built-in the dampf parser recognises, so the type carries its range.
 
-Both builds see the same source after preprocessing with `gcc -E`, so both agree on every declaration.
+Both builds see the same source after preprocessing (dampf's preprocessor gives the same tokens as the PC compiler's), so both agree on every declaration.
 
 ### Why C syntax is good enough here
 
@@ -318,7 +318,7 @@ A list threaded through `bubbles[16]` has at most 16 elements **if it has no cyc
 
 ## 11. Where it fits into the milestones
 
-Decided 2026-11-17 (ADR [record 23](adr/0023-value-ranges-are-inferred-first-and-subrange-types.md)):
+Decided 2026-11-17 ([ADR-6F0R6Q5P](adr/6F0R6Q5P-value-ranges-are-inferred-first-and-subrange-types.md)):
 the parts that need no language change come first, and declared subrange types only when a
 profile shows a hot value whose range dampf cannot infer. That last part (`DAMPF_RANGED`,
 `DAMPF_AS`, the types carried through the front end, the checks of sections 5 and 6, the debug

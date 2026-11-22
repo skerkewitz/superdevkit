@@ -11,11 +11,12 @@ PC with gcc. Two hints are built: `DAMPF_RANGE` and `DAMPF_BUDGET`.
 Include `<dampf.h>` in the files that use hints. dampf finds it on its own, because it comes
 with dampf in its own include folder. When dampf compiles, it defines `__DAMPF__`, and each
 macro expands to a built-in, a name only dampf's [front end](/glossary#front-end) knows and
-reads. The distribution also has the header in its `include` folder, for the
-[PC build](/glossary#pc-build) of your game. Give gcc that folder with `-idirafter`:
+reads. The [superdevkit home](/glossary#superdevkit-home) also has the header in its `include`
+folder, for the [PC build](/glossary#pc-build) of your game. Give gcc that folder with
+`-idirafter`:
 
 ```sh
-gcc -std=c99 -Wall -Wextra -idirafter path/to/dampf/include -c names.c
+gcc -std=c99 -Wall -Wextra -idirafter <home>/include -c names.c
 ```
 
 `-idirafter` searches the folder after gcc's own system folders, so `<dampf.h>` comes from dampf
@@ -27,11 +28,13 @@ a hint that states a fact therefore becomes an `assert`, so the PC build checks 
 tests reach; defining `NDEBUG` switches the checks off, as for any `assert`. A hint that only
 asks for a check at build time, such as `DAMPF_BUDGET`, expands to nothing on the PC.
 
-The kit's desktop build, `dev/build_desktop.sh`, compiles a game without the host's headers
-(gcc's `-nostdinc -ffreestanding`) and gives gcc dampf's include folder with `-isystem`, so
-there `<stdint.h>` is dampf's as well. Such a build has no `<assert.h>`. There a wrong hint calls
-`__builtin_trap()` instead, which stops the program without a message; `NDEBUG` switches this
-check off as well.
+The kit's desktop and web builds, `superdevkit build linux` and `superdevkit build web`, compile
+a game's files without the host's headers (`-nostdinc -ffreestanding`) and give the C compiler
+dampf's include folder with `-isystem`, so there `<stdint.h>` is dampf's as well. Such a build
+has no `<assert.h>`. There a wrong hint calls `__builtin_trap()` instead, which stops the
+program without saying which hint failed; `NDEBUG` switches this check off as well. The `win64`
+build does the same with MSVC's `/X` and `/I`, and there a wrong hint calls `__debugbreak()`.
+The builds are described in [The superdevkit command](/reference/superdevkit#build).
 
 ## The hints
 
@@ -108,10 +111,10 @@ times, for `n` from 0 to 10, and the loop has a worst case (`names.timing.txt`):
         1940         2594  dampf_sdiv32
         1888         2432  dampf_udiv32
         1168         1968  dampf_mul32
-          21         1134  _test_main
+          21         1338  _test_main
          564          772  dampf_udiv16
          287          367  dampf_mul16
-          31          317  _text_len
+          26          235  _text_len
 ```
 
 The [value ranges](/glossary#value-range) dampf infers use the hint as well, for narrower code:
@@ -135,9 +138,10 @@ A misused hint is a compile error in dampf; gcc on the PC accepts these uses wit
 | a bound that is not a constant | `the bounds of DAMPF_RANGE must be constants` |
 | `lo` above `hi` | `DAMPF_RANGE: the lowest value is above the highest` |
 | a bound outside the type | `DAMPF_RANGE: 300 is outside the range of uint8_t` |
-| fewer than three arguments | `macro ‘DAMPF_RANGE’ requires 3 arguments, but only 2 given` |
+| fewer than three arguments | `macro "DAMPF_RANGE" passed 2 arguments, but takes 3` |
 
-The last message comes from the preprocessor, which gcc and dampf share.
+The last message comes from dampf's own preprocessor; gcc rejects this use as well, with a
+message of its own.
 
 ### DAMPF_BUDGET
 
@@ -197,6 +201,16 @@ checks them. The [naive code generator](/glossary#naive-code-generator) (chosen 
 and does not check budgets at all. dampf checks the function as compiled on its own; where it
 is inlined into a caller, its code counts towards the caller. On the PC the macro is empty.
 
+A build with a pass limit, `--opt-limit n`, lets at most n applications of the optimizer's
+passes run, to find the pass that broke a program ([Command line](/reference/command-line)).
+Such a build reports a budget that is not kept as a warning instead, so the program still
+builds: the passes that prove a loop's bound may not have run. With `--opt-limit 0`, even
+`sum.c`'s loop has no bound:
+
+```
+sum.c:7:42: warning: 'sum' has no worst case (loop at sum.c:10), so its budget of 1000 cycles cannot be guaranteed (DAMPF_BUDGET); an error without the pass limit
+```
+
 Misuse is a compile error in dampf:
 
 | Use | Message |
@@ -211,9 +225,10 @@ The other hints of the design are not built:
 - `DAMPF_LIKELY` and `DAMPF_UNLIKELY`, for the common side of a branch;
 - `DAMPF_PIN_X`, `DAMPF_SPLIT`, `DAMPF_DP` and `DAMPF_TABLE`, which ask for a transformation;
 - a hint that two pointers never overlap;
-- subrange types, `DAMPF_RANGED`, a type with a range of its own.
+- subrange types, `DAMPF_RANGED`, a type with a range of its own;
 - `DAMPF_AT_MOST(n)`, for a branch that runs at most n times per call of its function, however
-  often the loop around it runs; it would give pair loops a usable worst case.
+  often the loop around it runs; it would give a loop over all pairs of objects, with a rare hit
+  inside, a usable worst case.
 
 A bound on how often a loop runs, `DAMPF_TRIPS(n)`, is postponed: on the PC it would have to
 count the rounds of each entry into the loop, and a macro cannot see when a loop is entered or

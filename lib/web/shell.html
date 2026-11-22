@@ -1,0 +1,70 @@
+<!doctype html>
+<!--
+  The page of a game built for the web (superdevkit build web, lib/web): the canvas fills the
+  browser's window; the game starts with a click, since the browser plays sound and gives the
+  keyboard to the page only after one. superdevkit build writes the game's name where GAME stands
+  between two at signs, and the debug view's keys where DEBUG_KEYS stands (F1, F5 to F8, only in
+  superdevkit build web --debug: ADR-6FD7KEJV); emcc puts its script where SCRIPT stands in three
+  braces.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>@GAME@</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #000; }
+  canvas { display: block; outline: none; }
+  #start {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    font: 20px/1.4 system-ui, sans-serif; color: #ddd; background: #000; cursor: default;
+    user-select: none;
+  }
+  #start.ready { cursor: pointer; }
+  #start.ready:hover { color: #fff; }
+</style>
+</head>
+<body>
+<canvas id="canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
+<div id="start">Loading @GAME@ ...</div>
+<script>
+  // the keys the game and the debug view use, which the browser would take for itself otherwise
+  // (scrolling, the focus, its help, a reload); in a build for debugging F1 opens the view, and F5,
+  // F6, F7 and F8 run the debugger
+  const GAME_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Tab', 'Backspace', 'Enter',
+    'F11', 'F12'@DEBUG_KEYS@]);
+  window.addEventListener('keydown', e => {
+    if (GAME_KEYS.has(e.code) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+    }
+  });
+  const start = document.getElementById('start');
+  var Module = {
+    canvas: document.getElementById('canvas'),
+    noInitialRun: true,
+    print: text => console.log(text),
+    printErr: text => console.warn(text),
+    setStatus: text => {
+      if (text) {
+        start.textContent = text;
+      }
+    },
+    onRuntimeInitialized: () => {
+      start.textContent = 'Click to play @GAME@';
+      start.classList.add('ready');
+      start.addEventListener('click', () => {
+        start.remove();
+        Module.canvas.focus();
+        Module.callMain([]);
+      }, { once: true });
+    },
+  };
+  window.addEventListener('error', e => {
+    start.textContent = 'The game stopped: ' + e.message;
+    start.classList.remove('ready');
+    document.body.append(start);                // the click took it away
+  });
+</script>
+{{{ SCRIPT }}}
+</body>
+</html>

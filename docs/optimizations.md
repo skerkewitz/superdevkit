@@ -134,7 +134,10 @@ allowed (the platform layer uses them); this form does not need the rule against
   ticks still goes to the direct page. The limit for a single call site stays at 150. A candidate
   cause, found on 2026-11-20: inlining dropped the range of a loop's derived index variable, so
   an inlined loop indexed through a 24-bit pointer ([log](optimizations-log.md#ranges-kept-when-inlining-2026-11-20-on-the-spelling-families-and-the-examples));
-  not measured again, since the game's code is no longer here.
+  not measured again, since the game's code is no longer here. On the examples (2026-11-21, K4
+  of [archive/compiler-flaws.md](archive/compiler-flaws.md)) 600 for every single call site made
+  Ertüp and Mandelbrot slower; 600 only for a call in a loop, to a callee without a loop of its
+  own, is built.
 - `PointerRemat` for φ uses (2026-11-18): `best = v` in a loop keeps `v` computed in every round.
   Copying the chain to the end of the predecessor instead, with the condition that the chain
   then folds away completely (else the copy comes on top), made play slower (286,947 → 288,149
@@ -146,12 +149,17 @@ allowed (the platform layer uses them); this form does not need the rule against
   of a loop's test is the inside already.
 - Inlining up to 80 instructions (2026-11-18): play 282,246 master clocks per tick (from
   282,498), but the benchmark's checksums differ from the PC: the larger inlining makes a
-  function the code generator gets wrong. The general limit stays at 60 until that bug is found
-  ([roadmap.md](roadmap.md#open-questions)).
+  function the code generator gets wrong. The bug was found and fixed on 2026-11-19
+  (`exec/regress_branch_phis.c`); the limit stays at 60, and a larger one was not measured again.
 - Jump tables for `switch` (considered, 2026-11-18): a table dispatch (subtract, range check,
   `ASL`, `TAX`, `JMP (table,X)`) costs about 24 cycles, as much as the chain of compares over three
   to four cases, needs X, and gives the timing analysis an indirect jump. The game's switches are
   short; after the branch relaxation a matching case costs a taken `BEQ`.
+- Dropping `findForwards` (the code generator's plan for values handed on in A) or `Schedule` (a
+  value moved next to its only user) and leaving their work to `RedundantLoads` and `DeadStores`
+  on the LIR (2026-11-22): without `findForwards` the examples were 1.6 % slower, without
+  `Schedule` 0.5 %, without both 2.1 %, and the copy loops of the spelling families up to 77 %
+  slower ([log](optimizations-log.md#without-findforwards-or-schedule-measured-2026-11-22)).
 
 ## Ideas not yet built
 
@@ -166,8 +174,8 @@ optimization and superoptimization (below); a tuning option (`--tune`, the user'
 2026-11-18) that builds with several values of the parameters chosen today on one game (the
 inlining limit, the block order), runs the user's own workload (a benchmark or a replay, as
 `dampf profile` does) in dampf's emulator and keeps the fastest build, each candidate checked
-against a reference of the results (the PC build's checksums), since a larger inlining limit has
-already exposed a miscompilation ([roadmap.md](roadmap.md#open-questions)). Which come next, by likely gain and effort, is in
+against a reference of the results (the PC build's checksums), since a larger inlining limit once
+exposed a miscompilation (fixed on 2026-11-19). Which come next, by likely gain and effort, is in
 [roadmap.md](roadmap.md#m9-the-optimizer-090) (M9) and
 [roadmap.md](roadmap.md#m12-fine-tuning-0120) (M12).
 

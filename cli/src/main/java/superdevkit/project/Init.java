@@ -9,7 +9,7 @@ import java.util.regex.Matcher;
 
 /**
  * {@code superdevkit init NAME [--from EXAMPLE]}: a new project in ./NAME, a copy of one of the kit's
- * examples (hello by default; ADR record 31: a template that is a working example the tests build
+ * examples (hello by default; ADR-6F3CJZBY: a template that is a working example the tests build
  * cannot go stale), without its build folder. Its superdevkit.toml gets the new name and this kit's
  * version instead of the examples' path to the repository, and the project gets a CLAUDE.md that
  * points an AI working on it to the kit's guides (lib/C_STYLE.md, lib/SNES_HARDWARE.md).

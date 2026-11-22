@@ -13,13 +13,13 @@ import superdevkit.gfx.Png2Snes;
 import superdevkit.sfx.Sfx;
 
 /**
- * What {@code superdevkit build <target>} does for a project, as a list of steps (ADR record 31):
+ * What {@code superdevkit build <target>} does for a project, as a list of steps (ADR-6F3CJZBY):
  * {@code --plan} prints them, {@code --dry-run} checks that what each needs is there, and a build
  * runs them, printing each with {@code --verbose}. No step runs a shell: the converters and dampf
  * run in this Java, the desktop's C compiler is called directly, one call per file and one to link.
  *
  * <p>The targets: {@code snes} (build/snes/NAME.sfc, with dampf and the kit's lib/snes),
- * {@code linux} and {@code win64} (Desktop). Every build converts the assets into build/gen first
+ * {@code linux} and {@code win64} (Desktop), {@code web} (Web). Every build converts the assets into build/gen first
  * and writes build/compile_commands.json for editors: the game's files as dampf sees them.
  */
 public final class Build {
@@ -38,7 +38,7 @@ public final class Build {
         }
     }
 
-    public static final List<String> TARGETS = List.of("snes", "linux", "win64");
+    public static final List<String> TARGETS = List.of("snes", "linux", "win64", "web");
 
     private Build() {
     }
@@ -49,6 +49,7 @@ public final class Build {
         switch (target) {
             case "snes" -> steps.add(dampf(p, kit));
             case "linux", "win64" -> steps.addAll(Desktop.steps(p, kit, target, debug));
+            case "web" -> steps.addAll(Web.steps(p, kit, debug));
             default -> throw new Failure("no target '" + target + "' (" + String.join(", ", TARGETS) + ")");
         }
         steps.add(compileCommands(p, kit));
@@ -82,7 +83,7 @@ public final class Build {
                 }
                 h.append("#define MUSIC_COUNT ").append(p.music().size()).append("\n#endif\n");
                 Files.createDirectories(gen);
-                Files.writeString(gen.resolve("music.h"), h.toString(), StandardCharsets.UTF_8);
+                superdevkit.AtomicWrite.writeString(gen.resolve("music.h"), h.toString());
             }));
         }
         if (p.sfx() != null) {
@@ -146,6 +147,15 @@ public final class Build {
                 .withBackend(Compiler.Backend.MIR).withSram(p.sram());
     }
 
+    /** What a build of the target writes: the ROM, the program, or the web's page. */
+    public static Path output(Project p, String target) {
+        return switch (target) {
+            case "snes" -> rom(p);
+            case "web" -> Web.output(p);
+            default -> Desktop.output(p, target);
+        };
+    }
+
     public static Path rom(Project p) {
         return p.dir().resolve("build").resolve("snes").resolve(p.name() + ".sfc");
     }
@@ -185,7 +195,7 @@ public final class Build {
     }
 
     /**
-     * build/snes/NAME.args: what the build compiles, as an argument file for dampf (ADR record 28),
+     * build/snes/NAME.args: what the build compiles, as an argument file for dampf (ADR-6F3CJW9N),
      * so dampf can be called with options of one's own: {@code dampf build @build/snes/NAME.args
      * -o other.sfc --backend naive} (dev/bench_examples.sh does). Absolute paths.
      */

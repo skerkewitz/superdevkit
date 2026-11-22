@@ -1,8 +1,8 @@
 import java.time.Duration
 
-// The superdevkit command (ADR record 31; docs/superdevkit-transition.md, 7.4): init, build and run
+// The superdevkit command (ADR-6F3CJZBY; docs/superdevkit-transition.md, 7.4): init, build and run
 // come with M7. It builds the distribution: both launchers in bin/, the jars in java/, dampf's
-// headers in include/ (ADR record 41), installed to the root's build/install/superdevkit.
+// headers in include/ (ADR-6F60Z9QJ), installed to the root's build/install/superdevkit.
 evaluationDependsOn(":compiler")   // its launcher and headers go into the distribution
 
 plugins {
@@ -19,7 +19,7 @@ dependencies {
 tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
     options.release = 25
-    options.compilerArgs.addAll(listOf("-Xlint:all", "-Xlint:-serial"))
+    options.compilerArgs.addAll(listOf("-Xlint:all", "-Xlint:-serial", "-Werror"))
 }
 
 tasks.test {
@@ -56,7 +56,7 @@ distributions {
             from(project(":compiler").tasks.named("startScripts")) { into("bin") }
             from(project(":compiler").file("src/main/resources/dampf/include")) { into("include") }
             // the kit, so that the installation is a superdevkit home with all a game needs
-            // (ADR record 41): the library, the tools, the examples, dev/replay.sh (a recording on the SNES side)
+            // (ADR-6F60Z9QJ): the library, the tools, the examples, dev/replay.sh (a recording on the SNES side)
             from(rootProject.file("lib")) { into("lib") }
             from(rootProject.file("tools")) { into("tools"); exclude("**/__pycache__/**", "lab_test/**") }
             from(rootProject.file("examples")) { into("examples"); exclude("*/build/**", "**/__pycache__/**") }

@@ -2,7 +2,7 @@
 
 The dated measurements behind [optimizations.md](optimizations.md), one entry per step, newest at
 the end. Every entry keeps the numbers as they were measured at the time, on the game's benchmark:
-frames per tick or master clocks per tick (one NTSC frame is 357,366 master clocks), at SlowROM
+frames per tick or master clocks per tick (one NTSC frame is 357,368 master clocks), at SlowROM
 speed until the FastROM entry and with FastROM after it. Later steps change earlier numbers, so the
 current ones are in [optimizations.md](optimizations.md), *Where things stand*, and nowhere else.
 
@@ -10,7 +10,7 @@ current ones are in [optimizations.md](optimizations.md), *Where things stand*, 
 
 Blubber Blasen's benchmark (`tools/snesbench` in the game repository) runs the same game code with a
 fixed input for 1,800 ticks, with every PVSnesLib call stubbed out, and measures each tick in
-Mesen 2. One NTSC frame is 357,366 master clocks. Results from the game's `build/bench/` as of
+Mesen 2. One NTSC frame is 357,368 master clocks. Results from the game's `build/bench/` as of
 2026-11-17 (`calypsi_asm`, the latest Calypsi run):
 
 | State | Ticks | 816-tcc | Calypsi |
@@ -927,7 +927,7 @@ whose values nobody reads after it, and that is proved to end: one way out, on a
 with a constant, stepped by the same constant every round, so that the comparison fails before
 the counter could wrap (an odd step for `!=`). gcc keeps a C loop that might not end, so dampf
 keeps every loop it cannot prove finite, and every loop around one. The loops it finds are those
-left empty after inlining: the debug view's calls are empty functions on the SNES (ADR record 32),
+left empty after inlining: the debug view's calls are empty functions on the SNES (ADR-6F3CK03Z),
 and `for (i = 0; i < CATS; i++) sdevkit_dbg_box(...)` left a counting loop of 19 cycles in every
 tick of CatchMe.
 
@@ -986,7 +986,7 @@ an index into an array of structs to a function that is not inlined).
 `Induction` replaces `i * C` by a variable stepped by C and gives its φ the range it knows
 (`Instr.Phi.known`), so the code generator indexes with X. `Inline` copied a φ without that
 field, and the passes do not derive it again, so an inlined loop computed a 24-bit pointer every
-round ([current-compiler-flaws.md](current-compiler-flaws.md#r4-inlining-drops-the-range-of-a-derived-variable),
+round ([archive/compiler-flaws.md](archive/compiler-flaws.md#r4-inlining-drops-the-range-of-a-derived-variable),
 R4, found by the spelling test). The copy keeps it now.
 
 The spelling families (CPU cycles of one call, inlined): `fill_u16` 3,930 → 1,945, `pairs_u16`
@@ -1009,7 +1009,7 @@ seven, and in 4 execution programs (`BackendOutputTest`, 31 hashes).
 ## A canonical form for arithmetic and comparisons (2026-11-20, on the spelling families and the examples)
 
 `Simplify` writes every instruction in one form, so that later passes know one spelling
-([current-compiler-flaws.md](current-compiler-flaws.md#flaw-c-the-mir-has-no-canonical-form),
+([archive/compiler-flaws.md](archive/compiler-flaws.md#flaw-c-the-mir-has-no-canonical-form),
 C1 to C3): `x - c` is `x + (-c)`, a commutative operation has its constant on the right, and a
 comparison with a constant is one of `eq ne ult uge slt sge` (`x >= 1` unsigned is `x != 0`;
 one the type decides is folded). `Gvn` finds `b + a` as `a + b`. The passes that took `sub` as
@@ -1056,7 +1056,7 @@ The range analysis widened a value that changed more than 24 times to its type's
 both ends. A signed counter from 0 upwards lost its 0, the loop's condition only brought the
 upper end back, and the counter was "-32,768..100": a signed comparison, and the array access
 through a 24-bit pointer. Now only the end that moved is widened
-([current-compiler-flaws.md](current-compiler-flaws.md#r1-widening-throws-away-the-bound-that-did-not-move), R1).
+([archive/compiler-flaws.md](archive/compiler-flaws.md#r1-widening-throws-away-the-bound-that-did-not-move), R1).
 
 Eight gaps of the spelling test closed: `c_i16_lt100` 6,146 → 2,538 cycles, the `int16_t`
 counter of every bound family from 30 rounds on (the cliff at 24 rounds: `int16_t i < 30` was 61
@@ -1071,7 +1071,7 @@ loop counters over more than 127 rounds: their index went through a 24-bit point
 was written in 8 bits. Every value now has two intervals, of its signed and of its unsigned
 reading, which tighten each other where one lies on one side of the sign change; a signed
 condition bounds the one, an unsigned the other
-([current-compiler-flaws.md](current-compiler-flaws.md#r2-bytes-above-127-have-no-range), R2).
+([archive/compiler-flaws.md](archive/compiler-flaws.md#r2-bytes-above-127-have-no-range), R2).
 The tests check every computed value against both.
 
 The spelling families: the byte counters to 129 and 200 cost what the `uint16_t` ones cost
@@ -1097,7 +1097,7 @@ of `i > 0` going down, and of `i != 100`) bounds nothing it can iterate to: the 
 `i != 100` "might wrap", and `i - 1` in the body of `i != 0` might be -1, so it was no index and
 went through a 24-bit pointer. `Ranges` now meets each counter with the interval `CountedLoops`
 gives it (before and after widening), and `x != c` cuts c off an end of x's interval in the
-blocks where it holds ([current-compiler-flaws.md](current-compiler-flaws.md#flaw-l-four-passes-recognise-loops-each-differently),
+blocks where it holds ([archive/compiler-flaws.md](archive/compiler-flaws.md#flaw-l-four-passes-recognise-loops-each-differently),
 L2).
 
 The spelling families: `n_u16_ne100` 5,643 → 2,738 (its gap closed), `d_u8_ne100` 4,641 → 2,936,
@@ -1152,7 +1152,7 @@ its own that kept every hash) and a step anywhere in the round, once a round: be
 holds the counter, after it the stepped value, which the fused exit test (`CPX`) and array
 indexes may read. The counter must not be read after the step, nor either value after the loop.
 A signed test against 0 of a 16-bit counter is `CPX #0` and `BMI`/`BPL`
-([current-compiler-flaws.md](current-compiler-flaws.md#flaw-l-four-passes-recognise-loops-each-differently),
+([archive/compiler-flaws.md](archive/compiler-flaws.md#flaw-l-four-passes-recognise-loops-each-differently),
 L3; `exec/x_stepped.c` has the cases).
 
 The spelling families: 15 gaps closed. `i_u16_dowhile` 4,030 → 2,725, `g_u16_down` 3,743 →
@@ -1179,7 +1179,7 @@ CatchMe only.
 A pointer walked beside a counter (`*p++` with `i++`, two arrays copied together) becomes, after
 `PointerOffsets`, a second counter with the same start and step as the first: two variables in
 the frame where one would do, and neither in X. `Induction` now replaces the second by the first
-([current-compiler-flaws.md](current-compiler-flaws.md#flaw-l-four-passes-recognise-loops-each-differently),
+([archive/compiler-flaws.md](archive/compiler-flaws.md#flaw-l-four-passes-recognise-loops-each-differently),
 L5). `Schedule` puts a value only φs read (a step) at the end of its block: the merged step had
 come first, before the loads that read the counter, which kept it out of X.
 
@@ -1204,7 +1204,7 @@ only, so a 16-bit counter stayed in memory beside the offset it stepped (the sty
 `slow-u16-counter-words`), and `i - 1`, `(i - 1) * 2` or `r * 16 + c` were computed every round.
 It now takes any affine value of a counter: the zero extension of a byte counter, `+` a constant,
 a value from outside the loop or another affine value, `*` and `<<` a constant
-([current-compiler-flaws.md](current-compiler-flaws.md#flaw-l-four-passes-recognise-loops-each-differently),
+([archive/compiler-flaws.md](archive/compiler-flaws.md#flaw-l-four-passes-recognise-loops-each-differently),
 L4). A value with a factor other than 1 becomes a variable, as before; if nothing but such
 values, the step and one loop test read the counter, every one does, and the test moves to the
 first: `i < 64` with `o = i * 2` is `o <= 126`, which `Simplify` writes `o < 127`. The move is
@@ -1282,7 +1282,7 @@ The spelling families: `fill_ptr_walk` 1,359 → 1,233 (gap closed), `x_ptr_walk
 `Licm` moved arithmetic only, so a loop's bound in a global (`i < count`) was loaded every
 round. It now moves a load whose address does not change in the loop when nothing in the loop
 may write what it reads: no store or copy that may overlap it, no call of a function that may
-write memory, not volatile ([current-compiler-flaws.md](current-compiler-flaws.md#flaw-c-the-mir-has-no-canonical-form),
+write memory, not volatile ([archive/compiler-flaws.md](archive/compiler-flaws.md#flaw-c-the-mir-has-no-canonical-form),
 C7). Outside the loop's head only from a global (bank $7E, all RAM) or a known place of a frame
 slot, which can be read once more than the program does. Whether two accesses may overlap is
 `Gvn`'s rule, which now follows a variable offset too: `t[i]` stays in `t`, as C's pointers do,
@@ -1310,7 +1310,7 @@ geometric mean -0.2 %. Code changed in all seven examples and in 28 programs of
 `for (p = data; p < data + 100; p++)` compared two 24-bit pointers every round, as 32-bit values.
 Two addresses in the same global or frame slot now compare as their 16-bit offsets, unsigned:
 C lets a pointer point into its object or one past it, so both lie in 0..size
-([current-compiler-flaws.md](current-compiler-flaws.md#flaw-c-the-mir-has-no-canonical-form),
+([archive/compiler-flaws.md](archive/compiler-flaws.md#flaw-c-the-mir-has-no-canonical-form),
 C6). `PointerOffsets` has made the walked pointer an offset already, so the loop is then a counter
 loop like any other.
 
@@ -1326,7 +1326,7 @@ A global or frame slot indexed by a 16-bit value was indexed with X only where t
 showed the index never negative, since X adds unsigned; otherwise every access computed a 24-bit
 pointer. C makes an access outside its object undefined, so a sum read only as the address of
 loads and stores (directly, or through a constant offset of at most 0) is now indexed with X
-without a range ([ADR record 46](adr/0046-an-access-to-an-array-tells-dampf-its-index-is.md),
+without a range ([ADR-6F8NBESR](adr/6F8NBESR-an-access-to-an-array-tells-dampf-its-index-is.md),
 R3). The MIR interpreter stops a program that accesses outside its object, so the tests catch a
 program the rule would break.
 
@@ -1340,7 +1340,7 @@ loops the same. Code changed in all seven examples and 4 programs of `BackendOut
 ## Places get their addresses on the code (2026-11-20, on the examples)
 
 The frame places were coloured on MIR before selection, by a prediction of the code; they are
-now coloured on the LIR selection wrote ([ADR record 48](adr/0048-frame-places-are-coloured-on-the-lir-and.md),
+now coloured on the LIR selection wrote ([ADR-6F8NBG4P](adr/6F8NBG4P-frame-places-are-coloured-on-the-lir-and.md),
 B2), with the predicted address as each place's first choice. That is about safety, not speed:
 a wrong prediction now costs a different address, not a miscompilation. Where a value handed on
 in A had a place nothing wrote, that place is gone, so three examples' frames lie 2 bytes lower
@@ -1354,7 +1354,7 @@ changed in three programs of `BackendOutputTest`.
 three miscompilations came from that prediction. Every φ now goes through its incoming place,
 the copies at the end of each predecessor and on entry are `LCopy`, and the colouring on the
 LIR coalesces them: the two places of a copy become one where they do not conflict, and the copy
-is then no code ([ADR record 49](adr/0049-phis-go-through-their-incoming-places-and-the.md), B2).
+is then no code ([ADR-6F8NBHZ6](adr/6F8NBHZ6-phis-go-through-their-incoming-places-and-the.md), B2).
 
 The way there, measured on the examples against the code before: without direct φs and without
 coalescing +8.5 %; greedy preference for a copy's other place +4.5 %; φs and their operands
@@ -1385,7 +1385,7 @@ load after `TAX`); the examples' work is the same. Code changed in 7 programs of
 
 Selection keeps a value in X or Y only where one of its patterns matches (a loop's counter, an
 index that prefers Y); everything else lives in the frame. `RegisterChoice` (B3 of
-[current-compiler-flaws.md](current-compiler-flaws.md#b3-x-and-y-assigned-by-cost)) now looks at
+[archive/compiler-flaws.md](archive/compiler-flaws.md#b3-x-and-y-assigned-by-cost)) now looks at
 every group of places left after coalescing, before they get addresses: it goes to X, then Y, for
 its whole live range where every instruction that names it has a form with the register
 (`LDA p` is `TXA`, `STA p` `TAX`, `LDX p` goes, `INC p` is `INX`, a φ copy `LDX`/`STX`, `LDA q /
@@ -1512,7 +1512,7 @@ spelling family `pairs` 7 % more and `fill_u16_down` 20 % more. Two causes were 
 (the steps going down and the flags above); what is left is mostly a choice selection makes
 before the register choice runs: where X holds something, it writes an index load with Y
 (`LDY i / LDA t,Y`), which then keeps Y from a better candidate (the count in `pairs`), while
-without that choice Schach does 1.8 % more work. Above the price of ADR record 24 for a step, so
+without that choice Schach does 1.8 % more work. Above the price of ADR-6F3CJR10 for a step, so
 the patterns stay; the register choice takes what they leave.
 
 ## A constant kept in A over a loop with its test at the top (2026-11-21, on the spelling families)
@@ -1563,3 +1563,94 @@ the value is read, was the best and is the rule: Schach −0.3 %, Ertüp −0.15
 geometric mean −0.1 %. Slower: the pair loop D +0.2 %, and in the worst case Ertüp's
 `checkpoint_before` 299 → 329 (its counter is read after the loop), Schach's `draw_moves` +0.3 %
 and `pairs_down` +0.2 %; Schach's `score_moves` −5.5 % and `search_clear` −21 % among the faster.
+
+## A large function called once in a loop is inlined (2026-11-21, on the examples)
+
+The inlining limits measured (K4): 40, 80 and 120 instructions for any callee instead of 60,
+and 100, 300 and 600 for a callee with one call site instead of 150. No pair was best for every
+example: 600 for one call site made Steinschlag 14 % faster and Ertüp 2.8 % and Mandelbrot 1.4 %
+slower, 40 made everything slower (Catch Me 13 %). The gain was one call in every round of a
+loop, Steinschlag's `fall`, called for every cell of the cave. A callee called once in a loop
+of its caller, without a loop of its own, is now inlined up to 600 instructions (with loops of
+their own the callees made Mandelbrot slower, where `compute` went into `main`): Steinschlag
+−15.8 %, Schach −0.2 %, the rest the same; geometric mean −2.5 %. The pair loops are the same;
+the worst case of `cave_scan_rows`, which has `fall` in it now, grew by 0.001 %.
+
+## A loop's bound as its start plus a constant (2026-11-21, on the spelling families)
+
+The two loops over the rows of a table (`table-2d`) cost 26,910 cycles in the worst case, the
+flat loop over the same 128 bytes 3,238: eight times as much, although the code of the rows is
+the flat loop's with an outer loop around it. The worst case was wrong, not the code: the inner
+loop runs from the row's offset o to o + 16, and `CountedLoops` bounded its rounds by o's range
+(up to 134) instead of by the difference. An exit that compares the counter with its own start
+plus a constant K now bounds the head runs by K / |c| + 1, for `<` and `>` where the start's range
+shows that no step wraps, and for `!=` with a step of one in any case. The rows 3,614, 12 %
+above the flat loop: the outer loop's rounds, which only collapsing the loops would remove.
+Ertüp's `sway_init` 1,639 → 883. The examples' work and the pair loops are the same.
+
+## The rows of a table as one loop (2026-11-21, on the spelling families)
+
+After the bound of a row was known (the entry before), the two loops over the rows of a table
+(`table-2d`) cost 12 % more than one loop over the whole table: the outer loop's 8 rounds with the
+inner loop's entries and exits. `Collapse` takes such a nest, where the outer loop steps a row's
+offset by the row's length K from a constant, the inner loop walks the row in steps that divide
+K, and nothing else happens per row: the inner loop runs to the end of the last row and leaves
+to where the outer loop left, whose φs are read there through new φs of the exit. The four rows
+spellings cost 3,614 → 3,238, as the flat loop; their gaps are closed. Steinschlag does 9 cycles
+a tick less; the other examples, the pair loops and every other worst case are the same.
+
+## Constant shifts written out (2026-11-22, on the examples)
+
+A shift by a constant above 8 was a loop of single shifts: `ldx #n`, then per place `asl a` (or
+`asl`/`rol` of both words in memory for 32 bits), `dex`, `bne`. A 32-bit shift by 16 cost about
+600 cycles, `(uint32_t)hi << 16 | lo` 665. Now every shift by a constant below the width is
+written out (`ArithSelection.unrolledShift`). A 16-bit shift above 8 swaps the bytes (`XBA`), masks
+and shifts the rest. A 32-bit shift by 16 or more moves one word to the other, shifts it in A by
+the rest and stores 0 or the sign in the word it leaves. A 32-bit shift by 3 to 15 builds each
+word of the result in A from both words of x (`hi = H << c | L >> 16-c`); by 1 or 2 places the
+two words still step in memory, which is cheaper there. Only variable shifts loop now.
+
+On the examples: Mandelbrot −6.4 %, Mode 7 −7.4 %, Steinschlag −0.8 %, Schach −0.2 %, Ertüp
+−0.1 %, the rest the same; geometric mean −2.2 %. 56 worst cases are smaller and none is larger;
+Schach's `chess_init`, which fills the Zobrist keys with xorshift, 4,932,758 → 1,047,779. In the
+library, `sdevkit_bg_set_gfx_ptr` 189 → 75 and `sdevkit_oam_init_gfx_attr` 147 → 41 (a shift by
+12 or 13 of an address). The pair loops are the same: the code of variant C is unchanged, its
+111 cycles a frame more come from the frames' setup inlined into `test_main`, which chooses X and
+Y the other way round. The style guide's `slow-shift-above-8` is retired: `v << 9` and
+`(uint16_t)(v << 8) << 1` cost 19 cycles each.
+
+## A computed pointer sum is read through itself (2026-11-22, a bug)
+
+Found while measuring dampf without `Schedule` (the entry after this one). A pointer plus an index
+whose sum is computed, because something else reads it too (`p->row` reads at `p + 2`), was still
+split into `[pointer],y` with the index in Y for the access at the sum itself (`p->col`). The
+index could have been handed on in A into the sum and never stored; the read then took its place
+unwritten, or `RegisterChoice` made it a `TXY` from an X nobody had set
+(`exec/regress_pointer_index_sum.c`). `Schedule` usually puts something between the index and the
+sum, so no example was hit. `FrameLayout.address` now splits the sum only where it is not computed
+(as it already did for a number made into a pointer); a computed sum is read as `[sum],y` with
+`LDY #0`. Ertüp's `stage_init` and its callers are 29 cycles faster in the worst case,
+`waves_spawn` 1 slower; the examples' work is the same.
+
+## Without findForwards or Schedule (measured 2026-11-22)
+
+Since values get their places and registers on the LIR (`PlaceColouring`, `RegisterChoice`),
+`RedundantLoads` drops a load of what A holds and `DeadStores` a store nobody reads. So the
+selection's own plan for results handed on in A (`SelectionPlan.findForwards`) and `Schedule`,
+which moves a value next to its only user for it, might no longer be needed. Measured with each
+switched off (the examples' work against `develop`, and the worst cases of the examples, the
+spelling families and the execution tests):
+
+| Switched off | Examples (geometric mean) | Worst cases larger / smaller | Worst cases (geometric mean) |
+| --- | ---: | ---: | ---: |
+| `findForwards` | +1.6 % (Ertüp +3.8 %, Schach +2.0 %) | 200 / 25 | +2.2 % |
+| `Schedule` | +0.5 % (Schach +1.3 %, Ertüp +1.0 %) | 186 / 54 | +0.5 % |
+| both | +2.1 % | 295 / 64 | +2.5 % |
+
+Both stay; why the LIR passes do not make up for them was not followed function by function.
+The spelling families lose most: the copy loops 1,823 → 2,517 without `findForwards`, and the
+copies through a pointer 1,823 → 3,219 without `Schedule`. Against it, some functions are faster without
+`Schedule`: `memcpy` 10.4 %, Ertüp's `hud_lives` 12 %, `lose_life` 11 %; its order costs there, which
+is open in the roadmap (M9, row 2). Without `Schedule` dampf also stopped on Ertüp, which led to
+the bug of the entry before.
+

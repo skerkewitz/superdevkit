@@ -1,4 +1,4 @@
-// Shows the file a code block belongs to above it: ```c [examples/m1/calls.c].
+// Shows the file a code block belongs to above it: ```c [compiler/src/test/resources/exec/calls.c].
 // VitePress reads such a title only for the tabs of a ::: code-group and drops it elsewhere,
 // so a block outside a group gets a title bar of its own, styled in custom.css.
 

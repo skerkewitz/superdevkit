@@ -34,7 +34,7 @@ Not in the first version: playing black, two players, a clock, sound, saving a g
 
 ## The two constraints of the subset
 
-The subset ([subset.md](../subset.md)) has no recursion and no heap (ADR record 6). Neither is a real
+The subset ([subset.md](../subset.md)) has no recursion and no heap (ADR-6F0R668G). Neither is a real
 obstacle for chess.
 
 **No recursion.** Alpha-beta search is usually written as a recursive function, but it can be a

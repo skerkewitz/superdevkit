@@ -1,5 +1,5 @@
 /*
- * The desktop frontend of superdevkit (Linux and Windows; ADR records 32 and 39): a window with
+ * The desktop frontend of superdevkit (Linux and Windows; ADR-6F3CK03Z and ADR-6F60Z709): a window with
  * raylib, the keyboard and a gamepad as the SNES joypad, and the frame rhythm of sdevkit/loop.h
  * on Rachael (lib/rachael):
  *
@@ -59,7 +59,16 @@
  * game_init's writes the line "aram H": the FNV-1a of the bytes written into the audio RAM from $0200 on (each its address, low and high byte, then the value, in the order written). S counts the lines over the sprite limits (32 sprites,
  * 34 tiles); a game may mean that (flicker), so it does not fail the check.
  *
- * This file is host code for the desktop's C compiler, not for dampf.
+ * The web (superdevkit build web, emcc) builds this file too, with lib/web: the window is the
+ * browser's canvas, and the loops wait for the browser's frames (sdevkit__web_frame), which a
+ * clock of 60 ticks a second steps the game by; the save RAM is /save/<game>.srm, kept in
+ * IndexedDB; the music is /music/<file> (packed into the page's data); F11 and F12 offer their
+ * files as downloads. The debug view and the run keys F5 to F8 are only in superdevkit build web
+ * --debug (DEBUG_VIEW). main takes the same options there but --view-shot (ADR-6FD1Y6W2): the page
+ * passes none; the examples' test calls Module.callMain with --check after writing the file into
+ * Module.FS (tools/web_check), and reads hashes.txt and sound.txt from there.
+ *
+ * This file is host code for the desktop's C compiler (and emcc), not for dampf.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -71,9 +80,24 @@
 #include "raylib.h"
 #include "crt.h"
 #include "view.h"
+#ifdef __EMSCRIPTEN__
+#include "web.h"
+#define APP_DIR "/"                             /* the music: /music/<file>, packed into the page's data */
+#else
+#define APP_DIR GetApplicationDirectory()
+#endif
 
 #ifndef GAME_NAME
 #define GAME_NAME "superdevkit"
+#endif
+
+/* The debug view and its run keys (F1, F5 to F8): always on the desktop; on the web only in a
+ * build for debugging (superdevkit build web --debug defines SDEVKIT_WEB_DEBUG, ADR-6FD7KEJV),
+ * so a page put online gives its players neither. */
+#if !defined(__EMSCRIPTEN__) || defined(SDEVKIT_WEB_DEBUG)
+#define DEBUG_VIEW 1
+#else
+#define DEBUG_VIEW 0
 #endif
 
 static unsigned char rgba[SDEVKIT__W * SDEVKIT__H * 4];
@@ -217,7 +241,7 @@ static void music_step(int paused)
                         sdevkit__music_count);
             } else {
                 char path[1024];
-                snprintf(path, sizeof path, "%s%s", GetApplicationDirectory(), sdevkit__music_files[sdevkit__music.track]);
+                snprintf(path, sizeof path, "%s%s", APP_DIR, sdevkit__music_files[sdevkit__music.track]);
                 music = LoadMusicStream(path);
                 if (IsMusicValid(music)) {
                     music.looping = true;
@@ -529,10 +553,19 @@ static uint16_t sdevkit__splash_frame(uint8_t brightness)
     picture();
     splash_count++;
     if (splash_scale > 0) {
+#ifdef __EMSCRIPTEN__
+        static int due;                     /* ticks due in the browser's frame that are not shown */
+        if (due > 0) {                      /* a slow screen: the splash keeps the clock's time */
+            due--;
+            return keyboard();
+        }
+        due = sdevkit__web_frame() - 1;
+#else
         if (WindowShouldClose()) {
             CloseWindow();
             exit(0);
         }
+#endif
         show(splash_texture, NULL);
         return keyboard();
     }
@@ -586,7 +619,12 @@ static void sram_load(void)
 {
     FILE *f;
 
+#ifdef __EMSCRIPTEN__
+    sdevkit__web_mount();
+    snprintf(sram_path, sizeof sram_path, "/save/%s.srm", GAME_NAME);
+#else
     snprintf(sram_path, sizeof sram_path, "%s%s.srm", GetApplicationDirectory(), GAME_NAME);
+#endif
     memset(sdevkit_sram(), 0, SDEVKIT_SRAM_SIZE);
     f = fopen(sram_path, "rb");
     if (f != NULL) {
@@ -615,6 +653,11 @@ static void sram_store(void)
     if (f != NULL) {
         fclose(f);
     }
+#ifdef __EMSCRIPTEN__
+    if (sram_path[0] != 0) {
+        sdevkit__web_sync();
+    }
+#endif
 }
 #endif
 
@@ -642,10 +685,20 @@ static const char *draw_frame(Texture2D tex, float w, float h, int filter, sdevk
 static const char *show(Texture2D tex, sdevkit__run_state *run)
 {
     float w = (float)GetScreenWidth(), h = (float)GetScreenHeight();
-    float pw = sdevkit__debug_is_open() ? w - SDEVKIT__PANEL_W : w;
-    float s = pw / SDEVKIT__W < h / SDEVKIT__H ? pw / SDEVKIT__W : h / SDEVKIT__H;
+    float pw, s;
     const char *changed;
 
+    /* The keys before the drawing: EndDrawing polls the next ones on the desktop, and on the web,
+     * where the browser has delivered them already, marks them as seen, so a key read after it is
+     * never pressed there. */
+    if (IsKeyPressed(KEY_TAB) && crt_ok) {
+        crt_on = !crt_on;
+    }
+    if (DEBUG_VIEW) {
+        sdevkit__debug_keys();
+    }
+    pw = sdevkit__debug_is_open() ? w - SDEVKIT__PANEL_W : w;
+    s = pw / SDEVKIT__W < h / SDEVKIT__H ? pw / SDEVKIT__W : h / SDEVKIT__H;
     UpdateTexture(tex, rgba);
     if (crt_on) {
         sdevkit__crt_prepare(tex, s);
@@ -653,10 +706,6 @@ static const char *show(Texture2D tex, sdevkit__run_state *run)
     BeginDrawing();
     changed = draw_frame(tex, w, h, crt_on, run);
     EndDrawing();
-    if (IsKeyPressed(KEY_TAB) && crt_ok) {
-        crt_on = !crt_on;
-    }
-    sdevkit__debug_keys();
     return changed;
 }
 
@@ -745,6 +794,9 @@ static void flag(void)
     }
     if (rec_save(name)) {
         fprintf(stderr, "%s: tick %ld flagged, the recording is %s\n", GAME_NAME, tick_count, name);
+#ifdef __EMSCRIPTEN__
+        sdevkit__web_download(name);
+#endif
     }
 }
 
@@ -770,8 +822,17 @@ static int window(int scale, int no_crt, const char *replay_file)
     }
     SetTraceLogLevel(LOG_WARNING);
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
+#ifdef __EMSCRIPTEN__
+    {
+        int w, h;                           /* the canvas fills the page; raylib follows its size */
+        sdevkit__web_size(&w, &h);
+        (void)scale;
+        InitWindow(w, h, GAME_NAME);
+    }
+#else
     InitWindow(SDEVKIT__W * scale, SDEVKIT__H * scale, GAME_NAME " (superdevkit)");
     SetTargetFPS(60);
+#endif
     {
         Image img = { rgba, SDEVKIT__W, SDEVKIT__H, 1, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 };
         tex = LoadTextureFromImage(img);
@@ -795,24 +856,32 @@ static int window(int scale, int no_crt, const char *replay_file)
     }
 #endif
     start(replaying ? replay.sram : NULL);
+#ifdef __EMSCRIPTEN__
+    for (;;) {
+        int due = sdevkit__web_frame();     /* the browser's next frame, and the ticks the clock has due */
+#else
     while (!WindowShouldClose()) {
+        int due = 1;                        /* EndDrawing waited for the frame (SetTargetFPS) */
+#endif
         int steps;
-        int k;
+        int k, run_key;
         const char *changed;
-        if (IsKeyPressed(KEY_F6)) {
+        if (DEBUG_VIEW && IsKeyPressed(KEY_F6)) {
             run.step = 1;
         }
-        steps = run.paused ? (run.step ? 1 : 0) : run.fast ? 8 : run.slow ? (frames % 4 == 0) : 1;
+        /* slow motion: a tick every fourth one due */
+        steps = run.paused ? (run.step ? 1 : 0) : run.fast ? 8 * due : run.slow ? (int)((frames + due + 3) / 4 - (frames + 3) / 4)
+                : due;
         run.step = 0;
-        frames++;
-        if (IsKeyPressed(KEY_F5)) {
+        frames += due;
+        if (DEBUG_VIEW && IsKeyPressed(KEY_F5)) {
             run.paused = !run.paused;
         }
-        if (IsKeyPressed(KEY_F7)) {
+        if (DEBUG_VIEW && IsKeyPressed(KEY_F7)) {
             run.fast = !run.fast;
             run.slow = 0;
         }
-        if (IsKeyPressed(KEY_F8)) {
+        if (DEBUG_VIEW && IsKeyPressed(KEY_F8)) {
             run.slow = !run.slow;
             run.fast = 0;
         }
@@ -847,6 +916,15 @@ static int window(int scale, int no_crt, const char *replay_file)
         music_step(run.paused);
         run.tick = tick_count;
         run.lost = lost;
+        if (IsKeyPressed(KEY_F12)) {            /* before show(), as its keys */
+            char name[64];
+            snprintf(name, sizeof name, "%s_%d.png", GAME_NAME, shots++);
+            save_png(name);
+#ifdef __EMSCRIPTEN__
+            sdevkit__web_download(name);
+#endif
+        }
+        run_key = DEBUG_VIEW && (IsKeyPressed(KEY_F5) || IsKeyPressed(KEY_F7) || IsKeyPressed(KEY_F8));
         changed = show(tex, &run);
         if (changed != NULL && rec.debug_tick < 0) {
             rec.debug_tick = tick_count;
@@ -855,17 +933,11 @@ static int window(int scale, int no_crt, const char *replay_file)
                             "another game from there\n", GAME_NAME, changed, tick_count);
             shown_tick = -1;
         }
-        if (tick_count != shown_tick || IsKeyPressed(KEY_F5) || IsKeyPressed(KEY_F7) || IsKeyPressed(KEY_F8)
-            || run.step) {
+        if (tick_count != shown_tick || run_key || run.step) {
             if ((tick_count & 15) == 0 || run.paused || run.fast || run.slow || tick_count - shown_tick != 1) {
                 title(&run, replaying);
             }
             shown_tick = tick_count;
-        }
-        if (IsKeyPressed(KEY_F12)) {
-            char name[64];
-            snprintf(name, sizeof name, "%s_%d.png", GAME_NAME, shots++);
-            save_png(name);
         }
 #if SDEVKIT_SRAM_SIZE > 0
         if (tick_count % 30 == 0) {
@@ -1043,6 +1115,14 @@ static int check(const char *path, const char *out, const char *record, const ch
     return lost > 0 || sdevkit__rachael.undrawn > 0 || sdevkit__sound.unheard > 0 || differs >= 0 ? 1 : 0;
 }
 
+/* The options, the same on the web, where the page passes none (Module.callMain takes them, after
+ * Module.FS has the files they name) and the view shot is missing: it needs a hidden window. */
+#ifdef __EMSCRIPTEN__
+#define VIEW_USAGE ""
+#else
+#define VIEW_USAGE "                 [--view-shot view.png [--view-tab 0..3]]\n"
+#endif
+
 int main(int argc, char **argv)
 {
     const char *check_file = NULL;
@@ -1069,16 +1149,18 @@ int main(int argc, char **argv)
             out = argv[++i];
         } else if (strcmp(argv[i], "--scale") == 0 && i + 1 < argc) {
             scale = atoi(argv[++i]);
+#ifndef __EMSCRIPTEN__
         } else if (strcmp(argv[i], "--view-shot") == 0 && i + 1 < argc) {
             view_file = argv[++i];
         } else if (strcmp(argv[i], "--view-tab") == 0 && i + 1 < argc) {
             view_tab = atoi(argv[++i]);
+#endif
         } else if (strcmp(argv[i], "--no-crt") == 0) {
             no_crt = 1;
         } else {
             fprintf(stderr, "usage: %s [--scale N] [--no-crt] [--replay recording.txt]\n"
                             "       %s --check check.txt [--out dir] [--record recording.txt] [--wav sound.wav]\n"
-                            "                 [--view-shot view.png [--view-tab 0..3]]\n", argv[0], argv[0]);
+                            VIEW_USAGE, argv[0], argv[0]);
             return 2;
         }
     }

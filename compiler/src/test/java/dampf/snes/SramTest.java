@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Save RAM (dampf --sram, ADR record 32): the header announces the cartridge's battery RAM in the
+ * Save RAM (dampf --sram, ADR-6F3CK03Z): the header announces the cartridge's battery RAM in the
  * smallest of 2, 4, 8, 16 and 32 KB that holds it, the checksum stays right, and the program sees
  * the exact size as SDEVKIT_SRAM_SIZE.
  */

@@ -160,8 +160,15 @@ gcc pads is still rejected (decision 5), and no constant size is right on both s
 dampf and 4 on the PC for `struct { uint8_t kind; int16_t x; }`), so such a struct is copied by a
 struct assignment.
 
-**Preprocessor.** Anything `gcc -E` accepts. dampf preprocesses with `-nostdinc -undef
--D__DAMPF__=1` and its own `include/`, so host headers and host macros never reach the code.
+**Preprocessor.** dampf's own, a subset of C99's (ADR-6FD4GDN5), with its own `include/`, so
+host headers and host macros never reach the code. It has `#include` with `""` and `<>`,
+`#define` and `#undef` (object-like, function-like and variadic macros with `__VA_ARGS__`, `#`
+and `##`), `#if`, `#elif`, `#ifdef`, `#ifndef`, `#else`, `#endif` and `defined` (arithmetic in
+64 bits), `#error`, `#pragma` (passed on; `#pragma once`), `__FILE__`, `__LINE__`, `__STDC__`,
+`__STDC_VERSION__` (199901L), `__STDC_HOSTED__` and `__DAMPF__`. Rejected, with an error that
+names them: `__VA_OPT__`, `#line`, `#include_next`, an include of a macro, `#warning` and gcc's
+other directives, named variadic parameters, `__COUNTER__`, `__DATE__`, `__TIME__`, `_Pragma`,
+`__has_include`. Trigraphs, digraphs and universal character names are not handled.
 
 **Whole program.** All `.c` files are compiled as one program; there is no separate compilation.
 `static` names stay local to their file (`phase` exists as a static local in two functions, for
@@ -187,7 +194,7 @@ decided. Decisions 4 and 5 are decided. What dampf does today:
   generators; the code generator from MIR turns a pointer into one object into a 16-bit offset
   within a function and through parameters ([optimizations.md](optimizations.md#pointer-compression)); 16-bit
   pointers into RAM are not built;
-- decision 4: `goto` and labels are rejected (ADR [record 27](adr/0027-goto-and-labels-stay-rejected-and-a-forward-and.md));
+- decision 4: `goto` and labels are rejected ([ADR-6F3CJVHC](adr/6F3CJVHC-goto-and-labels-stay-rejected-and-a-forward-and.md));
 - decision 5: a `sizeof` that differs from the PC is rejected, except the element count.
 
 1. **Plain `char` for text.** The game uses `char` only for strings and name buffers. Plain
@@ -211,11 +218,11 @@ decided. Decisions 4 and 5 are decided. What dampf does today:
 4. **`goto`** (decided 2026-11-18). `goto` and labels stay rejected. If real code needs `goto`,
    dampf may allow a form that only jumps forward and out of statements, which keeps every loop
    with a single entry; unrestricted `goto` will not be built: ADR
-   [record 27](adr/0027-goto-and-labels-stay-rejected-and-a-forward-and.md), with the options weighed.
+   [ADR-6F3CJVHC](adr/6F3CJVHC-goto-and-labels-stay-rejected-and-a-forward-and.md), with the options weighed.
 
 5. **`sizeof` of pointers and padded structs** (decided 2026-11-17). A `sizeof` that differs
    from gcc's on x86-64 is rejected, except the element count `sizeof a / sizeof a[0]`: ADR
-   [record 11](adr/0011-structs-have-no-padding-and-a-sizeof-that-differs.md), with the options
+   [ADR-6F0R6BSK](adr/6F0R6BSK-structs-have-no-padding-and-a-sizeof-that-differs.md), with the options
    weighed.
 
 ## What the game has to change

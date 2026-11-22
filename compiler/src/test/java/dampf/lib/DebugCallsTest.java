@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * The debug view's calls (sdevkit_dbg_toggle, _range, _color, _action, _box; ADR record 32) and
+ * The debug view's calls (sdevkit_dbg_toggle, _range, _color, _action, _box; ADR-6F3CK03Z) and
  * the music's (sdevkit_music_play, _stop, not built on the SNES yet) are empty on the SNES, and
  * dampf removes them: a tick that registers and draws boxes costs the same
  * cycles as the same tick without them, best and worst case, so a game keeps them in its SNES

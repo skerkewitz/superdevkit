@@ -13,8 +13,8 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
- * The desktop targets (ADR records 31, 32 and 39): the game on Rachael, with the kit's frontend
- * and raylib, built by the system's C compiler in three steps, as dev/build_desktop.sh did:
+ * The desktop targets (ADR-6F3CJZBY, ADR-6F3CK03Z and ADR-6F60Z709): the game on Rachael, with the kit's frontend
+ * and raylib, built by the system's C compiler in three steps:
  *
  * <ol>
  *   <li>the game's files alone, as on the SNES: without the host's headers, with dampf's include
@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit;
  * </ol>
  *
  * {@code linux}: gcc or clang ({@code CC}, default cc), build/linux/NAME. {@code win64}: MSVC,
- * found with vswhere, on Windows or from WSL (ADR record 39), build/win64/NAME.exe. One call per
+ * found with vswhere, on Windows or from WSL (ADR-6F60Z709), build/win64/NAME.exe. One call per
  * file and one to link; MSVC's run in a batch file after vcvars64, which sets up its environment.
  */
 final class Desktop {
@@ -52,7 +52,7 @@ final class Desktop {
             throw new Build.Failure("the target linux builds on Linux (or WSL); here it is win64");
         }
         if (target.equals("win64") && !windows() && !wsl()) {
-            throw new Build.Failure("the target win64 builds on Windows or WSL, with MSVC (ADR record 39)");
+            throw new Build.Failure("the target win64 builds on Windows or WSL, with MSVC (ADR-6F60Z709)");
         }
         List<Build.Step> steps = new ArrayList<>();
         Path ray = Raylib.folder(kit, target);
@@ -79,7 +79,7 @@ final class Desktop {
     }
 
     /** The music's files into build/TARGET/music/, and music_files.c: their paths for the frontend. */
-    private static Build.Step music(Project p, String target, Path musicFiles) {
+    static Build.Step music(Project p, String target, Path musicFiles) {
         Path dir = p.dir().resolve("build").resolve(target).resolve("music");
         return new Build.Step("music", p.music().size() + " tracks into " + Build.rel(p, dir) + ", their list "
                 + Build.rel(p, musicFiles), List.of(), out -> {
@@ -273,8 +273,8 @@ final class Desktop {
 
     // ------------------------------------------------------------------ both
 
-    private static Build.Step symbols(Project p, Kit kit, List<Path> objects) {
-        return new Build.Step("check", "the game's objects call nothing but lib/include/sdevkit (ADR record 34)",
+    static Build.Step symbols(Project p, Kit kit, List<Path> objects) {
+        return new Build.Step("check", "the game's objects call nothing but lib/include/sdevkit (ADR-6F3CK2AR)",
                 List.of(), out -> {
                     List<String> bad = Symbols.check(kit.lib().resolve("include/sdevkit"), objects);
                     if (!bad.isEmpty()) {
@@ -283,7 +283,7 @@ final class Desktop {
                 });
     }
 
-    private static List<Path> needs(Project p, Path... files) {
+    static List<Path> needs(Project p, Path... files) {
         List<Path> out = new ArrayList<>();
         for (Path f : files) {
             if (!f.toAbsolutePath().normalize().startsWith(p.gen().toAbsolutePath().normalize())) {
@@ -302,7 +302,7 @@ final class Desktop {
         }
     }
 
-    private static List<String> show(Project p, List<String> cmd) {
+    static List<String> show(Project p, List<String> cmd) {
         List<String> out = new ArrayList<>();
         for (String a : cmd) {
             out.add(a.startsWith("/") ? Build.rel(p, Path.of(a)) : a);
@@ -310,7 +310,7 @@ final class Desktop {
         return out;
     }
 
-    private static void exec(Path dir, List<String> cmd, PrintStream out) throws Exception {
+    static void exec(Path dir, List<String> cmd, PrintStream out) throws Exception {
         Process pr = new ProcessBuilder(cmd).directory(dir.toFile()).redirectErrorStream(true).start();
         String log = new String(pr.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         pr.waitFor(30, TimeUnit.MINUTES);

@@ -14,7 +14,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 /**
- * raylib for a desktop target, ready-built and pinned to one version (ADR record 31): found in the
+ * raylib for a target of Rachael, ready-built and pinned to one version (ADR-6F3CJZBY): found in the
  * kit (raylib/&lt;system&gt;/ in a release, build/raylib/&lt;system&gt;/ in the repository), or
  * fetched from raylib's releases on GitHub into the kit's folder once. Unpacked in Java, so it
  * needs no curl, tar or unzip.
@@ -25,13 +25,21 @@ public final class Raylib {
     private Raylib() {
     }
 
-    /** "linux" or "windows": raylib's package for the target. */
+    /** "linux", "windows" or "web": raylib's package for the target. */
     static String system(String target) {
-        return target.equals("win64") ? "windows" : "linux";
+        return switch (target) {
+            case "win64" -> "windows";
+            case "web" -> "web";
+            default -> "linux";
+        };
     }
 
     static String packageName(String target) {
-        return target.equals("win64") ? "raylib-" + VERSION + "_win64_msvc16.zip" : "raylib-" + VERSION + "_linux_amd64.tar.gz";
+        return switch (target) {
+            case "win64" -> "raylib-" + VERSION + "_win64_msvc16.zip";
+            case "web" -> "raylib-" + VERSION + "_webassembly.zip";   // built by emcc: lib/libraylib.a of wasm objects
+            default -> "raylib-" + VERSION + "_linux_amd64.tar.gz";
+        };
     }
 
     /** Where the kit keeps raylib for the target (whether it is there yet or not). */

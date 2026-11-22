@@ -3,46 +3,91 @@
 The repository of superdevkit, a development kit for SNES games, and of dampf, its compiler: a
 C-subset compiler for the 65816 / SNES, written in Java. Two Gradle subprojects: `compiler/` (dampf, its emulator and the tests of the
 whole kit, which run in the repository's top folder) and `cli/` (the `superdevkit` command, M7);
-`./gradlew installDist` writes the distribution to `build/install/superdevkit` (ADR record 41), a
+`./gradlew installDist` writes the distribution to `build/install/superdevkit` (ADR-6F60Z9QJ), a
 superdevkit home that a game outside the repository uses (the book's Getting started).
 Read README.md first (what and why), then docs/roadmap.md (milestones and their state) and
 docs/architecture.md; the other docs are linked from the README.
 
+- Every change goes through a pull request (ADR-6FB9QJ3R): its own branch from `origin/develop`
+  in its own worktree in `superdevkit-wt/` next to the main checkout, a pull request into
+  `develop`, merged by Claude after the user's approval. A release is a pull request from
+  `develop` into `main` and a tag. The steps are the `sker-pr` skill, with this project's rules
+  in "Pull requests" below. The main checkout stays on `develop`: never edit, build or switch
+  branches in it.
+- `sker-pr` and `sker-adr` come from the `sker-project` package (ADR-6FD54GME), pinned in
+  `apm.yml`. `./apmw install` puts them into `.claude/skills/` (git-ignored); run it once in a
+  fresh checkout or worktree, and again when the version in `apm.yml` changes.
+- Claude works on GitHub as an app of its own (ADR-6FB9QKSV): every `gh` command, `git commit`
+  and `git push` runs through the `gh-as-bot` wrapper (`gh-as-bot git push ...`), never plain.
+  Claude never approves a pull request, and merges one only after the user has approved it.
 - Build and test: `./gradlew build`. The execution, random and replay tests run in dampf's own
   emulator (`dampf.emu`, validated against the SingleStepTests suite and against Mesen); the
   execution tests also run in Mesen when `.mesen/` exists (not in git; `dev/fetch_mesen.sh` puts
-  MesenCE there, ADR record 33).
+  MesenCE there, ADR-6F3CK1V6).
 - A new language feature needs an execution test in `compiler/src/test/resources/exec/` (PC vs SNES).
 - Game code (the examples, Schach, anything in `examples/`) follows `lib/C_STYLE.md` (C for
   dampf; its speed rules are tests, `StyleGuideTest`) and `lib/SNES_HARDWARE.md` (the hardware
   and what the kit has). A change to dampf that breaks a rule of the C guide changes the rule in
   the same commit.
 - dampf is tested and measured on its examples (`examples/`, `dev/bench_examples.sh`); the game's
-  code is not in this repository (ADR record 40). Never run Mesen or write files inside the
+  code is not in this repository (ADR-6F60Z819). Never run Mesen or write files inside the
   game's own folders: another agent is working there.
 - Why a decision was taken is in `docs/ADR.md` (the table of all records with their status) and
-  `docs/adr/NNNN-<start-of-title>.md` (one file per record: `# N. Title`, then **Context.**,
-  **Decision.**, **Alternatives.** where there were any, **Consequences.**). A decision made or
-  changed is a new file plus its row; never edit an existing record, change the status of the
-  records it supersedes or amends in the table instead. An open question becomes a record only
-  when it is decided. Cite records by number ("ADR record 6"); a record of another project with its name in front
-  ("gosu-flint's record 32"). `AdrTest` checks table and files.
+  `docs/adr/<ID>-<start-of-title>.md` (one file per record: `# ADR-<ID>: Title`, then
+  **Context.**, **Decision.**, **Alternatives.** where there were any, **Consequences.**). The ID
+  is the time the record was made and a hash of its title (ADR-6FCBBNSH); `dev/new_adr.sh
+  "Title"` makes the ID, the file and the row. A decision made or changed is a new record; never
+  edit an existing one, change the status of the records it supersedes or amends in the table
+  instead. An open question becomes a record only when it is decided. Cite records by ID,
+  never by their former numbers; a record of another project with its name in front
+  ("gosu-flint's record 32"). In text for people (chat, pull requests, docs) the first mention
+  of a record says what it decides, then the ID in brackets: as "Every result matches gcc on
+  x86-64 bit for bit" (ADR-6F0R64GD) says, or a few words of your own for a long title
+  (`sker-adr`, "Citing"). Code comments, commit subjects, tables and rule lists like this one
+  use the ID alone ("ADR-6F0R668G"). `AdrTest` checks table, files and citations.
 - Anything worth changing in the game goes into `docs/game-findings.md` (written for the AI working
   on the game; the user forwards it). The findings so far were forwarded on 2026-11-19 and the file
   deleted: start it anew when there is a new one.
 - Blubber Blasen (the first user and test case) is at `/mnt/d/Develop/AiProject/BlubberBlasen`
   (Windows `D:\Develop\AiProject\BlubberBlasen`). Its `tools/snesbench` is the benchmark that
   compares compilers in Mesen headless (`Mesen.exe --testrunner` with a Lua script).
-- Code targets Java 25 (`options.release = 25`); the machine has JDK 27.
-- Preprocessing is `gcc -E -nostdinc -undef -D__DAMPF__=1` with dampf's own `<stdint.h>`.
-  Do not let host headers or host macros in.
+- Code targets Java 25 (`options.release = 25`); the machine has JDK 27. javac runs with
+  `-Xlint:all -Werror`: a warning fails the build, in CI too.
+- dampf preprocesses with its own preprocessor (`dampf.frontend.pp`, a subset of C99's,
+  ADR-6FD4GDN5) and its own `<stdint.h>`. Do not let host headers or host macros in.
 - The grammar files under `compiler/src/main/antlr` are vendored unchanged from grammars-v4; changes to
   the support classes are listed in `compiler/src/main/antlr/dampf/parser/README.md`.
 - The user book is `docs/book` (VitePress). Most pages are generated by `/docs-gen` from the
   specs in `doc-specs/` (see its README); never edit a page that starts with `<!-- GENERATED`.
   The book is for the users and describes a release; while developing, keep `docs/*.md`, the
   READMEs and the code current, and leave the book alone. It is brought in step once at the end
-  of a release cycle (ADR record 43). Before a release, `./gradlew checkBook` lists
+  of a release cycle (ADR-6F60ZB4N). Before a release, `./gradlew checkBook` lists
   the stale pages; `/docs-gen stale` regenerates them, `./gradlew stampBook -Pspecs=...` stamps
   a page the change does not touch.
 - Correctness comes before speed: every behaviour must match gcc on x86-64 bit for bit.
+
+## Pull requests
+
+The steps are the `sker-pr` skill. For this project:
+
+- Branches: changes go into `develop`; a release goes from `develop` into `main`, tagged
+  `v<version>` with the message "superdevkit <version>". Reviewer: `skerkewitz`. Every GitHub
+  write goes through `gh-as-bot` (ADR-6FB9QKSV).
+- Worktrees: `superdevkit-wt/<branch>` next to the main checkout. After creating one,
+  `[ -d MAIN/.mesen ] && ln -s MAIN/.mesen WT/.mesen`, so the execution tests also run in Mesen
+  there; before removing it, `rm -f WT/.mesen`.
+- Verify: `./gradlew build`. Changes to dampf's output also run the replays (`-Preplays`) and
+  the benchmark (`dev/bench_examples.sh`), with the numbers before and after. If CI fails,
+  `gh-as-bot gh run download <id> -R skerkewitz/superdevkit -n test-reports -D <scratchpad>`
+  fetches the test reports.
+- What follows, in a description: the generated code (size, cycles), the C guide or its
+  `StyleGuideTest` rules, the game (and whether `docs/game-findings.md` got an entry), the
+  documents changed, the book pages that will be stale at the release.
+- Never public: the game's code and data (ADR-6F60Z819). Say what a change means for the game
+  without quoting it.
+- Release preparation: the version by the rule in the roadmap ("Versions", ADR-6F60ZDMF): the
+  last number rises, the middle one when a milestone is concluded. `./gradlew checkBook`, then
+  `/docs-gen stale` for the pages it lists, until `checkBook` passes (ADR-6F60ZB4N); the version
+  in `build.gradle.kts` and in the status line of `README.md`; a concluded milestone marked in
+  `docs/roadmap.md`; `./gradlew build`. The release pull request says what a user of the kit
+  notices: new features, changes to the command line, the subset, the files dampf writes.

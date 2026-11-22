@@ -7,7 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
-/** {@code dampf --version} prints the version that {@code build.gradle.kts} sets (ADR record 26). */
+/** {@code dampf --version} prints the version that {@code build.gradle.kts} sets (ADR-6F3CJT1P). */
 class VersionTest {
 
     @Test

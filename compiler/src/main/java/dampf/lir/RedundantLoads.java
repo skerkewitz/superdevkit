@@ -46,7 +46,7 @@ public final class RedundantLoads {
 
     /**
      * A load of A that starts a loop's body, whose only way in is the loop's test (B6 of
-     * docs/current-compiler-flaws.md): where the test reads and writes no A, and A is not read
+     * docs/archive/compiler-flaws.md): where the test reads and writes no A, and A is not read
      * where the loop is left, the load can be thought of at the test's start, and moves to the
      * ways into the test that do not hold it already (the entry), as {@link #hoist} does. The
      * back edge holds it when the body leaves A as it was: a constant stored every round is

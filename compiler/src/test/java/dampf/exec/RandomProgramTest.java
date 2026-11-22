@@ -16,7 +16,7 @@ import org.junit.jupiter.api.TestFactory;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Random programs (test layer 3): each one runs on the PC (gcc) and on the SNES (dampf, in
+ * Random programs (test layer 3): each one runs on the PC (clang) and on the SNES (dampf, in
  * dampf's emulator), and all globals must match. A failure names its seed and the command that
  * runs that program again, and prints the program.
  *

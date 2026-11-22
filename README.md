@@ -2,26 +2,28 @@
 
 A development kit for SNES games written in C. A game is written once, against the kit's console
 API, and runs on the Super Nintendo and, with the same picture pixel for pixel, as a program for
-Linux and Windows; the browser comes later. The kit holds:
+Linux and Windows and as a page in the browser. The kit holds:
 
 - **dampf**, the compiler: a subset of C to fast code for the WDC 65816, with the SNES as its one
   target (see [dampf](#dampf) below);
 - the **library** ([lib](lib/README.md)): the console API in C for the SNES, and
   [Rachael](lib/README.md#rachael), the SNES rebuilt in portable C, with a desktop frontend
-  (a window, the keyboard and gamepads, recordings and replays);
-- the **tools** ([tools](tools/README.md)): graphics from PNG files, the editor of a game's sound
-  effects (BRR Lab; the conversion is `superdevkit sfx`, [docs/sound.md](docs/sound.md));
+  (a window, the keyboard and gamepads, recordings and replays) that also runs in the browser;
+- the **`superdevkit` command**, which builds a game for every target and converts its pictures
+  (`superdevkit png`) and sound effects (`superdevkit sfx`);
+- the **tools** ([tools](tools/README.md)): the editor of a game's sound effects (BRR Lab,
+  [docs/sound.md](docs/sound.md)) and the rename script;
 - **examples** ([examples](examples/)): games and programs, from `hello` to the shooter
   Er-Tüp, which are also the kit's test cases and its benchmark;
 - the **book** ([docs/book](docs/book)): the user guide and the reference.
 
-Status: version 0.7.3, in work. Milestones M0 to M7 are done: M6 is dampf's own assembler and
+Status: version 0.8.0. Milestones M0 to M8 are done: M6 is dampf's own assembler and
 linker; with M5 Blubber Blasen (the kit's first user, a game in its own repository) builds its
 ROM with the kit and plays its recordings with the PC's checksums; with M7 a game builds and runs
 on the SNES, Linux and Windows with the `superdevkit` command, with sound effects, save RAM, music
-on the desktop and a debug view. The
+on the desktop and a debug view; with M8 it runs in the browser too (`superdevkit build web`). The
 milestones and versions are in [docs/roadmap.md](docs/roadmap.md), why the kit is the project and
-dampf its compiler in [ADR record 29](docs/adr/0029-superdevkit-is-the-project-and-dampf-is-its.md).
+dampf its compiler in [ADR-6F3CJX8T](docs/adr/6F3CJX8T-superdevkit-is-the-project-and-dampf-is-its.md).
 
 `./gradlew installDist` writes a superdevkit home to `build/install/superdevkit`: the compiler,
 the library, the tools, the examples, the desktop build and the book, all a game needs. A game
@@ -36,16 +38,16 @@ The name: in German, *Dampf machen* ("make steam") means to get things moving fa
 the steam factory of Blubber Blasen.
 
 dampf compiles all of Blubber Blasen and built a playable ROM of it, with the console API written
-in C in [lib/snes](lib/snes/README.md) (save RAM is not built yet; sound effects came after the
-game left, [docs/sound.md](docs/sound.md)). During play the
+in C in [lib/snes](lib/snes/README.md) (save RAM and sound effects came after the game left,
+[docs/sound.md](docs/sound.md)). During play the
 game took 0.79 frames per tick ([docs/optimizations.md](docs/optimizations.md#where-things-stand)). Since
 2026-11-19 the kit's own examples (`examples/`) are dampf's test cases and its benchmark
 (`dev/bench_examples.sh`), and the game's code is no longer in this repository
-([ADR record 40](docs/adr/0040-the-examples-replace-blubber-blasen-s-snapshot-as.md)). dampf computes a best and a
+([ADR-6F60Z819](docs/adr/6F60Z819-the-examples-replace-blubber-blasen-s-snapshot-as.md)). dampf computes a best and a
 worst case in CPU cycles for every function, and a function over its cycle budget
 (`DAMPF_BUDGET`) fails the build ([docs/timing.md](docs/timing.md)). The naive code generator,
 straight from the AST, stays as an independent reference (`--backend naive`): every test program
-is built with both and compared with gcc on the PC.
+is built with both and compared with the PC (clang).
 
 ### Why
 
@@ -81,9 +83,8 @@ Goals:
 4. Readable output: the generated assembly is commented so a human can follow what each part is
    meant to do.
 5. Correctness first: every optimization is checked automatically against a reference.
-6. In the end, nothing to install but Java. dampf assembles and links with its own assembler and
-   linker (milestone M6); gcc is still needed for preprocessing until dampf has its own
-   preprocessor (M10).
+6. Nothing to install but Java. dampf preprocesses, assembles and links with its own preprocessor,
+   assembler and linker.
 
 Non-goals:
 
@@ -107,26 +108,28 @@ working documents it is written from.
 - [docs/subrange-types.md](docs/subrange-types.md): design proposal for subrange types (`DAMPF_RANGED`) and inferred value ranges; what is built of it is in optimizations.md.
 - [docs/optimizations.md](docs/optimizations.md): where things stand, the optimization catalogue, the gap to hand-written assembly.
 - [docs/optimizations-log.md](docs/optimizations-log.md): dated measurements of each optimization step.
-- [docs/current-compiler-flaws.md](docs/current-compiler-flaws.md): what is structurally wrong with the optimizer and the back end (measured 2026-11-20), and the steps that fix it.
 - [docs/timing.md](docs/timing.md): exact timing, worst-case bounds and cycle budgets.
-- [docs/archive](docs/archive): finished plans and reviews, kept as they were (the way to LIR and to dampf's own assembler and linker, the status review of 2026-11-18).
+- [docs/archive](docs/archive): finished plans and reviews, kept as they were (the way to LIR and to dampf's own assembler and linker, the status review of 2026-11-18, the compiler flaws measured on 2026-11-20 and fixed by 2026-11-21).
 - [docs/memory-map.md](docs/memory-map.md): where code, data, variables and pointers live.
 - [docs/testing.md](docs/testing.md): the test layers and how they work.
 - [docs/testing-ideas.md](docs/testing-ideas.md): how the large compilers are tested, and eight kinds of tests dampf does not have yet, as steps.
 - [docs/superdevkit-transition.md](docs/superdevkit-transition.md): the plan from here to superdevkit with its SNES, desktop and web targets, step by step.
+- [docs/parallel-tasks.md](docs/parallel-tasks.md): tasks prepared for parallel Claude Code sessions, one prompt each, from the game's findings and the transition plan.
 - [docs/brainstorm](docs/brainstorm): summaries of brainstorming sessions, the options weighed before a decision.
 - [docs/roadmap.md](docs/roadmap.md): milestones and their state, risks, open questions, the relation to Blubber Blasen.
 - [dev/README.md](dev/README.md): the scripts in `dev/`, for developing the kit against the examples.
 
 ## Prerequisites
 
-To use the kit: JDK 25 or newer, gcc (dampf's preprocessor) and Python 3 (the tools); for the
-desktop build also a C compiler and curl (raylib is fetched on the first build). To develop it, also ca65 and ld65 from cc65 2.19
+To use the kit: JDK 25 or newer; for the desktop build also a C compiler (raylib is fetched on the
+first build), for the web Emscripten's `emcc`, and Python 3 only for the rename script in
+`tools/`. To develop it, also clang, ca65 and ld65 from cc65 2.19
 (`BackendOutputTest` builds the execution tests, 20 random programs and the examples with them
-as well and compares the ROMs) and Python 3. Mesen (MesenCE) is
-optional (the tests then also run there), clang is needed only for `dev/subset_scan.py`,
-Node.js only for the book and the BRR Lab's tests
-([tools/lab_test](tools/lab_test/README.md), with Playwright). Gradle comes with the wrapper. The book's
+as well and compares the ROMs) and Python 3; clang is the tests' reference on the PC and is used
+by `dev/subset_scan.py`. Mesen (MesenCE) is optional (the tests then also run there),
+Node.js only for the book and the browser tests (the BRR Lab's,
+[tools/lab_test](tools/lab_test/README.md), and the examples' on the web,
+[tools/web_check](tools/web_check/README.md), with Playwright; the web's also with Emscripten). Gradle comes with the wrapper. The book's
 [getting started](docs/book/guide/getting-started.md) page has what a user needs.
 
 On Arch Linux, cc65 is not in the official repositories; build it from source:
@@ -150,32 +153,33 @@ dev/bench_examples.sh                  # the benchmark: the work per tick of eve
 
 The tests run in dampf's own emulator (`dampf.emu`) and, when `.mesen/` holds a Mesen (not in
 git), headless in Mesen as well: `dev/fetch_mesen.sh` puts MesenCE there, the Linux and the
-Windows build, with the settings the tests need ([ADR record 33](docs/adr/0033-mesence-is-the-emulator-for-the-console-checks.md)).
+Windows build, with the settings the tests need ([ADR-6F3CK1V6](docs/adr/6F3CK1V6-mesence-is-the-emulator-for-the-console-checks.md)).
 The Linux build is taken when it is there; from WSL the Windows `Mesen.exe` works too. All Gradle switches are listed in the book's
 [testing](docs/book/inside/testing.md) page, the scripts in [dev/README.md](dev/README.md).
 
 ## Using superdevkit
 
 A game is a folder with a `superdevkit.toml` (its name, the kit's version, its sources, pictures,
-sound effects and save RAM; ADR record 31), and the `superdevkit` command builds it:
+sound effects and save RAM; ADR-6F3CJZBY), and the `superdevkit` command builds it:
 
 ```bash
 superdevkit init mygame --from catchme   # a new project, a copy of an example
 superdevkit build snes                    # build/snes/mygame.sfc (and build/compile_commands.json)
 superdevkit build linux                   # build/linux/mygame; win64 with MSVC, also from WSL
 superdevkit run                           # builds the desktop program and plays it; run snes: Mesen
+superdevkit run web                       # build/web/index.html (emcc), served here, in the browser
 superdevkit build snes --plan             # the steps, without running them (--verbose: while running)
 ```
 
 It converts the assets in Java (`superdevkit png`, `superdevkit sfx`), compiles with dampf in the
-same Java for the SNES, and calls the system's C compiler for the desktop, one call per file, after
-fetching raylib once. A SNES build also writes `build/snes/<name>.args`, dampf's argument file of
+same Java for the SNES, and calls the system's C compiler for the desktop (Emscripten's `emcc` for
+the web), one call per file, after fetching raylib once. A SNES build also writes `build/snes/<name>.args`, dampf's argument file of
 what it compiled.
 
 ## Using dampf
 
 ```bash
-dampf build --entry test_main -o build/examples/m1/calls.sfc examples/m1/calls.c
+dampf build --entry test_main -o build/calls.sfc compiler/src/test/resources/exec/calls.c   # one file, without the kit
 superdevkit build snes examples/ertuep            # writes the argument file used below
 dampf check @examples/ertuep/build/snes/ertuep.args
 dampf build @examples/ertuep/build/snes/ertuep.args -o build/ertuep.sfc
@@ -197,7 +201,7 @@ blocks by a profile. `parse` only preprocesses and parses. `check` runs the fron
 file alone, then on all of them together (recursion, functions defined nowhere or twice). Every
 error of a run is reported, one per top-level declaration at most. `@file` (or `--config file`)
 reads options from an argument file: one per line, paths relative to the file, and a folder
-stands for the `.c` files in it ([ADR record 28](docs/adr/0028-options-can-be-kept-in-an-argument-file-given-by.md)).
+stands for the `.c` files in it ([ADR-6F3CJW9N](docs/adr/6F3CJW9N-options-can-be-kept-in-an-argument-file-given-by.md)).
 `dampf mir`, `dampf profile` and `dampf bench` are tools for working on dampf with a benchmark
 ROM that reports through their ports, such as Blubber Blasen's `bench.c` in the game's repository.
 
@@ -212,7 +216,7 @@ step through C.
 ## Repository layout
 
 The top level shows what a release of superdevkit holds (ADR
-[record 41](docs/adr/0041-the-release-is-a-zip-per-system-with-a-java.md)), and the folders for
+[ADR-6F60Z9QJ](docs/adr/6F60Z9QJ-the-release-is-a-zip-per-system-with-a-java.md)), and the folders for
 developing it. `./gradlew installDist` writes the distribution in that shape to
 `build/install/superdevkit`: a superdevkit home with all a game needs (`bin/`, `java/`,
 `include/`, `lib/`, `tools/`, `examples/`, the desktop build in `dev/`), so a game outside this

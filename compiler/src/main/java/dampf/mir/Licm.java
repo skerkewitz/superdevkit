@@ -15,7 +15,7 @@ import java.util.Set;
  * straight to its head and is its only way in from outside.
  *
  * <p>A load moves too when nothing in the loop may write what it reads (C7 of
- * docs/current-compiler-flaws.md: a loop's bound in a global, {@code i < count}): no store or
+ * docs/archive/compiler-flaws.md: a loop's bound in a global, {@code i < count}): no store or
  * copy that may overlap it ({@link Gvn}'s rule: two different globals or frame slots never
  * overlap; an address with a variable offset stays in its global or slot), no call of a function
  * that may write memory, and it is not volatile. It must run whenever the loop is entered (in

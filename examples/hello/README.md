@@ -12,9 +12,9 @@ superdevkit run examples/hello            # the desktop: builds build/linux/hell
 On the desktop the keyboard is the joypad: the arrows, Z (B), X (A), A (Y), S (X), Q and W (L and
 R), Enter (Start). `dev/compare_example.sh hello` plays it on both with the input of `check.txt`
 and compares the pictures, pixel for pixel. Its check also takes five pictures of the splash
-screen every game starts with (ADR record 37), in the middle of the fades too.
+screen every game starts with (ADR-6F60Z5JJ), in the middle of the fades too.
 
-Open `build/hello.sfc` in Mesen with `build/hello.dbg` next to it, and step through
+Open `build/snes/hello.sfc` in Mesen with `build/snes/hello.dbg` next to it, and step through
 `src/hello.c` in its debugger. `dev/check_example.sh hello` plays it headless with the input of
 `check.txt`.
 
@@ -22,7 +22,7 @@ Open `build/hello.sfc` in Mesen with `build/hello.dbg` next to it, and step thro
 | --- | --- |
 | `src/hello.c` | the game: the three functions every superdevkit game defines (`game_init`, `game_tick`, `game_vblank`), text in a background map, a sprite |
 | `assets/font_gfx.png` | the font, as background tiles; `assets/ball_gfx.png` the ball, as a sprite (drawn by `dev/art/hello.py`) |
-| `superdevkit.toml` | the project: its sources and its pictures (ADR record 31) |
+| `superdevkit.toml` | the project: its sources and its pictures (ADR-6F3CJZBY) |
 
 What it shows:
 

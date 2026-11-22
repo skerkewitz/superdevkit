@@ -18,7 +18,7 @@ import superdevkit.gfx.Png2Snes;
 
 /**
  * The project file and what the command makes of it: the checks of superdevkit.toml, the plan of
- * each command (--plan), init, and the symbol check of the desktop builds.
+ * each command (--plan), init, the symbol check of the desktop and web builds, run web's server.
  */
 class ProjectTest {
     @TempDir
@@ -116,6 +116,58 @@ class ProjectTest {
     }
 
     @Test
+    void theWebPlanCompilesEachFileChecksAndLinksWithEmcc() {
+        String plan = run("build", "web", "examples/catchme", "--plan");
+        assertTrue(plan.startsWith("0\n"), plan);
+        assertTrue(plan.contains("raylib 5.5 for web in "), plan);
+        assertTrue(plan.contains("-nostdinc -ffreestanding -isystem "), plan);
+        assertTrue(plan.contains("-c src/game.c -o build/web/obj/src_game.o"), plan);
+        assertTrue(plan.contains("check  the game's objects call nothing but lib/include/sdevkit"), plan);
+        assertTrue(plan.contains("lib/web/web.c"), plan);
+        assertTrue(plan.contains("-sASYNCIFY") && plan.contains("-lidbfs.js"), plan);
+        assertTrue(plan.contains("--preload-file build/web/music@/music"), plan);
+        assertTrue(plan.contains("-o build/web/index.html"), plan);
+        assertTrue(plan.indexOf("check  ") < plan.indexOf("-o build/web/index.html"), plan);
+        String run = run("run", "web", "examples/catchme", "--plan");
+        assertTrue(run.contains("serve  build/web on http://127.0.0.1:8080/"), run);
+        // the debug view only with --debug (ADR-6FD7KEJV)
+        assertTrue(!plan.contains("SDEVKIT_WEB_DEBUG") && plan.contains(" -O2 "), plan);
+        String debug = run("build", "web", "examples/catchme", "--plan", "--debug");
+        assertTrue(debug.lines().anyMatch(l -> l.contains("-c src/game.c") && l.contains(" -O0 ") && l.contains(" -DSDEVKIT_WEB_DEBUG ")),
+                debug);   // the game's files too
+        assertTrue(debug.lines().anyMatch(l -> l.contains("-o build/web/index.html") && l.contains(" -DSDEVKIT_WEB_DEBUG ")), debug);
+    }
+
+    /** run web's server: the page's files with their types, nothing outside the folder. */
+    @Test
+    void theServerServesTheFolderWithTheTypesABrowserWants() throws Exception {
+        Path web = tmp.resolve("web");
+        Files.createDirectories(web);
+        Files.writeString(web.resolve("index.html"), "<p>hi</p>");
+        Files.write(web.resolve("index.wasm"), new byte[] { 0, 'a', 's', 'm' });
+        Files.writeString(tmp.resolve("secret.txt"), "no");
+        com.sun.net.httpserver.HttpServer server = Serve.start(web);
+        try {
+            java.net.http.HttpClient c = java.net.http.HttpClient.newHttpClient();
+            String base = "http://127.0.0.1:" + server.getAddress().getPort() + "/";
+            var page = c.send(java.net.http.HttpRequest.newBuilder(java.net.URI.create(base)).build(),
+                    java.net.http.HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, page.statusCode());
+            assertEquals("<p>hi</p>", page.body());
+            assertEquals("text/html; charset=utf-8", page.headers().firstValue("Content-Type").orElse(""));
+            var wasm = c.send(java.net.http.HttpRequest.newBuilder(java.net.URI.create(base + "index.wasm")).build(),
+                    java.net.http.HttpResponse.BodyHandlers.ofByteArray());
+            assertEquals("application/wasm", wasm.headers().firstValue("Content-Type").orElse(""));
+            assertEquals("no-store", wasm.headers().firstValue("Cache-Control").orElse(""));
+            var out = c.send(java.net.http.HttpRequest.newBuilder(java.net.URI.create(base + "..%2Fsecret.txt")).build(),
+                    java.net.http.HttpResponse.BodyHandlers.ofString());
+            assertEquals(404, out.statusCode());
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
     void aMissingFileIsNamedByTheDryRun() throws Exception {
         Files.createDirectories(tmp.resolve("src"));
         project("""
@@ -164,16 +216,40 @@ class ProjectTest {
         assertThrows(Project.Error.class, () -> Init.run("mygame", "catchme", tmp, false, System.out));   // there already
     }
 
-    /** An object that calls puts is caught; one that calls only the kit's API passes. */
+    /** An object that calls puts is caught; one that calls only the kit's API passes. ELF, of cc. */
     @Test
     void theSymbolCheckCatchesWhatIsNotTheKits() throws Exception {
-        assumeTrue(new ProcessBuilder("cc", "--version").start().waitFor() == 0, "a C compiler");
+        symbolCheck(List.of("cc"));
+    }
+
+    /** The same for WebAssembly objects, of emcc (the target web); skipped without Emscripten. */
+    @Test
+    void theSymbolCheckReadsWebAssemblyObjects() throws Exception {
+        symbolCheck(Web.emcc());
+    }
+
+    private static boolean runs(List<String> cmd) {
+        try {
+            List<String> v = new java.util.ArrayList<>(cmd);
+            v.add("--version");
+            Process p = new ProcessBuilder(v).redirectErrorStream(true).start();
+            p.getInputStream().readAllBytes();
+            return p.waitFor(120, TimeUnit.SECONDS) && p.exitValue() == 0;
+        } catch (java.io.IOException | InterruptedException e) {
+            return false;
+        }
+    }
+
+    private void symbolCheck(List<String> cc) throws Exception {
+        assumeTrue(runs(cc), "no " + String.join(" ", cc));
         Path good = tmp.resolve("good.c"), bad = tmp.resolve("bad.c");
         Files.writeString(good, "#include \"sdevkit/snes.h\"\nunsigned char shared;\nvoid f(void) { sdevkit_set_brightness(15); shared++; }\n");
         Files.writeString(bad, "int puts(const char *s);\nextern unsigned char shared;\nvoid g(void) { puts(\"hi\"); shared++; }\n");
         for (Path c : List.of(good, bad)) {
-            Process pr = new ProcessBuilder("cc", "-c", "-I", Path.of("lib/include").toAbsolutePath().toString(), c.toString(),
-                    "-o", c.toString().replace(".c", ".o")).redirectErrorStream(true).start();
+            List<String> cmd = new java.util.ArrayList<>(cc);
+            cmd.addAll(List.of("-c", "-I", Path.of("lib/include").toAbsolutePath().toString(), c.toString(),
+                    "-o", c.toString().replace(".c", ".o")));
+            Process pr = new ProcessBuilder(cmd).redirectErrorStream(true).start();
             String log = new String(pr.getInputStream().readAllBytes());
             assertTrue(pr.waitFor(60, TimeUnit.SECONDS) && pr.exitValue() == 0, log);
         }

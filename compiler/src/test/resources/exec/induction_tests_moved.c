@@ -1,5 +1,5 @@
 /* Loops whose test moves from the counter to a variable derived from it (Induction, L4 of
- * docs/current-compiler-flaws.md): i - 1 as the index from 1 up, (i - 1) * 2 and a stride of 5
+ * docs/archive/compiler-flaws.md): i - 1 as the index from 1 up, (i - 1) * 2 and a stride of 5
  * counting down, r * 16 + c in a table, a byte counter to a byte bound that is 0 in one call,
  * a signed counter down to a variable bound, a do loop over words, and a counter the loop also
  * reads (which stays). Each sum is kept. */

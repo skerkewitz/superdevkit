@@ -24,7 +24,7 @@ import java.util.stream.Stream;
  * has left behind. Run as a program ({@code ./gradlew stampBook}), it records the current state
  * for the specs it is given, or for {@code all}; with {@code check} ({@code ./gradlew checkBook})
  * it lists the stale pages and fails if there are any. The book is brought in step before a
- * release, not with every change (ADR record 43).
+ * release, not with every change (ADR-6F60ZB4N).
  */
 public final class BookSources {
 

@@ -6,12 +6,14 @@ sources:
   - docs/architecture.md
   - compiler/src/main/java/dampf/Compiler.java
   - compiler/src/main/java/dampf/frontend/Preprocessor.java
+  - compiler/src/main/java/dampf/frontend/pp/Preprocess.java
   - compiler/src/main/java/dampf/frontend/Parser.java
   - compiler/src/main/java/dampf/snes/RomBuilder.java
   - compiler/src/main/java/dampf/asm/Assembler.java
   - compiler/src/main/java/dampf/asm/Linker.java
   - compiler/src/main/antlr/dampf/parser/README.md
   - compiler/src/main/java/dampf/mir/Optimizer.java
+  - compiler/src/main/java/dampf/backend/MirCodeGen.java
   - compiler/src/main/java/dampf/Main.java
   - compiler/src/main/java/dampf/frontend/AstBuilder.java
   - compiler/src/main/java/dampf/check/CallGraph.java
@@ -32,8 +34,9 @@ dampf.
    lowering to MIR, passes, instruction selection to LIR, LIR passes, assembling and linking),
    with the naive code generator as
    the second path straight from the AST. One line per phase.
-2. **Preprocess and parse** – `gcc -E`, the ANTLR grammar from grammars-v4 (one sentence on what
-   ANTLR is), source positions kept through the preprocessor.
+2. **Preprocess and parse** – dampf's own preprocessor (a subset of C99's, no host headers or
+   host macros, and why it is dampf's own), the ANTLR grammar from grammars-v4 (one sentence on
+   what ANTLR is), source positions kept through the preprocessor.
 3. **The typed AST** – one AST for the whole program, types and promotions resolved, where
    subset violations are found.
 4. **Checks on the whole program** – the call graph, no recursion.
@@ -43,8 +46,9 @@ dampf.
    function) and the naive one, what each is for; LIR, the 65816 code in basic blocks whose text
    is the assembly file, and its passes (redundant loads, dead stores, branch forms).
 7. **Assembling and linking** – dampf's own assembler and linker (the subset of ca65 it reads,
-   one link because every segment's size is known, the bank packing), the files written, and
-   `--assembler ca65`, which gives the same ROM with ca65 and ld65.
+   one link because every segment's size is known, the bank packing), the header (FastROM, save
+   RAM with `--sram`), the files written, and `--assembler ca65`, which gives the same ROM with
+   ca65 and ld65.
 
 ## Pay attention to
 

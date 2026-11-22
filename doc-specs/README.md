@@ -51,7 +51,7 @@ line is removed and the page generated.
 ## Keeping the book current
 
 The book is brought in step before a release, not with every change (ADR
-[record 43](../docs/adr/0043-the-book-is-brought-in-step-before-a-release-not.md)); between
+[ADR-6F60ZB4N](../docs/adr/6F60ZB4N-the-book-is-brought-in-step-before-a-release-not.md)); between
 releases it may lag behind the code. `./gradlew checkBook` lists the generated pages whose spec
 or sources changed after the page was written, and fails if there are any; it is not part of
 `./gradlew build`. Before a release, run `/docs-gen stale` to regenerate those pages, or, when a

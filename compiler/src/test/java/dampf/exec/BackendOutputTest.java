@@ -26,7 +26,7 @@ import org.junit.jupiter.api.Test;
  * The back end's output, frozen: a hash of the assembly dampf writes (and of the static timing)
  * for every execution test, a fixed set of random programs and every example, with both code
  * generators. A refactoring of the back end that is meant to move code without changing what it
- * does must leave every hash as it was (docs/testing.md, ADR record 24). A step that changes the code on purpose records new hashes with
+ * does must leave every hash as it was (docs/testing.md, ADR-6F3CJR10). A step that changes the code on purpose records new hashes with
  * {@code ./gradlew test --tests '*BackendOutputTest' -PbackendOutput=update}.
  *
  * <p>It also reads every assembly file back as LIR ({@link LParser}): printed again, it must be
@@ -39,7 +39,7 @@ import org.junit.jupiter.api.Test;
  * <p>Every run writes the assembly to {@code build/backend-output/}; an update also copies it to
  * {@code build/backend-output-ref/}, so a changed hash can be followed with a plain {@code diff -r}.
  *
- * <p>Beside the hashes, the direction (K3 of docs/current-compiler-flaws.md): the static worst
+ * <p>Beside the hashes, the direction (K3 of docs/archive/compiler-flaws.md): the static worst
  * case of every function of every example and of every member of the spelling families
  * ({@code compiler/src/test/resources/cost-baseline.txt}, written by the same update). A hash
  * says that the code changed; the diff of that file in a commit says which functions got slower.
@@ -193,7 +193,7 @@ class BackendOutputTest {
             LUnit parsed = LParser.parse(asm.get(i));
             assertEquals(asm.get(i), LPrinter.print(parsed), key + " module " + i + ": the LIR text does not read back the same");
             assertEquals(List.of(), LVerifier.verify(parsed), key + " module " + i + ": the LIR read back");
-            // every operand is typed (ADR record 47), but a pointer's word at two offsets
+            // every operand is typed (ADR-6F8NBFAQ), but a pointer's word at two offsets
             for (dampf.lir.LItem it : parsed.items()) {
                 if (it instanceof dampf.lir.LInstr in && in.op() instanceof dampf.lir.LOperand.Raw raw
                         && !raw.text().matches(".*\\+\\d+\\+\\d+")) {

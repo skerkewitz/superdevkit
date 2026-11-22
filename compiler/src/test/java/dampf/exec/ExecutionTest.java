@@ -16,7 +16,7 @@ import org.junit.jupiter.api.TestFactory;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Execution tests: every program in {@code compiler/src/test/resources/exec} runs on the PC (gcc) and on
+ * Execution tests: every program in {@code compiler/src/test/resources/exec} runs on the PC (clang) and on
  * the SNES (dampf), and all its globals must have the same values afterwards. The SNES side runs
  * in dampf's emulator, and also in Mesen when one is available (.mesen/ or -Pmesen=...), so the
  * emulator is checked against a complete SNES emulator too. Each program's entry function is

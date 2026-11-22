@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Runs a test program on the PC: compiled by gcc with the host's own headers, once with the
+ * Runs a test program on the PC: compiled by clang with the host's own headers, once with the
  * undefined behaviour sanitizer, so a test program with undefined behaviour fails instead of
  * passing by luck, and once without it for the values. Returns the values of the given globals
  * after the entry function returned.
@@ -30,16 +30,14 @@ final class PcReference {
         Path exe = workDir.resolve("pc_harness");
         Files.writeString(c, harness);
         String include = dampf.frontend.SystemHeaders.directory().toString();
-        // the sanitized build finds undefined behaviour (it must run without a report); the values
-        // come from a plain build, since gcc's -fsanitize=bounds itself miscompiles some code
-        // (gcc 16.2.1: a[i] ^= (... ? ... : a[i]) gets a wrong index or value; clang and gcc without
-        // the bounds check agree with dampf; found by RandomLoopProgram, seed 1157). Optimized, the
-        // same code also gives a false report (a[i] -= (... ? a[i] : ...) "out of bounds" with an
-        // index the program never computes, seed 15241), so the sanitized build is not optimized.
-        exec(workDir, "gcc", "-std=c99", "-O0", "-Wall", "-fsanitize=undefined", "-fno-sanitize-recover=all",
+        // clang is the reference (ADR record "clang is the tests' reference on the PC"): the
+        // sanitized build finds undefined behaviour (it must run without a report), the values come
+        // from a plain optimized build. gcc's -fsanitize=bounds gave false reports and wrong values
+        // on a[i] op= (... ? a[i] : ...) (gcc 16.2.1, RandomLoopProgram seeds 1157, 15241 and 53266).
+        exec(workDir, "clang", "-std=c99", "-O0", "-Wall", "-fsanitize=undefined", "-fno-sanitize-recover=all",
                 "-idirafter", include, "-o", checked.toString(), c.toString());
         exec(workDir, checked.toString());
-        exec(workDir, "gcc", "-std=c99", "-O1", "-Wall", "-idirafter", include, "-o", exe.toString(), c.toString());
+        exec(workDir, "clang", "-std=c99", "-O1", "-Wall", "-idirafter", include, "-o", exe.toString(), c.toString());
         String out = exec(workDir, exe.toString());
         Map<String, Long> values = new LinkedHashMap<>();
         for (String line : out.strip().split("\n")) {

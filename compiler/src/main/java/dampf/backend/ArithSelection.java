@@ -264,16 +264,29 @@ final class ArithSelection {
         storeWithSign(lo, hi);
     }
 
-    /** Shifts by a constant up to this are written out; longer ones and variable ones loop. */
-    static final int UNROLL_SHIFT = 8;
+    /**
+     * Whether a shift is written out: one by a constant below the width. Shifts by a variable
+     * count, and by the width or more, loop.
+     */
+    static boolean unrolled(Instr.Bin b) {
+        return b.op(1) instanceof Value.Const k && k.bits() >= 0 && k.bits() < b.type().bits();
+    }
+
+    /**
+     * A 32-bit shift by this many places or more (below 16) builds each word of the result from
+     * the two words of x, shifted in A ({@code hi = H << c | L >> 16-c}), instead of stepping both
+     * words in memory a place at a time (14 cycles a place, 21 for {@code >>} of a signed value):
+     * from 3 places on the words are cheaper.
+     */
+    static final int WORD_SHIFT = 3;
 
     void shift(Instr.Bin b) {
         MType t = b.type();
         int bits = t.bits();
         Value x = b.op(0);
         Value y = b.op(1);
-        if (y instanceof Value.Const k && k.bits() <= UNROLL_SHIFT && k.bits() < bits) {
-            unrolledShift(b, (int) k.bits());
+        if (unrolled(b)) {
+            unrolledShift(b, (int) ((Value.Const) y).bits());
             return;
         }
         // X = the shift count, at most the width (shifting further changes nothing: all 0, or all sign)
@@ -327,25 +340,61 @@ final class ArithSelection {
             sel.ins("beq", done);
             sel.place(loop);
             sel.out.loopBound(loop, bits);   // X counts down from at most the width
-            switch (b.op) {
-                case SHL -> {
-                    sel.ins("asl", lo);
-                    sel.ins("rol", hi);
-                }
-                case LSHR -> {
-                    sel.ins("lsr", hi);
-                    sel.ins("ror", lo);
-                }
-                default -> {
-                    sel.ins("lda", hi);
-                    sel.ins("cmp", Selection.imm(0x8000));
-                    sel.ins("ror", hi);
-                    sel.ins("ror", lo);
-                }
-            }
+            stepBoth(b.op, lo, hi);
             sel.ins("dex");
             sel.ins("bne", loop);
             sel.place(done);
+        }
+    }
+
+    /** Shifts the 32-bit value in lo and hi by one place, in memory. */
+    private void stepBoth(Instr.BinOp op, LOperand lo, LOperand hi) {
+        switch (op) {
+            case SHL -> {
+                sel.ins("asl", lo);
+                sel.ins("rol", hi);
+            }
+            case LSHR -> {
+                sel.ins("lsr", hi);
+                sel.ins("ror", lo);
+            }
+            default -> {
+                sel.ins("lda", hi);
+                sel.ins("cmp", Selection.imm(0x8000));
+                sel.ins("ror", hi);
+                sel.ins("ror", lo);
+            }
+        }
+    }
+
+    /**
+     * Shifts A, a 16-bit word (signed for ASHR), by count places (0 to 15): from 8 places on the
+     * bytes swap places first ({@code XBA}), and the rest goes a place at a time.
+     */
+    private void shiftA(Instr.BinOp op, int count) {
+        if (count >= 8) {
+            sel.ins("xba");
+            switch (op) {
+                case SHL -> sel.ins("and", Selection.imm(0xFF00));
+                case LSHR -> sel.ins("and", Selection.imm(0x00FF));
+                default -> {
+                    sel.ins("and", Selection.imm(0x00FF));
+                    sel.ins("eor", Selection.imm(0x0080));   // sign-extend the byte
+                    sel.ins("sec");
+                    sel.ins("sbc", Selection.imm(0x0080));
+                }
+            }
+            count -= 8;
+        }
+        for (int k = 0; k < count; k++) {
+            switch (op) {
+                case SHL -> sel.ins("asl", "a");
+                case LSHR -> sel.ins("lsr", "a");
+                default -> {
+                    sel.ins("cmp", Selection.imm(0x8000));    // C = the sign
+                    sel.ins("ror", "a");
+                }
+            }
         }
     }
 
@@ -358,55 +407,68 @@ final class ArithSelection {
             } else {
                 sel.ins("lda", sel.operand(x, 0));
             }
-            if (t == MType.I16 && count >= 8) {
-                // the bytes swap places: a shift by 8 in two instructions
-                sel.ins("xba");
-                switch (b.op) {
-                    case SHL -> sel.ins("and", Selection.imm(0xFF00));
-                    case LSHR -> sel.ins("and", Selection.imm(0x00FF));
-                    default -> {
-                        sel.ins("and", Selection.imm(0x00FF));
-                        sel.ins("eor", Selection.imm(0x0080));   // sign-extend the byte
-                        sel.ins("sec");
-                        sel.ins("sbc", Selection.imm(0x0080));
-                    }
-                }
-                count -= 8;
-            }
-            for (int k = 0; k < count; k++) {
-                switch (b.op) {
-                    case SHL -> sel.ins("asl", "a");
-                    case LSHR -> sel.ins("lsr", "a");
-                    default -> {
-                        sel.ins("cmp", Selection.imm(0x8000));    // C = the sign
-                        sel.ins("ror", "a");
-                    }
-                }
-            }
+            shiftA(b.op, count);
             sel.maskResult(b);
             sel.result(b, 0);
             return;
         }
+        // The result's place may be x's own (lo = L, hi = H): each word of x is read before the
+        // word of the result in its place is written.
         LOperand lo = sel.dest(b, 0);
         LOperand hi = sel.dest(b, 1);
-        to32(x, lo, hi);
-        for (int k = 0; k < count; k++) {
-            switch (b.op) {
-                case SHL -> {
-                    sel.ins("asl", lo);
-                    sel.ins("rol", hi);
-                }
-                case LSHR -> {
-                    sel.ins("lsr", hi);
-                    sel.ins("ror", lo);
-                }
-                default -> {
-                    sel.ins("lda", hi);
-                    sel.ins("cmp", Selection.imm(0x8000));
-                    sel.ins("ror", hi);
-                    sel.ins("ror", lo);
+        LOperand xl = sel.operand(x, 0);
+        LOperand xh = sel.operand(x, 1);
+        Instr.BinOp right = b.op == Instr.BinOp.SHL ? null : b.op;
+        if (count >= 16) {
+            // one word moves to the other, shifted by the rest; the word it leaves is 0, or the sign
+            if (right == null) {
+                sel.ins("lda", xl);
+                shiftA(Instr.BinOp.SHL, count - 16);
+                sel.ins("sta", hi);
+                sel.ins("stz", lo);
+            } else {
+                sel.ins("lda", xh);
+                shiftA(right, count - 16);
+                if (right == Instr.BinOp.LSHR) {
+                    sel.ins("sta", lo);
+                    sel.ins("stz", hi);
+                } else {
+                    storeWithSign(lo, hi);
                 }
             }
+            return;
+        }
+        if (count >= WORD_SHIFT) {
+            if (right == null) {
+                // hi = H << c | L >> 16-c, lo = L << c
+                sel.ins("lda", xh);
+                shiftA(Instr.BinOp.SHL, count);
+                sel.ins("sta", hi);
+                sel.ins("lda", xl);
+                shiftA(Instr.BinOp.LSHR, 16 - count);
+                sel.ins("ora", hi);
+                sel.ins("sta", hi);
+                sel.ins("lda", xl);
+                shiftA(Instr.BinOp.SHL, count);
+                sel.ins("sta", lo);
+            } else {
+                // lo = L >> c | H << 16-c, hi = H >> c
+                sel.ins("lda", xl);
+                shiftA(Instr.BinOp.LSHR, count);
+                sel.ins("sta", lo);
+                sel.ins("lda", xh);
+                shiftA(Instr.BinOp.SHL, 16 - count);
+                sel.ins("ora", lo);
+                sel.ins("sta", lo);
+                sel.ins("lda", xh);
+                shiftA(right, count);
+                sel.ins("sta", hi);
+            }
+            return;
+        }
+        to32(x, lo, hi);
+        for (int k = 0; k < count; k++) {
+            stepBoth(b.op, lo, hi);
         }
     }
 

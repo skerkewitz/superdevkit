@@ -1,6 +1,6 @@
 # Proposal: Er-Tüp, a side-scrolling shooter as an example of superdevkit
 
-Archived 2026-11-19: built. The checks compare a checksum per tick (ADR record 38), and all three
+Archived 2026-11-19: built. The checks compare a checksum per tick (ADR-6F60Z67N), and all three
 stages play with their bosses, the third in mode 7, and end the game
 ([examples/ertuep](../../examples/ertuep/README.md), its README says what is in it). Open: sound,
 which the kit now has ([docs/sound.md](../sound.md)).

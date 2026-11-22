@@ -40,7 +40,7 @@ import java.util.Set;
  * Parameters (written by the caller) and memory slots (their address may be anywhere) get places
  * of their own. The places are a prediction: selection decides with them (whether a value is
  * stepped in place, whether a pointer lies in the direct page), and {@link PlaceColouring} gives
- * the addresses on the code it wrote (ADR record 48).
+ * the addresses on the code it wrote (ADR-6F8NBG4P).
  */
 final class FrameLayout {
     final Set<Instr> fused = new HashSet<>();
@@ -118,7 +118,9 @@ final class FrameLayout {
             base = p.op(0);
             offset = (int) p.op(1).type().signed(((Value.Const) p.op(1)).bits());
         }
-        if (base instanceof Instr.PtrAdd q && (indexable(q) || offset == 0 && pointerIndexable(q))) {
+        // a pointer plus an index only where the sum is not computed: a computed sum is read as
+        // [sum],y, since its index may have been handed on in A into it and never stored
+        if (base instanceof Instr.PtrAdd q && (indexable(q) || offset == 0 && pointerIndexable(q) && folded.contains(q))) {
             return new Address(q.op(0), offset, q.op(1));
         }
         ConstAddress c = constAddress(base);
@@ -175,7 +177,7 @@ final class FrameLayout {
      * {@code lda symbol,x} (X adds as an unsigned number, so a negative offset would carry into the
      * bank). The value is never negative when the ranges show it, or when the sum is only read as
      * the address of loads and stores ({@link #onlyAccessed}): an access outside its object is
-     * undefined in C, so the offset lies in 0..size (ADR record 46).
+     * undefined in C, so the offset lies in 0..size (ADR-6F8NBESR).
      */
     boolean indexable(Instr.PtrAdd q) {
         if (!(q.op(0) instanceof Value.GlobalAddr || q.op(0) instanceof Value.SlotAddr)

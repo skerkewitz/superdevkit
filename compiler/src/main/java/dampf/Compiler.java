@@ -36,11 +36,11 @@ public final class Compiler {
      * @param fastRom      the ROM in banks $80-$FF runs at 3.58 MHz (FastROM, the default); false
      *                     for a SlowROM cartridge
      * @param ca65         assemble and link with ca65 and ld65 instead of dampf's own assembler and
-     *                     linker (which build the same ROM; see ADR record 19)
+     *                     linker (which build the same ROM; see ADR-6F3CJKHB)
      * @param sram         bytes of battery-backed save RAM the cartridge has (0: none): the header
      *                     announces it (rounded up to 2, 4, 8, 16 or 32 KB, at $70:0000 in LoROM),
      *                     and the preprocessor gets {@code SDEVKIT_SRAM_SIZE} with the exact number
-     *                     for the kit's {@code sdevkit_sram()} (ADR record 32)
+     *                     for the kit's {@code sdevkit_sram()} (ADR-6F3CK03Z)
      * @param optLimit     how many pass applications may run ({@link dampf.util.PassLimit}, to find
      *                     the pass that broke a program); negative: the limit the environment sets,
      *                     else none
@@ -152,7 +152,7 @@ public final class Compiler {
     private Compiler() {}
 
     public static Program frontEnd(Options o) throws CompileError, IOException {
-        Preprocessor pp = new Preprocessor("gcc", SystemHeaders.directory(), o.includeDirs(), o.allDefines());
+        Preprocessor pp = new Preprocessor(SystemHeaders.directory(), o.includeDirs(), o.allDefines());
         AstBuilder builder = new AstBuilder(SystemHeaders.directory());
         // every file, so that the errors of one do not hide those of the next
         List<dampf.frontend.Diagnostic> errors = new java.util.ArrayList<>();

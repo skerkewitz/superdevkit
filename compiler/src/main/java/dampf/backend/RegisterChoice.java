@@ -21,7 +21,7 @@ import java.util.function.Predicate;
 
 /**
  * Keeps places in X or Y instead of the frame where that saves cycles (B3 of
- * docs/current-compiler-flaws.md), on the LIR selection wrote, before the places get addresses.
+ * docs/archive/compiler-flaws.md), on the LIR selection wrote, before the places get addresses.
  * A candidate is a group of places ({@link PlaceColouring.Analysis}: marked places and coalesced
  * copies as one) of one word; it goes to register R for its whole live range when
  *
@@ -95,6 +95,15 @@ final class RegisterChoice {
      */
     static int run(LFunction lf, Predicate<LOperand.Owner> tracked, PlaceColouring.Frame frame, Map<LBlock, Double> weights,
                    boolean highWordInX, boolean resultInA, List<java.util.Set<LBlock>> loops) {
+        return run(lf, tracked, frame, weights, highWordInX, resultInA, loops, dampf.util.PassLimit.none());
+    }
+
+    /**
+     * As above; every group that goes to a register is one application in {@code limit}, and the
+     * TXA / TYA taken out afterwards are one more (T3: a miscompilation names the choice).
+     */
+    static int run(LFunction lf, Predicate<LOperand.Owner> tracked, PlaceColouring.Frame frame, Map<LBlock, Double> weights,
+                   boolean highWordInX, boolean resultInA, List<java.util.Set<LBlock>> loops, dampf.util.PassLimit limit) {
         returnsX = highWordInX;
         returnsA = resultInA;
         int n = 0;
@@ -130,10 +139,11 @@ final class RegisterChoice {
                 Map<LItem, List<LItem>> replace = new IdentityHashMap<>();
                 int chosen = 0;
                 for (Plan p : plans) {
-                    if (!p.region().intersects(taken)) {
+                    if (!p.region().intersects(taken) && limit.allows()) {
                         taken.or(p.region());
                         replace.putAll(p.replace());
                         chosen++;
+                        limit.count("RegisterChoice " + r, lf.name());
                     }
                 }
                 if (chosen == 0) {
@@ -143,8 +153,8 @@ final class RegisterChoice {
                 n += chosen;
             }
         }
-        if (n > 0) {
-            dropFlagTransfers(lf);
+        if (n > 0 && limit.allows() && dropFlagTransfers(lf)) {
+            limit.count("RegisterChoice flags", lf.name());
         }
         return n;
     }
@@ -189,9 +199,9 @@ final class RegisterChoice {
     /**
      * Takes out a {@code TXA} or {@code TYA} that only sets N and Z for a branch where they describe
      * that register on every way in already (a loop test after {@code DEX}, entered after
-     * {@code LDX}), A not read afterwards and the carry untouched by both.
+     * {@code LDX}), A not read afterwards and the carry untouched by both. Returns whether any went.
      */
-    private static void dropFlagTransfers(LFunction lf) {
+    private static boolean dropFlagTransfers(LFunction lf) {
         Map<LBlock, List<LBlock>> preds = new IdentityHashMap<>();
         for (LBlock b : lf.blocks()) {
             for (LBlock t : b.successors()) {
@@ -252,6 +262,7 @@ final class RegisterChoice {
         if (any) {
             lf.rebuild(lf.items());
         }
+        return any;
     }
 
     /** What N and Z describe where b starts: on every way in (nothing for the first block). */
@@ -461,9 +472,10 @@ final class RegisterChoice {
         return true;
     }
 
-    /** What one round of choosing knows of the code, whatever the candidate. */
     /**
-     * {@code free}: the loads of A that RedundantLoads will take anyway (A holds what they load on
+     * What one round of choosing knows of the code, whatever the candidate.
+     *
+     * <p>{@code free}: the loads of A that RedundantLoads will take anyway (A holds what they load on
      * every way in, by {@link dampf.lir.RegContents}): they cost nothing now, so a register saves
      * nothing there.
      */

@@ -23,7 +23,7 @@ programmer state it in the C source as hints, so the compiler knows what the hum
 Hints are macros from `<dampf.h>`. In the dampf build they expand to built-ins the dampf parser
 recognises (for example `__dampf_range(...)`). In the PC build they expand to plain C: a checked
 assertion for hints that state a fact, nothing for the others (see the rule below). The source
-stays valid C, and one preprocessor (`gcc -E`) serves both builds, so both builds see the same
+stays valid C, and both builds expand the same macros of the same header, so both see the same
 code. Inside dampf a fact hint becomes an assumption in the IR ([architecture.md](architecture.md)).
 
 ## Catalogue
@@ -91,8 +91,8 @@ do damage on the SNES.
 
 ## As built
 
-`<dampf.h>` comes with dampf (in its own include directory, and as `include/dampf.h` next to the
-launcher in the distribution). With dampf (`__DAMPF__` defined) its macros expand to built-ins
+`<dampf.h>` comes with dampf (in its own include directory, and as `include/dampf.h` in the
+superdevkit home, beside the launchers' `bin/`). With dampf (`__DAMPF__` defined) its macros expand to built-ins
 the front end reads; on the PC to `assert`. For the PC build, `gcc -idirafter <dampf>/include`
 makes `<dampf.h>` reachable while the host's own `<stdint.h>` still comes first. The execution
 tests compile the PC side that way.

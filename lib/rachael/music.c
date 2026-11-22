@@ -1,7 +1,7 @@
 /*
- * Music on Rachael (ADR record 32): the track the game asked for, which the frontend plays from
+ * Music on Rachael (ADR-6F3CK03Z): the track the game asked for, which the frontend plays from
  * its file (lib/desktop, raylib's music stream). Rachael only keeps the request, so she stays free
- * of raylib (the web's frontend will play it with its own). Power on: no music.
+ * of raylib (the web runs the same frontend, lib/desktop with lib/web). Power on: no music.
  */
 #include "rachael.h"
 

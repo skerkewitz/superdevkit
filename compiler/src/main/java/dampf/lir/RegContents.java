@@ -12,7 +12,7 @@ import java.util.Set;
  * X and Y one each. A place is forgotten when something writes it or a byte next to it, A when an
  * instruction changes it, everything at a call; a store through a pointer may write any place.
  * Where ways meet, what all of them bring holds. Only places of the frame and immediates are
- * followed. The operands are typed ({@link LOperand}, ADR record 47).
+ * followed. The operands are typed ({@link LOperand}, ADR-6F8NBFAQ).
  */
 public final class RegContents {
     /** What the registers hold: the operands A equals, and what X and Y equal (null: unknown). */

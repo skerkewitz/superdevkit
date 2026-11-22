@@ -4,7 +4,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * The superdevkit folder a project builds with (ADR records 31 and 41): the one its
+ * The superdevkit folder a project builds with (ADR-6F3CJZBY and ADR-6F60Z9QJ): the one its
  * superdevkit.toml names with {@code kit} (working on the kit and a game at once; the kit's own
  * examples name the repository), else the installation this command runs from, whose version
  * must be the one {@code superdevkit} asks for. A kit folder has the library (lib/) and dampf's

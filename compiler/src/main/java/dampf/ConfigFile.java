@@ -9,7 +9,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 /**
- * An argument file for {@code dampf build}, {@code check} and {@code parse} (ADR record 28):
+ * An argument file for {@code dampf build}, {@code check} and {@code parse} (ADR-6F3CJW9N):
  * {@code --config <file>} or {@code @file}, once per call. One option with its value per line, or
  * a source file or folder; {@code #} starts a comment, blank lines are ignored, a value may be
  * quoted. Relative paths are resolved against the file's folder. The file's arguments go in front
@@ -120,7 +120,7 @@ public final class ConfigFile {
     /** The source files an argument names: a folder stands for the .c files directly in it. */
     public static List<Path> sources(Path p) throws IOException {
         if (!Files.exists(p)) {
-            // say so here: gcc would only call a missing folder an unused linker input
+            // say so here, with the path as the user gave it
             throw new Error("no such file or folder: " + p);
         }
         if (!Files.isDirectory(p)) {

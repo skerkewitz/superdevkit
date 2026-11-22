@@ -5,10 +5,16 @@ build/
 *.iml
 out/
 .vscode/
-.mesen/
+.mesen
 node_modules/
 tools/lab_test/test-results/
 tools/lab_test/playwright-report/
 docs/book/.vitepress/cache/
 docs/book/.vitepress/dist/
 __pycache__/
+
+# APM (./apmw install): the downloaded packages and the skills they put into .claude/skills.
+# The project's own skills there are not named sker-*.
+apm_modules/
+.apm-local/
+.claude/skills/sker-*/

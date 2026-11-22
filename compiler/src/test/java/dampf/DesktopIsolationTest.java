@@ -10,23 +10,49 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * The desktop build lets a game reach only the console API (ADR record 34, superdevkit build linux):
+ * The desktop build lets a game reach only the console API (ADR-6F3CK2AR, superdevkit build linux):
  * the host's headers are not there, and a function of raylib or libc declared by hand stops the
- * build. Skipped where raylib was not fetched (a superdevkit build linux before: the tests download nothing).
+ * build. The web build (emcc) the same. Each target is skipped where its raylib was not fetched (a
+ * superdevkit build linux or web before: the tests download nothing), web also without emcc.
  */
 class DesktopIsolationTest {
 
     @TempDir
     Path tmp;
 
-    @BeforeEach
-    void raylib() {
-        assumeTrue(Files.isRegularFile(Path.of("build/raylib/linux/lib/libraylib.a")), "raylib not fetched");
+    private static boolean linux() {
+        return Files.isRegularFile(Path.of("build/raylib/linux/lib/libraylib.a"));
+    }
+
+    /** The web builds here: raylib was fetched for the web, and emcc runs. */
+    static boolean webBuilds() {
+        if (!Files.isRegularFile(Path.of("build/raylib/web/lib/libraylib.a"))) {
+            return false;
+        }
+        try {
+            Process p = new ProcessBuilder(System.getenv().getOrDefault("EMCC", "emcc"), "--version").redirectErrorStream(true).start();
+            p.getInputStream().readAllBytes();
+            return p.waitFor(120, TimeUnit.SECONDS) && p.exitValue() == 0;
+        } catch (IOException | InterruptedException e) {
+            return false;
+        }
+    }
+
+    /** The targets whose builds can run here. */
+    private static java.util.List<String> targets() {
+        java.util.List<String> t = new java.util.ArrayList<>();
+        if (linux()) {
+            t.add("linux");
+        }
+        if (webBuilds()) {
+            t.add("web");
+        }
+        assumeTrue(!t.isEmpty(), "raylib not fetched for linux or web (or no emcc)");
+        return t;
     }
 
     private static final String CALLBACKS = """
@@ -46,14 +72,14 @@ class DesktopIsolationTest {
 
     private record Run(int exit, String out) {}
 
-    /** superdevkit build linux, in this Java. */
-    private static Run build(Path dir) throws Exception {
+    /** superdevkit build TARGET, in this Java. */
+    private static Run build(Path dir, String target) throws Exception {
         java.io.ByteArrayOutputStream log = new java.io.ByteArrayOutputStream();
         java.io.PrintStream ps = new java.io.PrintStream(log, true, StandardCharsets.UTF_8);
         int status;
         try {
             superdevkit.project.Project p = superdevkit.project.Project.read(dir);
-            status = superdevkit.project.Build.run(superdevkit.project.Build.plan(p, superdevkit.project.Kit.of(p), "linux", false),
+            status = superdevkit.project.Build.run(superdevkit.project.Build.plan(p, superdevkit.project.Kit.of(p), target, false),
                     false, false, false, ps, ps);
         } catch (superdevkit.project.Build.Failure | superdevkit.project.Project.Error e) {
             ps.println(e.getMessage());
@@ -73,6 +99,7 @@ class DesktopIsolationTest {
 
     @Test
     void aGameOnTheConsoleApiBuildsAndCopiesStructsRight() throws Exception {
+        assumeTrue(linux(), "raylib not fetched");
         // A struct copy large enough that gcc calls memcpy: in this file that is dampf's static one
         // (<string.h>). Should a copy go wrong, the game writes VRAM while the picture is drawn,
         // and the check reports the bytes as lost.
@@ -99,7 +126,7 @@ class DesktopIsolationTest {
                     if (!ok) { sdevkit_dma_copy_vram(b.bytes, 0, 16); }
                 }
                 """);
-        Run build = build(dir);
+        Run build = build(dir, "linux");
         assertEquals(0, build.exit(), build.out());
         Files.writeString(dir.resolve("check.txt"), "ticks 3\n");
         Run check = run(dir.resolve("build/linux/good").toString(), "--check", dir.resolve("check.txt").toString(), "--out", tmp.toString());
@@ -116,9 +143,11 @@ class DesktopIsolationTest {
                 """ + CALLBACKS + """
                 void game_tick(const uint16_t pad[SDEVKIT_PADS]) { (void)pad; printf("hi\\n"); }
                 """);
-        Run build = build(dir);
-        assertNotEquals(0, build.exit(), build.out());
-        assertTrue(build.out().contains("stdio.h"), build.out());
+        for (String target : targets()) {
+            Run build = build(dir, target);
+            assertNotEquals(0, build.exit(), target + ": " + build.out());
+            assertTrue(build.out().contains("stdio.h"), target + ": " + build.out());
+        }
     }
 
     @Test
@@ -130,8 +159,10 @@ class DesktopIsolationTest {
                 """ + CALLBACKS + """
                 void game_tick(const uint16_t pad[SDEVKIT_PADS]) { (void)pad; DrawText("hi", 0, 0, 10, 0); }
                 """);
-        Run build = build(dir);
-        assertNotEquals(0, build.exit(), build.out());
-        assertTrue(build.out().contains("uses DrawText, which is not part of superdevkit's console API"), build.out());
+        for (String target : targets()) {
+            Run build = build(dir, target);
+            assertNotEquals(0, build.exit(), target + ": " + build.out());
+            assertTrue(build.out().contains("uses DrawText, which is not part of superdevkit's console API"), target + ": " + build.out());
+        }
     }
 }

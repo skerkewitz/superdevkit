@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-/** Every operand form dampf writes reads as a typed operand and prints back the same (ADR record 47). */
+/** Every operand form dampf writes reads as a typed operand and prints back the same (ADR-6F8NBFAQ). */
 class LOperandTest {
     @Test
     void everyFormDampfWritesIsTyped() {

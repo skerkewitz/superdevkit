@@ -13,7 +13,7 @@ import java.util.Map;
  * place in the ROM file, the spans of bytes every line of assembly and every C line made, the
  * scopes of the files and functions, the symbols, and the C functions and their static variables
  * ({@code .dbg func}, {@code .dbg sym}). It says what ld65's file says; ids and order differ
- * (ADR record 20).
+ * (ADR-6F3CJMJ5).
  */
 public final class DbgWriter {
     private final StringBuilder files = new StringBuilder();

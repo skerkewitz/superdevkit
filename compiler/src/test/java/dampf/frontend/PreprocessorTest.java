@@ -10,7 +10,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** A failing preprocessor run is an ordinary compile error at gcc's position. */
+/** A failing preprocessor run is an ordinary compile error at its place. */
 class PreprocessorTest {
     @TempDir
     Path tmp;
@@ -19,7 +19,7 @@ class PreprocessorTest {
     void aMissingHeaderIsACompileErrorAtItsLine() throws Exception {
         Path f = tmp.resolve("inc.c");
         Files.writeString(f, "#include <stdint.h>\n#include <stdio.h>\n");
-        Preprocessor pp = new Preprocessor("gcc", SystemHeaders.directory(), List.of(), List.of());
+        Preprocessor pp = new Preprocessor(SystemHeaders.directory(), List.of(), List.of());
         CompileError e = assertThrows(CompileError.class, () -> pp.run(f));
         Diagnostic d = e.diagnostics().getFirst();
         assertEquals(2, d.pos().line(), d.toString());
@@ -27,12 +27,13 @@ class PreprocessorTest {
     }
 
     @Test
-    void aMissingGccIsNamedNotAStackTrace() throws Exception {
+    void aFeatureOutsideTheSubsetIsNamed() throws Exception {
         Path f = tmp.resolve("a.c");
-        Files.writeString(f, "int x;\n");
-        Preprocessor pp = new Preprocessor("dampf-no-such-gcc", SystemHeaders.directory(), List.of(), List.of());
+        Files.writeString(f, "int x;\n#line 7\n");
+        Preprocessor pp = new Preprocessor(SystemHeaders.directory(), List.of(), List.of());
         CompileError e = assertThrows(CompileError.class, () -> pp.run(f));
-        assertEquals("cannot run dampf-no-such-gcc, the preprocessor dampf needs: is it installed and on the PATH?",
-                e.diagnostics().getFirst().message());
+        Diagnostic d = e.diagnostics().getFirst();
+        assertEquals("#line is not supported by dampf's preprocessor", d.message());
+        assertEquals(2, d.pos().line());
     }
 }

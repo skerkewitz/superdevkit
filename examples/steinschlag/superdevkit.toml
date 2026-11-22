@@ -1,4 +1,4 @@
-# Steinschlag's project file (superdevkit.toml, ADR record 31): superdevkit build snes makes the
+# Steinschlag's project file (superdevkit.toml, ADR-6F3CJZBY): superdevkit build snes makes the
 # ROM, superdevkit run plays it on the desktop.
 name = "steinschlag"
 kit = "../.."                 # the kit's repository, which this example is part of

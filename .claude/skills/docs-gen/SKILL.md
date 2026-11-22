@@ -13,7 +13,7 @@ under `sources` say what is true. You write the page.
 - `/docs-gen doc-specs/<path>.spec.md` – generate or update that one page.
 - `/docs-gen all` – every spec in `doc-specs/`.
 - `/docs-gen stale` – every page that is older than its sources, usually before a release (ADR
-  record 43). Run `./gradlew checkBook` and take the pages from what it lists
+  ADR-6F60ZB4N). Run `./gradlew checkBook` and take the pages from what it lists
   (`<path>: <files>` stands for `doc-specs/<path>.spec.md`).
 - `/docs-gen fresh doc-specs/<path>.spec.md <out-file>` – write the page from scratch to
   `<out-file>`, without reading the existing page. Used to test whether a spec carries enough

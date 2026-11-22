@@ -1,10 +1,10 @@
 /*
- * The desktop's debug view (ADR record 32): F1 opens a panel at the window's right edge, beside the
+ * The desktop's debug view (ADR-6F3CK03Z): F1 opens a panel at the window's right edge, beside the
  * picture. Four tabs:
  *
  *   Game      the run (pause, a single tick, slow motion, fast) and what the game registered with
  *             sdevkit_dbg_toggle, _range, _color and _action, to change while it runs; the boxes
- *             of sdevkit_dbg_box over the picture (a switch); lost bytes, undrawn writes
+ *             of sdevkit_dbg_box over the picture (a switch); lost bytes, undrawn and unheard writes
  *   Palettes  the 256 colours of CGRAM; a click picks the palette the Tiles tab draws in
  *   Tiles     VRAM as 4 bpp tiles of 8 x 8, 16 a row, in that palette; the mouse wheel scrolls
  *   Sprites   the 128 entries of the sprite table that are on the screen; the one under the mouse

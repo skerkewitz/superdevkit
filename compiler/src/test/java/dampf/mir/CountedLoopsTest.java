@@ -233,6 +233,38 @@ class CountedLoopsTest {
         assertEquals(r(8, 408), j.signed());
     }
 
+    /** for (i = o; i PRED o + 16; i++) with o = n & MASK: a row of a table from its offset. */
+    private static String row(String pred, String mask) {
+        return """
+                func @_f(i16 %%n) -> i16 {
+                b0_entry:
+                    %%o = and i16 %%n, %s
+                    %%e = add i16 %%o, 16
+                    jump b1_for
+                b1_for:
+                    %%0 = phi i16 [b0_entry, %%o], [b2_body, %%2]
+                    %%1 = cmp %s i16 %%0, %%e
+                    br %%1, b2_body, b3_end
+                b2_body:
+                    %%2 = add i16 %%0, 1
+                    jump b1_for
+                b3_end:
+                    ret i16 0
+                }
+                """.formatted(mask, pred);
+    }
+
+    @Test
+    void aBoundThatIsTheStartPlusAConstant() {
+        // the table-2d rows: 16 rounds whatever the row's offset, so the head runs 17 times
+        assertEquals(17, only(row("ult", "127")).runs(ranges()));
+        assertEquals(17, only(row("slt", "127")).runs(ranges()));
+        assertEquals(17, only(row("ne", "-1")).runs(ranges()), "!= with a step of one reaches o + 16 in any case");
+        // o may lie so high that o + 16 wraps: then the distance says nothing (the counter's range does)
+        long wraps = only(row("ult", "-1")).runs(ranges());
+        org.junit.jupiter.api.Assertions.assertTrue(wraps > 17, "o + 16 may wrap: " + wraps);
+    }
+
     @Test
     void loopsItMustRefuse() {
         // a counter stepped twice

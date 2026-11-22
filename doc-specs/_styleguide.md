@@ -93,20 +93,25 @@ The README, the working documents and the tests are complete; the book is select
 - C code goes in ```` ```c ```` fences, shell commands in ```` ```sh ````, 65816 assembly as
   dampf writes it (ca65 syntax) in ```` ```asm ````. Output of dampf goes in a fence without a
   language tag.
-- A code block that is the content of a file names it: ```` ```c [examples/m1/calls.c] ````.
+- A code block that is the content of a file names it: ```` ```c [compiler/src/test/resources/exec/calls.c] ````.
   The book shows it as a title above the block. A fragment that belongs to no file has no title.
   A block with a file's name that is shortened or changed (other paths, lines left out) says so
   in the sentence before it; a fragment cut from a file names the file there.
 - The user guide uses the files of the repository where they show the point:
-  `examples/hello` for a first game, `examples/m1/calls.c` for a single file without the kit,
+  `examples/hello` for a first game, `compiler/src/test/resources/exec/calls.c` (an execution test) for a single file without the kit,
   `examples/ertuep` (Er-Tüp) for a whole game. Other examples are as small as the point needs,
   and show their point: an example of a call that changes the picture draws something the change
   can be seen on.
   Names say what the code does (`player_x`, `add3`), not `foo` or `x`.
 - Every example C program is valid in the subset and compiles with dampf; every command shown
-  runs as shown, from the top of the repository or, for a game, in its folder, with `<home>` for
-  the [superdevkit home](/glossary#superdevkit-home); every message shown is what dampf prints for
-  exactly the code shown. `/docs-gen` checks them by running dampf.
+  runs as shown, with `<home>` for the [superdevkit home](/glossary#superdevkit-home); every
+  message shown is what dampf prints for exactly the code shown. `/docs-gen` checks them by
+  running dampf.
+- The user guide's reader has an installed home, not the repository: a command runs in a game's
+  folder (a copy of an example, made with `superdevkit init`, works) or names the home's files
+  through `<home>`. What works only in a checkout of the repository (its `reference/`, its
+  tests, the examples' `build/` folders before a build) says so where it is shown. Inside pages
+  may run from the top of the repository.
 - Assembly shown as dampf's output is copied from what dampf writes for the C shown, not written
   by hand. It may be cut to the lines that matter, with `; ...` where lines are left out.
 

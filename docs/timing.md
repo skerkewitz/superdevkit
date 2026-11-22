@@ -42,7 +42,11 @@ calls a function); a line with a branch gets no sum.
     no range of the counter itself; an unknown start counts as the type's end;
   - an equality test of the same kind (`k != 0` keeps going) on a value that stays the same:
     with c = ±1 from the near side as the ordered test; from the far side the counter meets
-    the constant after the distance modulo 2^w; with any odd step after at most 2^w head runs.
+    the constant after the distance modulo 2^w; with any odd step after at most 2^w head runs;
+  - a test against the counter's own start plus a constant K (a row of a table walked from its
+    offset o to o + K, or a count down from a bound plus K to the bound): at most K / |c| + 1
+    head runs, whatever the start is; for `<` and `>` only where the start's range shows that no
+    step wraps, for `!=` with a step of one always.
 
   Other loops make the worst case "unbounded", some of them rightly: `for (y = t; y <= b; y++)`
   with an 8-bit `b` never ends when `b` is 255. A `DAMPF_RANGE` hint on the counter in the loop
@@ -69,6 +73,9 @@ compiled on its own:
 - no worst case: a compile error that names the loop or the call without a bound, since a budget
   can only be guaranteed for bounded code;
 - worst case above 90 % of the budget: a warning, printed by `dampf build`.
+
+With `--opt-limit` (a build that stops the passes early, to find the one that broke a program)
+the two errors are warnings: such a build is slower on purpose.
 
 The budget is in CPU cycles, like the report; the frame numbers below are in master cycles,
 about 8 per CPU cycle.
@@ -133,7 +140,7 @@ Once data decides the path, there is a best and a worst case, both exact. Bounds
 function, bottom-up over the call graph, which has no cycles since the subset has no recursion.
 They are computed on the structure of the code; unrestricted `goto` would need a more general
 analysis, which is why the subset rejects `goto` (ADR
-[record 27](adr/0027-goto-and-labels-stay-rejected-and-a-forward-and.md)). Loops need a bound: a constant trip count, or a hint checked as an assertion on the
+[ADR-6F3CJVHC](adr/6F3CJVHC-goto-and-labels-stay-rejected-and-a-forward-and.md)). Loops need a bound: a constant trip count, or a hint checked as an assertion on the
 PC ([hints.md](hints.md)).
 
 The worst case may count paths that never occur together (two branches never both taken). The
@@ -157,9 +164,11 @@ A function's own bound excludes interrupt time; frame-level budgets add the hand
 
 ### Frame numbers
 
-- One NTSC frame: 262 scanlines × 1364 master cycles = 357,366 master cycles, roughly
+- One NTSC frame: 262 scanlines × 1364 master cycles = 357,368 master cycles, roughly
   45,000–55,000 CPU cycles depending on how much code runs from FastROM and how often WRAM is
-  accessed.
+  accessed. On the console every other frame has one scanline 4 master cycles shorter, so frames
+  average 357,366; dampf's emulator (`ExampleCheck.FRAME`) counts 357,368, `dampf profile` and
+  `bench` divide by the average.
 - Vertical blank: scanlines 225–261, roughly 6,000–8,000 CPU cycles. Everything that talks to
   the graphics hardware (sprite table via DMA, tiles, palettes) must fit in here.
 - Sound runs on its own CPU (the SPC700) and costs nothing here.

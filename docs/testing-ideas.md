@@ -6,7 +6,7 @@ someone who has not seen the code, a person or an AI, can build: the reason, the
 code, the change, and how to tell that it works.
 
 The tests that exist are in [testing.md](testing.md). The steps T1 to T4 of
-[current-compiler-flaws.md](current-compiler-flaws.md#flaw-t-the-tests-cannot-see-these-flaws)
+[archive/compiler-flaws.md](archive/compiler-flaws.md#flaw-t-the-tests-cannot-see-these-flaws)
 are that document's and are not repeated here. The steps here are called V1 to V8, so their names
 do not collide with its letters. Nothing here is decided or scheduled; the
 [order](#order) at the end is a proposal. A step that is built gets its description in
@@ -44,7 +44,7 @@ independent of the code under test.
 
 ## Rules for whoever builds one of these
 
-The [rules of current-compiler-flaws.md](current-compiler-flaws.md#rules-for-whoever-implements-this)
+The [rules of archive/compiler-flaws.md](archive/compiler-flaws.md#rules-for-whoever-implements-this)
 hold: one step a commit, with its tests and the documents it makes untrue; the book stays as it
 is. In addition:
 

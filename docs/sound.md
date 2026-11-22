@@ -1,7 +1,7 @@
 # Sound effects
 
 How a game gets sound effects, from the WAV files to the voices of the S-DSP. Built from the
-[proposal](archive/sound-effects-proposal.md). Music, so far on the desktop only, is at the end
+[proposal](archive/sound-effects-proposal.md). Music, so far on the desktop and the web only, is at the end
 ([Music](#music)).
 
 ## The file: `assets/sfx/sfx.json`
@@ -202,11 +202,12 @@ music = ["assets/music/title.ogg", { file = "assets/music/boss-2.xm", name = "bo
 The build writes `build/gen/music.h` with a number per track, its place in the list
 (`MUSIC_TITLE 0`, `MUSIC_BOSS 1`, `MUSIC_COUNT 2`; the name is the file's without its extension,
 unless `name` gives one), and the game calls `sdevkit_music_play(MUSIC_TITLE)` and
-`sdevkit_music_stop()` (ADR record 32: numbers, never file names). On the desktop the track plays
+`sdevkit_music_stop()` (ADR-6F3CK03Z: numbers, never file names). On the desktop the track plays
 from its file, over and over, until another one or the stop; the same track again goes on
 playing, and the music pauses with the run. A desktop build copies the files into
 `build/<target>/music/` and compiles their list (`music_files.c`) with the frontend, so the game's
-code holds no file name. Any format raylib reads: OGG, MP3, WAV, QOA, and the trackers' XM and
+code holds no file name; the web build packs that folder into the page's `index.data`, and the
+track plays there the same way. Any format raylib reads: OGG, MP3, WAV, QOA, and the trackers' XM and
 MOD. CatchMe plays a chase loop (`dev/art/music.py` made it) from a level's start to the game's
 end.
 

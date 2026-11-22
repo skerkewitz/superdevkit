@@ -5,11 +5,7 @@ sources:
   - docs/adr/*.md
   - docs/architecture.md
   - docs/testing.md
-  - compiler/src/main/java/dampf/mir/Instr.java
-  - compiler/src/main/java/dampf/mir/Printer.java
-  - compiler/src/main/java/dampf/mir/Lower.java
-  - compiler/src/main/java/dampf/mir/Verifier.java
-  - compiler/src/main/java/dampf/mir/Interpreter.java
+  - compiler/src/main/java/dampf/mir/*.java
   - compiler/src/test/java/dampf/mir/MirTextTest.java
 audience: Readers who want to read dampf's MIR, with `dampf mir`, or work on a pass
 ---
@@ -31,7 +27,8 @@ look at `dampf mir` output and understand it.
 
 ## Pay attention to
 
-- Run `dampf mir` on the example and copy the output.
+- Run `dampf mir` on the example and copy the output; the output after `-O` changes with the
+  passes, so explain what it shows now.
 - Keep the instruction table to what `Instr.java` defines.
 
 ## Out of scope

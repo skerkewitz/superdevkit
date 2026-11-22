@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Renames a game's C sources from the old names of superdevkit's console API (PVSnesLib's names,
-the snesXxx extensions, snes_vram, the KEY_* bits) to the sdevkit_ ones (ADR record 34).
+the snesXxx extensions, snes_vram, the KEY_* bits) to the sdevkit_ ones (ADR-6F3CK2AR).
 
     python3 -I tools/sdevkit_rename.py FILE_OR_FOLDER...     rewrites .c and .h files in place
     python3 -I tools/sdevkit_rename.py --dry-run FILE...     only prints what it would change

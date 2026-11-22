@@ -40,9 +40,10 @@ applies them there. Integer constants and the integer promotions use a 32-bit `i
 type wraps, a conversion to a narrower type truncates, signed division rounds towards zero, and
 `>>` of a negative value is an arithmetic shift.
 
-Two functions of the first example program show the promotion:
+Two functions of the execution test `compiler/src/test/resources/exec/calls.c` show the
+promotion; the block leaves out the rest of the file:
 
-```c [examples/m1/calls.c]
+```c [compiler/src/test/resources/exec/calls.c]
 static uint8_t inc8(int8_t x)
 {
     return x + 1;               /* int arithmetic, then truncated to uint8_t */
@@ -62,6 +63,21 @@ is truncated: for an `int8_t x` holding 127, `x + 1 > 127` is true.
 
 Computing everything in 32 bits would be slow on the 65816. dampf narrows an operation to 8 or
 16 bits, but only where it can prove the result is the same as in 32 bits.
+
+One rule of C itself lets the two builds differ: the order in which the arguments of a call are
+evaluated is left open, and dampf need not choose gcc's. Two calls with side effects in the
+arguments of one call, as in `spawn(random16() & 31, random16() & 15)`, may run in one order on
+the SNES and in the other on the PC, and from then on the two builds compute different values.
+Give each such call a statement of its own:
+
+```c
+void spawn_enemy(void)
+{
+    uint8_t col = random16() & 31;
+    uint8_t row = random16() & 15;
+    spawn(col, row);
+}
+```
 
 ## What is left out
 
@@ -99,7 +115,8 @@ value is the same on both sides. To copy a struct that gcc pads, use a struct as
 instead of `memcpy`, since its `sizeof` is rejected.
 
 The complete list, with every construct and the counts from the scan of the game, is in
-[The C subset](/reference/c-subset).
+[The C subset](/reference/c-subset). The kit's own guide `lib/C_STYLE.md` lists each rejected
+construct with the message dampf gives for it and what to write instead.
 
 [Hints](/glossary#hint), macros such as `DAMPF_RANGE` that tell dampf something it cannot
 infer, come from dampf's header `<dampf.h>`; in the PC build they become checked assertions
@@ -121,18 +138,24 @@ that it has no cycle, and so can give every local of every function a fixed addr
 
 ## The preprocessor
 
-dampf preprocesses each file with gcc:
+dampf preprocesses each file with a preprocessor of its own, a subset of C99's, as the language
+it compiles is a subset of C. Using dampf needs nothing but Java, no gcc. The preprocessor
+searches only dampf's own include directory and the directories you give with `-I`, in that
+order, and a `"..."` include first in the directory of the file that includes it. So
+`#include <stdint.h>` finds dampf's own header, and `#include <stdio.h>` fails. The failure is
+an ordinary error at the header's name in the line of the `#include`:
+`stdio.h: No such file or directory`. The host's predefined macros such as `__x86_64__` are not
+defined either. dampf defines `__DAMPF__` as 1, C99's `__STDC__`, `__STDC_VERSION__`
+(`199901L`) and `__STDC_HOSTED__`, and the macros of your `-D` options. Line markers are kept,
+so every message points to the line in your source.
 
-```sh
-gcc -E -std=c99 -nostdinc -undef -D__DAMPF__=1 -I <dampf's include directory> ...
-```
-
-`-nostdinc` switches off the host's headers, so `#include <stdint.h>` finds dampf's own header
-and `#include <stdio.h>` fails. The failure is an ordinary error at the place gcc names, the
-line of the `#include`: `stdio.h: No such file or directory`. `-undef` drops the host's
-predefined macros such as `__x86_64__`. Your own `-D` options are added after
-`-D__DAMPF__=1`, your `-I` directories after dampf's include directory. Anything `gcc -E`
-accepts works, and line markers are kept, so every message points to the line in your source.
+The preprocessor has what game code uses: `#include`, object-like, function-like and variadic
+macros with `#` and `##`, `#if`, `#elif`, `#ifdef`, `#ifndef`, `#else` and `#endif` with
+`defined`, `#error`, and `#pragma` with `#pragma once`. Features beyond these, such as `#line`,
+`#include_next`, `#warning` and gcc's other directives, `__VA_OPT__`, `_Pragma`,
+`__has_include`, `__COUNTER__`, `__DATE__` and `__TIME__`, are rejected with an error that names
+them: `#warning is not supported by dampf's preprocessor`. The complete list is in
+[The C subset](/reference/c-subset#preprocessor).
 
 Use `__DAMPF__` to keep a branch apart that only one build may see. Here the PC build prints a
 trace with `printf`, and the dampf build never sees `<stdio.h>` or the `unsigned` cast:

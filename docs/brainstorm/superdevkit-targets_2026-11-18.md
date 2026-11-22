@@ -16,7 +16,7 @@ its folder holds only its game, its assets and the reference to superdevkit.
 
 Constraints: an MVP first, made to work at all, improved later. The kit brings only dampf; the
 compilers for the other targets are the user's. Game code has no platform `#ifdef`s, and every
-function of the console API exists on every platform (ADR record 29). The game logic stays
+function of the console API exists on every platform (ADR-6F3CJX8T). The game logic stays
 deterministic, so that recordings and replays keep working.
 
 Before the session the open points were: how sound and music, save RAM and the game's debug view
@@ -102,7 +102,7 @@ playing), `game_sram()` and `game_sram_dirty()` (128 bytes to save), and for the
 | Idea | Realistic? | Cost | Fragility | Fully solves it? | Works for others? | New problems | Reversible? | Fits the plans? |
 |---|---|---|---|---|---|---|---|---|
 | A1 pull | yes, exists | none for the game | low | yes | awkward for new games: a bit mask and two functions even without sound | at most 32 effects | yes | yes |
-| A2+A3 call with numbers | yes | a day | low: numbers, not names | yes | natural for everyone; on the SNES a stub now, a queue to the sound processor later | Blubber Blasen changes about 20 places | yes | yes, record 29 |
+| A2+A3 call with numbers | yes | a day | low: numbers, not names | yes | natural for everyone; on the SNES a stub now, a queue to the sound processor later | Blubber Blasen changes about 20 places | yes | yes, ADR-6F3CJX8T |
 | A4 save RAM as memory | yes | half a day | low, if saved on change and on exit | yes | intuitive for SNES developers and beginners | IndexedDB writes are asynchronous | yes | yes |
 | B1 ImGui callback | yes | small | low | more than needed | needs C++ in the game | ImGui in every game | yes | not what was wanted |
 | B2 registered values + standard views | yes | 2–3 days | low | yes | beginners and experts; Blubber Blasen's CPU-partner view maps onto boxes and switches, losing its text panel | the calls stay in the SNES build as empty functions (dampf inlines them away; to check) | yes | yes |

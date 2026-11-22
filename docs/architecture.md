@@ -14,7 +14,7 @@ blocks with the accumulator width each runs in, whose text is the ca65 source da
 once struct splitting needs it. The code generator from MIR (`dampf.backend.MirCodeGen`, the
 default of `dampf build`) selects instructions once per function (`Selection` and the classes per
 kind of instruction, with `FrameLayout` proposing the places); the places get their addresses on
-the code (`PlaceColouring`, checked by `PlaceCheck`, ADR record 48), and some go to X or Y
+the code (`PlaceColouring`, checked by `PlaceCheck`, ADR-6F8NBG4P), and some go to X or Y
 instead where that saves cycles (`RegisterChoice`); the LIR passes then remove loads of what a
 register holds or move them out of a loop (`RedundantLoads`, `IndexInY`, on `RegContents`), apply peephole rules
 (`Peephole`), run short 16-bit stretches between byte stores in 8 bits (`ByteStretches`) and
@@ -30,10 +30,13 @@ constants as one range check (`RangeChecks`), a bit chosen by a bit
 (`BitSelect`), 8.8 values read as bytes (`ByteLoads`), width narrowing (`Narrow`, and
 `RangeNarrow` with the value ranges of `Ranges`), loop-invariant code (`Licm`), induction
 variables (`Induction`), pointer compression (`PointerOffsets`), multiplication and division by
-constants (`StrengthReduce`), common subexpressions and redundant loads (`Gvn`) and dead code
-removal (`DeadCode`), repeated until nothing changes; then parameter ranges from the calls
-(`ParamRanges`), inlining (`Inline`) and pointer parameters as offsets (`PointerParams`), and the
-passes once more; last, the order of the instructions for the code generator (`Schedule`). The
+constants (`StrengthReduce`), common subexpressions and redundant loads (`Gvn`), dead code
+removal (`DeadCode`, `DeadLoops`) and two loops over the rows of a table as one (`Collapse`),
+repeated until nothing changes; then parameter ranges from the calls
+(`ParamRanges`), inlining (`Inline`), pointer parameters as offsets (`PointerParams`) and scaled
+index parameters as their product (`IndexParams`), and the passes once more; last, comparisons
+next to the branches that use them (`SinkCompares`) and the order of the instructions for the
+code generator (`Schedule`). The
 code generator itself first gives loop exits their own blocks (`ExitEdges`), copies return blocks
 into their predecessors (`Returns`), computes pointer sums again where their value is needed
 (`PointerRemat`) and takes out the checks of the hints (`Hints`). How values
@@ -43,7 +46,7 @@ get places, registers and frames is in [optimizations.md](optimizations.md).
 
 ```
 C source
-  → gcc -E            preprocessing; keeps line markers (# 142 "bubble.c")
+  → preprocessor      dampf's own (dampf.frontend.pp); line markers (# 142 "bubble.c")
   → ANTLR 4 parser    based on the C grammar from grammars-v4; parses broadly
   → AST (checked)     subset enforced, types resolved, error messages
   → HIR               C structure and meaning: loops, structs, arrays, hints
@@ -63,9 +66,13 @@ together.
 The parser accepts more C than the subset on purpose: a construct outside the subset is better
 reported by the subset checker ("recursion is not supported: …") than by a parse error.
 
-Preprocessing runs `gcc -E -nostdinc -undef -D__DAMPF__=1` with dampf's own `<stdint.h>`, so host
-headers and host macros never reach the code. The same preprocessor serves the PC build, so both
-builds see the same code (this matters for the hints, see [hints.md](hints.md)).
+dampf preprocesses with a preprocessor of its own (`dampf.frontend.pp`, ADR-6FD4GDN5), a subset of
+C99's: no host headers and no host macros reach the code, dampf's own include directory has
+`<stdint.h>`, `<dampf.h>` and `<string.h>`, and `__DAMPF__` is defined. It writes the text with
+line markers, as `gcc -E` does, for the source positions. The PC build preprocesses with its own
+compiler; both builds see the same code (this matters for the hints, see [hints.md](hints.md))
+because dampf's preprocessor gives the same tokens as clang's and gcc's on the subset, which
+`OracleTest` and `RandomMacrosTest` check.
 
 ## Intermediate representations
 
@@ -105,7 +112,7 @@ three (`Printer`/`MirParser`, `Verifier`, `Interpreter`).
 ### Deliberately not more than three
 
 Why three levels and not more, and why HIR waits: ADR
-[record 13](adr/0013-three-ir-levels-and-hir-waits-until-something.md).
+[ADR-6F0R6DZD](adr/6F0R6DZD-three-ir-levels-and-hir-waits-until-something.md).
 
 ## Core and target
 
@@ -170,4 +177,4 @@ touches, are not computed yet ([timing.md](timing.md)).
 
 Java 25, ANTLR 4 with the vendored C grammar from grammars-v4
 (`compiler/src/main/antlr/dampf/parser/README.md`), and Gradle with the wrapper; the reasons are in ADR
-[record 2](adr/0002-java-25-antlr-with-the-grammars-v4-c-grammar-and.md).
+[ADR-6F0R624X](adr/6F0R624X-java-25-antlr-with-the-grammars-v4-c-grammar-and.md).
