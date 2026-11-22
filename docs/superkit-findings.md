@@ -397,7 +397,7 @@ expensive single feature of the game on the SNES. The game went back to bytes fo
 ## 14. A release has no `dev/replay.sh` (2026-11-21)
 
 The game now builds with a clone of the kit's `main` pinned to "Version 0.7.3" (no tags exist),
-`./gradlew installDist`, and uses only what a release holds (ADR record 41). The game's check of
+`./gradlew installDist`, and uses only what a release holds (ADR-6F60Z9QJ, a release is a zip per system). The game's check of
 the ROM against the PC is `<home>/dev/replay.sh` (README, *SNES build*); `dev/` is not in the
 release's file list. Either `replay.sh` (and what it needs) goes into the release, or the kit gets
 a command for it (`superdevkit replay <rom> <recording>`). Until then the game uses the `dev/`
