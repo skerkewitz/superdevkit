@@ -11,8 +11,12 @@ docs/architecture.md; the other docs are linked from the README.
 - Every change goes through a pull request (ADR-6FB9QJ3R): its own branch from `origin/develop`
   in its own worktree in `superdevkit-wt/` next to the main checkout, a pull request into
   `develop`, merged by Claude after the user's approval. A release is a pull request from
-  `develop` into `main` and a tag. The steps are the `pr` skill. The main checkout stays on
-  `develop`: never edit, build or switch branches in it.
+  `develop` into `main` and a tag. The steps are the `sker-pr` skill, with this project's rules
+  in "Pull requests" below. The main checkout stays on `develop`: never edit, build or switch
+  branches in it.
+- `sker-pr` and `sker-adr` come from the `sker-project` package (ADR-6FD54GME), pinned in
+  `apm.yml`. `./apmw install` puts them into `.claude/skills/` (git-ignored); run it once in a
+  fresh checkout or worktree, and again when the version in `apm.yml` changes.
 - Claude works on GitHub as an app of its own (ADR-6FB9QKSV): every `gh` command, `git commit`
   and `git push` runs through the `gh-as-bot` wrapper (`gh-as-bot git push ...`), never plain.
   Claude never approves a pull request, and merges one only after the user has approved it.
@@ -57,3 +61,29 @@ docs/architecture.md; the other docs are linked from the README.
   the stale pages; `/docs-gen stale` regenerates them, `./gradlew stampBook -Pspecs=...` stamps
   a page the change does not touch.
 - Correctness comes before speed: every behaviour must match gcc on x86-64 bit for bit.
+
+## Pull requests
+
+The steps are the `sker-pr` skill. For this project:
+
+- Branches: changes go into `develop`; a release goes from `develop` into `main`, tagged
+  `v<version>` with the message "superdevkit <version>". Reviewer: `skerkewitz`. Every GitHub
+  write goes through `gh-as-bot` (ADR-6FB9QKSV).
+- Worktrees: `superdevkit-wt/<branch>` next to the main checkout. After creating one,
+  `[ -d MAIN/.mesen ] && ln -s MAIN/.mesen WT/.mesen`, so the execution tests also run in Mesen
+  there; before removing it, `rm -f WT/.mesen`.
+- Verify: `./gradlew build`. Changes to dampf's output also run the replays (`-Preplays`) and
+  the benchmark (`dev/bench_examples.sh`), with the numbers before and after. If CI fails,
+  `gh-as-bot gh run download <id> -R skerkewitz/superdevkit -n test-reports -D <scratchpad>`
+  fetches the test reports.
+- What follows, in a description: the generated code (size, cycles), the C guide or its
+  `StyleGuideTest` rules, the game (and whether `docs/game-findings.md` got an entry), the
+  documents changed, the book pages that will be stale at the release.
+- Never public: the game's code and data (ADR-6F60Z819). Say what a change means for the game
+  without quoting it.
+- Release preparation: the version by the rule in the roadmap ("Versions", ADR-6F60ZDMF): the
+  last number rises, the middle one when a milestone is concluded. `./gradlew checkBook`, then
+  `/docs-gen stale` for the pages it lists, until `checkBook` passes (ADR-6F60ZB4N); the version
+  in `build.gradle.kts` and in the status line of `README.md`; a concluded milestone marked in
+  `docs/roadmap.md`; `./gradlew build`. The release pull request says what a user of the kit
+  notices: new features, changes to the command line, the subset, the files dampf writes.

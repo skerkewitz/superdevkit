@@ -13,7 +13,7 @@ records them again on the merged state, as PR #8 did).
 ## Task A: ExampleCheck writes the ROM's sound (finding 8)
 
 ```
-Task for superdevkit, via the /pr skill: start a branch "example-check-sound", do the work, open the pull
+Task for superdevkit, via the /sker-pr skill: start a branch "example-check-sound", do the work, open the pull
 request, then stop. Don't merge, even if I approve later in this session.
 
 Background: Blubber Blasen (the game that uses the kit) reported this as its finding 8. The file with the
@@ -31,7 +31,7 @@ Done when: the option exists and is tested (compare with what the desktop's --ch
 that has sound effects, if a test can do that cheaply); dev/replay.sh, if it wraps ExampleCheck, can pass it
 through; the usage line, dev/README.md and docs/testing.md say so. ./gradlew build passes.
 
-Rules: follow CLAUDE.md and the pr skill. Don't write docs/game-findings.md (another session collects the
+Rules: follow CLAUDE.md and the sker-pr skill. Don't write docs/game-findings.md (another session collects the
 answers for the game); say in the pull request what the game can do now. If you hit a decision with
 several reasonable options, ask me with the sker-explain-and-solve-problem skill instead of choosing.
 ```
@@ -41,7 +41,7 @@ several reasonable options, ask me with the sker-explain-and-solve-problem skill
 ## Task B: the work of every tick, without the wait (finding 12.1)
 
 ```
-Task for superdevkit, via the /pr skill: start a branch "tick-work", do the work, open the pull request,
+Task for superdevkit, via the /sker-pr skill: start a branch "tick-work", do the work, open the pull request,
 then stop. Don't merge, even if I approve later in this session.
 
 Background: Blubber Blasen (the game that uses the kit) reported this as its finding 12, point 1. Read
@@ -62,7 +62,7 @@ symbol (from the .lbl file) is more robust than by source lines, and switch Exam
 Done when: tested on an example (the per-tick values sum to what ExampleBench reports), documented in
 dev/README.md and docs/testing.md, ./gradlew build passes.
 
-Rules: follow CLAUDE.md and the pr skill. Don't write docs/game-findings.md (another session collects the
+Rules: follow CLAUDE.md and the sker-pr skill. Don't write docs/game-findings.md (another session collects the
 answers for the game); say in the pull request what the game can do now. If you hit a decision with
 several reasonable options, ask me with the sker-explain-and-solve-problem skill instead of choosing.
 ```
@@ -72,7 +72,7 @@ several reasonable options, ask me with the sker-explain-and-solve-problem skill
 ## Task C: the sound samples go to the audio RAM during the splash (finding 12.2)
 
 ```
-Task for superdevkit, via the /pr skill: start a branch "sfx-upload-in-splash", do the work, open the pull
+Task for superdevkit, via the /sker-pr skill: start a branch "sfx-upload-in-splash", do the work, open the pull
 request, then stop. Don't merge, even if I approve later in this session.
 
 Background: Blubber Blasen (the game that uses the kit) reported this as its finding 12, point 2. Read
@@ -93,11 +93,11 @@ make it with dev/new_adr.sh "Title".
 
 Done when: the examples with sound (Schach, Steinschlag) start without the black pause; the desktop
 (lib/rachael, lib/desktop) behaves the same; dev/check_example.sh and dev/compare_example.sh pass in Mesen
-for those examples (Mesen is in .mesen, linked into your worktree by the pr skill); the recorded backend
+for those examples (Mesen is in .mesen, linked into your worktree by the sker-pr skill); the recorded backend
 hashes are updated if the ROMs change (-PbackendOutput=update, and say in the pull request why); lib/README.md
 and docs/sound.md describe it. ./gradlew build passes.
 
-Rules: follow CLAUDE.md and the pr skill, lib/C_STYLE.md and lib/SNES_HARDWARE.md for the C. Don't write
+Rules: follow CLAUDE.md and the sker-pr skill, lib/C_STYLE.md and lib/SNES_HARDWARE.md for the C. Don't write
 docs/game-findings.md (another session collects the answers for the game); say in the pull request what the
 game has to change, if anything.
 ```
@@ -107,7 +107,7 @@ game has to change, if anything.
 ## Task D: a build step before the build, and "superdevkit gen" (finding 10)
 
 ```
-Task for superdevkit, via the /pr skill: start a branch "build-before-and-gen", do the work, open the pull
+Task for superdevkit, via the /sker-pr skill: start a branch "build-before-and-gen", do the work, open the pull
 request, then stop. Don't merge, even if I approve later in this session.
 
 Background: Blubber Blasen (the game that uses the kit) reported this as its finding 10. Read
@@ -132,7 +132,7 @@ Done when: both are built and tested like the other commands (the TOML reader, t
 section on superdevkit.toml and the command's help describe them, ./gradlew build passes. Leave the book
 (docs/book) alone; it is brought in step at the release.
 
-Rules: follow CLAUDE.md and the pr skill. Don't write docs/game-findings.md (another session collects the
+Rules: follow CLAUDE.md and the sker-pr skill. Don't write docs/game-findings.md (another session collects the
 answers for the game); say in the pull request what the game can do now.
 ```
 
@@ -141,7 +141,7 @@ answers for the game); say in the pull request what the game can do now.
 ## Task E: examples/m1 goes (transition plan 5.3)
 
 ```
-Task for superdevkit, via the /pr skill: start a branch "remove-m1", do the work, open the pull request,
+Task for superdevkit, via the /sker-pr skill: start a branch "remove-m1", do the work, open the pull request,
 then stop. Don't merge, even if I approve later in this session.
 
 docs/superdevkit-transition.md, section 5.3, says examples/m1 goes now that examples/hello exists
@@ -163,7 +163,7 @@ for other built steps.
 Done when: no reference to examples/m1 is left outside docs/archive, docs/adr and the generated book pages;
 ./gradlew build passes.
 
-Rules: follow CLAUDE.md and the pr skill.
+Rules: follow CLAUDE.md and the sker-pr skill.
 ```
 
 ---
