@@ -19,7 +19,7 @@ import superdevkit.sfx.Sfx;
  * run in this Java, the desktop's C compiler is called directly, one call per file and one to link.
  *
  * <p>The targets: {@code snes} (build/snes/NAME.sfc, with dampf and the kit's lib/snes),
- * {@code linux} and {@code win64} (Desktop). Every build converts the assets into build/gen first
+ * {@code linux} and {@code win64} (Desktop), {@code web} (Web). Every build converts the assets into build/gen first
  * and writes build/compile_commands.json for editors: the game's files as dampf sees them.
  */
 public final class Build {
@@ -38,7 +38,7 @@ public final class Build {
         }
     }
 
-    public static final List<String> TARGETS = List.of("snes", "linux", "win64");
+    public static final List<String> TARGETS = List.of("snes", "linux", "win64", "web");
 
     private Build() {
     }
@@ -49,6 +49,7 @@ public final class Build {
         switch (target) {
             case "snes" -> steps.add(dampf(p, kit));
             case "linux", "win64" -> steps.addAll(Desktop.steps(p, kit, target, debug));
+            case "web" -> steps.addAll(Web.steps(p, kit, debug));
             default -> throw new Failure("no target '" + target + "' (" + String.join(", ", TARGETS) + ")");
         }
         steps.add(compileCommands(p, kit));
@@ -144,6 +145,15 @@ public final class Build {
         }
         return new Compiler.Options(sources, includes(p, kit), List.of(), "main", rom)
                 .withBackend(Compiler.Backend.MIR).withSram(p.sram());
+    }
+
+    /** What a build of the target writes: the ROM, the program, or the web's page. */
+    public static Path output(Project p, String target) {
+        return switch (target) {
+            case "snes" -> rom(p);
+            case "web" -> Web.output(p);
+            default -> Desktop.output(p, target);
+        };
     }
 
     public static Path rom(Project p) {

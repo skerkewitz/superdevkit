@@ -79,7 +79,7 @@ final class Desktop {
     }
 
     /** The music's files into build/TARGET/music/, and music_files.c: their paths for the frontend. */
-    private static Build.Step music(Project p, String target, Path musicFiles) {
+    static Build.Step music(Project p, String target, Path musicFiles) {
         Path dir = p.dir().resolve("build").resolve(target).resolve("music");
         return new Build.Step("music", p.music().size() + " tracks into " + Build.rel(p, dir) + ", their list "
                 + Build.rel(p, musicFiles), List.of(), out -> {
@@ -273,7 +273,7 @@ final class Desktop {
 
     // ------------------------------------------------------------------ both
 
-    private static Build.Step symbols(Project p, Kit kit, List<Path> objects) {
+    static Build.Step symbols(Project p, Kit kit, List<Path> objects) {
         return new Build.Step("check", "the game's objects call nothing but lib/include/sdevkit (ADR-6F3CK2AR)",
                 List.of(), out -> {
                     List<String> bad = Symbols.check(kit.lib().resolve("include/sdevkit"), objects);
@@ -283,7 +283,7 @@ final class Desktop {
                 });
     }
 
-    private static List<Path> needs(Project p, Path... files) {
+    static List<Path> needs(Project p, Path... files) {
         List<Path> out = new ArrayList<>();
         for (Path f : files) {
             if (!f.toAbsolutePath().normalize().startsWith(p.gen().toAbsolutePath().normalize())) {
@@ -302,7 +302,7 @@ final class Desktop {
         }
     }
 
-    private static List<String> show(Project p, List<String> cmd) {
+    static List<String> show(Project p, List<String> cmd) {
         List<String> out = new ArrayList<>();
         for (String a : cmd) {
             out.add(a.startsWith("/") ? Build.rel(p, Path.of(a)) : a);
@@ -310,7 +310,7 @@ final class Desktop {
         return out;
     }
 
-    private static void exec(Path dir, List<String> cmd, PrintStream out) throws Exception {
+    static void exec(Path dir, List<String> cmd, PrintStream out) throws Exception {
         Process pr = new ProcessBuilder(cmd).directory(dir.toFile()).redirectErrorStream(true).start();
         String log = new String(pr.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         pr.waitFor(30, TimeUnit.MINUTES);

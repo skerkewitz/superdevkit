@@ -173,9 +173,9 @@ over when it left ([ADR-6F60Z819](adr/6F60Z819-the-examples-replace-blubber-blas
     (`dampf bench`); and on every example's check, the same checksums every tick.
 - **GitHub Actions** (`.github/workflows/build.yml`) runs `./gradlew build` for every pull
   request (ADR-6FB9QJ3R), with JDK 25 on Ubuntu, the
-  runner's gcc, python3 and node, and Ubuntu's cc65 (ca65 and ld65 for `BackendOutputTest`). Mesen, raylib and Playwright are not there: the execution
-  tests run in dampf's emulator only, and `DesktopIsolationTest` and the BRR Lab's browser tests
-  skip. A pull request is merged only when this build passes.
+  runner's gcc, python3 and node, and Ubuntu's cc65 (ca65 and ld65 for `BackendOutputTest`). Mesen, raylib, Emscripten and Playwright are not there: the execution
+  tests run in dampf's emulator only, and `DesktopIsolationTest`, the symbol check of WebAssembly
+  objects (`ProjectTest`) and the BRR Lab's browser tests skip. A pull request is merged only when this build passes.
 - **Parallel test JVMs.** The compiler's test classes run in several JVMs at once, one per core
   and at most 4 (`maxParallelForks`; `-PtestForks=n` sets the number, 1 runs them one after
   the other). So a test class that writes files writes them where no other class does: into
