@@ -6,21 +6,23 @@ what was left of them moved to the milestones after M5 (see [History](#history))
 
 ## Where dampf stands
 
-M0 to M7 are concluded. M0 to M4 and M6 with version 0.4.0 (2026-11-18): all of Blubber Blasen
+M0 to M8 are concluded. M0 to M4 and M6 with version 0.4.0 (2026-11-18): all of Blubber Blasen
 compiles, the benchmark and the replays give the PC's checksums, on the SNES and in a playable
 ROM, dampf's code is faster than Calypsi's, and dampf assembles and links itself. M5 as version
 0.6.0 (2026-11-19): Blubber Blasen builds its SNES ROM with the dev kit from its own repository,
 and the ROM plays its recordings with the PC's checksum on every tick. M7 as version 0.7.0
 (2026-11-19): the desktop (Linux, Windows) from the kit, sound effects, save RAM, music on the
-desktop, the debug view, and the `superdevkit` command. During play the game took
+desktop, the debug view, and the `superdevkit` command. M8 as version 0.8.0 (2026-11-22): the web
+(`superdevkit build web` and `run web`), every example checked in the browser against the SNES.
+During play the game took
 0.79 frames per tick on 2026-11-18 against a goal of 0.6, so the compiler work goes on while the
 game reduces its own work in parallel; the current numbers are in
 [optimizations.md](optimizations.md#where-things-stand).
 
 dampf is the compiler of a development kit for SNES games, superdevkit; this repository is
 superdevkit's (ADR
-[ADR-6F3CJX8T](adr/6F3CJX8T-superdevkit-is-the-project-and-dampf-is-its.md)). Next: the optimizer's work
-on the game's costliest loop (its finding 9, M9) and the web (M8).
+[ADR-6F3CJX8T](adr/6F3CJX8T-superdevkit-is-the-project-and-dampf-is-its.md)). Next: the optimizer (M9),
+then language, platform and usability (M10).
 
 ## Versions
 
@@ -47,7 +49,7 @@ needs is an open question. The rule is ADR
 | M6 | Standing alone: dampf's own assembler and linker | 0.4.0 | Done 2026-11-18 |
 | M5 | Blubber Blasen builds its ROM with the dev kit, from its own repository | 0.6.0 | Done 2026-11-19 |
 | M7 | Windows and Linux: Rachael and the desktop frontend in the kit, the `superdevkit` command with `init`, `build`, `run`; the examples and Blubber Blasen run on the desktop from the kit | 0.7.0 | Done 2026-11-19 (the game's switch handed over to it) |
-| M8 | The web: the same games in the browser; Blubber Blasen's web build from the kit | 0.8.0 | Built 2026-11-22; the release is left |
+| M8 | The web: the same games in the browser; Blubber Blasen's web build from the kit | 0.8.0 | Done 2026-11-22 (the game's switch handed over to it) |
 | M9 | The optimizer: what was left of M3; tests and a canonical form first, then register allocation | 0.9.0 | In progress |
 | M10 | Language, platform and usability: C in interrupts, intrinsics, the open subset decisions, dampf's own preprocessor, the game's development tools in the kit's window | 0.10.0 | Planned |
 | M11 | Timing and debugging: master cycles, bounds for more loops, locals and types in Mesen | 0.11.0 | Planned |
@@ -63,10 +65,7 @@ and Blubber Blasen in the browser, after which the game drops its own web build.
 frontend goes later, when the kit's window has the game's development tools (M10). The steps are
 in [superdevkit-transition.md](superdevkit-transition.md#m8-the-web-080).
 
-State (2026-11-22): the target, `lib/web`, the symbol check of WebAssembly objects and `run web`
-are built (ADR-6FCVAA30), and `ExamplesTest` plays every example's check in the browser; Blubber
-Blasen's switch to the kit's web build is with the game (finding 3 of
-[game-findings.md](game-findings.md)).
+Concluded on 2026-11-22 as version 0.8.0 ([History](#m8)).
 
 ## M9: the optimizer (0.9.0)
 
@@ -559,6 +558,26 @@ Concluded on 2026-11-19 as version 0.7.0, with one part of its goal left to the 
 build and run on Linux and Windows from the kit, and Blubber Blasen's switch to the kit's desktop
 build was handed over to it (the game's finding 1, sent the same day); the game's frontend and
 build script go when it has switched.
+
+### M8
+
+Built on 2026-11-22. `superdevkit build web` compiles a game with Emscripten's `emcc` the way the
+desktop compiles it with gcc, and links it with Rachael, the desktop's frontend, `lib/web` and
+raylib's web package; the browser runs the desktop's `main.c`, whose loops wait for the browser's
+frames with Asyncify and a 60 Hz clock
+([ADR-6FCVAA30](adr/6FCVAA30-the-web-runs-the-desktop-s-frontend-which-waits.md)). The page starts
+with a click, keeps the save RAM in IndexedDB and offers F11's recording and F12's screenshot as
+downloads; `superdevkit run web` serves it on this machine. The symbol check reads WebAssembly
+objects. `ExamplesTest` plays every example's check in headless Chromium and compares the
+checksum of every tick, the sound and the recording with the SNES's
+([ADR-6FD1Y6W2](adr/6FD1Y6W2-the-web-s-main-takes-check-and-the-examples-test.md)), and the debug
+view is only in a build with `--debug`, so a page put online gives its players none
+([ADR-6FD7KEJV](adr/6FD7KEJV-on-the-web-the-debug-view-is-only-in-a-build-with.md)).
+
+Concluded on 2026-11-22 as version 0.8.0, narrowed to the web (see [Changes to the plan](#changes-to-the-plan)):
+Blubber Blasen builds and plays its checks in the browser from the kit unchanged, and its switch
+to the kit's web build was handed over to it (finding 3 of
+[game-findings.md](game-findings.md)); its own desktop frontend goes with M10.
 
 ### M6
 

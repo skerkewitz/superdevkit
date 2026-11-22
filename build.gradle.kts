@@ -3,7 +3,7 @@
 // release (ADR-6F60Z9QJ) to build/install/superdevkit: bin/ (dampf, superdevkit), java/, include/.
 allprojects {
     group = "superdevkit"
-    version = "0.7.4"
+    version = "0.8.0"
     repositories {
         mavenCentral()
     }

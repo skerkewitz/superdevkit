@@ -7,6 +7,10 @@ assets and a reference to superdevkit, and the kit builds it for the SNES, Windo
 web. This file holds what is decided and not built yet; a step that is built leaves it, and what
 was decided goes to the ADR. Milestones and their state are in [roadmap.md](roadmap.md).
 
+**Status (2026-11-22, version 0.8.0): the plan's milestones M5, M7 and M8 are concluded.** Left
+are 5.7 (the ROM on a real console, when there is hardware) and Blubber Blasen's switches to the
+kit's desktop and web builds, which are the game's.
+
 Every step ends with a commit on its branch (`m5`, later one per milestone) that passes
 `./gradlew build`, which plays every example on the SNES side and the desktop; steps that touch
 the console also pass `dev/compare_example.sh` in Mesen.
@@ -227,7 +231,8 @@ recordings stay its own, reached through `sdevkit_dbg_action`).
 
 ## M8: the web (0.8.0)
 
-Built on 2026-11-22 ([ADR-6FCVAA30](adr/6FCVAA30-the-web-runs-the-desktop-s-frontend-which-waits.md)):
+Concluded on 2026-11-22 as version 0.8.0 ([roadmap](roadmap.md#m8)). Built
+([ADR-6FCVAA30](adr/6FCVAA30-the-web-runs-the-desktop-s-frontend-which-waits.md)):
 `web` as a target of the CLI (`superdevkit.project.Web`) with `emcc` and raylib's prebuilt web
 package, the game compiled on its own as on the desktop and its objects checked (`Symbols` reads
 WebAssembly objects: emcc writes wasm, not LLVM bitcode), `lib/web` (the page with the click to
@@ -236,7 +241,7 @@ downloads), and `superdevkit run web` (`Serve`: the JDK's HTTP server on 127.0.0
 opened). CatchMe plays in headless Chromium, its save RAM kept across page loads. The examples
 in the browser: `ExamplesTest` builds each for the web and plays its `check.txt` in headless
 Chromium (`tools/web_check`, Playwright; the web's `main` takes `--check`), the checksums of its
-ticks, its sound and its recording against the SNES's. What is left:
+ticks, its sound and its recording against the SNES's. Handed over:
 
 - Blubber Blasen's web build from the kit. With the game: finding 3 in
   [game-findings.md](game-findings.md) (2026-11-22). The game builds for the web with the kit
@@ -249,5 +254,5 @@ ticks, its sound and its recording against the SNES's. What is left:
 ## Not scheduled
 
 macOS (raylib runs there; nobody can test it now), `bundle`/`deploy` (one folder with every
-target), the desktop running the ROM in an emulator, Mesen as the desktop, SPC700 sound and SNES
-save RAM.
+target), the desktop running the ROM in an emulator, Mesen as the desktop, music on the SNES (sound
+effects and save RAM are built on both sides).
