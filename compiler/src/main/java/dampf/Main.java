@@ -185,7 +185,7 @@ public final class Main {
             for (Path f : files) {
                 try {
                     AstBuilder b = new AstBuilder(SystemHeaders.directory());
-                    Parser.Result parsed = Parser.parse(new Preprocessor("gcc", SystemHeaders.directory(), includes, defines).run(f), f.toString());
+                    Parser.Result parsed = Parser.parse(new Preprocessor(SystemHeaders.directory(), includes, defines).run(f), f.toString());
                     b.addFile(parsed);
                     passed.add(parsed);
                     ok++;
@@ -214,7 +214,7 @@ public final class Main {
             }
             System.exit(ok == files.size() && whole ? 0 : 1);
         }
-        Preprocessor pp = new Preprocessor("gcc", SystemHeaders.directory(), includes, defines);
+        Preprocessor pp = new Preprocessor(SystemHeaders.directory(), includes, defines);
         int errors = 0;
         for (Path f : files) {
             Parser.Result r;

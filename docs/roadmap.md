@@ -150,12 +150,11 @@ game doing less work: the pair loop of `separate` (16 %) and the CPU partner (th
 - **Hand-written assembly with the code generator from MIR:** `--replace` works only with the
   naive one, and a linked-in function has no way to declare its calling convention, direct page
   use and cycles for the timing analysis.
-- **dampf's own preprocessor**, so that using dampf needs nothing but Java (needed before the
-  first public release, ADR-6F60Z9QJ): macro expansion
-  following Prosser's algorithm, `#` and `##`, variadic macros with `__VA_OPT__`, `#if`
-  arithmetic in `intmax_t`, line markers for the debug information. `gcc -E` stays in the tests
-  as the oracle, on every test program, every example and generated macro cases. Today users on
-  Windows install MinGW or MSYS only for `gcc -E`.
+- **dampf's own preprocessor** (built 2026-11-22, ADR-6FD4GDN5): using dampf needs nothing but
+  Java. A subset of C99's: what the kit's code and the game use, macro expansion exactly after
+  the standard (Prosser's algorithm); `__VA_OPT__`, `#line`, `#include_next` and gcc's
+  extensions are rejected. `clang -E` is the oracle in the tests, on every C file dampf compiles
+  in the repository and on random macro programs.
 - **Warnings where gcc warns by default**, first a constant that does not fit the type it
   initialises or is assigned to (`uint8_t w[] = { 420 }`): dampf truncates it as gcc does, but
   silently. It hid a bug in CatchMe (a cat's wait of 420 became 164) that only the desktop
@@ -260,9 +259,9 @@ What it takes:
   GitHub, still private), the README and the documents follow it.
 - **The book's getting started on `hello`**, and `examples/m1` gone, with the book before the
   release ([ADR-6F60ZB4N](adr/6F60ZB4N-the-book-is-brought-in-step-before-a-release-not.md); from M5).
-- **Before the first release** ([ADR-6F60Z9QJ](adr/6F60Z9QJ-the-release-is-a-zip-per-system-with-a-java.md)): dampf's own
-  preprocessor (M10) and the graphics converter in Java in the CLI, so building for the SNES
-  needs nothing but the download.
+- **Before the first release** ([ADR-6F60Z9QJ](adr/6F60Z9QJ-the-release-is-a-zip-per-system-with-a-java.md)): the
+  graphics converter in Java in the CLI (dampf's own preprocessor is built, M10), so building for
+  the SNES needs nothing but the download.
 - **Hosting:** a release on GitHub, a zip per system with a Java runtime (jlink) and raylib (ADR
   ADR-6F60Z9QJ), a build on GitHub Actions (cc65 installed for the tests that
   compare with ca65 and ld65; no Mesen; `checkBook` after `build`, ADR-6F60ZB4N), the book on

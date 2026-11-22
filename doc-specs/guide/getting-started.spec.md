@@ -27,8 +27,8 @@ The page opens, before the first H2, with what a superdevkit home is in two sent
 folder with the compiler, the kit's library, the tools, the examples and this book; a game lives
 in a folder of its own and names the home.
 
-1. **What you need** – the prerequisites, cut to what this page needs: Java 25 or newer, gcc
-   (the preprocessor), Python 3 (the converters), a C compiler for the desktop build, and Mesen
+1. **What you need** – the prerequisites, cut to what this page needs: Java 25 or newer,
+   Python 3 (the converters), a C compiler for the desktop build, and Mesen
    (MesenCE) for looking at the result. ca65 and ld65 are needed only to develop dampf; say so
    in one sentence and point to the README of the repository.
 2. **Get superdevkit** – today the home is built from the repository: `./gradlew installDist`
@@ -50,8 +50,8 @@ in a folder of its own and names the home.
    [The desktop](/guide/the-desktop).
 7. **Look at it in Mesen** – open the ROM with the `.dbg` file next to it, step through
    `game_tick` in the C source; link [Debugging in Mesen](/guide/debugging) for more.
-8. **When something goes wrong** – the two or three failures a new user meets: gcc not found
-   (the preprocessor), a wrong path to the home in the args file, a construct outside the
+8. **When something goes wrong** – the two or three failures a new user meets: a header not
+   found, a wrong path to the home in the args file, a construct outside the
    subset (show the message format with one real example from `dampf check`). Link
    [Command line](/reference/command-line).
 

@@ -81,9 +81,8 @@ Goals:
 4. Readable output: the generated assembly is commented so a human can follow what each part is
    meant to do.
 5. Correctness first: every optimization is checked automatically against a reference.
-6. In the end, nothing to install but Java. dampf assembles and links with its own assembler and
-   linker (milestone M6); gcc is still needed for preprocessing until dampf has its own
-   preprocessor (M10).
+6. Nothing to install but Java. dampf preprocesses, assembles and links with its own preprocessor,
+   assembler and linker.
 
 Non-goals:
 
@@ -120,7 +119,7 @@ working documents it is written from.
 
 ## Prerequisites
 
-To use the kit: JDK 25 or newer, gcc (dampf's preprocessor) and Python 3 (the tools); for the
+To use the kit: JDK 25 or newer and Python 3 (the tools); for the
 desktop build also a C compiler and curl (raylib is fetched on the first build). To develop it, also clang, ca65 and ld65 from cc65 2.19
 (`BackendOutputTest` builds the execution tests, 20 random programs and the examples with them
 as well and compares the ROMs) and Python 3; clang is the tests' reference on the PC and is used

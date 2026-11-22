@@ -9,7 +9,7 @@ Domino and the other contributors of grammars-v4 and carry no licence notice of 
 BSD licence of the grammar files is Sam Harwell's and covers only those (see `NOTICE`). Changes:
 
 - all support classes are in package `dampf.parser`;
-- `CLexerBase` no longer runs a preprocessor: dampf runs `gcc -E` itself and lexes its output;
+- `CLexerBase` no longer runs a preprocessor: dampf runs its own and lexes its output;
 - `CParserBase` no longer reads options from the `sun.java.command` system property;
 - `CParserBase.EnterDeclaration` no longer declares struct and union tags as type names (C keeps
   tags in a namespace of their own; declaring them broke `typedef struct S {...} S;`);

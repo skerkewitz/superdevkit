@@ -72,7 +72,7 @@ DAMPF_RANGED(int8_t,  Speed, -4, 4);
 - **PC build:** expands to `typedef uint8_t Lane;` plus a compile-time check (`_Static_assert`) that the base type can hold the whole range.
 - **dampf build:** expands to a built-in the dampf parser recognises, so the type carries its range.
 
-Both builds see the same source after preprocessing with `gcc -E`, so both agree on every declaration.
+Both builds see the same source after preprocessing (dampf's preprocessor gives the same tokens as the PC compiler's), so both agree on every declaration.
 
 ### Why C syntax is good enough here
 
