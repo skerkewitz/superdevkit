@@ -6,11 +6,14 @@ The Gradle calls and their properties are in the book, [docs/book/inside/testing
 
 ## The principle
 
-The reference is gcc on the PC. Each test program is compiled by gcc with the undefined
-behaviour sanitizer (UBSan: a program with undefined behaviour fails instead of passing by
-luck), and by dampf into two ROMs, one from the naive code generator and one from the code
-generator from MIR. The naive code generator stays as an independent reference: both ROMs must
-give gcc's results, and a difference between them points to the optimization that caused it.
+The reference is clang on the PC (ADR-6FD2DGP0). Each test program is compiled by clang with the
+undefined behaviour sanitizer (UBSan: a program with undefined behaviour fails instead of passing
+by luck) and once more, optimized, for the values; dampf compiles it into two ROMs, one from the
+naive code generator and one from the code generator from MIR. The naive code generator stays as
+an independent reference: both ROMs must give the PC's results, and a difference between them
+points to the optimization that caused it. gcc and clang give the same results for the subset
+(ADR-6F0R64GD); gcc's bounds sanitizer reported indexes that a program never computes, which
+clang's does not.
 
 The program also runs on the MIR level, in the MIR interpreter (`dampf.mir.Interpreter`): once
 straight after the lowering from the AST, with the verifier (`dampf.mir.Verifier`) after it, and
@@ -33,8 +36,8 @@ scalar elements (`a[2]`, `s.x`), must have the same values on both sides. Pointe
 | Layer | What it compares | Runs in | Time |
 | --- | --- | --- | --- |
 | Unit tests | One pass or component against expected output | JVM | Milliseconds |
-| Execution tests | `compiler/src/test/resources/exec/*.c` against gcc | dampf's emulator, and Mesen when there is one | Seconds |
-| Random programs | Generated programs against gcc | dampf's emulator | Minutes for many |
+| Execution tests | `compiler/src/test/resources/exec/*.c` against clang | dampf's emulator, and Mesen when there is one | Seconds |
+| Random programs | Generated programs against clang | dampf's emulator | Minutes for many |
 | Examples | Each example's `check.txt` played on the SNES, on the desktop and on the web, a checksum per tick, and the same DSP writes in the same ticks ([docs/sound.md](sound.md#the-checks)) | dampf's emulator, Rachael, and Rachael in headless Chromium (Playwright) when installed; Mesen in `dev/compare_example.sh` | Five minutes, two of them the web |
 | The BRR Lab | Every use of `tools/brr_lab.html`, and its bytes against `superdevkit sfx` ([tools/lab_test](../tools/lab_test/README.md)) | Headless Chromium (Playwright), when installed | 10 seconds |
 | Timing on the examples | Every call of every example against its static bounds | dampf's emulator | 20 seconds |
@@ -53,7 +56,7 @@ against what the analysis claims.
 PC, in the MIR interpreter before and after the passes, and as both ROMs in dampf's emulator;
 the naive ROM also runs headless in Mesen (`--testrunner` with a Lua script) when one is
 there. A third ROM from MIR is built with arbitrary block counts (`--block-counts`, a third of
-the blocks "never ran") and must still give gcc's results, since a profile changes only the
+the blocks "never ran") and must still give the PC's results, since a profile changes only the
 order of the blocks. The ROMs from MIR also check the static timing against the emulator
 ([timing.md](timing.md), "Checked against the emulator").
 
@@ -181,7 +184,7 @@ over when it left ([ADR-6F60Z819](adr/6F60Z819-the-examples-replace-blubber-blas
     (`dampf bench`); and on every example's check, the same checksums every tick.
 - **GitHub Actions** (`.github/workflows/build.yml`) runs `./gradlew build` for every pull
   request (ADR-6FB9QJ3R), with JDK 25 on Ubuntu, the
-  runner's gcc, python3 and node, and Ubuntu's cc65 (ca65 and ld65 for `BackendOutputTest`). Mesen, raylib, Emscripten and Playwright are not there: the execution
+  runner's gcc (dampf's preprocessor), clang, python3 and node, and Ubuntu's cc65 (ca65 and ld65 for `BackendOutputTest`). Mesen, raylib, Emscripten and Playwright are not there: the execution
   tests run in dampf's emulator only, `ExamplesTest` plays the SNES only, and `DesktopIsolationTest`, the symbol check of WebAssembly
   objects (`ProjectTest`) and the BRR Lab's browser tests skip. A pull request is merged only when this build passes.
 - **Parallel test JVMs.** The compiler's test classes run in several JVMs at once, one per core
@@ -251,14 +254,14 @@ MIR has all three; LIR has the text format and the verifier (`LVerifier`, after 
 generation: labels, branch targets, known opcodes, the accumulator width on every path) and the
 place check (`PlaceCheck`, after the places are assigned); its
 meaning is checked by running the code. HIR is not built; its interpreter would be a second
-definition of what the program means, next to gcc.
+definition of what the program means, next to the PC's compiler.
 
 ## When something hangs
 
 A test must fail, not wait forever. Every program test (execution tests, random programs, the
 MIR round trips) runs under a hard time limit (`assertTimeoutPreemptively`: 3, 2 and 2 minutes
 per program), because
-JUnit's default timeouts do not cover dynamic tests. External programs (gcc, the PC builds,
+JUnit's default timeouts do not cover dynamic tests. External programs (the C compilers, the PC builds,
 and ca65 and ld65 where the tests use them) run through `dampf.util.Processes` with a time limit and are killed when it runs
 out. The emulator stops after 600 frames in the program tests, after a limit per example in its
 checks, and after 200,000 frames in `dampf bench`; the MIR interpreter counts its steps. The Gradle test task has an

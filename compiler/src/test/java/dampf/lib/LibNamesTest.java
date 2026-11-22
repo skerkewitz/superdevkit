@@ -93,7 +93,7 @@ class LibNamesTest {
         }
         for (Path c : sources) {
             Path o = tmp.resolve(c.getParent().getFileName() + "_" + c.getFileName() + ".o");
-            Processes.check(Path.of("."), Duration.ofMinutes(1), List.of("gcc", "-std=c99", "-c", "-w", "-I", "lib/include",
+            Processes.check(Path.of("."), Duration.ofMinutes(1), List.of("clang", "-std=c99", "-c", "-w", "-I", "lib/include",
                     "-I", c.getParent().toString(), "-I", "build/raylib/linux/include", "-I", "lib/rachael", c.toString(), "-o", o.toString()));
             String nm = Processes.check(Path.of("."), Duration.ofMinutes(1), List.of("nm", "--defined-only", "-g", o.toString()));
             for (String line : nm.split("\\R")) {
