@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The target web (M8, docs/superdevkit-transition.md): the game on Rachael in the browser, built by
+ * The target web (M8, docs/archive/superdevkit-transition.md): the game on Rachael in the browser, built by
  * Emscripten's emcc ({@code EMCC}, default emcc on the PATH) in the three steps of the desktop
  * ({@link Desktop}): the game's files alone, without the host's headers; the symbol check on their
  * objects (wasm objects, {@link Symbols}); the link with Rachael, the desktop's frontend, lib/web

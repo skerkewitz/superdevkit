@@ -63,7 +63,7 @@ likely gain and what each milestone needs from the one before; it was kept when 
 The target `web` with Emscripten, save RAM in the browser, `superdevkit run web`; the examples
 and Blubber Blasen in the browser, after which the game drops its own web build. Its own desktop
 frontend goes later, when the kit's window has the game's development tools (M10). The steps are
-in [superdevkit-transition.md](superdevkit-transition.md#m8-the-web-080).
+in [superdevkit-transition.md](archive/superdevkit-transition.md#m8-the-web-080).
 
 Concluded on 2026-11-22 as version 0.8.0 ([History](#m8)).
 
@@ -228,7 +228,7 @@ Also in M12:
 
 The ROM on a real SNES or a flash cartridge, on NTSC and PAL, and the DMA margin
 (`SETUP_LINES`) measured there, until there is hardware (from M5;
-[superdevkit-transition.md](superdevkit-transition.md#57-on-a-console-needs-the-hardware)).
+[superdevkit-transition.md](archive/superdevkit-transition.md#57-on-a-console-needs-the-hardware)).
 Music on the SNES (the calls are a stub there; sound effects and save RAM are built).
 macOS (raylib runs there; nobody can test it now), `superdevkit bundle` (one folder with every
 target, ready to publish), the desktop running the ROM in an emulator and Mesen as the desktop.
@@ -425,7 +425,7 @@ Dates are 2026-11-17 unless a line says otherwise. The measurements are in [opti
 - **The targets** (2026-11-18). After a brainstorming session
   ([summary](brainstorm/superdevkit-targets_2026-11-18.md)) the dev kit got its desktop and web
   targets, split by target after M5: M7 Windows and Linux, M8 the web (ADR-6F3CJZBY and ADR-6F3CK03Z;
-  the plan is [superdevkit-transition.md](superdevkit-transition.md)). The milestones planned
+  the plan is [superdevkit-transition.md](archive/superdevkit-transition.md)). The milestones planned
   before moved from M7–M10 to M9–M12; the History above names them by their old numbers.
 
 - **M8 narrowed to the web** (2026-11-22). M8 was to end with Blubber Blasen dropping its whole
@@ -552,7 +552,7 @@ converters are Java in it, so building needs nothing but Java and a C compiler; 
 `lib/SNES_HARDWARE.md`; and music on the desktop from the files the project lists, a stub on the
 SNES ([ADR-6F3CK03Z](adr/6F3CK03Z-desktop-and-web-are-for-prototyping-with-sound.md), with the names
 of [ADR-6F3CK2AR](adr/6F3CK2AR-every-name-of-the-console-api-starts-with.md); [sound.md](sound.md#music)).
-The steps are in [superdevkit-transition.md](superdevkit-transition.md#m7-windows-and-linux-070).
+The steps are in [superdevkit-transition.md](archive/superdevkit-transition.md#m7-windows-and-linux-070).
 
 Concluded on 2026-11-19 as version 0.7.0, with one part of its goal left to the game: the examples
 build and run on Linux and Windows from the kit, and Blubber Blasen's switch to the kit's desktop

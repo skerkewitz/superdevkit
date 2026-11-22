@@ -1,6 +1,6 @@
 import java.time.Duration
 
-// The superdevkit command (ADR-6F3CJZBY; docs/superdevkit-transition.md, 7.4): init, build and run
+// The superdevkit command (ADR-6F3CJZBY; docs/archive/superdevkit-transition.md, 7.4): init, build and run
 // come with M7. It builds the distribution: both launchers in bin/, the jars in java/, dampf's
 // headers in include/ (ADR-6F60Z9QJ), installed to the root's build/install/superdevkit.
 evaluationDependsOn(":compiler")   // its launcher and headers go into the distribution

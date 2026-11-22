@@ -12,7 +12,6 @@ sources:
   - docs/optimizations.md
   - lib/snes/README.md
   - docs/sound.md
-  - docs/superdevkit-transition.md
   - compiler/src/main/java/dampf/frontend/Preprocessor.java
   - compiler/src/main/java/dampf/frontend/pp/*.java
 audience: Users who need to know what dampf does not do yet before they rely on it

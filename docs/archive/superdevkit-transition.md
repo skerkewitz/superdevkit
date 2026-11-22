@@ -2,14 +2,17 @@
 
 The way from today's repository (dampf, its library for the SNES, a snapshot of Blubber Blasen) to
 superdevkit as the session of 2026-11-18 decided it
-([brainstorm](brainstorm/superdevkit-targets_2026-11-18.md)): a game is a folder with its code, its
+([brainstorm](../brainstorm/superdevkit-targets_2026-11-18.md)): a game is a folder with its code, its
 assets and a reference to superdevkit, and the kit builds it for the SNES, Windows, Linux and the
 web. This file holds what is decided and not built yet; a step that is built leaves it, and what
-was decided goes to the ADR. Milestones and their state are in [roadmap.md](roadmap.md).
+was decided goes to the ADR. Milestones and their state are in [roadmap.md](../roadmap.md).
 
-**Status (2026-11-22, version 0.8.0): the plan's milestones M5, M7 and M8 are concluded.** Left
-are 5.7 (the ROM on a real console, when there is hardware) and Blubber Blasen's switches to the
-kit's desktop and web builds, which are the game's.
+**Done on 2026-11-22 (0.8.0) and archived: the plan's milestones M5, M7 and M8 are concluded.**
+The file is kept as the record of how they were built. What was left is tracked elsewhere: the
+ROM on a real console (5.7), music on the SNES and the other unscheduled items in the
+[roadmap](../roadmap.md#not-scheduled-for-the-dev-kit), Blubber Blasen's web switch in
+[its findings](../game-findings.md), and its own desktop frontend in
+[M10](../roadmap.md#m10-language-platform-and-usability-0100).
 
 Every step ends with a commit on its branch (`m5`, later one per milestone) that passes
 `./gradlew build`, which plays every example on the SNES side and the desktop; steps that touch
@@ -38,7 +41,7 @@ The kit:
 | `compiler/` (today `src/`) | dampf |
 | `lib/include/sdevkit/` | the console API (`snes.h`), the frame rhythm (`loop.h`), sound, save RAM and debug registrations; every name `sdevkit_`/`SDEVKIT_` (ADR-6F3CK2AR); the old names' header `lib/include/snes/` went when the game switched (2026-11-19) |
 | `lib/snes/` | the SNES: the API in C, the main loop |
-| `lib/rachael/` | [Rachael](../lib/README.md#rachael), the pseudo SNES, for the desktop and the web: video memory, registers, the renderer, portable C (from Blubber Blasen's `src/snes`) |
+| `lib/rachael/` | [Rachael](../../lib/README.md#rachael), the pseudo SNES, for the desktop and the web: video memory, registers, the renderer, portable C (from Blubber Blasen's `src/snes`) |
 | `lib/desktop/` | the frontend of `win64` and `linux` (raylib): window, scaling, input, sound, save file, debug view, screenshots |
 | `lib/web/` | what the web build adds to it: the page, IndexedDB for save RAM, the click to start |
 | `tools/` | tools for game developers (the BRR Lab, the rename script) |
@@ -60,15 +63,15 @@ desktop running the ROM in an emulator and Mesen as the desktop are not schedule
 ## M5: the SNES (0.6.0)
 
 Concluded on 2026-11-19 as version 0.6.0 (ADR
-[ADR-6F60ZDMF](adr/6F60ZDMF-m5-is-concluded-as-060-and-a-version-between.md),
-[roadmap](roadmap.md#m5)): Blubber Blasen's ROM, built with the kit, plays its recordings with
+[ADR-6F60ZDMF](../adr/6F60ZDMF-m5-is-concluded-as-060-and-a-version-between.md),
+[roadmap](../roadmap.md#m5)): Blubber Blasen's ROM, built with the kit, plays its recordings with
 the PC's checksums. Steps 5.1, 5.2, 5.3 (but the getting started), 5.4's miscompilation and 5.6
 are done. What is left moved: the rest of 5.4 to M9, `hello` as the getting started and 5.5 to the
 book before the release, 5.7 until there is hardware.
 
 ### 5.1 dampf can be called by a game
 
-Built: argument files, every error of a run, `<string.h>` ([roadmap](roadmap.md#m5)).
+Built: argument files, every error of a run, `<string.h>` ([roadmap](../roadmap.md#m5)).
 
 ### 5.2 The converter
 
@@ -106,7 +109,7 @@ README; the screenshots look right.
 - **The miscompilation with inlining up to 80** found and fixed, with an execution test (done
   2026-11-19: `exec/regress_branch_phis.c`).
 - **Random programs that reach the optimizer**, and execution tests for its patterns: done,
-  `RandomLoopProgram` ([testing.md](testing.md)).
+  `RandomLoopProgram` ([testing.md](../testing.md)).
 
 ### 5.5 The book (ADR-6F3CJYGP)
 
@@ -128,12 +131,12 @@ The playable ROM on a real SNES or flash cartridge, and the DMA margin `SETUP_LI
 again.
 
 On a PAL console too, from the same ROM, with NTSC's limits; on PAL the game runs a sixth slower
-for now ([ADR-6F60Z4AZ](adr/6F60Z4AZ-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md)).
+for now ([ADR-6F60Z4AZ](../adr/6F60Z4AZ-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md)).
 Checked in Mesen with the region set to PAL before the console: the speed, and no byte lost.
 
 ## M7: Windows and Linux (0.7.0)
 
-Concluded on 2026-11-19 as version 0.7.0 ([roadmap](roadmap.md#m7)); Blubber Blasen's switch to the
+Concluded on 2026-11-19 as version 0.7.0 ([roadmap](../roadmap.md#m7)); Blubber Blasen's switch to the
 kit's desktop build is with the game (its finding 1).
 
 ### 7.1 Rachael, the pseudo SNES, in the kit
@@ -149,12 +152,12 @@ New headers in `lib/include/sdevkit/`, with the names of ADR-6F3CK2AR, built in 
 `lib/desktop`, stubs in `lib/snes`, rows in `lib/README.md`'s table:
 
 - Sound effects: built on 2026-11-19, otherwise than planned here, on both platforms
-  ([sound.md](sound.md), ADR-6F60ZC7C): `sdevkit_sfx_init` and `sdevkit_sfx_play` in
+  ([sound.md](../sound.md), ADR-6F60ZC7C): `sdevkit_sfx_init` and `sdevkit_sfx_play` in
   `sdevkit/snes.h`, the effects from `assets/sfx/sfx.json` through `superdevkit sfx`, an SPC700
   driver on the SNES and Rachael's DSP on the desktop, both playing the same BRR. Music
   (`sdevkit_music_play(track)`, `sdevkit_music_stop()`): built on the desktop the same day, from
   the files `superdevkit.toml` lists (`[sound] music`, `music.h`), a stub on the SNES
-  ([sound.md](sound.md#music)).
+  ([sound.md](../sound.md#music)).
 - Save RAM: built on 2026-11-19, in `sdevkit/snes.h` rather than a header of its own:
   `sdevkit_sram()` (the block) and `SDEVKIT_SRAM_SIZE`, from `dampf --sram BYTES` on the SNES
   (the cartridge's battery RAM at `$70:0000`, announced in the header) and `-DSDEVKIT_SRAM_SIZE`
@@ -231,8 +234,8 @@ recordings stay its own, reached through `sdevkit_dbg_action`).
 
 ## M8: the web (0.8.0)
 
-Concluded on 2026-11-22 as version 0.8.0 ([roadmap](roadmap.md#m8)). Built
-([ADR-6FCVAA30](adr/6FCVAA30-the-web-runs-the-desktop-s-frontend-which-waits.md)):
+Concluded on 2026-11-22 as version 0.8.0 ([roadmap](../roadmap.md#m8)). Built
+([ADR-6FCVAA30](../adr/6FCVAA30-the-web-runs-the-desktop-s-frontend-which-waits.md)):
 `web` as a target of the CLI (`superdevkit.project.Web`) with `emcc` and raylib's prebuilt web
 package, the game compiled on its own as on the desktop and its objects checked (`Symbols` reads
 WebAssembly objects: emcc writes wasm, not LLVM bitcode), `lib/web` (the page with the click to
@@ -244,12 +247,12 @@ Chromium (`tools/web_check`, Playwright; the web's `main` takes `--check`), the 
 ticks, its sound and its recording against the SNES's. Handed over:
 
 - Blubber Blasen's web build from the kit. With the game: finding 3 in
-  [game-findings.md](game-findings.md) (2026-11-22). The game builds for the web with the kit
+  [game-findings.md](../game-findings.md) (2026-11-22). The game builds for the web with the kit
   unchanged and plays its two checks (3,600 ticks each) in the browser with every checksum the
   recorded one; it is asked to keep its debug switches out of the web and to drop its CMake web
   build after release 0.8.0. `src/snes` is gone already. `src/platform` stays for the game's
   desktop until the kit's window has the game's development features (the game's ADR-0010),
-  planned for M10 in the [roadmap](roadmap.md#m10-language-platform-and-usability-0100).
+  planned for M10 in the [roadmap](../roadmap.md#m10-language-platform-and-usability-0100).
 
 ## Not scheduled
 
