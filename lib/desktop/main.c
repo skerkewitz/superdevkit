@@ -13,7 +13,8 @@
  * play through raylib's audio stream; a check writes them to a WAV file with --wav file. The music
  * the game asks for (sdevkit_music_play) plays in the window from its file, music/<file> next to
  * the program (sdevkit__music_files, which the build writes), over and over; it pauses with the
- * run. A check plays no music.
+ * run. A check plays no music, and --mute starts the window without sound (the game and its
+ * checksums run the same).
  * Before game_init, as on the SNES, the splash screen (lib/splash/splash.h): its frames are drawn
  * and shown like the game's, then the console is reset again.
  *
@@ -800,7 +801,7 @@ static void flag(void)
     }
 }
 
-static int window(int scale, int no_crt, const char *replay_file)
+static int window(int scale, int no_crt, const char *replay_file, int mute)
 {
     Texture2D tex;
     unsigned lost = 0;
@@ -840,12 +841,14 @@ static int window(int scale, int no_crt, const char *replay_file)
     crt_ok = sdevkit__crt_load();
     crt_on = crt_ok && !no_crt;
     sound_rate = 600000;                    /* the window's 60 frames a second */
-    InitAudioDevice();
-    if (IsAudioDeviceReady()) {
-        SetAudioStreamBufferSizeDefault(AUDIO_CHUNK);
-        stream = LoadAudioStream(SDEVKIT__DSP_RATE, 16, 2);
-        PlayAudioStream(stream);
-        audio_on = 1;
+    if (!mute) {                            /* --mute: no audio device, so no effects and no music */
+        InitAudioDevice();
+        if (IsAudioDeviceReady()) {
+            SetAudioStreamBufferSizeDefault(AUDIO_CHUNK);
+            stream = LoadAudioStream(SDEVKIT__DSP_RATE, 16, 2);
+            PlayAudioStream(stream);
+            audio_on = 1;
+        }
     }
     splash_texture = tex;
     splash_scale = scale;
@@ -1134,6 +1137,7 @@ int main(int argc, char **argv)
     int view_tab = 0;
     int scale = 3;
     int no_crt = 0;
+    int mute = 0;
     int i;
 
     for (i = 1; i < argc; i++) {
@@ -1157,8 +1161,10 @@ int main(int argc, char **argv)
 #endif
         } else if (strcmp(argv[i], "--no-crt") == 0) {
             no_crt = 1;
+        } else if (strcmp(argv[i], "--mute") == 0) {
+            mute = 1;
         } else {
-            fprintf(stderr, "usage: %s [--scale N] [--no-crt] [--replay recording.txt]\n"
+            fprintf(stderr, "usage: %s [--scale N] [--no-crt] [--mute] [--replay recording.txt]\n"
                             "       %s --check check.txt [--out dir] [--record recording.txt] [--wav sound.wav]\n"
                             VIEW_USAGE, argv[0], argv[0]);
             return 2;
@@ -1176,5 +1182,5 @@ int main(int argc, char **argv)
         }
         return status;
     }
-    return window(scale < 1 ? 1 : scale, no_crt, replay_file);
+    return window(scale < 1 ? 1 : scale, no_crt, replay_file, mute);
 }
