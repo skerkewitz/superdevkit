@@ -6,9 +6,9 @@ dependencies:
 - repo_url: skerkewitz/agent-packages
   name: sker-project
   host: github.com
-  resolved_commit: 64dab32f1dde0b803c902cb8ed04d7d83337d9f9
-  resolved_ref: sker-project/v1.1.0
-  version: 1.1.0
+  resolved_commit: 06da391b01511a7026cfdcf2636f53c6ce8e625b
+  resolved_ref: sker-project/v1.2.0
+  version: 1.2.0
   virtual_path: packages/sker-project
   is_virtual: true
   package_type: apm_package
@@ -24,13 +24,13 @@ dependencies:
   - .claude/skills/sker-pr/SKILL.md
   deployed_file_hashes:
     .claude/skills/sker-adr/LICENSE: sha256:2d7586105f326da842e895c269203db8edcb8ab97c89adf94705599c05ff8438
-    .claude/skills/sker-adr/SKILL.md: sha256:b9e23bc575c5c76b579ba2db78ffd8799c793d0bd4e231f8c78038151c28dd9e
+    .claude/skills/sker-adr/SKILL.md: sha256:36515e26186f7750be911607e10a13afd32e43b17b046ed6aa2559e360f4fa8d
     .claude/skills/sker-adr/scripts/check_adr.py: sha256:34ea56e3f176539c39a764688d25dc2b2cdc964bfafa42b5f8f3edeabd4b3df9
     .claude/skills/sker-adr/scripts/new_adr.py: sha256:6319e81be616b5632c463756c09d3ab6291c0a61ec3dae572c60b74f580f9c71
     .claude/skills/sker-adr/templates/ADR.md: sha256:3d24cb7e2aa7cc6b956048cd7ced3044ae1edc06207f6f4590fabc1bd49498a6
     .claude/skills/sker-pr/LICENSE: sha256:2d7586105f326da842e895c269203db8edcb8ab97c89adf94705599c05ff8438
-    .claude/skills/sker-pr/SKILL.md: sha256:263cdf49201f1483d7bf0927d3cbfa0e07dff2bb0d14e26fbae2c0e590e588e7
-  content_hash: sha256:3ccc15dc8f02e567696e02d849b1fc34fcbfc6f06b2ea26545ca54f01bccad71
+    .claude/skills/sker-pr/SKILL.md: sha256:1b3fe96592731d8dbc29fcd8ca2d69b8fb53892d9f6da752aeab12076e535886
+  content_hash: sha256:fa5b3d2ca4cd8f57a7bf16999a367c59ebad1af041d800bbd1e3f606048aade8
   declared_license: MIT
   carried_licenses:
   - path: .apm/skills/sker-adr/LICENSE
@@ -69,7 +69,7 @@ deployments:
   owners:
   - skerkewitz/agent-packages/packages/sker-project
   active_owner: skerkewitz/agent-packages/packages/sker-project
-  content_hash: sha256:b9e23bc575c5c76b579ba2db78ffd8799c793d0bd4e231f8c78038151c28dd9e
+  content_hash: sha256:36515e26186f7750be911607e10a13afd32e43b17b046ed6aa2559e360f4fa8d
 - kind: project-relative
   target: claude
   value: .claude/skills/sker-adr/scripts/check_adr.py
@@ -123,4 +123,4 @@ deployments:
   owners:
   - skerkewitz/agent-packages/packages/sker-project
   active_owner: skerkewitz/agent-packages/packages/sker-project
-  content_hash: sha256:263cdf49201f1483d7bf0927d3cbfa0e07dff2bb0d14e26fbae2c0e590e588e7
+  content_hash: sha256:1b3fe96592731d8dbc29fcd8ca2d69b8fb53892d9f6da752aeab12076e535886

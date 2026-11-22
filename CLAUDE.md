@@ -38,9 +38,13 @@ docs/architecture.md; the other docs are linked from the README.
   is the time the record was made and a hash of its title (ADR-6FCBBNSH); `dev/new_adr.sh
   "Title"` makes the ID, the file and the row. A decision made or changed is a new record; never
   edit an existing one, change the status of the records it supersedes or amends in the table
-  instead. An open question becomes a record only when it is decided. Cite records by ID
-  ("ADR-6F0R668G"), never by their former numbers; a record of another project with its name in
-  front ("gosu-flint's record 32"). `AdrTest` checks table, files and citations.
+  instead. An open question becomes a record only when it is decided. Cite records by ID,
+  never by their former numbers; a record of another project with its name in front
+  ("gosu-flint's record 32"). In text for people (chat, pull requests, docs) the first mention
+  of a record says what it decides, then the ID in brackets: as "Every result matches gcc on
+  x86-64 bit for bit" (ADR-6F0R64GD) says, or a few words of your own for a long title
+  (`sker-adr`, "Citing"). Code comments, commit subjects, tables and rule lists like this one
+  use the ID alone ("ADR-6F0R668G"). `AdrTest` checks table, files and citations.
 - Anything worth changing in the game goes into `docs/game-findings.md` (written for the AI working
   on the game; the user forwards it). The findings so far were forwarded on 2026-11-19 and the file
   deleted: start it anew when there is a new one.
