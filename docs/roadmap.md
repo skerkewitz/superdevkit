@@ -171,6 +171,21 @@ game doing less work: the pair loop of `separate` (16 %) and the CPU partner (th
   no function pointers), mute in the window, text in the debug view (a line the game fills, or a
   value it registers read-only), stepping back in a replay and jumping to a tick, defines per
   target in `superdevkit.toml`, and filled boxes or arrows in the view.
+- **The sound samples uploaded during the splash screen.** `sdevkit_sfx_init` runs in `game_init`,
+  after the splash, and sends the samples at about 350 bytes a frame, so a game with many sounds
+  starts with a black pause (Schach's 13.8 KB take 40 frames). The kit learns the bank only in
+  `game_init`. The ways out: the bank known at link time from what `superdevkit sfx` generates, a
+  hook the game implements, or an upload in pieces during the splash's frames. The choice gets a
+  record. Done when Schach and Steinschlag start without the pause, the desktop behaves the same
+  and `dev/check_example.sh` and `dev/compare_example.sh` pass for them.
+- **A build step before the build, and `superdevkit gen`.** A game with converters of its own
+  runs them by hand before `superdevkit build`. A step in `superdevkit.toml` that runs commands
+  first (for example `[build] before = ["..."]`) would make `superdevkit build <target>` the whole
+  build; it shows in `--plan`, `--dry-run` and `--verbose` like the other steps, and a command that
+  fails stops the build. A game that keeps a build system of its own needs `build/gen` (graphics,
+  sound effects, `music.h`, the music file list) without the rest: a command such as
+  `superdevkit gen [FOLDER]` that runs only the project file's conversions. Both change the kit's
+  interface, so their form gets a record.
 
 ## M11: timing and debugging (0.11.0)
 
@@ -189,6 +204,18 @@ Timing ([timing.md](timing.md#not-built-yet)):
   (`DAMPF_AT_MOST`, [hints.md](hints.md)), or a bound per call chain, would make budgets usable
   there;
 - level 3: DRAM refresh, HDMA and interrupts at frame level.
+
+Measuring a game with only a superdevkit home:
+
+- **The work of every tick.** `dampf.emu.ExampleBench` computes each tick's master cycles without
+  the main loop's wait for the vertical blank, but prints only the average and the busiest 60
+  ticks. A game wants one line per tick (a new tool or an option of `ExampleBench`). Finding the
+  wait by its symbol in the `.lbl` file may be sturdier than by source lines. Done when the values
+  per tick add up to what `ExampleBench` reports on an example.
+- **The ROM's sound from `ExampleCheck`.** It records the ROM's DSP writes in the format of the
+  desktop's `sound.txt`, but its `main` writes only the checksums. An optional output
+  (`ExampleCheck rom.sfc recording.txt [hashes.txt [sound.txt]]`), passed through by
+  `dev/replay.sh`, lets a game compare the ROM's sound with the desktop's using the kit alone.
 
 Better C debugging in Mesen: Mesen shows the C source and the names of global variables from
 the `.dbg` file, and that is all. Of a C symbol (`csym`) it reads only the name and the assembly
