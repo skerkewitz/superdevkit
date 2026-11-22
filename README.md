@@ -170,6 +170,7 @@ superdevkit build linux                   # build/linux/mygame; win64 with MSVC,
 superdevkit run                           # builds the desktop program and plays it; run snes: Mesen
 superdevkit run web                       # build/web/index.html (emcc), served here, in the browser
 superdevkit build snes --plan             # the steps, without running them (--verbose: while running)
+superdevkit gen                           # only the conversions, into build/gen
 ```
 
 It converts the assets in Java (`superdevkit png`, `superdevkit sfx`), compiles with dampf in the
@@ -184,6 +185,9 @@ in the game's folder; they may write files that `sources` lists:
 [build]
 before = ["./make_levels.sh"]
 ```
+
+A game with a build system of its own gets the kit's generated files with `superdevkit gen`: the
+conversions into `build/gen`, and with music the tracks and their list in `build/gen/music`.
 
 ## Using dampf
 

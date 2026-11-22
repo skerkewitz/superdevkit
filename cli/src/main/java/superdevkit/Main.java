@@ -22,6 +22,7 @@ import superdevkit.sfx.Sfx;
  *                                             snes in Mesen, web in the browser
  *     --verbose   every step as it runs     --plan     the steps, without running them
  *     --dry-run   checks that everything is there, and does nothing                --debug    -O0; web: the debug view
+ * superdevkit gen [FOLDER]                    only the conversions, into build/gen, for a build system of its own
  * superdevkit png tiles|tiles2|palette|mode7 picture.png NAME out_dir [FIRST]
  * superdevkit sfx assets/sfx/sfx.json NAME out_dir
  * superdevkit --version
@@ -54,7 +55,7 @@ public final class Main {
             case "sfx" -> {
                 return sfx(args, out, err);
             }
-            case "build", "run", "init" -> {
+            case "build", "run", "init", "gen" -> {
                 return project(args, out, err);
             }
             default -> {
@@ -97,6 +98,12 @@ public final class Main {
                     return usage(err);
                 }
                 return Init.run(words.getFirst(), from == null ? "hello" : from, Path.of("."), plan || dryRun, out);
+            }
+            if (args[0].equals("gen")) {
+                if (words.size() > 1) {
+                    return usage(err);
+                }
+                return gen(Path.of(words.isEmpty() ? "." : words.getFirst()), plan, dryRun, verbose, out, err);
             }
             String target;
             Path dir;
@@ -155,6 +162,32 @@ public final class Main {
         }
     }
 
+    /** superdevkit gen: the commands before the build and the conversions, and nothing else. */
+    private static int gen(Path dir, boolean plan, boolean dryRun, boolean verbose, PrintStream out, PrintStream err)
+            throws Project.Error, Build.Failure, IOException {
+        Project p = Project.read(dir.toAbsolutePath().normalize());
+        Kit kit = Kit.of(p);
+        if (plan || verbose) {
+            out.println("superdevkit gen: " + p.name() + " (kit " + kit.home() + ")");
+        }
+        List<Build.Step> before = Build.before(p);
+        if (!before.isEmpty() && !dryRun) {
+            int ran = Build.run(before, false, false, verbose, out, err);
+            if (ran != 0) {
+                return ran;
+            }
+        }
+        List<Build.Step> steps = Build.gen(p);
+        if (dryRun && !before.isEmpty()) {
+            steps = Build.afterBefore(before, steps);
+        }
+        int status = Build.run(steps, plan, dryRun, verbose, out, err);
+        if (status == 0 && !plan && !dryRun) {
+            out.println(p.generates() ? "generated build/gen" : "nothing to generate");
+        }
+        return status;
+    }
+
     private static int png(String[] args, PrintStream err) {
         if (args.length != 5 && args.length != 6) {
             return usage(err);
@@ -201,6 +234,7 @@ public final class Main {
                        superdevkit run [TARGET] [FOLDER]         builds and starts it (the desktop; snes in Mesen;
                                                                  web in the browser, served from this machine)
                            --verbose  every step   --plan  the steps only   --dry-run  checks only   --debug  -O0 (web: and F1's view)
+                       superdevkit gen [FOLDER]                  only the conversions, into build/gen
                        superdevkit png tiles|tiles2|palette|mode7 picture.png NAME out_dir [FIRST]
                        superdevkit sfx assets/sfx/sfx.json NAME out_dir
                        superdevkit --version""");

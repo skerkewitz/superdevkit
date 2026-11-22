@@ -145,6 +145,19 @@ public final class Build {
         return steps;
     }
 
+    /**
+     * superdevkit gen: what a build system of the game's own needs from the kit. The conversions into
+     * build/gen, and with music its files and their list (music_files.c) in build/gen/music, a folder
+     * of its own because a build that compiles build/gen must not take the frontend's list.
+     */
+    public static List<Step> gen(Project p) {
+        List<Step> steps = new ArrayList<>(assets(p));
+        if (!p.music().isEmpty()) {
+            steps.add(Desktop.music(p, "gen", p.gen().resolve("music").resolve("music_files.c")));
+        }
+        return steps;
+    }
+
     /** The game's C files: the sources (folders for their .c files) and what the conversions write. */
     public static List<Path> gameSources(Project p) throws Failure, IOException {
         List<Path> files = new ArrayList<>();
