@@ -14,6 +14,7 @@
  * few rectangles each, handled with the mouse in the frame they are drawn (immediate mode). This
  * file is host code for the desktop's C compiler, not for dampf.
  */
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -413,6 +414,23 @@ static void sprites_tab(float x, float y, float bottom)
 }
 
 /* --- the panel and the picture's overlays ------------------------------------------------------- */
+/* An arrow from a by (dx, dy) window pixels, with a head of three SNES pixels. */
+static void arrow(Vector2 a, float dx, float dy, float scale, float thick, Color c)
+{
+    float len = sqrtf(dx * dx + dy * dy), head = 3 * scale, ux, uy;
+    Vector2 tip = { a.x + dx, a.y + dy };
+
+    if (len == 0) {
+        DrawCircleV(a, thick, c);
+        return;
+    }
+    ux = dx / len;
+    uy = dy / len;
+    DrawLineEx(a, tip, thick, c);
+    DrawLineEx(tip, (Vector2){ tip.x - head * (ux + uy * 0.6f), tip.y - head * (uy - ux * 0.6f) }, thick, c);
+    DrawLineEx(tip, (Vector2){ tip.x - head * (ux - uy * 0.6f), tip.y - head * (uy + ux * 0.6f) }, thick, c);
+}
+
 const char *sdevkit__debug_draw(Rectangle dst, float scale, float window_w, float window_h, sdevkit__run_state *run)
 {
     float x, y, w, bottom;
@@ -431,9 +449,16 @@ const char *sdevkit__debug_draw(Rectangle dst, float scale, float window_w, floa
     if (boxes_on) {
         for (i = 0; i < sdevkit__dbg_nboxes; i++) {
             const sdevkit__dbg_rect *b = &sdevkit__dbg_boxes[i];
-            DrawRectangleLinesEx((Rectangle){ dst.x + (float)b->x * scale, dst.y + (float)b->y * scale,
-                                              (float)b->w * scale, (float)b->h * scale },
-                                 scale > 2 ? 2.0f : 1.0f, KIND[b->kind & 7]);
+            Rectangle r = { dst.x + (float)b->x * scale, dst.y + (float)b->y * scale,
+                            (float)b->w * scale, (float)b->h * scale };
+            float thick = scale > 2 ? 2.0f : 1.0f;
+            if (b->style == SDEVKIT__DBG_FILLED) {
+                DrawRectangleRec(r, Fade(KIND[b->kind & 7], 0.45f));
+            } else if (b->style == SDEVKIT__DBG_ARROW) {
+                arrow((Vector2){ r.x, r.y }, (float)b->dx * scale, (float)b->dy * scale, scale, thick, KIND[b->kind & 7]);
+            } else {
+                DrawRectangleLinesEx(r, thick, KIND[b->kind & 7]);
+            }
         }
     }
 

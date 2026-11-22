@@ -135,9 +135,13 @@ typedef struct {
     int16_t     lo, hi;            /* a range's bounds */
 } sdevkit__dbg_entry;
 
+enum { SDEVKIT__DBG_OUTLINE, SDEVKIT__DBG_FILLED, SDEVKIT__DBG_ARROW };
+
 typedef struct {
     int16_t x, y;
     uint8_t w, h, kind;
+    uint8_t style;                 /* SDEVKIT__DBG_OUTLINE, _FILLED or _ARROW */
+    int8_t  dx, dy;                /* an arrow's way from (x, y) */
 } sdevkit__dbg_rect;
 
 extern sdevkit__dbg_entry sdevkit__dbg_entries[SDEVKIT__DBG_MAX];

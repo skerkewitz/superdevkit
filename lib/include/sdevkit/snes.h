@@ -326,5 +326,9 @@ void sdevkit_dbg_value(const char *name, const uint16_t *value);
  * colour of kind (0..7); for this tick only (the list is cleared before each game_tick). At most
  * 256 a tick. */
 void sdevkit_dbg_box(int16_t x, int16_t y, uint8_t w, uint8_t h, uint8_t kind);
+/* The same as a filled box the picture shows through (a danger zone), and as an arrow from (x, y)
+ * by (dx, dy) pixels (a direction, an air current). They count among the 256 of the tick. */
+void sdevkit_dbg_fill(int16_t x, int16_t y, uint8_t w, uint8_t h, uint8_t kind);
+void sdevkit_dbg_arrow(int16_t x, int16_t y, int8_t dx, int8_t dy, uint8_t kind);
 
 #endif /* SDEVKIT_SNES_H */

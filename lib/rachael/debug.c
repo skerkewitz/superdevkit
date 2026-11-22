@@ -72,19 +72,54 @@ void sdevkit_dbg_value(const char *name, const uint16_t *value)
     add(SDEVKIT__DBG_VALUE, name, (void *)(uintptr_t)value, 0, 0);
 }
 
-void sdevkit_dbg_box(int16_t x, int16_t y, uint8_t w, uint8_t h, uint8_t kind)
+/* The next of the tick's shapes, or null when the list is full. */
+static sdevkit__dbg_rect *shape(int16_t x, int16_t y, uint8_t kind, uint8_t style)
 {
     sdevkit__dbg_rect *b;
 
     if (sdevkit__dbg_nboxes == SDEVKIT__DBG_BOXES) {
-        return;
+        return 0;
     }
     b = &sdevkit__dbg_boxes[sdevkit__dbg_nboxes++];
     b->x = x;
     b->y = y;
-    b->w = w;
-    b->h = h;
+    b->w = 0;
+    b->h = 0;
+    b->dx = 0;
+    b->dy = 0;
     b->kind = (uint8_t)(kind & 7);
+    b->style = style;
+    return b;
+}
+
+void sdevkit_dbg_box(int16_t x, int16_t y, uint8_t w, uint8_t h, uint8_t kind)
+{
+    sdevkit__dbg_rect *b = shape(x, y, kind, SDEVKIT__DBG_OUTLINE);
+
+    if (b != 0) {
+        b->w = w;
+        b->h = h;
+    }
+}
+
+void sdevkit_dbg_fill(int16_t x, int16_t y, uint8_t w, uint8_t h, uint8_t kind)
+{
+    sdevkit__dbg_rect *b = shape(x, y, kind, SDEVKIT__DBG_FILLED);
+
+    if (b != 0) {
+        b->w = w;
+        b->h = h;
+    }
+}
+
+void sdevkit_dbg_arrow(int16_t x, int16_t y, int8_t dx, int8_t dy, uint8_t kind)
+{
+    sdevkit__dbg_rect *b = shape(x, y, kind, SDEVKIT__DBG_ARROW);
+
+    if (b != 0) {
+        b->dx = dx;
+        b->dy = dy;
+    }
 }
 
 void sdevkit__dbg_reset(void)

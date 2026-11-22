@@ -502,6 +502,24 @@ void sdevkit_dbg_box(int16_t x, int16_t y, uint8_t w, uint8_t h, uint8_t kind)
     (void)kind;
 }
 
+void sdevkit_dbg_fill(int16_t x, int16_t y, uint8_t w, uint8_t h, uint8_t kind)
+{
+    (void)x;
+    (void)y;
+    (void)w;
+    (void)h;
+    (void)kind;
+}
+
+void sdevkit_dbg_arrow(int16_t x, int16_t y, int8_t dx, int8_t dy, uint8_t kind)
+{
+    (void)x;
+    (void)y;
+    (void)dx;
+    (void)dy;
+    (void)kind;
+}
+
 /* The cartridge's battery-backed RAM: LoROM maps it at $70:0000, and dampf --sram writes into the
  * header that the cartridge has it (ROM, RAM and battery; the size). */
 uint8_t *sdevkit_sram(void)
