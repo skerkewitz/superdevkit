@@ -141,6 +141,25 @@ class DesktopStartOptionsTest {
         assertEquals(hashes("direct"), hashes("over"));
     }
 
+    /** Both stop before a window opens. */
+    @Test
+    void aJumpNeedsAReplayThatHasTheTick() throws Exception {
+        Process alone = new ProcessBuilder(program.toString(), "--jump", "5").redirectErrorStream(true).start();
+        String log = new String(alone.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        assertTrue(alone.waitFor(30, TimeUnit.SECONDS));
+        assertEquals(2, alone.exitValue(), log);
+        assertTrue(log.contains("--jump goes with --replay"), log);
+
+        Path recording = tmp.resolve("short.txt");
+        assertEquals(0, play(check.toString(), "short", "--record", recording.toString()).exit());
+        Process beyond = new ProcessBuilder(program.toString(), "--replay", recording.toString(), "--jump", "21")
+                .redirectErrorStream(true).start();
+        log = new String(beyond.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        assertTrue(beyond.waitFor(30, TimeUnit.SECONDS));
+        assertEquals(2, beyond.exitValue(), log);
+        assertTrue(log.contains("the recording has 20 ticks"), log);
+    }
+
     @Test
     void aWrongNameOrValueStopsWithAMessage() throws Exception {
         Ran unknown = play(check.toString(), "e1", "--set", "lives=3");

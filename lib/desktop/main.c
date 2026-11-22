@@ -38,7 +38,10 @@
  * the marks). --replay file plays one in the window: it pauses at each mark, and at the first
  * tick whose checksum is not the recorded one; after its last tick the keyboard takes over (and the recording goes on). F5 pauses and
  * goes on, F6 steps one tick while paused, F7 runs eight ticks a frame, F8 a tick every four
- * frames (slow motion). With --check, --record file writes the recording of the check's run.
+ * frames (slow motion). --jump TICK with --replay plays fast to that tick and pauses there, and
+ * Shift+F6 goes a tick back: a game's state cannot be rewound, so the program starts again and
+ * plays up to the tick before (a session goes into <game>_back.txt first). Not on the web.
+ * With --check, --record file writes the recording of the check's run.
  *
  * --seed N is the seed game_init gets (0 without it), and --set name=value, any number of times,
  * sets what the game registered with sdevkit_dbg_toggle, _range, _color or _action before the first
@@ -80,6 +83,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef _WIN32
+#include <process.h>                    /* _execvp: a tick back starts the program again */
+#elif !defined(__EMSCRIPTEN__)
+#include <unistd.h>
+#endif
 
 #include "sdevkit/loop.h"
 #include "sdevkit/snes.h"
@@ -889,7 +897,7 @@ static void title(const sdevkit__run_state *run, int replaying)
     char t[200];
 
     snprintf(t, sizeof t, "%s (superdevkit) - tick %ld%s%s%s%s%s", GAME_NAME, tick_count,
-             replaying ? " - replay" : "", run->paused ? " - paused (F5 on, F6 a tick)" : "",
+             replaying ? " - replay" : "", run->paused ? " - paused (F5 on, F6 a tick, Shift+F6 back)" : "",
              run->fast ? " - fast" : "", run->slow ? " - slow" : "",
              rec.debug_tick >= 0 ? " - changed in the debug view" : "");
     SetWindowTitle(t);
@@ -921,13 +929,104 @@ static void flag(void)
     }
 }
 
-static int window(int scale, int no_crt, const char *replay_file, int mute)
+/* --- a tick back ------------------------------------------------------------------------------ */
+/* What the program was started with, for starting it again. */
+static struct {
+    const char *program, *replay;
+    int scale, no_crt, mute;
+} launch;
+
+#ifndef __EMSCRIPTEN__
+/* An argument for _execvp, which joins them without quoting; elsewhere the argument itself. */
+static char *exec_arg(const char *a)
+{
+#ifdef _WIN32
+    size_t n = strlen(a) + 3;
+    char *q = grow(NULL, n);
+    snprintf(q, n, "\"%s\"", a);
+    return q;
+#else
+    return (char *)a;
+#endif
+}
+
+/* Shift+F6: a game's state cannot be rewound (its variables are its own), so the program starts
+ * again and plays the session up to the tick before, fast and without the splash, then pauses.
+ * A replay still playing starts from its own file; a session goes into <game>_back.txt first. */
+static void restart_at(long tick, int replaying)
+{
+    static char file[128], number[32], scale_text[16], seed_text[32], set_text[MAX_SETS][96];
+    char *args[16 + 2 * MAX_SETS];
+    int n = 0, i;
+    const char *replay = launch.replay;
+
+    if (!replaying) {
+        snprintf(file, sizeof file, "%s_back.txt", GAME_NAME);
+        if (!rec_save(file)) {
+            return;
+        }
+        replay = file;
+    }
+    if (rec.debug_tick >= 0) {
+        fprintf(stderr, "%s: a tick back leaves out what the debug view changed\n", GAME_NAME);
+    }
+#if SDEVKIT_SRAM_SIZE > 0
+    if (!replaying) {
+        sram_store();
+    }
+#endif
+    args[n++] = exec_arg(launch.program);
+    snprintf(scale_text, sizeof scale_text, "%d", launch.scale);
+    args[n++] = "--scale";
+    args[n++] = scale_text;
+    if (launch.no_crt) {
+        args[n++] = "--no-crt";
+    }
+    if (launch.mute) {
+        args[n++] = "--mute";
+    }
+    if (replaying) {                        /* a file of the session has them already */
+        if (cli_seed >= 0) {
+            snprintf(seed_text, sizeof seed_text, "%ld", cli_seed);
+            args[n++] = "--seed";
+            args[n++] = seed_text;
+        }
+        for (i = 0; i < cli_nsets; i++) {
+            snprintf(set_text[i], sizeof set_text[i], "%.63s=%ld", cli_sets[i].name, cli_sets[i].value);
+            args[n++] = "--set";
+            args[n++] = exec_arg(set_text[i]);
+        }
+    }
+    snprintf(number, sizeof number, "%ld", tick);
+    args[n++] = "--replay";
+    args[n++] = exec_arg(replay);
+    args[n++] = "--jump";
+    args[n++] = number;
+    args[n] = NULL;
+    if (audio_on) {
+        UnloadAudioStream(stream);
+        CloseAudioDevice();
+    }
+    CloseWindow();
+    fflush(NULL);
+#ifdef _WIN32
+    _execvp(launch.program, (const char *const *)args);
+#else
+    execvp(launch.program, args);
+#endif
+    fprintf(stderr, "%s: cannot start %s again\n", GAME_NAME, launch.program);
+    exit(2);
+}
+#endif
+
+static int window(int scale, int no_crt, const char *replay_file, int mute, long jump)
 {
     Texture2D tex;
     unsigned lost = 0;
     int shots = 0;
     Input replay;
-    int replaying = 0, reported = 0, next_mark = 0;
+    int replaying = 0, reported = 0, next_mark = 0, jumping = jump > 0;
+    int f6_quiet = jump >= 0 ? 30 : 0;      /* after a tick back, the key still held arrives as a new press */
     long shown_tick = -1, frames = 0;
     sdevkit__run_state run = { 0 };
 
@@ -937,6 +1036,10 @@ static int window(int scale, int no_crt, const char *replay_file, int mute)
             return 2;
         }
         replaying = 1;
+        if (jump > replay.ticks) {
+            fprintf(stderr, "%s: --jump %ld, but the recording has %ld ticks\n", GAME_NAME, jump, replay.ticks);
+            return 2;
+        }
         for (m = 0; m < replay.nmarks && rec.nmarks < MAX_MARKS; m++) {
             rec.marks[rec.nmarks++] = replay.marks[m];   /* a new recording keeps the old marks */
         }
@@ -971,7 +1074,11 @@ static int window(int scale, int no_crt, const char *replay_file, int mute)
         }
     }
     splash_texture = tex;
-    splash_scale = scale;
+    splash_scale = jump >= 0 ? 0 : scale;   /* a jump shows no splash */
+    if (jump >= 0) {
+        splash_nshot = 0;
+        run.paused = jump == 0;
+    }
     rec.on = 1;
 #if SDEVKIT_SRAM_SIZE > 0
     if (!replaying) {
@@ -989,13 +1096,24 @@ static int window(int scale, int no_crt, const char *replay_file, int mute)
         int steps;
         int k, run_key;
         const char *changed;
-        if (DEBUG_VIEW && IsKeyPressed(KEY_F6)) {
+        if (f6_quiet > 0) {
+            f6_quiet--;
+        } else if (DEBUG_VIEW && IsKeyPressed(KEY_F6)) {
+#ifndef __EMSCRIPTEN__
+            if ((IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT)) && tick_count > 0) {
+                restart_at(tick_count - 1, replaying);
+            }
+            if (!IsKeyDown(KEY_LEFT_SHIFT) && !IsKeyDown(KEY_RIGHT_SHIFT))
+#endif
             run.step = 1;
         }
         /* slow motion: a tick every fourth one due */
         steps = run.paused ? (run.step ? 1 : 0) : run.fast ? 8 * due : run.slow ? (int)((frames + due + 3) / 4 - (frames + 3) / 4)
                 : due;
         run.step = 0;
+        if (jumping) {                      /* --jump: as fast as the window stays alive */
+            steps = jump - tick_count > 256 ? 256 : (int)(jump - tick_count);
+        }
         frames += due;
         if (DEBUG_VIEW && IsKeyPressed(KEY_F5)) {
             run.paused = !run.paused;
@@ -1025,15 +1143,22 @@ static int window(int scale, int no_crt, const char *replay_file, int mute)
                                 "another game\n", GAME_NAME, t, (unsigned)last_hash, (unsigned)replay.hash[t]);
                 reported = 1;
                 run.paused = 1;
+                jumping = 0;
             }
             if (replaying && next_mark < replay.nmarks && tick_count == replay.marks[next_mark]) {
-                fprintf(stderr, "%s: the mark at tick %ld\n", GAME_NAME, tick_count);
+                if (!jumping) {
+                    fprintf(stderr, "%s: the mark at tick %ld\n", GAME_NAME, tick_count);
+                    run.paused = 1;
+                }
                 next_mark++;
-                run.paused = 1;
             }
             if (run.paused) {
                 break;
             }
+        }
+        if (jumping && tick_count >= jump) {
+            jumping = 0;
+            run.paused = 1;
         }
         audio_feed();
         music_step(run.paused);
@@ -1258,6 +1383,7 @@ int main(int argc, char **argv)
     int scale = 3;
     int no_crt = 0;
     int mute = 0;
+    long jump = -1;
     int i;
 
     for (i = 1; i < argc; i++) {
@@ -1283,13 +1409,15 @@ int main(int argc, char **argv)
             no_crt = 1;
         } else if (strcmp(argv[i], "--mute") == 0) {
             mute = 1;
+        } else if (strcmp(argv[i], "--jump") == 0 && i + 1 < argc) {
+            jump = whole("--jump", argv[++i]);
         } else if (strcmp(argv[i], "--seed") == 0 && i + 1 < argc) {
             cli_seed = seed_of(argv[++i]);
         } else if (strcmp(argv[i], "--set") == 0 && i + 1 < argc && strchr(argv[i + 1], '=') != NULL) {
             const char *eq = strchr(argv[++i], '=');
             add_set(cli_sets, &cli_nsets, argv[i], (size_t)(eq - argv[i]), whole("--set", eq + 1));
         } else {
-            fprintf(stderr, "usage: %s [--scale N] [--no-crt] [--mute] [--seed N] [--set name=value] [--replay recording.txt]\n"
+            fprintf(stderr, "usage: %s [--scale N] [--no-crt] [--mute] [--seed N] [--set name=value] [--replay recording.txt [--jump TICK]]\n"
                             "       %s --check check.txt [--seed N] [--set name=value] [--out dir] [--record recording.txt] [--wav sound.wav]\n"
                             VIEW_USAGE, argv[0], argv[0]);
             return 2;
@@ -1307,5 +1435,14 @@ int main(int argc, char **argv)
         }
         return status;
     }
-    return window(scale < 1 ? 1 : scale, no_crt, replay_file, mute);
+    if (jump >= 0 && replay_file == NULL) {
+        fprintf(stderr, "%s: --jump goes with --replay\n", GAME_NAME);
+        return 2;
+    }
+    launch.program = argv[0];
+    launch.replay = replay_file;
+    launch.scale = scale < 1 ? 1 : scale;
+    launch.no_crt = no_crt;
+    launch.mute = mute;
+    return window(launch.scale, no_crt, replay_file, mute, jump);
 }
