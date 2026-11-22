@@ -149,7 +149,7 @@ browser's frames and the clock that steps the game by them (ADR-6FCVAA30) are no
 every tick; F11 saves it in the format of `check.txt` (with `mark` and `hash` lines, which the
 other players skip), so a bug seen on the desktop can be played again: in the window
 (`--replay`, which pauses at the marks and at the first tick whose checksum differs from the
-recorded one), and on the SNES side (`dev/replay.sh` in dampf's emulator for any ROM, `dev/replay_example.sh` for an example, also in Mesen).
+recorded one), and on the SNES side (`dev/replay.sh` in dampf's emulator for any ROM, which can also write the ROM's checksums and sound to compare with the desktop's; `dev/replay_example.sh` for an example, also in Mesen).
 When the ROM from MIR differs and the naive one does not, `dampf.emu.RomDiff good.sfc bad.sfc
 recording.txt` plays both and names, tick by tick, the globals that differ (the video queues first,
 which depend on speed; then the one the miscompiled code writes).
