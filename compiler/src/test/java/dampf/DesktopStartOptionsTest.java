@@ -39,6 +39,8 @@ class DesktopStartOptionsTest {
                 sdevkit_dbg_toggle("god mode", &god);
                 sdevkit_dbg_range("speed", &speed, 0, 9);
                 sdevkit_dbg_toggle("autoplay", &autoplay);
+                sdevkit_dbg_text("goal", "the exit");
+                sdevkit_dbg_value("position", &state[1]);
             }
 
             void game_tick(const uint16_t pad[SDEVKIT_PADS])
@@ -147,6 +149,9 @@ class DesktopStartOptionsTest {
         Ran outside = play(check.toString(), "e2", "--set", "speed=10");
         assertEquals(2, outside.exit(), outside.out());
         assertTrue(outside.out().contains("outside 0 to 9"), outside.out());
+        Ran shown = play(check.toString(), "e5", "--set", "position=1");
+        assertEquals(2, shown.exit(), shown.out());
+        assertTrue(shown.out().contains("only shown"), shown.out());
         assertEquals(2, play(check.toString(), "e3", "--set", "speed=fast").exit());
         assertEquals(2, play(check.toString(), "e4", "--seed", "70000").exit());
     }

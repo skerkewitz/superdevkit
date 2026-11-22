@@ -120,16 +120,18 @@ extern const int sdevkit__music_count;
 void sdevkit__music_reset(void);   /* power on: no music */
 
 /* --- The debug registrations (debug.c; ADR-6F3CK03Z) --------------------------------------- */
-/* What the game registered with sdevkit_dbg_toggle, _range, _color and _action, for the desktop's
+/* What the game registered with sdevkit_dbg_toggle, _range, _color, _action, _text and _value, for the desktop's
  * debug view, and the boxes sdevkit_dbg_box drew in the current tick. */
 #define SDEVKIT__DBG_MAX   32
 #define SDEVKIT__DBG_BOXES 256
-enum { SDEVKIT__DBG_TOGGLE, SDEVKIT__DBG_RANGE, SDEVKIT__DBG_COLOR, SDEVKIT__DBG_ACTION };
+enum { SDEVKIT__DBG_TOGGLE, SDEVKIT__DBG_RANGE, SDEVKIT__DBG_COLOR, SDEVKIT__DBG_ACTION, SDEVKIT__DBG_TEXT,
+       SDEVKIT__DBG_VALUE };
 
 typedef struct {
     uint8_t     kind;              /* SDEVKIT__DBG_* */
     const char *name;
-    void       *p;                 /* uint8_t * (toggle, action), int16_t * (range), uint16_t * (colour) */
+    void       *p;                 /* uint8_t * (toggle, action), int16_t * (range), uint16_t * (colour,
+                                      value), char * (text) */
     int16_t     lo, hi;            /* a range's bounds */
 } sdevkit__dbg_entry;
 

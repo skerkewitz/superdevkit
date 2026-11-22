@@ -153,4 +153,6 @@ today's). A DMA function also uses as many bytes of the vertical blank's 5,700 a
 | `sdevkit_dbg_range` | empty: dampf removes the calls | built (the debug view) | 6 |
 | `sdevkit_dbg_color` | empty: dampf removes the calls | built (the debug view) | 6 |
 | `sdevkit_dbg_action` | empty: dampf removes the calls | built (the debug view) | 6 |
+| `sdevkit_dbg_text` | empty: dampf removes the calls | built (a line the debug view shows) | 6 |
+| `sdevkit_dbg_value` | empty: dampf removes the calls | built (a value the debug view shows) | 6 |
 | `sdevkit_dbg_box` | empty: dampf removes the calls, and the loops left empty | built (over the picture in the debug view) | 6 |

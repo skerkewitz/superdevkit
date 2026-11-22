@@ -481,6 +481,18 @@ void sdevkit_dbg_action(const char *name, uint8_t *pressed)
     (void)pressed;
 }
 
+void sdevkit_dbg_text(const char *name, const char *text)
+{
+    (void)name;
+    (void)text;
+}
+
+void sdevkit_dbg_value(const char *name, const uint16_t *value)
+{
+    (void)name;
+    (void)value;
+}
+
 void sdevkit_dbg_box(int16_t x, int16_t y, uint8_t w, uint8_t h, uint8_t kind)
 {
     (void)x;

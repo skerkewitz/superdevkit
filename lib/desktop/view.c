@@ -148,8 +148,8 @@ static float game_tab(float x, float y, float w, float bottom)
     y += ROW;
     if (sdevkit__dbg_count == 0) {
         text("The game registers nothing to change.", x, y + 4, DIM);
-        text("(sdevkit_dbg_toggle, _range, _color,", x, y + 4 + ROW, DIM);
-        text(" _action in game_init)", x, y + 4 + 2 * ROW, DIM);
+        text("(sdevkit_dbg_toggle, _range, _color, _action,", x, y + 4 + ROW, DIM);
+        text(" _text, _value in game_init)", x, y + 4 + 2 * ROW, DIM);
         y += 3 * ROW;
     }
     for (i = 0; i < sdevkit__dbg_count; i++) {
@@ -204,6 +204,18 @@ static float game_tab(float x, float y, float w, float bottom)
                 }
                 y += ROW;
             }
+            break;
+        }
+        case SDEVKIT__DBG_TEXT:
+            snprintf(s, sizeof s, "%s: %s", e->name, (const char *)e->p);
+            text(s, x + 2, y + 3, FG);
+            y += ROW;
+            break;
+        case SDEVKIT__DBG_VALUE: {
+            uint16_t value = *(const uint16_t *)e->p;
+            snprintf(s, sizeof s, "%s  %u  $%04X", e->name, value, value);
+            text(s, x + 2, y + 3, FG);
+            y += ROW;
             break;
         }
         default: {                                    /* SDEVKIT__DBG_ACTION */

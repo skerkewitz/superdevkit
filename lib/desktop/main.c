@@ -46,7 +46,8 @@
  * same; the SNES has neither, so dampf's emulator refuses such a file.
  *
  * F1 opens the debug view beside the picture (view.c): the run, what the game registered with
- * sdevkit_dbg_toggle, _range, _color and _action, its boxes (sdevkit_dbg_box) over the picture,
+ * sdevkit_dbg_toggle, _range, _color and _action, the lines of _text and _value, its boxes
+ * (sdevkit_dbg_box) over the picture,
  * CGRAM, VRAM's tiles and the sprites. A change made there is not part of the recording: the
  * window says from which tick a replay plays another game, and the recording notes it.
  * --view-shot file.png (with --check) draws the view once after the check into a PNG, in a
@@ -337,6 +338,10 @@ static void apply_set(const Set *set)
         sdevkit__dbg_entry *e = &sdevkit__dbg_entries[i];
         if (strcmp(e->name, set->name) != 0) {
             continue;
+        }
+        if (e->kind == SDEVKIT__DBG_TEXT || e->kind == SDEVKIT__DBG_VALUE) {
+            fprintf(stderr, "%s: --set: '%s' is only shown in the view\n", GAME_NAME, set->name);
+            exit(2);
         }
         if (set->value < e->lo || set->value > e->hi) {
             fprintf(stderr, "%s: --set %s: %ld is outside %d to %d\n", GAME_NAME, set->name, set->value, e->lo,

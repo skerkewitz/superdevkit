@@ -317,6 +317,11 @@ void sdevkit_dbg_color(const char *name, uint16_t *colour);                     
  * and sets it back to 0 (dampf has no function pointers to call, and the game's state changes
  * only inside a tick). */
 void sdevkit_dbg_action(const char *name, uint8_t *pressed);
+/* A line the view only shows, read again every frame: text the game keeps up to date (a string
+ * ending in a zero byte, in memory that stays: the partner's goal, why a life was lost), or a value
+ * (shown in decimal and hex). Nothing changes the game, so a recording stays valid. */
+void sdevkit_dbg_text(const char *name, const char *text);
+void sdevkit_dbg_value(const char *name, const uint16_t *value);
 /* A box of w x h pixels at screen position (x, y), drawn over the picture in the debug view in the
  * colour of kind (0..7); for this tick only (the list is cleared before each game_tick). At most
  * 256 a tick. */
