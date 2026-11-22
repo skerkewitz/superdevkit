@@ -51,7 +51,7 @@ needs is an open question. The rule is ADR
 | M7 | Windows and Linux: Rachael and the desktop frontend in the kit, the `superdevkit` command with `init`, `build`, `run`; the examples and Blubber Blasen run on the desktop from the kit | 0.7.0 | Done 2026-11-19 (the game's switch handed over to it) |
 | M8 | The web: the same games in the browser; Blubber Blasen's web build from the kit | 0.8.0 | Done 2026-11-22 (the game's switch handed over to it) |
 | M9 | The optimizer: what was left of M3; tests and a canonical form first, then register allocation | 0.9.0 | In progress |
-| M10 | Language, platform and usability: C in interrupts, intrinsics, the open subset decisions, the game's development tools in the kit's window (dampf's own preprocessor is built) | 0.10.0 | In progress |
+| M10 | Language, platform and usability: C in interrupts, intrinsics, the open subset decisions, the game's development tools in the kit's window (the preprocessor and the tools are built) | 0.10.0 | In progress |
 | M11 | Timing and debugging: master cycles, bounds for more loops, locals and types in Mesen | 0.11.0 | Planned |
 | M12 | Fine tuning: what was left of M4, until the frame budget is met | 0.12.0 | Planned |
 
@@ -62,7 +62,7 @@ likely gain and what each milestone needs from the one before; it was kept when 
 
 The target `web` with Emscripten, save RAM in the browser, `superdevkit run web`; the examples
 and Blubber Blasen in the browser, after which the game drops its own web build. Its own desktop
-frontend goes later, when the kit's window has the game's development tools (M10). The steps are
+frontend can go too, now that the kit's window has the game's development tools (M10). The steps are
 in [superdevkit-transition.md](archive/superdevkit-transition.md#m8-the-web-080).
 
 Concluded on 2026-11-22 as version 0.8.0 ([History](#m8)).
@@ -86,16 +86,6 @@ FastROM, 12 hardware registers at constant addresses) are in [History](#history)
 
 Also in M9:
 
-- **The game's pair loop as a benchmark** (its finding 9, 2026-11-19: `docs/kit-bench/separate.c` in
-  the game's repository). The bubble separation in four variants over 32 frames of real
-  positions: the counted pair loop over the 23-byte structs (93,999 master cycles a frame with
-  0.5.2), a list of slots sorted by x (93,763), the counted loop over one array per field
-  (109,381) and the list over one array per field (94,843). The game switches to the sorted list
-  when the last is clearly below the first and the third no slower than the first. The assembly
-  shows where: `j * 23` multiplied for every pair instead of stepped, every intermediate through
-  the direct page, `b[list[k]]` multiplied by 23 (`slow-index-list`), 8-bit counters over bytes,
-  a branch and a jump per test; that one array per field is slower goes against
-  `fast-array-per-field`.
 - **Random programs and execution tests that reach the optimizer's patterns** (from M5, see
   [Risks](#risks)). Done: `RandomLoopProgram` ([testing.md](testing.md)) generates the loops and
   pointer walks the optimizer's passes work on.
@@ -165,29 +155,15 @@ game doing less work: the pair loop of `separate` (16 %) and the CPU partner (th
 - **The SNES facts out of the code generators** (DBR `$7E`, the frame addresses, long I/O
   addresses) into the target ([architecture.md](architecture.md#core-and-target)).
 - **`restrict`** or a no-alias hint of dampf's own (see [Open questions](#open-questions)).
-- **The game's development tools in the kit's window**, so that Blubber Blasen can drop its own
-  desktop frontend (`src/platform`, kept beside the kit's by the game's ADR-0010). What the game
-  asked for (its finding 11 for the kit, 2026-11-20), in the order it matters to the game: start
-  options (a seed, and setting a registered toggle or range by name before the first tick), a
-  bot or another source for the pad (a registered toggle the game reads would do, since dampf has
-  no function pointers), mute in the window, text in the debug view (a line the game fills, or a
-  value it registers read-only), stepping back in a replay and jumping to a tick, defines per
-  target in `superdevkit.toml`, and filled boxes or arrows in the view.
-- **The sound samples uploaded during the splash screen.** `sdevkit_sfx_init` runs in `game_init`,
-  after the splash, and sends the samples at about 350 bytes a frame, so a game with many sounds
-  starts with a black pause (Schach's 13.8 KB take 40 frames). The kit learns the bank only in
-  `game_init`. The ways out: the bank known at link time from what `superdevkit sfx` generates, a
-  hook the game implements, or an upload in pieces during the splash's frames. The choice gets a
-  record. Done when Schach and Steinschlag start without the pause, the desktop behaves the same
-  and `dev/check_example.sh` and `dev/compare_example.sh` pass for them.
-- **A build step before the build, and `superdevkit gen`.** A game with converters of its own
-  runs them by hand before `superdevkit build`. A step in `superdevkit.toml` that runs commands
-  first (for example `[build] before = ["..."]`) would make `superdevkit build <target>` the whole
-  build; it shows in `--plan`, `--dry-run` and `--verbose` like the other steps, and a command that
-  fails stops the build. A game that keeps a build system of its own needs `build/gen` (graphics,
-  sound effects, `music.h`, the music file list) without the rest: a command such as
-  `superdevkit gen [FOLDER]` that runs only the project file's conversions. Both change the kit's
-  interface, so their form gets a record.
+- **The game's development tools in the kit's window** (built 2026-11-22), so that Blubber Blasen
+  can drop its own desktop frontend (`src/platform`, kept beside the kit's by the game's ADR-0010):
+  `--seed` and `--set name=value` for how a game starts, a bot as a toggle the game registers,
+  `--mute`, read-only lines in the debug view (`sdevkit_dbg_text`, `_value`), `--jump` and a tick
+  back in a replay (Shift+F6), defines per target in `superdevkit.toml` (ADR-6FEWEE95), and filled
+  boxes and arrows in the view (`sdevkit_dbg_fill`, `_arrow`).
+- **A build step before the build, and `superdevkit gen`** (built 2026-11-22). `[build] before` in
+  `superdevkit.toml` runs a game's own converters first (ADR-6FEVZD02), and `superdevkit gen` runs
+  only the conversions, for a build system of the game's own (ADR-6FEW1T2S).
 
 ## M11: timing and debugging (0.11.0)
 
@@ -207,17 +183,9 @@ Timing ([timing.md](timing.md#not-built-yet)):
   there;
 - level 3: DRAM refresh, HDMA and interrupts at frame level.
 
-Measuring a game with only a superdevkit home:
-
-- **The work of every tick.** `dampf.emu.ExampleBench` computes each tick's master cycles without
-  the main loop's wait for the vertical blank, but prints only the average and the busiest 60
-  ticks. A game wants one line per tick (a new tool or an option of `ExampleBench`). Finding the
-  wait by its symbol in the `.lbl` file may be sturdier than by source lines. Done when the values
-  per tick add up to what `ExampleBench` reports on an example.
-- **The ROM's sound from `ExampleCheck`.** It records the ROM's DSP writes in the format of the
-  desktop's `sound.txt`, but its `main` writes only the checksums. An optional output
-  (`ExampleCheck rom.sfc recording.txt [hashes.txt [sound.txt]]`), passed through by
-  `dev/replay.sh`, lets a game compare the ROM's sound with the desktop's using the kit alone.
+Measuring a game with only a superdevkit home (built 2026-11-22): `dampf.emu.ExampleBench` writes
+the work of every tick with a fourth argument, and `ExampleCheck` and `dev/replay.sh` write the
+ROM's sound in the format of the desktop's `sound.txt`.
 
 Better C debugging in Mesen: Mesen shows the C source and the names of global variables from
 the `.dbg` file, and that is all. Of a C symbol (`csym`) it reads only the name and the assembly

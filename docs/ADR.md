@@ -79,6 +79,9 @@ document of its subject.
 | ADR-6FD4GDN5 | [dampf has its own preprocessor, a subset of C99's](adr/6FD4GDN5-dampf-has-its-own-preprocessor-a-subset-of-c99-s.md) | Accepted; supersedes ADR-6F0R6752 | 2026-11-22 |
 | ADR-6FD54GME | [The pull-request workflow and the ADR skill come from the sker-project package, installed with apmw](adr/6FD54GME-the-pull-request-workflow-and-the-adr-skill-come.md) | Accepted; amends ADR-6FB9QJ3R | 2026-11-22 |
 | ADR-6FD7KEJV | [On the web the debug view is only in a build with --debug](adr/6FD7KEJV-on-the-web-the-debug-view-is-only-in-a-build-with.md) | Accepted | 2026-11-22 |
+| ADR-6FEVZD02 | [A project can name commands that run before its build](adr/6FEVZD02-a-project-can-name-commands-that-run-before-its.md) | Accepted | 2026-11-22 |
+| ADR-6FEW1T2S | [superdevkit gen runs only a project's conversions](adr/6FEW1T2S-superdevkit-gen-runs-only-a-project-s-conversions.md) | Accepted | 2026-11-22 |
+| ADR-6FEWEE95 | [A project can define macros per target for its own files](adr/6FEWEE95-a-project-can-define-macros-per-target-for-its-own.md) | Accepted | 2026-11-22 |
 
 ## Former numbers
 

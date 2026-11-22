@@ -108,3 +108,26 @@ Your finding 13 is closed as well: the loop it describes, a 16-bit store into an
 with `DAMPF_RANGE`, now compiles to an indexed store (`sta array,x`) and no longer goes through a
 24-bit pointer. What the game would change: nothing it must. It went back to byte stores because
 of that finding and can try the 16-bit version again, and measure it.
+
+## 5. The black pause before the title: draw first, then load the sounds (2026-11-22)
+
+`sdevkit_sfx_init` sends the samples at about 350 bytes a frame and blocks until it is done. If
+the game calls it while the screen is still off, the player looks at a black screen for that
+long. The kit will not move this upload into the splash screen: which samples to load, and when,
+is the game's decision (your finding 12.2 is closed that way).
+
+The PPU keeps showing its picture during the upload, so the order in `game_init` is enough:
+
+```c
+draw_title();                      /* everything for the PPU first */
+sdevkit_set_brightness(15);
+sdevkit_sfx_init(&sfx_bank);       /* the title stays on screen meanwhile */
+```
+
+Measured on a copy of the kit's example Steinschlag in Mesen: 48 frames with the screen off during
+the upload before, none after, no byte lost, and the same checksums and sound over 1,700 ticks.
+
+What the game would change: move its `sdevkit_sfx_init` call behind the drawing of the first
+screen and the switch that turns it on. The picture stands still and the pads are not read until
+the upload ends, so the first screen should be one that can wait, and nothing may write to VRAM
+after the screen is on except in a vertical blank. This was not tried on the game itself.

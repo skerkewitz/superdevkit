@@ -123,7 +123,7 @@ and the last one compares what it plays and saves with what `superdevkit sfx` bu
 void game_init(uint16_t seed)
 {
     ...
-    sdevkit_sfx_init(&sfx_bank);       /* once, with the screen off */
+    sdevkit_sfx_init(&sfx_bank);       /* once, last: see "On the SNES" */
 }
 
     sdevkit_sfx_play(SFX_JUMP);        /* where it happens, in game_tick */
@@ -158,6 +158,24 @@ frames after the splash screen). The CPU's loop needs about 100 cycles a byte as
 it, the boot code about 25 of the SPC700's, and they wait for each other on every byte. A loader
 of our own that the boot code uploads first, and that takes three bytes per exchange, would be
 about three times faster; it is not built.
+
+What the player sees during the upload is the game's choice, since only the game knows which
+samples it loads and when. The PPU keeps showing its picture while the CPU sends the samples, so
+a game that draws its title first and switches the screen on before the upload shows the title
+instead of a black screen:
+
+```c
+void game_init(uint16_t seed)
+{
+    draw_title();                      /* everything for the PPU first */
+    sdevkit_set_brightness(15);
+    sdevkit_sfx_init(&sfx_bank);       /* the title stays on screen meanwhile */
+}
+```
+
+The CPU does nothing else until the upload ends, so the picture stands still and the pads are not
+read. On a copy of Steinschlag in Mesen, this order took the 48 frames of black screen to none,
+with no byte lost and the same checksums and sound over 1,700 ticks.
 
 ## On Rachael
 

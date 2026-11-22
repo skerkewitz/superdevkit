@@ -13,7 +13,8 @@
  * play through raylib's audio stream; a check writes them to a WAV file with --wav file. The music
  * the game asks for (sdevkit_music_play) plays in the window from its file, music/<file> next to
  * the program (sdevkit__music_files, which the build writes), over and over; it pauses with the
- * run. A check plays no music.
+ * run. A check plays no music, and --mute starts the window without sound (the game and its
+ * checksums run the same).
  * Before game_init, as on the SNES, the splash screen (lib/splash/splash.h): its frames are drawn
  * and shown like the game's, then the console is reset again.
  *
@@ -37,10 +38,19 @@
  * the marks). --replay file plays one in the window: it pauses at each mark, and at the first
  * tick whose checksum is not the recorded one; after its last tick the keyboard takes over (and the recording goes on). F5 pauses and
  * goes on, F6 steps one tick while paused, F7 runs eight ticks a frame, F8 a tick every four
- * frames (slow motion). With --check, --record file writes the recording of the check's run.
+ * frames (slow motion). --jump TICK with --replay plays fast to that tick and pauses there, and
+ * Shift+F6 goes a tick back: a game's state cannot be rewound, so the program starts again and
+ * plays up to the tick before (a session goes into <game>_back.txt first). Not on the web.
+ * With --check, --record file writes the recording of the check's run.
+ *
+ * --seed N is the seed game_init gets (0 without it), and --set name=value, any number of times,
+ * sets what the game registered with sdevkit_dbg_toggle, _range, _color or _action before the first
+ * tick. Both are written into a recording ("seed N", "set VALUE name"), so its replay starts the
+ * same; the SNES has neither, so dampf's emulator refuses such a file.
  *
  * F1 opens the debug view beside the picture (view.c): the run, what the game registered with
- * sdevkit_dbg_toggle, _range, _color and _action, its boxes (sdevkit_dbg_box) over the picture,
+ * sdevkit_dbg_toggle, _range, _color and _action, the lines of _text and _value, its boxes
+ * (sdevkit_dbg_box) over the picture,
  * CGRAM, VRAM's tiles and the sprites. A change made there is not part of the recording: the
  * window says from which tick a replay plays another game, and the recording notes it.
  * --view-shot file.png (with --check) draws the view once after the check into a PNG, in a
@@ -73,6 +83,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef _WIN32
+#include <process.h>                    /* _execvp: a tick back starts the program again */
+#elif !defined(__EMSCRIPTEN__)
+#include <unistd.h>
+#endif
 
 #include "sdevkit/loop.h"
 #include "sdevkit/snes.h"
@@ -272,6 +287,92 @@ static const struct { const char *name; uint16_t bit; } BUTTONS[] = {
 #define NBUTTONS (sizeof BUTTONS / sizeof BUTTONS[0])
 #define MAX_MARKS 64
 
+/* How the game starts: the seed game_init gets and the registrations of the debug view set before
+ * the first tick (--seed, --set name=value, or the lines "seed N" and "set VALUE name" of a check
+ * or a recording, which the options on the command line come after). */
+#define MAX_SETS 32
+typedef struct {
+    char name[64];
+    long value;
+} Set;
+static uint16_t start_seed;
+static Set start_sets[MAX_SETS];
+static int start_nsets;
+static long cli_seed = -1;
+static Set cli_sets[MAX_SETS];
+static int cli_nsets;
+
+static void add_set(Set *sets, int *n, const char *name, size_t len, long value)
+{
+    if (*n == MAX_SETS || len == 0 || len >= sizeof sets[0].name) {
+        fprintf(stderr, "%s: --set: at most %d, each name under %d characters\n", GAME_NAME, MAX_SETS,
+                (int)sizeof sets[0].name);
+        exit(2);
+    }
+    memcpy(sets[*n].name, name, len);
+    sets[*n].name[len] = 0;
+    sets[*n].value = value;
+    (*n)++;
+}
+
+/* A whole number, decimal or 0x hex; anything else ends the program with a message. */
+static long whole(const char *what, const char *s)
+{
+    char *end;
+    long v = strtol(s, &end, 0);
+    if (*s == 0 || *end != 0) {
+        fprintf(stderr, "%s: %s: '%s' is not a number\n", GAME_NAME, what, s);
+        exit(2);
+    }
+    return v;
+}
+
+static uint16_t seed_of(const char *s)
+{
+    long v = whole("seed", s);
+    if (v < 0 || v > 65535) {
+        fprintf(stderr, "%s: the seed is 0 to 65535, not %ld\n", GAME_NAME, v);
+        exit(2);
+    }
+    return (uint16_t)v;
+}
+
+/* Sets a registration of the debug view by its name, after game_init has made them. */
+static void apply_set(const Set *set)
+{
+    int i;
+
+    for (i = 0; i < sdevkit__dbg_count; i++) {
+        sdevkit__dbg_entry *e = &sdevkit__dbg_entries[i];
+        if (strcmp(e->name, set->name) != 0) {
+            continue;
+        }
+        if (e->kind == SDEVKIT__DBG_TEXT || e->kind == SDEVKIT__DBG_VALUE) {
+            fprintf(stderr, "%s: --set: '%s' is only shown in the view\n", GAME_NAME, set->name);
+            exit(2);
+        }
+        if (set->value < e->lo || set->value > e->hi) {
+            fprintf(stderr, "%s: --set %s: %ld is outside %d to %d\n", GAME_NAME, set->name, set->value, e->lo,
+                    e->kind == SDEVKIT__DBG_COLOR ? 0x7FFF : e->hi);
+            exit(2);
+        }
+        if (e->kind == SDEVKIT__DBG_RANGE) {
+            *(int16_t *)e->p = (int16_t)set->value;
+        } else if (e->kind == SDEVKIT__DBG_COLOR) {
+            *(uint16_t *)e->p = (uint16_t)set->value;
+        } else {
+            *(uint8_t *)e->p = (uint8_t)set->value;
+        }
+        return;
+    }
+    fprintf(stderr, "%s: --set: the game registers no '%s'; it registers:", GAME_NAME, set->name);
+    for (i = 0; i < sdevkit__dbg_count; i++) {
+        fprintf(stderr, "%s %s", i ? "," : "", sdevkit__dbg_entries[i].name);
+    }
+    fprintf(stderr, "%s\n", sdevkit__dbg_count ? "" : " nothing");
+    exit(2);
+}
+
 /* The session being recorded: pad 1 and the checksum of every tick, and the marks. */
 static struct {
     int on;
@@ -344,6 +445,12 @@ static int rec_save(const char *path)
                 rec.debug_name, rec.debug_tick);
     }
     write_sram_line(f, rec.sram);
+    if (start_seed != 0) {
+        fprintf(f, "seed %u\n", (unsigned)start_seed);
+    }
+    for (i = 0; i < start_nsets; i++) {
+        fprintf(f, "set %ld %s\n", start_sets[i].value, start_sets[i].name);
+    }
     for (start = 0; start < rec.n; start = t) {
         uint16_t p = rec.pad[start];
         for (t = start + 1; t < rec.n && rec.pad[t] == p; t++) {
@@ -468,6 +575,17 @@ static int load_input(const char *path, Input *in, long default_ticks)
             in->shots[in->nshots++] = number(path, strtok(NULL, " \t\r\n"));
         } else if (strcmp(w, "splash") == 0 && splash_nshot < 64) {
             splash_shots[splash_nshot++] = number(path, strtok(NULL, " \t\r\n"));
+        } else if (strcmp(w, "seed") == 0) {
+            const char *v = strtok(NULL, " \t\r\n");
+            start_seed = seed_of(v != NULL ? v : "");
+        } else if (strcmp(w, "set") == 0) {
+            const char *v = strtok(NULL, " \t\r\n");
+            const char *name = strtok(NULL, "\r\n");          /* a name may have spaces */
+            if (v == NULL || name == NULL) {
+                fprintf(stderr, "%s: a set line is: set VALUE name\n", path);
+                exit(2);
+            }
+            add_set(start_sets, &start_nsets, name, strlen(name), whole("set", v));
         } else if (strcmp(w, "sram") == 0) {
             const char *h = strtok(NULL, " \t\r\n");
             long i, n = h != NULL ? (long)strlen(h) / 2 : 0;
@@ -593,6 +711,8 @@ static void sdevkit__splash_sprites(const uint8_t *low, uint16_t bytes, const ui
  * game. The recording begins with the save RAM of this moment. */
 static void start(const uint8_t *sram)
 {
+    int i;
+
 #if SDEVKIT_SRAM_SIZE > 0
     if (sram != NULL) {
         memcpy(sdevkit_sram(), sram, SDEVKIT_SRAM_SIZE);
@@ -606,7 +726,16 @@ static void start(const uint8_t *sram)
     sdevkit__reset();
     sdevkit__dbg_reset();
     sdevkit__music_reset();
-    game_init(0);
+    if (cli_seed >= 0) {
+        start_seed = (uint16_t)cli_seed;
+    }
+    for (i = 0; i < cli_nsets; i++) {
+        add_set(start_sets, &start_nsets, cli_sets[i].name, strlen(cli_sets[i].name), cli_sets[i].value);
+    }
+    game_init(start_seed);
+    for (i = 0; i < start_nsets; i++) {
+        apply_set(&start_sets[i]);
+    }
 }
 
 /* --- the save RAM file ------------------------------------------------------------------------ */
@@ -768,7 +897,7 @@ static void title(const sdevkit__run_state *run, int replaying)
     char t[200];
 
     snprintf(t, sizeof t, "%s (superdevkit) - tick %ld%s%s%s%s%s", GAME_NAME, tick_count,
-             replaying ? " - replay" : "", run->paused ? " - paused (F5 on, F6 a tick)" : "",
+             replaying ? " - replay" : "", run->paused ? " - paused (F5 on, F6 a tick, Shift+F6 back)" : "",
              run->fast ? " - fast" : "", run->slow ? " - slow" : "",
              rec.debug_tick >= 0 ? " - changed in the debug view" : "");
     SetWindowTitle(t);
@@ -800,13 +929,104 @@ static void flag(void)
     }
 }
 
-static int window(int scale, int no_crt, const char *replay_file)
+/* --- a tick back ------------------------------------------------------------------------------ */
+/* What the program was started with, for starting it again. */
+static struct {
+    const char *program, *replay;
+    int scale, no_crt, mute;
+} launch;
+
+#ifndef __EMSCRIPTEN__
+/* An argument for _execvp, which joins them without quoting; elsewhere the argument itself. */
+static char *exec_arg(const char *a)
+{
+#ifdef _WIN32
+    size_t n = strlen(a) + 3;
+    char *q = grow(NULL, n);
+    snprintf(q, n, "\"%s\"", a);
+    return q;
+#else
+    return (char *)a;
+#endif
+}
+
+/* Shift+F6: a game's state cannot be rewound (its variables are its own), so the program starts
+ * again and plays the session up to the tick before, fast and without the splash, then pauses.
+ * A replay still playing starts from its own file; a session goes into <game>_back.txt first. */
+static void restart_at(long tick, int replaying)
+{
+    static char file[128], number[32], scale_text[16], seed_text[32], set_text[MAX_SETS][96];
+    char *args[16 + 2 * MAX_SETS];
+    int n = 0, i;
+    const char *replay = launch.replay;
+
+    if (!replaying) {
+        snprintf(file, sizeof file, "%s_back.txt", GAME_NAME);
+        if (!rec_save(file)) {
+            return;
+        }
+        replay = file;
+    }
+    if (rec.debug_tick >= 0) {
+        fprintf(stderr, "%s: a tick back leaves out what the debug view changed\n", GAME_NAME);
+    }
+#if SDEVKIT_SRAM_SIZE > 0
+    if (!replaying) {
+        sram_store();
+    }
+#endif
+    args[n++] = exec_arg(launch.program);
+    snprintf(scale_text, sizeof scale_text, "%d", launch.scale);
+    args[n++] = "--scale";
+    args[n++] = scale_text;
+    if (launch.no_crt) {
+        args[n++] = "--no-crt";
+    }
+    if (launch.mute) {
+        args[n++] = "--mute";
+    }
+    if (replaying) {                        /* a file of the session has them already */
+        if (cli_seed >= 0) {
+            snprintf(seed_text, sizeof seed_text, "%ld", cli_seed);
+            args[n++] = "--seed";
+            args[n++] = seed_text;
+        }
+        for (i = 0; i < cli_nsets; i++) {
+            snprintf(set_text[i], sizeof set_text[i], "%.63s=%ld", cli_sets[i].name, cli_sets[i].value);
+            args[n++] = "--set";
+            args[n++] = exec_arg(set_text[i]);
+        }
+    }
+    snprintf(number, sizeof number, "%ld", tick);
+    args[n++] = "--replay";
+    args[n++] = exec_arg(replay);
+    args[n++] = "--jump";
+    args[n++] = number;
+    args[n] = NULL;
+    if (audio_on) {
+        UnloadAudioStream(stream);
+        CloseAudioDevice();
+    }
+    CloseWindow();
+    fflush(NULL);
+#ifdef _WIN32
+    _execvp(launch.program, (const char *const *)args);
+#else
+    execvp(launch.program, args);
+#endif
+    fprintf(stderr, "%s: cannot start %s again\n", GAME_NAME, launch.program);
+    exit(2);
+}
+#endif
+
+static int window(int scale, int no_crt, const char *replay_file, int mute, long jump)
 {
     Texture2D tex;
     unsigned lost = 0;
     int shots = 0;
     Input replay;
-    int replaying = 0, reported = 0, next_mark = 0;
+    int replaying = 0, reported = 0, next_mark = 0, jumping = jump > 0;
+    int f6_quiet = jump >= 0 ? 30 : 0;      /* after a tick back, the key still held arrives as a new press */
     long shown_tick = -1, frames = 0;
     sdevkit__run_state run = { 0 };
 
@@ -816,6 +1036,10 @@ static int window(int scale, int no_crt, const char *replay_file)
             return 2;
         }
         replaying = 1;
+        if (jump > replay.ticks) {
+            fprintf(stderr, "%s: --jump %ld, but the recording has %ld ticks\n", GAME_NAME, jump, replay.ticks);
+            return 2;
+        }
         for (m = 0; m < replay.nmarks && rec.nmarks < MAX_MARKS; m++) {
             rec.marks[rec.nmarks++] = replay.marks[m];   /* a new recording keeps the old marks */
         }
@@ -840,15 +1064,21 @@ static int window(int scale, int no_crt, const char *replay_file)
     crt_ok = sdevkit__crt_load();
     crt_on = crt_ok && !no_crt;
     sound_rate = 600000;                    /* the window's 60 frames a second */
-    InitAudioDevice();
-    if (IsAudioDeviceReady()) {
-        SetAudioStreamBufferSizeDefault(AUDIO_CHUNK);
-        stream = LoadAudioStream(SDEVKIT__DSP_RATE, 16, 2);
-        PlayAudioStream(stream);
-        audio_on = 1;
+    if (!mute) {                            /* --mute: no audio device, so no effects and no music */
+        InitAudioDevice();
+        if (IsAudioDeviceReady()) {
+            SetAudioStreamBufferSizeDefault(AUDIO_CHUNK);
+            stream = LoadAudioStream(SDEVKIT__DSP_RATE, 16, 2);
+            PlayAudioStream(stream);
+            audio_on = 1;
+        }
     }
     splash_texture = tex;
-    splash_scale = scale;
+    splash_scale = jump >= 0 ? 0 : scale;   /* a jump shows no splash */
+    if (jump >= 0) {
+        splash_nshot = 0;
+        run.paused = jump == 0;
+    }
     rec.on = 1;
 #if SDEVKIT_SRAM_SIZE > 0
     if (!replaying) {
@@ -866,13 +1096,24 @@ static int window(int scale, int no_crt, const char *replay_file)
         int steps;
         int k, run_key;
         const char *changed;
-        if (DEBUG_VIEW && IsKeyPressed(KEY_F6)) {
+        if (f6_quiet > 0) {
+            f6_quiet--;
+        } else if (DEBUG_VIEW && IsKeyPressed(KEY_F6)) {
+#ifndef __EMSCRIPTEN__
+            if ((IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT)) && tick_count > 0) {
+                restart_at(tick_count - 1, replaying);
+            }
+            if (!IsKeyDown(KEY_LEFT_SHIFT) && !IsKeyDown(KEY_RIGHT_SHIFT))
+#endif
             run.step = 1;
         }
         /* slow motion: a tick every fourth one due */
         steps = run.paused ? (run.step ? 1 : 0) : run.fast ? 8 * due : run.slow ? (int)((frames + due + 3) / 4 - (frames + 3) / 4)
                 : due;
         run.step = 0;
+        if (jumping) {                      /* --jump: as fast as the window stays alive */
+            steps = jump - tick_count > 256 ? 256 : (int)(jump - tick_count);
+        }
         frames += due;
         if (DEBUG_VIEW && IsKeyPressed(KEY_F5)) {
             run.paused = !run.paused;
@@ -902,15 +1143,22 @@ static int window(int scale, int no_crt, const char *replay_file)
                                 "another game\n", GAME_NAME, t, (unsigned)last_hash, (unsigned)replay.hash[t]);
                 reported = 1;
                 run.paused = 1;
+                jumping = 0;
             }
             if (replaying && next_mark < replay.nmarks && tick_count == replay.marks[next_mark]) {
-                fprintf(stderr, "%s: the mark at tick %ld\n", GAME_NAME, tick_count);
+                if (!jumping) {
+                    fprintf(stderr, "%s: the mark at tick %ld\n", GAME_NAME, tick_count);
+                    run.paused = 1;
+                }
                 next_mark++;
-                run.paused = 1;
             }
             if (run.paused) {
                 break;
             }
+        }
+        if (jumping && tick_count >= jump) {
+            jumping = 0;
+            run.paused = 1;
         }
         audio_feed();
         music_step(run.paused);
@@ -1134,6 +1382,8 @@ int main(int argc, char **argv)
     int view_tab = 0;
     int scale = 3;
     int no_crt = 0;
+    int mute = 0;
+    long jump = -1;
     int i;
 
     for (i = 1; i < argc; i++) {
@@ -1157,9 +1407,18 @@ int main(int argc, char **argv)
 #endif
         } else if (strcmp(argv[i], "--no-crt") == 0) {
             no_crt = 1;
+        } else if (strcmp(argv[i], "--mute") == 0) {
+            mute = 1;
+        } else if (strcmp(argv[i], "--jump") == 0 && i + 1 < argc) {
+            jump = whole("--jump", argv[++i]);
+        } else if (strcmp(argv[i], "--seed") == 0 && i + 1 < argc) {
+            cli_seed = seed_of(argv[++i]);
+        } else if (strcmp(argv[i], "--set") == 0 && i + 1 < argc && strchr(argv[i + 1], '=') != NULL) {
+            const char *eq = strchr(argv[++i], '=');
+            add_set(cli_sets, &cli_nsets, argv[i], (size_t)(eq - argv[i]), whole("--set", eq + 1));
         } else {
-            fprintf(stderr, "usage: %s [--scale N] [--no-crt] [--replay recording.txt]\n"
-                            "       %s --check check.txt [--out dir] [--record recording.txt] [--wav sound.wav]\n"
+            fprintf(stderr, "usage: %s [--scale N] [--no-crt] [--mute] [--seed N] [--set name=value] [--replay recording.txt [--jump TICK]]\n"
+                            "       %s --check check.txt [--seed N] [--set name=value] [--out dir] [--record recording.txt] [--wav sound.wav]\n"
                             VIEW_USAGE, argv[0], argv[0]);
             return 2;
         }
@@ -1176,5 +1435,14 @@ int main(int argc, char **argv)
         }
         return status;
     }
-    return window(scale < 1 ? 1 : scale, no_crt, replay_file);
+    if (jump >= 0 && replay_file == NULL) {
+        fprintf(stderr, "%s: --jump goes with --replay\n", GAME_NAME);
+        return 2;
+    }
+    launch.program = argv[0];
+    launch.replay = replay_file;
+    launch.scale = scale < 1 ? 1 : scale;
+    launch.no_crt = no_crt;
+    launch.mute = mute;
+    return window(launch.scale, no_crt, replay_file, mute, jump);
 }

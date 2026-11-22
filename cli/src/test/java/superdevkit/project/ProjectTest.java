@@ -1,5 +1,6 @@
 package superdevkit.project;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -179,6 +180,188 @@ class ProjectTest {
                 """.formatted(Path.of("").toAbsolutePath().toString().replace("\\", "/")));
         String out = run("build", "snes", tmp.toString(), "--dry-run");
         assertTrue(out.startsWith("1\n") && out.contains("missing: ") && out.contains("gone.png"), out);
+    }
+
+    /** A small game whose second file only a command before the build writes. */
+    private void gameWithACommandBefore(String script) throws Exception {
+        assumeTrue(!Desktop.windows(), "the test's command is a shell script");
+        Files.createDirectories(tmp.resolve("src"));
+        Files.writeString(tmp.resolve("src/g.c"), """
+                #include "sdevkit/loop.h"
+                uint8_t made(void);
+                uint8_t v;
+                void game_init(uint16_t seed) { (void)seed; }
+                void game_tick(const uint16_t pad[SDEVKIT_PADS]) { (void)pad; v = made(); }
+                void game_vblank(void) { }
+                """);
+        Files.writeString(tmp.resolve("make.sh"), script);
+        project("""
+                name = "g"
+                kit = "%s"
+                sources = ["src", "made"]
+                include = ["src"]
+                [build]
+                before = ["sh make.sh"]
+                """.formatted(Path.of("").toAbsolutePath().toString().replace("\\", "/")));
+    }
+
+    private static final String WRITES_THE_FILE = """
+            mkdir -p made
+            printf '#include <stdint.h>\\nuint8_t made(void) { return 7; }\\n' > made/more.c
+            echo converted
+            """;
+
+    @Test
+    void theCommandsBeforeTheBuildRunFirstAndCanWriteItsSources() throws Exception {
+        gameWithACommandBefore(WRITES_THE_FILE);
+        String out = run("build", "snes", tmp.toString(), "--verbose");
+        assertTrue(out.startsWith("0\n"), out);
+        assertTrue(out.indexOf("before sh make.sh") < out.indexOf("dampf  build"), out);
+        assertTrue(out.contains("converted"), out);
+        assertTrue(Files.isRegularFile(tmp.resolve("made/more.c")));
+        assertTrue(Files.size(tmp.resolve("build/snes/g.sfc")) >= 32 * 1024);
+    }
+
+    @Test
+    void aPlanShowsTheCommandsAndRunsNothing() throws Exception {
+        gameWithACommandBefore(WRITES_THE_FILE);
+        for (String option : List.of("--plan", "--dry-run")) {
+            String out = run("build", "snes", tmp.toString(), option);
+            assertTrue(out.startsWith("0\n") && !out.contains("missing:"), out);
+            assertTrue(!Files.exists(tmp.resolve("made")), "a " + option + " ran the command");
+        }
+        String plan = run("build", "linux", tmp.toString(), "--plan");
+        assertTrue(plan.contains("before sh make.sh"), plan);
+    }
+
+    @Test
+    void aCommandThatFailsStopsTheBuild() throws Exception {
+        gameWithACommandBefore("echo no levels\nexit 3\n");
+        String out = run("build", "snes", tmp.toString());
+        assertTrue(out.startsWith("1\n") && out.contains("'sh make.sh' ended with status 3") && out.contains("no levels"), out);
+        assertTrue(!Files.exists(tmp.resolve("build/snes/g.sfc")));
+    }
+
+    @Test
+    void aSourceTheCommandsDidNotWriteIsAnError() throws Exception {
+        gameWithACommandBefore("true\n");
+        String out = run("build", "snes", tmp.toString());
+        assertTrue(out.startsWith("1\n") && out.contains("no such file or folder") && out.contains("made"), out);
+    }
+
+    /** A copy of an example, without its build folder, that names this repository as its kit. */
+    private Path copyOfExample(String name) throws Exception {
+        Path from = Path.of("examples", name);
+        Path to = tmp.resolve(name);
+        try (var files = Files.walk(from)) {
+            for (Path f : files.filter(x -> !from.relativize(x).startsWith("build")).toList()) {
+                Path t = to.resolve(from.relativize(f).toString());
+                if (Files.isDirectory(f)) {
+                    Files.createDirectories(t);
+                } else {
+                    Files.copy(f, t);
+                }
+            }
+        }
+        Path toml = to.resolve(Project.FILE);
+        String kit = Path.of("").toAbsolutePath().toString().replace("\\", "/");
+        Files.writeString(toml, Files.readString(toml).replaceFirst("(?m)^kit\\s*=.*$", "kit = \"" + kit + "\""));
+        return to;
+    }
+
+    @Test
+    void genWritesTheConversionsAndNothingElse() throws Exception {
+        Path game = copyOfExample("catchme");
+        String out = run("gen", game.toString());
+        assertTrue(out.startsWith("0\n") && out.contains("generated build/gen"), out);
+        assertTrue(Files.isRegularFile(game.resolve("build/gen/maze_gfx.c")), "the pictures");
+        assertTrue(Files.isRegularFile(game.resolve("build/gen/music.h")), "the tracks' numbers");
+        String list = Files.readString(game.resolve("build/gen/music/music_files.c"));
+        assertTrue(list.contains("sdevkit__music_files") && list.contains("\"music/"), list);
+        try (var files = Files.list(game.resolve("build/gen/music"))) {
+            assertTrue(files.count() >= 2, "the tracks beside their list");
+        }
+        assertTrue(!Files.exists(game.resolve("build/snes")), "gen compiles nothing");
+    }
+
+    @Test
+    void aBuildAfterGenGivesTheSameRom() throws Exception {
+        Path game = copyOfExample("catchme");
+        assertTrue(run("build", "snes", game.toString()).startsWith("0\n"));
+        byte[] plain = Files.readAllBytes(game.resolve("build/snes/catchme.sfc"));
+        assertTrue(run("gen", game.toString()).startsWith("0\n"));
+        assertTrue(run("build", "snes", game.toString()).startsWith("0\n"));
+        assertArrayEquals(plain, Files.readAllBytes(game.resolve("build/snes/catchme.sfc")),
+                "the frontend's music list in build/gen/music must not be compiled into the ROM");
+    }
+
+    @Test
+    void genRunsTheCommandsBeforeItAndItsPlanRunsNothing() throws Exception {
+        gameWithACommandBefore(WRITES_THE_FILE);
+        String plan = run("gen", tmp.toString(), "--plan");
+        assertTrue(plan.startsWith("0\n") && plan.contains("before sh make.sh"), plan);
+        assertTrue(!Files.exists(tmp.resolve("made")));
+        String out = run("gen", tmp.toString());
+        assertTrue(out.startsWith("0\n") && out.contains("nothing to generate"), out);
+        assertTrue(Files.isRegularFile(tmp.resolve("made/more.c")));
+    }
+
+    @Test
+    void definesReachTheGameOnTheirTargetOnly() throws Exception {
+        assumeTrue(!Desktop.windows(), "the plan of linux");
+        Files.createDirectories(tmp.resolve("src"));
+        Files.writeString(tmp.resolve("src/g.c"), """
+                #include "sdevkit/loop.h"
+                #if !defined(ON_SNES) || LEVELS != 3 || defined(ON_DESKTOP)
+                #error the defines of [snes] did not arrive
+                #endif
+                void game_init(uint16_t seed) { (void)seed; }
+                void game_tick(const uint16_t pad[SDEVKIT_PADS]) { (void)pad; }
+                void game_vblank(void) { }
+                """);
+        project("""
+                name = "g"
+                kit = "%s"
+                sources = ["src"]
+                [snes]
+                defines = ["ON_SNES", "LEVELS=3"]
+                [desktop]
+                defines = ["ON_DESKTOP"]
+                [web]
+                defines = ["ON_WEB=1"]
+                """.formatted(Path.of("").toAbsolutePath().toString().replace("\\", "/")));
+        String snes = run("build", "snes", tmp.toString(), "--plan");
+        assertTrue(snes.contains(" -D ON_SNES -D LEVELS=3 --entry main") && !snes.contains("ON_DESKTOP"), snes);
+        String built = run("build", "snes", tmp.toString());
+        assertTrue(built.startsWith("0\n"), built);
+        assertTrue(Files.readString(tmp.resolve("build/snes/g.args")).contains("-D LEVELS=3\n"));
+        String linux = run("build", "linux", tmp.toString(), "--plan");
+        assertTrue(linux.lines().anyMatch(l -> l.contains("-c src/g.c") && l.contains(" -DON_DESKTOP ")), linux);
+        assertTrue(linux.lines().noneMatch(l -> l.contains("lib/rachael") && l.contains("ON_DESKTOP")), "only the game's files: " + linux);
+        String web = run("build", "web", tmp.toString(), "--plan");
+        assertTrue(web.lines().anyMatch(l -> l.contains("-c src/g.c") && l.contains(" -DON_WEB=1 ")), web);
+    }
+
+    @Test
+    void aDefineWithASpaceIsRefused() {
+        assertTrue(error("""
+                name = "g"
+                superdevkit = "0.9"
+                sources = ["src"]
+                [desktop]
+                defines = ["A B"]
+                """).contains("NAME=VALUE"));
+    }
+
+    @Test
+    void anUnknownKeyOfBuildIsRefused() {
+        assertTrue(error("""
+                name = "g"
+                superdevkit = "0.9"
+                sources = ["src"]
+                [build]
+                after = ["x"]
+                """).contains("after"));
     }
 
     @Test

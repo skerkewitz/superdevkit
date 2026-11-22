@@ -68,6 +68,9 @@ final class Web {
             List<String> cmd = new ArrayList<>(common);
             // clang leaves the loops of functions called memcpy and memset alone (dampf's <string.h>)
             cmd.addAll(List.of("-nostdinc", "-ffreestanding", "-isystem", kit.dampfInclude().toString()));
+            for (String d : p.definesFor("web")) {
+                cmd.add("-D" + d);
+            }
             for (Path i : Build.includes(p, kit)) {
                 cmd.add("-I");
                 cmd.add(i.toString());
