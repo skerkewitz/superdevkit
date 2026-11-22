@@ -64,7 +64,8 @@ and Blubber Blasen in the browser, after which the game drops its own PC side. T
 
 State (2026-11-22): the target, `lib/web`, the symbol check of WebAssembly objects and `run web`
 are built (ADR-6FCVAA30), and `ExamplesTest` plays every example's check in the browser; Blubber
-Blasen's switch is left.
+Blasen's switch to the kit's web build is with the game (finding 3 of
+[game-findings.md](game-findings.md)).
 
 ## M9: the optimizer (0.9.0)
 
