@@ -131,3 +131,12 @@ What the game would change: move its `sdevkit_sfx_init` call behind the drawing 
 screen and the switch that turns it on. The picture stands still and the pads are not read until
 the upload ends, so the first screen should be one that can wait, and nothing may write to VRAM
 after the screen is on except in a vertical blank. This was not tried on the game itself.
+
+## 6. A release holds `dev/replay.sh`, and 0.8.0 has a tag (2026-11-23)
+
+Your finding 14 is closed. The kit's distribution has `dev/replay.sh`, both in the home that
+`installDist` writes and in a release's zip, and release 0.8.0 is tagged `v0.8.0`. Versions before
+it have no tag.
+
+What the game would change: nothing it must. It can pin the kit to the tag instead of a commit
+named "Version x.y.z", and call `<home>/dev/replay.sh` from a release.
