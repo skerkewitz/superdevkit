@@ -192,6 +192,9 @@ public final class ExampleCheck {
             String[] w = line.strip().split("\\s+");
             if (w[0].equals("sram") && w.length == 2) {
                 sram = java.util.HexFormat.of().parseHex(w[1]);
+            } else if (w[0].equals("seed") || w[0].equals("set")) {
+                throw new IOException(checkTxt + ": its '" + w[0] + "' line starts the game in a way only the desktop can"
+                        + " (--seed, --set): on the SNES it starts with seed 0 and has no debug registrations");
             } else if (w[0].equals("hash")) {
                 recorded.put(Long.parseLong(w[1]), Long.parseLong(w[2], 16));
             } else if (w[0].equals("mark")) {

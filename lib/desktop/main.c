@@ -40,6 +40,11 @@
  * goes on, F6 steps one tick while paused, F7 runs eight ticks a frame, F8 a tick every four
  * frames (slow motion). With --check, --record file writes the recording of the check's run.
  *
+ * --seed N is the seed game_init gets (0 without it), and --set name=value, any number of times,
+ * sets what the game registered with sdevkit_dbg_toggle, _range, _color or _action before the first
+ * tick. Both are written into a recording ("seed N", "set VALUE name"), so its replay starts the
+ * same; the SNES has neither, so dampf's emulator refuses such a file.
+ *
  * F1 opens the debug view beside the picture (view.c): the run, what the game registered with
  * sdevkit_dbg_toggle, _range, _color and _action, its boxes (sdevkit_dbg_box) over the picture,
  * CGRAM, VRAM's tiles and the sprites. A change made there is not part of the recording: the
@@ -273,6 +278,88 @@ static const struct { const char *name; uint16_t bit; } BUTTONS[] = {
 #define NBUTTONS (sizeof BUTTONS / sizeof BUTTONS[0])
 #define MAX_MARKS 64
 
+/* How the game starts: the seed game_init gets and the registrations of the debug view set before
+ * the first tick (--seed, --set name=value, or the lines "seed N" and "set VALUE name" of a check
+ * or a recording, which the options on the command line come after). */
+#define MAX_SETS 32
+typedef struct {
+    char name[64];
+    long value;
+} Set;
+static uint16_t start_seed;
+static Set start_sets[MAX_SETS];
+static int start_nsets;
+static long cli_seed = -1;
+static Set cli_sets[MAX_SETS];
+static int cli_nsets;
+
+static void add_set(Set *sets, int *n, const char *name, size_t len, long value)
+{
+    if (*n == MAX_SETS || len == 0 || len >= sizeof sets[0].name) {
+        fprintf(stderr, "%s: --set: at most %d, each name under %d characters\n", GAME_NAME, MAX_SETS,
+                (int)sizeof sets[0].name);
+        exit(2);
+    }
+    memcpy(sets[*n].name, name, len);
+    sets[*n].name[len] = 0;
+    sets[*n].value = value;
+    (*n)++;
+}
+
+/* A whole number, decimal or 0x hex; anything else ends the program with a message. */
+static long whole(const char *what, const char *s)
+{
+    char *end;
+    long v = strtol(s, &end, 0);
+    if (*s == 0 || *end != 0) {
+        fprintf(stderr, "%s: %s: '%s' is not a number\n", GAME_NAME, what, s);
+        exit(2);
+    }
+    return v;
+}
+
+static uint16_t seed_of(const char *s)
+{
+    long v = whole("seed", s);
+    if (v < 0 || v > 65535) {
+        fprintf(stderr, "%s: the seed is 0 to 65535, not %ld\n", GAME_NAME, v);
+        exit(2);
+    }
+    return (uint16_t)v;
+}
+
+/* Sets a registration of the debug view by its name, after game_init has made them. */
+static void apply_set(const Set *set)
+{
+    int i;
+
+    for (i = 0; i < sdevkit__dbg_count; i++) {
+        sdevkit__dbg_entry *e = &sdevkit__dbg_entries[i];
+        if (strcmp(e->name, set->name) != 0) {
+            continue;
+        }
+        if (set->value < e->lo || set->value > e->hi) {
+            fprintf(stderr, "%s: --set %s: %ld is outside %d to %d\n", GAME_NAME, set->name, set->value, e->lo,
+                    e->kind == SDEVKIT__DBG_COLOR ? 0x7FFF : e->hi);
+            exit(2);
+        }
+        if (e->kind == SDEVKIT__DBG_RANGE) {
+            *(int16_t *)e->p = (int16_t)set->value;
+        } else if (e->kind == SDEVKIT__DBG_COLOR) {
+            *(uint16_t *)e->p = (uint16_t)set->value;
+        } else {
+            *(uint8_t *)e->p = (uint8_t)set->value;
+        }
+        return;
+    }
+    fprintf(stderr, "%s: --set: the game registers no '%s'; it registers:", GAME_NAME, set->name);
+    for (i = 0; i < sdevkit__dbg_count; i++) {
+        fprintf(stderr, "%s %s", i ? "," : "", sdevkit__dbg_entries[i].name);
+    }
+    fprintf(stderr, "%s\n", sdevkit__dbg_count ? "" : " nothing");
+    exit(2);
+}
+
 /* The session being recorded: pad 1 and the checksum of every tick, and the marks. */
 static struct {
     int on;
@@ -345,6 +432,12 @@ static int rec_save(const char *path)
                 rec.debug_name, rec.debug_tick);
     }
     write_sram_line(f, rec.sram);
+    if (start_seed != 0) {
+        fprintf(f, "seed %u\n", (unsigned)start_seed);
+    }
+    for (i = 0; i < start_nsets; i++) {
+        fprintf(f, "set %ld %s\n", start_sets[i].value, start_sets[i].name);
+    }
     for (start = 0; start < rec.n; start = t) {
         uint16_t p = rec.pad[start];
         for (t = start + 1; t < rec.n && rec.pad[t] == p; t++) {
@@ -469,6 +562,17 @@ static int load_input(const char *path, Input *in, long default_ticks)
             in->shots[in->nshots++] = number(path, strtok(NULL, " \t\r\n"));
         } else if (strcmp(w, "splash") == 0 && splash_nshot < 64) {
             splash_shots[splash_nshot++] = number(path, strtok(NULL, " \t\r\n"));
+        } else if (strcmp(w, "seed") == 0) {
+            const char *v = strtok(NULL, " \t\r\n");
+            start_seed = seed_of(v != NULL ? v : "");
+        } else if (strcmp(w, "set") == 0) {
+            const char *v = strtok(NULL, " \t\r\n");
+            const char *name = strtok(NULL, "\r\n");          /* a name may have spaces */
+            if (v == NULL || name == NULL) {
+                fprintf(stderr, "%s: a set line is: set VALUE name\n", path);
+                exit(2);
+            }
+            add_set(start_sets, &start_nsets, name, strlen(name), whole("set", v));
         } else if (strcmp(w, "sram") == 0) {
             const char *h = strtok(NULL, " \t\r\n");
             long i, n = h != NULL ? (long)strlen(h) / 2 : 0;
@@ -594,6 +698,8 @@ static void sdevkit__splash_sprites(const uint8_t *low, uint16_t bytes, const ui
  * game. The recording begins with the save RAM of this moment. */
 static void start(const uint8_t *sram)
 {
+    int i;
+
 #if SDEVKIT_SRAM_SIZE > 0
     if (sram != NULL) {
         memcpy(sdevkit_sram(), sram, SDEVKIT_SRAM_SIZE);
@@ -607,7 +713,16 @@ static void start(const uint8_t *sram)
     sdevkit__reset();
     sdevkit__dbg_reset();
     sdevkit__music_reset();
-    game_init(0);
+    if (cli_seed >= 0) {
+        start_seed = (uint16_t)cli_seed;
+    }
+    for (i = 0; i < cli_nsets; i++) {
+        add_set(start_sets, &start_nsets, cli_sets[i].name, strlen(cli_sets[i].name), cli_sets[i].value);
+    }
+    game_init(start_seed);
+    for (i = 0; i < start_nsets; i++) {
+        apply_set(&start_sets[i]);
+    }
 }
 
 /* --- the save RAM file ------------------------------------------------------------------------ */
@@ -1163,9 +1278,14 @@ int main(int argc, char **argv)
             no_crt = 1;
         } else if (strcmp(argv[i], "--mute") == 0) {
             mute = 1;
+        } else if (strcmp(argv[i], "--seed") == 0 && i + 1 < argc) {
+            cli_seed = seed_of(argv[++i]);
+        } else if (strcmp(argv[i], "--set") == 0 && i + 1 < argc && strchr(argv[i + 1], '=') != NULL) {
+            const char *eq = strchr(argv[++i], '=');
+            add_set(cli_sets, &cli_nsets, argv[i], (size_t)(eq - argv[i]), whole("--set", eq + 1));
         } else {
-            fprintf(stderr, "usage: %s [--scale N] [--no-crt] [--mute] [--replay recording.txt]\n"
-                            "       %s --check check.txt [--out dir] [--record recording.txt] [--wav sound.wav]\n"
+            fprintf(stderr, "usage: %s [--scale N] [--no-crt] [--mute] [--seed N] [--set name=value] [--replay recording.txt]\n"
+                            "       %s --check check.txt [--seed N] [--set name=value] [--out dir] [--record recording.txt] [--wav sound.wav]\n"
                             VIEW_USAGE, argv[0], argv[0]);
             return 2;
         }
