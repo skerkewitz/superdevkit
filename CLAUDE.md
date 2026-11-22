@@ -48,9 +48,9 @@ docs/architecture.md; the other docs are linked from the README.
 - Anything worth changing in the game goes into `docs/game-findings.md` (written for the AI working
   on the game; the user forwards it). The findings so far were forwarded on 2026-11-19 and the file
   deleted: start it anew when there is a new one.
-- Blubber Blasen (the first user and test case) is at `/mnt/d/Develop/AiProject/BlubberBlasen`
-  (Windows `D:\Develop\AiProject\BlubberBlasen`). Its `tools/snesbench` is the benchmark that
-  compares compilers in Mesen headless (`Mesen.exe --testrunner` with a Lua script).
+- Blubber Blasen (the first user and test case) is a repository of its own; its folder on this
+  machine is in Claude's memory. Its `tools/snesbench` is the benchmark that compares compilers in
+  Mesen headless (`Mesen.exe --testrunner` with a Lua script).
 - Code targets Java 25 (`options.release = 25`); the machine has JDK 27. javac runs with
   `-Xlint:all -Werror`: a warning fails the build, in CI too.
 - dampf preprocesses with its own preprocessor (`dampf.frontend.pp`, a subset of C99's,
