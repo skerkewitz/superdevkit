@@ -1689,3 +1689,14 @@ Only the other operand left in place made seven worst cases larger. What stays o
 value stored at an index into a global: value last makes Ertüp's `hud_lives` 12 % faster and
 Schach's `draw_square` slower, so that choice needs a cost model.
 
+## A signed division of a value known not to be negative (2026-11-22, on the C guide)
+
+`v / 8` on an `int16_t` with `DAMPF_RANGE(v, 0, 1000)` cost 63 cycles against 17 for the same
+division written as unsigned. C promotes `v` to 32 bits. `RangeNarrow` narrowed the division back
+to a signed 16-bit one, and `StrengthReduce`, later in the same round, gave it its correction for
+negative values before the next round could see that there are none. Where neither operand can be
+negative, `RangeNarrow` now narrows to the unsigned operation at once (`sdiv` to `udiv`, `srem` to
+`urem`, `ashr` to `lshr`). The division with the hint costs what the unsigned one costs. No example
+divides that way, so their code, the worst cases and the pair loops are the same.
+`slow-signed-divide` stays, for a value dampf knows nothing about.
+
