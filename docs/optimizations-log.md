@@ -1618,3 +1618,17 @@ library, `sdevkit_bg_set_gfx_ptr` 189 → 75 and `sdevkit_oam_init_gfx_attr` 147
 111 cycles a frame more come from the frames' setup inlined into `test_main`, which chooses X and
 Y the other way round. The style guide's `slow-shift-above-8` is retired: `v << 9` and
 `(uint16_t)(v << 8) << 1` cost 19 cycles each.
+
+## A computed pointer sum is read through itself (2026-11-22, a bug)
+
+Found while measuring dampf without `Schedule` (the entry after this one). A pointer plus an index
+whose sum is computed, because something else reads it too (`p->row` reads at `p + 2`), was still
+split into `[pointer],y` with the index in Y for the access at the sum itself (`p->col`). The
+index could have been handed on in A into the sum and never stored; the read then took its place
+unwritten, or `RegisterChoice` made it a `TXY` from an X nobody had set
+(`exec/regress_pointer_index_sum.c`). `Schedule` usually puts something between the index and the
+sum, so no example was hit. `FrameLayout.address` now splits the sum only where it is not computed
+(as it already did for a number made into a pointer); a computed sum is read as `[sum],y` with
+`LDY #0`. Ertüp's `stage_init` and its callers are 29 cycles faster in the worst case,
+`waves_spawn` 1 slower; the examples' work is the same.
+
