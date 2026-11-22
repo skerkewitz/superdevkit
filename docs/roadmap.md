@@ -114,8 +114,9 @@ Also in M9:
     the index: gone on 2026-11-20 with `fast-range-index` (ADR-6F8NBESR);
   - a pointer walk cost more than indexing (`o->x; o++`): gone on 2026-11-20 (`same-pointer-walk`
     now);
-  - a multiplication of two bytes calls `dampf_mul16`, the SNES's 8 x 8 multiplier at
-    `$4202`-`$4203` is not used: turns `same-multiply-width` into a rule for bytes;
+  - a multiplication of two bytes called `dampf_mul16`, the SNES's 8 x 8 multiplier was not
+    used: gone on 2026-11-22, the runtime multiplies on it and two bytes need no call
+    (`same-multiply-width` is now `fast-multiply-bytes`);
   - a signed division by a power of two keeps its rounding correction when a `DAMPF_RANGE` proves
     the value is not negative: retires `slow-signed-divide`;
   - 32-bit operands go through frame slots (`hash ^= key` copies all four words): retires

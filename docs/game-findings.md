@@ -92,3 +92,19 @@ What the game would change:
 
 Nothing changes on the SNES or in the checksums: the ROM and the game's code stay as they are,
 apart from the line in `game.h`.
+
+## 4. Multiplying is about three times cheaper, and an indexed 16-bit store works (2026-11-22)
+
+dampf now multiplies on the SNES's 8 x 8 multiplier. A multiplication of two 16-bit variables costs
+about 140 CPU cycles instead of about 400, a 32-bit one about 400 plus its operands instead of up
+to 1,968, and two bytes go to the hardware without a call (62 cycles in the C guide's measurement).
+The rule `same-multiply-width` is now `fast-multiply-bytes`: where both factors fit a byte, keep
+them bytes. Multiplying by a constant is still cheaper than by a variable.
+
+The runtime uses the registers `$4202`, `$4203` and `$4216`. The game does not use them today. If
+it ever does, it must not multiply two variables between its write and its read.
+
+Your finding 13 is closed as well: the loop it describes, a 16-bit store into an array by an index
+with `DAMPF_RANGE`, now compiles to an indexed store (`sta array,x`) and no longer goes through a
+24-bit pointer. What the game would change: nothing it must. It went back to byte stores because
+of that finding and can try the 16-bit version again, and measure it.
