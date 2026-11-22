@@ -230,7 +230,7 @@ class AdrTest {
 
     /** The text files of the repository, without what is built, fetched or installed. */
     private static List<Path> documents() throws IOException {
-        Set<String> skip = Set.of(".git", "build", ".gradle", "node_modules", ".mesen", ".vitepress");
+        Set<String> skip = Set.of(".git", "build", ".gradle", "node_modules", ".mesen", ".vitepress", "apm_modules");
         try (Stream<Path> walk = Files.walk(Path.of("."))) {
             return walk.filter(Files::isRegularFile)
                     .map(p -> Path.of(".").relativize(p))

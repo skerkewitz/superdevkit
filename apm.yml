@@ -1,0 +1,11 @@
+name: superdevkit
+version: 1.0.0
+description: Agent skills superdevkit installs with ./apmw install (ADR-6FD54GME)
+targets:
+  - claude
+dependencies:
+  apm:
+    - skerkewitz/agent-packages/packages/sker-project#sker-project/v1.1.0
+  mcp: []
+includes: auto
+scripts: {}

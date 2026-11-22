@@ -70,11 +70,12 @@ document of its subject.
 | ADR-6F8NBFAQ | [LIR operands are typed, and LIR names places before it has addresses](adr/6F8NBFAQ-lir-operands-are-typed-and-lir-names-places-before.md) | Accepted; amends ADR-6F3CJEQA | 2026-11-20 |
 | ADR-6F8NBG4P | [Frame places are coloured on the LIR, and FrameLayout only proposes](adr/6F8NBG4P-frame-places-are-coloured-on-the-lir-and.md) | Accepted; amended by ADR-6F8NBHZ6 | 2026-11-20 |
 | ADR-6F8NBHZ6 | [φs go through their incoming places, and the colouring coalesces the copies](adr/6F8NBHZ6-phis-go-through-their-incoming-places-and-the.md) | Accepted; amends ADR-6F8NBG4P | 2026-11-20 |
-| ADR-6FB9QJ3R | [Every change goes through a pull request into develop, and a release through one into main](adr/6FB9QJ3R-every-change-goes-through-a-pull-request-into.md) | Accepted; amended by ADR-6FB9QKSV | 2026-11-21 |
+| ADR-6FB9QJ3R | [Every change goes through a pull request into develop, and a release through one into main](adr/6FB9QJ3R-every-change-goes-through-a-pull-request-into.md) | Accepted; amended by ADR-6FB9QKSV, ADR-6FD54GME | 2026-11-21 |
 | ADR-6FB9QKSV | [Claude works on GitHub as an app of its own, and the user approves](adr/6FB9QKSV-claude-works-on-github-as-an-app-of-its-own-and.md) | Accepted; amends ADR-6FB9QJ3R | 2026-11-21 |
 | ADR-6FCBBNSH | [Records get an ID made from the time and the title instead of a number](adr/6FCBBNSH-records-get-an-id-made-from-the-time-and-the-title.md) | Accepted | 2026-11-21 |
 | ADR-6FCVAA30 | [The web runs the desktop's frontend, which waits for the browser's frames with Asyncify](adr/6FCVAA30-the-web-runs-the-desktop-s-frontend-which-waits.md) | Accepted; amended by ADR-6FD1Y6W2 | 2026-11-22 |
 | ADR-6FD1Y6W2 | [The web's main takes --check, and the examples' test plays it in headless Chromium](adr/6FD1Y6W2-the-web-s-main-takes-check-and-the-examples-test.md) | Accepted | 2026-11-22 |
+| ADR-6FD54GME | [The pull-request workflow and the ADR skill come from the sker-project package, installed with apmw](adr/6FD54GME-the-pull-request-workflow-and-the-adr-skill-come.md) | Accepted; amends ADR-6FB9QJ3R | 2026-11-22 |
 
 ## Former numbers
 
