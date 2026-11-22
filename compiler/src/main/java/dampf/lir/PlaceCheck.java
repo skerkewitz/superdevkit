@@ -20,8 +20,10 @@ import java.util.Set;
  * <p>The bytes followed are those of the owners in {@code tracked}: the function's values, its
  * φs' incoming places and its parameters (written by the caller: written on entry). Frame slots
  * are memory and may be reached through pointers; a callee's parameters are written for the
- * callee: neither is followed. Run right after the places are assigned, while every operand
- * still names its owner.
+ * callee: neither is followed. {@link #check} runs right after the places are assigned, while
+ * every operand still names its owner. {@link #written} is its first half, which needs no
+ * addresses: it runs before the choice of registers, which could otherwise turn a read of a place
+ * nobody wrote into a transfer from a register nobody set, where the later check no longer sees it.
  */
 public final class PlaceCheck {
     private PlaceCheck() {}
@@ -42,30 +44,57 @@ public final class PlaceCheck {
         List<Byte> bytes = new ArrayList<>();
         List<Integer> offsetOf = new ArrayList<>();
         Map<LInstr, Access> access = new IdentityHashMap<>();
-        marks.clear();
-        BitSet atEntry = new BitSet();
-        for (LBlock b : f.blocks()) {
-            for (LItem it : b.items()) {
-                if (it instanceof LInstr i) {
-                    access.put(i, access(i, tracked, index, bytes, offsetOf));
-                } else if (it instanceof LMark m) {
-                    marks.put(m, mark(m, tracked, index, bytes, offsetOf));
-                }
-            }
-        }
-        for (int k = 0; k < bytes.size(); k++) {
-            if (entry.test(bytes.get(k).owner())) {
-                atEntry.set(k);
-            }
-        }
+        BitSet atEntry = collect(f, tracked, entry, index, bytes, offsetOf, access);
         List<String> errors = new ArrayList<>();
         written(f, access, atEntry, bytes.size(), bytes, errors);
         overlaps(f, access, bytes, offsetOf, errors);
         return errors;
     }
 
-    /** The copies of the marks: read from, write to (static: one function at a time). */
-    private static final Map<LMark, Access> marks = new IdentityHashMap<>();
+    /**
+     * The first half of {@link #check}, for code whose places have no addresses yet (its φ copies
+     * still {@link LCopy}): every byte read was written on every way to the read.
+     */
+    public static List<String> written(LFunction f, java.util.function.Predicate<LOperand.Owner> tracked,
+                                       java.util.function.Predicate<LOperand.Owner> entry) {
+        Map<Byte, Integer> index = new HashMap<>();
+        List<Byte> bytes = new ArrayList<>();
+        List<Integer> offsetOf = new ArrayList<>();
+        Map<LInstr, Access> access = new IdentityHashMap<>();
+        BitSet atEntry = collect(f, tracked, entry, index, bytes, offsetOf, access);
+        List<String> errors = new ArrayList<>();
+        written(f, access, atEntry, bytes.size(), bytes, errors);
+        return errors;
+    }
+
+    /** What every item does to the followed bytes; returns the bytes written on entry. */
+    private static BitSet collect(LFunction f, java.util.function.Predicate<LOperand.Owner> tracked,
+                                  java.util.function.Predicate<LOperand.Owner> entry, Map<Byte, Integer> index,
+                                  List<Byte> bytes, List<Integer> offsetOf, Map<LInstr, Access> access) {
+        marks.clear();
+        for (LBlock b : f.blocks()) {
+            for (LItem it : b.items()) {
+                if (it instanceof LInstr i) {
+                    access.put(i, access(i, tracked, index, bytes, offsetOf));
+                } else if (it instanceof LMark m) {
+                    marks.put(m, mark(m, tracked, index, bytes, offsetOf));
+                } else if (it instanceof LCopy c) {
+                    marks.put(c, mark(new LMark(List.of(new LMark.Copy(c.to().owner(), c.from().owner(), 2))), tracked,
+                            index, bytes, offsetOf));
+                }
+            }
+        }
+        BitSet atEntry = new BitSet();
+        for (int k = 0; k < bytes.size(); k++) {
+            if (entry.test(bytes.get(k).owner())) {
+                atEntry.set(k);
+            }
+        }
+        return atEntry;
+    }
+
+    /** The copies of the marks and φ copies: read from, write to (static: one function at a time). */
+    private static final Map<LItem, Access> marks = new IdentityHashMap<>();
 
     private static Access mark(LMark m, java.util.function.Predicate<LOperand.Owner> tracked, Map<Byte, Integer> index,
                                List<Byte> bytes, List<Integer> offsetOf) {
@@ -183,7 +212,7 @@ public final class PlaceCheck {
         for (LBlock b : f.blocks()) {
             BitSet s = (BitSet) in.get(b).clone();
             for (LItem it : b.items()) {
-                Access a = it instanceof LInstr i ? access.get(i) : it instanceof LMark m ? marks.get(m) : null;
+                Access a = it instanceof LInstr i ? access.get(i) : marks.get(it);
                 if (a == null) {
                     continue;
                 }
@@ -270,8 +299,8 @@ public final class PlaceCheck {
         for (LItem it : b.items()) {
             if (it instanceof LInstr i) {
                 out.add(access.get(i));
-            } else if (it instanceof LMark m) {
-                out.add(marks.get(m));
+            } else if (it instanceof LMark || it instanceof LCopy) {
+                out.add(marks.get(it));
             }
         }
         return out;

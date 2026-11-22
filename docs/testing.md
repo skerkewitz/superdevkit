@@ -265,7 +265,9 @@ Every IR level ([architecture.md](architecture.md)) is to have a text format tha
 HIR and MIR, an interpreter, so a wrong result can be pinned to the lowering between two levels.
 MIR has all three; LIR has the text format and the verifier (`LVerifier`, after every code
 generation: labels, branch targets, known opcodes, the accumulator width on every path) and the
-place check (`PlaceCheck`, after the places are assigned); its
+place check (`PlaceCheck`: whether every place is written before it is read, before the choice
+of registers, which could hide such a read in a transfer from an unset register, and the whole
+check after the places are assigned); its
 meaning is checked by running the code. HIR is not built; its interpreter would be a second
 definition of what the program means, next to the PC's compiler.
 

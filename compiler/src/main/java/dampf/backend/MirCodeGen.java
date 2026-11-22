@@ -307,6 +307,7 @@ public final class MirCodeGen {
         };
         LFunction lf = codes.get(f).function();
         java.util.function.Predicate<LOperand.Owner> tracked = o -> own.contains(o.key());
+        report(f, dampf.lir.PlaceCheck.written(lf, tracked, o -> o.key() instanceof Value.Param));
         Map<String, Double> weights = Weights.of(f, blockCounts == null ? null : name -> blockCounts.apply(f.name(), name));
         RegisterChoice.run(lf, tracked, frame, Weights.of(lf, weights), Selection.words(f.result()) == 2,
                 f.result() != MType.VOID, Weights.loops(f, lf), limit);
@@ -803,8 +804,11 @@ public final class MirCodeGen {
         for (Block b : f.blocks()) {
             own.addAll(b.instrs());
         }
-        List<String> errors = dampf.lir.PlaceCheck.check(lf, o -> own.contains(o.key()),
-                o -> o.key() instanceof dampf.mir.Value.Param);
+        report(f, dampf.lir.PlaceCheck.check(lf, o -> own.contains(o.key()),
+                o -> o.key() instanceof dampf.mir.Value.Param));
+    }
+
+    private static void report(MFunction f, List<String> errors) {
         if (!errors.isEmpty()) {
             throw new IllegalStateException("the frame places of " + f.name() + " are wrong: " + String.join("; ",
                     errors.subList(0, Math.min(5, errors.size()))));
