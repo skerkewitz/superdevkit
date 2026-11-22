@@ -35,7 +35,7 @@ document of its subject.
 | ADR-6F0R6C4B | [LoROM with FastROM, code from bank $80, one segment per function, `JSL` for every call](adr/6F0R6C4B-lorom-with-fastrom-code-from-bank-80-one-segment.md) | Accepted | 2026-11-17 |
 | ADR-6F0R6DZD | [Three IR levels, and HIR waits until something needs it](adr/6F0R6DZD-three-ir-levels-and-hir-waits-until-something.md) | Accepted | 2026-11-17 |
 | ADR-6F0R6FT6 | [The naive code generator stays as an independent reference](adr/6F0R6FT6-the-naive-code-generator-stays-as-an-independent.md) | Accepted | 2026-11-17 |
-| ADR-6F0R6G1M | [gcc with UBSan is the oracle, and the tests compare every global](adr/6F0R6G1M-gcc-with-ubsan-is-the-oracle-and-the-tests-compare.md) | Accepted | 2026-11-17 |
+| ADR-6F0R6G1M | [gcc with UBSan is the oracle, and the tests compare every global](adr/6F0R6G1M-gcc-with-ubsan-is-the-oracle-and-the-tests-compare.md) | Accepted; amended by ADR-6FD2DGP0 | 2026-11-17 |
 | ADR-6F0R6H68 | [dampf has its own emulator, validated against SingleStepTests and Mesen](adr/6F0R6H68-dampf-has-its-own-emulator-validated-against.md) | Accepted | 2026-11-17 |
 | ADR-6F0R6JD6 | [Every function gets a best and a worst case, and `DAMPF_BUDGET` fails the build](adr/6F0R6JD6-every-function-gets-a-best-and-a-worst-case-and.md) | Accepted | 2026-11-17 |
 | ADR-6F0R6NS5 | [The platform layer is C with `volatile` pointers, and the main loop waits for the vertical blank](adr/6F0R6NS5-the-platform-layer-is-c-with-volatile-pointers-and.md) | Accepted | 2026-11-17 |
@@ -75,6 +75,7 @@ document of its subject.
 | ADR-6FCBBNSH | [Records get an ID made from the time and the title instead of a number](adr/6FCBBNSH-records-get-an-id-made-from-the-time-and-the-title.md) | Accepted | 2026-11-21 |
 | ADR-6FCVAA30 | [The web runs the desktop's frontend, which waits for the browser's frames with Asyncify](adr/6FCVAA30-the-web-runs-the-desktop-s-frontend-which-waits.md) | Accepted; amended by ADR-6FD1Y6W2 | 2026-11-22 |
 | ADR-6FD1Y6W2 | [The web's main takes --check, and the examples' test plays it in headless Chromium](adr/6FD1Y6W2-the-web-s-main-takes-check-and-the-examples-test.md) | Accepted | 2026-11-22 |
+| ADR-6FD2DGP0 | [clang is the tests' reference on the PC](adr/6FD2DGP0-clang-is-the-tests-reference-on-the-pc.md) | Accepted | 2026-11-22 |
 | ADR-6FD54GME | [The pull-request workflow and the ADR skill come from the sker-project package, installed with apmw](adr/6FD54GME-the-pull-request-workflow-and-the-adr-skill-come.md) | Accepted; amends ADR-6FB9QJ3R | 2026-11-22 |
 
 ## Former numbers

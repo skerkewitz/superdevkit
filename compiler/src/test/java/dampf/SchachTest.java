@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * The chess example (examples/schach) on the SNES: a test program of its own, built by gcc and by
+ * The chess example (examples/schach) on the SNES: a test program of its own, built by clang and by
  * dampf, run on the PC and in dampf's emulator; the results (globals named by the program) must be
  * the same. Prints the CPU cycles per unit of work, the measure of the example's speed; with the
  * environment variable SCHACH_PROFILE=1 also the cycles per function, and it writes the ROM and
@@ -153,7 +153,7 @@ class SchachTest {
         return new Run(pc, at[1] - at[0], sorted);
     }
 
-    /** The program built by gcc with the undefined behaviour sanitizer; the globals as unsigned numbers. */
+    /** The program built by clang with the undefined behaviour sanitizer; the globals as unsigned numbers. */
     private Map<String, String> pc(Path src, Map<String, Integer> globals) throws IOException {
         StringBuilder h = new StringBuilder("#include <stdio.h>\n#include \"" + src.toAbsolutePath() + "\"\nint main(void)\n{\n"
                 + "    test_main();\n");
@@ -167,7 +167,7 @@ class SchachTest {
         h.append("    return 0;\n}\n");
         Path c = tmp.resolve("pc.c"), exe = tmp.resolve("pc");
         Files.writeString(c, h);
-        Processes.check(tmp, Duration.ofMinutes(1), List.of("gcc", "-std=c99", "-O1", "-Wall", "-fsanitize=undefined",
+        Processes.check(tmp, Duration.ofMinutes(1), List.of("clang", "-std=c99", "-O1", "-Wall", "-fsanitize=undefined",
                 "-fno-sanitize-recover=all", "-idirafter", dampf.frontend.SystemHeaders.directory().toString(),
                 "-o", exe.toString(), c.toString()));
         Map<String, String> out = new HashMap<>();
