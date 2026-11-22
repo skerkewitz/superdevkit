@@ -51,7 +51,7 @@ needs is an open question. The rule is ADR
 | M7 | Windows and Linux: Rachael and the desktop frontend in the kit, the `superdevkit` command with `init`, `build`, `run`; the examples and Blubber Blasen run on the desktop from the kit | 0.7.0 | Done 2026-11-19 (the game's switch handed over to it) |
 | M8 | The web: the same games in the browser; Blubber Blasen's web build from the kit | 0.8.0 | Done 2026-11-22 (the game's switch handed over to it) |
 | M9 | The optimizer: what was left of M3; tests and a canonical form first, then register allocation | 0.9.0 | In progress |
-| M10 | Language, platform and usability: C in interrupts, intrinsics, the open subset decisions, dampf's own preprocessor, the game's development tools in the kit's window | 0.10.0 | Planned |
+| M10 | Language, platform and usability: C in interrupts, intrinsics, the open subset decisions, the game's development tools in the kit's window (dampf's own preprocessor is built) | 0.10.0 | In progress |
 | M11 | Timing and debugging: master cycles, bounds for more loops, locals and types in Mesen | 0.11.0 | Planned |
 | M12 | Fine tuning: what was left of M4, until the frame budget is met | 0.12.0 | Planned |
 
@@ -229,9 +229,9 @@ Also in M12:
 The ROM on a real SNES or a flash cartridge, on NTSC and PAL, and the DMA margin
 (`SETUP_LINES`) measured there, until there is hardware (from M5;
 [superdevkit-transition.md](superdevkit-transition.md#57-on-a-console-needs-the-hardware)).
+Music on the SNES (the calls are a stub there; sound effects and save RAM are built).
 macOS (raylib runs there; nobody can test it now), `superdevkit bundle` (one folder with every
-target, ready to publish), the desktop running the ROM in an emulator, Mesen as the desktop, and
-the compiler moved into `compiler/` once a second build world makes it worth it.
+target, ready to publish), the desktop running the ROM in an emulator and Mesen as the desktop.
 
 ## Publishing (not scheduled)
 
@@ -259,13 +259,13 @@ What it takes:
   GitHub, still private), the README and the documents follow it.
 - **The book's getting started on `hello`**, with the book before the
   release ([ADR-6F60ZB4N](adr/6F60ZB4N-the-book-is-brought-in-step-before-a-release-not.md); from M5).
-- **Before the first release** ([ADR-6F60Z9QJ](adr/6F60Z9QJ-the-release-is-a-zip-per-system-with-a-java.md)): the
-  graphics converter in Java in the CLI (dampf's own preprocessor is built, M10), so building for
-  the SNES needs nothing but the download.
+- **Before the first release** ([ADR-6F60Z9QJ](adr/6F60Z9QJ-the-release-is-a-zip-per-system-with-a-java.md)):
+  building for the SNES needs nothing but the download. Done: the converters are Java in the CLI
+  (M7), and dampf has its own preprocessor (M10).
 - **Hosting:** a release on GitHub, a zip per system with a Java runtime (jlink) and raylib (ADR
-  ADR-6F60Z9QJ), a build on GitHub Actions (cc65 installed for the tests that
-  compare with ca65 and ld65; no Mesen; `checkBook` after `build`, ADR-6F60ZB4N), the book on
-  GitHub Pages.
+  ADR-6F60Z9QJ), built by GitHub Actions (which already builds every pull request, with cc65 for
+  the tests that compare with ca65 and ld65 and without Mesen; `checkBook` after `build`,
+  ADR-6F60ZB4N), the book on GitHub Pages.
 
 ## Future ideas
 
@@ -340,10 +340,10 @@ Constant shifts longer than 8 were written out in M9 (2026-11-22).
   as oracle, a checksum every tick against the PC ([testing.md](testing.md)). When one shows,
   `dampf.emu.RomDiff` names the global it breaks first.
 - **The optimizer is tested by whole programs only in a few.** The execution tests and 50 random
-  programs per build barely reach the optimizer's patterns; in practice the optimizer is tested
-  by whole programs: Blubber Blasen's benchmark and one replay until 2026-11-19, since then the
-  examples' checks, a checksum every tick. More examples, and random programs and execution
-  tests for the patterns, would help.
+  programs per build barely reached the optimizer's patterns; the optimizer was tested by whole
+  programs: Blubber Blasen's benchmark and one replay until 2026-11-19, since then the examples'
+  checks, a checksum every tick. Mitigated since by `RandomLoopProgram`, which generates the loops
+  and pointer walks the optimizer's passes work on; more examples would still help.
 - **Tuned on one game.** The inlining limit, the block order and the idioms the optimizer looks
   for came from Blubber Blasen. Mitigated by the examples' benchmark (`dev/bench_examples.sh`),
   on which they are still to be checked.
@@ -351,7 +351,7 @@ Constant shifts longer than 8 were written out in M9 (2026-11-22).
   the DMA margin and timing at the edges have not run on hardware (not scheduled until there is
   hardware).
 - **Different behaviour on PC and SNES.** Mitigated by fixed-width types only, exact promotion
-  rules and the differential tests against gcc.
+  rules and the differential tests against the PC (clang).
 - **The frame budget depends on the game.** The checkpoint after M2 concluded that the compiler
   alone cannot reach it; with the CPU partner the worst tick takes 3 frames.
 - **Little human knowledge of the code.** About 23,000 lines were written in two days, mostly by

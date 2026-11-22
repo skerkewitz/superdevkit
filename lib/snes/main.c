@@ -10,7 +10,7 @@
  * tick would overwrite the frames of the code it interrupted. Calling game_vblank from the loop
  * gives the same timing without that.
  *
- * After game_vblank the sound effects the tick asked for start (sfx.c). Not done here: save RAM.
+ * After game_vblank the sound effects the tick asked for start (sfx.c). Save RAM is snes.c's.
  */
 #include "sdevkit/loop.h"
 #include "sdevkit/snes.h"

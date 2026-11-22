@@ -149,8 +149,8 @@ allowed (the platform layer uses them); this form does not need the rule against
   of a loop's test is the inside already.
 - Inlining up to 80 instructions (2026-11-18): play 282,246 master clocks per tick (from
   282,498), but the benchmark's checksums differ from the PC: the larger inlining makes a
-  function the code generator gets wrong. The general limit stays at 60 until that bug is found
-  ([roadmap.md](roadmap.md#open-questions)).
+  function the code generator gets wrong. The bug was found and fixed on 2026-11-19
+  (`exec/regress_branch_phis.c`); the limit stays at 60, and a larger one was not measured again.
 - Jump tables for `switch` (considered, 2026-11-18): a table dispatch (subtract, range check,
   `ASL`, `TAX`, `JMP (table,X)`) costs about 24 cycles, as much as the chain of compares over three
   to four cases, needs X, and gives the timing analysis an indirect jump. The game's switches are
@@ -174,8 +174,8 @@ optimization and superoptimization (below); a tuning option (`--tune`, the user'
 2026-11-18) that builds with several values of the parameters chosen today on one game (the
 inlining limit, the block order), runs the user's own workload (a benchmark or a replay, as
 `dampf profile` does) in dampf's emulator and keeps the fastest build, each candidate checked
-against a reference of the results (the PC build's checksums), since a larger inlining limit has
-already exposed a miscompilation ([roadmap.md](roadmap.md#open-questions)). Which come next, by likely gain and effort, is in
+against a reference of the results (the PC build's checksums), since a larger inlining limit once
+exposed a miscompilation (fixed on 2026-11-19). Which come next, by likely gain and effort, is in
 [roadmap.md](roadmap.md#m9-the-optimizer-090) (M9) and
 [roadmap.md](roadmap.md#m12-fine-tuning-0120) (M12).
 

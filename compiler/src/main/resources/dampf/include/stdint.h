@@ -1,5 +1,5 @@
 /*
- * dampf's own <stdint.h>. dampf preprocesses with -nostdinc, so host headers never leak in.
+ * dampf's own <stdint.h>. dampf's preprocessor reads no host headers, so none leak in.
  *
  * The typedefs use the same underlying types as gcc and clang on the PC (char 8, short 16,
  * int 32 bit). dampf gives these types exactly their PC meaning, which is what makes the

@@ -8,7 +8,7 @@
  *   game_tick     once per frame, while the picture is drawn: move things, prepare the picture
  *   game_vblank   in the vertical blank, the only time the PPU takes new data: copy it there
  *
- * Step through it in Mesen: build/hello.dbg next to the ROM shows this file while you step.
+ * Step through it in Mesen: build/snes/hello.dbg next to the ROM shows this file while you step.
  */
 #include <stdint.h>
 #include "sdevkit/loop.h"

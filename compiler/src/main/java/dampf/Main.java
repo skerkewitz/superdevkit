@@ -28,7 +28,7 @@ import java.util.Locale;
  *                                                                      --sram: battery-backed save RAM, defines SDEVKIT_SRAM_SIZE;
  *                                                                      --assembler ca65: ca65 and ld65 instead of dampf's own;
  *                                                                      --opt-limit: at most n pass applications, see PassLimit)
- * dampf check [-I dir] [-D name[=value]] file.c ...                   front end: first problem per file, then the
+ * dampf check [-I dir] [-D name[=value]] file.c ...                   front end: every problem per file, then the
  *                                                                      files that pass together (recursion, calls of
  *                                                                      functions defined nowhere, double definitions)
  * dampf profile rom.sfc profile.txt [top] [--skip file.c ...] [--instructions] [--blocks file]

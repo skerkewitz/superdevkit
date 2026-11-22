@@ -276,7 +276,8 @@ MIR round trips) runs under a hard time limit (`assertTimeoutPreemptively`: 3, 2
 per program), because
 JUnit's default timeouts do not cover dynamic tests. External programs (the C compilers, the PC builds,
 and ca65 and ld65 where the tests use them) run through `dampf.util.Processes` with a time limit and are killed when it runs
-out. The emulator stops after 600 frames in the program tests, after a limit per example in its
+out. The emulator stops after 600 frames in the execution tests and 2,000 in the random programs
+(6,000 with a pass limit), after a limit per example in its
 checks, and after 200,000 frames in `dampf bench`; the MIR interpreter counts its steps. The Gradle test task has an
 overall limit of 2 hours as a last resort. A program that loops forever fails in about a minute
 with "did not finish within 60 s and was stopped (does it hang?)".

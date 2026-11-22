@@ -13,9 +13,9 @@ the mode at every instruction, and switching it costs cycles.
 ## Args file
 
 A file of command-line arguments that dampf reads when the command line names it with `@`:
-`dampf build @game.args`. Its paths are relative to the file, so a game's build names its
-sources, include folders and the superdevkit home once. See
-[Command line](/reference/command-line).
+`dampf build @game.args`. Its paths are relative to the file. `superdevkit build snes` writes one
+for every game, `build/snes/<name>.args`, with what it compiled, so dampf's other commands can
+be run on the same files. See [Command line](/reference/command-line).
 
 ## AST
 
@@ -75,8 +75,9 @@ at `$7E`, where all RAM objects live.
 ## Dev kit
 
 superdevkit, a development kit for SNES games: dampf as its compiler, a library with the console
-API for the SNES and, through [Rachael](#rachael), for the desktop, and tools, all in
-superdevkit's repository. Its library for the SNES is the [platform layer](#platform-layer) that today sits in
+API for the SNES and, through [Rachael](#rachael), for the desktop and the web, the
+`superdevkit` command that builds a game for each [target](#target), and tools, all in
+superdevkit's repository. Its library for the SNES is the [platform layer](#platform-layer) in
 `lib/snes`.
 
 ## Direct page
@@ -110,7 +111,7 @@ occupy; the book says *frame of a function* for that.
 
 ## Front end
 
-The part of dampf that reads C: it preprocesses a file with `gcc -E`, parses it, checks it
+The part of dampf that reads C: it preprocesses a file with its own preprocessor, parses it, checks it
 against the [subset](#subset) and reports what is outside it. `dampf check` runs only the front
 end. A [hint](#hint) becomes a built-in there, a name only the front end knows.
 
@@ -152,7 +153,7 @@ The two bits of the 65816's processor status that set [8-bit or 16-bit mode](#_8
 ## Master clock
 
 The SNES's base clock. A CPU cycle takes several master clocks, more for slow memory, so the
-exact cost of code is counted in master clocks: one NTSC [frame](#frame) is 357,366 of them.
+exact cost of code is counted in master clocks: one NTSC [frame](#frame) is 357,368 of them.
 dampf's cycle report counts CPU cycles; its benchmark measures master clocks.
 
 ## Mesen
@@ -187,16 +188,16 @@ to 8 or 16 bits or removing a repeated computation.
 
 ## PC build
 
-The same C source compiled with gcc on an x86-64 PC. It is the reference: what dampf's code
-computes on the SNES must match it bit for bit.
+The same C source compiled for an x86-64 PC (by gcc or clang; the kit's tests use clang). It is
+the reference: what dampf's code computes on the SNES must match it bit for bit.
 
 ## Platform layer
 
 The C code that implements a game's console API on the real SNES: setting up the hardware, the
 main loop and waiting for the [vertical blank](#vertical-blank). dampf compiles it together with
 the game. The dev kit's is `lib/snes`, for the console API `sdevkit/snes.h` (PVSnesLib's calls,
-renamed, and the main loop); a game that calls another library needs a platform layer for that
-library.
+renamed, and the main loop). A game calls nothing but the console API; on the desktop and the web
+[Rachael](#rachael) implements the same API.
 
 ## Pointer compression
 
@@ -210,6 +211,12 @@ The SNES's picture processing unit: it draws each picture line by line from [VRA
 [CGRAM](#cgram), [OAM](#oam) and its registers (`$2100` to `$213F`), which a game sets through the
 console API.
 
+## Project file
+
+`superdevkit.toml`, the file that makes a folder a game for the kit: its name, the version of
+superdevkit it needs, its sources and include folders, its save RAM, and the pictures and sounds
+the build converts. See [The superdevkit command](/reference/superdevkit#the-project-file).
+
 ## PVSnesLib
 
 An SDK for SNES programming with the 816-tcc C compiler. Blubber Blasen uses its platform calls;
@@ -221,8 +228,8 @@ The SNES rebuilt in portable C, in the dev kit's `lib/rachael`: video memory, re
 HDMA, and a renderer that draws the picture line by line as the PPU does. It runs no 65816 code:
 the game is compiled for the PC and calls the same console API, and gives the same picture as on
 the SNES, pixel for pixel. Rachael is the same on every PC target; what a target adds (the
-window, the input, the frame rhythm) is its frontend, `lib/desktop` now and `lib/web` later. The
-desktop build runs on it, the web build will. It is to the SNES what Winelib is to Windows: the
+window, the input, the frame rhythm) is its frontend: `lib/desktop`, and in the browser
+`lib/desktop` with `lib/web`. The desktop and the web builds run on it. It is to the SNES what Winelib is to Windows: the
 game's source is compiled against an implementation of its API on the PC, and nothing is
 emulated, so it runs at the PC's speed, not the console's. Named after the replicant of Blade
 Runner who can hardly be told from the real thing.
@@ -245,9 +252,17 @@ The part of C that dampf accepts. Anything outside it is rejected with a message
 
 ## Superdevkit home
 
-The folder superdevkit is installed in: `bin/dampf`, the kit's library (`lib/`), the tools, the
-examples, the desktop build and this book (`docs/`). A game lives in a folder of its own and names
-the home in its [args file](#args-file). See [Getting started](/guide/getting-started).
+The folder superdevkit is installed in: `bin/superdevkit` and `bin/dampf`, the kit's library
+(`lib/`), the tools, the examples and this book (`docs/`). A game lives in a folder of its own,
+and its [project file](#project-file) names the version of the kit it needs; the
+`superdevkit` command it runs is the home's. See [Getting started](/guide/getting-started).
+
+## Target
+
+What `superdevkit build` builds a game for: `snes` (the ROM, with dampf), `linux` and `win64`
+(a program for the desktop, with the PC's C compiler) and `web` (a page for the browser, with
+Emscripten). The same game code builds for every target. See
+[The superdevkit command](/reference/superdevkit#build).
 
 ## Tick
 
@@ -265,7 +280,7 @@ whose worst case dampf cannot bound says `unbounded` and names the loop or call.
 
 ## UBSan
 
-gcc's undefined behaviour sanitizer. The tests build the PC side with it, so that a test program
+The undefined behaviour sanitizer of clang and gcc. The tests build the PC side with clang's, so that a test program
 whose result depends on undefined behaviour fails instead of passing by chance.
 
 ## Value range

@@ -1,7 +1,7 @@
 # Sound effects
 
 How a game gets sound effects, from the WAV files to the voices of the S-DSP. Built from the
-[proposal](archive/sound-effects-proposal.md). Music, so far on the desktop only, is at the end
+[proposal](archive/sound-effects-proposal.md). Music, so far on the desktop and the web only, is at the end
 ([Music](#music)).
 
 ## The file: `assets/sfx/sfx.json`
@@ -206,7 +206,8 @@ unless `name` gives one), and the game calls `sdevkit_music_play(MUSIC_TITLE)` a
 from its file, over and over, until another one or the stop; the same track again goes on
 playing, and the music pauses with the run. A desktop build copies the files into
 `build/<target>/music/` and compiles their list (`music_files.c`) with the frontend, so the game's
-code holds no file name. Any format raylib reads: OGG, MP3, WAV, QOA, and the trackers' XM and
+code holds no file name; the web build packs that folder into the page's `index.data`, and the
+track plays there the same way. Any format raylib reads: OGG, MP3, WAV, QOA, and the trackers' XM and
 MOD. CatchMe plays a chase loop (`dev/art/music.py` made it) from a level's start to the game's
 end.
 

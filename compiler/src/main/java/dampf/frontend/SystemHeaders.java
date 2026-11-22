@@ -10,7 +10,7 @@ import java.util.List;
 
 /**
  * dampf's own system headers ({@code <stdint.h>}, {@code <dampf.h>}, {@code <string.h>}) in a
- * directory gcc can read. The launcher names the distribution's {@code include/} directory in the
+ * directory on disk. The launcher names the distribution's {@code include/} directory in the
  * property {@code dampf.include}, and the tests name the one in the sources, so that the debug
  * file and the assembly name a header that exists and the same path on every run; without the
  * property they are copied from the class path into a temporary directory.

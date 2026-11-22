@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Runs a test program on the PC: compiled by gcc with the host's own headers, once with the
+ * Runs a test program on the PC: compiled by clang with the host's own headers, once with the
  * undefined behaviour sanitizer, so a test program with undefined behaviour fails instead of
  * passing by luck, and once without it for the values. Returns the values of the given globals
  * after the entry function returned.

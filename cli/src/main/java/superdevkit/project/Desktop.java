@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * The desktop targets (ADR-6F3CJZBY, ADR-6F3CK03Z and ADR-6F60Z709): the game on Rachael, with the kit's frontend
- * and raylib, built by the system's C compiler in three steps, as dev/build_desktop.sh did:
+ * and raylib, built by the system's C compiler in three steps:
  *
  * <ol>
  *   <li>the game's files alone, as on the SNES: without the host's headers, with dampf's include

@@ -89,8 +89,8 @@ RAM and battery) and its RAM size the smallest of 2, 4, 8, 16 and 32 KB that hol
 - **ROM data** is read with 24-bit long addresses, because DBR points to RAM.
 - The image is padded to a power of two, and the header gets its size and checksum.
 
-Limits: a single function or constant object can be at most 32 KB (the game's own asset rule,
-ADR-0006, already keeps graphics within that), and the start-up code, runtime and initial values
+Limits: a single function or constant object can be at most 32 KB (Blubber Blasen's
+asset rule, its record 6, already keeps graphics within that), and the start-up code, runtime and initial values
 of variables together must fit into bank `$80`.
 
 ## Why

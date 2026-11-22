@@ -14,7 +14,7 @@ R), Enter (Start). `dev/compare_example.sh hello` plays it on both with the inpu
 and compares the pictures, pixel for pixel. Its check also takes five pictures of the splash
 screen every game starts with (ADR-6F60Z5JJ), in the middle of the fades too.
 
-Open `build/hello.sfc` in Mesen with `build/hello.dbg` next to it, and step through
+Open `build/snes/hello.sfc` in Mesen with `build/snes/hello.dbg` next to it, and step through
 `src/hello.c` in its debugger. `dev/check_example.sh hello` plays it headless with the input of
 `check.txt`.
 
