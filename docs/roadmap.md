@@ -161,13 +161,6 @@ game doing less work: the pair loop of `separate` (16 %) and the CPU partner (th
   `--mute`, read-only lines in the debug view (`sdevkit_dbg_text`, `_value`), `--jump` and a tick
   back in a replay (Shift+F6), defines per target in `superdevkit.toml` (ADR-6FEWEE95), and filled
   boxes and arrows in the view (`sdevkit_dbg_fill`, `_arrow`).
-- **The sound samples uploaded during the splash screen.** `sdevkit_sfx_init` runs in `game_init`,
-  after the splash, and sends the samples at about 350 bytes a frame, so a game with many sounds
-  starts with a black pause (Schach's 13.8 KB take 40 frames). The kit learns the bank only in
-  `game_init`. The ways out: the bank known at link time from what `superdevkit sfx` generates, a
-  hook the game implements, or an upload in pieces during the splash's frames. The choice gets a
-  record. Done when Schach and Steinschlag start without the pause, the desktop behaves the same
-  and `dev/check_example.sh` and `dev/compare_example.sh` pass for them.
 - **A build step before the build, and `superdevkit gen`** (built 2026-11-22). `[build] before` in
   `superdevkit.toml` runs a game's own converters first (ADR-6FEVZD02), and `superdevkit gen` runs
   only the conversions, for a build system of the game's own (ADR-6FEW1T2S).
