@@ -40,8 +40,10 @@ kit's version, and the home's `superdevkit` command builds it.
    `emcc` only for the web. dampf has its own preprocessor, assembler and linker, so nothing
    else is installed for the SNES. ca65, ld65 and clang are needed only to develop the kit; say
    so in one sentence and point to the README of the repository.
-2. **Get superdevkit** – today the home is built from the repository: `./gradlew installDist`
-   writes it to `build/install/superdevkit`, which may be copied anywhere. Say in one sentence
+2. **Get superdevkit** – today the home is built from a checkout of the repository, which is
+   not public yet (roadmap, *Publishing*): `./gradlew installDist` writes it to
+   `build/install/superdevkit`, which may be copied anywhere. Show how `<home>/bin` goes on the
+   `PATH` (one `export` line for the shell). Say in one sentence
    that release downloads come later, with a link to the [roadmap](/inside/roadmap). The page
    writes `<home>` for the folder; the reader puts `<home>/bin` on their `PATH`, and the page
    writes `superdevkit` and `dampf` from then on. Running the tests is for developing the kit:
@@ -65,8 +67,9 @@ kit's version, and the home's `superdevkit` command builds it.
    [The desktop](/guide/the-desktop). Then, in a sentence or two, the browser:
    `superdevkit build web` and `superdevkit run web`, with a link to [The web](/guide/the-web).
 7. **Look at it in Mesen** – open the ROM with the `.dbg` file next to it (or
-   `superdevkit run snes`, with `MESEN` naming Mesen), step through `game_tick` in the C
-   source; link [Debugging in Mesen](/guide/debugging) for more.
+   `superdevkit run snes`, which takes the Mesen that `MESEN` names, else the kit's `.mesen/`
+   (Run.java), with one example of setting `MESEN`, also for the Windows Mesen from WSL), step
+   through `game_tick` in the C source; link [Debugging in Mesen](/guide/debugging) for more.
 8. **When something goes wrong** – the two or three failures a new user meets: the command run
    outside the game's folder, a header not found, a construct outside the subset (show the
    message format with one real example, and `dampf check` on the args file the build wrote).

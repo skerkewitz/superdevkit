@@ -13,9 +13,10 @@ the mode at every instruction, and switching it costs cycles.
 ## Args file
 
 A file of command-line arguments that dampf reads when the command line names it with `@`:
-`dampf build @game.args`. Its paths are relative to the file. `superdevkit build snes` writes one
-for every game, `build/snes/<name>.args`, with what it compiled, so dampf's other commands can
-be run on the same files. See [Command line](/reference/command-line).
+`dampf build @game.args`. A relative path in it is taken from the file's folder.
+`superdevkit build snes` writes one for every game, `build/snes/<name>.args`, with what it
+compiled and with absolute paths, so dampf's other commands can be run on the same files from
+any folder. See [Command line](/reference/command-line).
 
 ## AST
 
@@ -62,6 +63,13 @@ or with the screen off.
 dampf's main code generator (`--backend mir`, the default): it translates optimized
 [MIR](#mir) into 65816 assembly. Compare the [naive code generator](#naive-code-generator).
 
+## Console API
+
+The functions, types and constants a game calls to reach the console, declared in the kit's
+`sdevkit/snes.h` (every name starts with `sdevkit_` or `SDEVKIT_`). On the SNES `lib/snes`
+implements them, on the desktop and the web [Rachael](#rachael); a game calls nothing else. See
+[The console API](/reference/console-api).
+
 ## CPU partner
 
 The computer-controlled second player of Blubber Blasen. It plans by simulating moves ahead
@@ -91,6 +99,11 @@ functions there.
 Direct memory access: the SNES copies bytes from memory into [VRAM](#vram), [CGRAM](#cgram) or
 [OAM](#oam) without the CPU, at 8 [master clocks](#master-clock) a byte. A vertical blank has
 room for about 5,700 bytes of it. The kit's `sdevkit_dma_copy_*` functions use it.
+
+## Emscripten
+
+The C compiler for the browser: its `emcc` turns C into WebAssembly, the code a browser runs, and
+writes the page that loads it. `superdevkit build web` uses it. See [The web](/guide/the-web).
 
 ## Entry function
 
@@ -300,6 +313,11 @@ The SNES's video memory: 64 KB, addressed as 32,768 words of 16 bits, which hold
 background layers and sprites and the maps of the layers. The [PPU](#ppu) reads it while it draws,
 so a game writes it only in the [vertical blank](#vertical-blank) or with the screen off, with
 [DMA](#dma).
+
+## WSL
+
+The Windows Subsystem for Linux: Linux programs on Windows. The kit runs there as on Linux, and
+its `win64` build uses the MSVC compiler of the Windows side. See [The desktop](/guide/the-desktop).
 
 ## Whole program
 

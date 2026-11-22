@@ -32,8 +32,9 @@ The page opens, before the first H2, with what the web build is in two or three 
 same game code, compiled by Emscripten's `emcc` against [Rachael](/glossary#rachael) and the
 desktop's frontend, in a page any browser opens.
 
-1. **Building for the web** – `superdevkit build web`: what it needs (emcc, found on the `PATH`
-   or named by `EMCC`; raylib's web package, fetched on the first build), the three steps as on
+1. **Building for the web** – `superdevkit build web`: what it needs ([Emscripten](/glossary#emscripten)'s
+   emcc, found on the `PATH` or named by `EMCC`, from the Emscripten SDK or the system's
+   packages; raylib's web package, fetched on the first build), the three steps as on
    the desktop (each file alone, the symbol check, the link), and the files it writes into
    `build/web/` (`index.html`, `index.js`, `index.wasm`, and `index.data` with the music when
    the game has any; `obj/` and `music/` are the build's own). That the page must come from a
@@ -53,10 +54,11 @@ desktop's frontend, in a page any browser opens.
 5. **Putting it online** – the `index.*` files of `build/web/` on any static web server, built
    without `--debug`. What a player's browser keeps (the save RAM) and that it is tied to the
    site's address.
-6. **Checked like the desktop** – the web's `main` takes `--check` like the desktop's; the kit's
-   tests play every example's `check.txt` in headless Chromium and compare every tick's checksum
-   and the sound with the SNES (`tools/web_check`). One short paragraph; the command of
-   `tools/web_check/README.md` for a game's own check.
+6. **Checking a game on the web** – the web's `main` takes `--check` like the desktop's (link
+   [the check](/guide/the-desktop#the-check-without-a-window)); `tools/web_check` plays a game's
+   `check.txt` in headless Chromium (the command of its README, with what it needs: Node.js and
+   Playwright). One short paragraph for the game's author; that the kit's own tests do the same
+   for the examples, where Emscripten and Playwright are installed, in one sentence.
 
 ## Pay attention to
 
