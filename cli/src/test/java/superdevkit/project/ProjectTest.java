@@ -130,6 +130,12 @@ class ProjectTest {
         assertTrue(plan.indexOf("check  ") < plan.indexOf("-o build/web/index.html"), plan);
         String run = run("run", "web", "examples/catchme", "--plan");
         assertTrue(run.contains("serve  build/web on http://127.0.0.1:8080/"), run);
+        // the debug view only with --debug (ADR-6FD7KEJV)
+        assertTrue(!plan.contains("SDEVKIT_WEB_DEBUG") && plan.contains(" -O2 "), plan);
+        String debug = run("build", "web", "examples/catchme", "--plan", "--debug");
+        assertTrue(debug.lines().anyMatch(l -> l.contains("-c src/game.c") && l.contains(" -O0 ") && l.contains(" -DSDEVKIT_WEB_DEBUG ")),
+                debug);   // the game's files too
+        assertTrue(debug.lines().anyMatch(l -> l.contains("-o build/web/index.html") && l.contains(" -DSDEVKIT_WEB_DEBUG ")), debug);
     }
 
     /** run web's server: the page's files with their types, nothing outside the folder. */

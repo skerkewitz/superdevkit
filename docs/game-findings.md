@@ -65,13 +65,14 @@ in the browser the same way (`ExamplesTest`, the kit's ADR-6FD1Y6W2).
 
 What the game would change:
 
-1. **Keep the debug switches out of the web.** The kit passes the game no defines, so `game.h`
-   turns `BB_DEBUG` on in the kit's web build, and the page carries the debug switches and their
-   registrations: a player who presses F1 gets the kit's debug view with them (invincibility
-   among them). Turning `BB_DEBUG` on only when the compiler is neither dampf nor emcc
-   (`__EMSCRIPTEN__`) keeps them out of the web, as `BB_NO_DEBUG` does in the CMake web build
-   today. The kit's own part of the view (pause, a tick, slow motion, CGRAM, VRAM, the sprites)
-   stays on the page for now; whether a public web build should have it is open on the kit's side.
+1. **Keep the debug switches out of the public page.** The kit's debug view (F1, with the run
+   keys F5 to F8) is only in `superdevkit build web --debug` (the kit's ADR-6FD7KEJV), so a page
+   built without it gives players neither the view nor the switches registered there. The code is
+   still in the page, though: the kit passes the game no defines of its own, and `game.h` turns
+   `BB_DEBUG` on wherever the compiler is not dampf. A `--debug` build defines
+   `SDEVKIT_WEB_DEBUG` for every file, so `BB_DEBUG` on the web only when that is defined
+   (`!defined(__EMSCRIPTEN__) || defined(SDEVKIT_WEB_DEBUG)`) keeps the switches out of the public
+   page, as `BB_NO_DEBUG` does in the CMake web build today, and in the page for debugging.
 2. **Drop the CMake web build:** the `EMSCRIPTEN` parts of `CMakeLists.txt`, `web/shell.html`,
    the `__EMSCRIPTEN__` parts of `src/platform/platform_raylib.c` (the save folder, the main loop
    in the browser, `#nostart`), and the tools compiled to JavaScript for that build.

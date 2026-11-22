@@ -63,7 +63,8 @@
  * browser's canvas, and the loops wait for the browser's frames (sdevkit__web_frame), which a
  * clock of 60 ticks a second steps the game by; the save RAM is /save/<game>.srm, kept in
  * IndexedDB; the music is /music/<file> (packed into the page's data); F11 and F12 offer their
- * files as downloads. main takes the same options there but --view-shot (ADR-6FD1Y6W2): the page
+ * files as downloads. The debug view and the run keys F5 to F8 are only in superdevkit build web
+ * --debug (DEBUG_VIEW). main takes the same options there but --view-shot (ADR-6FD1Y6W2): the page
  * passes none; the examples' test calls Module.callMain with --check after writing the file into
  * Module.FS (tools/web_check), and reads hashes.txt and sound.txt from there.
  *
@@ -88,6 +89,15 @@
 
 #ifndef GAME_NAME
 #define GAME_NAME "superdevkit"
+#endif
+
+/* The debug view and its run keys (F1, F5 to F8): always on the desktop; on the web only in a
+ * build for debugging (superdevkit build web --debug defines SDEVKIT_WEB_DEBUG, ADR-6FD7KEJV),
+ * so a page put online gives its players neither. */
+#if !defined(__EMSCRIPTEN__) || defined(SDEVKIT_WEB_DEBUG)
+#define DEBUG_VIEW 1
+#else
+#define DEBUG_VIEW 0
 #endif
 
 static unsigned char rgba[SDEVKIT__W * SDEVKIT__H * 4];
@@ -675,10 +685,20 @@ static const char *draw_frame(Texture2D tex, float w, float h, int filter, sdevk
 static const char *show(Texture2D tex, sdevkit__run_state *run)
 {
     float w = (float)GetScreenWidth(), h = (float)GetScreenHeight();
-    float pw = sdevkit__debug_is_open() ? w - SDEVKIT__PANEL_W : w;
-    float s = pw / SDEVKIT__W < h / SDEVKIT__H ? pw / SDEVKIT__W : h / SDEVKIT__H;
+    float pw, s;
     const char *changed;
 
+    /* The keys before the drawing: EndDrawing polls the next ones on the desktop, and on the web,
+     * where the browser has delivered them already, marks them as seen, so a key read after it is
+     * never pressed there. */
+    if (IsKeyPressed(KEY_TAB) && crt_ok) {
+        crt_on = !crt_on;
+    }
+    if (DEBUG_VIEW) {
+        sdevkit__debug_keys();
+    }
+    pw = sdevkit__debug_is_open() ? w - SDEVKIT__PANEL_W : w;
+    s = pw / SDEVKIT__W < h / SDEVKIT__H ? pw / SDEVKIT__W : h / SDEVKIT__H;
     UpdateTexture(tex, rgba);
     if (crt_on) {
         sdevkit__crt_prepare(tex, s);
@@ -686,10 +706,6 @@ static const char *show(Texture2D tex, sdevkit__run_state *run)
     BeginDrawing();
     changed = draw_frame(tex, w, h, crt_on, run);
     EndDrawing();
-    if (IsKeyPressed(KEY_TAB) && crt_ok) {
-        crt_on = !crt_on;
-    }
-    sdevkit__debug_keys();
     return changed;
 }
 
@@ -848,9 +864,9 @@ static int window(int scale, int no_crt, const char *replay_file)
         int due = 1;                        /* EndDrawing waited for the frame (SetTargetFPS) */
 #endif
         int steps;
-        int k;
+        int k, run_key;
         const char *changed;
-        if (IsKeyPressed(KEY_F6)) {
+        if (DEBUG_VIEW && IsKeyPressed(KEY_F6)) {
             run.step = 1;
         }
         /* slow motion: a tick every fourth one due */
@@ -858,14 +874,14 @@ static int window(int scale, int no_crt, const char *replay_file)
                 : due;
         run.step = 0;
         frames += due;
-        if (IsKeyPressed(KEY_F5)) {
+        if (DEBUG_VIEW && IsKeyPressed(KEY_F5)) {
             run.paused = !run.paused;
         }
-        if (IsKeyPressed(KEY_F7)) {
+        if (DEBUG_VIEW && IsKeyPressed(KEY_F7)) {
             run.fast = !run.fast;
             run.slow = 0;
         }
-        if (IsKeyPressed(KEY_F8)) {
+        if (DEBUG_VIEW && IsKeyPressed(KEY_F8)) {
             run.slow = !run.slow;
             run.fast = 0;
         }
@@ -900,6 +916,15 @@ static int window(int scale, int no_crt, const char *replay_file)
         music_step(run.paused);
         run.tick = tick_count;
         run.lost = lost;
+        if (IsKeyPressed(KEY_F12)) {            /* before show(), as its keys */
+            char name[64];
+            snprintf(name, sizeof name, "%s_%d.png", GAME_NAME, shots++);
+            save_png(name);
+#ifdef __EMSCRIPTEN__
+            sdevkit__web_download(name);
+#endif
+        }
+        run_key = DEBUG_VIEW && (IsKeyPressed(KEY_F5) || IsKeyPressed(KEY_F7) || IsKeyPressed(KEY_F8));
         changed = show(tex, &run);
         if (changed != NULL && rec.debug_tick < 0) {
             rec.debug_tick = tick_count;
@@ -908,20 +933,11 @@ static int window(int scale, int no_crt, const char *replay_file)
                             "another game from there\n", GAME_NAME, changed, tick_count);
             shown_tick = -1;
         }
-        if (tick_count != shown_tick || IsKeyPressed(KEY_F5) || IsKeyPressed(KEY_F7) || IsKeyPressed(KEY_F8)
-            || run.step) {
+        if (tick_count != shown_tick || run_key || run.step) {
             if ((tick_count & 15) == 0 || run.paused || run.fast || run.slow || tick_count - shown_tick != 1) {
                 title(&run, replaying);
             }
             shown_tick = tick_count;
-        }
-        if (IsKeyPressed(KEY_F12)) {
-            char name[64];
-            snprintf(name, sizeof name, "%s_%d.png", GAME_NAME, shots++);
-            save_png(name);
-#ifdef __EMSCRIPTEN__
-            sdevkit__web_download(name);
-#endif
         }
 #if SDEVKIT_SRAM_SIZE > 0
         if (tick_count % 30 == 0) {

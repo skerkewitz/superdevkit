@@ -21,7 +21,7 @@ import superdevkit.sfx.Sfx;
  * superdevkit run [TARGET] [FOLDER]           builds and starts it: the desktop (linux or win64),
  *                                             snes in Mesen, web in the browser
  *     --verbose   every step as it runs     --plan     the steps, without running them
- *     --dry-run   checks that everything is there, and does nothing                --debug    no optimization (desktop)
+ *     --dry-run   checks that everything is there, and does nothing                --debug    -O0; web: the debug view
  * superdevkit png tiles|tiles2|palette|mode7 picture.png NAME out_dir [FIRST]
  * superdevkit sfx assets/sfx/sfx.json NAME out_dir
  * superdevkit --version
@@ -189,7 +189,7 @@ public final class Main {
                        superdevkit build TARGET [FOLDER]         snes, linux, win64 or web; the project in FOLDER (.)
                        superdevkit run [TARGET] [FOLDER]         builds and starts it (the desktop; snes in Mesen;
                                                                  web in the browser, served from this machine)
-                           --verbose  every step   --plan  the steps only   --dry-run  checks only   --debug  -O0
+                           --verbose  every step   --plan  the steps only   --dry-run  checks only   --debug  -O0 (web: and F1's view)
                        superdevkit png tiles|tiles2|palette|mode7 picture.png NAME out_dir [FIRST]
                        superdevkit sfx assets/sfx/sfx.json NAME out_dir
                        superdevkit --version""");

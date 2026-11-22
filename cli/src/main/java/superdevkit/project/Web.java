@@ -17,6 +17,8 @@ import java.util.List;
  * <p>build/web/index.html is the page (lib/web/shell.html), with index.js and index.wasm beside it,
  * and index.data with the music when the project has any. The frontend's loops wait for the
  * browser's frames with Asyncify (lib/web/web.h); the save RAM is kept in IndexedDB (-lidbfs.js).
+ * The debug view is only in a build with --debug (ADR-6FD7KEJV), which is compiled with -O0 -g
+ * and -DSDEVKIT_WEB_DEBUG, the game's files too, so a game can keep its own debug code to it.
  * The page must come from a web server (superdevkit run web), not from a file.
  */
 final class Web {
@@ -50,6 +52,7 @@ final class Web {
         common.addAll(List.of("-std=c99", debug ? "-O0" : "-O2", "-Wall", "-Wextra", "-Wno-unused-parameter"));
         if (debug) {
             common.add("-g");
+            common.add("-DSDEVKIT_WEB_DEBUG");    // the debug view and its keys, for the game too (ADR-6FD7KEJV)
         }
         if (p.sram() > 0) {
             common.add("-DSDEVKIT_SRAM_SIZE=" + p.sram());
@@ -107,7 +110,8 @@ final class Web {
         link.addAll(List.of("-o", page.toString()));
         Path template = kit.lib().resolve("web/shell.html");
         steps.add(new Build.Step(tool, String.join(" ", Desktop.show(p, link)), List.of(template), out -> {
-            Files.writeString(shell, Files.readString(template, StandardCharsets.UTF_8).replace("@GAME@", p.name()),
+            Files.writeString(shell, Files.readString(template, StandardCharsets.UTF_8).replace("@GAME@", p.name())
+                    .replace("@DEBUG_KEYS@", debug ? ", 'F1', 'F5', 'F6', 'F7', 'F8'" : ""),
                     StandardCharsets.UTF_8);
             for (String old : List.of("index.html", "index.js", "index.wasm", "index.data")) {
                 Files.deleteIfExists(web.resolve(old));

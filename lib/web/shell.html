@@ -3,7 +3,9 @@
   The page of a game built for the web (superdevkit build web, lib/web): the canvas fills the
   browser's window; the game starts with a click, since the browser plays sound and gives the
   keyboard to the page only after one. superdevkit build writes the game's name where GAME stands
-  between two at signs, emcc puts its script where SCRIPT stands in three braces.
+  between two at signs, and the debug view's keys where DEBUG_KEYS stands (F1, F5 to F8, only in
+  superdevkit build web --debug: ADR-6FD7KEJV); emcc puts its script where SCRIPT stands in three
+  braces.
 -->
 <html lang="en">
 <head>
@@ -27,9 +29,10 @@
 <div id="start">Loading @GAME@ ...</div>
 <script>
   // the keys the game and the debug view use, which the browser would take for itself otherwise
-  // (scrolling, the focus, its help, a reload): F5, F6, F7 and F8 run the debugger, F1 its view
+  // (scrolling, the focus, its help, a reload); in a build for debugging F1 opens the view, and F5,
+  // F6, F7 and F8 run the debugger
   const GAME_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Tab', 'Backspace', 'Enter',
-    'F1', 'F5', 'F6', 'F7', 'F8', 'F11', 'F12']);
+    'F11', 'F12'@DEBUG_KEYS@]);
   window.addEventListener('keydown', e => {
     if (GAME_KEYS.has(e.code) && !e.ctrlKey && !e.metaKey && !e.altKey) {
       e.preventDefault();
