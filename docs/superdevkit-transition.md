@@ -234,9 +234,12 @@ in the browser: `ExamplesTest` builds each for the web and plays its `check.txt`
 Chromium (`tools/web_check`, Playwright; the web's `main` takes `--check`), the checksums of its
 ticks, its sound and its recording against the SNES's. What is left:
 
-- Blubber Blasen's web build from the kit, and then the game drops `src/snes`, `src/platform` and
-  its web build: its folder holds its game, its assets, its debug registrations and
-  `superdevkit.toml`. With the game (a finding).
+- Blubber Blasen's web build from the kit. With the game: finding 3 in
+  [game-findings.md](game-findings.md) (2026-11-22). The game builds for the web with the kit
+  unchanged and plays its two checks (3,600 ticks each) in the browser with every checksum the
+  recorded one; it is asked to keep its debug switches out of the web and to drop its CMake web
+  build after release 0.8.0. `src/snes` is gone already. `src/platform` stays for the game's
+  desktop until the kit's window has the game's development features (the game's ADR-0010).
 
 ## Not scheduled
 

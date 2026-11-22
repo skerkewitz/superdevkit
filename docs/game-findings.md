@@ -43,3 +43,51 @@ cycles, is as fast as `(uint16_t)(v << 8) << 1`), and a 32-bit shift by 16 or mo
 What the game would change: nothing it must. A shift split in two, or a table laid out so that
 its row size needs a shift of 8 or less, only for this rule, can be written the plain way. A
 32-bit value is still more than twice the cost of a 16-bit one (`slow-32-bit` stays).
+
+## 3. The web from the kit: the CMake web build can go (2026-11-22)
+
+The kit builds the web version now: `./superdevkitw.sh build web` writes `build/web/index.html`
+with `index.js`, `index.wasm` and `index.data` (the music of `superdevkit.toml`), and
+`./superdevkitw.sh run web` serves that folder on this machine and opens the browser. It is the
+kit's desktop frontend in the browser (the kit's ADR-6FCVAA30): the retro TV filter, the sound
+effects and the music, the click to start, the save RAM in IndexedDB, and a 60 Hz clock, so a
+120 Hz screen does not run the game twice as fast. Like the kit's desktop it needs `build/data`
+first (`./build_snes.sh --data`), and emcc on the `PATH` (or `EMCC=<path to emcc>`). It is in the
+kit's development branch now and comes with release 0.8.0; switch when that is out
+(`superdevkit = "0.8"`), as the README asks for a release of the kit.
+
+Checked on the game's last commit (a copy of it, built with the kit's development branch): the
+build runs without changes, the page shows the splash and the title screen in headless
+Chromium, and both of the game's checks (`build/snes/check.txt` and `check_cpu.txt`, 3,600 ticks
+each, written by `snescheck`) play in the browser with every checksum the recorded one, and with
+the same checksums and sound as the kit's Linux build. The kit's tests now play every example
+in the browser the same way (`ExamplesTest`, the kit's ADR-6FD1Y6W2).
+
+What the game would change:
+
+1. **Keep the debug switches out of the web.** The kit passes the game no defines, so `game.h`
+   turns `BB_DEBUG` on in the kit's web build, and the page carries the debug switches and their
+   registrations: a player who presses F1 gets the kit's debug view with them (invincibility
+   among them). Turning `BB_DEBUG` on only when the compiler is neither dampf nor emcc
+   (`__EMSCRIPTEN__`) keeps them out of the web, as `BB_NO_DEBUG` does in the CMake web build
+   today. The kit's own part of the view (pause, a tick, slow motion, CGRAM, VRAM, the sprites)
+   stays on the page for now; whether a public web build should have it is open on the kit's side.
+2. **Drop the CMake web build:** the `EMSCRIPTEN` parts of `CMakeLists.txt`, `web/shell.html`,
+   the `__EMSCRIPTEN__` parts of `src/platform/platform_raylib.c` (the save folder, the main loop
+   in the browser, `#nostart`), and the tools compiled to JavaScript for that build.
+   `deploy-web.sh` builds with `superdevkitw.sh build web` and copies `index.html`, `index.js`,
+   `index.wasm` and `index.data`. The rest of `src/platform` stays for the desktop until the kit
+   has what ADR-0010 lists (the bot, the start options, the text panels, stepping back).
+3. **Mind the published page.** The page's name changes from `blubberblasen.html` to
+   `index.html`, so a link to the old name breaks, and the old files left in the Pages folder
+   would keep serving the old version (remove them, or leave a page that sends to the new one).
+   The save RAM keeps its 128 bytes but changes its name, `/save/blubberblasen.sav` to
+   `/save/blubberblasen.srm` (the same IndexedDB database), so a player's high scores and
+   options start empty once after the switch.
+4. **Automated runs in the browser** use the kit's way instead of `#nostart`: the page's `main`
+   takes `--check` like the desktop's, and the kit's `tools/web_check/web_check.js` plays a
+   `check.txt` or a recording in headless Chromium and writes `hashes.txt`, `sound.txt` and the
+   screenshots (README.md beside it).
+
+Nothing changes on the SNES or in the checksums: the ROM and the game's code stay as they are,
+apart from the line in `game.h`.
