@@ -95,8 +95,7 @@ final class SelectionPlan {
             case Instr.Bin x -> Selection.words(x.type()) == 1 && switch (x.op) {
                 case ADD, AND, OR, XOR -> true;     // commutative: v is loaded first either way (bin swaps)
                 case SUB -> x.op(0) == v;
-                case SHL, LSHR, ASHR -> x.op(0) == v && x.op(1) instanceof Value.Const k && k.bits() <= ArithSelection.UNROLL_SHIFT
-                        && k.bits() < x.type().bits();
+                case SHL, LSHR, ASHR -> x.op(0) == v && ArithSelection.unrolled(x);
                 default -> false;
             };
             case Instr.Store s -> s.op(1) == v && Selection.words(v.type()) == 1 && addressNeedsNoA(s.op(0));
@@ -566,8 +565,7 @@ final class SelectionPlan {
                     case Instr.Bin x -> switch (x.op) {
                         case MUL -> Selection.words(x.type()) == 2 || !(x.op(0) instanceof Value.Const || x.op(1) instanceof Value.Const);
                         case UDIV, UREM, SDIV, SREM -> true;
-                        case SHL, LSHR, ASHR -> Selection.words(x.type()) == 2 || !(x.op(1) instanceof Value.Const k)
-                                || k.bits() > ArithSelection.UNROLL_SHIFT || k.bits() >= x.type().bits();
+                        case SHL, LSHR, ASHR -> Selection.words(x.type()) == 2 || !ArithSelection.unrolled(x);
                         default -> false;
                     };
                     case Instr.Cast c -> c.kind == Instr.CastKind.SEXT && Selection.words(c.type()) == 2;

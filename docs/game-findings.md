@@ -31,3 +31,15 @@ takes an index into an array as inside it, since an access outside is undefined 
 one that bounds a loop for the timing report stays. In turn, an out-of-bounds index, which on
 the PC usually corrupts a neighbour, reads or writes another address on the SNES; a PC build with
 `-fsanitize=undefined` finds most of them.
+
+## 2. Constant shifts: no need to split them (2026-11-22)
+
+dampf now writes out every shift by a constant below the width; only a shift by a variable
+loops. A 16-bit shift by 9 to 15 costs a byte swap and up to 7 single shifts (`v << 9`, 19
+cycles, is as fast as `(uint16_t)(v << 8) << 1`), and a 32-bit shift by 16 or more moves a word
+(`(uint32_t)hi << 16 | lo` 47 cycles instead of 665, `x >> 17` a word and one shift). The rule
+`slow-shift-above-8` of `lib/C_STYLE.md` is gone.
+
+What the game would change: nothing it must. A shift split in two, or a table laid out so that
+its row size needs a shift of 8 or less, only for this rule, can be written the plain way. A
+32-bit value is still more than twice the cost of a 16-bit one (`slow-32-bit` stays).

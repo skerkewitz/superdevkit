@@ -31,8 +31,7 @@ uint16_t hist_lo[HIST_MAX], hist_hi[HIST_MAX];
 uint8_t hist_len;
 
 int16_t psq_val[16][128];
-/* The Zobrist keys in two halves, indexed [square][piece]: a row of 16 keys is 32 bytes, so the
- * index is a shift by 5, where [piece][square] needed one by 9 (rule slow-shift-above-8). */
+/* The Zobrist keys in two halves, indexed [square][piece]: a row of 16 keys is 32 bytes. */
 static uint16_t zob_lo[128][16], zob_hi[128][16];
 static uint16_t zob_castle_lo[16], zob_castle_hi[16];
 static uint16_t zob_ep_lo[8], zob_ep_hi[8];

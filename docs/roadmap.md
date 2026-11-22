@@ -95,8 +95,10 @@ Also in M9:
   [Risks](#risks)).
 - **16-bit pointers into RAM** ([subset.md](subset.md), decision 3), and enum objects in one byte
   (decision 2), each once its subset decision is taken.
-- **Constant shifts by a multiple of 8 as byte moves.** A 32-bit shift by 16 is a loop of 16
-  steps today, about 600 cycles.
+- **Constant shifts written out** (built 2026-11-22). Every shift by a constant below the width
+  is code without a loop: a 32-bit shift by 16 or more moves a word, one by 3 to 15 builds each
+  word from both, a 16-bit one above 8 swaps the bytes first; before, all of these looped, a
+  32-bit shift by 16 about 600 cycles.
 - **The gaps the C style guide measures** ([lib/C_STYLE.md](../lib/C_STYLE.md), each a rule that
   `StyleGuideTest` checks; the change that closes a gap changes or retires its rule):
   - a loop counter's width changed the cost of the loop: gone on 2026-11-20 with
@@ -112,8 +114,8 @@ Also in M9:
     the value is not negative: retires `slow-signed-divide`;
   - 32-bit operands go through frame slots (`hash ^= key` copies all four words): retires
     `slow-32-bit`;
-  - a constant shift above 8 is a loop (`shl 9` as `ldx #9; asl; dex; bne`; found in Schach's
-    Zobrist table): retires `slow-shift-above-8`.
+  - a constant shift above 8 was a loop (`shl 9` as `ldx #9; asl; dex; bne`; found in Schach's
+    Zobrist table): gone on 2026-11-22 with `slow-shift-above-8`.
 
 The order (decided 2026-11-20) was the plan in [archive/compiler-flaws.md](archive/compiler-flaws.md),
 an analysis of why the same loop costs between 25 and 138 cycles a round depending on its
@@ -316,8 +318,8 @@ naive code generator the vertical blank code is so slow that the room tiles neve
 minute of play, measured again on 2026-11-18) is in
 [optimizations.md](optimizations.md#where-things-stand).
 
-Open: the DMA margin waits for a console ([Not scheduled](#not-scheduled-for-the-dev-kit)),
-constant shifts longer than 8 are in M9.
+Open: the DMA margin waits for a console ([Not scheduled](#not-scheduled-for-the-dev-kit)).
+Constant shifts longer than 8 were written out in M9 (2026-11-22).
 
 ## Risks
 

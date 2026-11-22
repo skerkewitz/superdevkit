@@ -1598,3 +1598,23 @@ K, and nothing else happens per row: the inner loop runs to the end of the last 
 to where the outer loop left, whose φs are read there through new φs of the exit. The four rows
 spellings cost 3,614 → 3,238, as the flat loop; their gaps are closed. Steinschlag does 9 cycles
 a tick less; the other examples, the pair loops and every other worst case are the same.
+
+## Constant shifts written out (2026-11-22, on the examples)
+
+A shift by a constant above 8 was a loop of single shifts: `ldx #n`, then per place `asl a` (or
+`asl`/`rol` of both words in memory for 32 bits), `dex`, `bne`. A 32-bit shift by 16 cost about
+600 cycles, `(uint32_t)hi << 16 | lo` 665. Now every shift by a constant below the width is
+written out (`ArithSelection.unrolledShift`). A 16-bit shift above 8 swaps the bytes (`XBA`), masks
+and shifts the rest. A 32-bit shift by 16 or more moves one word to the other, shifts it in A by
+the rest and stores 0 or the sign in the word it leaves. A 32-bit shift by 3 to 15 builds each
+word of the result in A from both words of x (`hi = H << c | L >> 16-c`); by 1 or 2 places the
+two words still step in memory, which is cheaper there. Only variable shifts loop now.
+
+On the examples: Mandelbrot −6.4 %, Mode 7 −7.4 %, Steinschlag −0.8 %, Schach −0.2 %, Ertüp
+−0.1 %, the rest the same; geometric mean −2.2 %. 56 worst cases are smaller and none is larger;
+Schach's `chess_init`, which fills the Zobrist keys with xorshift, 4,932,758 → 1,047,779. In the
+library, `sdevkit_bg_set_gfx_ptr` 189 → 75 and `sdevkit_oam_init_gfx_attr` 147 → 41 (a shift by
+12 or 13 of an address). The pair loops are the same: the code of variant C is unchanged, its
+111 cycles a frame more come from the frames' setup inlined into `test_main`, which chooses X and
+Y the other way round. The style guide's `slow-shift-above-8` is retired: `v << 9` and
+`(uint16_t)(v << 8) << 1` cost 19 cycles each.
