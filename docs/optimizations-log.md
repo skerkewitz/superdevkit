@@ -1700,3 +1700,18 @@ negative, `RangeNarrow` now narrows to the unsigned operation at once (`sdiv` to
 divides that way, so their code, the worst cases and the pair loops are the same.
 `slow-signed-divide` stays, for a value dampf knows nothing about.
 
+## A comparison with a sum, in 16 bits (2026-11-22, on the examples)
+
+`a > b + 32` on two `int16_t` is a 32-bit comparison: C adds in `int`, and the sum may not fit 16
+bits. But where it does not fit, the answer is known: a sum above 32767 is greater than every
+`int16_t`, one below -32768 less. `CompareSum` turns such a branch into a test whether the sum fits,
+which goes straight to the known answer if not, and a 16-bit comparison if it does; where the ranges
+show that it always fits, the next round removes the test. A branch that leaves a loop stays, since
+the loop passes read its test. Exact for every predicate and either order (`CompareSumTest`,
+`exec/compare_sum.c`, at the values where the sum stops fitting).
+
+The C guide's example costs 164 → 104 cycles (86 with the cast). Steinschlag's `approach` 183 → 119
+and `camera` 448 → 320, Ertüp's `crate_update` 502 → 384. Steinschlag does 0.9 % less work, the
+others are the same within 0.04 %; geometric mean 0.999. 5 worst cases are smaller, none larger.
+The pair loops are the same.
+

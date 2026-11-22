@@ -74,8 +74,9 @@ call its own statement.
   memory, more than twice the cost of a 16-bit one. A value only combined bit by bit (a hash) can
   be two `uint16_t` halves.
 - **`slow-compare-sum`** Compare with `(int16_t)(y + 32)`, not `y + 32`, where the sum fits: C adds
-  an `int16_t` and a constant in `int`, which has 32 bits, so the comparison is a 32-bit one, as the
-  sum may not fit 16 bits. The cast says it does. (Two `uint8_t` added stay 16-bit: dampf sees that
+  an `int16_t` and a constant in `int`, which has 32 bits and may not fit 16. dampf then tests
+  whether the sum fits before a 16-bit comparison. The cast says it does and saves that test; so
+  does a known range of `y`. (Two `uint8_t` added stay 16-bit: dampf sees that
   they cannot overflow.)
 
 ## 4. Fast
@@ -133,7 +134,7 @@ Measured 2026-11-22 (worst case of the timing report, code generator from MIR).
 | `same-named-temporary` | `with_temporary` | 45 | same | `inline_expression` | 45 |
 | `same-pointer-walk` | `move_by_pointer` | 1,521 | same | `move_by_index` | 1,521 |
 | `slow-32-bit` | `xor_32` | 84 | slower | `xor_16_halves` | 36 |
-| `slow-compare-sum` | `compare_sum` | 164 | slower | `compare_sum_narrowed` | 86 |
+| `slow-compare-sum` | `compare_sum` | 104 | slower | `compare_sum_narrowed` | 86 |
 | `slow-divide-variable` | `divide_variables` | 804 | slower | `divide_constant` | 17 |
 | `slow-hand-shifts` | `times_40_by_shifts` | 41 | slower | `times_40` | 31 |
 | `slow-index-list` | `pairs_by_list` | 17,505 | slower | `pairs_by_counter` | 15,493 |
