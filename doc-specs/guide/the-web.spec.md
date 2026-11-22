@@ -9,6 +9,7 @@ sources:
   - cli/src/main/java/superdevkit/project/Web.java
   - cli/src/main/java/superdevkit/project/Serve.java
   - cli/src/main/java/superdevkit/project/Raylib.java
+  - cli/src/main/java/superdevkit/project/Desktop.java
   - cli/src/main/java/superdevkit/Main.java
   - tools/web_check/README.md
   - tools/web_check/web_check.js
@@ -34,8 +35,9 @@ desktop's frontend, in a page any browser opens.
 1. **Building for the web** – `superdevkit build web`: what it needs (emcc, found on the `PATH`
    or named by `EMCC`; raylib's web package, fetched on the first build), the three steps as on
    the desktop (each file alone, the symbol check, the link), and the files it writes into
-   `build/web/` (`index.html`, `index.js`, `index.wasm`, `index.data` with the music). That the
-   page must come from a web server, not a file.
+   `build/web/` (`index.html`, `index.js`, `index.wasm`, and `index.data` with the music when
+   the game has any; `obj/` and `music/` are the build's own). That the page must come from a
+   web server, not a file.
 2. **Playing in the browser** – `superdevkit run web`: the server on this machine and the port
    it takes, the browser it opens (`BROWSER`). The click that starts the game and why browsers
    need it. The canvas filling the window. The keys are the desktop's (link the key table of
@@ -48,7 +50,7 @@ desktop's frontend, in a page any browser opens.
    with `--debug` (`superdevkit build web --debug`, `run web --debug`), which is also built
    without optimization and defines `SDEVKIT_WEB_DEBUG` for the game, so a game can keep its own
    debug code to that build. Why: a page put online should give its players neither.
-5. **Putting it online** – the four files of `build/web/` on any static web server, built
+5. **Putting it online** – the `index.*` files of `build/web/` on any static web server, built
    without `--debug`. What a player's browser keeps (the save RAM) and that it is tied to the
    site's address.
 6. **Checked like the desktop** – the web's `main` takes `--check` like the desktop's; the kit's

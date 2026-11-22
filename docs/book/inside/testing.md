@@ -4,14 +4,17 @@
 
 A miscompile rarely crashes. More often it makes a bubble pass through a wall in round 37, and
 only sometimes. That is why dampf compares everything it builds with a reference from the
-start: this page shows how its code is checked against what gcc computes on the PC, which test
+start: this page shows how its code is checked against what clang computes on the PC, which test
 layers do it, what each one catches, and how you run them.
 
 ## The principle
 
-Every test program has a reference result: the same C source compiled by gcc on the PC and run
+Every test program has a reference result: the same C source compiled by clang on the PC and run
 there, the [PC build](/glossary#pc-build). dampf's result must match it bit for bit, because
-that is the promise dampf makes: the same source behaves the same on both sides.
+that is the promise dampf makes: the same source behaves the same on both sides. gcc and clang
+give the same results for the [subset](/glossary#subset) on x86-64, so clang's result is gcc's
+as well; the tests take clang because gcc's bounds sanitizer reported indexes that a program
+never computes.
 
 Each program is built for the SNES twice, once by the
 [naive code generator](/glossary#naive-code-generator) and once by the
@@ -21,20 +24,23 @@ promotions say, and has none of the optimizer's cleverness; it stays in dampf as
 reference, so a difference between the two points at the optimization that caused it.
 
 The program also runs on the level of [MIR](/glossary#mir) in between: dampf's MIR interpreter
-(`dampf.mir.Interpreter`) executes it once straight after the lowering from the AST and once
-after all the optimizer's [passes](/glossary#pass). A wrong lowering or a wrong pass shows up
-there, before any 65816 code exists. In the optimized run the verifier (`dampf.mir.Verifier`)
-checks the MIR after every pass, and every value the interpreter computes, and every
-parameter's value on entry to its function, must lie within the
-[value range](/glossary#value-range) dampf inferred for it (`Ranges.checker`). A `DAMPF_RANGE`
-[hint](/glossary#hint) that does not hold stops the interpreter with "a hint does not hold".
+(`dampf.mir.Interpreter`) executes it once straight after the lowering from the
+[AST](/glossary#ast) and once after all the optimizer's [passes](/glossary#pass). A wrong
+lowering or a wrong pass shows up there, before any 65816 code exists. The verifier
+(`dampf.mir.Verifier`) checks the MIR after the lowering and, in the optimized run, after every
+pass. Every value the interpreter computes, and every parameter's value on entry to its
+function, must lie within the [value range](/glossary#value-range) dampf inferred for it
+(`Ranges.checker`). A `DAMPF_RANGE` [hint](/glossary#hint) that does not hold stops the
+interpreter with "a hint does not hold", and a load or store outside the global or frame slot
+its address is based on stops it with "an access outside its object".
 
-On the PC side, gcc builds the program with [UBSan](/glossary#ubsan), its undefined behaviour
-sanitizer: extra checks in the code that stop the program when it overflows a signed `int`,
-shifts too far or divides by zero. The PC build uses `-fsanitize=undefined
--fno-sanitize-recover=all`. Without it, a test program whose result depends on undefined
-behaviour could pass by chance on the PC and fail on the SNES, or the other way round; with it,
-such a program fails the test.
+On the PC side, clang builds the program twice. The first build uses [UBSan](/glossary#ubsan),
+the undefined behaviour sanitizer: extra checks in the code that stop the program when it
+overflows a signed `int`, shifts too far, indexes outside an array or divides by zero. It is
+built with `-O0 -fsanitize=undefined -fno-sanitize-recover=all` and must run without a report.
+The second build, with `-O1` and without the sanitizer, gives the values. Without the check, a
+test program whose result depends on undefined behaviour could pass by chance on the PC and fail
+on the SNES, or the other way round; with it, such a program fails the test.
 
 What is compared are the globals after the [entry function](/glossary#entry-function) has
 returned. The [runtime](/glossary#runtime) writes to `$21FB` at that point, and the test reads
@@ -44,9 +50,9 @@ values are addresses that differ between PC and SNES, and so are constant object
 
 ## The layers
 
-**Execution tests** are small C programs in `compiler/src/test/resources/exec/`, each written to exercise
-one area: 8-bit wrap-around, calls, pointers, banks, 32-bit arithmetic, tables in ROM.
-`ExecutionTest` runs each one on the PC with gcc, in the MIR interpreter before and after the
+**Execution tests** are small C programs in `compiler/src/test/resources/exec/`, each written to
+exercise one area: 8-bit wrap-around, calls, pointers, banks, 32-bit arithmetic, tables in ROM.
+`ExecutionTest` runs each one on the PC with clang, in the MIR interpreter before and after the
 passes, and as two ROMs in dampf's emulator, one per code generator. When
 [Mesen](/glossary#mesen) is available, the ROM of the naive code generator also runs there.
 Every run must give the PC's globals.
@@ -60,16 +66,44 @@ third of the blocks "never ran", as [`--block-counts`](/reference/command-line#b
 would take them from a profile); it must give the same globals and keep the timing too, since
 a profile may change only the order of the blocks.
 
-**Random programs** come from a generator, `RandomProgram`, that writes programs within the
-[subset](/glossary#subset): ten global variables of the six integer types from `int8_t` to
-`uint32_t`, and thirty statements of assignments, `if`, short `for` loops and expressions with
-every operator. The programs are free of undefined behaviour by construction: divisors are made
-odd, shift counts are masked, wide arithmetic is done in `uint32_t`, where overflow wraps.
-Values at the edges of the types, such as `-32768`, `255` and `65536`, are chosen often, because
-that is where sign and overflow handling go wrong. `RandomProgramTest` runs 50 of them per build,
-with the same steps as the execution tests, the timing check included, but without the ROM laid
-out by block counts and in dampf's emulator only. The seeds are fixed, so a failure can be
-reproduced, and the failing program is printed in the message.
+**Random programs** come from two generators that write programs within the
+subset. The programs are free of undefined behaviour by construction:
+divisors are made odd, shift counts are masked, wide arithmetic is done in `uint32_t`, where
+overflow wraps. Values at the edges of the types, such as `-32768`, `255` and `65536`, are
+chosen often, because that is where sign and overflow handling go wrong.
+
+- **`RandomProgram`** (version 1) writes ten global variables of the six integer types from
+  `int8_t` to `uint32_t`, and thirty statements of assignments, `if`, short `for` loops and
+  expressions with every operator. Every build runs seeds 1 to 50, always the same programs.
+- **`RandomLoopProgram`** (version 2) writes what the optimizer's loop and pointer passes work
+  on: global arrays of bytes, words and a small struct, and a local array; counted loops with
+  every counter type, up and down, steps 1 to 5, the tests `<`, `<=`, `>`, `>=` and `!=`, as
+  `for`, `while` and `do`, with up to 300 rounds, constant, global and local bounds, `break` and
+  `continue`, nested, and pair loops; helper functions, small ones that are inlined and large
+  ones that are not, with pointer parameters that get one array or one of two; pointer walks
+  and `switch`. A loop is made from the values its counter takes, so it always ends and its
+  counter never wraps; an index is a counter shifted into the array's bounds or an expression
+  taken modulo its length; calls are whole statements, so no result depends on the order in
+  which C evaluates operands. Every build runs 50 seeds starting at
+  `LocalDate.now().toEpochDay() * 1000`, so every day tries new programs.
+
+`RandomProgramTest` runs both with the same steps as the execution tests, the timing check
+included, but without the ROM laid out by block counts and in dampf's emulator only. A failure
+names its seed and the command that runs that program alone (`-PrandomSeed=S -Prandom=1`), and
+prints the program. `dev/bisect_passes.sh` with that command names the pass that broke it.
+Before a release, `dev/random_soak.sh` runs 5,000 programs of each generator, in shares that run
+at once.
+
+**The preprocessor** of dampf is checked against clang's. `PreprocessTest` has the examples of
+the C standard (C99 6.10.3.5), the arithmetic of `#if`, includes, line markers and the features
+the subset rejects. `OracleTest` runs every C file dampf compiles in the repository (the test
+programs, the examples, `lib/snes`) through dampf's preprocessor and through `clang -E`: both
+must give the same tokens, each at the same file and line. `RandomMacrosTest` does the same with
+300 random macro programs from `RandomMacros` in every build: macros calling macros, macro names
+as arguments, self-reference, `#` and `##` with empty arguments, variadic macros, invocations
+over several lines, `#if` with `defined`. There a token may stand at a later line than clang's,
+because after an invocation or a comment over several lines clang keeps the rest of the line
+where it began, while dampf, like gcc, puts each token at its own line.
 
 **The examples** are the small games of the [dev kit](/glossary#dev-kit) in `examples/`.
 `ExamplesTest` builds each one for the SNES with the code generator from MIR and plays the input
@@ -80,25 +114,39 @@ state: the bytes the game names with `sdevkit_dbg_hash`, then the sprite table. 
 must be the same, so dampf's code and gcc's, `lib/snes` and Rachael computed the same game tick
 for tick; the test names the first tick that differs. On the SNES the call only writes the
 address and size of the memory to a port (`$21FC`), and the emulator reads and hashes it, so the
-check costs the game about 80 cycles a call.
+check costs the game about 80 cycles a call. The sound is compared too: what `game_init`
+uploaded into the audio RAM, and every write to the sound chip's DSP that the kit's driver made
+in the emulator must be the one Rachael's DSP got, in the same tick.
+
+Where Emscripten's `emcc` runs, raylib was fetched for the web and Playwright is installed in
+`tools/web_check`, each example is also built for the web and its check played in headless
+Chromium. The web's `main` takes `--check` like the desktop's; `tools/web_check/web_check.js`
+writes `check.txt` into the page's file system, runs `main` and copies the results into the
+example's `build/web-check`. The test compares them with the SNES's as it compares the desktop's,
+so emcc's WebAssembly, with its 32-bit pointers and `long`, computed the same game as gcc and
+dampf. The check has no window: the browser's frames and the clock that steps the game by them
+are not part of it. The web takes about two of the five minutes the examples take.
 
 The emulator's run also writes the [frames](/glossary#frame) per tick to the example's
-`build/emu-check/frames.txt` (on average and over the slowest 60 ticks) and the master cycles of
-every tick to `ticks.txt` there. They come close to Mesen's figures but are not equal, because a
-DMA takes no CPU time in dampf's emulator. A line `budget T1 T2` in `check.txt` turns this into
-a measured budget: the test fails when a tick from T1 to T2 - 1 took more than a frame. Er-Tüp's
-budget covers its busiest waves. To see where that time goes,
-`dampf.emu.ExampleProfile` plays the same input in dampf's emulator and charges the cycles of a
-range of ticks to the functions of the ROM, and, with the ROM's `.dbg` file beside it, to its C
-lines, including the lines of functions dampf inlined.
+`build/emu-check/frames.txt` (on average and over the slowest 60 ticks) and the [master
+cycles](/glossary#master-clock) of every tick to `ticks.txt` there. They come close to Mesen's
+figures but are not equal, because a [DMA](/glossary#dma) takes no CPU time in dampf's emulator.
+A line `budget T1 T2` in `check.txt` turns this into a measured budget: the test fails when a
+tick from T1 to T2 - 1 took more than a frame. Er-Tüp's budget covers its busiest waves. To see
+where that time goes, `dampf.emu.ExampleProfile` plays the same input in dampf's emulator and
+charges the cycles of a range of ticks to the functions of the ROM, and, with the ROM's `.dbg`
+file beside it, to its C lines, including the lines of functions dampf inlined.
 
 **Recordings.** Every session in the desktop's window is recorded: the joypad and the checksum
 of every [tick](/glossary#tick). F11 saves it in the format of `check.txt`, with `mark` and
 `hash` lines that the other players skip, so a bug seen on the desktop can be played again: in
 the window with `--replay`, which pauses at the marks and at the first tick whose checksum is not
-the recorded one, and on the SNES side with `dev/replay_example.sh`, in dampf's emulator and in
-Mesen. `ExamplesTest` writes every example's check as a recording too (`--record`) and requires
-the same buttons and the SNES's checksum for every tick in it.
+the recorded one, and on the SNES side, with `dev/replay.sh` in dampf's emulator for any ROM and
+with `dev/replay_example.sh` for an example, in dampf's emulator and in Mesen. When the ROM from
+MIR differs and the naive one does not, `dampf.emu.RomDiff good.sfc bad.sfc recording.txt` plays
+both and names, tick by tick, the globals that differ. `ExamplesTest` writes every example's
+check as a recording too (`--record`), on the desktop and on the web, and requires the same
+buttons and the SNES's checksum for every tick in it.
 
 **The static timing on the examples** is checked by `ExamplesTimingTest`. It builds every
 example with the code generator from MIR and runs it for 3,000 frames without input in dampf's
@@ -125,15 +173,17 @@ With `BASELINE=` and an earlier table it adds the ratio to that table per exampl
 geometric mean, so an optimization or a tuned parameter is judged on all examples, not on one
 program. The naive code generator, for example, does three times the work on the geometric
 mean, between 1.3 times (Mandelbrot, whose time is the runtime's multiplication) and 6.4 times
-(Er-Tüp).
+(Er-Tüp). A game outside the repository measures itself the same way, with
+`dampf.emu.ExampleBench rom.sfc rom.lbl recording.txt`.
 
-Two scripts play the examples in Mesen, which has the SNES's graphics chip
-(the PPU) that dampf's emulator lacks. `dev/check_example.sh` plays an example headless with the
-input of its `check.txt`, saves screenshots and the checksum of every tick, and counts every byte
-written to VRAM, CGRAM or OAM outside a [vertical blank](/glossary#vertical-blank), the pause
-between two pictures. The PPU drops such a byte, so the script fails when the count is not 0.
-`dev/compare_example.sh` plays an example in Mesen and on the desktop with the same input and
-compares the checksums of every tick and the screenshots, pixel for pixel.
+Two scripts play the examples in Mesen, which has the SNES's graphics chip (the PPU) that
+dampf's emulator lacks. `dev/check_example.sh` plays an example headless with the input of its
+`check.txt`, saves screenshots and the checksum of every tick, and counts every byte written to
+[VRAM](/glossary#vram), [CGRAM](/glossary#cgram) or [OAM](/glossary#oam) outside a [vertical
+blank](/glossary#vertical-blank), the pause between two pictures. The PPU drops such a byte, so
+the script fails when the count is not 0. `dev/compare_example.sh` plays an example in Mesen and
+on the desktop with the same input and compares the checksums of every tick and the screenshots,
+pixel for pixel.
 
 Until 2026-11-19 a copy of [Blubber Blasen](/glossary#blubber-blasen)'s code was a layer of its
 own, with its benchmark, its recorded games and the static timing checked on every call of the
@@ -151,7 +201,10 @@ code generators, and once more for Er-Tüp with its reference functions linked i
 naive code generator. A
 change that only moves code must keep every hash; one that changes the code on purpose records
 new hashes with `-PbackendOutput=update`, which also keeps a copy of the assembly in
-`build/backend-output-ref/` to compare against. The same test reads every assembly file back as
+`build/backend-output-ref/` to compare against. Beside the hashes the same update writes the
+static worst case of every function of every example to
+`compiler/src/test/resources/cost-baseline.txt`: a hash says that the code changed, the diff of
+that file says which functions got slower. The same test reads every assembly file back as
 LIR, dampf's low-level representation (65816 code in basic blocks, written as ca65 source):
 printed again, it must give the same text, and the LIR verifier must pass. And it builds every
 ROM twice, with ca65 and ld65, the assembler and linker of the cc65 suite, and with dampf's own
@@ -162,8 +215,8 @@ you need ca65 and ld65 to develop dampf, but not to use it. `LirTest` checks the
 parser and verifier of LIR on small hand-written pieces.
 
 `StyleGuideTest` measures the speed rules of the C style guide, `lib/C_STYLE.md`. Each rule is a
-C file in `compiler/src/test/resources/style/`, named after the rule, with a pair of functions that
-compute the same thing two ways and a first comment that states the claim, such as
+C file in `compiler/src/test/resources/style/`, named after the rule, with a pair of functions
+that compute the same thing two ways and a first comment that states the claim, such as
 `claim: sum_u8_counter slower sum_u16_counter`. The relation is `slower`, `faster` or `same`,
 where `same` means within 5 %. The test builds each file with the code generator from MIR and
 compares the worst cases of the two functions in the [timing report](/glossary#timing-report).
@@ -172,12 +225,23 @@ the meaning cannot get in, and the measured cycles must lie within the static ti
 that no longer holds fails the build: the rule changes or goes in the same commit as the change
 to dampf that broke it. The table of measurements in the guide must be what the test measures.
 
+`SpellingTest` checks that the same work, written the ways a programmer would write it, costs
+the same. Each file in `compiler/src/test/resources/spelling/` is a family: its functions
+without parameters are its members, with an optional `setup` and `check`. A generated
+`test_main` runs every member on the PC and on the SNES, and every member must give the same
+result. Then the test measures the CPU cycles of one call of each member in dampf's emulator: a
+member may cost at most the family's `tolerance` (in percent) more than its cheapest member,
+unless a `gap:` line names it with the cause and the step of the plan that should close it. A
+change that closes a gap fails the test until its line is removed, so the list of gaps only
+shrinks.
+
 Three more tests keep the documents of the [dev kit](/glossary#dev-kit) true. `LibCostTest`
 builds a program that calls every function of the console API, the calls a game makes to the
 dev kit's library, and checks their best and worst cases against the table in `lib/README.md`.
 `SnesHardwareGuideTest` checks the feature table of the guide to the SNES hardware,
 `lib/SNES_HARDWARE.md`, against `lib/snes` and against [Rachael](/glossary#rachael) in
-`lib/rachael`. `RachaelTest` checks that Rachael counts the register writes she does not draw.
+`lib/rachael`. `RachaelTest` checks that Rachael counts the register writes she does not draw,
+and runs her renderer's tests in C: small scenes, rendered and checked pixel by pixel.
 Like `StyleGuideTest`, each fails when its document is no longer true.
 
 `SplashTest` checks the course of the splash screen every game of the dev kit starts with, the
@@ -191,11 +255,11 @@ at full brightness, a press in frame 212, when the fade out has begun, changes n
 ## dampf's emulator and Mesen
 
 The SNES side of the tests runs in `dampf.emu`, a 65816 emulator in Java with LoROM and work
-RAM, but no graphics, DMA or sound. Of the picture it has only the timing that the kit's main
-loop polls: the line counter, the vertical blank flag and the automatic joypad read, and it has
-the joypads. It exists for two reasons. It runs inside the JVM, so a test needs no external
-program and runs much faster than a ROM started in
-Mesen; that is what makes 50 random programs on every build affordable. And
+RAM, the SPC700's boot protocol and the kit's sound driver, but no graphics, DMA or sound
+output. Of the picture it has only the timing that the kit's main loop polls: the line counter,
+the vertical blank flag and the automatic joypad read, and it has the joypads. It exists for two
+reasons. It runs inside the JVM, so a test needs no external program and runs much faster than a
+ROM started in Mesen; that is what makes 100 random programs on every build affordable. And
 it counts master cycles with the memory speeds of the SNES (work RAM and SlowROM 8 per access,
 I/O 6, internal cycles 6, DRAM refresh 40 per scanline), so the same run that checks the results
 also measures the speed.
@@ -220,8 +284,9 @@ In the Gradle tests, Mesen runs only for the execution tests, and only when it i
 when it exists, else `.mesen/Mesen.exe`. `MesenRunner` starts it headless (`--testrunner`) with
 a Lua script that waits for the write to `$21FB`, reads the globals and writes them to a file.
 It works with the Linux build, whose libraries it takes from `.mesen/lib` when that folder
-exists, and from WSL with the Windows build. The random programs, the examples, their timing and
-reference functions, and the examples' benchmark run in dampf's emulator only.
+exists, and from WSL with the Windows build. On the SNES side, the random programs, the
+examples, their timing and reference functions, and the examples' benchmark run in dampf's
+emulator only.
 
 Outside the Gradle tests, `dev/check_example.sh` and `dev/compare_example.sh` start Mesen. Each
 takes the Mesen that `MESEN` names, else `.mesen/Mesen`, else `.mesen/Mesen.exe`
@@ -230,19 +295,24 @@ takes the Mesen that `MESEN` names, else `.mesen/Mesen`, else `.mesen/Mesen.exe`
 ## Running the tests
 
 `./gradlew build` compiles dampf and runs every test that needs no property: the unit tests, the
-execution tests (in Mesen too, when `.mesen/` exists), 50 random programs, the examples, the
-static timing on the examples, the reference functions, the check of the back end's output and
-the tests of the guides. The rest is switched on with
-Gradle properties:
+execution tests (in Mesen too, when `.mesen/` exists), 50 random programs of each generator, the
+preprocessor's tests with 300 random macro programs, the examples, the static timing on the
+examples, the reference functions, the check of the back end's output and the tests of the
+guides. The rest is switched on with Gradle properties:
 
 | Call | What it does |
 | --- | --- |
 | `./gradlew build` | build and run the default tests |
 | `./gradlew test` | the default tests only |
 | `./gradlew test --tests dampf.exec.ExecutionTest` | one test class |
+| `./gradlew test --tests dampf.exec.ExecutionTest -Pexec=<name>` | only the execution test of `<name>.c` |
 | `./gradlew test -Pmesen=<path to Mesen>` | execution tests also in this Mesen instead of the one in `.mesen/` |
-| `./gradlew test -Prandom=<N>` | N random programs instead of 50 |
-| `./gradlew test -PrandomSeed=<S>` | random programs from seed S on (default 1) |
+| `./gradlew test -Prandom=<N>` | N random programs of each generator instead of 50 |
+| `./gradlew test -PrandomSeed=<S>` | random programs of both generators from seed S on (default 1, and today's for `RandomLoopProgram`) |
+| `./gradlew test -PppRandom=<N>` | N random macro programs instead of 300 |
+| `./gradlew test -PppSeed=<S>` | random macro programs from seed S on (default 1) |
+| `./gradlew test -PoptLimit=<n>` | at most n pass applications (`dampf.util.PassLimit`); the variable `DAMPF_OPT_LIMIT` does the same |
+| `./gradlew test -PtestForks=<n>` | n test JVMs at once instead of one per core and at most 4; 1 runs the classes one after the other |
 | `./gradlew test --tests '*BackendOutputTest' -PbackendOutput=update` | records new hashes of the back end's output and copies its assembly to `build/backend-output-ref/` |
 | `STYLE_GUIDE=update ./gradlew test --tests dampf.exec.StyleGuideTest` | writes today's measurements into the table of `lib/C_STYLE.md` |
 | `LIB_COSTS=update ./gradlew test --tests '*LibCostTest'` | writes today's best and worst cases into the table of `lib/README.md` |
@@ -252,6 +322,8 @@ Gradle properties:
 | `./gradlew pmdMain pmdTest` | PMD's checks with the rules in `config/pmd/ruleset.xml`; reports in `build/reports/pmd/`; findings do not fail the build |
 | `./gradlew cpd` | copied code in `compiler/src/main/java` (PMD's CPD), from 100 tokens on; report in `build/reports/cpd/main.txt` |
 | `./gradlew cpd -PcpdTokens=<N>` | the same from N tokens on |
+| `dev/random_soak.sh [count] [first seed]` | a long run of random programs, 5,000 of each generator by default, in shares at once (`JOBS=n`: at most n) |
+| `dev/bisect_passes.sh <command>` | runs a check command with smaller and smaller pass limits and names the pass application that breaks it |
 | `dev/bench_examples.sh [options]` | the examples' benchmark: the work per tick of every example, built with these options for `dampf build` |
 | `BASELINE=<table> dev/bench_examples.sh` | the same, and the ratio to an earlier table, per example and as the geometric mean |
 | `dev/check_example.sh <name>` | an example in Mesen: lost bytes, screenshots, checksums of every tick |
@@ -260,12 +332,31 @@ Gradle properties:
 
 The first run with `-PcpuTests` downloads the start of each opcode's file of the suite, about
 50 MB, into `~/.cache/dampf/65816-tests`; later runs use the copy. Without a property, the tests
-that need one are skipped, not failed.
+that need one are skipped, not failed. A random program that failed runs alone with the command
+its message names, such as
+`./gradlew :compiler:test --tests 'dampf.exec.RandomProgramTest.loopProgramsMatchGcc' -PrandomSeed=<S> -Prandom=1`.
+With a pass limit, the tests' emulator allows 6,000 frames, since code without the passes is up
+to ten times slower, and the execution tests pass with any limit.
 
 Coverage, PMD and CPD are not part of `./gradlew build`. JaCoCo is off by default because it
 slows down the tests that run the emulator, and PMD's findings are there to be read, not to stop
 a build. All scripts in `dev/`, with their arguments and variables, are listed in
 `dev/README.md` in the repository.
+
+The test classes run in several JVMs at once, one per core and at most 4, since each may take
+2 GB of memory. So a test class that writes files writes them where no other class does: into a
+temporary folder of its own, or into a folder only it uses, such as `build/backend-output` or an
+example's `build/timing/` and `build/reference/`. The one exception is an example's `build/gen/`,
+which every class that compiles an example converts again: the conversions replace each file
+atomically (`superdevkit.AtomicWrite`), so a class compiling from it never reads a file half
+written.
+
+Every pull request is built on GitHub Actions (`.github/workflows/build.yml`), and it is merged
+only when that build passes. The build runs `./gradlew build` on Ubuntu with JDK 25, the
+runner's C compiler, clang, Python 3 and Node.js, and ca65 and ld65 from Ubuntu's cc65 for
+`BackendOutputTest`. Mesen, raylib, Emscripten and Playwright are not there, so the execution
+tests run in dampf's emulator only, `ExamplesTest` plays the SNES side only, and the tests that
+need the desktop's or the web's build skip, such as `DesktopIsolationTest`.
 
 ## Adding an execution test
 
@@ -293,8 +384,9 @@ void test_main(void)
 
 `ExecutionTest` picks up every `.c` file in the folder by itself. For the PC side it writes a
 small harness that includes the file, calls `test_main` and prints every global, and compiles it
-with `gcc -std=c99 -O1 -Wall` and UBSan. It adds dampf's header directory with `-idirafter`, so
-a test can include `<dampf.h>`; gcc searches that directory after its own, so `<stdint.h>`
+with clang twice: `clang -std=c99 -O0 -Wall` with UBSan for the check, and
+`clang -std=c99 -O1 -Wall` for the values. It adds dampf's header directory with `-idirafter`,
+so a test can include `<dampf.h>`; clang searches that directory after its own, so `<stdint.h>`
 still comes from the PC. Here the PC prints `lives 4` and `score 1275`, and the
 test passes when the MIR interpreter, both ROMs in dampf's emulator and, if present, Mesen all
 end with these values, and every call in the ROM from MIR stays within its static timing.
@@ -309,13 +401,14 @@ a test was added for them.
 A test must fail, not wait forever. Every program test runs under a hard time limit
 (`assertTimeoutPreemptively`): 3 minutes per execution test, 2 per random program and 2 per MIR
 round trip, because JUnit's default timeouts do not cover the dynamic tests these are built
-from; `StyleGuideTest` has 5 for all its rules. External programs (gcc, the PC builds, and ca65
-and ld65 where the tests use them) run through `dampf.util.Processes` with a time limit and are
-killed when it runs out. The emulator stops after 600 frames in the program tests, after 40
-frames per tick of the check plus 2,000 in the examples' checks, and after 200,000 frames in
-`dampf bench`; the MIR interpreter counts its steps. The Gradle test task has an overall limit
-of 2 hours as a last resort. A program that loops forever fails in about a minute with "did not
-finish within 60 s and was stopped (does it hang?)".
+from; `StyleGuideTest` has 5 for all its rules, and `SpellingTest` 5 per family. External
+programs (the C compilers, the PC builds, and ca65 and ld65 where the tests use them) run
+through `dampf.util.Processes` with a time limit and are killed when it runs out. The emulator
+stops after 600 frames in the execution tests, after 2,000 for a random program, whose naive
+code may need more, after 40 frames per tick of the check plus 2,000 in the examples' checks,
+and after 200,000 frames in `dampf bench`; the MIR interpreter counts its steps. The Gradle test
+task has an overall limit of 2 hours as a last resort. A program that loops forever fails in
+about a minute with "did not finish within 60 s and was stopped (does it hang?)".
 
 ## Why it works this way
 
@@ -332,7 +425,11 @@ examples' benchmark runs without Mesen, and every run counts master cycles at th
 cost is a second emulator that has to be proved right, against the SingleStepTests suite and
 against Mesen (`docs/testing.md`, *Supporting pieces*).
 
-**UBSan on the PC side.** Without the sanitizer, a test program with undefined behaviour could
-give gcc's answer by luck, and a later change on either side would break it for no visible
-reason. With it, such a program fails at once, and the random program generator has to avoid
-undefined behaviour by construction (`docs/testing.md`, *The principle*).
+**clang with UBSan on the PC side.** Without the sanitizer, a test program with undefined
+behaviour could give the PC's answer by luck, and a later change on either side would break it
+for no visible reason. With it, such a program fails at once, and the random program generators
+have to avoid undefined behaviour by construction. The tests used gcc until its bounds check
+reported an index a random loop program never computed, which failed every build of that day.
+Keeping gcc for the values and clang only for the check was turned down: it would mean two
+compilers where one does both jobs. The cost is that developing the kit needs clang; using it
+does not (`docs/testing.md`, *The principle*; ADR-6FD2DGP0 in `docs/adr/`).

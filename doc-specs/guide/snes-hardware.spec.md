@@ -3,12 +3,17 @@ title: The SNES hardware
 sources:
   - lib/SNES_HARDWARE.md
   - lib/README.md
+  - lib/include/sdevkit/snes.h
   - lib/rachael/rachael.h
   - lib/rachael/ppu.c
+  - lib/rachael/dsp.c
+  - lib/splash/splash.h
   - lib/desktop/main.c
+  - lib/desktop/view.c
+  - tools/web_check/README.md
   - compiler/src/test/java/dampf/lib/SnesHardwareGuideTest.java
   - compiler/src/test/java/dampf/lib/LibCostTest.java
-audience: Game programmers who write a game with the dev kit and test it on the desktop and in Mesen
+audience: Game programmers who write a game with the dev kit and test it on the desktop, on the web and in Mesen
 ---
 
 ## Purpose
@@ -25,21 +30,29 @@ it, and the three kinds of rule (enforced, measured, documented).
 
 1. **What the dev kit has** – the table of features with their state on the SNES and on
    [Rachael](/glossary#rachael), and what "reported" means: the register writes Rachael does not
-   draw, and the desktop check's `undrawn` count. Where the cost of each API call is (the table in
-   `lib/README.md`), with two or three examples from it.
+   draw and the DSP writes she does not play, the desktop check's `undrawn` and `unheard` counts,
+   and that she counts the same on the web and in the window. Where the cost of each API call is
+   (the table in `lib/README.md`), with two or three examples from it.
 2. **Video memory** – the rules, each with its kind.
 3. **Sprites** – the rules, each with its kind.
 4. **CPU and memory** – the rules, each with its kind.
-5. **The console is not the emulator** – start values and PAL.
+5. **The console is not the emulator** – start values (also after the splash screen, and of
+   save RAM) and PAL.
 6. **Not usable yet** – one short paragraph, and what to do instead today.
 
 ## Pay attention to
 
 - Every rule says how it is checked, in the guide's three words.
-- The message of the desktop check exactly as `lib/desktop/main.c` prints it.
+- The messages of the desktop check exactly as `lib/desktop/main.c` prints them, and the check
+  run as a reader runs it: `superdevkit build linux` in the game's folder, then the program in
+  `build/linux/` with `--check`.
 
 ## Out of scope
 
 - How dampf compiles C, and what is slow there: [Writing fast C](/guide/writing-fast-c).
 - The console API function by function: [The console API](/reference/console-api); the table
-  of features links its functions there.
+  of features links its functions there; those of sound and save RAM link to
+  [Graphics and sound](/guide/graphics-and-sound) and to the `sram` key of
+  [The superdevkit command](/reference/superdevkit#sram).
+- The check's file format and options: [The desktop](/guide/the-desktop); the web's check:
+  [The web](/guide/the-web).

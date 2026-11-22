@@ -7,6 +7,13 @@ on the PC, and what dampf's code computes on the SNES matches that [PC build](/g
 bit for bit. dampf is the compiler of superdevkit, a [development kit](/glossary#dev-kit) for
 SNES games that also holds a library with the console API, tools, examples and this book.
 
+A game is written once against the kit's console API, and
+[the superdevkit command](/reference/superdevkit) builds it for each
+[target](/glossary#target): for the SNES with dampf, for Linux and Windows with the PC's C
+compiler, and for [the web](/guide/the-web) with Emscripten. The last three run the game on
+[Rachael](/glossary#rachael), the SNES rebuilt in portable C, with the same picture pixel for
+pixel.
+
 The name comes from German: *Dampf machen* ("make steam") means to get things moving fast. It
 also fits the steam factory of [Blubber Blasen](/glossary#blubber-blasen), dampf's first user, a
 game whose logic is C that also builds and is tested on the PC.
@@ -54,10 +61,13 @@ A compiler with that one job can assume things no general compiler can:
   with gcc or clang, and that is what makes the code testable.
 
 For your own game this means two things. Its logic must also build with gcc on the PC, because
-that build is what dampf's result is compared with. And the calls it makes into PVSnesLib or
-another library need a [platform layer](/glossary#platform-layer) written in C, which dampf
-compiles together with the game, as Blubber Blasen's is. dampf brings no such layer for your
-game: the one in the repository implements Blubber Blasen's calls only.
+that build is what dampf's result is compared with. And it reaches the console only through the
+kit's [console API](/reference/console-api), `sdevkit/snes.h`: PVSnesLib's calls, renamed so
+that every name starts with `sdevkit_` or `SDEVKIT_`. On the SNES the kit's
+[platform layer](/glossary#platform-layer) in `lib/snes`, written in C, implements it, and dampf
+compiles it together with the game; on the desktop and the web Rachael implements it. A game
+written against PVSnesLib converts its names with `tools/sdevkit_rename.py`. A game that calls
+another library needs a platform layer of its own for that library.
 
 ## The PC build is the reference
 
@@ -68,7 +78,7 @@ compute on the SNES, bit for bit, including the effects of C's integer promotion
 are widened to `int` before arithmetic) and the wrap-around of fixed-width types.
 
 The tests hold dampf to that. Every test program is built with dampf and with gcc on the PC and
-the results are compared, and Blubber Blasen's own benchmark gives the PC's checksums on every
+the results are compared, and Blubber Blasen's own benchmark gave the PC's checksums on every
 one of its 3,610 ticks. The kit's example games are played with a fixed input in dampf's own
 emulator and as a PC build, and a checksum of their state is compared after every tick, in
 every build. When dampf's code looks different from what you expected, the reason is
@@ -88,61 +98,64 @@ dampf's goals:
 4. **Readable output.** The generated assembly is commented, so you can follow what each part is
    meant to do.
 5. **Correctness first.** Every optimization is checked automatically against a reference.
-6. **Nothing to install but Java, in the end.** dampf assembles and links with its own
-   assembler and linker, so you need no [ca65 and ld65](/glossary#ca65-and-ld65); gcc is still
-   needed for preprocessing until dampf has a preprocessor of its own.
+6. **Nothing to install but Java.** dampf preprocesses, assembles and links with its own
+   preprocessor, assembler and linker, so a SNES build needs neither gcc nor
+   [ca65 and ld65](/glossary#ca65-and-ld65). The desktop and the web builds need the PC's C
+   compiler or Emscripten.
 
 Its non-goals:
 
 - Full C, or conformance to the C standard beyond the subset.
-- Other CPUs or targets.
+- Other CPUs or targets for dampf itself: the kit's desktop and web builds use the PC's C
+  compiler.
 - A debugger of its own: dampf uses Mesen.
 - Floating point.
 - Fast compilation. A game the size of Blubber Blasen already compiles in seconds.
 
 ## Where it stands
 
-dampf compiles all of Blubber Blasen, and its version is 0.5.0, in work. The milestones M0
+dampf compiles all of Blubber Blasen, and the kit's version is 0.8.0. The milestones M0
 (define the subset), M1 (end to end, with stepping through C in Mesen), M2 (all of the game
 compiled by the [naive code generator](/glossary#naive-code-generator), with the PC's
 checksums), M3 (the optimizer: dampf lowers the program to [MIR](/glossary#mir), its
 intermediate representation, optimizes it and generates 65816 code from it), M4 (fine tuning:
-block layout, peephole rules, loop and branch optimizations) and M6 (an assembler and linker of
-its own) are concluded. M5, in which Blubber Blasen builds its ROM with the dev kit from its own
-repository, is in work as version 0.5.0, and so is M7, which brings the dev kit to Windows and
-Linux. Publishing the dev kit is a step of its own and not scheduled yet. Every version before
-1.0 is a pre-release, so the subset, the command line and the files dampf writes may change
-from one version to the next. After M5, the dev kit comes to the web in M8; the optimizer work
-that is left goes on in M9, language, platform and usability (among them a preprocessor of dampf's own) in M10, timing and
-debugging in M11, and fine tuning until the frame budget is met in M12.
+block layout, peephole rules, loop and branch optimizations), M6 (an assembler and linker of
+its own), M5 (Blubber Blasen builds its ROM with the dev kit from its own repository), M7 (the
+desktop, Linux and Windows, and the `superdevkit` command) and M8 (the web) are concluded. The
+optimizer work that is left goes on in M9, which is in progress; language, platform and
+usability follow in M10, timing and debugging in M11, and fine tuning until the frame budget is
+met in M12. Publishing the dev kit is a step of its own and not scheduled yet. Every version
+before 1.0 is a pre-release, so the subset, the command line and the files dampf writes may
+change from one version to the next.
 
 Until 2026-11-19 dampf was measured on Blubber Blasen's benchmark, which ran the game code with
 a fixed input and every PVSnesLib call stubbed out. During play (the benchmark's ticks of the
 game itself, not title, story or round intro), the game logic took 0.79 frames per tick with
 dampf, against 4.37 with the naive code generator, measured on 2026-11-18. The goal of 0.6
-frames per tick is not reached yet in play, and the compiler alone is not expected to reach it: the game is
-being made to do less work at the same time.
+frames per tick is not reached yet in play, and the compiler alone is not expected to reach it:
+the game is being made to do less work at the same time.
 
-dampf built a playable ROM of the game. The dev kit's library, written in C, implements the
-console API `lib/include/sdevkit/snes.h`, taken over from the game and renamed so that every name
-a game can use starts with `sdevkit_` or `SDEVKIT_` (`setMode` is `sdevkit_set_mode`): the
-PVSnesLib-shaped calls the game makes, and the main loop of `sdevkit/loop.h`. Until the game
-switches to the new names, a deprecated compatibility header, `lib/include/snes/`, maps the old
-ones for Blubber Blasen; `tools/sdevkit_rename.py` converts a game. On the
-console the game ran at 1.16 frames per tick during a minute of play (3,600 frames, 3,098
-ticks), measured on 2026-11-18 after the latest optimizations. That figure includes waiting for the
+dampf built a playable ROM of the game with the dev kit's library for the SNES, which
+implements the console API `lib/include/sdevkit/snes.h`, taken over from the game and renamed
+(`setMode` is `sdevkit_set_mode`), and the main loop of `sdevkit/loop.h`. On the console the
+game ran at 1.16 frames per tick during a minute of play (3,600 frames, 3,098 ticks), measured
+on 2026-11-18 after the latest optimizations. That figure includes waiting for the
 [vertical blank](/glossary#vertical-blank) and the platform layer, so it is not comparable with
 the benchmark: a tick that needs more than one frame waits for the next vertical blank, and the
 benchmark leaves out what the game's video code costs on the hardware. Since 2026-11-19 the dev
 kit's own examples are dampf's test cases and its benchmark, and the game's code is no longer in
-the repository. Sound and save RAM are not built. Most of the hints are not built either. dampf computes a best and a worst case in CPU
-cycles for every function, and a function marked with `DAMPF_BUDGET` that goes over its cycle
-budget fails the build. The [Roadmap](/inside/roadmap) has the plan, and
-[Limits](/reference/limits) lists what dampf does not do yet.
+the repository.
+
+Since the game left, the library has gained sound effects, on the SNES through the kit's driver
+for its sound processor, the SPC700, and save RAM, the cartridge's battery RAM. Music plays on
+the desktop and the web, not yet on the SNES. Most of the hints are not built. dampf computes a
+best and a worst case in CPU cycles for every function, and a function marked with
+`DAMPF_BUDGET` that goes over its cycle budget fails the build. The [Roadmap](/inside/roadmap)
+has the plan, and [Limits](/reference/limits) lists what dampf does not do yet.
 
 ## Where to go next
 
-- [Getting started](/guide/getting-started): install dampf and compile a first program.
+- [Getting started](/guide/getting-started): install superdevkit and build a first game.
 - [Command line](/reference/command-line): the start of the reference, for every detail.
 - [How a compile works](/inside/how-a-compile-works): the inside guide, for how dampf works under
   the hood.

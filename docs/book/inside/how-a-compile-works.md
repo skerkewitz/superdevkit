@@ -9,13 +9,13 @@ not need any of it to use dampf.
 ## The big picture
 
 The class `Compiler` holds the whole pipeline: C files go in, a SNES ROM with debug
-information comes out. Two code generators share the front end: the code generator from
-[MIR](/glossary#mir), which `dampf build` uses unless you choose the naive one or use
-`--replace`, and the naive code generator, which works straight from the [AST](/glossary#ast).
+information comes out. Two code generators share the [front end](/glossary#front-end): the code
+generator from [MIR](/glossary#mir), which `dampf build` uses unless you choose the naive one or
+use `--replace`, and the naive code generator, which works straight from the [AST](/glossary#ast).
 
 ```mermaid
 flowchart TD
-    C[C files] --> PP[preprocess: gcc -E]
+    C[C files] --> PP[preprocess: dampf's own]
     PP --> P[parse: ANTLR grammar]
     P --> AST[typed AST of the whole program]
     AST --> CHK[checks: call graph, no recursion]
@@ -29,7 +29,7 @@ flowchart TD
     AS --> ROM[ROM and debug file]
 ```
 
-- **Preprocess**: gcc expands macros and includes, one C file at a time.
+- **Preprocess**: dampf's preprocessor expands includes and macros, one C file at a time.
 - **Parse**: an ANTLR parser turns the preprocessed text into a parse tree.
 - **AST**: the parse trees of all files become one typed AST; subset violations are found here.
 - **Checks**: the call graph of the whole program is built, and recursion is rejected.
@@ -46,23 +46,34 @@ flowchart TD
 
 ## Preprocess and parse
 
-The class `Preprocessor` runs `gcc -E -std=c99 -nostdinc -undef -D__DAMPF__=1` on each source
-file. The option `-nostdinc` keeps the host's headers out, and dampf's own include directory
-provides `<stdint.h>`; `-undef` drops the host's predefined macros such as `__x86_64__`, and
-`__DAMPF__` lets a header tell the dampf build apart. The `-I` directories and `-D` macros of
-the command line are passed on. If gcc fails, on a missing header for example, dampf stops with
-gcc's first error message at gcc's position, like any other error of the compile.
+The class `Preprocessor` runs dampf's own preprocessor (`dampf.frontend.pp`) on each source
+file. It does what C99 says for the directives and macros the subset needs: `#include`,
+object-like, function-like and variadic macros with `#` and `##`, the conditionals with
+`defined`, `#error` and `#pragma once`. Anything beyond that, such as C23's `__VA_OPT__`,
+`#line`, `#include_next` or `__COUNTER__`, is an error that names it. No host header and no host
+macro reaches the code: dampf's own include directory provides `<stdint.h>`, `<dampf.h>` and
+`<string.h>`, and dampf searches it before the `-I` directories of the command line, as
+`gcc -nostdinc -I` would. Besides the standard's macros and the `-D` macros of the command
+line, it defines `__DAMPF__`, so that a header can tell the dampf build apart, and with `--sram`
+it defines `SDEVKIT_SRAM_SIZE` with the bytes of save RAM. An error of the preprocessor, a
+missing header for example, stops dampf at its file, line and column like any other error of
+the compile.
+
+The [PC build](/glossary#pc-build) preprocesses the same files with its own compiler. Both see
+the same code because dampf's preprocessor gives the same tokens as clang's and gcc's on what it
+accepts, which the tests check.
 
 The parser comes from ANTLR 4, a tool that generates a parser in Java from a grammar. dampf
 uses the C grammar of the grammars-v4 collection unchanged; only its support classes were
-adapted, and the lexer no longer runs a preprocessor of its own, since dampf has already run
-`gcc -E`. The grammar parses C23 with GNU extensions, far more than
+adapted, and the lexer no longer runs a preprocessor of its own, since dampf has preprocessed
+the text already. The grammar parses C23 with GNU extensions, far more than
 [the subset](/glossary#subset).
 
-Source positions survive the preprocessor: gcc keeps line markers such as
-`# 142 "bubble.c"` in its output, and `Parser` maps every position in the preprocessed text
-back to the original file and line before it reports a syntax error. The same positions travel
-on through the AST and MIR into the `.dbg line` directives of the assembly, which is how
+Source positions survive the preprocessor: like `gcc -E`, it writes line markers such as
+`# 142 "bubble.c"` into its output, puts each token of a file at its own line and a token out of
+a macro at the line of the macro's use, and `Parser` maps every position in the preprocessed
+text back to the original file and line before it reports a syntax error. The same positions
+travel on through the AST and MIR into the `.dbg line` directives of the assembly, which is how
 [Mesen](/glossary#mesen) shows the C source while you step.
 
 ## The typed AST
@@ -86,17 +97,20 @@ the function may take.
 
 The subset is enforced here, not in the grammar. A construct outside the subset parses, and
 then gets a message that says what is not supported, with the position of the C source. Once
-the AST is complete, `Compiler` looks up the [entry function](/glossary#entry-function) and
-stops if it is missing. `examples/m1/calls.c` names its entry function `test_main`, so
-without `--entry` it fails:
+the front end is through, the checks of the next section included, `Compiler` looks up the
+[entry function](/glossary#entry-function) and stops if it is missing. The execution test
+`compiler/src/test/resources/exec/calls.c` names its entry function `test_main`, so without
+`--entry` it fails:
 
 ```sh
-dampf build -o build/calls.sfc examples/m1/calls.c
+dampf build -o build/calls.sfc compiler/src/test/resources/exec/calls.c
 ```
 
 ```
-examples/m1/calls.c:1:1: error: entry function 'main' is not defined
+compiler/src/test/resources/exec/calls.c:1:1: error: entry function 'main' is not defined
 ```
+
+With `--entry test_main` the same command builds the ROM.
 
 ## Checks on the whole program
 
@@ -133,16 +147,21 @@ most 20 times:
 8. pointer compression (`PointerOffsets`),
 9. multiplication and division by constants (`StrengthReduce`),
 10. common subexpressions and redundant loads (`Gvn`),
-11. dead code removal (`DeadCode`).
+11. dead code and loops that do nothing removed (`DeadCode`, `DeadLoops`),
+12. two loops over the rows of a table as one loop (`Collapse`).
 
 After that round, `ParamRanges` narrows the ranges of parameters across the whole program, and
 if it did, the round runs again. Then small functions are inlined (`Inline`); `Optimizer` hands
 it the passes, so that it can run them on a function again before that function's callers
-decide whether to inline it. Pointer parameters are compressed (`PointerParams`), and if either
-changed something, the passes run again. Pointers that became offsets in the callers may then
-reach more callees, so `PointerParams` runs once more, and `ParamRanges` after it, each followed
-by the passes if it changed something. Last, `Schedule` sets the order of the instructions for
-the code generator, and the verifier checks the result.
+decide whether to inline it. Pointer parameters are compressed (`PointerParams`), and a byte
+parameter that a function uses only as an index into an array of structs becomes the index
+times the struct's size, which the callers compute (`IndexParams`); if any of the three changed
+something, the passes run again.
+Pointers that became offsets in the callers may then reach more callees, so `PointerParams` runs
+once more, and `ParamRanges` after it, each followed by the passes if it changed something.
+Last, `SinkCompares` computes a comparison again right before a branch in another block that
+uses it, `Schedule` sets the order of the instructions for the code generator, and the verifier
+checks the result.
 What MIR looks like is on [MIR](/inside/mir); what each pass does is on
 [Optimizations](/inside/optimizations).
 
@@ -155,20 +174,24 @@ computed again where their value is needed (`PointerRemat`), and `Hints` compute
 function's value ranges with the checks of the hints, then takes the checks out. Then it
 selects the instructions of each function once (`Selection`, with one class per kind of MIR
 instruction and `FrameLayout` for the places): it sets the processor modes with `REP` and `SEP`
-and gives every value a place in a frame or in A, X or Y.
+and gives every value a place in a frame or in A, X or Y. Once every function is selected,
+`PlaceColouring` gives the places their addresses on the code, a function's frame above the
+frames of all it calls, and `RegisterChoice` moves some of them to X or Y where that saves
+cycles.
 
 What instruction selection writes is LIR, the low-level intermediate representation: 65816
 instructions in basic blocks, each with the accumulator width it runs in. Its text is the ca65
 assembly file dampf writes, so the `.s` file next to the ROM is the LIR as the passes left it.
 The LIR passes remove loads of a value a register already holds (`RedundantLoads`, `IndexInY`),
 apply peephole rules (`Peephole`), run short 16-bit stretches between byte stores in 8 bits
-(`ByteStretches`), drop a `CLC` or `SEC` where the carry is known (`KnownCarry`), remove stores
-nobody reads (`DeadStores`), choose the branch forms (`BranchRelax`) and number the local labels
-(`LocalLabels`). On the finished LIR, `Timing` computes the best and worst case of
-every function in CPU cycles, which `dampf build` writes to a `.timing.txt` file next to the
-ROM. `Compiler` then checks every function with a `DAMPF_BUDGET` against its worst case: a
-function above its budget, or one without a worst case, stops the build with an error, and one
-above 90 % of its budget gets a warning that does not.
+(`ByteStretches`), run loops over bytes in 8 bits from entry to exit (`ByteLoops`), drop a
+`CLC` or `SEC` where the carry is known (`KnownCarry`), remove stores nobody reads
+(`DeadStores`), choose the branch forms (`BranchRelax`) and number the local labels
+(`LocalLabels`). On the finished LIR, `Timing` computes the best and worst case of every
+function in CPU cycles, which `dampf build` writes to a `.timing.txt` file next to the ROM.
+`Compiler` then checks every function with a `DAMPF_BUDGET` against its worst case: a function
+above its budget, or one without a worst case, stops the build with an error, and one above
+90 % of its budget gets a warning that does not.
 
 The [naive code generator](/glossary#naive-code-generator), `NaiveCodeGen`, translates the AST
 directly, almost everything in 32-bit `int` as C's promotions say. It stays as an independent
@@ -197,7 +220,9 @@ banks from `$80` up, largest first, each into the first bank with room, and link
 start-up switches these banks to [FastROM](/glossary#fastrom-and-slowrom) speed, and the header
 says FastROM, unless `--slowrom` builds for a SlowROM cartridge. The image is padded to a
 power of two, the header gets the ROM size and the checksum, and dampf writes the
-debug file in ld65's format, which Mesen reads.
+debug file in ld65's format, which Mesen reads. With `--sram`, `Compiler` then has the header
+announce battery-backed save RAM, the bytes rounded up to 2, 4, 8, 16 or 32 KB, and the checksum
+is computed again.
 
 Use `--assembler ca65` to build with ca65 and ld65 instead; the ROM
 is the same. With them, dampf assembles with `ca65 -g` and links twice, because it learns the
@@ -249,13 +274,17 @@ although dampf supports far less. A parse error would only say that something is
 the subset checker can say what is not supported, such as recursion, with a clear message
 (`docs/architecture.md`, *Pipeline*).
 
-**An own assembler and linker that gain nothing for the code.** Because dampf compiles the
-whole program, it already knows every instruction size and decides branch distances itself, and
-it controls placement through segments, so ca65 and ld65 would build the same code. dampf has
-its own so that using it needs no cc65. ca65 and ld65 stay the reference: the tests build every
-program both ways and compare the ROMs and the debug files. The price is an assembler that
-reads only the subset of ca65 dampf writes (`docs/architecture.md`,
-*Assembly output and debugging*).
+**An own preprocessor, assembler and linker that gain nothing for the code.** Because dampf
+compiles the whole program, it already knows every instruction size and decides branch distances
+itself, and it controls placement through segments, so ca65 and ld65 would build the same code;
+with gcc's preprocessor the generated code of every test program and example was the same to the
+byte. dampf has its own so that using it needs nothing but Java: no cc65, and no gcc, which on
+Windows had meant MinGW or MSYS for the preprocessor alone. The others stay the reference: the
+tests compare the preprocessor with `clang -E` on every C file dampf compiles in the repository
+and on random macro programs, and build every program with both assemblers and compare the ROMs
+and the debug files. The price is a preprocessor and an assembler that know only the part of C99
+and of ca65 that dampf needs (`docs/architecture.md`, *Pipeline* and
+*Assembly output and debugging*; ADR-6FD4GDN5 in `docs/adr/`).
 
 **Not more than three intermediate levels.** Every level costs a lowering step, a verifier, a
 text format and tests, so dampf plans three, one each for the structure of C, the data flow and

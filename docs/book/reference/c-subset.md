@@ -331,16 +331,48 @@ to a pointer such as `(uint8_t *)0x7E2000`, are accepted in any file.
 
 ## Preprocessor
 
-dampf preprocesses every file with `gcc -E -nostdinc -undef -D__DAMPF__=1` and its own include
-directory, which holds only `<stdint.h>`, `<dampf.h>` and `<string.h>`. Anything `gcc -E`
-accepts is allowed. Host headers and host macros never reach the code: `__GNUC__` and
-`__x86_64__` are not defined, and `#include <stdio.h>` fails. A failure of the preprocessor is
-an ordinary error at the place gcc names, with gcc's message. For a file `stdio.c` whose second
-line is `#include <stdio.h>`:
+dampf preprocesses every file with a preprocessor of its own, so using dampf needs no C
+compiler. It has a subset of C99's directives and macros: what the kit's library, its examples
+and its tests use. Its include directory holds only `<stdint.h>`, `<dampf.h>` and `<string.h>`.
+Host headers and host macros never reach the code: `__GNUC__` and `__x86_64__` are not defined,
+and `#include <stdio.h>` fails. A failure of the preprocessor is an ordinary error at its place.
+For a file `stdio.c` whose second line is `#include <stdio.h>`:
 
 ```
 stdio.c:2:10: error: stdio.h: No such file or directory
 ```
+
+The preprocessor has:
+
+- **`#include "..."` and `#include <...>`.** A name in quotes is looked for in the directory of
+  the including file first. Then both kinds are looked for in dampf's include directory and in
+  the directories given with `-I`, in that order.
+- **`#define` and `#undef`**, with object-like, function-like and variadic macros
+  (`__VA_ARGS__`), `#` and `##`. Macros expand exactly as C99 says (section 6.10.3).
+- **`#if`, `#elif`, `#ifdef`, `#ifndef`, `#else`, `#endif` and `defined`.** The arithmetic of
+  `#if` is that of `intmax_t` and `uintmax_t`, 64 bit.
+- **`#error`**, which stops with an error whose message is the directive and its text, such as
+  `#error LEVELS must be defined`.
+- **`#pragma`**, which is passed on, and `#pragma once`.
+- **Predefined macros**: `__FILE__`, `__LINE__`, `__STDC__`, `__STDC_VERSION__` (`199901L`),
+  `__STDC_HOSTED__` and `__DAMPF__`, and the macros given with `-D`.
+
+Everything else is rejected with a message that names it: two features of C99 that no code of
+the kit uses (`#line` and an include of a macro), later standards' additions and gcc's
+extensions.
+
+| Rejected | Message |
+|---|---|
+| `__VA_OPT__` | `__VA_OPT__ is not supported by dampf's preprocessor` |
+| a named variadic parameter, `#define TRACE(args...)` | `named variadic macros are not supported by dampf's preprocessor` |
+| an include of a macro, `#include HEADER` | `#include of a macro is not supported by dampf's preprocessor` |
+| `#line`, `#include_next`, `#warning`, `#ident`, `#assert` and gcc's other directives | `#line is not supported by dampf's preprocessor` (with the directive written) |
+| an unknown directive, `#region` | `invalid preprocessing directive #region` |
+| `_Pragma`, `__has_include`, `__has_include_next`, `__COUNTER__`, `__DATE__`, `__TIME__`, `__TIMESTAMP__`, `__BASE_FILE__`, `__INCLUDE_LEVEL__` | `__COUNTER__ is not supported by dampf's preprocessor` (with the name written) |
+
+Trigraphs, digraphs and universal character names are not handled. The PC build preprocesses
+with the PC's compiler; on everything dampf's preprocessor accepts, both give the same tokens,
+and the tests check this against clang on every C file dampf compiles in the kit.
 
 `__DAMPF__` is defined as 1, so code can tell the dampf build from the PC build:
 

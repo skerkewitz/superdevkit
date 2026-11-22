@@ -9,12 +9,12 @@ files Mesen needs.
 
 ## Set up Mesen
 
-Build the program with `dampf build`. This page uses `examples/m1/calls.c`, which the
-repository keeps for exactly this purpose; its [entry function](/glossary#entry-function) is
-`test_main`:
+Build the program with `dampf build`. This page uses
+`compiler/src/test/resources/exec/calls.c`, one of dampf's execution tests and a single C file
+that builds without the kit; its [entry function](/glossary#entry-function) is `test_main`:
 
 ```sh
-build/install/superdevkit/bin/dampf build --entry test_main -o build/examples/m1/calls.sfc examples/m1/calls.c
+build/install/superdevkit/bin/dampf build --entry test_main -o build/calls.sfc compiler/src/test/resources/exec/calls.c
 ```
 
 Next to the ROM `calls.sfc`, dampf writes the generated assembly `calls.s` and the debug file
@@ -24,14 +24,22 @@ and a line. It writes the debug file in the format of [ld65](/glossary#ca65-and-
 Mesen reads; with `--assembler ca65`, ld65 writes it instead.
 [The generated files](/reference/output-files) describes each file.
 
+A game gets the same files from the kit: `superdevkit build snes` writes the ROM, its assembly
+and its debug file into the game's `build/snes/`, and `superdevkit run snes` builds the game
+and opens the ROM in Mesen. It starts the program the environment variable `MESEN` names, or
+else the Mesen in the `.mesen/` folder of the
+[superdevkit home](/glossary#superdevkit-home), and waits until you close it.
+[The superdevkit command](/reference/superdevkit#run) has the details.
+
 Open the ROM in Mesen with the `.dbg` file next to it. In the debugger's integration settings,
 let Mesen load `.dbg` files automatically; then it reads the debug file every time you open
 the ROM.
 
 The debug file names the C sources relative to itself, as the path from the folder of the ROM
-to the source file. For the build above that is `../../../examples/m1/calls.c`. Mesen finds the
-sources as long as the repository keeps its layout, so move the ROM and the sources together
-or not at all.
+to the source file. For the build above that is `../compiler/src/test/resources/exec/calls.c`;
+for a game it is the path from `build/snes/` to its `src/` folder, such as `../../src/hello.c`
+in `examples/hello`. Mesen finds the sources as long as they keep their place relative to the
+ROM, so move the ROM and the sources together or not at all.
 
 If you build in WSL and run the Windows Mesen, open the ROM through `\\wsl.localhost\...`.
 The relative paths in the debug file then lead to the sources in the same file system.
@@ -71,7 +79,7 @@ This is line 30 of `calls.c` as the default build writes it:
 
 ```asm
 ; calls.c:30   small_result = inc8(-1);                                         [ 7 cyc ]
-        .dbg    line, "../../../examples/m1/calls.c", 30
+        .dbg    line, "../compiler/src/test/resources/exec/calls.c", 30
                                     ; store i8 @_small_result, 0
         sep     #$20                ;                                                           3
         stz     _small_result       ;                                                           4
@@ -116,7 +124,8 @@ Narrow the difference down in steps:
    [code generator from MIR](/glossary#code-generator-from-mir) or its optimizer, and the
    C line where the two builds part is the one to report.
 
-dampf's own tests compare every test program this way, with gcc on the PC built with the
+dampf's own tests compare every test program this way. Their PC side is clang, which gives the
+same results as gcc for the subset, built with the
 [undefined behaviour sanitizer](/glossary#ubsan): a program whose result depends on undefined
 behaviour can differ between the two sides without either being wrong, and the sanitizer
 reports it on the PC.

@@ -3,18 +3,19 @@
 
 A game of the [dev kit](/glossary#dev-kit) reaches the console only through its console API
 (`sdevkit/snes.h`), and it runs on two platforms: on the SNES, compiled by dampf, and on the
-desktop, compiled by the PC's C compiler against [Rachael](/glossary#rachael), the SNES rebuilt
-in portable C. A feature is usable only when both platforms have it. If Rachael did not know a
-feature, the desktop would show a different picture than the SNES, and every check on the
-desktop would be worthless for that game. This page is made from `lib/SNES_HARDWARE.md`, the
-guide to the hardware that ships with the kit.
+PC, on the desktop or in the browser, compiled by a C compiler for the PC against
+[Rachael](/glossary#rachael), the SNES rebuilt in portable C. A feature is usable only when both
+platforms have it. If Rachael did not know a feature, the desktop would show a different picture
+than the SNES, and every check on the desktop would be worthless for that game. This page is
+made from `lib/SNES_HARDWARE.md`, the guide to the hardware that ships with the kit.
 
-You test on the desktop and in [Mesen](/glossary#mesen), not on a console, so each rule below
-says how it is checked, in one of three words:
+You test on the desktop, on the web and in [Mesen](/glossary#mesen), not on a console, so each
+rule below says how it is checked, in one of three words:
 
 - **Enforced**: Rachael or the build reports a breach, and the desktop check fails on it.
 - **Measured**: a check shows it without failing on it: what only the console's timing shows,
-  in Mesen (`dev/check_example.sh`), or a count of the desktop check that a game may mean.
+  in Mesen (`dev/check_example.sh`, the check of the kit's examples), or a count of the desktop
+  check that a game may mean.
 - **Documented**: the kit does not check it; you take care yourself.
 
 ## What the dev kit has
@@ -33,34 +34,42 @@ Use what is built in both columns of this table:
 | Mode 7's second layer (EXTBG), direct colour | not built | not built, reported | |
 | Mosaic, high resolution, interlace | not built | not built, reported | |
 | Raster interrupts (H/V IRQ), the timers | not built: the game is never interrupted | not built | |
-| Sound (SPC700, DSP) | not built | not built | |
-| Save RAM | not built | not built | |
+| Sound effects: samples (BRR) from a game's `sfx.json`, 1 to 8 voices with priorities, GAIN's direct envelope, volume | built: a forwarding driver on the SPC700, the logic in C | built: Rachael's DSP, through raylib's audio stream; the DSP writes compared with the SNES's | [`sdevkit_sfx_init`](/guide/graphics-and-sound#sound-effects), [`sdevkit_sfx_play`](/guide/graphics-and-sound#sound-effects) |
+| Music: tracks from files | not built: the calls do nothing | built: the file plays through raylib (OGG, MP3, WAV, QOA, XM, MOD) | [`sdevkit_music_play`](/guide/graphics-and-sound#music), [`sdevkit_music_stop`](/guide/graphics-and-sound#music) |
+| ADSR envelopes, echo, noise, pitch modulation, looped samples | not built | not built, reported | |
+| Save RAM: battery-backed, up to 32 KB, kept while the console is off | built: the cartridge's RAM at `$70:0000`, announced in the header by `dampf --sram` | built: `<game>.srm` next to the program; checks and recordings start with the save RAM they name | [`sdevkit_sram`](/reference/superdevkit#sram) |
 | Mouse, multitap, Super Scope | not built | not built | |
 | The CPU's multiplier and divider (`$4202`-`$4206`), mode 7's multiplier (`$2134`-`$2136`) | not used: dampf's runtime multiplies in software | not needed: the game is compiled for the PC | |
 
 DMA (direct memory access) copies a block of memory without the CPU; HDMA writes a value to a
 register at the start of every line of the picture. VRAM holds the tiles and maps, CGRAM the
-colours, OAM the sprite table. `SnesHardwareGuideTest` checks that every function named in a row
-built on both platforms exists in `lib/snes` and in `lib/rachael`.
+colours, OAM the sprite table. The SPC700 is the SNES's sound processor; it drives the DSP, the
+chip that plays samples in BRR, the SNES's compressed sample format, and shapes the volume of
+each voice with an envelope, GAIN or ADSR. `SnesHardwareGuideTest` checks that every function
+named in a row built on both platforms exists in `lib/snes` and in `lib/rachael`.
 
 "Reported" covers the features a game could reach anyway: `sdevkit_reg_write` sets any register
 of the PPU, the SNES's picture processing unit. Rachael counts every write she does not draw: a
 mode other than 1 and 7, mosaic, `SETINI` (`$2133`, interlace, high resolution and EXTBG),
 direct colour, and the ports of VRAM, CGRAM and OAM, because writes there would go around her
-memories. The SNES would show
-something else there, so the desktop check fails on such a write as it fails on a lost byte
-(*enforced*). The check runs the game without a window, with the input of a `check.txt`:
+memories. Her DSP counts in the same way every write that switches on what she does not play:
+ADSR, the other modes of GAIN, echo, noise, pitch modulation and a sample with a loop. The SNES
+would show or sound something else there, so the desktop check fails on such a write as it
+fails on a lost byte (*enforced*). The check runs the game without a window, with the input of
+a `check.txt`; for `examples/hello`, in its folder:
 
 ```sh
-dev/build_desktop.sh examples/hello
-examples/hello/build/linux/hello --check examples/hello/check.txt --out examples/hello/build/linux
+superdevkit build linux
+mkdir -p build/check
+build/linux/hello --check check.txt --out build/check
 ```
 
-It ends with a line that counts the frames, the lost bytes, the undrawn writes and the lines
-over the sprite limits, and exits with 1 when the lost bytes or the undrawn writes are not zero:
+It ends with a line that counts the frames, the lost bytes, the undrawn and the unheard writes
+and the lines over the sprite limits, and exits with 1 when the lost bytes, the undrawn or the
+unheard writes are not zero:
 
 ```
-frames 400 ticks 400 lost 0 undrawn 0 sprites 0
+frames 400 ticks 400 lost 0 undrawn 0 unheard 0 sprites 0
 ```
 
 A game called `mode3` that calls `sdevkit_reg_write(SDEVKIT_PPU_BGMODE, 3)` gets, before that
@@ -68,13 +77,24 @@ line:
 
 ```
 mode3: 1 register writes Rachael does not draw, the first $2105 = $03 (the SNES would show something else)
-frames 3 ticks 3 lost 0 undrawn 1 sprites 0
+frames 3 ticks 3 lost 0 undrawn 1 unheard 0 sprites 0
 ```
+
+A DSP write she does not play gives a line of the same kind, which starts
+`mode3: 1 DSP writes Rachael does not play, the first $RR = $VV` with the DSP's register and its
+value in hex. The file format and the other options of the check are on
+[The desktop](/guide/the-desktop).
+
+Rachael counts the same wherever she runs. The web runs the desktop's frontend, and the kit's
+tests play every example's `check.txt` in its web build in a headless browser, with the same
+`--check` and the same exit status ([The web](/guide/the-web)). In the window, the debug view
+(F1) shows the lost bytes and the undrawn and unheard writes while the game runs, and the
+program prints them to the error output when you close it.
 
 Every function of the console API also has a cost on the SNES, in CPU cycles from best to worst
 case, calls included. The table *Built and stub, per function and platform* in `lib/README.md`
 lists them; `LibCostTest` fails when they are not what dampf gives today. `sdevkit_set_mode`
-costs 45 cycles, `sdevkit_oam_set` 315 to 427, and `sdevkit_oam_clear` 23 to 103,703, because
+costs 45 cycles, `sdevkit_oam_set` 293 to 405, and `sdevkit_oam_clear` 19 to 102,675, because
 it can clear the whole sprite table. A DMA function also uses as many bytes of the vertical
 blank's budget as it copies.
 
@@ -136,8 +156,15 @@ At power on, a console's registers and video memory hold whatever happens to be 
 emulators start with zeros. The kit's start-up on the SNES (`sdevkit__reset_video`) clears
 every PPU register, VRAM, CGRAM and the sprite table before `game_init`, and C zeroes the game's
 static variables, so a game of the kit starts from known values on both (*enforced by the
-kit*). What stays a risk is a local variable read before it is written: compile the
-[PC build](/glossary#pc-build) with `-Wall -Wextra` and fix every "may be used uninitialized".
+kit*). The splash screen every game starts with does not change that: the main loop resets the
+console again after it and puts the game's sprite table back, so `game_init` finds what it found
+before the splash existed. What stays a risk is a local variable read before it is written:
+compile the [PC build](/glossary#pc-build) with `-Wall -Wextra` and fix every "may be used
+uninitialized".
+
+Save RAM starts unknown as well. The first time, a cartridge's RAM holds whatever it held, while
+the desktop and the checks start with zeros. Mark the game's data in it as valid, with a magic
+number or a checksum, and clear the block when the mark is missing (*documented*).
 
 PAL consoles run at 50 frames a second, NTSC consoles at 60, and their vertical blank is
 longer. One ROM runs on both with NTSC's limits, so a game that counts in frames runs a sixth
@@ -145,7 +172,8 @@ slower on PAL (*documented*).
 
 ## Not usable yet
 
-Sound, save RAM, raster effects by interrupt and the mouse each wait until their
-feature is built in both columns of the table; [Limits](/reference/limits) says what is planned.
+Music on the SNES, raster effects by interrupt and the mouse each wait until their feature is
+built in both columns of the table; [Limits](/reference/limits) says what is planned. A game can
+call the music functions already: they do nothing on the SNES, and dampf removes the calls.
 Many raster effects work today with HDMA, which writes a value per line to a register:
 scrolling, colours and windows that change down the screen.

@@ -3,13 +3,18 @@
 
 A game is not one file but many, with headers in several directories, graphics converted into C
 and a library it calls: Er-Tüp, the side-scrolling shooter in `examples/ertuep` and the largest
-example of the [dev kit](/glossary#dev-kit), has 28 `.c` files. This page compiles Er-Tüp with
-dampf, finds what does not fit the [subset](/glossary#subset), and measures where the cycles go.
-When you compile your own game, pass its paths instead.
+example of the [dev kit](/glossary#dev-kit), compiles 29 `.c` files into its ROM. This page
+compiles Er-Tüp with dampf, finds what does not fit the [subset](/glossary#subset), and measures
+where the cycles go. When you compile your own game, pass its paths instead.
 
 A ROM of a game needs a [platform layer](/glossary#platform-layer) for the library the game
-calls, compiled together with the game; Er-Tüp calls the dev kit's console API, and its argument
-file compiles the platform layer in `lib/snes` with it.
+calls, compiled together with the game; Er-Tüp calls the dev kit's console API, and its build
+compiles the platform layer in `lib/snes` with it.
+
+The commands on this page run from the top of superdevkit's repository. The page writes `dampf`
+and `superdevkit` for the launchers in `<home>/bin`, in the
+[superdevkit home](/glossary#superdevkit-home) of [Getting started](/guide/getting-started),
+with `<home>/bin` on your `PATH`.
 
 ## Many files, one call
 
@@ -21,86 +26,107 @@ with gcc (`-Dname` or `-Dname=value`). Use `--entry` to name the
 after start-up; without it, that is `main`.
 
 For a game of your own in `mygame/src`, with its headers next to the `.c` files and a `main`,
-the shortest call with the launcher from [Getting started](/guide/getting-started) is:
+the shortest call is:
 
 ```sh
-build/install/superdevkit/bin/dampf build -I mygame/src -o build/mygame/mygame.sfc mygame/src/*.c
+dampf build -I mygame/src -o build/mygame/mygame.sfc mygame/src/*.c
+```
+
+Er-Tüp is built with `superdevkit build snes examples/ertuep`, from its
+[project file](/glossary#project-file) `examples/ertuep/superdevkit.toml`. The build first
+converts the PNG files the project file lists, from `examples/ertuep/assets`, into C in
+`examples/ertuep/build/gen`, then compiles the game with dampf. With `--plan` it shows these
+steps without running them, with paths relative to the game's folder (cut here):
+
+```sh
+superdevkit build snes examples/ertuep --plan
+```
+
+```
+superdevkit build snes: ertuep (kit ...)
+  png    tiles assets/stage_bar.png stage_bar build/gen
+  ...
+  png    mode7 assets/karussell.png karussell build/gen 33
+  dampf  build -I .../lib/include -I src -I build/gen --entry main -o build/snes/ertuep.sfc src build/gen/ .../lib/snes/
+  write  build/compile_commands.json
+everything the build needs is there
 ```
 
 Er-Tüp has three include directories: `lib/include` with the headers of the console API,
 `examples/ertuep/src` with the game's own, and `examples/ertuep/build/gen` with the graphics
-converted into C. Its `.c` files are in the last two and in `lib/snes`; it needs no `-D`. The
-graphics come from the PNG files in `examples/ertuep/assets`, which `examples/ertuep/build.sh`
-converts with `tools/png2snes.py` before it compiles (`CONVERT_ONLY=1` stops after the
-conversion). With the graphics converted, the whole build on one command line is:
+converted into C. Its `.c` files are in the last two and in `lib/snes`; it needs no `-D`. Once
+a build has converted the graphics, the same compile on one command line is:
 
 ```sh
-build/install/superdevkit/bin/dampf build \
+dampf build \
     -I lib/include -I examples/ertuep/src -I examples/ertuep/build/gen \
     --entry main -o build/ertuep/ertuep.sfc \
     examples/ertuep/src/*.c examples/ertuep/build/gen/*.c lib/snes/*.c
 ```
 
-It compiles in seconds and prints one line, with the full paths of the ROM and of the debug
-file for [Mesen](/glossary#mesen) (cut here):
+It prints one line, with the full paths of the ROM and of the debug file for
+[Mesen](/glossary#mesen) (cut here):
 
 ```
 wrote .../build/ertuep/ertuep.sfc and .../build/ertuep/ertuep.dbg
 ```
 
-Nobody types a call like this twice. Keep it in an argument file instead, which `build`, `check`
-and `parse` read when you name it with `@file` or `--config file`, one file per call. The file
-holds one option with its value per line, or one source file or folder; `#` starts a comment.
-Relative paths in it are taken from the file's folder, so the file works from any folder, and
-a folder stands for the `.c` files directly in it. Er-Tüp keeps its build in
-`examples/ertuep/ertuep.args`:
+Nobody types a call like this twice. dampf reads it from an
+[argument file](/glossary#args-file) instead, and every `superdevkit build snes` writes one for
+the game: `build/snes/<name>.args`, which names what the build compiled. It names every file on
+its own line, with absolute paths, and `--sram` as well when the project file asks for save RAM.
+Er-Tüp's, with the paths cut and most of its files left out:
 
-```text [examples/ertuep/ertuep.args]
-# Er-Tüp for the SNES: the game, its converted graphics (build/gen, written by build.sh) and the
-# dev kit's library. Paths are relative to this file (ADR record 28).
--I ../../lib/include
--I src
--I build/gen
+```text [examples/ertuep/build/snes/ertuep.args]
+# What superdevkit build snes compiles, for dampf (written by every build):
+#   dampf build @build/snes/ertuep.args -o out.sfc [more options]
+-I .../lib/include
+-I .../examples/ertuep/src
+-I .../examples/ertuep/build/gen
 --entry main
-src/
-build/gen/
-../../lib/snes/
+.../examples/ertuep/src/boss.c
+...
+.../examples/ertuep/build/gen/wall_kitchen.c
+.../lib/snes/main.c
+.../lib/snes/sfx.c
+.../lib/snes/snes.c
 ```
 
 The command line adds to the file, so the file leaves out the output and each call names its
-own. `build.sh` changes to the example's folder and, after converting the PNG files, makes this
-call, where `-o` is taken from the current folder as on any command line:
+own. The call below builds the same ROM as `superdevkit build snes`, which itself prints only
+`built build/snes/ertuep.sfc`, and prints dampf's single line:
 
 ```sh
-cd examples/ertuep
-../../build/install/superdevkit/bin/dampf build @ertuep.args -o build/ertuep.sfc
-```
-
-From the top of the repository, the same file is `@examples/ertuep/ertuep.args`; either way the
-ROM is the same as the one of the long call. `examples/ertuep/build.sh` does both steps and
-prints the same single line:
-
-```sh
-examples/ertuep/build.sh
+dampf build @examples/ertuep/build/snes/ertuep.args -o build/ertuep.sfc
 ```
 
 ```
-wrote .../examples/ertuep/build/ertuep.sfc and .../examples/ertuep/build/ertuep.dbg
+wrote .../build/ertuep.sfc and .../build/ertuep.dbg
 ```
+
+Options added after the file, such as another code generator or `--replace`, give a variant of
+the same build.
+
+You can also write an argument file by hand. `build`, `check` and `parse` read it when you name
+it with `@file` or `--config file`, one file per call. The file holds one option with its value
+per line, or one source file or folder; `#` starts a comment. Relative paths in it are taken
+from the file's folder, so the file works from any folder, and a folder stands for the `.c`
+files directly in it, not those in its subfolders.
 
 A function can be given a [budget](/reference/command-line#budgets) in CPU cycles with
 `DAMPF_BUDGET` from `<dampf.h>`. When its worst case comes above 90% of the budget, a warning
-line comes before this one; when it is over the budget, or has no worst case, the build fails.
+line comes before dampf's `wrote` line; when it is over the budget, or has no worst case, the
+build fails.
 
 Next to the ROM, dampf writes the generated assembly (`ertuep_1.s`, `ertuep_2.s` and the
 runtime's `dampf_runtime.s`), the label file (`ertuep.lbl`, the address of every label), and
-`ertuep.timing.txt` with the best and worst case of each function in CPU cycles. dampf
-assembles and links with its own assembler and linker; with `--assembler ca65` it uses
-[ca65 and ld65](/glossary#ca65-and-ld65) instead, which build the same ROM and also write a map
-file. A function without a worst case is marked `unbounded`, with the loop or call that has no
-bound, such as `(loop at objects.c:877)`; a function that never returns, such as the `main` of
-the platform layer, has `never` as its best case. Every option of `build` is on
-[Command line](/reference/command-line).
+the [timing report](/glossary#timing-report) `ertuep.timing.txt` with the best and worst case of
+each function in CPU cycles. dampf assembles and links with its own assembler and linker; with
+`--assembler ca65` it uses [ca65 and ld65](/glossary#ca65-and-ld65) instead, which build the
+same ROM and also write a map file. A function without a worst case is marked `unbounded`, with
+the loop or call that has no bound, such as `(loop at objects.c:877)`; a function that never
+returns, such as the `main` of the platform layer, has `never` as its best case. Every option of
+`build` is on [Command line](/reference/command-line).
 
 ## Find what does not fit first
 
@@ -110,23 +136,24 @@ run [`dampf check`](/reference/command-line#check) over all the files, with the 
 file on its own and reports every problem of each file, at most one per top-level declaration,
 so one unsupported construct does not hide the others. Then it takes the files that passed
 together and looks for what only the whole program shows: a recursion, a function that is called
-but defined in none of the files, a function defined in two files. Er-Tüp's argument file
-names the folder of the converted graphics, so convert them first
-(`CONVERT_ONLY=1 examples/ertuep/build.sh`). Then
-every file passes, alone and together (cut):
+but defined in none of the files, a function defined in two files.
+
+`superdevkit build snes` writes the argument file before dampf compiles, so the file is there
+even after a build that dampf's errors stopped. For Er-Tüp every file passes, alone and
+together (paths and files cut):
 
 ```sh
-build/install/superdevkit/bin/dampf check @examples/ertuep/ertuep.args
+dampf check @examples/ertuep/build/snes/ertuep.args
 ```
 
 ```
-ok      examples/ertuep/src/boss.c
-ok      examples/ertuep/src/bossmap.c
+ok      .../examples/ertuep/src/boss.c
+ok      .../examples/ertuep/src/bossmap.c
 ...
-ok      lib/snes/main.c
-ok      lib/snes/snes.c
-28 of 28 file(s) pass the front end
-the 28 file(s) together: ok
+ok      .../lib/snes/sfx.c
+ok      .../lib/snes/snes.c
+29 of 29 file(s) pass the front end
+the 29 file(s) together: ok
 ```
 
 A file that does not fit is marked `FAILS`, with the position and the message, and `check`
@@ -145,7 +172,7 @@ void move_player(int16_t *player_x)
 ```
 
 ```sh
-build/install/superdevkit/bin/dampf check -I mygame/src mygame/src/*.c
+dampf check -I mygame/src mygame/src/*.c
 ```
 
 ```
@@ -200,13 +227,14 @@ function that waits. When the debug file lies next to the ROM, it also charges t
 lines, which shows where inside a function the time goes, also inside the functions dampf
 inlined.
 
-There is no launcher for it; run it with the classes of the installed dampf, giving the ROM,
-its label file, the input, the first tick and the tick after the last. Er-Tüp's README profiles
-ticks 5,700 to 5,731, the fight against the brew kettle of stage 2:
+There is no launcher for it; run it with the classes of the home, giving the ROM, its label
+file, the input, the first tick and the tick after the last. Er-Tüp's README profiles ticks
+5,700 to 5,731, the fight against the brew kettle of stage 2; the ROM is the one
+`superdevkit build snes` writes:
 
 ```sh
-java -cp 'build/install/superdevkit/java/*' dampf.emu.ExampleProfile \
-    examples/ertuep/build/ertuep.sfc examples/ertuep/build/ertuep.lbl \
+java -cp '<home>/java/*' dampf.emu.ExampleProfile \
+    examples/ertuep/build/snes/ertuep.sfc examples/ertuep/build/snes/ertuep.lbl \
     examples/ertuep/check.txt 5700 5732
 ```
 
@@ -215,20 +243,20 @@ starts like this (each table cut):
 
 ```
 ticks 5700 to 5732: 1.000 frames per tick
-  57.5 %      205660  main
-   7.5 %       26941  kettle_update
-   5.1 %       18295  collide
-   4.1 %       14737  effects
-   3.3 %       11636  play
-   2.6 %        9114  draw_player
-   2.5 %        8831  player_update
+  64.5 %      230522  main
+   5.7 %       20488  kettle_update
+   4.8 %       17100  collide
+   3.1 %       11021  effects
+   3.0 %       10644  play
+   2.3 %        8326  draw_player
+   2.2 %        7777  player_update
 ...
 C lines:
-  56.5 %      202083  lib/snes/snes.c:420
-   2.5 %        8936  src/boss.c:332
-   1.5 %        5291  src/boss.c:335
-   1.3 %        4770  src/stage.c:338
-   1.3 %        4485  src/draw.c:131
+  63.5 %      226970  lib/snes/snes.c:420
+   2.5 %        8847  src/boss.c:332
+   1.2 %        4300  src/stage.c:338
+   1.1 %        3836  src/game.c:324
+   0.7 %        2567  src/game.c:527
 ...
 ```
 
@@ -236,23 +264,22 @@ The first line gives the [frames](/glossary#frame) the ticks took on average. A 
 waiting for the next vertical blank, so a tick whose work fits in a frame takes exactly one.
 Each row then gives the share of the measured ticks and the master clocks per tick, the most
 expensive first. Here the time in `main` is almost all line 420 of `lib/snes/snes.c`, the loop
-that waits for the vertical blank: more than half of each frame is left. Of the game's own work,
-the kettle's `kettle_update` takes the most, and its lines 330 to 336 of `src/boss.c` are the
-loop that moves the kettle's tentacles.
+that waits for the vertical blank: nearly two thirds of each frame are left. Of the game's own
+work, the kettle's `kettle_update` takes the most, and line 332 of `src/boss.c`, with lines 330
+to 335 further down the list, is the loop that moves the kettle's tentacles.
 
 ## Replacing a function with assembly
 
 To find out how far dampf's code is from what a person writes by hand, you can link a
 hand-written version of one function in place of the one dampf compiles, and run the same
-input with it. The folder `reference/` holds such versions for functions of the examples, such
-as Er-Tüp's random generator `random16` in `reference/ertuep_random16.s`. Use
+input with it. The folder `reference/` of the repository holds such versions for functions of
+the examples, such as Er-Tüp's random generator `random16` in `reference/ertuep_random16.s`. Use
 [`--replace`](/reference/command-line#replace) with the C name of the function and the assembly
-file:
+file, added to the argument file of the build:
 
 ```sh
-cd examples/ertuep
-../../build/install/superdevkit/bin/dampf build @ertuep.args --backend naive \
-    --replace random16=../../reference/ertuep_random16.s -o build/ref.sfc
+dampf build @examples/ertuep/build/snes/ertuep.args --backend naive \
+    --replace random16=reference/ertuep_random16.s -o build/ref.sfc
 ```
 
 The function must exist in the C source, and the hand-written code keeps dampf's calling
@@ -264,10 +291,10 @@ rest, and how the examples' tests check that each reference computes what the C 
 That convention is the one of the [naive code generator](/glossary#naive-code-generator), so
 `--replace` switches to it unless `--backend` names a code generator. Asking for the
 [code generator from MIR](/glossary#code-generator-from-mir) together with `--replace` fails
-with
+with this message (path cut), at the entry function:
 
 ```
-../../lib/snes/main.c:59:5: error: --replace works with the naive code generator only
+.../lib/snes/main.c:78:5: error: --replace works with the naive code generator only
 ```
 
 The comparison is therefore between the naive code generator's version and the hand-written

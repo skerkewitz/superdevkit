@@ -11,7 +11,10 @@ sources:
   - compiler/src/main/java/dampf/Compiler.java
   - compiler/src/test/resources/exec/hint_range.c
   - compiler/src/test/java/dampf/BudgetTest.java
+  - compiler/src/main/java/dampf/frontend/pp/Expander.java
   - cli/src/main/java/superdevkit/project/Desktop.java
+  - cli/src/main/java/superdevkit/project/Web.java
+  - cli/src/main/java/superdevkit/project/Kit.java
 audience: Users who want to tell dampf what it cannot infer
 ---
 
@@ -22,16 +25,19 @@ The hint macros, what each tells dampf, and how each is checked in the PC build.
 ## Sections
 
 1. **How hints work** – the header `<dampf.h>` and how a game's PC build reaches it
-   (`-idirafter`), and how the kit's desktop build does (`superdevkit build linux`, `Desktop.java`: `-nostdinc
-   -ffreestanding`, dampf's include folder with `-isystem`, so `<stdint.h>` is dampf's there too,
-   and a wrong hint traps instead of asserting); macros that become built-ins with dampf, checked
-   assertions on the PC (and `NDEBUG`); that dampf trusts a hint and never checks it on the SNES,
-   and why a wrong hint is dangerous.
+   (`-idirafter <home>/include`), and how the kit's desktop and web builds do (`superdevkit build
+   linux` and `web`, `Desktop.java` and `Web.java`: `-nostdinc -ffreestanding`, dampf's include
+   folder with `-isystem`, so `<stdint.h>` is dampf's there too, and a wrong hint traps instead of
+   asserting; `win64` with MSVC's `/X` and `/I`, where it calls `__debugbreak()`; link
+   [The superdevkit command](/reference/superdevkit#build)); macros that become built-ins with
+   dampf, checked assertions on the PC (and `NDEBUG`); that dampf trusts a hint and never checks
+   it on the SNES, and why a wrong hint is dangerous.
 2. **The hints** – one H3 per built hint (`DAMPF_RANGE`, `DAMPF_BUDGET`): what it states, where
    it may stand, an example with what dampf does with it (a loop bound, a build error or
-   warning), the PC check, and the messages for misuse. Before the first example that shows a
-   timing report, say that `dampf build` writes it next to the ROM (`<rom>.timing.txt`), what its
-   columns are (best and worst case in CPU cycles), and link
+   warning), the PC check, and the messages for misuse (a wrong number of arguments is a message
+   of dampf's own preprocessor; with `--opt-limit` a budget error is only a warning). Before the
+   first example that shows a timing report, say that `dampf build` writes it next to the ROM
+   (`<rom>.timing.txt`), what its columns are (best and worst case in CPU cycles), and link
    [Command line](/reference/command-line).
 3. **Not built yet** – the other hints of the catalogue in one short list, `DAMPF_TRIPS`
    postponed and why, and subrange types (`DAMPF_RANGED`); link [Limits](/reference/limits).
@@ -40,6 +46,8 @@ The hint macros, what each tells dampf, and how each is checked in the PC build.
 
 - Describe only hints that are built in section 2; everything else stays in section 3.
 - Show real messages and timing figures, produced by dampf for the page's examples.
+- dampf preprocesses with a preprocessor of its own (ADR-6FD4GDN5), not with gcc; only the PC,
+  desktop and web builds use their C compiler's preprocessor.
 
 ## Out of scope
 

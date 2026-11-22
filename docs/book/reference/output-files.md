@@ -6,14 +6,18 @@ A `dampf build` writes the ROM and, in the same directory, everything that went 
 generated assembly, a label file and the debug file for [Mesen](/glossary#mesen). dampf
 assembles and links with its own assembler and linker; with `--assembler ca65` it uses
 [ca65 and ld65](/glossary#ca65-and-ld65) instead, which build the same ROM and leave more files
-behind. The examples on this page come from building the M1 example:
+behind. The examples on this page come from building `compiler/src/test/resources/exec/calls.c`,
+one of dampf's execution tests and a single C file:
 
 ```sh
-build/install/superdevkit/bin/dampf build --entry test_main -o build/examples/m1/calls.sfc examples/m1/calls.c
+build/install/superdevkit/bin/dampf build --entry test_main -o build/calls.sfc compiler/src/test/resources/exec/calls.c
 ```
 
 dampf creates the output directory if it does not exist yet. The options of `dampf build` are
-on [Command line](/reference/command-line).
+on [Command line](/reference/command-line). For a game, `superdevkit build snes` writes the same
+files into the game's `build/snes/`, named after the game, together with `<name>.args`, the
+[args file](/glossary#args-file) of what it compiled
+([The superdevkit command](/reference/superdevkit#build)).
 
 ## The files
 
@@ -21,12 +25,12 @@ All names start with the name of the ROM without `.sfc`, here `calls`, except th
 
 | File | What it contains | What reads it |
 |---|---|---|
-| `calls.sfc` | the ROM: a LoROM image, padded to a power of two, with size and checksum in its header | Mesen |
+| `calls.sfc` | the ROM: a LoROM image, padded to a power of two, with size and checksum in its header, and the save RAM with `--sram` | Mesen |
 | `calls.s` | the generated assembly, commented line by line | a person |
 | `dampf_runtime.s` | the [runtime](/glossary#runtime), copied out of dampf | a person |
 | `calls.lbl` | the label file, in ld65's format: one address per label | a person |
 | `calls.dbg` | the debug file, in ld65's format: source files, lines, symbols | Mesen |
-| `calls.timing.txt` | best and worst case in CPU cycles per function; only with the code generator from MIR | a person |
+| `calls.timing.txt` | the [timing report](/glossary#timing-report): best and worst case in CPU cycles per function; only with the code generator from MIR | a person |
 
 With `--assembler ca65`, the directory also holds what ca65 and ld65 write:
 
@@ -58,10 +62,10 @@ hand-written `.s` file is added as a module of its own.
 The assembly is meant to be read: every C line appears in it, followed by the instructions dampf
 wrote for it, with the CPU cycles of each instruction in a column on the right. The
 [code generator from MIR](/glossary#code-generator-from-mir), the default, wrote this excerpt of
-`calls.s` for `add3` in `examples/m1/calls.c`:
+`calls.s` for `add3` in `calls.c`:
 
 ```asm
-; ---- _add3    (examples/m1/calls.c:9:17)
+; ---- _add3    (compiler/src/test/resources/exec/calls.c:9:17)
         .segment "C_add3"
 .proc _add3
                                     ; parameter i16 %a at z:dampf_frame+0
@@ -70,20 +74,20 @@ wrote for it, with the CPU cycles of each instruction in a column on the right. 
 b0_entry:
 
 ; calls.c:11   uint16_t s = a + b;                                              [ 10 cyc ]
-        .dbg    line, "../../../examples/m1/calls.c", 11
+        .dbg    line, "../compiler/src/test/resources/exec/calls.c", 11
                                     ; %0 = add i16 %a, %b
         clc                         ;                                                           2
         lda     z:dampf_frame+0     ;                                                           4
         adc     z:dampf_frame+2     ;                                                           4
 
 ; calls.c:12   s = s + c;                                                       [ 6 cyc ]
-        .dbg    line, "../../../examples/m1/calls.c", 12
+        .dbg    line, "../compiler/src/test/resources/exec/calls.c", 12
                                     ; %1 = add i16 %0, %c
         clc                         ;                                                           2
         adc     z:dampf_frame+4     ;                                                           4
 
 ; calls.c:13   return s;                                                        [ 6 cyc ]
-        .dbg    line, "../../../examples/m1/calls.c", 13
+        .dbg    line, "../compiler/src/test/resources/exec/calls.c", 13
                                     ; ret i16 %1
         rtl                         ;                                                           6
 .endproc
@@ -101,15 +105,16 @@ line, column), then its segment. The parts of one C line are these:
   instructions for it (`; %0 = add i16 %a, %b`); the instructions themselves carry no comment.
 - **The cycle counts** stand at the right end of each instruction line.
 
-The processor state is not repeated per line in the code generator from MIR. Its file starts
-with `; A/X/Y are 16 bit (A goes to 8 bit where SEP #$20 says so), DBR = $7E`, and where a line
+The processor state is not repeated per line in the code generator from MIR. The comment at
+the top of its file says
+`; A/X/Y are 16 bit (A goes to 8 bit where SEP #$20 says so), DBR = $7E`, and where a line
 switches the accumulator to [8-bit mode](/glossary#_8-bit-and-16-bit-mode) the `sep #$20` and
 `rep #$20` are in the code.
 The counts follow the switch: the `sta` in 8-bit mode costs 4 cycles, in 16-bit mode 5.
 
 ```asm
 ; calls.c:31   signed_result = neg8(inc8(126));                                 [ 13 cyc ]
-        .dbg    line, "../../../examples/m1/calls.c", 31
+        .dbg    line, "../compiler/src/test/resources/exec/calls.c", 31
                                     ; store i8 @_signed_result, -127
         rep     #$20                ;                                                           3
         lda     #$0081              ;                                                           3
@@ -127,11 +132,11 @@ The [naive code generator](/glossary#naive-code-generator) (`--backend naive`) w
 processor state under every header (`; M=16 X=16`, the
 [`M` and `X` flags](/glossary#m-and-x-flags)) and a comment for each instruction that says
 what it does in terms of the C source. Built with
-`--backend naive -o build/examples/m1/calls_naive.sfc`, line 28 of `calls.c` reads:
+`--backend naive -o build/calls_naive.sfc`, line 28 of `calls.c` reads:
 
 ```asm
 ; calls.c:28   result = add3(1000, 2000, 3);                                    [ 37 cyc + calls ]
-        .dbg    line, "../../../examples/m1/calls.c", 28
+        .dbg    line, "../compiler/src/test/resources/exec/calls.c", 28
                                     ; M=16 X=16
         lda     #$03E8              ; A = 1000                                                  3
         sta     _add3__a            ; a = A                                                     5
@@ -170,9 +175,10 @@ gets no sum as soon as it contains a conditional branch, a `jmp`, `bra` or `jml`
 ## Cycles
 
 The numbers are CPU cycles of the 65816 in native mode, from the table in WDC's data sheet for
-the W65C816S. They are not master cycles: how many master cycles a CPU cycle takes depends on
-the memory it touches (6 for FastROM and internal operations, 8 for SlowROM and WRAM), and dampf
-does not count that yet.
+the W65C816S. They are not [master cycles](/glossary#master-clock): how many master cycles a
+CPU cycle takes depends on the memory it touches (6 for
+[FastROM](/glossary#fastrom-and-slowrom) and internal operations, 8 for SlowROM and WRAM), and
+dampf does not count that yet.
 
 The count depends on the processor state, and dampf's code fixes most of it:
 
@@ -239,7 +245,7 @@ file also names the C functions and their parameters and locals; the code genera
 writes only the file and line directives.
 
 The paths of the C files are relative to the directory of the debug file. For
-`build/examples/m1/calls.dbg` the source is `../../../examples/m1/calls.c`, and the generated
+`build/calls.dbg` the source is `../compiler/src/test/resources/exec/calls.c`, and the generated
 files are named without a directory, because dampf assembles them by their file name in the
 output directory (and runs ca65 and ld65 there).
 Mesen therefore finds the sources wherever the ROM is opened, as long as the ROM and the sources
