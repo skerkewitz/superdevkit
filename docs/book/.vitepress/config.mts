@@ -58,7 +58,7 @@ export default defineConfig({
 
   markdown: {
     config(md) {
-      // A title bar with the file name over ```c [examples/m1/calls.c].
+      // A title bar with the file name over ```c [compiler/src/test/resources/exec/calls.c].
       md.use(codeTitles)
 
       // Hand ```mermaid blocks to the <Mermaid> component, which draws them in the browser.

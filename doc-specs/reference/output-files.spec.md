@@ -23,7 +23,7 @@ generated assembly, which is meant to be read by people.
 2. **Reading the assembly** – the parts of one C line in the `.s` file: the source line header,
    the processor state, the instruction comments, the cycle counts (and "not taken/taken" for a
    branch), the sum for straight-line code. Show a real excerpt for a few lines of
-   `examples/m1/calls.c`.
+   `compiler/src/test/resources/exec/calls.c`.
 3. **Cycles** – what the numbers count (CPU cycles, not master cycles), and what is not built
    yet (best and worst case per line with branches).
 4. **The debug file** – what the `.dbg` file gives Mesen (dampf writes it in ld65's format), and
@@ -31,7 +31,7 @@ generated assembly, which is meant to be read by people.
 
 ## Pay attention to
 
-- Build `examples/m1/calls.c` and take every excerpt from the files dampf writes; name the
+- Build `compiler/src/test/resources/exec/calls.c` and take every excerpt from the files dampf writes; name the
   backend that wrote them.
 - The target format in `docs/architecture.md` is partly a plan; describe what the files contain
   today.

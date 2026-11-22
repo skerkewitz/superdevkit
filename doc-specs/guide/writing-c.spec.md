@@ -29,7 +29,7 @@ everything outside it is rejected with a message, and that the subset is what a 
    `<stdint.h>`.
 2. **Same arithmetic as gcc on the PC** – integer promotions to a 32-bit `int`, wrapping,
    truncation, division towards zero, arithmetic `>>`. One short example where the promotion
-   matters (from `examples/m1/calls.c`, `inc8` or `neg8`), with the result. Why: the PC build
+   matters (from `compiler/src/test/resources/exec/calls.c`, `inc8` or `neg8`), with the result. Why: the PC build
    is the reference. Say that dampf narrows to 8 or 16 bit only where the result is the same.
 3. **What is left out** – a short table of what the subset rejects most often (floating point,
    recursion, function pointers, unions and bit fields, structs by value, `goto`, the heap and

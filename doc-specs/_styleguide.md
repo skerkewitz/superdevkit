@@ -93,12 +93,12 @@ The README, the working documents and the tests are complete; the book is select
 - C code goes in ```` ```c ```` fences, shell commands in ```` ```sh ````, 65816 assembly as
   dampf writes it (ca65 syntax) in ```` ```asm ````. Output of dampf goes in a fence without a
   language tag.
-- A code block that is the content of a file names it: ```` ```c [examples/m1/calls.c] ````.
+- A code block that is the content of a file names it: ```` ```c [compiler/src/test/resources/exec/calls.c] ````.
   The book shows it as a title above the block. A fragment that belongs to no file has no title.
   A block with a file's name that is shortened or changed (other paths, lines left out) says so
   in the sentence before it; a fragment cut from a file names the file there.
 - The user guide uses the files of the repository where they show the point:
-  `examples/hello` for a first game, `examples/m1/calls.c` for a single file without the kit,
+  `examples/hello` for a first game, `compiler/src/test/resources/exec/calls.c` (an execution test) for a single file without the kit,
   `examples/ertuep` (Er-Tüp) for a whole game. Other examples are as small as the point needs,
   and show their point: an example of a call that changes the picture draws something the change
   can be seen on.

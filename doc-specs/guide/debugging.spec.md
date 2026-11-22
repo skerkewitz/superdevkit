@@ -4,7 +4,7 @@ sources:
   - README.md
   - docs/architecture.md
   - compiler/src/main/java/dampf/backend/AsmWriter.java
-  - examples/m1/calls.c
+  - compiler/src/test/resources/exec/calls.c
 audience: Users who want to step through their C code on the SNES
 ---
 
@@ -18,7 +18,7 @@ the generated assembly beside it.
 1. **Set up Mesen** – the `.dbg` file next to the ROM, loading it automatically, how Mesen finds
    the C sources (relative paths), opening from WSL.
 2. **Step through C** – breakpoints in C lines, stepping over a C statement, with
-   `examples/m1/calls.c` as the example.
+   `compiler/src/test/resources/exec/calls.c` as the example.
 3. **Read the assembly beside it** – what each C line looks like in the `.s` file: the source
    line, the processor state, a comment and the cycles per instruction. Show a short excerpt of
    what dampf writes for one line of `calls.c`. Link
