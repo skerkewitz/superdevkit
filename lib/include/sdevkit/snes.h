@@ -306,7 +306,10 @@ void sdevkit_dbg_hash(const void *data, uint16_t bytes);
  * can draw boxes over the picture (collision boxes, a target). On the SNES the functions are empty
  * and dampf removes the calls, so the game needs no #ifdef. name is a string constant (the view
  * keeps the pointer); at most 32 registrations. A change made in the view is not part of a
- * recording: from then on a replay plays another game (the window says so). */
+ * recording: from then on a replay plays another game (the window says so). The desktop's --set
+ * name=value sets a registration before the first tick, and a recording keeps that. So a bot needs
+ * no support of its own: a toggle ("autoplay") that game_tick reads to make its own pad instead of
+ * pad[0], switched on with --set autoplay=1. */
 void sdevkit_dbg_toggle(const char *name, uint8_t *flag);                         /* 0 or 1 */
 void sdevkit_dbg_range(const char *name, int16_t *value, int16_t lo, int16_t hi);  /* lo..hi */
 void sdevkit_dbg_color(const char *name, uint16_t *colour);                       /* BGR 5:5:5 */

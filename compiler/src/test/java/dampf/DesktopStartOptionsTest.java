@@ -30,6 +30,7 @@ class DesktopStartOptionsTest {
 
             static uint8_t god;
             static int16_t speed = 1;
+            static uint8_t autoplay;
             static uint16_t state[3];
 
             void game_init(uint16_t seed)
@@ -37,11 +38,16 @@ class DesktopStartOptionsTest {
                 state[0] = seed;
                 sdevkit_dbg_toggle("god mode", &god);
                 sdevkit_dbg_range("speed", &speed, 0, 9);
+                sdevkit_dbg_toggle("autoplay", &autoplay);
             }
 
             void game_tick(const uint16_t pad[SDEVKIT_PADS])
             {
-                (void)pad;
+                /* the bot: the game makes its own pad */
+                uint16_t held = autoplay ? (uint16_t)(state[1] & 1 ? SDEVKIT_KEY_LEFT : SDEVKIT_KEY_RIGHT) : pad[0];
+                if (held & SDEVKIT_KEY_RIGHT) {
+                    state[1] = (uint16_t)(state[1] + 3);
+                }
                 state[1] = (uint16_t)(state[1] + (uint16_t)speed);
                 state[2] = god;
                 sdevkit_dbg_hash(state, sizeof state);
@@ -108,6 +114,17 @@ class DesktopStartOptionsTest {
 
         IOException refused = assertThrows(IOException.class, () -> ExampleCheck.parse(recording));
         assertTrue(refused.getMessage().contains("only the desktop"), refused.getMessage());
+    }
+
+    @Test
+    void aGameCanPlayItselfThroughARegisteredToggle() throws Exception {
+        assertEquals(0, play(check.toString(), "human").exit());
+        Path recording = tmp.resolve("bot.txt");
+        assertEquals(0, play(check.toString(), "bot", "--set", "autoplay=1", "--record", recording.toString()).exit());
+        assertNotEquals(hashes("human"), hashes("bot"), "the bot plays without a key pressed");
+        Ran replay = play(recording.toString(), "again");
+        assertEquals(0, replay.exit(), replay.out());
+        assertEquals(hashes("bot"), hashes("again"));
     }
 
     @Test
