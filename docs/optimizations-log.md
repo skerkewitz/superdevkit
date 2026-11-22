@@ -1654,6 +1654,41 @@ copies through a pointer 1,823 → 3,219 without `Schedule`. Against it, some fu
 is open in the roadmap (M9, row 2). Without `Schedule` dampf also stopped on Ertüp, which led to
 the bug of the entry before.
 
+## Multiplication on the CPU's multiplier (2026-11-22, on the examples)
+
+`dampf_mul16` and `dampf_mul32` were loops of 16 and 32 shifts and adds, 287 to 367 and 1,168 to
+1,968 cycles, and Mandelbrot spent 87 % of its work in the runtime. The SNES has an 8 x 8 multiplier at
+`$4202`/`$4203` with the product in `$4216` after 8 CPU cycles. `dampf_mul16` now adds up the three
+byte products that reach the low 16 bits (108 cycles), `dampf_mul32` the ten that reach the low 32
+(398 to 400). Where both factors of a 16-bit product are below 256 by their ranges, or the result is
+a byte, the code goes to the multiplier directly, without a call: `(uint16_t)(ua * ub)` costs 62
+cycles in the C guide's measurement against 140 for two `uint16_t`.
+
+The emulator used to give the product at once, so a read that comes too early would have passed
+every test here and failed on a console. It now adds one bit per CPU cycle (`MultiplierTest`). With
+the runtime's wait one cycle shorter, both dampf's emulator and Mesen give wrong products.
+
+On the examples: Mandelbrot 230,944 → 76,575 (0.332), Mode 7 24,940 → 11,649 (0.467), Ertüp 0.981,
+Catch Me 0.990, the rest the same; geometric mean 0.763. 48 worst cases are smaller and none is
+larger. The pair loops multiply by constants and are the same. `same-multiply-width` is now
+`fast-multiply-bytes`.
+
+## A loaded value goes right before a store through a pointer (2026-11-22, on the examples)
+
+`memcpy` was 10 % faster without `Schedule` (the entry on `findForwards` and `Schedule`). A store's
+address and value are both read by the store alone, so each wanted the place right before it, and
+`Schedule` moved them in turns until its limit of rounds. In `memcpy` the address won: the loaded
+byte was stored in a temporary and loaded back while the address was computed, 8 cycles a byte.
+Where the address is a pointer plus a variable, whose sum needs A, and the value is a load, the
+load now comes right before the store. `memcpy` 5,046,223 → 4,521,943 at its worst case (10.4 %);
+every other worst case, the examples' work and the pair loops are the same.
+
+Wider rules measured worse. The value last for every store made Schach 0.5 % slower: its stores
+into global arrays need no A for the address, and the new order took Y from the counter of `next`.
+Only the other operand left in place made seven worst cases larger. What stays open is a computed
+value stored at an index into a global: value last makes Ertüp's `hud_lives` 12 % faster and
+Schach's `draw_square` slower, so that choice needs a cost model.
+
 ## A signed division of a value known not to be negative (2026-11-22, on the C guide)
 
 `v / 8` on an `int16_t` with `DAMPF_RANGE(v, 0, 1000)` cost 63 cycles against 17 for the same

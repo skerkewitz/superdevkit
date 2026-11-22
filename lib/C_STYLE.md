@@ -80,6 +80,9 @@ call its own statement.
 
 ## 4. Fast
 
+- **`fast-multiply-bytes`** Multiply two values that fit a byte as bytes: `(uint16_t)(ua * ub)` on
+  two `uint8_t` goes straight to the SNES's 8 x 8 multiplier, without a call. Two `uint16_t` call
+  the runtime, unless dampf can prove that both are below 256.
 - **`fast-array-per-field`** In hot code, one array per field (`px[i]`, `py[i]`) is a little
   cheaper than an array of structs (`objs[i].x`). The gain is small: keep the struct elsewhere.
 - A multiplication or an unsigned division by a constant is cheap (`slow-multiply-variable`,
@@ -96,9 +99,7 @@ Write whichever reads better; these cost the same:
 - **`same-pointer-walk`** an array walked with a pointer beside the loop's counter (`o->x; o++`)
   or indexed (`a[i].x`);
 - **`same-named-temporary`** a named temporary or the expression written inline: a value used
-  once stays in the accumulator either way;
-- **`same-multiply-width`** a multiplication of two bytes or of two 16-bit values: both call the
-  runtime (the SNES's 8 x 8 multiplier is not used), so narrowing the factors buys nothing.
+  once stays in the accumulator either way.
 
 ## 6. The hints
 
@@ -124,11 +125,11 @@ Measured 2026-11-22 (worst case of the timing report, code generator from MIR).
 | Rule | This | CPU cycles | is | than this | CPU cycles |
 | --- | --- | ---: | --- | --- | ---: |
 | `fast-array-per-field` | `move_array_per_field` | 1,361 | faster | `move_array_of_structs` | 1,521 |
+| `fast-multiply-bytes` | `multiply_bytes` | 62 | faster | `multiply_words` | 140 |
 | `same-declaration-place` | `declared_at_top` | 5,025 | same | `declared_where_used` | 5,025 |
 | `same-increment-form` | `count_postfix` | 5,025 | same | `count_prefix` | 5,025 |
 | `same-index-form` | `read_indexed` | 5,025 | same | `read_pointer_arithmetic` | 5,025 |
 | `same-loop-form` | `loop_for` | 5,025 | same | `loop_while` | 5,025 |
-| `same-multiply-width` | `multiply_bytes` | 409 | same | `multiply_words` | 399 |
 | `same-named-temporary` | `with_temporary` | 45 | same | `inline_expression` | 45 |
 | `same-pointer-walk` | `move_by_pointer` | 1,521 | same | `move_by_index` | 1,521 |
 | `slow-32-bit` | `xor_32` | 84 | slower | `xor_16_halves` | 36 |
@@ -136,6 +137,6 @@ Measured 2026-11-22 (worst case of the timing report, code generator from MIR).
 | `slow-divide-variable` | `divide_variables` | 804 | slower | `divide_constant` | 17 |
 | `slow-hand-shifts` | `times_40_by_shifts` | 41 | slower | `times_40` | 31 |
 | `slow-index-list` | `pairs_by_list` | 17,505 | slower | `pairs_by_counter` | 15,493 |
-| `slow-multiply-variable` | `multiply_variables` | 399 | slower | `multiply_constant` | 31 |
+| `slow-multiply-variable` | `multiply_variables` | 140 | slower | `multiply_constant` | 31 |
 | `slow-signed-divide` | `divide_signed` | 101 | slower | `divide_unsigned` | 17 |
 <!-- end of measurements -->

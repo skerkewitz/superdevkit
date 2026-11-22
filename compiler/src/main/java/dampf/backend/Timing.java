@@ -66,12 +66,13 @@ final class Timing {
 
     /**
      * The runtime's routines, from JSL's target to their RTL, counted by hand from runtime.s with
-     * the cycle table (16-bit registers, D = 0): fixed loops of 16 or 32 rounds, best and worst
-     * way through each round.
+     * the cycle table (16-bit registers, D = 0): the multiplications without a loop, on the
+     * CPU's multiplier; the divisions in fixed loops of 16 or 32 rounds, best and worst way
+     * through each round.
      */
     static final Map<String, Bound> RUNTIME = Map.of(
-            "dampf_mul16", new Bound(287, 367),
-            "dampf_mul32", new Bound(1168, 1968),
+            "dampf_mul16", new Bound(108, 108),
+            "dampf_mul32", new Bound(398, 400),
             "dampf_udiv16", new Bound(564, 772),
             "dampf_udiv32", new Bound(1888, 2432),
             "dampf_sdiv32", new Bound(1940, 2594));

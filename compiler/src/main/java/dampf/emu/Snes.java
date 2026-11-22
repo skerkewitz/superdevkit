@@ -60,11 +60,18 @@ public final class Snes implements Bus {
     private boolean autoJoypad;
     private final int[] pads = new int[2];
 
-    // the CPU's multiplier and divider ($4202-$4206 -> $4214-$4217), results without the hardware's delay
+    // the CPU's multiplier and divider ($4202-$4206 -> $4214-$4217). The multiplier adds one bit of
+    // its second factor per CPU cycle, lowest first, so a read before the 8th cycle gets a partial
+    // product, as on the hardware; the divider's results have no delay
     private int mulA = 0xFF;
     private int dividend = 0xFFFF;
     private int quotient;
     private int product;
+    private long cpuCycle;
+    private long mulClock;
+    private int mulSteps;
+    private int mulBits;
+    private int mulShift;
 
     public Snes(byte[] rom) {
         this.rom = rom;
@@ -252,8 +259,22 @@ public final class Snes implements Bus {
         return bank >= 0x80 && fastRom ? 6 : 8;
     }
 
+    /** Runs the multiplier up to the CPU cycle {@code until}. */
+    private void runMultiplier(long until) {
+        while (mulSteps > 0 && mulClock < until) {
+            mulClock++;
+            mulSteps--;
+            if ((mulBits & 1) != 0) {
+                product = (product + mulShift) & 0xFFFF;
+            }
+            mulBits >>= 1;
+            mulShift <<= 1;
+        }
+    }
+
     @Override
     public int read(int address) {
+        cpuCycle++;
         tick(speed(address));
         int bank = address >> 16;
         int offset = address & 0xFFFF;
@@ -303,14 +324,21 @@ public final class Snes implements Bus {
             case 0x421B -> pads[1] >> 8;
             case 0x4214 -> quotient & 0xFF;
             case 0x4215 -> quotient >> 8;
-            case 0x4216 -> product & 0xFF;
-            case 0x4217 -> product >> 8;
+            case 0x4216 -> {
+                runMultiplier(cpuCycle - 1);   // a read sees the cycles before its own
+                yield product & 0xFF;
+            }
+            case 0x4217 -> {
+                runMultiplier(cpuCycle - 1);
+                yield product >> 8;
+            }
             default -> 0;
         };
     }
 
     @Override
     public void write(int address, int value) {
+        cpuCycle++;
         tick(speed(address));
         int bank = address >> 16;
         int offset = address & 0xFFFF;
@@ -346,12 +374,17 @@ public final class Snes implements Bus {
             case 0x4200 -> autoJoypad = (value & 1) != 0;
             case 0x4202 -> mulA = value;
             case 0x4203 -> {
-                product = mulA * value;
+                product = 0;
+                mulSteps = 8;
+                mulBits = value;
+                mulShift = mulA;
+                mulClock = cpuCycle;
                 quotient = value; // the hardware leaves the second factor in the quotient register
             }
             case 0x4204 -> dividend = (dividend & 0xFF00) | value;
             case 0x4205 -> dividend = (dividend & 0x00FF) | value << 8;
             case 0x4206 -> {
+                mulSteps = 0;
                 if (value == 0) {
                     quotient = 0xFFFF;
                     product = dividend;
@@ -366,6 +399,7 @@ public final class Snes implements Bus {
 
     @Override
     public void idle() {
+        cpuCycle++;
         tick(6);
     }
 }

@@ -76,7 +76,7 @@ FastROM, 12 hardware registers at constant addresses) are in [History](#history)
 
 | # | Idea | Likely gain | Effort | Notes |
 | --- | --- | --- | --- | --- |
-| 2 | Register allocation: values in A, X and Y over several instructions instead of a direct page place each | 10-20 % | high | Loads and stores of direct page values are the largest share of the cycles. With one accumulator, choosing what lives where is the hard part. Today one pass per pattern (loop counters in X, indexes in Y, values handed on in A, `PointerRemat`, `ByteStretches`); a common model of what lives where comes first. Built by 2026-11-21 (the compiler flaws, step B): places get their addresses on the LIR (`PlaceColouring`, ADR-6F8NBG4P) and go to X or Y by cost (`RegisterChoice`), also for one loop only. Left: the choice of the index register is still selection's (`findXCounters`, `findYIndexes`, `IndexInY`; deleting them cost up to 3 % on the pair loops), `FrameLayout`'s predictions for selection, and the functions where `Schedule`'s order costs (`memcpy` is 10 % faster without it); `findForwards` and `Schedule` are still needed (2026-11-22: without them the examples are 1.6 and 0.5 % slower); registers across calls were measured at 0.35 % at most and are not built. |
+| 2 | Register allocation: values in A, X and Y over several instructions instead of a direct page place each | 10-20 % | high | Loads and stores of direct page values are the largest share of the cycles. With one accumulator, choosing what lives where is the hard part. Today one pass per pattern (loop counters in X, indexes in Y, values handed on in A, `PointerRemat`, `ByteStretches`); a common model of what lives where comes first. Built by 2026-11-21 (the compiler flaws, step B): places get their addresses on the LIR (`PlaceColouring`, ADR-6F8NBG4P) and go to X or Y by cost (`RegisterChoice`), also for one loop only. Left: the choice of the index register is still selection's (`findXCounters`, `findYIndexes`, `IndexInY`; deleting them cost up to 3 % on the pair loops), `FrameLayout`'s predictions for selection, and `Schedule`'s order for a computed value stored at an index into a global, which needs a cost model (value last makes `hud_lives` 12 % faster and Schach's `next` slower); `findForwards` and `Schedule` are still needed (2026-11-22: without them the examples are 1.6 and 0.5 % slower); registers across calls were measured at 0.35 % at most and are not built. |
 | 3 | 8-bit stretches: the M flag followed (`REP`/`SEP`) across blocks, `uint8_t` code in 8-bit mode | 5-10 % | high | Fewer `AND #$00FF`, and 8-bit accesses are a cycle cheaper. Built: 8-bit mode across C lines within a block (`ByteStretches`), loops over bytes in 8 bits from entry to exit (`ByteLoops`, 2026-11-21). Measured then: the other switches are 0.5 to 4.5 % of the examples' work and nearly all around byte stores, where they are needed; the general placement is not built. |
 | 4 | Arrays of structs as one array per field (catalogue D, `DAMPF_SPLIT`), with HIR to do it in | 5-10 % in the bubble loops | high | `separate`, `bubbles_update` and `bubbles_draw` are 30 %. Needs a subset decision or a hint, since the layout then differs from the PC. Measured against it: in the game's pair loop (its finding 9) one array per field was 16 % slower for the counted loop and 1 % slower for the sorted list, and in `exec/pair_loops.c` 1.9 % slower for the counted loop; a loop that moves two fields of every element gains about 12 % (the spelling families `struct-fields` and `field-arrays`). The game reaches its objects through pointers (1,516 `->`), so a split needs to know where each pointer points. Taken up when a measured loop gains clearly, as the hint `DAMPF_SPLIT`. |
 | 5 | 8-bit index registers, arrays aligned to pages | 2-4 % | high | `LDA abs,X` a cycle cheaper; needs the X flag followed and the alignment in the memory map. |
@@ -114,8 +114,9 @@ Also in M9:
     the index: gone on 2026-11-20 with `fast-range-index` (ADR-6F8NBESR);
   - a pointer walk cost more than indexing (`o->x; o++`): gone on 2026-11-20 (`same-pointer-walk`
     now);
-  - a multiplication of two bytes calls `dampf_mul16`, the SNES's 8 x 8 multiplier at
-    `$4202`-`$4203` is not used: turns `same-multiply-width` into a rule for bytes;
+  - a multiplication of two bytes called `dampf_mul16`, the SNES's 8 x 8 multiplier was not
+    used: gone on 2026-11-22, the runtime multiplies on it and two bytes need no call
+    (`same-multiply-width` is now `fast-multiply-bytes`);
   - a signed division by a power of two kept its rounding correction when a `DAMPF_RANGE` proved
     the value not negative: gone on 2026-11-22; `slow-signed-divide` stays for values dampf knows
     nothing about;
@@ -172,6 +173,21 @@ game doing less work: the pair loop of `separate` (16 %) and the CPU partner (th
   no function pointers), mute in the window, text in the debug view (a line the game fills, or a
   value it registers read-only), stepping back in a replay and jumping to a tick, defines per
   target in `superdevkit.toml`, and filled boxes or arrows in the view.
+- **The sound samples uploaded during the splash screen.** `sdevkit_sfx_init` runs in `game_init`,
+  after the splash, and sends the samples at about 350 bytes a frame, so a game with many sounds
+  starts with a black pause (Schach's 13.8 KB take 40 frames). The kit learns the bank only in
+  `game_init`. The ways out: the bank known at link time from what `superdevkit sfx` generates, a
+  hook the game implements, or an upload in pieces during the splash's frames. The choice gets a
+  record. Done when Schach and Steinschlag start without the pause, the desktop behaves the same
+  and `dev/check_example.sh` and `dev/compare_example.sh` pass for them.
+- **A build step before the build, and `superdevkit gen`.** A game with converters of its own
+  runs them by hand before `superdevkit build`. A step in `superdevkit.toml` that runs commands
+  first (for example `[build] before = ["..."]`) would make `superdevkit build <target>` the whole
+  build; it shows in `--plan`, `--dry-run` and `--verbose` like the other steps, and a command that
+  fails stops the build. A game that keeps a build system of its own needs `build/gen` (graphics,
+  sound effects, `music.h`, the music file list) without the rest: a command such as
+  `superdevkit gen [FOLDER]` that runs only the project file's conversions. Both change the kit's
+  interface, so their form gets a record.
 
 ## M11: timing and debugging (0.11.0)
 
@@ -190,6 +206,18 @@ Timing ([timing.md](timing.md#not-built-yet)):
   (`DAMPF_AT_MOST`, [hints.md](hints.md)), or a bound per call chain, would make budgets usable
   there;
 - level 3: DRAM refresh, HDMA and interrupts at frame level.
+
+Measuring a game with only a superdevkit home:
+
+- **The work of every tick.** `dampf.emu.ExampleBench` computes each tick's master cycles without
+  the main loop's wait for the vertical blank, but prints only the average and the busiest 60
+  ticks. A game wants one line per tick (a new tool or an option of `ExampleBench`). Finding the
+  wait by its symbol in the `.lbl` file may be sturdier than by source lines. Done when the values
+  per tick add up to what `ExampleBench` reports on an example.
+- **The ROM's sound from `ExampleCheck`.** It records the ROM's DSP writes in the format of the
+  desktop's `sound.txt`, but its `main` writes only the checksums. An optional output
+  (`ExampleCheck rom.sfc recording.txt [hashes.txt [sound.txt]]`), passed through by
+  `dev/replay.sh`, lets a game compare the ROM's sound with the desktop's using the kit alone.
 
 Better C debugging in Mesen: Mesen shows the C source and the names of global variables from
 the `.dbg` file, and that is all. Of a C symbol (`csym`) it reads only the name and the assembly
