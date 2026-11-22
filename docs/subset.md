@@ -160,8 +160,15 @@ gcc pads is still rejected (decision 5), and no constant size is right on both s
 dampf and 4 on the PC for `struct { uint8_t kind; int16_t x; }`), so such a struct is copied by a
 struct assignment.
 
-**Preprocessor.** Anything `gcc -E` accepts. dampf preprocesses with `-nostdinc -undef
--D__DAMPF__=1` and its own `include/`, so host headers and host macros never reach the code.
+**Preprocessor.** dampf's own, a subset of C99's (ADR-6FD4GDN5), with its own `include/`, so
+host headers and host macros never reach the code. It has `#include` with `""` and `<>`,
+`#define` and `#undef` (object-like, function-like and variadic macros with `__VA_ARGS__`, `#`
+and `##`), `#if`, `#elif`, `#ifdef`, `#ifndef`, `#else`, `#endif` and `defined` (arithmetic in
+64 bits), `#error`, `#pragma` (passed on; `#pragma once`), `__FILE__`, `__LINE__`, `__STDC__`,
+`__STDC_VERSION__` (199901L), `__STDC_HOSTED__` and `__DAMPF__`. Rejected, with an error that
+names them: `__VA_OPT__`, `#line`, `#include_next`, an include of a macro, `#warning` and gcc's
+other directives, named variadic parameters, `__COUNTER__`, `__DATE__`, `__TIME__`, `_Pragma`,
+`__has_include`. Trigraphs, digraphs and universal character names are not handled.
 
 **Whole program.** All `.c` files are compiled as one program; there is no separate compilation.
 `static` names stay local to their file (`phase` exists as a static local in two functions, for

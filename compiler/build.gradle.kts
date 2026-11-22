@@ -80,6 +80,9 @@ tasks.test {
     // Random programs: -Prandom=<count> (default 50), -PrandomSeed=<first seed>
     providers.gradleProperty("random").orNull?.let { systemProperty("dampf.random.count", it) }
     providers.gradleProperty("randomSeed").orNull?.let { systemProperty("dampf.random.seed", it) }
+    // RandomMacrosTest: -PppRandom=N macro programs from -PppSeed=S (default 300 from 1)
+    providers.gradleProperty("ppRandom").orNull?.let { systemProperty("pp.random", it) }
+    providers.gradleProperty("ppSeed").orNull?.let { systemProperty("pp.seed", it) }
     // At most n pass applications (dampf.util.PassLimit, dev/bisect_passes.sh): -PoptLimit=n or
     // DAMPF_OPT_LIMIT; the last one is appended to the file DAMPF_OPT_LIMIT_LOG names. As system
     // properties they are inputs of the task, so a new limit runs the tests again.

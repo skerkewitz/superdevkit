@@ -27,7 +27,7 @@ document of its subject.
 | ADR-6F0R64GD | [Every result matches gcc on x86-64 bit for bit](adr/6F0R64GD-every-result-matches-gcc-on-x86-64-bit-for-bit.md) | Accepted | 2026-11-17 |
 | ADR-6F0R65FW | [The whole program is compiled at once](adr/6F0R65FW-the-whole-program-is-compiled-at-once.md) | Accepted | 2026-11-17 |
 | ADR-6F0R668G | [No recursion, no free function pointers and no heap, so frames have fixed places](adr/6F0R668G-no-recursion-no-free-function-pointers-and-no-heap.md) | Accepted | 2026-11-17 |
-| ADR-6F0R6752 | [`gcc -E` preprocesses, without host headers or host macros](adr/6F0R6752-gcc-e-preprocesses-without-host-headers-or-host.md) | Accepted | 2026-11-17 |
+| ADR-6F0R6752 | [`gcc -E` preprocesses, without host headers or host macros](adr/6F0R6752-gcc-e-preprocesses-without-host-headers-or-host.md) | Superseded; superseded by ADR-6FD4GDN5 | 2026-11-17 |
 | ADR-6F0R68AN | [Hints are macros, and a hint that states a fact is checked on the PC](adr/6F0R68AN-hints-are-macros-and-a-hint-that-states-a-fact-is.md) | Accepted | 2026-11-17 |
 | ADR-6F0R69B6 | [All variables live in bank $7E, and DBR stays $7E](adr/6F0R69B6-all-variables-live-in-bank-7e-and-dbr-stays-7e.md) | Accepted | 2026-11-17 |
 | ADR-6F0R6A8V | [Pointers are 4 bytes, and no object crosses a bank or exceeds 32 KB](adr/6F0R6A8V-pointers-are-4-bytes-and-no-object-crosses-a-bank.md) | Accepted | 2026-11-17 |
@@ -76,6 +76,7 @@ document of its subject.
 | ADR-6FCVAA30 | [The web runs the desktop's frontend, which waits for the browser's frames with Asyncify](adr/6FCVAA30-the-web-runs-the-desktop-s-frontend-which-waits.md) | Accepted; amended by ADR-6FD1Y6W2, ADR-6FD7KEJV | 2026-11-22 |
 | ADR-6FD1Y6W2 | [The web's main takes --check, and the examples' test plays it in headless Chromium](adr/6FD1Y6W2-the-web-s-main-takes-check-and-the-examples-test.md) | Accepted | 2026-11-22 |
 | ADR-6FD2DGP0 | [clang is the tests' reference on the PC](adr/6FD2DGP0-clang-is-the-tests-reference-on-the-pc.md) | Accepted | 2026-11-22 |
+| ADR-6FD4GDN5 | [dampf has its own preprocessor, a subset of C99's](adr/6FD4GDN5-dampf-has-its-own-preprocessor-a-subset-of-c99-s.md) | Accepted; supersedes ADR-6F0R6752 | 2026-11-22 |
 | ADR-6FD54GME | [The pull-request workflow and the ADR skill come from the sker-project package, installed with apmw](adr/6FD54GME-the-pull-request-workflow-and-the-adr-skill-come.md) | Accepted; amends ADR-6FB9QJ3R | 2026-11-22 |
 | ADR-6FD7KEJV | [On the web the debug view is only in a build with --debug](adr/6FD7KEJV-on-the-web-the-debug-view-is-only-in-a-build-with.md) | Accepted | 2026-11-22 |
 

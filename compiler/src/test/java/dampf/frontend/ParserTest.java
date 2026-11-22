@@ -17,7 +17,7 @@ class ParserTest {
     private Parser.Result preprocessAndParse(String name, String code) throws Exception {
         Path f = tmp.resolve(name);
         Files.writeString(f, code);
-        Preprocessor pp = new Preprocessor("gcc", SystemHeaders.directory(), List.of(tmp), List.of());
+        Preprocessor pp = new Preprocessor(SystemHeaders.directory(), List.of(tmp), List.of());
         return Parser.parse(pp.run(f), f.toString());
     }
 

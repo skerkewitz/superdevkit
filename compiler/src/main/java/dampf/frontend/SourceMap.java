@@ -6,7 +6,7 @@ import java.util.regex.Pattern;
 
 /**
  * Maps lines of preprocessed text back to the original files, using the line markers
- * gcc -E writes ({@code # 142 "bubble.c" 1}).
+ * dampf's preprocessor writes as gcc -E does ({@code # 142 "bubble.c" 1}).
  */
 public final class SourceMap {
     private static final Pattern MARKER = Pattern.compile("^#\\s*(?:line\\s+)?(\\d+)\\s+\"((?:[^\"\\\\]|\\\\.)*)\".*$");

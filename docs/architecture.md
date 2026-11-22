@@ -44,7 +44,7 @@ get places, registers and frames is in [optimizations.md](optimizations.md).
 
 ```
 C source
-  → gcc -E            preprocessing; keeps line markers (# 142 "bubble.c")
+  → preprocessor      dampf's own (dampf.frontend.pp); line markers (# 142 "bubble.c")
   → ANTLR 4 parser    based on the C grammar from grammars-v4; parses broadly
   → AST (checked)     subset enforced, types resolved, error messages
   → HIR               C structure and meaning: loops, structs, arrays, hints
@@ -64,9 +64,13 @@ together.
 The parser accepts more C than the subset on purpose: a construct outside the subset is better
 reported by the subset checker ("recursion is not supported: …") than by a parse error.
 
-Preprocessing runs `gcc -E -nostdinc -undef -D__DAMPF__=1` with dampf's own `<stdint.h>`, so host
-headers and host macros never reach the code. The same preprocessor serves the PC build, so both
-builds see the same code (this matters for the hints, see [hints.md](hints.md)).
+dampf preprocesses with a preprocessor of its own (`dampf.frontend.pp`, ADR-6FD4GDN5), a subset of
+C99's: no host headers and no host macros reach the code, dampf's own include directory has
+`<stdint.h>`, `<dampf.h>` and `<string.h>`, and `__DAMPF__` is defined. It writes the text with
+line markers, as `gcc -E` does, for the source positions. The PC build preprocesses with its own
+compiler; both builds see the same code (this matters for the hints, see [hints.md](hints.md))
+because dampf's preprocessor gives the same tokens as clang's and gcc's on the subset, which
+`OracleTest` and `RandomMacrosTest` check.
 
 ## Intermediate representations
 

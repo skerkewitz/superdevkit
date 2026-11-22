@@ -38,8 +38,8 @@ everything outside it is rejected with a message, and that the subset is what a 
 4. **One program, not separate files** – every `.c` file is compiled together; there is no
    separate compilation and no linking of object files; `static` names stay local. What that
    allows (dampf sees every call and every use).
-5. **The preprocessor** – `gcc -E` with `-nostdinc -undef -D__DAMPF__=1`, dampf's own include
-   directory; host headers and macros never reach the code. Show how to use `__DAMPF__` to
+5. **The preprocessor** – dampf's own, a subset of C99's, with dampf's own include
+   directory and `__DAMPF__` defined; host headers and macros never reach the code. Show how to use `__DAMPF__` to
    keep a PC-only or compiler-specific branch apart, with a short example.
 6. **Checking your code** – `dampf check` on a set of files, what it prints, and that it reports
    every problem of each file (at most one per top-level declaration). Link [Command line](/reference/command-line#check).

@@ -32,7 +32,7 @@ dampf.
    lowering to MIR, passes, instruction selection to LIR, LIR passes, assembling and linking),
    with the naive code generator as
    the second path straight from the AST. One line per phase.
-2. **Preprocess and parse** – `gcc -E`, the ANTLR grammar from grammars-v4 (one sentence on what
+2. **Preprocess and parse** – dampf's own preprocessor, the ANTLR grammar from grammars-v4 (one sentence on what
    ANTLR is), source positions kept through the preprocessor.
 3. **The typed AST** – one AST for the whole program, types and promotions resolved, where
    subset violations are found.

@@ -38,6 +38,7 @@ scalar elements (`a[2]`, `s.x`), must have the same values on both sides. Pointe
 | Unit tests | One pass or component against expected output | JVM | Milliseconds |
 | Execution tests | `compiler/src/test/resources/exec/*.c` against clang | dampf's emulator, and Mesen when there is one | Seconds |
 | Random programs | Generated programs against clang | dampf's emulator | Minutes for many |
+| The preprocessor | dampf's preprocessor against `clang -E`: every C file dampf compiles in the repository, and random macro programs | JVM and clang | Seconds |
 | Examples | Each example's `check.txt` played on the SNES, on the desktop and on the web, a checksum per tick, and the same DSP writes in the same ticks ([docs/sound.md](sound.md#the-checks)) | dampf's emulator, Rachael, and Rachael in headless Chromium (Playwright) when installed; Mesen in `dev/compare_example.sh` | Five minutes, two of them the web |
 | The BRR Lab | Every use of `tools/brr_lab.html`, and its bytes against `superdevkit sfx` ([tools/lab_test](../tools/lab_test/README.md)) | Headless Chromium (Playwright), when installed | 10 seconds |
 | Timing on the examples | Every call of every example against its static bounds | dampf's emulator | 20 seconds |
@@ -51,6 +52,18 @@ reduced multiplication and division with the original in the interpreter (all 8-
 many constants). `CountedLoopsTest` does the same for the loop analysis: random counting
 loops run in the interpreter, which checks the number of head runs and every counter's value
 against what the analysis claims.
+
+**The preprocessor** (ADR-6FD4GDN5) has three tests of its own. `PreprocessTest` has the
+examples of the C standard (C99 6.10.3.5), the arithmetic of `#if`, includes, line markers and
+columns, and the features the subset rejects. `OracleTest` runs every C file dampf compiles in
+the repository (the test programs, the examples, `lib/snes`) through dampf's preprocessor and
+`clang -E`: the same tokens, each at the same file and line. `RandomMacrosTest` does the same
+with random macro programs (`RandomMacros`: macros calling macros, macro names as arguments,
+self-reference, `#` and `##` with empty arguments, variadic macros, invocations over several
+lines, `#if` with `defined`), 300 in every build (`-PppRandom=N`, `-PppSeed=S`); there a
+token may stand at a later line than clang's, since after an invocation or a comment over
+several lines clang keeps the rest of the line where it began and dampf, like gcc, puts each
+token at its own line.
 
 **Execution tests** (`ExecutionTest`) are small C programs, each on one area. Each runs on the
 PC, in the MIR interpreter before and after the passes, and as both ROMs in dampf's emulator;
@@ -184,7 +197,7 @@ over when it left ([ADR-6F60Z819](adr/6F60Z819-the-examples-replace-blubber-blas
     (`dampf bench`); and on every example's check, the same checksums every tick.
 - **GitHub Actions** (`.github/workflows/build.yml`) runs `./gradlew build` for every pull
   request (ADR-6FB9QJ3R), with JDK 25 on Ubuntu, the
-  runner's gcc (dampf's preprocessor), clang, python3 and node, and Ubuntu's cc65 (ca65 and ld65 for `BackendOutputTest`). Mesen, raylib, Emscripten and Playwright are not there: the execution
+  runner's cc (the desktop library's tests), clang, python3 and node, and Ubuntu's cc65 (ca65 and ld65 for `BackendOutputTest`). Mesen, raylib, Emscripten and Playwright are not there: the execution
   tests run in dampf's emulator only, `ExamplesTest` plays the SNES only, and `DesktopIsolationTest`, the symbol check of WebAssembly
   objects (`ProjectTest`) and the BRR Lab's browser tests skip. A pull request is merged only when this build passes.
 - **Parallel test JVMs.** The compiler's test classes run in several JVMs at once, one per core

@@ -152,7 +152,7 @@ public final class Compiler {
     private Compiler() {}
 
     public static Program frontEnd(Options o) throws CompileError, IOException {
-        Preprocessor pp = new Preprocessor("gcc", SystemHeaders.directory(), o.includeDirs(), o.allDefines());
+        Preprocessor pp = new Preprocessor(SystemHeaders.directory(), o.includeDirs(), o.allDefines());
         AstBuilder builder = new AstBuilder(SystemHeaders.directory());
         // every file, so that the errors of one do not hide those of the next
         List<dampf.frontend.Diagnostic> errors = new java.util.ArrayList<>();
