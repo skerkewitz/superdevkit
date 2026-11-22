@@ -177,6 +177,14 @@ same Java for the SNES, and calls the system's C compiler for the desktop (Emscr
 the web), one call per file, after fetching raylib once. A SNES build also writes `build/snes/<name>.args`, dampf's argument file of
 what it compiled.
 
+A game with converters of its own names them in `superdevkit.toml`, and every build runs them first,
+in the game's folder; they may write files that `sources` lists:
+
+```toml
+[build]
+before = ["./make_levels.sh"]
+```
+
 ## Using dampf
 
 ```bash

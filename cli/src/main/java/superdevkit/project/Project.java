@@ -30,13 +30,17 @@ import superdevkit.gfx.Png2Snes;
  * sfx = "assets/sfx/sfx.json"   # the sound effects (superdevkit sfx): build/gen/sfx.c and sfx.h
  * music = ["assets/music/title.ogg", { file = "assets/music/x.xm", name = "boss" }]
  *                               # the tracks: build/gen/music.h, MUSIC_TITLE ... MUSIC_COUNT
+ *
+ * [build]
+ * before = ["./make_levels.sh"] # commands run first, in this folder, for every target: a game's
+ *                               # own converters, which may write what "sources" lists
  * </pre>
  *
  * A picture's C name is its file name without ".png" unless {@code name} gives one, a track's its
  * file name without the extension. Paths are relative to the folder of superdevkit.toml.
  */
 public record Project(Path dir, String name, String version, String kit, int sram, List<String> sources,
-                      List<String> include, List<Graphic> graphics, String sfx, List<Track> music) {
+                      List<String> include, List<Graphic> graphics, String sfx, List<Track> music, List<String> before) {
 
     /** A track of music: its file and its name (MUSIC_ and the name in capitals). */
     public record Track(String file, String name) {}
@@ -54,7 +58,7 @@ public record Project(Path dir, String name, String version, String kit, int sra
     }
 
     private static final Set<String> TOP = Set.of("name", "superdevkit", "kit", "sram", "sources", "include",
-            "graphics", "sound");
+            "graphics", "sound", "build");
     private static final Set<String> GRAPHICS = Set.of("tiles", "tiles2", "palette", "mode7");
     private static final Set<String> SOUND = Set.of("sfx", "music");
 
@@ -158,6 +162,9 @@ public record Project(Path dir, String name, String version, String kit, int sra
                 throw new Error(FILE + ": [sound] music: at most 255 tracks");
             }
         }
+        Map<String, Object> b = table(t, "build");
+        unknown(b, Set.of("before"), "[build] ");
+        List<String> before = b.containsKey("before") ? strings(b, "before") : List.of();
         List<String> names = new ArrayList<>();
         for (Graphic x : graphics) {
             if (names.contains(x.name())) {
@@ -169,7 +176,7 @@ public record Project(Path dir, String name, String version, String kit, int sra
             throw new Error(FILE + ": a picture is called sfx, as the sound effects' files are");
         }
         return new Project(dir, name, version, kit, (int) sram, List.copyOf(sources),
-                include == null ? null : List.copyOf(include), List.copyOf(graphics), sfx, List.copyOf(music));
+                include == null ? null : List.copyOf(include), List.copyOf(graphics), sfx, List.copyOf(music), List.copyOf(before));
     }
 
     /** The order the build converts in: tiles, tiles2, palette, mode7 (as in the old build scripts). */

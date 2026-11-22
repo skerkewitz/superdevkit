@@ -56,6 +56,50 @@ public final class Build {
         return steps;
     }
 
+    /**
+     * The commands of [build] before, in the project's folder, each through the system's shell. They
+     * run before the plan is made, since they may write files the project lists in its sources.
+     */
+    public static List<Step> before(Project p) {
+        List<Step> steps = new ArrayList<>();
+        for (String command : p.before()) {
+            steps.add(new Step("before", command, List.of(), out -> {
+                List<String> shell = Desktop.windows() ? List.of("cmd", "/c", command) : List.of("sh", "-c", command);
+                Process pr = new ProcessBuilder(shell).directory(p.dir().toFile()).redirectErrorStream(true).start();
+                String log = new String(pr.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+                int status = pr.waitFor();
+                if (status != 0) {
+                    throw new Failure("'" + command + "' ended with status " + status + (log.isBlank() ? "" : ":\n" + log.strip()));
+                }
+                if (!log.isBlank()) {
+                    out.print(log.indent(4));
+                }
+            }));
+        }
+        return steps;
+    }
+
+    /** After the commands of [build] before: every source the project names must be there now. */
+    public static void requireSources(Project p) throws Failure {
+        for (String s : p.sources()) {
+            if (!Files.exists(p.path(s))) {
+                throw new Failure(Project.FILE + ": sources: no such file or folder: " + p.path(s));
+            }
+        }
+    }
+
+    /**
+     * The steps of a plan or dry run with commands before them: the commands first, and nothing of
+     * the rest counts as missing, since the commands have not run and may write it.
+     */
+    public static List<Step> afterBefore(List<Step> before, List<Step> steps) {
+        List<Step> all = new ArrayList<>(before);
+        for (Step s : steps) {
+            all.add(new Step(s.tool(), s.line(), List.of(), s.work()));
+        }
+        return all;
+    }
+
     /** The conversions: every picture, then the sound effects, into build/gen. */
     public static List<Step> assets(Project p) {
         List<Step> steps = new ArrayList<>();
@@ -105,6 +149,9 @@ public final class Build {
     public static List<Path> gameSources(Project p) throws Failure, IOException {
         List<Path> files = new ArrayList<>();
         for (String s : p.sources()) {
+            if (!p.before().isEmpty() && !Files.exists(p.path(s))) {
+                continue;       // a plan or dry run: the commands before the build write it
+            }
             try {
                 files.addAll(ConfigFile.sources(p.path(s)));
             } catch (ConfigFile.Error e) {

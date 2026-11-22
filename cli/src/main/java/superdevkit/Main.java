@@ -123,12 +123,23 @@ public final class Main {
             }
             Project p = Project.read(dir.toAbsolutePath().normalize());
             Kit kit = Kit.of(p);
+            if (plan || verbose) {
+                out.println("superdevkit " + args[0] + " " + target + ": " + p.name() + " (kit " + kit.home() + ")");
+            }
+            List<Build.Step> before = Build.before(p);
+            if (!before.isEmpty() && !dryRun) {
+                int ran = Build.run(before, false, false, verbose, out, err);
+                if (ran != 0) {
+                    return ran;
+                }
+                Build.requireSources(p);
+            }
             List<Build.Step> steps = Build.plan(p, kit, target, debug);
             if (args[0].equals("run")) {
                 steps.add(Run.step(p, kit, target));
             }
-            if (plan || verbose) {
-                out.println("superdevkit " + args[0] + " " + target + ": " + p.name() + " (kit " + kit.home() + ")");
+            if (dryRun && !before.isEmpty()) {
+                steps = Build.afterBefore(before, steps);
             }
             int status = Build.run(steps, plan, dryRun, verbose, out, err);
             if (status == 0 && !plan && !dryRun && args[0].equals("build")) {

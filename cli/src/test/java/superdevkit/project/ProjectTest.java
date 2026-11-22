@@ -181,6 +181,84 @@ class ProjectTest {
         assertTrue(out.startsWith("1\n") && out.contains("missing: ") && out.contains("gone.png"), out);
     }
 
+    /** A small game whose second file only a command before the build writes. */
+    private void gameWithACommandBefore(String script) throws Exception {
+        assumeTrue(!Desktop.windows(), "the test's command is a shell script");
+        Files.createDirectories(tmp.resolve("src"));
+        Files.writeString(tmp.resolve("src/g.c"), """
+                #include "sdevkit/loop.h"
+                uint8_t made(void);
+                uint8_t v;
+                void game_init(uint16_t seed) { (void)seed; }
+                void game_tick(const uint16_t pad[SDEVKIT_PADS]) { (void)pad; v = made(); }
+                void game_vblank(void) { }
+                """);
+        Files.writeString(tmp.resolve("make.sh"), script);
+        project("""
+                name = "g"
+                kit = "%s"
+                sources = ["src", "made"]
+                include = ["src"]
+                [build]
+                before = ["sh make.sh"]
+                """.formatted(Path.of("").toAbsolutePath().toString().replace("\\", "/")));
+    }
+
+    private static final String WRITES_THE_FILE = """
+            mkdir -p made
+            printf '#include <stdint.h>\\nuint8_t made(void) { return 7; }\\n' > made/more.c
+            echo converted
+            """;
+
+    @Test
+    void theCommandsBeforeTheBuildRunFirstAndCanWriteItsSources() throws Exception {
+        gameWithACommandBefore(WRITES_THE_FILE);
+        String out = run("build", "snes", tmp.toString(), "--verbose");
+        assertTrue(out.startsWith("0\n"), out);
+        assertTrue(out.indexOf("before sh make.sh") < out.indexOf("dampf  build"), out);
+        assertTrue(out.contains("converted"), out);
+        assertTrue(Files.isRegularFile(tmp.resolve("made/more.c")));
+        assertTrue(Files.size(tmp.resolve("build/snes/g.sfc")) >= 32 * 1024);
+    }
+
+    @Test
+    void aPlanShowsTheCommandsAndRunsNothing() throws Exception {
+        gameWithACommandBefore(WRITES_THE_FILE);
+        for (String option : List.of("--plan", "--dry-run")) {
+            String out = run("build", "snes", tmp.toString(), option);
+            assertTrue(out.startsWith("0\n") && !out.contains("missing:"), out);
+            assertTrue(!Files.exists(tmp.resolve("made")), "a " + option + " ran the command");
+        }
+        String plan = run("build", "linux", tmp.toString(), "--plan");
+        assertTrue(plan.contains("before sh make.sh"), plan);
+    }
+
+    @Test
+    void aCommandThatFailsStopsTheBuild() throws Exception {
+        gameWithACommandBefore("echo no levels\nexit 3\n");
+        String out = run("build", "snes", tmp.toString());
+        assertTrue(out.startsWith("1\n") && out.contains("'sh make.sh' ended with status 3") && out.contains("no levels"), out);
+        assertTrue(!Files.exists(tmp.resolve("build/snes/g.sfc")));
+    }
+
+    @Test
+    void aSourceTheCommandsDidNotWriteIsAnError() throws Exception {
+        gameWithACommandBefore("true\n");
+        String out = run("build", "snes", tmp.toString());
+        assertTrue(out.startsWith("1\n") && out.contains("no such file or folder") && out.contains("made"), out);
+    }
+
+    @Test
+    void anUnknownKeyOfBuildIsRefused() {
+        assertTrue(error("""
+                name = "g"
+                superdevkit = "0.9"
+                sources = ["src"]
+                [build]
+                after = ["x"]
+                """).contains("after"));
+    }
+
     @Test
     void anUnknownTargetIsRefused() {
         String out = run("build", "amiga", "examples/catchme");
