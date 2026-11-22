@@ -85,7 +85,15 @@ public final class RangeNarrow {
                 case LSHR, UDIV, UREM -> ra.lo() >= 0 && rb.lo() >= 0;
             };
             if (ok) {
-                return make(x, op, Instr.CastKind.SEXT);
+                // neither is negative: the unsigned operation at once, since StrengthReduce, later
+                // in this round, would give a signed division its correction for negative values
+                Instr.BinOp narrow = ra.lo() < 0 || rb.lo() < 0 ? op : switch (op) {
+                    case SDIV -> Instr.BinOp.UDIV;
+                    case SREM -> Instr.BinOp.UREM;
+                    case ASHR -> Instr.BinOp.LSHR;
+                    default -> op;
+                };
+                return make(x, narrow, Instr.CastKind.SEXT);
             }
         }
         if (inside(ra, U16) && inside(rb, U16)) {

@@ -1654,3 +1654,14 @@ copies through a pointer 1,823 → 3,219 without `Schedule`. Against it, some fu
 is open in the roadmap (M9, row 2). Without `Schedule` dampf also stopped on Ertüp, which led to
 the bug of the entry before.
 
+## A signed division of a value known not to be negative (2026-11-22, on the C guide)
+
+`v / 8` on an `int16_t` with `DAMPF_RANGE(v, 0, 1000)` cost 63 cycles against 17 for the same
+division written as unsigned. C promotes `v` to 32 bits. `RangeNarrow` narrowed the division back
+to a signed 16-bit one, and `StrengthReduce`, later in the same round, gave it its correction for
+negative values before the next round could see that there are none. Where neither operand can be
+negative, `RangeNarrow` now narrows to the unsigned operation at once (`sdiv` to `udiv`, `srem` to
+`urem`, `ashr` to `lshr`). The division with the hint costs what the unsigned one costs. No example
+divides that way, so their code, the worst cases and the pair loops are the same.
+`slow-signed-divide` stays, for a value dampf knows nothing about.
+

@@ -116,8 +116,9 @@ Also in M9:
     now);
   - a multiplication of two bytes calls `dampf_mul16`, the SNES's 8 x 8 multiplier at
     `$4202`-`$4203` is not used: turns `same-multiply-width` into a rule for bytes;
-  - a signed division by a power of two keeps its rounding correction when a `DAMPF_RANGE` proves
-    the value is not negative: retires `slow-signed-divide`;
+  - a signed division by a power of two kept its rounding correction when a `DAMPF_RANGE` proved
+    the value not negative: gone on 2026-11-22; `slow-signed-divide` stays for values dampf knows
+    nothing about;
   - 32-bit operands go through frame slots (`hash ^= key` copies all four words): retires
     `slow-32-bit`;
   - a constant shift above 8 was a loop (`shl 9` as `ldx #9; asl; dex; bne`; found in Schach's

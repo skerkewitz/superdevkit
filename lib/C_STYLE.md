@@ -66,7 +66,8 @@ call its own statement.
   runtime, `va / 8` of an unsigned value is a shift.
 - **`slow-signed-divide`** Divide a value that cannot be negative as unsigned:
   `(uint16_t)v / 8`, not `v / 8` on an `int16_t`. The signed form computes a rounding correction
-  for negative values, and a `DAMPF_RANGE` that proves `v` is not negative does not remove it.
+  for negative values, unless dampf knows that `v` is not negative (a comparison before it, or a
+  `DAMPF_RANGE`).
 - **`slow-hand-shifts`** Write a multiplication by a constant as a multiplication: `va * 40`, not
   `(va << 5) + (va << 3)`. dampf finds the shifts itself, and better.
 - **`slow-32-bit`** Keep 32-bit values out of hot code: every operation on one goes through
@@ -136,5 +137,5 @@ Measured 2026-11-22 (worst case of the timing report, code generator from MIR).
 | `slow-hand-shifts` | `times_40_by_shifts` | 41 | slower | `times_40` | 31 |
 | `slow-index-list` | `pairs_by_list` | 17,505 | slower | `pairs_by_counter` | 15,493 |
 | `slow-multiply-variable` | `multiply_variables` | 399 | slower | `multiply_constant` | 31 |
-| `slow-signed-divide` | `divide_signed` | 63 | slower | `divide_unsigned` | 17 |
+| `slow-signed-divide` | `divide_signed` | 101 | slower | `divide_unsigned` | 17 |
 <!-- end of measurements -->

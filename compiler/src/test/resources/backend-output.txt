@@ -78,6 +78,11 @@ exec_dead_loops.layout.timing 83602433cf8179844c725a31
 exec_dead_loops.mir.s0 50d6ffdb5c9b41b436936a45
 exec_dead_loops.mir.timing cd8078d2a6e663937a5817b1
 exec_dead_loops.naive.s0 ad22bbd15353f8221f52ecc5
+exec_divide_known_sign.layout.s0 dade17c3501533d90ec9a967
+exec_divide_known_sign.layout.timing 92166132ced343149850f850
+exec_divide_known_sign.mir.s0 b869bb60a3ccb347a70e6341
+exec_divide_known_sign.mir.timing 4ad54cdd4f791d14e4967eda
+exec_divide_known_sign.naive.s0 a20102b6bb2a0cc759e270a7
 exec_enums.layout.s0 092c926c7e1143263ae7ee43
 exec_enums.layout.timing 83dad7a58a73327d7a68e0e0
 exec_enums.mir.s0 89da6aaebe2d8e6c902d5e86
