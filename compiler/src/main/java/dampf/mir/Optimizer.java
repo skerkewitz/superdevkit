@@ -53,6 +53,13 @@ public final class Optimizer {
                 r.functions();
             }
         }
+        // a 32-bit comparison with a sum of 16-bit values: after the loop passes, which read the
+        // tests of their loops; then the passes again, since the ranges may decide the new test
+        for (MFunction f : m.functions()) {
+            if (r.pass("CompareSum", f, () -> CompareSum.run(f))) {
+                r.function(f);
+            }
+        }
         // last: comparisons next to the branches that use them, after value numbering merged equal
         // ones; then the order of the instructions for the code generator
         for (MFunction f : m.functions()) {
