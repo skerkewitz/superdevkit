@@ -125,8 +125,9 @@ desktop build also a C compiler and curl (raylib is fetched on the first build).
 (`BackendOutputTest` builds the execution tests, 20 random programs and the examples with them
 as well and compares the ROMs) and Python 3; clang is the tests' reference on the PC and is used
 by `dev/subset_scan.py`. Mesen (MesenCE) is optional (the tests then also run there),
-Node.js only for the book and the BRR Lab's tests
-([tools/lab_test](tools/lab_test/README.md), with Playwright). Gradle comes with the wrapper. The book's
+Node.js only for the book and the browser tests (the BRR Lab's,
+[tools/lab_test](tools/lab_test/README.md), and the examples' on the web,
+[tools/web_check](tools/web_check/README.md), with Playwright; the web's also with Emscripten). Gradle comes with the wrapper. The book's
 [getting started](docs/book/guide/getting-started.md) page has what a user needs.
 
 On Arch Linux, cc65 is not in the official repositories; build it from source:

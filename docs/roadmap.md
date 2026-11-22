@@ -63,7 +63,8 @@ and Blubber Blasen in the browser, after which the game drops its own PC side. T
 [superdevkit-transition.md](superdevkit-transition.md#m8-the-web-080).
 
 State (2026-11-22): the target, `lib/web`, the symbol check of WebAssembly objects and `run web`
-are built (ADR-6FCVAA30); the examples' check in the browser and Blubber Blasen's switch are left.
+are built (ADR-6FCVAA30), and `ExamplesTest` plays every example's check in the browser; Blubber
+Blasen's switch is left.
 
 ## M9: the optimizer (0.9.0)
 
