@@ -147,20 +147,24 @@ public final class ExampleCheck {
      * Plays a check.txt or a recording of the desktop (lib/desktop, F11) in dampf's emulator and
      * compares the checksum of every tick with the one recorded:
      * <pre>
-     *   java -cp 'build/install/superdevkit/java/*' dampf.emu.ExampleCheck rom.sfc recording.txt [hashes.txt]
+     *   java -cp 'build/install/superdevkit/java/*' dampf.emu.ExampleCheck rom.sfc recording.txt [hashes.txt [sound.txt]]
      * </pre>
      * prints the first tick that differs (exit status 1) or how many ticks were the same, and writes
-     * the checksums in the desktop's format to hashes.txt when one is named.
+     * the checksums in the desktop's format to hashes.txt and the ROM's DSP writes in the format of
+     * the desktop's sound.txt to sound.txt, when they are named.
      */
     public static void main(String[] args) throws IOException {
-        if (args.length < 2 || args.length > 3) {
-            System.err.println("usage: ExampleCheck rom.sfc recording.txt [hashes.txt]");
+        if (args.length < 2 || args.length > 4) {
+            System.err.println("usage: ExampleCheck rom.sfc recording.txt [hashes.txt [sound.txt]]");
             System.exit(2);
         }
         Input input = parse(Path.of(args[1]));
         Result r = run(Files.readAllBytes(Path.of(args[0])), input, 40 * input.ticks() + 2000);
-        if (args.length == 3) {
+        if (args.length >= 3) {
             Files.write(Path.of(args[2]), r.lines());
+        }
+        if (args.length == 4) {
+            Files.write(Path.of(args[3]), r.sound());
         }
         long compared = 0;
         for (int t = 0; t < r.hashes().size(); t++) {
@@ -188,6 +192,9 @@ public final class ExampleCheck {
             String[] w = line.strip().split("\\s+");
             if (w[0].equals("sram") && w.length == 2) {
                 sram = java.util.HexFormat.of().parseHex(w[1]);
+            } else if (w[0].equals("seed") || w[0].equals("set")) {
+                throw new IOException(checkTxt + ": its '" + w[0] + "' line starts the game in a way only the desktop can"
+                        + " (--seed, --set): on the SNES it starts with seed 0 and has no debug registrations");
             } else if (w[0].equals("hash")) {
                 recorded.put(Long.parseLong(w[1]), Long.parseLong(w[2], 16));
             } else if (w[0].equals("mark")) {

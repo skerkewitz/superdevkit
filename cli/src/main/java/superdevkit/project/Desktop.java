@@ -120,6 +120,9 @@ final class Desktop {
             // dampf's static memcpy into a call of memcpy, which in that file is the loop itself
             cmd.addAll(List.of("-nostdinc", "-ffreestanding", "-fno-tree-loop-distribute-patterns",
                     "-isystem", kit.dampfInclude().toString()));
+            for (String d : p.definesFor("linux")) {
+                cmd.add("-D" + d);
+            }
             for (Path i : Build.includes(p, kit)) {
                 cmd.add("-I");
                 cmd.add(i.toString());
@@ -162,6 +165,9 @@ final class Desktop {
                     StringBuilder bat = new StringBuilder();
                     for (Path s : sources) {
                         bat.append(cl).append(" /X /I \"").append(win(kit.dampfInclude())).append('"');
+                        for (String d : p.definesFor("win64")) {
+                            bat.append(" /D").append(d);
+                        }
                         for (Path i : Build.includes(p, kit)) {
                             bat.append(" /I \"").append(win(i)).append('"');
                         }

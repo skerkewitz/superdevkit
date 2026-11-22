@@ -19,7 +19,7 @@ import java.util.TreeMap;
  * example that does a fixed amount of work a tick (Mandelbrot); the work can.
  *
  * <pre>
- *   java -cp 'build/install/superdevkit/java/*' dampf.emu.ExampleBench rom.sfc rom.lbl check.txt
+ *   java -cp 'build/install/superdevkit/java/*' dampf.emu.ExampleBench rom.sfc rom.lbl check.txt [work.txt]
  * </pre>
  *
  * prints {@code ticks frames/tick work/tick busiest/tick runtime%}: the ticks played, the frames
@@ -27,6 +27,7 @@ import java.util.TreeMap;
  * frame has 357,368), and the share of the work in dampf's runtime routines ({@code dampf_*}:
  * multiplication, division, shifts by a variable). The ROM's timing report ({@code .timing.txt})
  * and debug file ({@code .dbg}) must lie beside it, and the sources it names where it names them.
+ * With {@code work.txt} it also writes the work of every tick, one line {@code tick cycles} each.
  */
 public final class ExampleBench {
     private static final int WINDOW = 60;
@@ -35,16 +36,32 @@ public final class ExampleBench {
     private ExampleBench() {
     }
 
+    /** What a run measured: the work of every tick, and the numbers of the benchmark's line. */
+    record Measured(long[] work, double framesPerTick, long average, long busiest, double runtimeShare) {
+    }
+
     public static void main(String[] args) throws IOException {
-        if (args.length != 3) {
-            System.err.println("usage: ExampleBench rom.sfc rom.lbl check.txt");
+        if (args.length < 3 || args.length > 4) {
+            System.err.println("usage: ExampleBench rom.sfc rom.lbl check.txt [work.txt]");
             System.exit(2);
         }
-        byte[] rom = Files.readAllBytes(Path.of(args[0]));
-        TreeMap<Integer, String> labels = ExampleProfile.labels(Path.of(args[1]), ExampleProfile.functions(Path.of(args[0])));
-        ExampleCheck.Input input = ExampleCheck.parse(Path.of(args[2]));
+        Measured m = measure(Path.of(args[0]), Path.of(args[1]), Path.of(args[2]));
+        System.out.printf("%d %.3f %d %d %.1f%n", m.work().length, m.framesPerTick(), m.average(), m.busiest(), m.runtimeShare());
+        if (args.length == 4) {
+            List<String> lines = new java.util.ArrayList<>();
+            for (int t = 0; t < m.work().length; t++) {
+                lines.add(t + " " + m.work()[t]);
+            }
+            Files.write(Path.of(args[3]), lines);
+        }
+    }
+
+    static Measured measure(Path romFile, Path lbl, Path check) throws IOException {
+        byte[] rom = Files.readAllBytes(romFile);
+        TreeMap<Integer, String> labels = ExampleProfile.labels(lbl, ExampleProfile.functions(romFile));
+        ExampleCheck.Input input = ExampleCheck.parse(check);
         long n = input.ticks();
-        Set<Integer> waiting = waitingAddresses(Path.of(args[0].replaceFirst("\\.sfc$", ".dbg")));
+        Set<Integer> waiting = waitingAddresses(Path.of(romFile.toString().replaceFirst("\\.sfc$", ".dbg")));
 
         Snes snes = new Snes(rom);
         long[] tick = { -1 };
@@ -100,7 +117,7 @@ public final class ExampleBench {
             }
         }
         double frames = (double) (snes.masterClock() - firstClock[0]) / ExampleCheck.FRAME / n;
-        System.out.printf("%d %.3f %d %d %.1f%n", n, frames, total / n, busiest / Math.min(n, WINDOW),
+        return new Measured(work, frames, total / n, busiest / Math.min(n, WINDOW),
                 total == 0 ? 0.0 : 100.0 * runtime[0] / total);
     }
 

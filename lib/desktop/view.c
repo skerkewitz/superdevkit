@@ -14,6 +14,7 @@
  * few rectangles each, handled with the mouse in the frame they are drawn (immediate mode). This
  * file is host code for the desktop's C compiler, not for dampf.
  */
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -148,8 +149,8 @@ static float game_tab(float x, float y, float w, float bottom)
     y += ROW;
     if (sdevkit__dbg_count == 0) {
         text("The game registers nothing to change.", x, y + 4, DIM);
-        text("(sdevkit_dbg_toggle, _range, _color,", x, y + 4 + ROW, DIM);
-        text(" _action in game_init)", x, y + 4 + 2 * ROW, DIM);
+        text("(sdevkit_dbg_toggle, _range, _color, _action,", x, y + 4 + ROW, DIM);
+        text(" _text, _value in game_init)", x, y + 4 + 2 * ROW, DIM);
         y += 3 * ROW;
     }
     for (i = 0; i < sdevkit__dbg_count; i++) {
@@ -204,6 +205,18 @@ static float game_tab(float x, float y, float w, float bottom)
                 }
                 y += ROW;
             }
+            break;
+        }
+        case SDEVKIT__DBG_TEXT:
+            snprintf(s, sizeof s, "%s: %s", e->name, (const char *)e->p);
+            text(s, x + 2, y + 3, FG);
+            y += ROW;
+            break;
+        case SDEVKIT__DBG_VALUE: {
+            uint16_t value = *(const uint16_t *)e->p;
+            snprintf(s, sizeof s, "%s  %u  $%04X", e->name, value, value);
+            text(s, x + 2, y + 3, FG);
+            y += ROW;
             break;
         }
         default: {                                    /* SDEVKIT__DBG_ACTION */
@@ -401,6 +414,23 @@ static void sprites_tab(float x, float y, float bottom)
 }
 
 /* --- the panel and the picture's overlays ------------------------------------------------------- */
+/* An arrow from a by (dx, dy) window pixels, with a head of three SNES pixels. */
+static void arrow(Vector2 a, float dx, float dy, float scale, float thick, Color c)
+{
+    float len = sqrtf(dx * dx + dy * dy), head = 3 * scale, ux, uy;
+    Vector2 tip = { a.x + dx, a.y + dy };
+
+    if (len == 0) {
+        DrawCircleV(a, thick, c);
+        return;
+    }
+    ux = dx / len;
+    uy = dy / len;
+    DrawLineEx(a, tip, thick, c);
+    DrawLineEx(tip, (Vector2){ tip.x - head * (ux + uy * 0.6f), tip.y - head * (uy - ux * 0.6f) }, thick, c);
+    DrawLineEx(tip, (Vector2){ tip.x - head * (ux - uy * 0.6f), tip.y - head * (uy + ux * 0.6f) }, thick, c);
+}
+
 const char *sdevkit__debug_draw(Rectangle dst, float scale, float window_w, float window_h, sdevkit__run_state *run)
 {
     float x, y, w, bottom;
@@ -419,9 +449,16 @@ const char *sdevkit__debug_draw(Rectangle dst, float scale, float window_w, floa
     if (boxes_on) {
         for (i = 0; i < sdevkit__dbg_nboxes; i++) {
             const sdevkit__dbg_rect *b = &sdevkit__dbg_boxes[i];
-            DrawRectangleLinesEx((Rectangle){ dst.x + (float)b->x * scale, dst.y + (float)b->y * scale,
-                                              (float)b->w * scale, (float)b->h * scale },
-                                 scale > 2 ? 2.0f : 1.0f, KIND[b->kind & 7]);
+            Rectangle r = { dst.x + (float)b->x * scale, dst.y + (float)b->y * scale,
+                            (float)b->w * scale, (float)b->h * scale };
+            float thick = scale > 2 ? 2.0f : 1.0f;
+            if (b->style == SDEVKIT__DBG_FILLED) {
+                DrawRectangleRec(r, Fade(KIND[b->kind & 7], 0.45f));
+            } else if (b->style == SDEVKIT__DBG_ARROW) {
+                arrow((Vector2){ r.x, r.y }, (float)b->dx * scale, (float)b->dy * scale, scale, thick, KIND[b->kind & 7]);
+            } else {
+                DrawRectangleLinesEx(r, thick, KIND[b->kind & 7]);
+            }
         }
     }
 

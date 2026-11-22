@@ -30,13 +30,21 @@ import superdevkit.gfx.Png2Snes;
  * sfx = "assets/sfx/sfx.json"   # the sound effects (superdevkit sfx): build/gen/sfx.c and sfx.h
  * music = ["assets/music/title.ogg", { file = "assets/music/x.xm", name = "boss" }]
  *                               # the tracks: build/gen/music.h, MUSIC_TITLE ... MUSIC_COUNT
+ *
+ * [build]
+ * before = ["./make_levels.sh"] # commands run first, in this folder, for every target: a game's
+ *                               # own converters, which may write what "sources" lists
+ *
+ * [desktop]                     # also [snes] and [web]; desktop is linux and win64
+ * defines = ["DEV_TOOLS", "LEVELS=3"]   # for the game's own files on that target
  * </pre>
  *
  * A picture's C name is its file name without ".png" unless {@code name} gives one, a track's its
  * file name without the extension. Paths are relative to the folder of superdevkit.toml.
  */
 public record Project(Path dir, String name, String version, String kit, int sram, List<String> sources,
-                      List<String> include, List<Graphic> graphics, String sfx, List<Track> music) {
+                      List<String> include, List<Graphic> graphics, String sfx, List<Track> music, List<String> before,
+                      Map<String, List<String>> defines) {
 
     /** A track of music: its file and its name (MUSIC_ and the name in capitals). */
     public record Track(String file, String name) {}
@@ -54,7 +62,7 @@ public record Project(Path dir, String name, String version, String kit, int sra
     }
 
     private static final Set<String> TOP = Set.of("name", "superdevkit", "kit", "sram", "sources", "include",
-            "graphics", "sound");
+            "graphics", "sound", "build", "snes", "desktop", "web");
     private static final Set<String> GRAPHICS = Set.of("tiles", "tiles2", "palette", "mode7");
     private static final Set<String> SOUND = Set.of("sfx", "music");
 
@@ -158,6 +166,21 @@ public record Project(Path dir, String name, String version, String kit, int sra
                 throw new Error(FILE + ": [sound] music: at most 255 tracks");
             }
         }
+        Map<String, Object> b = table(t, "build");
+        unknown(b, Set.of("before"), "[build] ");
+        List<String> before = b.containsKey("before") ? strings(b, "before") : List.of();
+        Map<String, List<String>> defines = new java.util.HashMap<>();
+        for (String group : List.of("snes", "desktop", "web")) {
+            Map<String, Object> d = table(t, group);
+            unknown(d, Set.of("defines"), "[" + group + "] ");
+            List<String> list = d.containsKey("defines") ? strings(d, "defines") : List.of();
+            for (String define : list) {
+                if (!define.matches("[A-Za-z_][A-Za-z0-9_]*(=[^\\s\"]*)?")) {
+                    throw new Error(FILE + ": [" + group + "] defines: '" + define + "' is not NAME or NAME=VALUE without spaces");
+                }
+            }
+            defines.put(group, List.copyOf(list));
+        }
         List<String> names = new ArrayList<>();
         for (Graphic x : graphics) {
             if (names.contains(x.name())) {
@@ -169,7 +192,7 @@ public record Project(Path dir, String name, String version, String kit, int sra
             throw new Error(FILE + ": a picture is called sfx, as the sound effects' files are");
         }
         return new Project(dir, name, version, kit, (int) sram, List.copyOf(sources),
-                include == null ? null : List.copyOf(include), List.copyOf(graphics), sfx, List.copyOf(music));
+                include == null ? null : List.copyOf(include), List.copyOf(graphics), sfx, List.copyOf(music), List.copyOf(before), Map.copyOf(defines));
     }
 
     /** The order the build converts in: tiles, tiles2, palette, mode7 (as in the old build scripts). */
@@ -310,6 +333,11 @@ public record Project(Path dir, String name, String version, String kit, int sra
             }
         }
         return out;
+    }
+
+    /** What [snes], [desktop] (linux and win64) or [web] defines for the game's own files. */
+    public List<String> definesFor(String target) {
+        return defines.getOrDefault(target.equals("linux") || target.equals("win64") ? "desktop" : target, List.of());
     }
 
     /** Whether the build writes anything into build/gen. */
