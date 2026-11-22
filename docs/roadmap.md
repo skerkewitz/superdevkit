@@ -47,9 +47,9 @@ needs is an open question. The rule is ADR
 | M6 | Standing alone: dampf's own assembler and linker | 0.4.0 | Done 2026-11-18 |
 | M5 | Blubber Blasen builds its ROM with the dev kit, from its own repository | 0.6.0 | Done 2026-11-19 |
 | M7 | Windows and Linux: Rachael and the desktop frontend in the kit, the `superdevkit` command with `init`, `build`, `run`; the examples and Blubber Blasen run on the desktop from the kit | 0.7.0 | Done 2026-11-19 (the game's switch handed over to it) |
-| M8 | The web: the same games in the browser; Blubber Blasen drops its own PC side | 0.8.0 | Planned |
+| M8 | The web: the same games in the browser; Blubber Blasen's web build from the kit | 0.8.0 | Built 2026-11-22; the release is left |
 | M9 | The optimizer: what was left of M3; tests and a canonical form first, then register allocation | 0.9.0 | In progress |
-| M10 | Language, platform and usability: C in interrupts, intrinsics, the open subset decisions, dampf's own preprocessor | 0.10.0 | Planned |
+| M10 | Language, platform and usability: C in interrupts, intrinsics, the open subset decisions, dampf's own preprocessor, the game's development tools in the kit's window | 0.10.0 | Planned |
 | M11 | Timing and debugging: master cycles, bounds for more loops, locals and types in Mesen | 0.11.0 | Planned |
 | M12 | Fine tuning: what was left of M4, until the frame budget is met | 0.12.0 | Planned |
 
@@ -59,8 +59,9 @@ likely gain and what each milestone needs from the one before; it was kept when 
 ## M8: the web (0.8.0)
 
 The target `web` with Emscripten, save RAM in the browser, `superdevkit run web`; the examples
-and Blubber Blasen in the browser, after which the game drops its own PC side. The steps are in
-[superdevkit-transition.md](superdevkit-transition.md#m8-the-web-080).
+and Blubber Blasen in the browser, after which the game drops its own web build. Its own desktop
+frontend goes later, when the kit's window has the game's development tools (M10). The steps are
+in [superdevkit-transition.md](superdevkit-transition.md#m8-the-web-080).
 
 State (2026-11-22): the target, `lib/web`, the symbol check of WebAssembly objects and `run web`
 are built (ADR-6FCVAA30), and `ExamplesTest` plays every example's check in the browser; Blubber
@@ -163,6 +164,14 @@ game doing less work: the pair loop of `separate` (16 %) and the CPU partner (th
 - **The SNES facts out of the code generators** (DBR `$7E`, the frame addresses, long I/O
   addresses) into the target ([architecture.md](architecture.md#core-and-target)).
 - **`restrict`** or a no-alias hint of dampf's own (see [Open questions](#open-questions)).
+- **The game's development tools in the kit's window**, so that Blubber Blasen can drop its own
+  desktop frontend (`src/platform`, kept beside the kit's by the game's ADR-0010). What the game
+  asked for (its finding 11 for the kit, 2026-11-20), in the order it matters to the game: start
+  options (a seed, and setting a registered toggle or range by name before the first tick), a
+  bot or another source for the pad (a registered toggle the game reads would do, since dampf has
+  no function pointers), mute in the window, text in the debug view (a line the game fills, or a
+  value it registers read-only), stepping back in a replay and jumping to a tick, defines per
+  target in `superdevkit.toml`, and filled boxes or arrows in the view.
 
 ## M11: timing and debugging (0.11.0)
 
@@ -419,6 +428,11 @@ Dates are 2026-11-17 unless a line says otherwise. The measurements are in [opti
   targets, split by target after M5: M7 Windows and Linux, M8 the web (ADR-6F3CJZBY and ADR-6F3CK03Z;
   the plan is [superdevkit-transition.md](superdevkit-transition.md)). The milestones planned
   before moved from M7–M10 to M9–M12; the History above names them by their old numbers.
+
+- **M8 narrowed to the web** (2026-11-22). M8 was to end with Blubber Blasen dropping its whole
+  PC side. Its web build can go with M8, but its desktop frontend stays until the kit's window
+  has the game's development tools (the bot, start options, text in the view, stepping back in a
+  replay), which no step of M8 planned. They moved to M10 (usability), so that 0.8.0 is the web.
 
 ### M0 to M2
 
