@@ -76,8 +76,8 @@ The steps are the `sker-pr` skill. For this project:
 - Worktrees: `superdevkit-wt/<branch>` next to the main checkout. After creating one,
   `[ -d MAIN/.mesen ] && ln -s MAIN/.mesen WT/.mesen`, so the execution tests also run in Mesen
   there; before removing it, `rm -f WT/.mesen`.
-- Verify: `./gradlew build`. Changes to dampf's output also run the replays (`-Preplays`) and
-  the benchmark (`dev/bench_examples.sh`), with the numbers before and after. If CI fails,
+- Verify: `./gradlew build`, which plays every example's check (`ExamplesTest`). Changes to dampf's
+  output also run the benchmark (`dev/bench_examples.sh`), with the numbers before and after. If CI fails,
   `gh-as-bot gh run download <id> -R skerkewitz/superdevkit -n test-reports -D <scratchpad>`
   fetches the test reports.
 - What follows, in a description: the generated code (size, cycles), the C guide or its
