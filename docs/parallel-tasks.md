@@ -138,7 +138,7 @@ answers for the game); say in the pull request what the game can do now.
 
 ---
 
-## Task E: examples/m1 goes (transition plan 5.3)
+## Task E: examples/m1 goes (transition plan 5.3; done 2026-11-22)
 
 ```
 Task for superdevkit, via the /sker-pr skill: start a branch "remove-m1", do the work, open the pull request,

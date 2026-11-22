@@ -98,7 +98,8 @@ Also in M9:
   a branch and a jump per test; that one array per field is slower goes against
   `fast-array-per-field`.
 - **Random programs and execution tests that reach the optimizer's patterns** (from M5, see
-  [Risks](#risks)).
+  [Risks](#risks)). Done: `RandomLoopProgram` ([testing.md](testing.md)) generates the loops and
+  pointer walks the optimizer's passes work on.
 - **16-bit pointers into RAM** ([subset.md](subset.md), decision 3), and enum objects in one byte
   (decision 2), each once its subset decision is taken.
 - **Constant shifts written out** (built 2026-11-22). Every shift by a constant below the width
@@ -257,7 +258,7 @@ What it takes:
 - **The documents** say nothing that only holds for the private repository.
 - **The repository renamed** to superdevkit, with dampf as its compiler: done on 2026-11-19 (on
   GitHub, still private), the README and the documents follow it.
-- **The book's getting started on `hello`**, and `examples/m1` gone, with the book before the
+- **The book's getting started on `hello`**, with the book before the
   release ([ADR-6F60ZB4N](adr/6F60ZB4N-the-book-is-brought-in-step-before-a-release-not.md); from M5).
 - **Before the first release** ([ADR-6F60Z9QJ](adr/6F60Z9QJ-the-release-is-a-zip-per-system-with-a-java.md)): the
   graphics converter in Java in the CLI (dampf's own preprocessor is built, M10), so building for

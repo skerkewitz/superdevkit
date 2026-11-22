@@ -176,7 +176,7 @@ what it compiled.
 ## Using dampf
 
 ```bash
-dampf build --entry test_main -o build/examples/m1/calls.sfc examples/m1/calls.c
+dampf build --entry test_main -o build/calls.sfc compiler/src/test/resources/exec/calls.c   # one file, without the kit
 superdevkit build snes examples/ertuep            # writes the argument file used below
 dampf check @examples/ertuep/build/snes/ertuep.args
 dampf build @examples/ertuep/build/snes/ertuep.args -o build/ertuep.sfc

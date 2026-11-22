@@ -77,8 +77,11 @@ until the CLI of M7 an argument file (`<name>.args`) and a `build.sh` that ran t
 dampf, since then `superdevkit.toml`. Each runs in Mesen with a script of scripted input
 (`dev/check_example.sh <name>`: screenshots, bytes lost outside the vertical blank).
 
-- **hello** (built: `examples/hello`; still to do: the book's getting-started on it, and `examples/m1` gone): `examples/m1` as a project: a sprite and text on the screen, stepping through C in
-  Mesen. The book's getting-started page uses it.
+- **hello** (built: `examples/hello`; still to do: the book's getting-started on it, with the book
+  before the release): a sprite and text on the screen, stepping through C in Mesen. The book's
+  getting-started page uses it. `examples/m1` went on 2026-11-22; the single file the book
+  compiles without the kit is the execution test `compiler/src/test/resources/exec/calls.c`, the
+  same program.
 - **CatchMe** (built: `examples/catchme`, plays in Mesen with `dev/check_example.sh`, built by
   `ExamplesTest`): a maze-chase game of its own (its own maze, characters and look): a mouse eats
   crumbs in a maze, four cats with different ways of chasing, a chili that turns the tables for a
@@ -98,7 +101,8 @@ README; the screenshots look right.
 
 - **The miscompilation with inlining up to 80** found and fixed, with an execution test (done
   2026-11-19: `exec/regress_branch_phis.c`).
-- **Random programs that reach the optimizer**, and execution tests for its patterns.
+- **Random programs that reach the optimizer**, and execution tests for its patterns: done,
+  `RandomLoopProgram` ([testing.md](testing.md)).
 
 ### 5.5 The book (ADR-6F3CJYGP)
 
