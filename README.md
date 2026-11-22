@@ -116,7 +116,6 @@ working documents it is written from.
 - [docs/memory-map.md](docs/memory-map.md): where code, data, variables and pointers live.
 - [docs/testing.md](docs/testing.md): the test layers and how they work.
 - [docs/testing-ideas.md](docs/testing-ideas.md): how the large compilers are tested, and eight kinds of tests dampf does not have yet, as steps.
-- [docs/parallel-tasks.md](docs/parallel-tasks.md): tasks prepared for parallel Claude Code sessions, one prompt each, from the game's findings and the transition plan.
 - [docs/brainstorm](docs/brainstorm): summaries of brainstorming sessions, the options weighed before a decision.
 - [docs/roadmap.md](docs/roadmap.md): milestones and their state, risks, open questions, the relation to Blubber Blasen.
 - [dev/README.md](dev/README.md): the scripts in `dev/`, for developing the kit against the examples.
