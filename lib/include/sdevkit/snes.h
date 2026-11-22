@@ -253,7 +253,7 @@ typedef struct {
 } sdevkit_sfx_bank;
 /* Loads the bank's samples into the audio RAM and starts the sound: once, in game_init (the screen
  * is off). On the SNES it waits for the sound CPU's boot code and sends every byte through it,
- * about a frame per 2 KB. A null bank does nothing. */
+ * about 350 bytes a frame (docs/sound.md). A null bank does nothing. */
 void sdevkit_sfx_init(const sdevkit_sfx_bank *bank);
 /* Plays an effect: it starts after this tick, when a voice is free or the voice of an effect with
  * a lower priority (or the older one of the same) gives way; otherwise it is dropped. An effect
@@ -263,7 +263,7 @@ void sdevkit_sfx_play(uint8_t id);
 /* --- Music (sdevkit_music_*, ADR-6F3CK03Z) ---------------------------------------------- */
 /* A game's music is listed in its superdevkit.toml ([sound] music = ["assets/music/title.ogg",
  * ...]); the build writes music.h with a number per track (MUSIC_TITLE, ..., MUSIC_COUNT), never a
- * file name. On the desktop the track plays from its file (OGG, MP3, WAV, QOA, XM, MOD), over
+ * file name. On the desktop and the web the track plays from its file (OGG, MP3, WAV, QOA, XM, MOD), over
  * and over, until another one or sdevkit_music_stop; the same track again goes on playing. On the
  * SNES music is not built yet: the calls do nothing (and dampf removes them), so a game can call
  * them already. The checks play no music. */

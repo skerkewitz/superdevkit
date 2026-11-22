@@ -2,7 +2,7 @@
 
 The dated measurements behind [optimizations.md](optimizations.md), one entry per step, newest at
 the end. Every entry keeps the numbers as they were measured at the time, on the game's benchmark:
-frames per tick or master clocks per tick (one NTSC frame is 357,366 master clocks), at SlowROM
+frames per tick or master clocks per tick (one NTSC frame is 357,368 master clocks), at SlowROM
 speed until the FastROM entry and with FastROM after it. Later steps change earlier numbers, so the
 current ones are in [optimizations.md](optimizations.md), *Where things stand*, and nowhere else.
 
@@ -10,7 +10,7 @@ current ones are in [optimizations.md](optimizations.md), *Where things stand*, 
 
 Blubber Blasen's benchmark (`tools/snesbench` in the game repository) runs the same game code with a
 fixed input for 1,800 ticks, with every PVSnesLib call stubbed out, and measures each tick in
-Mesen 2. One NTSC frame is 357,366 master clocks. Results from the game's `build/bench/` as of
+Mesen 2. One NTSC frame is 357,368 master clocks. Results from the game's `build/bench/` as of
 2026-11-17 (`calypsi_asm`, the latest Calypsi run):
 
 | State | Ticks | 816-tcc | Calypsi |

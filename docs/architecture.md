@@ -33,8 +33,10 @@ variables (`Induction`), pointer compression (`PointerOffsets`), multiplication 
 constants (`StrengthReduce`), common subexpressions and redundant loads (`Gvn`), dead code
 removal (`DeadCode`, `DeadLoops`) and two loops over the rows of a table as one (`Collapse`),
 repeated until nothing changes; then parameter ranges from the calls
-(`ParamRanges`), inlining (`Inline`) and pointer parameters as offsets (`PointerParams`), and the
-passes once more; last, the order of the instructions for the code generator (`Schedule`). The
+(`ParamRanges`), inlining (`Inline`), pointer parameters as offsets (`PointerParams`) and scaled
+index parameters as their product (`IndexParams`), and the passes once more; last, comparisons
+next to the branches that use them (`SinkCompares`) and the order of the instructions for the
+code generator (`Schedule`). The
 code generator itself first gives loop exits their own blocks (`ExitEdges`), copies return blocks
 into their predecessors (`Returns`), computes pointer sums again where their value is needed
 (`PointerRemat`) and takes out the checks of the hints (`Hints`). How values

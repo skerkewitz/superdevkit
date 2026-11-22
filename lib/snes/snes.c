@@ -4,7 +4,7 @@
  *
  * PVSnesLib's functions, renamed, do what PVSnesLib's do, as sdevkit/snes.h describes them; the
  * extensions (sdevkit_reg_write, sdevkit_hdma_*, sdevkit_dma_fits) are a few register writes each. General DMA uses channel 0; HDMA uses the channels
- * the game names (1 to 7). Nothing here waits for a vertical blank: the main loop (main.c) calls
+ * the game names (1 to 7). Only sdevkit_set_screen_on waits for a vertical blank: the main loop (main.c) calls
  * the game's vertical blank code at the right time.
  *
  * Registers that the API changes bit by bit (the main and sub screen layers, the tile bases) are

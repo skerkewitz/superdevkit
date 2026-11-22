@@ -4,14 +4,15 @@
 A game reaches the console only through the console API of the
 [dev kit](/glossary#dev-kit), and the API exists on every platform: on the SNES, `lib/snes` (the
 [platform layer](/glossary#platform-layer), compiled by dampf with the game) implements every
-function, and on the desktop [Rachael](/glossary#rachael) implements the same functions. Every
-function is built on both, so a game needs no `#ifdef` for the platform. The desktop build checks
-that a game calls nothing else, since Rachael cannot see a write that goes around her. The API
-is two headers in `<home>/lib/include`, where `<home>` is the
+function, and on the desktop and the web [Rachael](/glossary#rachael) implements the same
+functions. Every function exists on both, so a game needs no `#ifdef` for the platform; the few
+that do nothing on the SNES yet (music, the debug view) say so in their entries. The desktop and
+the web builds check that a game calls nothing else, since Rachael cannot see a write that goes
+around her. The API is two headers in `<home>/lib/include`, where `<home>` is the
 [superdevkit home](/glossary#superdevkit-home): `sdevkit/loop.h` for the frame rhythm and
-`sdevkit/snes.h` for everything else. A game puts `-I <home>/lib/include` and `<home>/lib/snes/`
-into its [args file](/glossary#args-file) (the options are on
-[Command line](/reference/command-line)) and includes both:
+`sdevkit/snes.h` for everything else. `superdevkit build` passes `-I <home>/lib/include` to the
+compiler of every [target](/glossary#target) and builds the game together with the target's
+library (see [The superdevkit command](/reference/superdevkit#build)); the game includes both headers:
 
 ```c
 #include "sdevkit/loop.h"
@@ -27,7 +28,7 @@ count 16-bit words (`$0000` to `$7FFF`), [CGRAM](/glossary#cgram) addresses coun
 
 The cost of each function is given in CPU cycles on the SNES, with the calls it makes, from the
 [timing report](/glossary#timing-report) of a program that calls every function once with zero
-for each argument. Where an entry gives a range, such as 61 to 173, it is the best and the worst
+for each argument. Where an entry gives a range, such as 57 to 169, it is the best and the worst
 path the timing report finds through the function's code, not a cost for particular arguments.
 dampf compiles the library together with the game as a
 [whole program](/glossary#whole-program), so the figures in your own game's timing report can
@@ -61,7 +62,9 @@ port 2 (`SDEVKIT_PADS` is 2).
 In the vertical blank after each tick the main loop calls `game_vblank`. By then it has copied
 the sprite table (`sdevkit_oam_memory`, 544 bytes) into [OAM](/glossary#oam), so `game_vblank`
 does the rest of the uploads: the [DMA](/glossary#dma) copies to VRAM and CGRAM that the tick
-prepared, and the scroll registers.
+prepared, and the scroll registers. After `game_vblank` the main loop starts the sound effects
+the tick asked for (see [Sound effects](#sound-effects)), so that they take none of the vertical
+blank.
 
 Between `game_tick` and `game_vblank` the main loop waits for the start of the next vertical
 blank. A tick that ends inside a vertical blank waits for the next one, so the uploads always
@@ -72,9 +75,9 @@ There is no interrupt handler on the SNES, because dampf keeps the
 the middle of a tick would overwrite the frames of the code it interrupted. On Rachael the
 frontend gives the same rhythm, and a tick takes as long as it takes on the PC.
 
-Before `game_init` every game shows the kit's splash screen, on the SNES and on the desktop
-alike: the logo fades in from black, stays three seconds and fades out. A button pressed while
-it fades in or stays ends it as soon as it has faded in. The main loop then puts the console
+Before `game_init` every game shows the kit's splash screen, on the SNES and on Rachael alike:
+the logo fades in from black, stays three seconds and fades out. A button pressed while it fades
+in or stays ends it as soon as it has faded in. The main loop then puts the console
 back into its state at power-on, the screen off, so `game_init` finds what it would find without
 the splash.
 
@@ -192,7 +195,8 @@ void game_vblank(void)
 
 The headers `font_gfx.h` and `ball_gfx.h` are written by the converter from the example's PNG
 files; [Graphics and sound](/guide/graphics-and-sound) shows how. The whole example, with its
-args file, is in `examples/hello`.
+[project file](/glossary#project-file), is in `examples/hello`; it also moves the ball up and
+down and prints its y position.
 
 ## Screen and colours
 
@@ -299,7 +303,7 @@ void sdevkit_bg_set_gfx_ptr(uint8_t bgNumber, uint16_t address);
 ```
 
 Sets where the layer's tiles start in VRAM, in steps of 4K words (`BG12NBA`, `BG34NBA`). Cost:
-85 to 195 cycles.
+75 cycles.
 
 ### `sdevkit_bg_set_map_ptr`
 
@@ -321,7 +325,7 @@ Scrolls the layer: the map pixel at (`x`, `y`) is at the top left corner of the 
 `examples/hello` passes `y` = `0x3FF` to put the map's first line on the screen's first line.
 It writes the registers at once. While the game runs, `sdevkit/loop.h` puts the scroll registers
 into `game_vblank`; `examples/hello` sets its scroll once in `game_init`, with the screen off.
-Cost: 88 cycles.
+Cost: 78 cycles.
 
 ### `sdevkit_bg_set_enable`
 
@@ -329,7 +333,7 @@ Cost: 88 cycles.
 void sdevkit_bg_set_enable(uint8_t bgNumber);
 ```
 
-Shows the layer on the main screen (`TM`). Cost: 61 to 173 cycles.
+Shows the layer on the main screen (`TM`). Cost: 57 to 169 cycles.
 
 ### `sdevkit_bg_set_disable`
 
@@ -337,7 +341,7 @@ Shows the layer on the main screen (`TM`). Cost: 61 to 173 cycles.
 void sdevkit_bg_set_disable(uint8_t bgNumber);
 ```
 
-Hides the layer on the main screen (`TM`). Cost: 64 to 176 cycles.
+Hides the layer on the main screen (`TM`). Cost: 60 to 172 cycles.
 
 ### `sdevkit_bg_set_enable_sub`
 
@@ -346,7 +350,7 @@ void sdevkit_bg_set_enable_sub(uint8_t bgNumber);
 ```
 
 Shows the layer on the sub screen (`TS`), which colour math combines with the main screen.
-Cost: 61 to 173 cycles.
+Cost: 57 to 169 cycles.
 
 ### `sdevkit_bg_set_disable_sub`
 
@@ -354,7 +358,7 @@ Cost: 61 to 173 cycles.
 void sdevkit_bg_set_disable_sub(uint8_t bgNumber);
 ```
 
-Hides the layer on the sub screen (`TS`). Cost: 64 to 176 cycles.
+Hides the layer on the sub screen (`TS`). Cost: 60 to 172 cycles.
 
 ### `sdevkit_bg_init_tile_set`
 
@@ -367,7 +371,7 @@ Copies `tileSize` bytes of tiles to VRAM word `address`, copies `paletteSize` by
 to CGRAM from colour `paletteEntry * colorMode`, and sets the layer's tile base to `address`.
 `paletteEntry` is the number of the palette, and `colorMode` is `SDEVKIT_BG_16COLORS` or
 `SDEVKIT_BG_4COLORS`. It makes two DMA copies, so call it with the screen off or in
-`game_vblank`. Cost: 592 to 782 cycles, and `tileSize + paletteSize` bytes of the vertical
+`game_vblank`. Cost: 582 to 662 cycles, and `tileSize + paletteSize` bytes of the vertical
 blank.
 
 ### `sdevkit_bg_init_map_set`
@@ -410,7 +414,7 @@ void sdevkit_oam_init(void);
 ```
 
 Clears the whole table: every sprite at x 0, hidden and small. It is `sdevkit_oam_clear(0, 0)`.
-Cost: 23 to 104,215 cycles. The upper figure is the timing report's bound for the loop over all
+Cost: 23 to 102,679 cycles. The upper figure is the timing report's bound for the loop over all
 128 sprites, and all 128 are what this call clears.
 
 ### `sdevkit_oam_init_gfx_set`
@@ -423,7 +427,7 @@ void sdevkit_oam_init_gfx_set(const uint8_t *tileSource, uint16_t tileSize, cons
 Copies `tileSize` bytes of sprite tiles to VRAM word `address`, copies `paletteSize` bytes of
 palette to CGRAM from colour `128 + tilePaletteNumber * 16` (the sprite palettes are the upper
 half of CGRAM), and sets the sprite tile base and sizes as `sdevkit_oam_init_gfx_attr` does. It
-makes two DMA copies: with the screen off or in `game_vblank`. Cost: 246 to 356 cycles, and
+makes two DMA copies: with the screen off or in `game_vblank`. Cost: 250 cycles, and
 `tileSize + paletteSize` bytes of the vertical blank.
 
 ### `sdevkit_oam_init_gfx_attr`
@@ -433,7 +437,7 @@ void sdevkit_oam_init_gfx_attr(uint16_t address, uint8_t oamsize);
 ```
 
 Sets where the sprite tiles start in VRAM, in steps of 8K words, and the pair of sprite sizes,
-one of the `SDEVKIT_OBJ_SIZE*` values (`OBSEL`). Cost: 37 to 147 cycles.
+one of the `SDEVKIT_OBJ_SIZE*` values (`OBSEL`). Cost: 41 cycles.
 
 ### `sdevkit_oam_set`
 
@@ -444,7 +448,7 @@ void sdevkit_oam_set(uint16_t id, uint16_t xspr, uint16_t yspr, uint8_t priority
 Sets all of a sprite's entry but its size: the position (`xspr` has 9 bits, `yspr` 8), the
 priority 0 to 3 against the background layers, mirroring left to right (`hflip`) and top to
 bottom (`vflip`), the tile number `gfxoffset` (0 to 511) and the palette 0 to 7. The SNES draws
-a sprite one line lower than its y, so `examples/hello` passes `ball_y - 1`. Cost: 315 to 427
+a sprite one line lower than its y, so `examples/hello` passes `ball_y - 1`. Cost: 293 to 405
 cycles.
 
 ### `sdevkit_oam_set_xy`
@@ -453,7 +457,7 @@ cycles.
 void sdevkit_oam_set_xy(uint16_t id, uint16_t xspr, uint16_t yspr);
 ```
 
-Moves a sprite and leaves the rest of its entry alone. Cost: 139 to 251 cycles.
+Moves a sprite and leaves the rest of its entry alone. Cost: 131 to 243 cycles.
 
 ### `sdevkit_oam_set_ex`
 
@@ -462,7 +466,7 @@ void sdevkit_oam_set_ex(uint16_t id, uint8_t size, uint8_t hide);
 ```
 
 Sets a sprite's size (`SDEVKIT_OBJ_SMALL` or `SDEVKIT_OBJ_LARGE`), then hides or shows it as
-`sdevkit_oam_set_visible` does. Cost: 80 to 192 cycles.
+`sdevkit_oam_set_visible` does. Cost: 76 to 188 cycles.
 
 ### `sdevkit_oam_set_visible`
 
@@ -481,7 +485,7 @@ void sdevkit_oam_clear(uint16_t first, uint8_t numEntries);
 ```
 
 Clears `numEntries` sprites from id `first` on, each at x 0, hidden and small; with
-`numEntries` 0 it clears from `first` to the last sprite. Cost: 23 to 103,703 cycles; the upper
+`numEntries` 0 it clears from `first` to the last sprite. Cost: 19 to 102,675 cycles; the upper
 figure is the bound for clearing all 128 sprites.
 
 ## DMA and HDMA
@@ -545,7 +549,7 @@ before each copy that may not fit, and leaves what does not fit for the next ver
 instead of losing it. On the SNES it reads the line counter, so the code around the copies
 counts too: it allows 160 bytes for each line left and keeps a margin of 8 lines for the setup
 of the copy. Rachael counts the bytes copied against the budget of the vertical blank instead.
-With the screen off there is nothing to ask. Cost: 87 to 92 cycles.
+With the screen off there is nothing to ask. Cost: 81 to 86 cycles.
 
 ### `sdevkit_hdma_set`
 
@@ -626,7 +630,7 @@ void game_vblank(void)
 }
 ```
 
-Cost: 93 cycles.
+Cost: 87 cycles.
 
 ### `sdevkit_hdma_enable`
 
@@ -812,10 +816,182 @@ Says what the screen shows outside the map, and whether it is mirrored (`M7SEL`)
 `SDEVKIT_M7_TILE0` (tile 0 everywhere), with `SDEVKIT_M7_FLIPX` or `SDEVKIT_M7_FLIPY` added by
 `|` to mirror the whole screen. Cost: 21 cycles.
 
+## Sound effects
+
+A game lists its effects in `assets/sfx/sfx.json` and names that file in its
+[project file](/glossary#project-file) (`[sound] sfx = "assets/sfx/sfx.json"`). Before it
+compiles, `superdevkit build` converts the file into `build/gen/sfx.h` and `sfx.c`: a name per
+effect, `SFX_` and its id in capitals, whose value is the effect's place in the list, then
+`SFX_COUNT`, and the bank `sfx_bank`, which holds the samples and the tables of the effects.
+How the file is made and what its settings do is in
+[Graphics and sound](/guide/graphics-and-sound#sound-effects).
+
+The bank's type is declared in `sdevkit/snes.h`:
+
+```c
+#define SDEVKIT_SFX_OFF 0xFF              /* the sample of an effect without an active one */
+typedef struct {
+    uint8_t                effects;       /* how many, SFX_COUNT */
+    uint8_t                voices;        /* how many of the DSP's 8 voices the effects use, 1..8 */
+    uint8_t                samples;       /* the active samples, one entry each in the sample directory */
+    const uint8_t         *sample;        /* per effect: its sample's number, or SDEVKIT_SFX_OFF */
+    const uint8_t         *priority;      /* per effect: the higher wins a voice */
+    const uint8_t         *volume;        /* per effect: the voice's volume register, 0..127 */
+    const uint16_t        *pitch;         /* per effect: the pitch register, rate * 4096 / 32000 */
+    const uint16_t        *frames;        /* per effect: how long it plays, in frames, plus one */
+    const uint8_t *const  *brr;           /* per sample: its BRR blocks */
+    const uint16_t        *brr_size;      /* per sample: their bytes */
+} sdevkit_sfx_bank;
+```
+
+The build fills in every field; a game only passes the bank on. An effect whose file lists no
+active sample has `SDEVKIT_SFX_OFF` as its sample and plays nothing, but its name stays, so the
+game builds unchanged.
+
+### `sdevkit_sfx_init`
+
+```c
+void sdevkit_sfx_init(const sdevkit_sfx_bank *bank);
+```
+
+Loads the bank's samples into the audio RAM of the sound chip and starts the sound. Call it
+once, in `game_init`, while the screen is off; a second call does nothing, and so does a null
+`bank`. On the SNES it waits for the boot code of the SPC700, the sound CPU, and sends every byte
+through it, about 350 bytes a frame: Schach's 13.8 KB take 40 frames after the splash screen. On
+Rachael the same bytes go straight into her audio RAM. Cost: 51 cycles to unbounded, since the
+wait for the sound CPU has no bound the timing report can see.
+
+### `sdevkit_sfx_play`
+
+```c
+void sdevkit_sfx_play(uint8_t id);
+```
+
+Asks for the effect `id`, one of the `SFX_*` names. It starts after the tick, once the main loop
+has run `game_vblank`: a free voice takes it; when all of the bank's voices are busy, it takes
+the voice of the lowest priority that is not above its own, of two equal ones the older; when
+every playing effect has a higher priority, it is dropped. A voice is free again when its
+effect's length in frames has counted down. All effects of one tick start together, and more
+than 8 requests in one tick are dropped. An effect without an active sample, an `id` past the
+last effect, or a call before `sdevkit_sfx_init` does nothing. This choice is the same C code on
+the SNES and on Rachael, so the same voice plays the same effect on both, frame by frame. Cost:
+39 to 158 cycles.
+
+## Music
+
+A game lists its tracks in its project file:
+
+```toml
+[sound]
+music = ["assets/music/title.ogg", { file = "assets/music/boss-2.xm", name = "boss" }]
+```
+
+The build writes `build/gen/music.h` with a number per track, its place in the list:
+`MUSIC_TITLE` is 0, `MUSIC_BOSS` 1 and `MUSIC_COUNT` 2. A track's name is its file's name
+without the extension, unless `name` gives one. The game names a track by its number, never by a
+file name. On the desktop and the web the track plays from its file, which may be OGG, MP3, WAV,
+QOA, XM or MOD, over and over, until another track or `sdevkit_music_stop`, and it pauses with
+the run. On the SNES music is not built yet: both functions do nothing, and dampf removes the
+calls, so a game can call them already and keeps them in its SNES build
+([Limits](/reference/limits)). The checks play no music.
+
+### `sdevkit_music_play`
+
+```c
+void sdevkit_music_play(uint8_t track);
+```
+
+Plays the track `track`, a `MUSIC_*` number, in place of the one playing. The track that is
+already playing goes on playing; it does not start again. Cost: 6 cycles for the empty function
+on the SNES; in a game dampf removes the call.
+
+### `sdevkit_music_stop`
+
+```c
+void sdevkit_music_stop(void);
+```
+
+Stops the music. Cost: 6 cycles for the empty function on the SNES; in a game dampf removes the
+call.
+
+## Save RAM
+
+Save RAM is battery-backed RAM on the cartridge, kept while the console is off: for high scores,
+settings or a saved game. A game asks for it with `sram` in its project file, the number of
+bytes, 0 to 32,768 ([The superdevkit command](/reference/superdevkit#sram)). For the SNES,
+`superdevkit build` passes it to dampf as `--sram`, which writes into the ROM's header that the
+cartridge has RAM and a battery, the size rounded up to between 2 and 32 KB; the desktop and the
+web builds get the same size. In each case the compiler sees the size as `SDEVKIT_SRAM_SIZE`;
+without `sram` it is 0.
+
+### `sdevkit_sram`
+
+```c
+uint8_t *sdevkit_sram(void);
+```
+
+Returns the save RAM, `SDEVKIT_SRAM_SIZE` bytes, or 0 when the game has none. The game reads and
+writes the block like any memory, whenever it likes, and the kit keeps it: on the SNES it is the
+cartridge's RAM at `$70:0000`; on the desktop it is the file `<game>.srm` next to the program,
+read before the game starts and written when it has changed and when the window closes; on the
+web it is `/save/<game>.srm`, kept in the browser's IndexedDB. The first time, the block holds
+zeros on the desktop and in the checks, but on a cartridge whatever the RAM held. So a game marks
+its data as valid, with a magic number or a checksum, and clears the block when the mark is
+missing. A recording starts with the save RAM of its start, so that a replay plays the same
+game. Cost: 11 cycles.
+
+The program below keeps a high score in five bytes, so its project file has `sram = 5`. The
+mark is the letters `HS` and a check byte, the sum of the four bytes before it:
+
+```c [src/best.c]
+#include <stdint.h>
+#include "sdevkit/snes.h"
+
+static uint16_t best;      /* the high score */
+
+static uint8_t save_sum(const uint8_t *s)
+{
+    return (uint8_t)(s[0] + s[1] + s[2] + s[3]);
+}
+
+void best_save(void)
+{
+    uint8_t *s = sdevkit_sram();
+
+    s[0] = 'H';
+    s[1] = 'S';
+    s[2] = (uint8_t)best;
+    s[3] = (uint8_t)(best >> 8);
+    s[4] = save_sum(s);
+}
+
+/* In game_init: the high score saved before, or 0 when there is none. */
+void best_load(void)
+{
+    const uint8_t *s = sdevkit_sram();
+
+    if (s[0] == 'H' && s[1] == 'S' && s[4] == save_sum(s)) {
+        best = (uint16_t)(s[2] | (s[3] << 8));
+    } else {
+        best = 0;
+        best_save();
+    }
+}
+```
+
 ## Debug calls
 
-The two `sdevkit_dbg_*` functions exist on every platform and never change what the game
-computes. They serve the debug checks on the desktop and on the SNES.
+The `sdevkit_dbg_*` functions exist on every platform and never change what the game computes.
+`sdevkit_dbg_vram` and `sdevkit_dbg_hash` serve the debug checks on the desktop and on the SNES.
+
+The other five feed the debug view of the desktop, which `F1` opens beside the picture; on the
+web it is only in a build with `--debug`. How the view is used is in
+[The desktop](/guide/the-desktop#debugging-on-the-pc). A game registers once, in `game_init`,
+what it wants to change while it runs, and the view lists it; in each tick it can draw boxes over
+the picture. On the SNES these five functions are empty and dampf removes the calls, so the game
+needs no `#ifdef`. A `name` is a string constant, since the view keeps the pointer. A game has at
+most 32 registrations; a variable registered again replaces its entry. A change made in the view
+is not part of a recording: from then on, a replay plays another game, and the window says so.
 
 ### `sdevkit_dbg_vram`
 
@@ -857,23 +1033,73 @@ void game_tick(const uint16_t pad[SDEVKIT_PADS])
 On the SNES it writes the address and the size to port `$21FC`, which no hardware uses, and the
 checker reads and hashes the memory itself; on Rachael it hashes. Cost: 79 cycles.
 
+### `sdevkit_dbg_toggle`
+
+```c
+void sdevkit_dbg_toggle(const char *name, uint8_t *flag);
+```
+
+Registers `*flag` as a switch in the debug view, 0 or 1. Cost: 6 cycles for the empty function
+on the SNES; in a game dampf removes the call.
+
+### `sdevkit_dbg_range`
+
+```c
+void sdevkit_dbg_range(const char *name, int16_t *value, int16_t lo, int16_t hi);
+```
+
+Registers `*value` as a number the view changes between `lo` and `hi`. Cost: 6 cycles for the
+empty function on the SNES; in a game dampf removes the call.
+
+### `sdevkit_dbg_color`
+
+```c
+void sdevkit_dbg_color(const char *name, uint16_t *colour);
+```
+
+Registers `*colour` as a colour the view changes, in the format of `SDEVKIT_RGB5`: 5 bits each
+of red, green and blue, blue in the high bits. Cost: 6 cycles for the empty function on the
+SNES; in a game dampf removes the call.
+
+### `sdevkit_dbg_action`
+
+```c
+void sdevkit_dbg_action(const char *name, uint8_t *pressed);
+```
+
+Registers a button. The view sets `*pressed` to 1; the game does what the button means in its
+next `game_tick` and sets it back to 0. The view cannot call a function of the game, since
+dampf has no function pointers, and the game's state changes only inside a tick. Cost: 6 cycles
+for the empty function on the SNES; in a game dampf removes the call.
+
+### `sdevkit_dbg_box`
+
+```c
+void sdevkit_dbg_box(int16_t x, int16_t y, uint8_t w, uint8_t h, uint8_t kind);
+```
+
+Draws a box of `w` by `h` pixels at screen position (`x`, `y`) over the picture in the debug
+view, a collision box or a target, in the colour of `kind`, 0 to 7. The box is for this tick
+only: the list is cleared before each `game_tick`, and it holds at most 256 boxes a tick. Cost:
+6 cycles for the empty function on the SNES; in a game dampf removes the call, and the loops
+left empty by it.
+
 ## The old names
 
 Games written before the rename use PVSnesLib's names (`setMode`, `oamSet`), the `snesXxx`
 extensions (`snesRegWrite`), `snes_vram`, the macros without prefix (`BG_MODE1`), the pad bits
-`KEY_*`, `SNES_PADS` and the typedefs `u8`, `u16`, `s16` and `u32`. Two deprecated headers in
-`lib/include/snes/` still map these names to the new ones: `snes/snes.h` includes
-`sdevkit/snes.h`, and `snes/loop.h` includes `sdevkit/loop.h`. They are only for code that cannot
-be changed yet; new code includes the `sdevkit/` headers. The functions and constants added after
+`KEY_*`, `SNES_PADS` and the typedefs `u8`, `u16`, `s16` and `u32`. The kit has no header for
+these names any more, so such a game is converted once. The functions and constants added after
 the rename (`sdevkit_dma_copy_vram_column`, the mode 7 calls and constants, `sdevkit_dbg_hash`,
-the HDMA modes) have no old name.
+the HDMA modes, the sound effects, music, save RAM and the debug view's calls) have no old name.
 
 The script `tools/sdevkit_rename.py`, also in `<home>/tools`, converts a game. It changes only
 identifiers: strings, character constants and comments stay as they are, unless `--comments` is
 given. It turns the includes of `"snes/snes.h"` and `"snes/loop.h"` into those of the
 `sdevkit/` headers and the typedefs into the `<stdint.h>` types. Run it on files or folders; it
 rewrites the `.c` and `.h` files in place and prints each file it changed, with the number of
-names replaced. With `--dry-run` it only prints:
+names replaced. A file that includes `raylib.h` is a desktop frontend, not game code, and is
+left as it is, with a warning. With `--dry-run` it only prints:
 
 ```sh
 python3 -I <home>/tools/sdevkit_rename.py --dry-run src
@@ -921,5 +1147,4 @@ Mostly the new name of a function is `sdevkit_` and its old name in snake case (
 `sdevkit_set_mode`), and a macro gets `SDEVKIT_` in front (`KEY_A` is `SDEVKIT_KEY_A`). The
 `snesXxx` extensions and a few others lose their old prefix instead: `snesRegWrite` is
 `sdevkit_reg_write`, `snes_vram` is `sdevkit_dbg_vram` and `SNES_PADS` is `SDEVKIT_PADS`. The
-table in the script is the full list, and the only copy of the mapping: `--write-compat DIR`
-writes the two deprecated headers from it, so they must not be edited by hand.
+table in the script is the full list.

@@ -8,19 +8,24 @@ exits with status 2:
 usage: dampf --version
        dampf parse|build|check @file ...   (or --config file: options from an argument file; a folder means its .c files)
        dampf parse [-I dir] [-D name[=value]] file.c ...
-       dampf build [-I dir] [-D name[=value]] [--entry name] [--backend mir|naive] [--replace fn=file.s] [--block-counts file] [--slowrom] [--assembler dampf|ca65] -o out.sfc file.c ...
+       dampf build [-I dir] [-D name[=value]] [--entry name] [--backend mir|naive] [--replace fn=file.s] [--block-counts file] [--slowrom] [--sram bytes] [--assembler dampf|ca65] [--opt-limit n] -o out.sfc file.c ...
        dampf check [-I dir] [-D name[=value]] file.c ...
        dampf profile rom.sfc profile.txt [top] [--skip file.c ...] [--instructions] [--blocks file]
 ```
 
-Two more commands, `mir` and `bench`, are not in this list; they are described below. After
-`./gradlew installDist` the launcher is `build/install/superdevkit/bin/dampf`.
+Two more commands, `mir` and `bench`, are not in this list; they are described below. The
+launcher is `bin/dampf` in the [superdevkit home](/glossary#superdevkit-home); after
+`./gradlew installDist` in the repository it is `build/install/superdevkit/bin/dampf`.
+
+This page is about dampf alone. To build a whole game, with its pictures, sounds and the kit's
+library, use the `superdevkit` command, which calls dampf for you:
+[The superdevkit command](/reference/superdevkit).
 
 Use `dampf --version`, or `dampf version`, to see which dampf you have. It prints one line on
 the standard output and exits with status 0:
 
 ```
-dampf 0.5.0
+dampf 0.8.0
 ```
 
 The commands `build`, `check` and `parse` print everything on the standard error stream;
@@ -33,16 +38,15 @@ Use `build` to compile C files into a ROM. dampf compiles the
 call:
 
 ```sh
-dampf build --entry test_main -o build/examples/m1/calls.sfc examples/m1/calls.c
+dampf build --entry test_main -o build/calls.sfc compiler/src/test/resources/exec/calls.c
 ```
 
 A folder among the arguments stands for the `.c` files directly in it, in sorted order; files
 in its subfolders are not included, so a folder such as `src/game/debug/` does not end up in the
 ROM unasked. The same holds for `check` and `parse`.
 
-Every file or folder named as a source must exist. dampf checks that before it runs gcc, which
-would only call a missing folder an unused input of the linker, and otherwise prints one line
-and exits with status 2:
+Every file or folder named as a source must exist. dampf checks that before it compiles
+anything, and otherwise prints one line and exits with status 2:
 
 ```
 dampf: no such file or folder: src
@@ -56,7 +60,7 @@ On success it prints one line naming the ROM and the debug file, both as absolut
 any [warnings about budgets](#budgets), and exits with status 0:
 
 ```
-wrote /…/build/examples/m1/calls.sfc and /…/build/examples/m1/calls.dbg
+wrote /…/build/calls.sfc and /…/build/calls.dbg
 ```
 
 With the [code generator from MIR](/glossary#code-generator-from-mir), the default, dampf also
@@ -68,18 +72,22 @@ program has errors, dampf prints a [message](#messages) for each and exits with 
 ### -I {#option-i}
 
 Use `-I dir` to add a directory to the search path of `#include`. The option may be given more
-than once and also written joined, as `-Idir`. Each directory is passed on to the preprocessor,
-`gcc -E`, which dampf runs with `-std=c99 -nostdinc -undef -D__DAMPF__=1`: the host's headers
-and predefined macros stay out, so the program cannot depend on them. dampf's own include
-directory, which provides `<stdint.h>`, comes before the directories you give. dampf does not
-check that a directory given with `-I` exists.
+than once and also written joined, as `-Idir`. dampf preprocesses with a preprocessor of its
+own, so no gcc is needed, and it never looks at the host's headers, so the program cannot
+depend on them. An `#include "file.h"` is looked for first in the directory of the file that
+includes it; then both forms, `"file.h"` and `<file.h>`, are looked for in dampf's own include
+directory, which provides `<stdint.h>`, `<string.h>` and `<dampf.h>`, and then in the
+directories given with `-I`, in their order. dampf does not check that a directory given with
+`-I` exists.
 
 ### -D {#option-d}
 
-Use `-D name` or `-D name=value` to define a macro for the preprocessor, as gcc's `-D` does. It
-may be given more than once and also written joined, as `-DFACTOR=4`. dampf itself always
-defines `__DAMPF__` as `1`, so a header can tell the dampf build from the
-[PC build](/glossary#pc-build).
+Use `-D name` or `-D name=value` to define a macro for the preprocessor, as gcc's `-D` does:
+without a value the macro is `1`. It may be given more than once and also written joined, as
+`-DFACTOR=4`. dampf itself always defines `__DAMPF__` as `1`, so a header can tell the dampf
+build from the [PC build](/glossary#pc-build). It also defines C99's `__STDC__` (`1`),
+`__STDC_VERSION__` (`199901L`) and `__STDC_HOSTED__` (`1`), but none of the host compiler's
+macros, such as `__GNUC__`.
 
 ### --entry {#entry}
 
@@ -88,7 +96,7 @@ Use `--entry name` to name the [entry function](/glossary#entry-function), the f
 not define it, the build stops with:
 
 ```
-examples/m1/calls.c:1:1: error: entry function 'main' is not defined
+compiler/src/test/resources/exec/calls.c:1:1: error: entry function 'main' is not defined
 ```
 
 The position is always the first line of the first C file.
@@ -135,6 +143,21 @@ switches the ROM in banks `$80` and up to FastROM speed (`MEMSEL` at `$420D`) an
 FastROM; all of dampf's code and constant data are in those banks. With it, the ROM stays at
 2.68 MHz and the header says SlowROM. Flash cartridges and emulators run FastROM.
 
+### --sram {#sram}
+
+Use `--sram bytes` to give the cartridge battery-backed save RAM of that many bytes, from 0 to
+32,768; the default is 0, no save RAM. The ROM's header then announces it, rounded up to 2, 4,
+8, 16 or 32 KB, at `$70:0000`, and the preprocessor gets the macro `SDEVKIT_SRAM_SIZE` with the
+exact number, which the kit's `sdevkit_sram` uses. For a value outside that range, or one that
+is not a number, dampf prints one line and exits with status 2:
+
+```
+dampf: --sram takes the bytes of save RAM, 0 to 32768: 40000
+```
+
+A game built with the `superdevkit` command gets the option from `sram` in its
+[project file](/reference/superdevkit#sram).
+
 ### --block-counts {#block-counts}
 
 Use `--block-counts file` to lay the code out by a profile: the file says how often each block
@@ -158,6 +181,29 @@ dampf prints this line, then its usage, and exits with status 2:
 unknown assembler 'gas' (dampf or ca65)
 ```
 
+### --opt-limit {#opt-limit}
+
+Use `--opt-limit n` to let at most `n` applications of the optimizer's
+[passes](/glossary#pass) run, such as one pass on one function; once the limit is reached, no
+pass runs any more. It is a tool for working on dampf: a program that is wrong with every pass
+and right with none is built with ever smaller limits until the one application that broke it
+is found. When the limit is reached, dampf names the last application on the standard error
+stream, before the `wrote` line:
+
+```
+dampf: pass limit 3 reached in calls; the last application: Narrow on _inc8
+```
+
+Without the option the environment variable `DAMPF_OPT_LIMIT` sets the limit; without either
+there is none. Under a limit, a [cycle budget](#budgets) that is not kept is a warning instead
+of an error, because the passes that prove a loop's bound may not have run. Give the option on
+the command line: an argument file does not take it. For a negative value or one that is not a
+number, dampf prints this line, then its usage, and exits with status 2:
+
+```
+--opt-limit -3: a number of pass applications, 0 or more
+```
+
 ### -o {#output}
 
 Use `-o out.sfc` to name the ROM; it is required. All files of the build go into the directory
@@ -167,12 +213,24 @@ base name.
 ### Argument file {#argument-file}
 
 A build of a whole game needs several include directories, an entry and many source files. To
-keep them in a file you can check in, name an argument file with `@file` or `--config file`.
-`build`, `check` and `parse` take it, once per call. Er-Tüp, the example game, comes with one:
+keep them in a file, name an argument file with `@file` or `--config file`. `build`, `check`
+and `parse` take it, once per call. `superdevkit build snes` writes one for every game,
+`build/snes/NAME.args`, with what it compiled and absolute paths
+([The superdevkit command](/reference/superdevkit#snes)), so dampf's commands can be run on the
+same files:
 
-```text [examples/ertuep/ertuep.args]
-# Er-Tüp for the SNES: the game, its converted graphics (build/gen, written by build.sh) and the
-# dev kit's library. Paths are relative to this file (ADR record 28).
+```sh
+superdevkit build snes examples/ertuep
+dampf check @examples/ertuep/build/snes/ertuep.args
+```
+
+A file you write yourself and check in uses relative paths. This one, saved as
+`examples/ertuep/ertuep.args` in the repository, builds Er-Tüp, the example game, from its
+sources, its graphics converted to C and the kit's library:
+
+```text
+# Er-Tüp for the SNES: the game, its converted graphics (build/gen, written by
+# superdevkit build snes) and the kit's library. Paths are relative to this file.
 -I ../../lib/include
 -I src
 -I build/gen
@@ -182,8 +240,8 @@ build/gen/
 ../../lib/snes/
 ```
 
-The folder `build/gen` holds the graphics converted to C, so the example's `build.sh` has to
-have written it before this build:
+The folder `build/gen` holds the graphics converted to C, so `superdevkit build snes` has to
+have written it before this build, which gives the same ROM:
 
 ```sh
 dampf build @examples/ertuep/ertuep.args -o build/ertuep.sfc
@@ -261,7 +319,7 @@ Use `check` to find out which files of a code base dampf accepts, before you try
 of them:
 
 ```sh
-dampf check @examples/ertuep/ertuep.args
+dampf check @examples/ertuep/build/snes/ertuep.args
 ```
 
 It runs only the front end (preprocessor, parser and the checks of the subset) and handles
@@ -285,7 +343,8 @@ FAILS   scores.c:7:5: error: 'float' is not supported: dampf has no floating poi
 ```
 
 A file that the preprocessor rejects (a missing header, for example) fails like any other, with
-gcc's message at gcc's position, and `check` goes on with the next file.
+the preprocessor's [message](#messages) at its position, and `check` goes on with the next
+file.
 
 Some problems only show in the whole program: recursion, a function that is called but defined
 in none of the files, and a function defined in two files. So `check` then takes the files that
@@ -342,7 +401,7 @@ usage: dampf profile <rom.sfc> <profile.txt> [top N] [--skip file.c ...] [--inst
   them.
 - **`profile.txt`** is the profile: how often each instruction in the ROM ran, one line per
   instruction with its offset in the ROM file and its count, and optionally a line
-  `clocks N` with the master clocks (the SNES's base clock, 357,366 per frame) of the measured
+  `clocks N` with the master clocks (the SNES's base clock, 357,368 per frame) of the measured
   stretch. [`dampf bench --profile`](#bench-profile) writes it from dampf's own emulator; a
   Lua script for [Mesen](/glossary#mesen) can write the same format.
 - **`top`** is a number: how many functions the table shows, the most expensive first. The
@@ -496,21 +555,26 @@ scores.c:19:5: error: 'long' is not supported: use int32_t or uint32_t (long is 
 Recursion is only looked for once the front end has found no error, so `build` reports it
 only for a program without other errors.
 
-Errors of the preprocessor are messages of the same form: dampf takes gcc's first error and its
-position, as for a missing header:
+Errors of the preprocessor are messages of the same form, at the place of the error, and the
+first one ends the file. For this file:
+
+```c [hdr.c]
+#include <missing.h>
+void main(void) {}
+```
+
+`dampf build -o build/hdr.sfc hdr.c` prints:
 
 ```
 hdr.c:1:10: error: missing.h: No such file or directory
 ```
 
-Where gcc gives no position, the message is at line 1, column 1 of the file, and its text starts
-with `preprocessing failed:` and gcc's first line.
-
-dampf needs gcc for this step. If it cannot start gcc, because gcc is not installed or not on
-the `PATH`, every file gets this message, and dampf exits with status 1:
+An `#error` line becomes a message with its text, such as `#error no save RAM`. dampf's
+preprocessor has what C99's has, as far as the subset needs it; a directive or a predefined
+macro it does not have is an error that says so:
 
 ```
-game.c:1:1: error: cannot run gcc, the preprocessor dampf needs: is it installed and on the PATH?
+line.c:1:2: error: #line is not supported by dampf's preprocessor
 ```
 
 ## Exit status
@@ -527,7 +591,7 @@ game.c:1:1: error: cannot run gcc, the preprocessor dampf needs: is it installed
 
 A usage error is a missing command or one dampf does not know, an option without its value at
 the end of the command line, a mistake in an [argument file](#argument-file), a source file or
-folder that does not exist, and for `build` also a missing `-o`, no C file or an unknown
-`--backend` or `--assembler` value. A missing header is an error in the program, and so is a
-gcc that cannot be started. Any other unexpected failure, such as a missing `.s`
+folder that does not exist, and for `build` also a missing `-o`, no C file, an unknown
+`--backend` or `--assembler` value or a wrong `--sram` or `--opt-limit` value. A missing header
+is an error in the program. Any other unexpected failure, such as a missing `.s`
 file for `--replace` or a missing profile file, ends dampf with a Java exception and status 1.

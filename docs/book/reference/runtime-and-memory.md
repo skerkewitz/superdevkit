@@ -5,18 +5,20 @@ A ROM built by dampf holds more than your compiled C: the [runtime](/glossary#ru
 the machine, a few arithmetic routines do what the 65816 has no instruction for, and a header
 and vectors make the image a valid SNES ROM. This page says where all of it goes, and where your
 code, constant data, variables and the frames of functions end up, so that you can mix dampf's
-code with your own assembly or find a variable in Mesen's memory viewer.
+code with your own assembly or find a variable in [Mesen](/glossary#mesen)'s memory viewer.
 
 ## Start-up and the entry function
 
 The runtime's start-up code runs from the reset vector. In order, it:
 
-1. switches the 65816 to native mode and jumps from bank `$00`, where the CPU starts, to the
-   same code in bank `$80`;
+1. disables interrupts, switches the 65816 to native mode and jumps from
+   [bank](/glossary#bank) `$00`, where the CPU starts, to the same code in bank `$80`;
 2. sets A, X and Y to 16 bits, clears decimal mode, puts the stack pointer at `$1FFF` and sets
-   the direct page register `D` to 0;
+   the [direct page](/glossary#direct-page) register `D` to 0;
 3. writes 0 to `$4200` (no NMI, no IRQ, no automatic joypad reading) and `$80` to `$2100`
-   (forced blank);
+   (forced blank), and 1 to `$420D` (`MEMSEL`), which switches banks `$80` to `$FF` to
+   [FastROM](/glossary#fastrom-and-slowrom) speed, unless the ROM is built with
+   [`--slowrom`](/reference/command-line#slowrom);
 4. sets the data bank register ([DBR](/glossary#dbr)) to `$7E`;
 5. fills the uninitialized variables (the `BSS` segment) with zeros and copies the initial
    values of the other variables (the `DATA` segment) from ROM to RAM;
@@ -36,7 +38,18 @@ itself rather than `STP`, which would stop the CPU and leave a debugger nothing 
 continue.
 
 The NMI and IRQ vectors point to a bare `RTI`: the runtime does no interrupt handling of its
-own.
+own. Neither does the kit's library on the SNES, the
+[platform layer](/glossary#platform-layer) in `lib/snes`, whose `main.c` sets up the console,
+shows the splash screen and runs the main loop after the runtime's start-up. Its main loop
+waits for the [vertical blank](/glossary#vertical-blank) itself, because C code called from an
+interrupt in the middle of a [tick](/glossary#tick) would overwrite the frames of the code it
+interrupted: dampf keeps them at fixed places.
+
+The runtime leaves the sound chip alone. In a game built with the kit, the library uploads the
+sound driver when the game calls `sdevkit_sfx_init` in its `game_init`, with the screen off: it
+waits for the boot code of the SPC700, the SNES's sound processor, and sends it the driver, the
+sample directory and the samples through the ports `$2140`–`$2143`. The upload moves about 350
+bytes a frame, as Mesen measures it.
 
 The runtime also contains the arithmetic routines that generated code calls for multiplication
 and division (`dampf_mul16`, `dampf_mul32`, `dampf_udiv16`, `dampf_udiv32`, `dampf_sdiv32`).
@@ -48,8 +61,8 @@ area in the direct page; an interrupt handler of your own that calls C code must
 
 All variables live in bank `$7E`, and the start-up code sets `DBR = $7E` once; it never
 changes. With the data bank pointing at RAM, 16-bit absolute addresses (`lda abs`, `lda abs,x`)
-reach all 64 KB of the bank. Blubber Blasen needs about 25 KB of RAM, which would not fit into
-the 8 KB that bank 0 mirrors.
+reach all 64 KB of the bank. [Blubber Blasen](/glossary#blubber-blasen) needs about 25 KB of
+RAM, which would not fit into the 8 KB that bank 0 mirrors.
 
 The first 8 KB of bank `$7E` are the same memory as `$0000`–`$1FFF` in bank 0. The direct page
 and the stack live there, because the 65816 always addresses both through bank 0.
@@ -127,10 +140,11 @@ Pointers that always point into RAM could be 16 bits wide; this is not built yet
 
 The ROM is LoROM, up to 4 MB: banks `$80` to `$FF`, each with 32 KB at `$8000`–`$FFFF`. dampf
 uses the banks from `$80` up rather than their mirrors from `$00`, because only accesses
-through `$80` and up can run at FastROM speed. The start-up switches it on (`MEMSEL` at `$420D`):
-a ROM access then takes 6 master cycles instead of 8, and the header declares FastROM (map mode
-`$30`). Flash cartridges and emulators run FastROM; for a SlowROM cartridge, build with
-[`--slowrom`](/reference/command-line#slowrom), which keeps 2.68 MHz and map mode `$20`.
+through `$80` and up can run at FastROM speed. The start-up switches it on (`MEMSEL` at
+`$420D`): a ROM access then takes 6 [master clocks](/glossary#master-clock) instead of 8, and
+the header declares FastROM (map mode `$30`). Flash cartridges and emulators run FastROM; for a
+SlowROM cartridge, build with [`--slowrom`](/reference/command-line#slowrom), which keeps
+2.68 MHz and map mode `$20`.
 
 **Bank `$80`** holds the parts with fixed places: the start-up code, the runtime's arithmetic
 routines, the initial values of variables (copied to RAM at start-up), the header at
@@ -144,10 +158,15 @@ segment after assembling and links once. With
 [`--assembler ca65`](/reference/command-line#assembler), [ld65](/glossary#ca65-and-ld65)
 cannot split a segment over banks either, and dampf links twice: once to measure every segment,
 then with a configuration that packs them in the same way. That configuration is written next
-to the ROM as `<name>.cfg`. For `examples/m1/calls.c` built with `--entry test_main` and
-`--assembler ca65` everything fits into bank `$80`:
+to the ROM as `<name>.cfg`. For the execution test `compiler/src/test/resources/exec/calls.c`,
+built with `--entry test_main` and `--assembler ca65`, everything fits into bank `$80`:
 
+```sh
+build/install/superdevkit/bin/dampf build --entry test_main --assembler ca65 -o build/calls.sfc compiler/src/test/resources/exec/calls.c
 ```
+
+```text [build/calls.cfg]
+# dampf: LoROM, 1 bank(s) of 32 KB from $80, packed by dampf.snes.RomBuilder
 MEMORY {
     DP:    start = $0000, size = $0100, type = rw;   # direct page (D = 0)
     #      $0020-$1DFF the frames of the code from MIR (dampf_frame); $1E00-$1FFF stack
@@ -175,7 +194,17 @@ because `DBR` points at RAM, not at the ROM.
 
 **The image** is padded with `$FF` to a power of two of banks, and dampf writes the ROM size and
 the checksum into the header afterwards. The header names the game `DAMPF TEST`, a LoROM
-cartridge without RAM for North America (NTSC).
+cartridge for North America (NTSC), FastROM unless the ROM is built with `--slowrom`, and
+without RAM unless the build asks for save RAM.
+
+**Save RAM** is the cartridge's battery-backed RAM, which keeps a high score or a saved game
+while the console is off. Build with [`--sram`](/reference/command-line#sram) and the number of
+bytes, up to 32 KB, and dampf announces it in the header: the cartridge type becomes `$02` (ROM,
+RAM and battery) and the RAM size the smallest of 2, 4, 8, 16 and 32 KB that holds the bytes.
+The console maps it at `$70:0000` to `$70:7FFF`, outside the bank `DBR` points at, so code
+reaches it with long addresses, at 8 master clocks a byte. The kit's `sdevkit_sram()` returns
+its address. The runtime neither clears nor fills it, and dampf places nothing there: what it
+holds is up to the game.
 
 The build stops with a message when the program does not fit:
 
@@ -191,11 +220,13 @@ The name in the second and third message is the segment name without its first l
 
 ## I/O registers
 
-The PPU and CPU registers (`$2100`–`$21FF`, `$4200`–`$43FF`) are in bank 0, which `DBR` does not
-point to, so the runtime writes them with 24-bit long addresses, such as `sta f:$002100`.
+The [PPU](/glossary#ppu) and CPU registers (`$2100`–`$21FF`, `$4200`–`$43FF`) are in bank 0,
+which `DBR` does not point to, so the runtime writes them with 24-bit long addresses, such as
+`sta f:$002100`.
 
-C code reaches them through a `volatile` pointer made from an integer. The integer becomes the
-low 16 bits of the pointer and the bank is 0, so `0x2100` is `$00:2100`:
+C code reaches them through a `volatile` pointer made from an integer. The integer is the 24-bit
+address, with the bank in bits 16 to 23, so `0x2100` is `$00:2100` (and `0x700000`, the start of
+save RAM, is `$70:0000`):
 
 ```c
 #include <stdint.h>

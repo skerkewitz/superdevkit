@@ -8,7 +8,7 @@ name it can use starts with `sdevkit_` or `SDEVKIT_`
 
 | Folder | What |
 | --- | --- |
-| `include/sdevkit/snes.h` | The console API: PVSnesLib's functions renamed (`setMode` is `sdevkit_set_mode`), the extensions PVSnesLib has no function for (`sdevkit_reg_write`, `sdevkit_hdma_set`, `sdevkit_dma_fits`), their constants (`SDEVKIT_*`), the sprite table `sdevkit_oam_memory`, and the debug calls (`sdevkit_dbg_*`). |
+| `include/sdevkit/snes.h` | The console API: PVSnesLib's functions renamed (`setMode` is `sdevkit_set_mode`), the extensions PVSnesLib has no function for (`sdevkit_reg_write`, `sdevkit_hdma_set`, `sdevkit_dma_fits`), their constants (`SDEVKIT_*`), the sprite table `sdevkit_oam_memory`, mode 7 (`sdevkit_mode7_*`), sound effects (`sdevkit_sfx_*`), music (`sdevkit_music_*`), save RAM (`sdevkit_sram`), and the debug calls (`sdevkit_dbg_*`). |
 | `include/sdevkit/loop.h` | The frame rhythm: the library's main loop calls `game_init`, then per frame `game_tick` and `game_vblank`, which every game defines; the pad bits `SDEVKIT_KEY_*`. |
 | `snes/` | The SNES: the API in C with registers as `volatile` pointers (`snes.c`, `hw.h`) and the main loop (`main.c`), compiled by dampf with the game. See its [README](snes/README.md). |
 | `rachael/` | The desktop and the web: [Rachael](#rachael), the SNES rebuilt in portable C (`ppu.c`, `render.c`). `rachael.h` is its interface to the frontends (`sdevkit__vblank`, `sdevkit__render`, ...), not for games. Taken over from Blubber Blasen's `src/snes`; new against the game's copy: 16 x 16 background tiles, and row y of the picture is scanline y + 1 as on the SNES. |
@@ -84,19 +84,20 @@ long Voight-Kampff test gives her away; the name is [ADR-6F60Z3ZB](../docs/adr/6
   platform yet is a stub there, which does nothing; the table below says which.
 - Game code contains no platform `#ifdef`s. A game that must know whether a feature works asks
   for the feature (`#if SDEVKIT_HAS_SOUND`, say), never for the platform. There is no such
-  macro yet, since every function is built everywhere.
+  macro yet: every function can be called everywhere, and a stub (music on the SNES) does
+  nothing. `SDEVKIT_WEB_DEBUG` names a build, not a platform: a web build made for debugging
+  ([ADR-6FD7KEJV](../docs/adr/6FD7KEJV-on-the-web-the-debug-view-is-only-in-a-build-with.md)).
 - The library's own names are `static`, or `sdevkit__` (two underscores) when files share them,
   declared outside `include/`. No name of the kit starts with `game_`.
 - The library is ordinary code for dampf: the subset, `<stdint.h>` and `<dampf.h>`.
 
 `LibApiTest` checks that every function of `sdevkit/snes.h` is defined in `snes/` and in
 `rachael/`, and has its row here. `LibNamesTest` checks the names: every name of the public headers has the
-prefix, every external name in `lib/` is `sdevkit_*`, `sdevkit__*` or `main`, and the
-compatibility headers are what the rename script writes.
+prefix, and every external name in `lib/` is `sdevkit_*`, `sdevkit__*` or `main`.
 
 ## Built and stub, per function and platform
 
-Desktop means `rachael/` with `desktop/` (Linux now). The last column is what a call costs on the
+Desktop means `rachael/` with `desktop/` (Linux, Windows, and with `web/` the browser). The last column is what a call costs on the
 SNES: best to worst case in CPU cycles, calls included, from the timing report of a program that
 calls every function (`LibCostTest` writes it with `LIB_COSTS=update`, and fails when it is not
 today's). A DMA function also uses as many bytes of the vertical blank's 5,700 as it copies; those

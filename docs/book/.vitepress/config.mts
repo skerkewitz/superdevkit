@@ -13,6 +13,7 @@ const userGuide = [
       { text: 'The SNES hardware', link: '/guide/snes-hardware' },
       { text: 'Graphics and sound', link: '/guide/graphics-and-sound' },
       { text: 'The desktop', link: '/guide/the-desktop' },
+      { text: 'The web', link: '/guide/the-web' },
       { text: 'Compiling a game', link: '/guide/compiling-a-game' },
       { text: 'Debugging in Mesen', link: '/guide/debugging' }
     ]
@@ -23,6 +24,7 @@ const reference = [
   {
     text: 'Reference',
     items: [
+      { text: 'The superdevkit command', link: '/reference/superdevkit' },
       { text: 'Command line', link: '/reference/command-line' },
       { text: 'The C subset', link: '/reference/c-subset' },
       { text: 'The console API', link: '/reference/console-api' },

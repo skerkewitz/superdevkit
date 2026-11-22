@@ -4,10 +4,12 @@ import dampf.util.PassLimit;
 import java.util.function.BooleanSupplier;
 
 /**
- * The MIR passes, in order. Each runs on every function until nothing changes; then parameters
- * get the ranges of their arguments ({@link ParamRanges}), small functions are inlined
- * ({@link Inline}) and the passes run again. The verifier checks the module
- * after the passes (the tests also check after every single pass).
+ * The MIR passes, in order. Each runs on every function until nothing changes (at most 20
+ * rounds); then parameters get the ranges of their arguments ({@link ParamRanges}), small
+ * functions are inlined ({@link Inline}), pointer and scaled index parameters become offsets and
+ * products ({@link PointerParams}, {@link IndexParams}), and the passes and the ranges run again;
+ * last come {@link SinkCompares} and {@link Schedule}. The verifier checks the module after the passes (the
+ * tests also check after every single pass).
  *
  * <p>Every pass call goes through a {@link PassLimit}: with a limit, the passes stop after that
  * many applications that changed something (to find the one that broke a program).

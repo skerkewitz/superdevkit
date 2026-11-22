@@ -125,7 +125,8 @@ Each block starts with its label, a number and the kind of statement it came fro
 the head of the `for`, `b3_step` its `i++`), and a comment lists the blocks that jump to it.
 Instructions that produce a value are numbered `%0`, `%1` and so on; the others, `store`,
 `jump`, `br` and `ret`, have no name. Constants appear as bare numbers, typed by the instruction
-they are in. The comment at the end of a line is the C source position.
+they are in, except that an `i1` is `true` or `false`; an undefined value is `undef`. The
+comment at the end of a line is the C source position.
 
 The two φs in `b1_for` are the C variables `i` and `sum`: on entry they are 0, after a round of
 the loop they are `%13` and `%10`, which `b3_step` and `b2_body` compute. `%13` is used before
@@ -151,35 +152,37 @@ func @_sum_scores() -> void {
 b0_entry:
     jump b1_for                                 ; sum.c:9
 b1_for:                    ; from b0_entry, b2_body
-    %0 = phi i8 [b0_entry, 0], [b2_body, %8]    ; sum.c:9
-    %1 = phi i16 [b0_entry, 0], [b2_body, %7]   ; sum.c:8
-    %2 = cmp ult i8 %0, 8                       ; sum.c:9
+    %0 = phi i16 [b0_entry, 0], [b2_body, %6]   ; sum.c:8
+    %1 = phi i16 [b0_entry, 0], [b2_body, %7]   ; sum.c:10
+    %2 = cmp ult i16 %1, 8                      ; sum.c:9
     br %2, b2_body, b4_endfor                   ; sum.c:9
 b2_body:                    ; from b1_for
-    %3 = zext i8 %0 to i16                      ; sum.c:10
-    %4 = ptradd @_scores, i16 %3                ; sum.c:10
-    %5 = load i8 %4                             ; sum.c:10
-    %6 = zext i8 %5 to i16                      ; sum.c:10
-    %7 = add i16 %1, %6                         ; sum.c:10
-    %8 = add i8 %0, 1                           ; sum.c:9
+    %3 = ptradd @_scores, i16 %1                ; sum.c:10
+    %4 = load i8 %3                             ; sum.c:10
+    %5 = zext i8 %4 to i16                      ; sum.c:10
+    %6 = add i16 %0, %5                         ; sum.c:10
+    %7 = add i16 %1, 1                          ; sum.c:10
     jump b1_for                                 ; sum.c:9
 b4_endfor:                    ; from b1_for
-    store i16 @_total, %1                       ; sum.c:12
+    store i16 @_total, %0                       ; sum.c:12
     ret                                         ; sum.c:13
 }
 ```
 
-No value is wider than it needs to be any more: the comparison is an 8-bit `ult`, the sum is
-added in 16 bits, and the offset into `scores` is an `i16`. The result is the same for every
-input, which is what allows the change. The step block is gone and `i++` has moved to the end
-of `b2_body`; blocks keep their names, so the numbers have a gap where `b3_step` was. The values
-are numbered afresh each time the text is printed. Which pass does what is on
+The `i32` arithmetic of C's promotions is gone: the sum is added in 16 bits, and the offset into
+`scores` is an `i16`. The loop counter `i` is gone too. Apart from its own step and the loop
+test, only its zero extension read it, and that is the offset, so the loop now counts the offset
+itself: `%1` starts at 0, grows by 1 at the end of `b2_body`, and the test `i < 8` has become
+`%1 < 8`, an unsigned 16-bit `ult`. The φ carries line 10, where the offset was computed. The
+result is the same for every input, which is what allows the change. The step block is gone;
+blocks keep their names, so the numbers have a gap where `b3_step` was. The values are numbered
+afresh each time the text is printed. Which pass does what is on
 [Optimizations](/inside/optimizations).
 
 ## Instructions
 
-`Instr.java` defines fourteen kinds of instruction. In the text, each starts with the name in
-the first column:
+`Instr.java` defines fourteen kinds of instruction. In the text, each is written with its name
+from the table, after `%n =` if it produces a value:
 
 | Group | Instruction | What it does |
 | --- | --- | --- |
@@ -268,18 +271,21 @@ messages carry the numbers of the text format, so a use before the definition of
 `uses %1 where its definition does not dominate the use`.
 
 The interpreter (`dampf.mir.Interpreter`) runs a whole program in MIR, with C's meaning of every
-instruction. It is a definition of what the program does that does not depend on gcc or on any
-65816 code: the tests run every execution test and every random program in it and compare the
-globals with the [PC build](/glossary#pc-build), once straight after the lowering and once after
-the passes. A wrong lowering shows up there before any 65816 code exists for it. Its memory is a
-flat array: the globals lie one after another from `$10000`, and every call gets fresh frame
-slots from `$400000`. Stores to addresses below `$10000` go to a listener, as I/O does on the
-SNES; the [runtime](/glossary#runtime) and benchmark programs mark events there, such as the
-write to `$21FB` when the entry function returns. Loads from there read 0. Reaching an
-`unreachable` stops the interpreter with an error that starts with `a hint does not hold`,
-naming the hint, its source position and the function. A division by zero stops it with an
-error too, and so does a run longer than its step limit, so a program that loops forever fails
-instead of hanging the tests.
+instruction. It is a definition of what the program does that depends neither on the PC's
+compiler nor on any 65816 code: the tests run every execution test and every random program in
+it and compare the globals with the [PC build](/glossary#pc-build), once straight after the
+lowering and once after the passes. A wrong lowering shows up there before any 65816 code
+exists for it. Its memory is a flat array: the globals lie one after another from `$10000`, and
+every call gets fresh frame slots from `$400000`. Stores to addresses below `$10000` go to a
+listener, as I/O does on the SNES; the [runtime](/glossary#runtime) and benchmark programs mark
+events there, such as the write to `$21FB` when the entry function returns. Loads from there
+read 0. Reaching an `unreachable` stops the interpreter with an error that starts with
+`a hint does not hold`, naming the hint, its source position and the function. A load or store
+outside the global or frame slot its address is based on stops it with
+`an access outside its object`: C makes such an access undefined, and the code generator relies
+on that when it indexes an array with X. A division by zero stops it with an error too, and so
+does a run longer than its step limit, so a program that loops forever fails instead of hanging
+the tests.
 
 The interpreter also checks the range analysis: every value it computes, and every parameter on
 entry to its function, must lie in the [value range](/glossary#value-range) dampf inferred for
@@ -290,8 +296,8 @@ example of the dev kit, parses the text, verifies the result and
 prints it again; the second text must equal the first. Pass tests can therefore start from MIR
 text, as `NarrowTest`, `GvnTest` and `InlineTest` do. The test also runs hand-written MIR, a
 loop that sums 1 to 100, in the interpreter, and checks that the verifier rejects a use before
-its definition with that message. Each round trip has a time limit of two minutes, so a lowering
-that hangs fails the test instead of holding up the run.
+its definition with that message. The round trip of each execution test has a time limit of two
+minutes, so a lowering that hangs fails the test instead of holding up the run.
 
 [Testing](/inside/testing) shows where these checks sit among dampf's other tests.
 
@@ -302,8 +308,8 @@ of structs need the structure of the program; low-level ones need registers, pro
 and cycle costs. One representation does both badly, so dampf's design has three levels, as
 Swift and Rust go through several before machine code. It stops at three: each level costs a
 lowering step, a verifier, a text format and tests, and a fourth is only added if an
-optimization fits nowhere cleanly. (`docs/architecture.md`, *Why more than one* and
-*Deliberately not more than three*)
+optimization fits nowhere cleanly. (`docs/architecture.md`, *Why more than one*, and
+ADR-6F0R6DZD)
 
 **Text, verifier and interpreter for every level.** The alternative is to test only the
 finished ROM, where a broken pass shows up as a wrong number with no hint which step caused it.

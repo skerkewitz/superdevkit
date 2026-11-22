@@ -8,9 +8,12 @@ sources:
   - compiler/src/main/resources/dampf/include/stdint.h
   - compiler/src/main/resources/dampf/include/dampf.h
   - compiler/src/main/java/dampf/frontend/Preprocessor.java
+  - compiler/src/main/java/dampf/frontend/pp/*.java
   - compiler/src/main/java/dampf/frontend/SystemHeaders.java
   - compiler/src/main/java/dampf/check/CallGraph.java
   - compiler/src/main/java/dampf/Main.java
+  - compiler/src/test/resources/exec/calls.c
+  - lib/C_STYLE.md
 audience: Game programmers who write C and want it to compile with dampf and gcc alike
 ---
 
@@ -31,6 +34,8 @@ everything outside it is rejected with a message, and that the subset is what a 
    truncation, division towards zero, arithmetic `>>`. One short example where the promotion
    matters (from `compiler/src/test/resources/exec/calls.c`, `inc8` or `neg8`), with the result. Why: the PC build
    is the reference. Say that dampf narrows to 8 or 16 bit only where the result is the same.
+   The one place where C itself lets the two builds differ: the order in which a call's
+   arguments are evaluated (part 2 of `lib/C_STYLE.md`), and what to write instead.
 3. **What is left out** – a short table of what the subset rejects most often (floating point,
    recursion, function pointers, unions and bit fields, structs by value, `goto`, the heap and
    library functions), each with the reason in a phrase. Link [The C subset](/reference/c-subset)
@@ -39,7 +44,9 @@ everything outside it is rejected with a message, and that the subset is what a 
    separate compilation and no linking of object files; `static` names stay local. What that
    allows (dampf sees every call and every use).
 5. **The preprocessor** – dampf's own, a subset of C99's, with dampf's own include
-   directory and `__DAMPF__` defined; host headers and macros never reach the code. Show how to use `__DAMPF__` to
+   directory and `__DAMPF__` defined; host headers and macros never reach the code, and no gcc
+   is needed. What it rejects, in a sentence, with a link to
+   [The C subset](/reference/c-subset#preprocessor). Show how to use `__DAMPF__` to
    keep a PC-only or compiler-specific branch apart, with a short example.
 6. **Checking your code** – `dampf check` on a set of files, what it prints, and that it reports
    every problem of each file (at most one per top-level declaration). Link [Command line](/reference/command-line#check).
@@ -48,8 +55,10 @@ everything outside it is rejected with a message, and that the subset is what a 
 
 - Check every example with `dampf check` and with `gcc -std=c99 -Wall -Wextra` before it goes
   on the page.
-- The decisions of `docs/subset.md` that are still open (plain `char`, `goto`): say what dampf
+- The decisions of `docs/subset.md` that are still open (plain `char`): say what dampf
   does today, not what may be decided.
+- The messages the page quotes are dampf's as it prints them today; `lib/C_STYLE.md`, which
+  ships with the kit, lists each rejected construct with its message and may be named once.
 - Hints: one sentence that `<dampf.h>` provides them, link [Hints](/reference/hints).
   Intrinsics are not built: link [Limits](/reference/limits).
 

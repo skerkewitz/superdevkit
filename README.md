@@ -2,24 +2,26 @@
 
 A development kit for SNES games written in C. A game is written once, against the kit's console
 API, and runs on the Super Nintendo and, with the same picture pixel for pixel, as a program for
-Linux and Windows; the browser comes later. The kit holds:
+Linux and Windows and as a page in the browser. The kit holds:
 
 - **dampf**, the compiler: a subset of C to fast code for the WDC 65816, with the SNES as its one
   target (see [dampf](#dampf) below);
 - the **library** ([lib](lib/README.md)): the console API in C for the SNES, and
   [Rachael](lib/README.md#rachael), the SNES rebuilt in portable C, with a desktop frontend
-  (a window, the keyboard and gamepads, recordings and replays);
-- the **tools** ([tools](tools/README.md)): graphics from PNG files, the editor of a game's sound
-  effects (BRR Lab; the conversion is `superdevkit sfx`, [docs/sound.md](docs/sound.md));
+  (a window, the keyboard and gamepads, recordings and replays) that also runs in the browser;
+- the **`superdevkit` command**, which builds a game for every target and converts its pictures
+  (`superdevkit png`) and sound effects (`superdevkit sfx`);
+- the **tools** ([tools](tools/README.md)): the editor of a game's sound effects (BRR Lab,
+  [docs/sound.md](docs/sound.md)) and the rename script;
 - **examples** ([examples](examples/)): games and programs, from `hello` to the shooter
   Er-Tüp, which are also the kit's test cases and its benchmark;
 - the **book** ([docs/book](docs/book)): the user guide and the reference.
 
-Status: version 0.7.4, in work. Milestones M0 to M7 are done: M6 is dampf's own assembler and
+Status: version 0.8.0. Milestones M0 to M8 are done: M6 is dampf's own assembler and
 linker; with M5 Blubber Blasen (the kit's first user, a game in its own repository) builds its
 ROM with the kit and plays its recordings with the PC's checksums; with M7 a game builds and runs
 on the SNES, Linux and Windows with the `superdevkit` command, with sound effects, save RAM, music
-on the desktop and a debug view. The
+on the desktop and a debug view; with M8 it runs in the browser too (`superdevkit build web`). The
 milestones and versions are in [docs/roadmap.md](docs/roadmap.md), why the kit is the project and
 dampf its compiler in [ADR-6F3CJX8T](docs/adr/6F3CJX8T-superdevkit-is-the-project-and-dampf-is-its.md).
 
@@ -36,8 +38,8 @@ The name: in German, *Dampf machen* ("make steam") means to get things moving fa
 the steam factory of Blubber Blasen.
 
 dampf compiles all of Blubber Blasen and built a playable ROM of it, with the console API written
-in C in [lib/snes](lib/snes/README.md) (save RAM is not built yet; sound effects came after the
-game left, [docs/sound.md](docs/sound.md)). During play the
+in C in [lib/snes](lib/snes/README.md) (save RAM and sound effects came after the game left,
+[docs/sound.md](docs/sound.md)). During play the
 game took 0.79 frames per tick ([docs/optimizations.md](docs/optimizations.md#where-things-stand)). Since
 2026-11-19 the kit's own examples (`examples/`) are dampf's test cases and its benchmark
 (`dev/bench_examples.sh`), and the game's code is no longer in this repository
@@ -45,7 +47,7 @@ game took 0.79 frames per tick ([docs/optimizations.md](docs/optimizations.md#wh
 worst case in CPU cycles for every function, and a function over its cycle budget
 (`DAMPF_BUDGET`) fails the build ([docs/timing.md](docs/timing.md)). The naive code generator,
 straight from the AST, stays as an independent reference (`--backend naive`): every test program
-is built with both and compared with gcc on the PC.
+is built with both and compared with the PC (clang).
 
 ### Why
 
@@ -119,8 +121,9 @@ working documents it is written from.
 
 ## Prerequisites
 
-To use the kit: JDK 25 or newer and Python 3 (the tools); for the
-desktop build also a C compiler and curl (raylib is fetched on the first build). To develop it, also clang, ca65 and ld65 from cc65 2.19
+To use the kit: JDK 25 or newer; for the desktop build also a C compiler (raylib is fetched on the
+first build), for the web Emscripten's `emcc`, and Python 3 only for the rename script in
+`tools/`. To develop it, also clang, ca65 and ld65 from cc65 2.19
 (`BackendOutputTest` builds the execution tests, 20 random programs and the examples with them
 as well and compares the ROMs) and Python 3; clang is the tests' reference on the PC and is used
 by `dev/subset_scan.py`. Mesen (MesenCE) is optional (the tests then also run there),

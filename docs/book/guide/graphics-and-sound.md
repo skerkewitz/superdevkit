@@ -1,26 +1,28 @@
 <!-- GENERATED from doc-specs/guide/graphics-and-sound.spec.md by /docs-gen. Do not edit; change the spec or its sources. -->
 # Graphics and sound
 
-A picture drawn on the PC reaches the SNES screen as C. The converter `tools/png2snes.py` reads
-a PNG file and writes a `.c` file with the picture's tiles and colours as constant arrays, plus a
-`.h` file that declares them, into the game's `build/gen/` folder. The game's
-[args file](/glossary#args-file) adds that folder to the include path and to the program, so
-dampf compiles the arrays into the ROM with the rest of the game, and the game copies them into
-[VRAM](/glossary#vram), the video memory, with calls of the
-[console API](/reference/console-api). The converter needs only Python 3, no image library. The
-commands below run in the game's folder; write the path of your
-[superdevkit home](/glossary#superdevkit-home) where they show `<home>`.
+A picture drawn on the PC reaches the SNES screen as C. A game names its pictures in the
+`[graphics]` table of its [project file](/glossary#project-file), `superdevkit.toml`, and
+`superdevkit build` converts each of them with `superdevkit png`: the converter reads the PNG
+file and writes a `.c` file with the picture's tiles and colours as constant arrays, plus a `.h`
+file that declares them, into the game's `build/gen/` folder. The build adds that folder to the
+include path and to the program, so the arrays are compiled with the rest of the game, into the
+ROM or the program for the PC, and the game copies them into [VRAM](/glossary#vram), the video
+memory, with calls of the [console API](/reference/console-api). The converter is part of the
+`superdevkit` command and needs nothing but Java, no image library.
 
 ## Tiles and palettes
 
 The SNES draws backgrounds and sprites from tiles of 8 x 8 pixels, each pixel an index into a
 palette of colours. Use `tiles` to cut a picture into such tiles:
 
-```sh
-python3 -I <home>/tools/png2snes.py tiles assets/ball_gfx.png ball_gfx build/gen
+```toml
+[graphics]
+tiles = ["assets/ball_gfx.png"]
 ```
 
-The arguments are the PNG file, a name and the folder to write to. The picture's width and height
+The entry names the PNG file, relative to the game's folder; its name without `.png`,
+`ball_gfx`, becomes the name of the C it is converted to. The picture's width and height
 must be multiples of 8, and it may have at most 16 colours, since a tile has 4 bits a pixel.
 Colour 0 is the transparent colour of sprites and the [backdrop](/glossary#backdrop) of
 backgrounds. The converter takes two kinds of PNG:
@@ -59,26 +61,27 @@ and a palette of 4 colours (8 bytes). The picture may then use only the colours 
 has two background layers of 16 colours, BG1 and BG2, and a third, BG3, of 4; Er-Tüp
 (`examples/ertuep`) draws its status line on BG3:
 
-```sh
-python3 -I <home>/tools/png2snes.py tiles2 assets/hud.png hud build/gen
+```toml
+tiles2 = ["assets/hud.png"]
 ```
 
 The same tiles can be shown in other colours, a character in another shirt or an enemy that
 flashes when hit. Use `palette` to convert only the colours, from a strip whose first row of
 pixels holds up to 16 colours, left to right:
 
-```sh
-python3 -I <home>/tools/png2snes.py palette assets/pal_ginger.png pal_ginger build/gen
+```toml
+palette = ["assets/pal_ginger.png"]
 ```
 
 It writes `pal_ginger_pal[]` and `PAL_GINGER_PAL_SIZE`, no tiles. CatchMe (`examples/catchme`)
 converts six such strips, one per palette of its sprites.
 
-The example `examples/hello` converts a font for the background and a sprite sheet for the ball:
+The example `examples/hello` converts a font for the background and a sprite sheet for the ball.
+This is the `[graphics]` table of its `superdevkit.toml`:
 
-```sh
-python3 -I "$KIT/tools/png2snes.py" tiles assets/font_gfx.png font_gfx "$GEN"
-python3 -I "$KIT/tools/png2snes.py" tiles assets/ball_gfx.png ball_gfx "$GEN"
+```toml
+[graphics]
+tiles = ["assets/font_gfx.png", "assets/ball_gfx.png"]
 ```
 
 The game includes the two headers and hands the arrays to the console API in `game_init`, which
@@ -142,14 +145,14 @@ Mode 7 shows one background layer that the SNES can rotate and scale: a map of 1
 1024 x 1024 pixels, drawn from at most 256 tiles. Its tiles have one byte a pixel, an index into
 all 256 colours of CGRAM. Use `mode7` to convert such a picture:
 
-```sh
-python3 -I <home>/tools/png2snes.py mode7 assets/festzelt.png festzelt build/gen 33
+```toml
+mode7 = [{ png = "assets/festzelt.png", first = 33 }]
 ```
 
 The PNG must be indexed, 1024 pixels wide and up to 1024 high, in whole tiles of 8 x 8.
 
-The last argument, `FIRST` (1 when left out), says where the picture's colours go in CGRAM:
-palette index `i` becomes colour `FIRST - 1 + i`, and index 0 stays 0, transparent. You choose
+The key `first` (1 when left out) says where the picture's colours go in CGRAM:
+palette index `i` becomes colour `first - 1 + i`, and index 0 stays 0, transparent. You choose
 it because mode 7 has no palettes of its own: it shares CGRAM with the sprites and, when the
 screen switches modes during the picture, with the other layers. Er-Tüp's stage 3 is in mode
 7, and its two pictures, the Festzelt (a beer tent) and the Karussell, take their colours from
@@ -158,11 +161,14 @@ A picture whose highest index would go past colour 255 is an error.
 
 The converter cuts the picture into 8 x 8 blocks and stores identical blocks once. More than 256
 different blocks is an error, because mode 7 has 256 tiles and cannot flip one to reuse it. The
-converter names the first tile that does not fit, by column and row:
+converter names the first tile that does not fit, by column and row. Run by hand on such a
+picture (see [Converting in the build](#converting-in-the-build)), it prints:
 
 ```
-assets/arena.png: more than 256 different tiles of 8 x 8 (at tile 0, 2); mode 7 has 256 and cannot flip them
+error: assets/arena.png: more than 256 different tiles of 8 x 8 (at tile 0, 2); mode 7 has 256 and cannot flip them
 ```
+
+In a build the same message starts with `error: png:` and names the PNG by its full path.
 
 For the name `festzelt` it writes:
 
@@ -171,11 +177,11 @@ For the name `festzelt` it writes:
 | `festzelt_map[]` | one byte a tile, 128 a row; `FESTZELT_MAP_SIZE` bytes |
 | `festzelt_tiles[]` | the tiles, 64 bytes each |
 | `festzelt_pal[]` | the colours from index 1 on, BGR 5:5:5; `FESTZELT_PAL_SIZE` bytes |
-| `FESTZELT_PAL_FIRST` | the `FIRST` it was converted with |
+| `FESTZELT_PAL_FIRST` | the `first` it was converted with |
 
 The size of `festzelt_tiles` is `FESTZELT_TILES_SIZE` bytes, and `FESTZELT_TILE_COUNT` counts its
 tiles. Er-Tüp's Festzelt uses 249 tiles and 72 colours. A game loads such a picture with the
-`sdevkit_mode7_*` calls and copies the colours to where `FIRST` put them:
+`sdevkit_mode7_*` calls and copies the colours to where `first` put them:
 
 ```c
 sdevkit_set_mode(SDEVKIT_BG_MODE7, 0);
@@ -190,53 +196,210 @@ scale and place the layer; they are on [The console API](/reference/console-api#
 
 ## Converting in the build
 
-A game lives in a folder of its own, outside the superdevkit home, and its `build.sh` converts
-the pictures before it compiles. This is `examples/hello/build.sh` with the path of the home in
-`KIT`, and with its comments and the lines that look for dampf inside the repository left out:
+A game lives in a folder of its own, outside the
+[superdevkit home](/glossary#superdevkit-home), and names its pictures in the `[graphics]` table
+of its `superdevkit.toml`. The table has four keys, `tiles`, `tiles2`, `palette` and `mode7`, one
+for each kind of conversion, and each holds an array of entries. An entry is the path of a PNG
+file, relative to the folder of `superdevkit.toml`, and the name of its C is the file's name
+without `.png`. Where that name does not suit, or is not a valid C name, the entry gives one:
+`{ png = "assets/boss.png", name = "boss_gfx" }`. A `mode7` entry may add `first`. Two pictures
+with the same name are an error. This is the `[graphics]` table of Er-Tüp's `superdevkit.toml`,
+which uses three of the four kinds:
 
-```sh [build.sh]
-#!/bin/sh
-set -e
-cd "$(dirname "$0")"
-KIT=<home>
-GEN=build/gen
-mkdir -p "$GEN"
-python3 -I "$KIT/tools/png2snes.py" tiles assets/font_gfx.png font_gfx "$GEN"
-python3 -I "$KIT/tools/png2snes.py" tiles assets/ball_gfx.png ball_gfx "$GEN"
-[ "${CONVERT_ONLY:-0}" = 1 ] && exit 0
-"$KIT/bin/dampf" build @hello.args -o build/hello.sfc "$@"
+```toml
+[graphics]
+tiles = [
+    "assets/stage_bar.png", "assets/stage_cellar.png", "assets/stage_kitchen.png",
+    "assets/stage_brew.png", "assets/stage_mett.png",
+    "assets/wall_bar.png", "assets/wall_cellar.png", "assets/wall_kitchen.png", "assets/wall_brew.png",
+    "assets/sprites_a.png", "assets/sprites_b.png", "assets/sprites_c.png",
+    { png = "assets/boss.png", name = "boss_gfx" },
+    { png = "assets/boss2.png", name = "boss2_gfx" },
+]
+tiles2 = ["assets/hud.png"]   # BG3, 2 bits a pixel
+mode7 = [                     # stage 3 in mode 7: its colours from CGRAM 33 on
+    { png = "assets/festzelt.png", first = 33 },
+    { png = "assets/karussell.png", first = 33 },
+]
 ```
 
-The conversion comes first, so that `build/gen/` holds the C before dampf reads it. Started with
-`CONVERT_ONLY=1`, the script stops after the conversion; the desktop build starts it that way to
-get the same converted pictures and then compiles the game for the PC (see
-[The desktop](/guide/the-desktop)).
+Every `superdevkit build`, whatever its [target](/glossary#target), converts the pictures first,
+so that `build/gen/` holds the C before the compiler reads it. Then it hands that folder to the
+compiler twice: `-I build/gen` lets the game include `ball_gfx.h`, and `build/gen/` compiles
+`ball_gfx.c` and the others as part of the program. Use `--plan` to see the steps without
+running them. In `examples/hello`, with the path of the home written as `<home>`:
 
-The args file adds the converted C twice: `-I build/gen` lets the game include `ball_gfx.h`, and
-`build/gen/` compiles `ball_gfx.c` and the others as part of the program. This is
-`examples/hello/hello.args` with the paths of the home instead of `../..`, and without its
-comment:
-
-```text [hello.args]
--I <home>/lib/include
--I src
--I build/gen
---entry main
-src/
-build/gen/
-<home>/lib/snes/
+```sh
+superdevkit build snes --plan
 ```
 
-Paths in the args file are relative to the file itself. The options of the args file are on
-[Command line](/reference/command-line).
+```
+superdevkit build snes: hello (kit <home>)
+  png    tiles assets/font_gfx.png font_gfx build/gen
+  png    tiles assets/ball_gfx.png ball_gfx build/gen
+  dampf  build -I <home>/lib/include -I src -I build/gen --entry main -o build/snes/hello.sfc src build/gen/ <home>/lib/snes/
+  write  build/compile_commands.json
+everything the build needs is there
+```
+
+The builds for the desktop and the web convert in the same way and compile the files of
+`build/gen/` with the game's own (see [The desktop](/guide/the-desktop) and
+[The web](/guide/the-web)).
+
+To convert one picture by hand, outside a build, give `superdevkit png` the kind, the PNG file,
+the name, the folder to write to and, for `mode7` only, the first colour:
+
+```sh
+superdevkit png mode7 assets/festzelt.png festzelt build/gen 33
+```
+
+Its usage and exit status are on [The superdevkit command](/reference/superdevkit), with every
+key of `superdevkit.toml`.
 
 ## Sound
 
-The kit cannot play sound yet: a game has no call to start a sample (see
-[Limits](/reference/limits)).
+The SNES makes its sound with a chip of its own: the SPC700, a small processor with 64 KB of
+audio RAM, drives the S-DSP, which plays up to eight voices at once. A voice plays a sample from
+the audio RAM, stored in BRR, the SNES's compressed sample format. The kit plays sound effects on
+the SNES and on the PC, and music on the PC only.
 
-What `tools/brr_lab.html` is for today is trying out a sound effect before the kit plays sound.
-Open the page in a browser, drop a WAV file on it, and hear how the effect would sound on the
-SNES after the compression to BRR, the SNES's sample format, and how much of the 64 KB of audio
-RAM it would take. The page needs no network and no libraries, and saves the `.brr` file on
-request.
+### Sound effects
+
+A game lists its sound effects in `assets/sfx/sfx.json`, next to their WAV files. This is
+Steinschlag's, `examples/steinschlag/assets/sfx/sfx.json`, cut to its first two effects:
+
+```json
+{
+  "voices": 2,
+  "sounds": [
+    { "id": "dig", "priority": 0, "samples": [
+        { "file": "dig.wav", "active": true,
+          "rate": 11000, "treble": 0, "gain": 0, "trim": true, "volume": 70 } ] },
+    { "id": "gem", "priority": 2, "samples": [
+        { "file": "gem.wav", "active": true,
+          "rate": 22000, "treble": 6, "gain": -6, "trim": true, "volume": 90 } ] }
+  ]
+}
+```
+
+The member `voices` says how many of the eight voices the effects use. Each effect has an `id`,
+which names it in C, a `priority`, and a list of samples: variants of the effect, of which at
+most one is `active`. Only the active sample is read, converted and put into the game; the
+others keep their settings, so that you can swap the sound and keep the old one at hand. An
+effect without an active sample keeps its name and plays nothing, and the game builds unchanged.
+A sample's `rate` is the rate the S-DSP plays it at; `treble`, `gain` and `trim` shape the sound
+before it is encoded, and `volume` is the voice's volume while it plays.
+
+The game names the file in the `[sound]` table of its `superdevkit.toml`:
+
+```toml
+[sound]
+sfx = "assets/sfx/sfx.json"
+```
+
+Then `superdevkit build` converts it with `superdevkit sfx`, after the pictures, into
+`build/gen/sfx.c`, the BRR of every active sample and the tables of the effects, and
+`build/gen/sfx.h`, which names them. It prints what each effect takes, and the total against
+the 64,448 bytes of audio RAM that the driver leaves to the samples. This is what
+`superdevkit build snes` prints in `examples/steinschlag`:
+
+```
+    dig          dig.wav             369 bytes  11.00 kHz    5 frames
+    gem          gem.wav            3132 bytes  22.00 kHz   17 frames
+    land         land.wav            819 bytes  11.00 kHz    9 frames
+    beetle       beetle.wav         1521 bytes  16.00 kHz   12 frames
+    crushed      crushed.wav        2916 bytes  11.00 kHz   30 frames
+    exit         exit.wav           5463 bytes  16.00 kHz   38 frames
+    14220 bytes of 64448 in the audio RAM (22.1 %)
+built build/snes/steinschlag.sfc
+```
+
+The build stops, with the line in the file, when an effect has two active samples, an active
+sample's WAV file is missing, two effects have the same `id`, or the samples do not fit into the
+audio RAM. The header gives each effect a number, its place in the list, named `SFX_` and the
+`id` in capitals; this is Steinschlag's `sfx.h`, cut to the names:
+
+```c
+#define SFX_DIG     0
+#define SFX_GEM     1
+#define SFX_LAND    2
+#define SFX_BEETLE  3
+#define SFX_CRUSHED 4
+#define SFX_EXIT    5
+#define SFX_COUNT   6
+
+/* The effects for sdevkit_sfx_init(&sfx_bank), in game_init. */
+extern const sdevkit_sfx_bank sfx_bank;
+```
+
+A game that plays an effect the file does not list stops at the compiler, since the name is not
+in the header. The game includes `sfx.h`, hands the bank to `sdevkit_sfx_init` once in
+`game_init`, while the screen is off, and calls `sdevkit_sfx_play` where the sound happens. Cut
+from `examples/steinschlag/src/game.c`:
+
+```c
+void game_init(uint16_t seed)
+{
+    /* ... */
+    sdevkit_sfx_init(&sfx_bank);
+    /* ... */
+}
+
+    /* in play, which game_tick calls: out of time, the miner's lamp goes off */
+    sdevkit_sfx_play(SFX_CRUSHED);
+```
+
+An effect asked for in a [tick](/glossary#tick) starts after the tick, once the main loop has
+run `game_vblank`. A free voice takes it. When all of the file's voices are busy, it takes the
+voice of the lowest priority that is not above its own, of two equal ones the older; when every
+playing effect has a higher priority, the new one is dropped. A voice is free again when its
+effect has played to its end, the length in [frames](/glossary#frame) that the build printed.
+
+On the SNES, `sdevkit_sfx_init` sends a small driver and the samples to the SPC700 through its
+boot code, one byte at a time. That is slow: about 350 bytes a frame as measured in
+[Mesen](/glossary#mesen), so Schach's 13.8 KB take 40 frames. On the desktop and the web,
+[Rachael](/glossary#rachael) plays the same bytes with a DSP of her own, which decodes the BRR
+and interpolates between its samples as the S-DSP does. Which voice an effect gets is the same C
+code on both, so the choice is the same on the SNES and on the PC, frame by frame.
+
+The BRR Lab, `<home>/tools/brr_lab.html`, is the editor of `sfx.json`. Open it in a browser and
+open the game's folder `assets/sfx` with it; a folder without `sfx.json` starts with one effect
+per WAV file. The Lab converts every sample as the build does, to the same bytes, plays it as
+the original and as the SNES plays it, and keeps the total of the samples against the audio RAM
+in view, with the errors the build would stop on. So you hear what a setting does, and see what
+it costs, before you build. Chrome and Edge save `sfx.json` back into the folder; other browsers
+offer it as a download. The page needs no network and no libraries.
+
+### Music
+
+A game lists its music in the `[sound]` table as well, one file per track. CatchMe has one:
+
+```toml
+[sound]
+music = ["assets/music/chase.wav"]
+```
+
+The build writes `build/gen/music.h` with a number per track, its place in the list. Its name is
+the file's without the extension, unless the entry gives one:
+`{ file = "assets/music/boss-2.xm", name = "boss" }`. CatchMe's:
+
+```c
+#define MUSIC_CHASE 0   /* assets/music/chase.wav */
+#define MUSIC_COUNT 1
+```
+
+The game plays a track by its number, never by a file name, and stops it. CatchMe starts the
+chase at the start of a level and stops it at the game's end, in `examples/catchme/src/game.c`:
+
+```c
+    sdevkit_music_play(MUSIC_CHASE);
+    /* ... */
+    sdevkit_music_stop();
+```
+
+On the desktop and the web the track plays from its file, over and over, until another track or
+the stop; asking for the same track again lets it play on. A desktop build copies the files into
+`build/<target>/music/`, a web build packs them into the page's `index.data`. Any format raylib
+reads will do: OGG, MP3, WAV, QOA, and the trackers' XM and MOD. On the SNES music is not built
+yet: the calls do nothing, and dampf removes them, so a game can call them already (see
+[Limits](/reference/limits)).

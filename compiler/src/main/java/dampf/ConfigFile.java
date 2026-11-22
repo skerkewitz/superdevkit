@@ -120,7 +120,7 @@ public final class ConfigFile {
     /** The source files an argument names: a folder stands for the .c files directly in it. */
     public static List<Path> sources(Path p) throws IOException {
         if (!Files.exists(p)) {
-            // say so here: gcc would only call a missing folder an unused linker input
+            // say so here, with the path as the user gave it
             throw new Error("no such file or folder: " + p);
         }
         if (!Files.isDirectory(p)) {

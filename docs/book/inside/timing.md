@@ -29,7 +29,7 @@ where a best and a worst case come in.
 
 dampf counts CPU cycles, and they are not all equally long: in master cycles, the clock of the
 SNES, a CPU cycle takes 6 for FastROM and internal operations and 8 for SlowROM and work RAM.
-One NTSC frame is 357,366 master cycles, roughly 45,000 to 55,000 CPU cycles depending on how
+One NTSC frame is 357,368 master cycles, roughly 45,000 to 55,000 CPU cycles depending on how
 much code runs from FastROM and how often work RAM is accessed. Counting in master cycles, and
 the time that DMA, HDMA and interrupts take from the CPU, are not built, nor a hint for the trip
 count of a loop without a counter (`DAMPF_TRIPS`); see [Limits](/reference/limits).
@@ -117,27 +117,27 @@ the column on the right:
 ```asm
 .proc _sum_scores
 b0_entry:
-        stz     z:dampf_frame+2     ;                                                           4
+        stz     z:dampf_frame+0     ;                                                           4
         ldx     #$0000              ;                                                           3
         bra     b1_for              ;                                                           3
 b2_body:
         lda     _scores,x           ;                                                           6
         and     #$00FF              ;                                                           3
-        adc     z:dampf_frame+2     ;                                                           4
-        sta     z:dampf_frame+2     ;                                                           4
+        adc     z:dampf_frame+0     ;                                                           4
         inx                         ;                                                           2
+        sta     z:dampf_frame+0     ;                                                           4
 b1_for:
         cpx     #$0020              ;                                                           3
         bcc     b2_body             ;                                                         2/3
 b4_endfor:
-        lda     z:dampf_frame+2     ;                                                           4
+        lda     z:dampf_frame+0     ;                                                           4
         sta     _total              ;                                                           5
         rtl                         ;                                                           6
 .endproc
 ```
 
 The entry costs 10 cycles. One way round the loop, from the test at `b1_for` through the body
-and back, costs 3 + 3 + 17 + 2 = 25; the way out, the test with the branch not taken and the
+and back, costs 3 + 3 + 19 = 25; the way out, the test with the branch not taken and the
 rest of the function, costs 3 + 2 + 9 + 6 = 20. The head runs at most 33 times, 32 rounds and
 the test that ends the loop, so the worst case is 10 + 32 × 25 + 20 = 830 cycles. The best case
 is 10 + 20 = 30: it is the shortest way out and does not use the loop's bound, so for a loop
@@ -145,7 +145,8 @@ that always runs the same number of rounds it lies far below what the function t
 
 ### Loop bounds
 
-dampf finds the bound of a loop in the code. It looks for a counter that every way back steps
+dampf finds the bound of a loop in the code, with the analysis of counting loops that the
+optimizer uses too, `dampf.mir.CountedLoops`. It looks for a counter that every way back steps
 by the same constant *c*, and takes the smallest bound of these rules:
 
 - **A finite [value range](/glossary#value-range).** If the counter's range in the head is
@@ -155,10 +156,17 @@ by the same constant *c*, and takes the smallest bound of these rules:
   counter is on the near side of another value (`i < n`, `i > rank`, `v >= 100`, signed or
   unsigned, also with the counter zero-extended) bounds it by that value's extreme, if the step
   cannot wrap there: at most (extreme − start) / |*c*| + 2 head runs. The test may stand further
-  down in the loop, as long as every way back passes it.
+  down in the loop, as long as every way back passes it, and it may compare the counter after
+  its step, as a `do` loop does. The other value may change from round to round; its range
+  counts. The counter needs no range of its own: an unknown start counts as the end of its type.
 - **An equality test.** With *c* = 1 or −1 and a test like `k != 0` that keeps the loop going,
   the counter meets the constant after at most its distance modulo 2<sup>*w*</sup> for a
-  *w*-bit counter.
+  *w*-bit counter. With any other odd step it meets every value of its type, the constant
+  among them, so the head runs at most 2<sup>*w*</sup> times.
+- **The start plus a constant.** A test that compares the counter with its own start plus a
+  constant *K*, as a loop over one row of a table does from the row's offset to the offset plus
+  16, bounds the head runs by *K* / |*c*| + 1 whatever the start is: for `<` and `>` where the
+  start's range shows that no step wraps, for `!=` with a step of 1 always.
 
 A loop that none of these rules bounds makes the worst case unbounded. That is not always
 pessimism: `for (y = t; y <= b; y++)` with an 8-bit `b` never ends when `b` is 255. The loops
@@ -199,7 +207,7 @@ above, the most expensive function first:
 # of a function without a bound, is named after it. "never": the function never returns.
         best        worst  function
        never    unbounded  _halt   (loop at game.c:33)
-         417    unbounded  _main   (loop at game.c:27)
+         402    unbounded  _main   (loop at game.c:27)
           22    unbounded  _wait_ready   (loop at game.c:27)
         1940         2594  dampf_sdiv32
         1888         2432  dampf_udiv32
@@ -219,7 +227,7 @@ file and line) or else the first call of a function without a bound (`calls` wit
 
 `_main` names the loop on line 27 although that line is in `wait_ready`: dampf inlined
 `wait_ready`, `sum_scores`, `abs16` and `halt` into `main`, so the loop is part of `main`'s
-code. Its best case of 417 includes the 287 cycles of `dampf_mul16`, which the multiplication
+code. Its best case of 402 includes the 287 cycles of `dampf_mul16`, which the multiplication
 on line 42 calls.
 
 The assembly carries the same cycle counts at a finer grain. Every instruction has its cycles in
@@ -227,20 +235,18 @@ the column on the right, a conditional branch as *not taken*/*taken* (`2/3`). Th
 starts a C line gets the sum of its instructions when the line is straight code:
 
 ```asm
-; game.c:42   area = (uint16_t)(width * height);                                [ 43 cyc + calls ]
+; game.c:42   area = (uint16_t)(width * height);                                [ 31 cyc + calls ]
         .dbg    line, "../game.c", 42
-                                    ; %16 = load i16 @_height
-        lda     _height             ;                                                           5
-        sta     z:dampf_frame+0     ;                                                           4
-                                    ; %17 = load i16 @_width
-        lda     _width              ;                                                           5
-        sta     z:dampf_frame+2     ;                                                           4
-                                    ; %18 = mul i16 %17, %16
-        lda     z:dampf_frame+0     ;                                                           4
+                                    ; %15 = load i16 @_height
+        ldx     _height             ;                                                           5
+                                    ; %16 = load i16 @_width
+        ldy     _width              ;                                                           5
+                                    ; %17 = mul i16 %16, %15
+        txa                         ;                                                           2
         sta     z:R0                ;                                                           4
-        lda     z:dampf_frame+2     ;                                                           4
+        tya                         ;                                                           2
         jsl     dampf_mul16         ;                                                           8
-                                    ; store i16 @_area, %18
+                                    ; store i16 @_area, %17
         sta     _area               ;                                                           5
 ```
 
@@ -292,6 +298,20 @@ since no budget can be guaranteed for it, and a worst case above 90 % of the bud
 a warning. dampf checks the function as compiled on its own. On the PC the macro is empty.
 [Hints](/reference/hints) has the details and the other messages.
 
+A build that limits the optimizer's passes, to find the pass that broke a program
+([`--opt-limit`](/reference/command-line#opt-limit)), reports a broken budget as a warning
+instead of an error. The passes that prove a loop's bound may not have run in such a build, and
+a budget error would stop the search. With no passes at all, the loop in `sum_scores` has no
+bound, and the build goes on:
+
+```sh
+dampf build --opt-limit 0 -o build/budget.sfc budget.c
+```
+
+```
+budget.c:7:41: warning: 'sum_scores' has no worst case (loop at budget.c:10), so its budget of 800 cycles cannot be guaranteed (DAMPF_BUDGET); an error without the pass limit
+```
+
 ## How the bounds are checked
 
 The tests hold every bound against a measurement in dampf's own emulator
@@ -319,7 +339,8 @@ loops*)
 branch, also where two branches can never both be taken. Annotations that exclude impossible
 combinations were left for later; the cost is a bound that may be pessimistic, and the examples'
 checks show how far: they measure the cost in real game situations (`dampf.emu.ExampleProfile`),
-which can be compared with the static worst case. (`docs/timing.md`, *Level 2: exact bounds for branches and loops*)
+which can be compared with the static worst case. (`docs/timing.md`, *Level 2: exact bounds
+for branches and loops*)
 
 **Budgets as build errors.** An overrun of a frame could be found by playing the game and
 watching for flicker or slowdown. dampf checks budgets at build time instead, so the build
