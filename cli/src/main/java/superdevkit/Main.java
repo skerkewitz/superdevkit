@@ -13,7 +13,7 @@ import superdevkit.project.Run;
 import superdevkit.sfx.Sfx;
 
 /**
- * The superdevkit command (ADR-6F3CJZBY; docs/superdevkit-transition.md, 7.4):
+ * The superdevkit command (ADR-6F3CJZBY; docs/archive/superdevkit-transition.md, 7.4):
  *
  * <pre>
  * superdevkit init NAME [--from EXAMPLE]      a new project in ./NAME, copied from an example (hello)

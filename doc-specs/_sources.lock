@@ -1,6 +1,6 @@
 # The files each generated page of the book was last written from, with a hash of each.
 # Written by ./gradlew stampBook, read by BookSourcesTest. Do not edit by hand.
-guide/compiling-a-game README.md 85b6092d60c4
+guide/compiling-a-game README.md db59c41856ca
 guide/compiling-a-game cli/src/main/java/superdevkit/project/Build.java 78b6adb70a35
 guide/compiling-a-game compiler/src/main/java/dampf/Compiler.java 07dbbd913d1a
 guide/compiling-a-game compiler/src/main/java/dampf/ConfigFile.java d00f2c77c254
@@ -12,17 +12,17 @@ guide/compiling-a-game examples/ertuep/README.md e08a9cc852a0
 guide/compiling-a-game examples/ertuep/superdevkit.toml b51530c35a03
 guide/compiling-a-game lib/snes/README.md d979aa42fa76
 guide/compiling-a-game reference/README.md 38277e8b2dfe
-guide/debugging README.md 85b6092d60c4
+guide/debugging README.md db59c41856ca
 guide/debugging cli/src/main/java/superdevkit/project/Run.java 0eb4b903f0d9
 guide/debugging compiler/src/main/java/dampf/backend/AsmWriter.java afaea3479539
 guide/debugging compiler/src/test/resources/exec/calls.c 05c772704eda
 guide/debugging doc-specs/guide/debugging.spec.md 847480623ed6
 guide/debugging docs/architecture.md 4942b204e3ee
 guide/debugging docs/testing.md f4aa3ae9114e
-guide/getting-started README.md 85b6092d60c4
-guide/getting-started cli/build.gradle.kts 91cb5484a1c0
+guide/getting-started README.md db59c41856ca
+guide/getting-started cli/build.gradle.kts 366108f5af17
 guide/getting-started cli/src/dist/README.md c3288b9a1a79
-guide/getting-started cli/src/main/java/superdevkit/Main.java 730e973c351e
+guide/getting-started cli/src/main/java/superdevkit/Main.java 95d96187c4eb
 guide/getting-started cli/src/main/java/superdevkit/project/Build.java 78b6adb70a35
 guide/getting-started cli/src/main/java/superdevkit/project/Desktop.java d638380489b0
 guide/getting-started cli/src/main/java/superdevkit/project/Init.java dad3bbabb93f
@@ -37,13 +37,13 @@ guide/getting-started examples/hello/README.md c8d4d34feb10
 guide/getting-started examples/hello/src/hello.c b526a96bc6ef
 guide/getting-started examples/hello/superdevkit.toml ac00898c03c6
 guide/getting-started lib/README.md 518a205a5fdb
-guide/graphics-and-sound cli/src/main/java/superdevkit/Main.java 730e973c351e
+guide/graphics-and-sound cli/src/main/java/superdevkit/Main.java 95d96187c4eb
 guide/graphics-and-sound cli/src/main/java/superdevkit/gfx/Png.java 7cc61e52c030
 guide/graphics-and-sound cli/src/main/java/superdevkit/gfx/Png2Snes.java de2fd71e8238
 guide/graphics-and-sound cli/src/main/java/superdevkit/project/Build.java 78b6adb70a35
 guide/graphics-and-sound cli/src/main/java/superdevkit/project/Desktop.java d638380489b0
 guide/graphics-and-sound cli/src/main/java/superdevkit/project/Project.java 64cf6dc44dfb
-guide/graphics-and-sound cli/src/main/java/superdevkit/project/Web.java 02e946297ed4
+guide/graphics-and-sound cli/src/main/java/superdevkit/project/Web.java d9b567849fef
 guide/graphics-and-sound cli/src/main/java/superdevkit/sfx/Brr.java 715d0df30cb6
 guide/graphics-and-sound cli/src/main/java/superdevkit/sfx/Conversion.java 0aa463a935e0
 guide/graphics-and-sound cli/src/main/java/superdevkit/sfx/Json.java b6b79c67e546
@@ -66,7 +66,7 @@ guide/graphics-and-sound lib/include/sdevkit/snes.h 940ec8dbb39a
 guide/graphics-and-sound lib/snes/snes.c 24a55c32eb9b
 guide/graphics-and-sound tools/README.md 0867a9bfd8b5
 guide/graphics-and-sound tools/brr_lab.html 3423d929ef83
-guide/introduction README.md 85b6092d60c4
+guide/introduction README.md db59c41856ca
 guide/introduction doc-specs/guide/introduction.spec.md e7d6d3b6fe01
 guide/introduction docs/ADR.md 83b4c20b224b
 guide/introduction docs/adr/6F0R61EZ-dampf-is-a-compiler-of-its-own-for-one-target-the.md 2c0fd878479c
@@ -128,7 +128,7 @@ guide/introduction docs/adr/6FD4GDN5-dampf-has-its-own-preprocessor-a-subset-of-
 guide/introduction docs/adr/6FD54GME-the-pull-request-workflow-and-the-adr-skill-come.md 7a4bb7b2e7ae
 guide/introduction docs/adr/6FD7KEJV-on-the-web-the-debug-view-is-only-in-a-build-with.md a69aced94db9
 guide/introduction docs/optimizations.md b531455a311a
-guide/introduction docs/roadmap.md 82555418bcc7
+guide/introduction docs/roadmap.md 94591944720b
 guide/introduction lib/README.md 518a205a5fdb
 guide/introduction lib/snes/README.md d979aa42fa76
 guide/introduction tools/README.md 0867a9bfd8b5
@@ -145,7 +145,7 @@ guide/snes-hardware lib/rachael/ppu.c cff443cb5f0b
 guide/snes-hardware lib/rachael/rachael.h 4373c7774ef2
 guide/snes-hardware lib/splash/splash.h 36837f209a7a
 guide/snes-hardware tools/web_check/README.md 5c613ea1b97a
-guide/the-desktop cli/src/main/java/superdevkit/Main.java 730e973c351e
+guide/the-desktop cli/src/main/java/superdevkit/Main.java 95d96187c4eb
 guide/the-desktop cli/src/main/java/superdevkit/project/Desktop.java d638380489b0
 guide/the-desktop cli/src/main/java/superdevkit/project/Raylib.java d46c4c069cc3
 guide/the-desktop cli/src/main/java/superdevkit/project/Run.java 0eb4b903f0d9
@@ -160,11 +160,11 @@ guide/the-desktop lib/README.md 518a205a5fdb
 guide/the-desktop lib/desktop/RETRO-EFFECT.md f8122f76e687
 guide/the-desktop lib/desktop/main.c c202eed7a130
 guide/the-desktop lib/desktop/view.c 3ff49a078130
-guide/the-web cli/src/main/java/superdevkit/Main.java 730e973c351e
+guide/the-web cli/src/main/java/superdevkit/Main.java 95d96187c4eb
 guide/the-web cli/src/main/java/superdevkit/project/Desktop.java d638380489b0
 guide/the-web cli/src/main/java/superdevkit/project/Raylib.java d46c4c069cc3
 guide/the-web cli/src/main/java/superdevkit/project/Serve.java bc60e3013e6f
-guide/the-web cli/src/main/java/superdevkit/project/Web.java 02e946297ed4
+guide/the-web cli/src/main/java/superdevkit/project/Web.java d9b567849fef
 guide/the-web doc-specs/guide/the-web.spec.md 615a67da725d
 guide/the-web docs/adr/6FCVAA30-the-web-runs-the-desktop-s-frontend-which-waits.md fea56dd57b0c
 guide/the-web docs/adr/6FD1Y6W2-the-web-s-main-takes-check-and-the-examples-test.md 1db5ad8b816b
@@ -591,7 +591,7 @@ inside/optimizations docs/optimizations-log.md e0941931d958
 inside/optimizations docs/optimizations.md b531455a311a
 inside/optimizations docs/subrange-types.md c0a44f23eb0f
 inside/optimizations reference/README.md 38277e8b2dfe
-inside/roadmap README.md 85b6092d60c4
+inside/roadmap README.md db59c41856ca
 inside/roadmap doc-specs/inside/roadmap.spec.md f7edc7a9d121
 inside/roadmap docs/ADR.md 83b4c20b224b
 inside/roadmap docs/adr/6F0R61EZ-dampf-is-a-compiler-of-its-own-for-one-target-the.md 2c0fd878479c
@@ -652,10 +652,10 @@ inside/roadmap docs/adr/6FD2DGP0-clang-is-the-tests-reference-on-the-pc.md 642f2
 inside/roadmap docs/adr/6FD4GDN5-dampf-has-its-own-preprocessor-a-subset-of-c99-s.md 394356d83bc3
 inside/roadmap docs/adr/6FD54GME-the-pull-request-workflow-and-the-adr-skill-come.md 7a4bb7b2e7ae
 inside/roadmap docs/adr/6FD7KEJV-on-the-web-the-debug-view-is-only-in-a-build-with.md a69aced94db9
-inside/roadmap docs/roadmap.md 82555418bcc7
+inside/roadmap docs/roadmap.md 94591944720b
 inside/roadmap lib/README.md 518a205a5fdb
 inside/testing .github/workflows/build.yml 4529a07aa039
-inside/testing README.md 85b6092d60c4
+inside/testing README.md db59c41856ca
 inside/testing compiler/build.gradle.kts 99d257bbf1ba
 inside/testing compiler/src/test/java/dampf/ExamplesTest.java 1204856fdfb3
 inside/testing compiler/src/test/java/dampf/emu/CpuSingleStepTest.java 9a60b4765ac7
@@ -789,7 +789,7 @@ reference/c-subset docs/adr/6FD4GDN5-dampf-has-its-own-preprocessor-a-subset-of-
 reference/c-subset docs/adr/6FD54GME-the-pull-request-workflow-and-the-adr-skill-come.md 7a4bb7b2e7ae
 reference/c-subset docs/adr/6FD7KEJV-on-the-web-the-debug-view-is-only-in-a-build-with.md a69aced94db9
 reference/c-subset docs/subset.md 2095a4ae8101
-reference/command-line README.md 85b6092d60c4
+reference/command-line README.md db59c41856ca
 reference/command-line compiler/src/main/java/dampf/Compiler.java 07dbbd913d1a
 reference/command-line compiler/src/main/java/dampf/ConfigFile.java d00f2c77c254
 reference/command-line compiler/src/main/java/dampf/Main.java 6d05d18332bd
@@ -828,7 +828,7 @@ reference/console-api lib/splash/splash.h 36837f209a7a
 reference/console-api tools/sdevkit_rename.py 5ef7c2df89e5
 reference/hints cli/src/main/java/superdevkit/project/Desktop.java d638380489b0
 reference/hints cli/src/main/java/superdevkit/project/Kit.java 64840bff14d7
-reference/hints cli/src/main/java/superdevkit/project/Web.java 02e946297ed4
+reference/hints cli/src/main/java/superdevkit/project/Web.java d9b567849fef
 reference/hints compiler/src/main/java/dampf/Compiler.java 07dbbd913d1a
 reference/hints compiler/src/main/java/dampf/frontend/AstBuilder.java 8bcae697e49a
 reference/hints compiler/src/main/java/dampf/frontend/pp/Expander.java 4cbfe781b422
@@ -898,7 +898,7 @@ reference/hints docs/adr/6FD7KEJV-on-the-web-the-debug-view-is-only-in-a-build-w
 reference/hints docs/hints.md e5254a9f2f5a
 reference/hints docs/subrange-types.md c0a44f23eb0f
 reference/hints docs/timing.md 81929e3702c4
-reference/limits README.md 85b6092d60c4
+reference/limits README.md db59c41856ca
 reference/limits compiler/src/main/java/dampf/frontend/Preprocessor.java 0a4d918ae457
 reference/limits compiler/src/main/java/dampf/frontend/pp/Condition.java 94b585787791
 reference/limits compiler/src/main/java/dampf/frontend/pp/Expander.java 4cbfe781b422
@@ -907,7 +907,7 @@ reference/limits compiler/src/main/java/dampf/frontend/pp/Macro.java f98342c7164
 reference/limits compiler/src/main/java/dampf/frontend/pp/PpException.java 65970b77f82c
 reference/limits compiler/src/main/java/dampf/frontend/pp/Preprocess.java b9d61b6b2570
 reference/limits compiler/src/main/java/dampf/frontend/pp/Token.java a8f53da7705c
-reference/limits doc-specs/reference/limits.spec.md 39639e8c315a
+reference/limits doc-specs/reference/limits.spec.md 77accf9b59e7
 reference/limits docs/ADR.md 83b4c20b224b
 reference/limits docs/adr/6F0R61EZ-dampf-is-a-compiler-of-its-own-for-one-target-the.md 2c0fd878479c
 reference/limits docs/adr/6F0R624X-java-25-antlr-with-the-grammars-v4-c-grammar-and.md 16c469337665
@@ -969,14 +969,13 @@ reference/limits docs/adr/6FD54GME-the-pull-request-workflow-and-the-adr-skill-c
 reference/limits docs/adr/6FD7KEJV-on-the-web-the-debug-view-is-only-in-a-build-with.md a69aced94db9
 reference/limits docs/hints.md e5254a9f2f5a
 reference/limits docs/optimizations.md b531455a311a
-reference/limits docs/roadmap.md 82555418bcc7
+reference/limits docs/roadmap.md 94591944720b
 reference/limits docs/sound.md 9c0b890eea88
 reference/limits docs/subset.md 2095a4ae8101
-reference/limits docs/superdevkit-transition.md cd7cab520ac7
 reference/limits docs/timing.md 81929e3702c4
 reference/limits lib/README.md 518a205a5fdb
 reference/limits lib/snes/README.md d979aa42fa76
-reference/output-files README.md 85b6092d60c4
+reference/output-files README.md db59c41856ca
 reference/output-files cli/src/main/java/superdevkit/project/Build.java 78b6adb70a35
 reference/output-files compiler/src/main/java/dampf/Compiler.java 07dbbd913d1a
 reference/output-files compiler/src/main/java/dampf/asm/DbgWriter.java 36079cfa6388
@@ -985,7 +984,7 @@ reference/output-files compiler/src/main/java/dampf/snes/RomBuilder.java c29d159
 reference/output-files compiler/src/main/java/dampf/target/Cycles65816.java 8698afa0f4ad
 reference/output-files doc-specs/reference/output-files.spec.md 9865ce5a8e71
 reference/output-files docs/architecture.md 4942b204e3ee
-reference/runtime-and-memory README.md 85b6092d60c4
+reference/runtime-and-memory README.md db59c41856ca
 reference/runtime-and-memory compiler/src/main/java/dampf/backend/FrameLayout.java 24b050f28e0a
 reference/runtime-and-memory compiler/src/main/java/dampf/mir/PointerOffsets.java 045a8e78c659
 reference/runtime-and-memory compiler/src/main/java/dampf/mir/PointerParams.java 93a0c69472be
@@ -1055,9 +1054,9 @@ reference/runtime-and-memory docs/memory-map.md 4ffe88dbb0f6
 reference/runtime-and-memory docs/optimizations.md b531455a311a
 reference/runtime-and-memory docs/sound.md 9c0b890eea88
 reference/runtime-and-memory lib/snes/README.md d979aa42fa76
-reference/superdevkit README.md 85b6092d60c4
-reference/superdevkit cli/build.gradle.kts 91cb5484a1c0
-reference/superdevkit cli/src/main/java/superdevkit/Main.java 730e973c351e
+reference/superdevkit README.md db59c41856ca
+reference/superdevkit cli/build.gradle.kts 366108f5af17
+reference/superdevkit cli/src/main/java/superdevkit/Main.java 95d96187c4eb
 reference/superdevkit cli/src/main/java/superdevkit/gfx/ConvertException.java aae170ce6040
 reference/superdevkit cli/src/main/java/superdevkit/gfx/Png.java 7cc61e52c030
 reference/superdevkit cli/src/main/java/superdevkit/gfx/Png2Snes.java de2fd71e8238
@@ -1071,7 +1070,7 @@ reference/superdevkit cli/src/main/java/superdevkit/project/Run.java 0eb4b903f0d
 reference/superdevkit cli/src/main/java/superdevkit/project/Serve.java bc60e3013e6f
 reference/superdevkit cli/src/main/java/superdevkit/project/Symbols.java 1070829b8a43
 reference/superdevkit cli/src/main/java/superdevkit/project/Toml.java cd581fe5c2d4
-reference/superdevkit cli/src/main/java/superdevkit/project/Web.java 02e946297ed4
+reference/superdevkit cli/src/main/java/superdevkit/project/Web.java d9b567849fef
 reference/superdevkit cli/src/main/java/superdevkit/sfx/Brr.java 715d0df30cb6
 reference/superdevkit cli/src/main/java/superdevkit/sfx/Conversion.java 0aa463a935e0
 reference/superdevkit cli/src/main/java/superdevkit/sfx/Json.java b6b79c67e546
