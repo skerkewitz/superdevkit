@@ -1,11 +1,12 @@
 <!-- GENERATED from doc-specs/guide/the-web.spec.md by /docs-gen. Do not edit; change the spec or its sources. -->
 # The web
 
-The web build is your game as a page for the browser. The same C code is compiled by
-Emscripten's `emcc` to WebAssembly, against [Rachael](/glossary#rachael), the SNES rebuilt in
-portable C, and the frontend of [The desktop](/guide/the-desktop): the window, the keys, the
-sound and the debug view are the desktop's, and the browser only changes how they reach you. Any
-browser opens the page, and you can put it online for your players.
+The web build is your game as a page for the browser. The same C code is compiled to
+WebAssembly by [Emscripten](/glossary#emscripten)'s `emcc`, against
+[Rachael](/glossary#rachael), the SNES rebuilt in portable C, and the frontend of
+[The desktop](/guide/the-desktop). The window, the keys, the sound and the debug view are the
+desktop's; the browser only changes how they reach you. A browser opens the page from a web
+server, and you can put it online for your players.
 
 ## Building for the web
 
@@ -15,8 +16,10 @@ Run `superdevkit build web` in the game's folder:
 superdevkit build web
 ```
 
-It needs Emscripten's `emcc`, found on the `PATH` or named by the `EMCC` variable
-(`EMCC=/path/to/emcc`). Without it the build stops when it first calls the compiler:
+It needs Emscripten's `emcc`, from the Emscripten SDK or the system's packages, found on the
+`PATH` or named by the `EMCC` variable (`EMCC=/path/to/emcc`). Without it the build stops when
+it first calls the compiler, with this message; its end, the system's reason in brackets, is cut
+short here:
 
 ```
 error: emcc: no Emscripten (emcc): the target web builds with emcc; install the Emscripten SDK and put emcc on the PATH, or name it with EMCC=path (...)
@@ -27,11 +30,12 @@ build fetches raylib 5.5 from GitHub into the [superdevkit home](/glossary#super
 (`<home>/raylib/web`), and every build after it reuses it.
 
 The build has the three steps of the desktop: each of the game's files compiled alone, without
-the host's headers; the symbol check, which accepts only calls into the console API; and the
-link, with Rachael, the desktop's frontend (`lib/desktop`), what the web adds to it (`lib/web`)
-and raylib. [The desktop](/guide/the-desktop) explains why the first two steps are there. Use
-`--plan` to see the steps without running them; for a game made with `superdevkit init mygame`,
-with the compiler's options cut short:
+the host's headers; the symbol check, which accepts only calls into the
+[console API](/glossary#console-api); and the link, with Rachael, the desktop's frontend
+(`lib/desktop`), what the web adds to it (`lib/web`) and raylib.
+[The desktop](/guide/the-desktop) explains why the first two steps are there. Use `--plan` to
+see the steps without running them; for a game made with `superdevkit init mygame`, with the
+compiler's options cut short:
 
 ```
 superdevkit build web: mygame (kit <home>)
@@ -58,9 +62,10 @@ The build writes the page into `build/web/`:
 | `index.wasm` | the game, Rachael and the frontend in WebAssembly |
 | `index.data` | the game's music; only when the game has any |
 
-The folders `obj/` and `music/` beside them are the build's own work and are not part of the
-page. Open the page from a web server, not as a file: a browser loads WebAssembly only from a
-server that sends it with the type `application/wasm`. `superdevkit run web` is such a server.
+The folder `obj/` beside them, and `music/` when the game has music, are the build's own work
+and are not part of the page. Open the page from a web server, not as a file: a browser loads
+WebAssembly only from a server that sends it with the type `application/wasm`.
+`superdevkit run web` is such a server.
 
 ## Playing in the browser
 
@@ -81,9 +86,11 @@ The server answers only this machine and runs until you press Ctrl+C. It lets th
 nothing, so after another `superdevkit build web` a reload of the page shows the new build.
 Set `BROWSER` to the command of the browser you want; it gets the address. `BROWSER=true`
 opens none, and the page waits at the address for you. Without `BROWSER` the command takes
-`xdg-open` on Linux, `open` on macOS and Windows' default browser on Windows and from WSL.
+`xdg-open` on Linux, `open` on macOS and Windows' default browser on Windows and from
+[WSL](/glossary#wsl).
 
-The page shows `Loading mygame ...` while the browser loads the files, then
+The page first shows `Loading mygame ...`; while the browser loads the files, Emscripten's notes
+on its progress take the place of that line. When everything is loaded the page shows
 `Click to play mygame`. The game starts with that click: a browser plays a page's sound and
 gives it the keyboard only after the player has clicked on it. If the game stops with an error,
 the page says `The game stopped:` and the error. What the game and the frontend print goes to
@@ -95,23 +102,24 @@ SNES.
 
 The keys are the desktop's: the keyboard and a gamepad are [joypad](/glossary#joypad) 1, as
 the [key table of the desktop](/guide/the-desktop#playing) shows, and `Tab` turns the retro TV
-filter off and on. A browser takes some of these keys for itself: the arrow keys and the space
-bar scroll, `Tab` moves the focus, `F5` reloads. The page keeps the arrow keys, `Space`, `Tab`,
-`Backspace`, `Enter`, `F11` and `F12` from the browser, and in a build with `--debug` also
-`F1` and `F5` to `F8`. With `Ctrl`, `Alt` or the Meta key held it keeps none, so the browser's
-own shortcuts still work.
+filter off and on. A browser acts on some of these keys itself: the arrow keys and the space
+bar scroll, `Tab` moves the focus, `F5` reloads. So the page takes the arrow keys, `Space`,
+`Tab`, `Backspace`, `Enter`, `F11` and `F12` for the game, and in a build with `--debug` also
+`F1` and `F5` to `F8`, and the browser does not act on them. With `Ctrl`, `Alt` or the Meta key
+held the page takes none of them, so the browser's own shortcuts still work.
 
 ## What the browser changes
 
 **The frame clock.** In the desktop's window the program waits for each
-[frame](/glossary#frame) itself. In a browser a page draws only when the browser offers it a
-frame, at the rate of the screen, which may be 60 Hz, 120 Hz or more. So the web runs the game
-by a clock of 60 [ticks](/glossary#tick) a second: on a 60 Hz screen each browser frame runs one
-tick, on a 120 Hz screen every other frame does, on a 30 Hz screen each frame runs two. At most
-four ticks run in one browser frame. A tab in the background gets no frames, so the game stands
-still there, and when you come back it does not catch up the time it was away; a machine too
-slow for the game makes it run slower, as on the desktop. The waiting is done by Emscripten's
-Asyncify, which lets the desktop's loops stay as they are (ADR-6FCVAA30).
+[frame](/glossary#frame) itself, 60 a second. In a browser a page draws only when the browser
+offers it a browser frame, at the rate of the screen, which may be 60 Hz, 120 Hz or more. So the
+web runs the game by a clock of 60 [ticks](/glossary#tick) a second: on a 60 Hz screen each
+browser frame runs one tick, on a 120 Hz screen every other browser frame does, on a 30 Hz
+screen each browser frame runs two. At most four ticks run in one browser frame. A tab in the
+background gets no browser frames, so the game stands still there, and when you come back it
+does not catch up the time it was away; a machine too slow for the game makes it run slower, as
+on the desktop. The waiting is done by Emscripten's Asyncify, which lets the desktop's loops
+stay as they are.
 
 **The save RAM.** A game with `sram` in its [project file](/glossary#project-file) keeps its
 save RAM in the browser's IndexedDB, as the file `/save/<game>.srm` of the page's file system.
@@ -137,11 +145,11 @@ superdevkit build web --debug
 superdevkit run web --debug
 ```
 
-A page built without `--debug` is what you put online, and on it the debug view would give the
-players pause, slow motion, the video memory and whatever the game registered there to change
-while it runs. So without `--debug` the frontend does not read `F1` or `F5` to `F8`, and the
-page leaves those keys to the browser, where `F5` reloads the page. `F11` and `F12` stay in
-every build.
+A page built without `--debug` is the one you put online. If it had the debug view, every
+player could pause the game, slow it down and look into its video memory, and could change
+whatever the game registered in the view for its own testing. So without `--debug` the frontend
+does not read `F1` or `F5` to `F8`, and the page leaves those keys to the browser, where `F5`
+reloads the page. `F11` and `F12` stay in every build.
 
 The build with `--debug` is also compiled without optimization (`-O0`) and with debug
 information (`-g`), and it defines `SDEVKIT_WEB_DEBUG` for every file, the game's too. A game
@@ -159,24 +167,23 @@ in IndexedDB, tied to the address of your site: moving the page to another addre
 player with empty save RAM, and the save RAM you played with through `superdevkit run web` on
 your own machine is not on the site.
 
-## Checked like the desktop
+## Checking a game on the web
 
-The web's `main` takes the options of the desktop's, `--check` among them; only the page passes
-none. The kit's tests build every example for the web and play its `check.txt` in headless
-Chromium, then compare every tick's checksum and the sound with the SNES's, as they do for the
-desktop: the game, Rachael and the sound compiled by `emcc` play the same game as on the SNES,
-tick for tick. The frame clock, the page and the save RAM in IndexedDB are not part of that
-check. The script behind it, `tools/web_check/web_check.js`, takes a web build, a `check.txt`
-and a folder for what the check writes. It needs Playwright, installed once in
-`tools/web_check` with `npm ci` and `npx playwright install --only-shell chromium`. For CatchMe,
-after `superdevkit build web` in its folder, from the top of the repository:
+The web build comes from `emcc`, not gcc, and in its WebAssembly pointers and `long` are 32 bits
+wide, so a game can play differently in the browser while its
+[check on the desktop](/guide/the-desktop#the-check-without-a-window) passes. The web's `main`
+takes `--check` like the desktop's: the page starts it without options, and
+`<home>/tools/web_check` starts it with the game's `check.txt` in headless Chromium. It needs
+Node.js and Playwright, installed once in that folder with `npm ci` and
+`npx playwright install --only-shell chromium`. In the game's folder, after
+`superdevkit build web`:
 
 ```sh
-node tools/web_check/web_check.js examples/catchme/build/web examples/catchme/check.txt out
+node <home>/tools/web_check/web_check.js build/web check.txt build/web-check
 ```
 
-For a game of your own, run `node <home>/tools/web_check/web_check.js build/web check.txt out`
-in its folder. The script writes what the check wrote (`hashes.txt`, `sound.txt`, the
-screenshots) into `out`, and its exit status is the one of the
-[desktop's check](/guide/the-desktop#the-check-without-a-window), or 2 when the page did not
-start.
+The script writes `hashes.txt`, `sound.txt` and the screenshots into `build/web-check` and ends
+with the exit status of the desktop's check, or 2 when the page did not start. The same
+checksums in `hashes.txt` as in the desktop check's mean the browser plays the same game. In a
+checkout of the repository the kit's own tests do this for every example, where Emscripten and
+Playwright are installed and raylib was fetched for the web.

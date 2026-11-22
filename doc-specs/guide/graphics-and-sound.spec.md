@@ -23,6 +23,7 @@ sources:
   - examples/steinschlag/src/steinschlag.h
   - examples/steinschlag/src/game.c
   - lib/include/sdevkit/snes.h
+  - lib/snes/snes.c
   - lib/SNES_HARDWARE.md
 audience: Game programmers who have pictures and sounds made on the PC and want them in a game
 ---

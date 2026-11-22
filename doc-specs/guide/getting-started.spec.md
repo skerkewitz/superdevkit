@@ -68,7 +68,8 @@ kit's version, and the home's `superdevkit` command builds it.
    `superdevkit build web` and `superdevkit run web`, with a link to [The web](/guide/the-web).
 7. **Look at it in Mesen** – open the ROM with the `.dbg` file next to it (or
    `superdevkit run snes`, which takes the Mesen that `MESEN` names, else the kit's `.mesen/`
-   (Run.java), with one example of setting `MESEN`, also for the Windows Mesen from WSL), step
+   (Run.java), with one example of setting `MESEN` for the Linux Mesen; `run snes` hands Mesen
+   a Linux path, so the Windows Mesen from WSL opens the ROM through `\\wsl.localhost` instead), step
    through `game_tick` in the C source; link [Debugging in Mesen](/guide/debugging) for more.
 8. **When something goes wrong** – the two or three failures a new user meets: the command run
    outside the game's folder, a header not found, a construct outside the subset (show the

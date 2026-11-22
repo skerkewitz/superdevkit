@@ -6,7 +6,7 @@ guide/compiling-a-game compiler/src/main/java/dampf/Compiler.java 07dbbd913d1a
 guide/compiling-a-game compiler/src/main/java/dampf/ConfigFile.java d00f2c77c254
 guide/compiling-a-game compiler/src/main/java/dampf/Main.java 6d05d18332bd
 guide/compiling-a-game compiler/src/main/java/dampf/emu/ExampleProfile.java 75dcea1441c7
-guide/compiling-a-game doc-specs/guide/compiling-a-game.spec.md c47f7691c9e3
+guide/compiling-a-game doc-specs/guide/compiling-a-game.spec.md 1d506cae5e32
 guide/compiling-a-game docs/adr/6F3CJW9N-options-can-be-kept-in-an-argument-file-given-by.md 1027a34290ac
 guide/compiling-a-game examples/ertuep/README.md e08a9cc852a0
 guide/compiling-a-game examples/ertuep/superdevkit.toml b51530c35a03
@@ -32,7 +32,7 @@ guide/getting-started cli/src/main/java/superdevkit/project/Run.java 0eb4b903f0d
 guide/getting-started compiler/src/main/java/dampf/ConfigFile.java d00f2c77c254
 guide/getting-started compiler/src/main/java/dampf/Main.java 6d05d18332bd
 guide/getting-started compiler/src/main/java/dampf/frontend/Preprocessor.java 0a4d918ae457
-guide/getting-started doc-specs/guide/getting-started.spec.md 17170b80cf42
+guide/getting-started doc-specs/guide/getting-started.spec.md 40d57826a657
 guide/getting-started examples/hello/README.md c8d4d34feb10
 guide/getting-started examples/hello/src/hello.c b526a96bc6ef
 guide/getting-started examples/hello/superdevkit.toml ac00898c03c6
@@ -50,7 +50,7 @@ guide/graphics-and-sound cli/src/main/java/superdevkit/sfx/Json.java b6b79c67e54
 guide/graphics-and-sound cli/src/main/java/superdevkit/sfx/Sfx.java 0f060c02c020
 guide/graphics-and-sound cli/src/main/java/superdevkit/sfx/Wav.java 9247ce66565a
 guide/graphics-and-sound cli/src/test/java/superdevkit/gfx/Png2SnesTest.java c12d29f07880
-guide/graphics-and-sound doc-specs/guide/graphics-and-sound.spec.md 6e78e39d2932
+guide/graphics-and-sound doc-specs/guide/graphics-and-sound.spec.md 623479592ad0
 guide/graphics-and-sound docs/sound.md 9c0b890eea88
 guide/graphics-and-sound examples/catchme/src/game.c 0a752b28073e
 guide/graphics-and-sound examples/catchme/superdevkit.toml 0bac77b915e6
@@ -63,6 +63,7 @@ guide/graphics-and-sound examples/steinschlag/src/steinschlag.h 785580ecfbe4
 guide/graphics-and-sound examples/steinschlag/superdevkit.toml 6da2e0e92f91
 guide/graphics-and-sound lib/SNES_HARDWARE.md 2fcf0294db7c
 guide/graphics-and-sound lib/include/sdevkit/snes.h 940ec8dbb39a
+guide/graphics-and-sound lib/snes/snes.c 24a55c32eb9b
 guide/graphics-and-sound tools/README.md 0867a9bfd8b5
 guide/graphics-and-sound tools/brr_lab.html 3423d929ef83
 guide/introduction README.md 85b6092d60c4
@@ -150,8 +151,9 @@ guide/the-desktop cli/src/main/java/superdevkit/project/Raylib.java d46c4c069cc3
 guide/the-desktop cli/src/main/java/superdevkit/project/Run.java 0eb4b903f0d9
 guide/the-desktop cli/src/main/java/superdevkit/project/Symbols.java 1070829b8a43
 guide/the-desktop compiler/src/main/java/dampf/emu/ExampleCheck.java c8dbeae619cc
+guide/the-desktop dev/example_check.lua aa44107424ee
 guide/the-desktop dev/replay.sh ac76a8b5fec6
-guide/the-desktop doc-specs/guide/the-desktop.spec.md d58d2bb9c060
+guide/the-desktop doc-specs/guide/the-desktop.spec.md 2b3652f05803
 guide/the-desktop docs/adr/6F60Z709-win64-is-built-with-msvc-for-now-from-wsl.md 544b1f07126d
 guide/the-desktop examples/hello/check.txt e27ee15501c9
 guide/the-desktop lib/README.md 518a205a5fdb
@@ -163,7 +165,7 @@ guide/the-web cli/src/main/java/superdevkit/project/Desktop.java d638380489b0
 guide/the-web cli/src/main/java/superdevkit/project/Raylib.java d46c4c069cc3
 guide/the-web cli/src/main/java/superdevkit/project/Serve.java bc60e3013e6f
 guide/the-web cli/src/main/java/superdevkit/project/Web.java 02e946297ed4
-guide/the-web doc-specs/guide/the-web.spec.md 2831edb5ea07
+guide/the-web doc-specs/guide/the-web.spec.md 615a67da725d
 guide/the-web docs/adr/6FCVAA30-the-web-runs-the-desktop-s-frontend-which-waits.md fea56dd57b0c
 guide/the-web docs/adr/6FD1Y6W2-the-web-s-main-takes-check-and-the-examples-test.md 1db5ad8b816b
 guide/the-web docs/adr/6FD7KEJV-on-the-web-the-debug-view-is-only-in-a-build-with.md a69aced94db9
@@ -1049,7 +1051,7 @@ reference/runtime-and-memory docs/adr/6FD2DGP0-clang-is-the-tests-reference-on-t
 reference/runtime-and-memory docs/adr/6FD4GDN5-dampf-has-its-own-preprocessor-a-subset-of-c99-s.md 394356d83bc3
 reference/runtime-and-memory docs/adr/6FD54GME-the-pull-request-workflow-and-the-adr-skill-come.md 7a4bb7b2e7ae
 reference/runtime-and-memory docs/adr/6FD7KEJV-on-the-web-the-debug-view-is-only-in-a-build-with.md a69aced94db9
-reference/runtime-and-memory docs/memory-map.md dafe2349103e
+reference/runtime-and-memory docs/memory-map.md 4ffe88dbb0f6
 reference/runtime-and-memory docs/optimizations.md b531455a311a
 reference/runtime-and-memory docs/sound.md 9c0b890eea88
 reference/runtime-and-memory lib/snes/README.md d979aa42fa76
@@ -1075,7 +1077,7 @@ reference/superdevkit cli/src/main/java/superdevkit/sfx/Conversion.java 0aa463a9
 reference/superdevkit cli/src/main/java/superdevkit/sfx/Json.java b6b79c67e546
 reference/superdevkit cli/src/main/java/superdevkit/sfx/Sfx.java 0f060c02c020
 reference/superdevkit cli/src/main/java/superdevkit/sfx/Wav.java 9247ce66565a
-reference/superdevkit doc-specs/reference/superdevkit.spec.md cf65bd91553c
+reference/superdevkit doc-specs/reference/superdevkit.spec.md f3636b790254
 reference/superdevkit examples/catchme/superdevkit.toml 0bac77b915e6
 reference/superdevkit examples/ertuep/superdevkit.toml b51530c35a03
 reference/superdevkit examples/hello/superdevkit.toml ac00898c03c6

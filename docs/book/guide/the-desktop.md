@@ -10,8 +10,8 @@ SNES.
 
 ## Building for the desktop
 
-Use `superdevkit build linux` in the game's folder, here `examples/hello`, to build it for
-Linux:
+Use `superdevkit build linux` in the game's folder to build it for Linux, here in a copy of
+`examples/hello` made with `superdevkit init hello`:
 
 ```sh
 superdevkit build linux
@@ -38,30 +38,29 @@ The build has three steps, and the first two are there to keep the game honest:
    `memmove` and the stack and buffer checks).
 3. **The link** with Rachael (`lib/rachael`), the desktop frontend (`lib/desktop`) and raylib.
 
-The symbol check exists because Rachael can only count what goes through the console API. A
-function of raylib or the C library declared by hand, or a call into Rachael's internals,
-would work on the PC and have no counterpart on the SNES, so the check rejects it and names
-the symbol and the object. No header the game can include declares `rand`, so a game that
-declares it itself and calls it in `src/main.c` gets:
+The symbol check exists because Rachael can only count what goes through the
+[console API](/glossary#console-api). A function of raylib or the C library declared by hand,
+or a call into Rachael's internals, would work on the PC and have no counterpart on the SNES,
+so the check rejects it and names the symbol and the object. No header the game can include
+declares `rand`, so a game that declares it itself and calls it in `src/main.c` gets:
 
 ```
 error: check: src_main.o: uses rand, which is not part of superdevkit's console API (lib/include/sdevkit, ADR-6F3CK2AR)
 ```
 
 Use `superdevkit run` to build the game and start it in one go. It builds for the
-[target](/glossary#target) of the PC it runs on (`linux`, also under WSL; `win64` on Windows),
-starts the program in the game's folder and waits until you close the window.
-`superdevkit build linux --plan` lists what the build would run without running it; the
+[target](/glossary#target) of the PC it runs on (`linux`, also under [WSL](/glossary#wsl);
+`win64` on Windows), starts the program in the game's folder and waits until you close the
+window. `superdevkit build linux --plan` lists what the build would run without running it; the
 command's options are on [The superdevkit command](/reference/superdevkit).
 
-For Windows, run `superdevkit build win64`, on Windows or from WSL (the Windows Subsystem for
-Linux). It goes through the same three steps with Visual Studio's C compiler (MSVC, found with
-`vswhere`; it needs the C++ tools for x64) and raylib's MSVC package, and writes
+For Windows, run `superdevkit build win64`, on Windows or from WSL. It goes through the same
+three steps with Visual Studio's C compiler (MSVC, found with `vswhere`; it needs the C++ tools
+for x64) and raylib's MSVC package, and writes
 `build/win64/hello.exe`. Started from Windows, from Explorer for example, the program plays
 with the keyboard and with the gamepads Windows knows: WSL sees no gamepad, since Windows keeps
 every input device. It can also be started from WSL, with `superdevkit run win64` there. It is
-built as a Windows program without a console, so what it prints shows only when it is started
-from WSL.
+built as a Windows program without a console.
 
 ## Playing
 
@@ -89,10 +88,8 @@ The keyboard and the first gamepad are [joypad](/glossary#joypad) 1, at the same
 | Start | `Enter` | the right middle button |
 | Select | right `Shift` or `Backspace` | the left middle button |
 
-The window shows the picture through a retro TV filter, three shaders that make it look like a
-SNES on a consumer CRT television fed over composite video. Press `Tab` to turn it off and on,
-or start with `--no-crt` to start without it. If a shader fails to compile, the program logs
-`CRT: shader failed, drawing without it` and draws the plain picture.
+The window shows the picture through a retro TV filter that makes it look like a SNES on a CRT
+television. Press `Tab` to turn it off and on, or start with `--no-crt` to start without it.
 
 Press `F12` for a screenshot: `hello_0.png`, `hello_1.png` and so on, in the folder you
 started the program from. A screenshot is Rachael's picture without the filter.
@@ -125,7 +122,8 @@ usage: build/linux/hello [--scale N] [--no-crt] [--replay recording.txt]
                  [--view-shot view.png [--view-tab 0..3]]
 ```
 
-The web build runs this same frontend in the browser, with the same keys; see
+The web build runs this same frontend in the browser, with the same keys for the game, though it
+has the debug view and its keys (`F1`, `F5` to `F8`) only in a build made with `--debug`; see
 [The web](/guide/the-web).
 
 ## The check without a window
@@ -167,7 +165,9 @@ shot 300
 ```
 
 The check writes the screenshots into the `--out` folder as `example_shot_30.png`,
-`example_splash_16.png` and so on, unfiltered, and `hashes.txt`: the checksum of every tick,
+`example_splash_16.png` and so on, unfiltered. These are the names the repository's check in
+Mesen (`dev/example_check.lua`) gives its screenshots too, so that the pictures of the two can
+be compared file by file. It also writes `hashes.txt`: the checksum of every tick,
 the tick and the checksum in hex on a line (`0 635e2468`). The checksum covers the sprite
 table ([OAM](/glossary#oam)) and the bytes the game names with
 [`sdevkit_dbg_hash`](/reference/console-api#sdevkit-dbg-hash) in its tick; a game that names
@@ -265,10 +265,10 @@ Where a tick differs, it names the first one and exits with status 1:
 tick 200 has checksum 11edb09a on the SNES, the recording deadbeef
 ```
 
-That tick is where the SNES and the desktop part, the place to look for a difference between
-the two builds. The ROM must be built from the same source as the program that recorded the
-file; with any other change the checksums differ for that reason alone. `JAVA_HOME` picks the
-Java it runs with.
+That tick is where the SNES and the desktop part ways, the place to look for a difference
+between the two builds. The ROM must be built from the same source as the program that
+recorded the file; with any other change the checksums differ for that reason alone.
+`JAVA_HOME` picks the Java it runs with.
 
 ## Debugging on the PC
 
@@ -291,8 +291,10 @@ flag of 0 or 1, `sdevkit_dbg_range` a number between two bounds, `sdevkit_dbg_co
 `sdevkit_dbg_action` a button, which sets its variable to 1. In each tick it can draw boxes over
 the picture with `sdevkit_dbg_box`, a collision box for instance, in one of eight colours. On
 the SNES these functions are empty and dampf removes the calls, so the game needs no `#ifdef`.
-A game whose player's speed can be changed in the view, made invincible and put back to the
-start:
+In the following game the player moves left and right, and going past x = 200 sends it back to
+the start unless it is invincible. The view changes the player's speed, switches invincibility
+on and off and puts the player back to the start with a button; the player's box is green while
+it is invincible and red otherwise:
 
 ```c
 #include <stdint.h>
@@ -315,16 +317,19 @@ void game_init(uint16_t seed)
 
 void game_tick(const uint16_t pad[SDEVKIT_PADS])
 {
-    if (reset_player) {
-        player_x = 120;
-        player_y = 100;
-        reset_player = 0;
-    }
     if (pad[0] & SDEVKIT_KEY_RIGHT) {
         player_x += player_speed;
     }
     if (pad[0] & SDEVKIT_KEY_LEFT) {
         player_x -= player_speed;
+    }
+    if (player_x > 200 && !invincible) {
+        reset_player = 1;           /* past 200: back to the start */
+    }
+    if (reset_player) {
+        player_x = 120;
+        player_y = 100;
+        reset_player = 0;
     }
     sdevkit_dbg_box(player_x, player_y, 16, 16, invincible ? 1 : 0);
 }
@@ -335,11 +340,11 @@ void game_vblank(void)
 ```
 
 A change made in the view is not part of the recording, so from that tick on a replay plays
-another game. The program says so once, the window's title adds `changed in the debug view`,
-and the recording notes it in a comment line:
+another game. The program says so once on the error output, the window's title adds
+`changed in the debug view`, and a recording saved from then on notes it in a comment line:
 
 ```
-mygame: the debug view changed player speed before tick 812: a replay of this session plays another game from there
+# the debug view changed player speed before tick 812: from there a replay plays another game
 ```
 
 With `--check`, `--view-shot file.png` draws the view once after the check into a PNG, in a
@@ -352,7 +357,8 @@ variables in your own source.
 
 The build optimizes (`-O2`, `/O2` on Windows), and at that level gdb shows some variables as
 `<optimized out>`. Add `--debug` to build without optimization (`-O0`, `/Od`), so that the
-debugger shows every variable; the picture and the checksums stay the same:
+debugger shows every variable; the picture and the checksums stay the same. `superdevkit run`
+takes the option as well:
 
 ```sh
 superdevkit build linux --debug
