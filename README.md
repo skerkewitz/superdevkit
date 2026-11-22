@@ -1,5 +1,7 @@
 # superdevkit
 
+> This is still an alpha release. It works for me, that doesn't necessarily mean it works for you at the moment. Sorry 😔.
+
 A development kit for SNES games written in C. A game is written once, against the kit's console
 API, and runs on the Super Nintendo and, with the same picture pixel for pixel, as a program for
 Linux and Windows and as a page in the browser. The kit holds:
