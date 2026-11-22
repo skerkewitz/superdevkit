@@ -229,12 +229,11 @@ package, the game compiled on its own as on the desktop and its objects checked 
 WebAssembly objects: emcc writes wasm, not LLVM bitcode), `lib/web` (the page with the click to
 start, the browser's frames for the desktop's loops, save RAM in IndexedDB, F11 and F12 as
 downloads), and `superdevkit run web` (`Serve`: the JDK's HTTP server on 127.0.0.1, the browser
-opened). CatchMe plays in headless Chromium, its save RAM kept across page loads. What is left:
+opened). CatchMe plays in headless Chromium, its save RAM kept across page loads. The examples
+in the browser: `ExamplesTest` builds each for the web and plays its `check.txt` in headless
+Chromium (`tools/web_check`, Playwright; the web's `main` takes `--check`), the checksums of its
+ticks, its sound and its recording against the SNES's. What is left:
 
-- The examples in the browser, checked by a test as `ExamplesTest` checks the desktop: each built
-  for the web and played in headless Chromium (Playwright, as the BRR Lab's tests), the checksums
-  of its ticks against the desktop's. Needs a way to give the page a `check.txt`, which the web's
-  `main` does not take yet.
 - Blubber Blasen's web build from the kit, and then the game drops `src/snes`, `src/platform` and
   its web build: its folder holds its game, its assets, its debug registrations and
   `superdevkit.toml`. With the game (a finding).

@@ -39,6 +39,11 @@ import org.junit.jupiter.api.TestFactory;
  *       folders): what game_init uploaded into the audio RAM, and every DSP write the SPC700's driver made in the
  *       emulator is the one Rachael's DSP got, in the same tick; the desktop's check plays nothing
  *       that Rachael's DSP does not model ({@code unheard 0}).</li>
+ *   <li>the web (where raylib was fetched for the web, emcc runs and Playwright is installed in
+ *       tools/web_check): built as superdevkit build web builds it, and the same check in headless
+ *       Chromium (tools/web_check/web_check.js gives the page the file and runs its main with
+ *       --check), into {@code build/web-check}, with the same comparisons as the desktop's: emcc's
+ *       WebAssembly computed the same game as gcc and dampf.</li>
  * </ol>
  *
  * The picture is compared by dev/compare_example.sh (Mesen), which also compares Mesen's
@@ -51,6 +56,7 @@ public class ExamplesTest {
         List<Path> examples = examples();
         assertTrue(!examples.isEmpty(), "no examples with a superdevkit.toml");
         boolean desktop = Files.isRegularFile(Path.of("build/raylib/linux/lib/libraylib.a"));
+        boolean web = web();
         return examples.stream().map(ex -> DynamicTest.dynamicTest(ex.getFileName().toString(), () -> {
             String name = ex.getFileName().toString();
             Compiler.Result r = compile(ex, ex.resolve("build/" + name + "_test.sfc"));
@@ -80,45 +86,73 @@ public class ExamplesTest {
                 assertTrue(over.isEmpty(), name + ": ticks " + over + " took more than a frame (budget " + b.from() + " to " + b.to()
                         + " in check.txt; build/emu-check/ticks.txt has the cycles of every tick)");
             }
-            if (!desktop) {
-                return;
+            if (desktop) {
+                buildTarget(ex, "linux");
+                Path out = Files.createDirectories(ex.resolve("build/desktop-check"));
+                Path recording = out.resolve("recording.txt");
+                String result = run(ex.resolve("build/linux/" + name).toString(), "--check", check.toString(), "--out", out.toString(),
+                        "--record", recording.toString());
+                sameAsTheSnes(name, "the desktop", out, result, input, snes);
             }
-            buildDesktop(ex);
-            Path out = Files.createDirectories(ex.resolve("build/desktop-check"));
-            Path recording = out.resolve("recording.txt");
-            String result = run(ex.resolve("build/linux/" + name).toString(), "--check", check.toString(), "--out", out.toString(),
-                    "--record", recording.toString());
-            assertTrue(result.contains(" lost 0"), result);
-            assertTrue(result.contains(" undrawn 0"), result);
-            assertTrue(result.contains(" unheard 0"), result);
-            List<String> pc = Files.readAllLines(out.resolve("hashes.txt"));
-            List<String> sn = snes.lines();
-            for (int i = 0; i < Math.min(pc.size(), sn.size()); i++) {
-                if (!pc.get(i).equals(sn.get(i))) {
-                    fail(name + ": the SNES and the desktop differ first after tick " + i + " (SNES " + sn.get(i) + ", desktop " + pc.get(i)
-                            + "; build/emu-check and build/desktop-check have all)");
-                }
-            }
-            assertEquals(pc.size(), sn.size(), name + ": ticks played");
-            List<String> pcSound = Files.readAllLines(out.resolve("sound.txt"));
-            List<String> snSound = snes.sound();
-            for (int i = 0; i < Math.min(pcSound.size(), snSound.size()); i++) {
-                if (!pcSound.get(i).equals(snSound.get(i))) {
-                    fail(name + ": the sound differs first in line " + (i + 1) + " of sound.txt (SNES " + snSound.get(i)
-                            + ", desktop " + pcSound.get(i) + "; build/emu-check and build/desktop-check have all)");
-                }
-            }
-            assertEquals(pcSound.size(), snSound.size(), name + ": the lines of sound.txt");
-
-            // the desktop's recording of the same run (lib/desktop, F11 in the window) is a check.txt
-            // of its own: the same buttons every tick, and the SNES's checksums
-            ExampleCheck.Input rec = ExampleCheck.parse(recording);
-            assertEquals(input.ticks(), rec.ticks(), name + ": ticks recorded");
-            for (long t = 0; t < input.ticks(); t++) {
-                assertEquals(input.pad(t), rec.pad(t), name + ": the recorded buttons of tick " + t);
-                assertEquals(snes.hashes().get((int) t), rec.recorded(t), name + ": the recorded checksum of tick " + t);
+            if (web) {
+                buildTarget(ex, "web");
+                Path out = Files.createDirectories(ex.resolve("build/web-check"));
+                String result = run("node", WEB_CHECK.resolve("web_check.js").toString(), ex.resolve("build/web").toString(),
+                        check.toString(), out.toString(), "--record", out.resolve("recording.txt").toString());
+                sameAsTheSnes(name, "the web", out, result, input, snes);
             }
         }));
+    }
+
+    /**
+     * The check of a frontend (the desktop's program, or the web's in headless Chromium) in
+     * {@code out} against the SNES's: nothing lost, undrawn or unheard, the same checksum after
+     * every tick, the same sound, and a recording with the same buttons and the SNES's checksums.
+     */
+    private static void sameAsTheSnes(String name, String where, Path out, String result, ExampleCheck.Input input,
+            ExampleCheck.Result snes) throws IOException {
+        String dir = "build/" + out.getFileName();
+        assertTrue(result.contains(" lost 0"), where + ": " + result);
+        assertTrue(result.contains(" undrawn 0"), where + ": " + result);
+        assertTrue(result.contains(" unheard 0"), where + ": " + result);
+        List<String> pc = Files.readAllLines(out.resolve("hashes.txt"));
+        List<String> sn = snes.lines();
+        for (int i = 0; i < Math.min(pc.size(), sn.size()); i++) {
+            if (!pc.get(i).equals(sn.get(i))) {
+                fail(name + ": the SNES and " + where + " differ first after tick " + i + " (SNES " + sn.get(i) + ", " + where + " "
+                        + pc.get(i) + "; build/emu-check and " + dir + " have all)");
+            }
+        }
+        assertEquals(pc.size(), sn.size(), name + ": ticks played on " + where);
+        List<String> pcSound = Files.readAllLines(out.resolve("sound.txt"));
+        List<String> snSound = snes.sound();
+        for (int i = 0; i < Math.min(pcSound.size(), snSound.size()); i++) {
+            if (!pcSound.get(i).equals(snSound.get(i))) {
+                fail(name + ": the sound differs first in line " + (i + 1) + " of sound.txt (SNES " + snSound.get(i)
+                        + ", " + where + " " + pcSound.get(i) + "; build/emu-check and " + dir + " have all)");
+            }
+        }
+        assertEquals(pcSound.size(), snSound.size(), name + ": the lines of sound.txt on " + where);
+
+        // the recording of the same run (lib/desktop, F11 in the window) is a check.txt of its
+        // own: the same buttons every tick, and the SNES's checksums
+        ExampleCheck.Input rec = ExampleCheck.parse(out.resolve("recording.txt"));
+        assertEquals(input.ticks(), rec.ticks(), name + ": ticks recorded on " + where);
+        for (long t = 0; t < input.ticks(); t++) {
+            assertEquals(input.pad(t), rec.pad(t), name + ": the recorded buttons of tick " + t + " on " + where);
+            assertEquals(snes.hashes().get((int) t), rec.recorded(t), name + ": the recorded checksum of tick " + t + " on " + where);
+        }
+    }
+
+    /** tools/web_check, where Playwright plays a web build's check in headless Chromium. */
+    private static final Path WEB_CHECK = Path.of("tools/web_check");
+
+    /**
+     * The web's check runs where the web builds (raylib fetched for the web, emcc) and Playwright is
+     * installed in tools/web_check (its README.md).
+     */
+    private static boolean web() {
+        return DesktopIsolationTest.webBuilds() && Files.isDirectory(WEB_CHECK.resolve("node_modules/@playwright/test"));
     }
 
     /** The examples: the folders of examples/ with a superdevkit.toml. */
@@ -144,13 +178,13 @@ public class ExamplesTest {
         return superdevkit.project.Build.dampfOptions(p, kit, out);
     }
 
-    /** The desktop program of an example, as superdevkit build linux builds it. */
-    static void buildDesktop(Path ex) throws Exception {
+    /** The desktop or web program of an example, as superdevkit build linux or web builds it. */
+    static void buildTarget(Path ex, String target) throws Exception {
         superdevkit.project.Project p = superdevkit.project.Project.read(ex.toAbsolutePath().normalize());
         superdevkit.project.Kit kit = superdevkit.project.Kit.of(p);
         java.io.ByteArrayOutputStream log = new java.io.ByteArrayOutputStream();
         java.io.PrintStream ps = new java.io.PrintStream(log, true, StandardCharsets.UTF_8);
-        assertEquals(0, superdevkit.project.Build.run(superdevkit.project.Build.plan(p, kit, "linux", false), false, false, false, ps, ps),
+        assertEquals(0, superdevkit.project.Build.run(superdevkit.project.Build.plan(p, kit, target, false), false, false, false, ps, ps),
                 log.toString(StandardCharsets.UTF_8));
     }
 

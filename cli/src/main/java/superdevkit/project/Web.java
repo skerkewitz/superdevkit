@@ -97,7 +97,8 @@ final class Web {
                 "-sSTACK_SIZE=1048576",
                 "-sALLOW_MEMORY_GROWTH",
                 "-sINVOKE_RUN=0",               // the page starts it with a click (sound, the keyboard)
-                "-sEXPORTED_RUNTIME_METHODS=callMain,HEAPF32",   // HEAPF32: raylib's miniaudio plays from it
+                // FS: a check's files (tools/web_check, ADR-6FD1Y6W2); HEAPF32: raylib's miniaudio plays from it
+                "-sEXPORTED_RUNTIME_METHODS=callMain,FS,HEAPF32",
                 "-lidbfs.js",                   // the save RAM in IndexedDB
                 "--shell-file", shell.toString()));
         if (!p.music().isEmpty()) {

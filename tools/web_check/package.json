@@ -1,0 +1,8 @@
+{
+  "name": "web-check",
+  "private": true,
+  "description": "A game's web build plays a check.txt in headless Chromium (ExamplesTest)",
+  "devDependencies": {
+    "@playwright/test": "1.65.1"
+  }
+}

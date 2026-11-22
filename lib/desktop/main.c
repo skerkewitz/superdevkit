@@ -63,7 +63,9 @@
  * browser's canvas, and the loops wait for the browser's frames (sdevkit__web_frame), which a
  * clock of 60 ticks a second steps the game by; the save RAM is /save/<game>.srm, kept in
  * IndexedDB; the music is /music/<file> (packed into the page's data); F11 and F12 offer their
- * files as downloads. There is no --check and no --replay on the web.
+ * files as downloads. main takes the same options there but --view-shot (ADR-6FD1Y6W2): the page
+ * passes none; the examples' test calls Module.callMain with --check after writing the file into
+ * Module.FS (tools/web_check), and reads hashes.txt and sound.txt from there.
  *
  * This file is host code for the desktop's C compiler (and emcc), not for dampf.
  */
@@ -1097,15 +1099,16 @@ static int check(const char *path, const char *out, const char *record, const ch
     return lost > 0 || sdevkit__rachael.undrawn > 0 || sdevkit__sound.unheard > 0 || differs >= 0 ? 1 : 0;
 }
 
+/* The options, the same on the web, where the page passes none (Module.callMain takes them, after
+ * Module.FS has the files they name) and the view shot is missing: it needs a hidden window. */
+#ifdef __EMSCRIPTEN__
+#define VIEW_USAGE ""
+#else
+#define VIEW_USAGE "                 [--view-shot view.png [--view-tab 0..3]]\n"
+#endif
+
 int main(int argc, char **argv)
 {
-#ifdef __EMSCRIPTEN__
-    (void)argc;
-    (void)argv;
-    (void)check;                            /* without a window: not on the web */
-    (void)view_shot;
-    return window(3, 0, NULL);              /* the page passes no options */
-#else
     const char *check_file = NULL;
     const char *replay_file = NULL;
     const char *record_file = NULL;
@@ -1130,16 +1133,18 @@ int main(int argc, char **argv)
             out = argv[++i];
         } else if (strcmp(argv[i], "--scale") == 0 && i + 1 < argc) {
             scale = atoi(argv[++i]);
+#ifndef __EMSCRIPTEN__
         } else if (strcmp(argv[i], "--view-shot") == 0 && i + 1 < argc) {
             view_file = argv[++i];
         } else if (strcmp(argv[i], "--view-tab") == 0 && i + 1 < argc) {
             view_tab = atoi(argv[++i]);
+#endif
         } else if (strcmp(argv[i], "--no-crt") == 0) {
             no_crt = 1;
         } else {
             fprintf(stderr, "usage: %s [--scale N] [--no-crt] [--replay recording.txt]\n"
                             "       %s --check check.txt [--out dir] [--record recording.txt] [--wav sound.wav]\n"
-                            "                 [--view-shot view.png [--view-tab 0..3]]\n", argv[0], argv[0]);
+                            VIEW_USAGE, argv[0], argv[0]);
             return 2;
         }
     }
@@ -1156,5 +1161,4 @@ int main(int argc, char **argv)
         return status;
     }
     return window(scale < 1 ? 1 : scale, no_crt, replay_file);
-#endif
 }
