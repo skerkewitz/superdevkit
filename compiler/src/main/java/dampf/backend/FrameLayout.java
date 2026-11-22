@@ -118,7 +118,9 @@ final class FrameLayout {
             base = p.op(0);
             offset = (int) p.op(1).type().signed(((Value.Const) p.op(1)).bits());
         }
-        if (base instanceof Instr.PtrAdd q && (indexable(q) || offset == 0 && pointerIndexable(q))) {
+        // a pointer plus an index only where the sum is not computed: a computed sum is read as
+        // [sum],y, since its index may have been handed on in A into it and never stored
+        if (base instanceof Instr.PtrAdd q && (indexable(q) || offset == 0 && pointerIndexable(q) && folded.contains(q))) {
             return new Address(q.op(0), offset, q.op(1));
         }
         ConstAddress c = constAddress(base);

@@ -155,6 +155,11 @@ allowed (the platform layer uses them); this form does not need the rule against
   `ASL`, `TAX`, `JMP (table,X)`) costs about 24 cycles, as much as the chain of compares over three
   to four cases, needs X, and gives the timing analysis an indirect jump. The game's switches are
   short; after the branch relaxation a matching case costs a taken `BEQ`.
+- Dropping `findForwards` (the code generator's plan for values handed on in A) or `Schedule` (a
+  value moved next to its only user) and leaving their work to `RedundantLoads` and `DeadStores`
+  on the LIR (2026-11-22): without `findForwards` the examples were 1.6 % slower, without
+  `Schedule` 0.5 %, without both 2.1 %, and the copy loops of the spelling families up to 77 %
+  slower ([log](optimizations-log.md#without-findforwards-or-schedule-measured-2026-11-22)).
 
 ## Ideas not yet built
 
