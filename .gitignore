@@ -13,6 +13,9 @@ docs/book/.vitepress/cache/
 docs/book/.vitepress/dist/
 __pycache__/
 
+# The game's findings for the kit quote its code, which stays out of this repository (ADR-6F60Z819).
+docs/superkit-findings.md
+
 # APM (./apmw install): the downloaded packages and the skills they put into .claude/skills.
 # The project's own skills there are not named sker-*.
 apm_modules/

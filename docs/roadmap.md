@@ -441,8 +441,7 @@ Dates are 2026-11-17 unless a line says otherwise. The measurements are in [opti
   the PC (`dev/bench_game.sh`). The game's finding 5 (`(unsigned)` casts in `video.c`) is in
   the snapshot, so all 16 files pass the front end.
 - **Step 3: the replays.** A converter turns a replay into an input table in ROM;
-  `plus_bot_seed42.bbr` (3,000 ticks, 50 checksums) matches on the PC and on the SNES
-  (`./gradlew test -Preplays`).
+  `plus_bot_seed42.bbr` (3,000 ticks, 50 checksums) matches on the PC and on the SNES.
 - **Step 4: cycles per function.** `dev/profile_game.sh bench|replay` and `dampf profile`.
 - **Step 5: first reference function.** `level_solid_px` by hand (`reference/`,
   `dampf build --replace`); dampf's naive code was 4.5 times slower.
