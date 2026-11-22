@@ -11,20 +11,20 @@ name it can use starts with `sdevkit_` or `SDEVKIT_`
 | `include/sdevkit/snes.h` | The console API: PVSnesLib's functions renamed (`setMode` is `sdevkit_set_mode`), the extensions PVSnesLib has no function for (`sdevkit_reg_write`, `sdevkit_hdma_set`, `sdevkit_dma_fits`), their constants (`SDEVKIT_*`), the sprite table `sdevkit_oam_memory`, and the debug calls (`sdevkit_dbg_*`). |
 | `include/sdevkit/loop.h` | The frame rhythm: the library's main loop calls `game_init`, then per frame `game_tick` and `game_vblank`, which every game defines; the pad bits `SDEVKIT_KEY_*`. |
 | `snes/` | The SNES: the API in C with registers as `volatile` pointers (`snes.c`, `hw.h`) and the main loop (`main.c`), compiled by dampf with the game. See its [README](snes/README.md). |
-| `rachael/` | The desktop (and the web, M8): [Rachael](#rachael), the SNES rebuilt in portable C (`ppu.c`, `render.c`). `rachael.h` is its interface to the frontends (`sdevkit__vblank`, `sdevkit__render`, ...), not for games. Taken over from Blubber Blasen's `src/snes`; new against the game's copy: 16 x 16 background tiles, and row y of the picture is scanline y + 1 as on the SNES. |
+| `rachael/` | The desktop and the web: [Rachael](#rachael), the SNES rebuilt in portable C (`ppu.c`, `render.c`). `rachael.h` is its interface to the frontends (`sdevkit__vblank`, `sdevkit__render`, ...), not for games. Taken over from Blubber Blasen's `src/snes`; new against the game's copy: 16 x 16 background tiles, and row y of the picture is scanline y + 1 as on the SNES. |
 | `sound/` | The sound effects' logic, the same on both (`sfx_voices.h`, included by `snes/sfx.c` and `rachael/sfx.c`; [docs/sound.md](../docs/sound.md)): the upload of the driver, the sample directory and the samples, the voices counted down in frames, the priorities, one key on per frame. The SNES sends the bytes through the ports to the SPC700, Rachael puts them into her audio RAM and her DSP (`rachael/dsp.c`). |
-| `desktop/` | The desktop's frontend (`main.c`, Linux and Windows): a window with raylib and the retro TV filter (`crt.c`, [RETRO-EFFECT.md](desktop/RETRO-EFFECT.md); Tab, `--no-crt`), the keyboard and a gamepad as the joypad, the frame rhythm of `loop.h`; `--check check.txt` plays without a window and writes screenshots, the checksums and the sound (`sound.txt`: every DSP write; `--wav file`: the DSP's output). The window plays the sound through raylib's audio stream. Every session in the window is recorded (the joypad and the checksum of every tick): F11 flags the moment and saves it as `<game>_rec_<n>.txt`, in the format of `check.txt`; `--replay file` plays it in the window, pausing at its marks and at the first tick whose checksum differs, with F5 (pause), F6 (a tick) and F7 (fast); `dev/replay.sh <rom> <recording>` plays it on the SNES side, in dampf's emulator. F1 opens the debug view beside the picture (`view.c`, ADR-6F3CK03Z): the run (pause, a tick, slow motion with F8, fast), what the game registered with `sdevkit_dbg_toggle`, `_range`, `_color` and `_action` to change while it runs, its boxes (`sdevkit_dbg_box`) over the picture, CGRAM, VRAM's tiles and the sprites; a change made there is noted in the recording, whose replay plays another game from there. `--view-shot file.png` draws the view after a check, in a hidden window. Save RAM (`sdevkit_sram`) is `<game>.srm` next to the program. Built by `superdevkit build linux` and `win64` (MSVC). |
-| `web/` | The web, later (M8, [the plan](../docs/superdevkit-transition.md)). |
+| `desktop/` | The desktop's frontend (`main.c`, Linux and Windows): a window with raylib and the retro TV filter (`crt.c`, [RETRO-EFFECT.md](desktop/RETRO-EFFECT.md); Tab, `--no-crt`), the keyboard and a gamepad as the joypad, the frame rhythm of `loop.h`; `--check check.txt` plays without a window and writes screenshots, the checksums and the sound (`sound.txt`: every DSP write; `--wav file`: the DSP's output). The window plays the sound through raylib's audio stream. Every session in the window is recorded (the joypad and the checksum of every tick): F11 flags the moment and saves it as `<game>_rec_<n>.txt`, in the format of `check.txt`; `--replay file` plays it in the window, pausing at its marks and at the first tick whose checksum differs, with F5 (pause), F6 (a tick) and F7 (fast); `dev/replay.sh <rom> <recording>` plays it on the SNES side, in dampf's emulator. F1 opens the debug view beside the picture (`view.c`, ADR-6F3CK03Z): the run (pause, a tick, slow motion with F8, fast), what the game registered with `sdevkit_dbg_toggle`, `_range`, `_color` and `_action` to change while it runs, its boxes (`sdevkit_dbg_box`) over the picture, CGRAM, VRAM's tiles and the sprites; a change made there is noted in the recording, whose replay plays another game from there. `--view-shot file.png` draws the view after a check, in a hidden window. Save RAM (`sdevkit_sram`) is `<game>.srm` next to the program. Built by `superdevkit build linux` and `win64` (MSVC), and for the web by `superdevkit build web` (emcc) with `web/`. |
+| `web/` | What the web adds to the desktop's frontend ([ADR-6FCVAA30](../docs/adr/6FCVAA30-the-web-runs-the-desktop-s-frontend-which-waits.md)): the page (`shell.html`: the canvas fills the browser's window, a click starts the game, since the browser plays sound and gives the page the keyboard only after one, and the keys of the game and the debug view stay with it), and `web.c`: `desktop/main.c`'s loops wait there for the browser's frames (Asyncify), a clock of 60 ticks a second says how many ticks each frame runs; the save RAM is `/save/<game>.srm` in IndexedDB; F11's recording and F12's screenshot become downloads. No `--check` on the web. `superdevkit build web` writes `build/web/index.html` (with `index.js`, `index.wasm`, and `index.data` with the music), `superdevkit run web` serves it on this machine and opens the browser. |
 | `splash/` | The splash screen every game starts with (ADR-6F60Z5JJ and ADR-6F60ZA6T): its course (`splash.h`, included by both main loops) and the logo (`splash_logo.h`: BG1 tiles and the stars as sprites, made by `dev/art/splash.py` from the parts that `dev/art/splash_parts.py` cuts from `dev/art/splash/logo_source.png`). |
 | `C_STYLE.md` | How to write a game's C for dampf: rejected, allowed, slow, fast, no difference; its speed rules are measurements (`StyleGuideTest`). |
 | `SNES_HARDWARE.md` | What the SNES allows and punishes, which of it the kit has, and how each rule is checked. |
 
 A game is built by `superdevkit build` from its `superdevkit.toml` (the `cli`). On the SNES with
 `-I lib/include` in front of its own include paths and `lib/snes/*.c` among its sources (dampf).
-On the desktop (`linux`, `win64`) the game is compiled alone, without the host's headers
+On the desktop (`linux`, `win64`) and the web the game is compiled alone, without the host's headers
 (`-nostdinc`, dampf's include folder and `lib/include`), its objects are checked to call only the
-console API (`superdevkit.project.Symbols`), then it is linked with `lib/rachael/*.c
-lib/desktop/*.c` and raylib. The same game code gives the same picture on both,
+console API (`superdevkit.project.Symbols`, which reads ELF, COFF and WebAssembly objects), then it
+is linked with `lib/rachael/*.c lib/desktop/*.c` (and `lib/web/*.c` for the web) and raylib. The same game code gives the same picture on both,
 pixel for pixel (`dev/compare_example.sh`).
 
 ## Rachael
@@ -32,8 +32,8 @@ pixel for pixel (`dev/compare_example.sh`).
 Rachael is the SNES rebuilt in portable C: its video memory, CGRAM and OAM, its registers, DMA
 and HDMA, and a renderer that builds the picture line by line as the PPU does. It is not an
 emulator: it runs no 65816 code. The game is compiled for the PC with the system's C compiler
-and calls the same console API as on the SNES, so the same source runs on the desktop and, with
-M8, in the browser, and gives the same picture as the SNES, pixel for pixel
+and calls the same console API as on the SNES, so the same source runs on the desktop and in the
+browser, and gives the same picture as the SNES, pixel for pixel
 (`dev/compare_example.sh` checks it). Rachael also counts every byte the SNES would lose (written
 outside the vertical blank, or more than a vertical blank can copy), so what fits on the desktop
 fits on the console. She also counts every register write she does not draw (a mode other than
@@ -61,14 +61,14 @@ the PC's speed: a tick that takes two frames on the SNES takes one on Rachael, a
 for the console is never too slow there. dampf's timing report and the runs in Mesen
 (`dev/check_example.sh`) say how fast a game is on the SNES. A game must also reach the console
 only through the API: the desktop build checks that what a game's objects call is the kit's
-(`superdevkit build linux` and `win64`), since Rachael cannot see a write that goes around it.
+(`superdevkit build linux`, `win64` and `web`), since Rachael cannot see a write that goes around it.
 
 Three words, kept apart in all documents of the kit:
 
 | Word | What it is | Where |
 | --- | --- | --- |
 | Rachael | the console rebuilt in C, the same on every PC target | `rachael/` |
-| frontend | what one PC target adds to Rachael: the window, the keyboard and gamepad as the joypad, the frame rhythm of `loop.h`, the headless check | `desktop/` (Linux and Windows), `web/` (M8) |
+| frontend | what one PC target adds to Rachael: the window, the keyboard and gamepad as the joypad, the frame rhythm of `loop.h`, the headless check | `desktop/` (Linux and Windows), `web/` with `desktop/` (the browser) |
 | target | what a game is built for: `snes` (dampf and `snes/`, no Rachael), `linux`, `win64` and `web` (the system's C compiler or `emcc`, Rachael and that target's frontend) | `superdevkit build <target>` |
 
 So a game runs "on the SNES" or "on Rachael"; "the desktop" and "the web" name targets and their

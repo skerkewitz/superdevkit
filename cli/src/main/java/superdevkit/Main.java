@@ -17,9 +17,9 @@ import superdevkit.sfx.Sfx;
  *
  * <pre>
  * superdevkit init NAME [--from EXAMPLE]      a new project in ./NAME, copied from an example (hello)
- * superdevkit build TARGET [FOLDER]           snes, linux or win64; the project in FOLDER (default .)
+ * superdevkit build TARGET [FOLDER]           snes, linux, win64 or web; the project in FOLDER (default .)
  * superdevkit run [TARGET] [FOLDER]           builds and starts it: the desktop (linux or win64),
- *                                             or snes in Mesen
+ *                                             snes in Mesen, web in the browser
  *     --verbose   every step as it runs     --plan     the steps, without running them
  *     --dry-run   checks that everything is there, and does nothing                --debug    no optimization (desktop)
  * superdevkit png tiles|tiles2|palette|mode7 picture.png NAME out_dir [FIRST]
@@ -132,8 +132,7 @@ public final class Main {
             }
             int status = Build.run(steps, plan, dryRun, verbose, out, err);
             if (status == 0 && !plan && !dryRun && args[0].equals("build")) {
-                out.println("built " + Build.rel(p, target.equals("snes") ? Build.rom(p)
-                        : p.dir().resolve("build").resolve(target).resolve(p.name() + (target.equals("win64") ? ".exe" : ""))));
+                out.println("built " + Build.rel(p, Build.output(p, target)));
             }
             return status;
         } catch (Project.Error | Build.Failure e) {
@@ -187,8 +186,9 @@ public final class Main {
     private static int usage(PrintStream err) {
         err.println("""
                 usage: superdevkit init NAME [--from EXAMPLE]   a new project in ./NAME, from an example (hello)
-                       superdevkit build TARGET [FOLDER]         snes, linux or win64; the project in FOLDER (.)
-                       superdevkit run [TARGET] [FOLDER]         builds and starts it (the desktop; snes in Mesen)
+                       superdevkit build TARGET [FOLDER]         snes, linux, win64 or web; the project in FOLDER (.)
+                       superdevkit run [TARGET] [FOLDER]         builds and starts it (the desktop; snes in Mesen;
+                                                                 web in the browser, served from this machine)
                            --verbose  every step   --plan  the steps only   --dry-run  checks only   --debug  -O0
                        superdevkit png tiles|tiles2|palette|mode7 picture.png NAME out_dir [FIRST]
                        superdevkit sfx assets/sfx/sfx.json NAME out_dir

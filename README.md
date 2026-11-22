@@ -164,12 +164,13 @@ superdevkit init mygame --from catchme   # a new project, a copy of an example
 superdevkit build snes                    # build/snes/mygame.sfc (and build/compile_commands.json)
 superdevkit build linux                   # build/linux/mygame; win64 with MSVC, also from WSL
 superdevkit run                           # builds the desktop program and plays it; run snes: Mesen
+superdevkit run web                       # build/web/index.html (emcc), served here, in the browser
 superdevkit build snes --plan             # the steps, without running them (--verbose: while running)
 ```
 
 It converts the assets in Java (`superdevkit png`, `superdevkit sfx`), compiles with dampf in the
-same Java for the SNES, and calls the system's C compiler for the desktop, one call per file, after
-fetching raylib once. A SNES build also writes `build/snes/<name>.args`, dampf's argument file of
+same Java for the SNES, and calls the system's C compiler for the desktop (Emscripten's `emcc` for
+the web), one call per file, after fetching raylib once. A SNES build also writes `build/snes/<name>.args`, dampf's argument file of
 what it compiled.
 
 ## Using dampf

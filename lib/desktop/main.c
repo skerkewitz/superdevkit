@@ -59,7 +59,13 @@
  * game_init's writes the line "aram H": the FNV-1a of the bytes written into the audio RAM from $0200 on (each its address, low and high byte, then the value, in the order written). S counts the lines over the sprite limits (32 sprites,
  * 34 tiles); a game may mean that (flicker), so it does not fail the check.
  *
- * This file is host code for the desktop's C compiler, not for dampf.
+ * The web (superdevkit build web, emcc) builds this file too, with lib/web: the window is the
+ * browser's canvas, and the loops wait for the browser's frames (sdevkit__web_frame), which a
+ * clock of 60 ticks a second steps the game by; the save RAM is /save/<game>.srm, kept in
+ * IndexedDB; the music is /music/<file> (packed into the page's data); F11 and F12 offer their
+ * files as downloads. There is no --check and no --replay on the web.
+ *
+ * This file is host code for the desktop's C compiler (and emcc), not for dampf.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -71,6 +77,12 @@
 #include "raylib.h"
 #include "crt.h"
 #include "view.h"
+#ifdef __EMSCRIPTEN__
+#include "web.h"
+#define APP_DIR "/"                             /* the music: /music/<file>, packed into the page's data */
+#else
+#define APP_DIR GetApplicationDirectory()
+#endif
 
 #ifndef GAME_NAME
 #define GAME_NAME "superdevkit"
@@ -217,7 +229,7 @@ static void music_step(int paused)
                         sdevkit__music_count);
             } else {
                 char path[1024];
-                snprintf(path, sizeof path, "%s%s", GetApplicationDirectory(), sdevkit__music_files[sdevkit__music.track]);
+                snprintf(path, sizeof path, "%s%s", APP_DIR, sdevkit__music_files[sdevkit__music.track]);
                 music = LoadMusicStream(path);
                 if (IsMusicValid(music)) {
                     music.looping = true;
@@ -529,10 +541,19 @@ static uint16_t sdevkit__splash_frame(uint8_t brightness)
     picture();
     splash_count++;
     if (splash_scale > 0) {
+#ifdef __EMSCRIPTEN__
+        static int due;                     /* ticks due in the browser's frame that are not shown */
+        if (due > 0) {                      /* a slow screen: the splash keeps the clock's time */
+            due--;
+            return keyboard();
+        }
+        due = sdevkit__web_frame() - 1;
+#else
         if (WindowShouldClose()) {
             CloseWindow();
             exit(0);
         }
+#endif
         show(splash_texture, NULL);
         return keyboard();
     }
@@ -586,7 +607,12 @@ static void sram_load(void)
 {
     FILE *f;
 
+#ifdef __EMSCRIPTEN__
+    sdevkit__web_mount();
+    snprintf(sram_path, sizeof sram_path, "/save/%s.srm", GAME_NAME);
+#else
     snprintf(sram_path, sizeof sram_path, "%s%s.srm", GetApplicationDirectory(), GAME_NAME);
+#endif
     memset(sdevkit_sram(), 0, SDEVKIT_SRAM_SIZE);
     f = fopen(sram_path, "rb");
     if (f != NULL) {
@@ -615,6 +641,11 @@ static void sram_store(void)
     if (f != NULL) {
         fclose(f);
     }
+#ifdef __EMSCRIPTEN__
+    if (sram_path[0] != 0) {
+        sdevkit__web_sync();
+    }
+#endif
 }
 #endif
 
@@ -745,6 +776,9 @@ static void flag(void)
     }
     if (rec_save(name)) {
         fprintf(stderr, "%s: tick %ld flagged, the recording is %s\n", GAME_NAME, tick_count, name);
+#ifdef __EMSCRIPTEN__
+        sdevkit__web_download(name);
+#endif
     }
 }
 
@@ -770,8 +804,17 @@ static int window(int scale, int no_crt, const char *replay_file)
     }
     SetTraceLogLevel(LOG_WARNING);
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
+#ifdef __EMSCRIPTEN__
+    {
+        int w, h;                           /* the canvas fills the page; raylib follows its size */
+        sdevkit__web_size(&w, &h);
+        (void)scale;
+        InitWindow(w, h, GAME_NAME);
+    }
+#else
     InitWindow(SDEVKIT__W * scale, SDEVKIT__H * scale, GAME_NAME " (superdevkit)");
     SetTargetFPS(60);
+#endif
     {
         Image img = { rgba, SDEVKIT__W, SDEVKIT__H, 1, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 };
         tex = LoadTextureFromImage(img);
@@ -795,16 +838,24 @@ static int window(int scale, int no_crt, const char *replay_file)
     }
 #endif
     start(replaying ? replay.sram : NULL);
+#ifdef __EMSCRIPTEN__
+    for (;;) {
+        int due = sdevkit__web_frame();     /* the browser's next frame, and the ticks the clock has due */
+#else
     while (!WindowShouldClose()) {
+        int due = 1;                        /* EndDrawing waited for the frame (SetTargetFPS) */
+#endif
         int steps;
         int k;
         const char *changed;
         if (IsKeyPressed(KEY_F6)) {
             run.step = 1;
         }
-        steps = run.paused ? (run.step ? 1 : 0) : run.fast ? 8 : run.slow ? (frames % 4 == 0) : 1;
+        /* slow motion: a tick every fourth one due */
+        steps = run.paused ? (run.step ? 1 : 0) : run.fast ? 8 * due : run.slow ? (int)((frames + due + 3) / 4 - (frames + 3) / 4)
+                : due;
         run.step = 0;
-        frames++;
+        frames += due;
         if (IsKeyPressed(KEY_F5)) {
             run.paused = !run.paused;
         }
@@ -866,6 +917,9 @@ static int window(int scale, int no_crt, const char *replay_file)
             char name[64];
             snprintf(name, sizeof name, "%s_%d.png", GAME_NAME, shots++);
             save_png(name);
+#ifdef __EMSCRIPTEN__
+            sdevkit__web_download(name);
+#endif
         }
 #if SDEVKIT_SRAM_SIZE > 0
         if (tick_count % 30 == 0) {
@@ -1045,6 +1099,13 @@ static int check(const char *path, const char *out, const char *record, const ch
 
 int main(int argc, char **argv)
 {
+#ifdef __EMSCRIPTEN__
+    (void)argc;
+    (void)argv;
+    (void)check;                            /* without a window: not on the web */
+    (void)view_shot;
+    return window(3, 0, NULL);              /* the page passes no options */
+#else
     const char *check_file = NULL;
     const char *replay_file = NULL;
     const char *record_file = NULL;
@@ -1095,4 +1156,5 @@ int main(int argc, char **argv)
         return status;
     }
     return window(scale < 1 ? 1 : scale, no_crt, replay_file);
+#endif
 }

@@ -8,7 +8,8 @@ import java.util.List;
  * {@code superdevkit run}: after the build, starts the program (ADR-6F3CJZBY): the desktop's in its
  * window (the machine's own target by default: linux, also under WSL, whose windows WSLg shows; win64
  * on Windows), or the ROM in Mesen for snes (MESEN names it, else MesenCE in the kit's .mesen/,
- * ADR-6F3CK1V6). It waits until the program ends.
+ * ADR-6F3CK1V6). It waits until the program ends. For web it serves the page and opens it in the
+ * browser ({@link Serve}), until Ctrl+C.
  */
 public final class Run {
     private Run() {
@@ -28,6 +29,9 @@ public final class Run {
     }
 
     public static Build.Step step(Project p, Kit kit, String target) {
+        if (target.equals("web")) {
+            return Serve.step(p);
+        }
         Path program = target.equals("snes") ? mesen(kit) : Desktop.output(p, target);
         List<String> cmd = target.equals("snes") ? List.of(program.toString(), Build.rom(p).toAbsolutePath().toString())
                 : List.of(program.toAbsolutePath().toString());

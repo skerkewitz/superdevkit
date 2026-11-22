@@ -223,15 +223,21 @@ recordings stay its own, reached through `sdevkit_dbg_action`).
 
 ## M8: the web (0.8.0)
 
-- `web` as a target of the CLI with `emcc` and raylib's web build; `lib/web`: the page, the click
-  to start (sound and keyboard focus need a click in the browser), save RAM in IndexedDB.
-- The game is compiled on its own as on the desktop (ADR-6F3CK2AR, `superdevkit build linux`):
-  `-nostdinc` with dampf's include folder, then the symbol check on its objects (`emcc` writes
-  LLVM objects, which `superdevkit.project.Symbols` would have to read too) before the link.
-- `superdevkit run web` serves the build on a local port and opens the browser.
-- The examples in the browser; Blubber Blasen's web build from the kit, and then the game drops
-  `src/snes`, `src/platform` and its web build: its folder holds its game, its assets, its debug
-  registrations and `superdevkit.toml`.
+Built on 2026-11-22 ([ADR-6FCVAA30](adr/6FCVAA30-the-web-runs-the-desktop-s-frontend-which-waits.md)):
+`web` as a target of the CLI (`superdevkit.project.Web`) with `emcc` and raylib's prebuilt web
+package, the game compiled on its own as on the desktop and its objects checked (`Symbols` reads
+WebAssembly objects: emcc writes wasm, not LLVM bitcode), `lib/web` (the page with the click to
+start, the browser's frames for the desktop's loops, save RAM in IndexedDB, F11 and F12 as
+downloads), and `superdevkit run web` (`Serve`: the JDK's HTTP server on 127.0.0.1, the browser
+opened). CatchMe plays in headless Chromium, its save RAM kept across page loads. What is left:
+
+- The examples in the browser, checked by a test as `ExamplesTest` checks the desktop: each built
+  for the web and played in headless Chromium (Playwright, as the BRR Lab's tests), the checksums
+  of its ticks against the desktop's. Needs a way to give the page a `check.txt`, which the web's
+  `main` does not take yet.
+- Blubber Blasen's web build from the kit, and then the game drops `src/snes`, `src/platform` and
+  its web build: its folder holds its game, its assets, its debug registrations and
+  `superdevkit.toml`. With the game (a finding).
 
 ## Not scheduled
 

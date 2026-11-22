@@ -62,6 +62,9 @@ The target `web` with Emscripten, save RAM in the browser, `superdevkit run web`
 and Blubber Blasen in the browser, after which the game drops its own PC side. The steps are in
 [superdevkit-transition.md](superdevkit-transition.md#m8-the-web-080).
 
+State (2026-11-22): the target, `lib/web`, the symbol check of WebAssembly objects and `run web`
+are built (ADR-6FCVAA30); the examples' check in the browser and Blubber Blasen's switch are left.
+
 ## M9: the optimizer (0.9.0)
 
 What was left of M3. The rows are from the plan made on 2026-11-17 and keep its numbers; the
