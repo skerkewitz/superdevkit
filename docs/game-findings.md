@@ -147,5 +147,6 @@ dampf now splits a `uint32_t` that is only loaded, combined with `&`, `|` or `^`
 16-bit values itself: `hash ^= key` costs 36 CPU cycles, the same as on two `uint16_t` halves
 (84 before). The C guide's `slow-32-bit` now speaks only of arithmetic, and `same-32-bit-bits` is
 new. What the game would change: nothing it must. A value kept as two halves only for the old rule
-can be one `uint32_t` again. Additions, comparisons and multiplications of 32-bit values still cost
-more than twice their 16-bit form.
+can be one `uint32_t` again. A test of such a value with `!= 0` or `==` is split too: a loop that
+tests 32-bit rows against a mask costs 40 % less. Additions, ordered comparisons and
+multiplications of 32-bit values still cost more than twice their 16-bit form.

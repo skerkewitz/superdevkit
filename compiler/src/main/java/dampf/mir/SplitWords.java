@@ -16,9 +16,10 @@ import java.util.Set;
  *
  * <p>A value is split if it is a load (not volatile), an AND, OR or XOR, or a φ, if its operands are
  * such values, constants or zero extensions, and if everything that reads it can take the halves: a
- * store, another such value, a truncation (the low half) or {@code lshr 16} (the high half). Anything
- * else (an addition, a comparison, a call) keeps the whole web as it is, so a value is never put
- * together again.
+ * store, another such value, a truncation (the low half), {@code lshr 16} (the high half), or a test
+ * for equality: {@code x != 0} is {@code (lo | hi) != 0}, and {@code x == y} compares
+ * {@code (xl ^ yl) | (xh ^ yh)} with 0. Anything else (an addition, an ordered comparison, a call)
+ * keeps the whole web as it is, so a value is never put together again.
  */
 public final class SplitWords {
     private final MFunction f;
@@ -113,6 +114,11 @@ public final class SplitWords {
                         before(s, new Instr.Store(high, h[1], false, s.pos()));
                         s.block().remove(s);
                     }
+                    case Instr.Cmp c -> {
+                        if (!replaced.containsKey(c)) {   // (both of its operands may be split)
+                            replaced.put(c, equality(c));
+                        }
+                    }
                     case Instr.Cast c -> replaced.put(c, c.type() == MType.I16 ? h[0]
                             : before(c, new Instr.Cast(Instr.CastKind.TRUNC, h[0], c.type(), c.pos())));
                     case Instr.Bin x -> replaced.put(x, before(x, new Instr.Cast(Instr.CastKind.ZEXT, h[1], MType.I32, x.pos())));
@@ -128,6 +134,34 @@ public final class SplitWords {
             i.block().remove(i);
         }
         return true;
+    }
+
+    /** c, an EQ or NE of two 32-bit values, on their halves: zero exactly if every half is equal. */
+    private Instr equality(Instr.Cmp c) {
+        Value lo = difference(c, 0);
+        Value hi = difference(c, 1);
+        Value any;
+        if (lo instanceof Value.Const k && k.bits() == 0) {
+            any = hi;
+        } else if (hi instanceof Value.Const k && k.bits() == 0) {
+            any = lo;
+        } else {
+            any = before(c, new Instr.Bin(Instr.BinOp.OR, lo, hi, c.pos()));
+        }
+        return before(c, new Instr.Cmp(c.pred, any, new Value.Const(MType.I16, 0), c.pos()));
+    }
+
+    /** Half w of c's operands, XORed; the half itself where the other one is the constant 0. */
+    private Value difference(Instr.Cmp c, int w) {
+        Value a = half(c.op(0), w);
+        Value b = half(c.op(1), w);
+        if (b instanceof Value.Const k && k.bits() == 0) {
+            return a;
+        }
+        if (a instanceof Value.Const k && k.bits() == 0) {
+            return b;
+        }
+        return before(c, new Instr.Bin(Instr.BinOp.XOR, a, b, c.pos()));
     }
 
     private static <T extends Instr> T before(Instr at, T instr) {
@@ -152,13 +186,17 @@ public final class SplitWords {
             return true;
         }
         for (Value v : i.operands()) {
-            boolean fits = v instanceof Value.Const || v instanceof Instr d && web.contains(d)
-                    || v instanceof Instr.Cast c && c.kind == Instr.CastKind.ZEXT && c.op(0).type() == MType.I16;
-            if (!fits) {
+            if (!hasHalves(v, web)) {
                 return false;
             }
         }
         return true;
+    }
+
+    /** A split value, a constant, or a zero extension of a 16-bit value. */
+    private static boolean hasHalves(Value v, Set<Instr> web) {
+        return v instanceof Value.Const || v instanceof Instr d && web.contains(d)
+                || v instanceof Instr.Cast c && c.kind == Instr.CastKind.ZEXT && c.op(0).type() == MType.I16;
     }
 
     private boolean usersFit(Instr i, Set<Instr> web) {
@@ -169,6 +207,8 @@ public final class SplitWords {
                 case Instr.Bin x when web.contains(x) -> true;
                 case Instr.Bin x -> x.op == Instr.BinOp.LSHR && x.op(0) == i && x.op(1) instanceof Value.Const k && k.bits() == 16;
                 case Instr.Phi p -> web.contains(p);
+                case Instr.Cmp c -> (c.pred == Instr.Pred.EQ || c.pred == Instr.Pred.NE) && hasHalves(c.op(0), web)
+                        && hasHalves(c.op(1), web);
                 default -> false;
             };
             if (!fits) {

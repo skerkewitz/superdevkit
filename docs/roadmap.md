@@ -111,7 +111,8 @@ Also in M9:
     the value not negative: gone on 2026-11-22; `slow-signed-divide` stays for values dampf knows
     nothing about;
   - 32-bit operands went through frame slots (`hash ^= key` copied all four words): gone for bit
-    operations on 2026-11-23 (`same-32-bit-bits`); `slow-32-bit` stays for arithmetic;
+    operations and tests for equality on 2026-11-23 (`same-32-bit-bits`); `slow-32-bit` stays for
+    arithmetic and ordered comparisons;
   - a constant shift above 8 was a loop (`shl 9` as `ldx #9; asl; dex; bne`; found in Schach's
     Zobrist table): gone on 2026-11-22 with `slow-shift-above-8`.
 
