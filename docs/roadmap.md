@@ -32,8 +32,8 @@ The version is the dev kit's; it is in `build.gradle.kts`, and `dampf --version`
 Milestone N is released as version 0.N.0; between milestones the last number rises for every
 change worth naming, features included. M6 was done ahead of M5 and is part of 0.4.0, and M5,
 concluded after 0.5.0 was in use, took the free 0.6.0. Every version before 1.0 is a pre-release: the subset,
-the command line and the files dampf writes may change from one to the next. Publishing is a
-step of its own, not scheduled yet (see [Publishing](#publishing-not-scheduled)). What 1.0
+the command line and the files dampf writes may change from one to the next. The repository is
+public, and 0.9.1 is its first release with downloads (see [Publishing](#publishing)). What 1.0
 needs is an open question. The rule is ADR
 [ADR-6F3CJT1P](adr/6F3CJT1P-milestone-n-is-version-0n0-and-the-first-public.md), amended by
 [ADR-6F3CJX8T](adr/6F3CJX8T-superdevkit-is-the-project-and-dampf-is-its.md) and
@@ -151,7 +151,7 @@ and the locals of a function in their direct page places. The cc65 format alread
 for part of this (a storage class `sc` and an offset on `csym`) that Mesen ignores. The plan:
 dampf first fills what the format has, then a small patch teaches Mesen to read it, offered to
 MesenCE, where Mesen is maintained now ([ADR-6F3CK1V6](adr/6F3CK1V6-mesence-is-the-emulator-for-the-console-checks.md)); NES developers who use cc65 would gain from it too. A patch from a compiler with
-users is easier to argue for, so the patch waits until the dev kit is public. With it, the code from MIR
+users is easier to argue for, so the patch waited until the dev kit was public, as it now is. With it, the code from MIR
 writes the processor state line in the assembly as the naive code generator does.
 
 ## M12: fine tuning (0.12.0)
@@ -201,10 +201,9 @@ Music on the SNES (the calls are a stub there; sound effects and save RAM are bu
 macOS (raylib runs there; nobody can test it now), `superdevkit bundle` (one folder with every
 target, ready to publish), the desktop running the ROM in an emulator and Mesen as the desktop.
 
-## Publishing (not scheduled)
+## Publishing
 
-The dev kit goes public as superdevkit when it is useful to someone other than Blubber Blasen.
-What it takes:
+The dev kit went public as superdevkit on 2026-11-23, after version 0.9.0. What it took:
 
 - **Own examples instead of Blubber Blasen.** Done on 2026-11-19 (ADR-6F60Z819): the snapshot,
   its replays and its hand-written function left the repository, and on 2026-11-19 the git
@@ -224,7 +223,7 @@ What it takes:
   `docs/game-guide.md` is written from them there.
 - **The documents** say nothing that only holds for the private repository.
 - **The repository renamed** to superdevkit, with dampf as its compiler: done on 2026-11-19 (on
-  GitHub, still private), the README and the documents follow it.
+  GitHub, then still private), the README and the documents follow it.
 - **The book's getting started on `hello`**, with the book before the
   release ([ADR-6F60ZB4N](adr/6F60ZB4N-the-book-is-brought-in-step-before-a-release-not.md); from M5).
 - **Before the first release** ([ADR-6F60Z9QJ](adr/6F60Z9QJ-the-release-is-a-zip-per-system-with-a-java.md)):

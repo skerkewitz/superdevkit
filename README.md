@@ -32,7 +32,7 @@ milestones and versions are in [docs/roadmap.md](docs/roadmap.md), why the kit i
 dampf its compiler in [ADR-6F3CJX8T](docs/adr/6F3CJX8T-superdevkit-is-the-project-and-dampf-is-its.md).
 
 `./gradlew installDist` writes a superdevkit home to `build/install/superdevkit`: the compiler,
-the library, the tools, the examples, the desktop build and the book, all a game needs. A game
+the library with the desktop's frontend, the tools, the examples and the book, all a game needs. A game
 lives in a folder of its own and names the home; the book's
 [Getting started](docs/book/guide/getting-started.md) shows how.
 
@@ -89,8 +89,8 @@ Goals:
 4. Readable output: the generated assembly is commented so a human can follow what each part is
    meant to do.
 5. Correctness first: every optimization is checked automatically against a reference.
-6. Nothing to install but Java. dampf preprocesses, assembles and links with its own preprocessor,
-   assembler and linker.
+6. Nothing to install for a SNES build. A release zip brings its own Java, and dampf preprocesses,
+   assembles and links with its own preprocessor, assembler and linker.
 
 Non-goals:
 
@@ -180,7 +180,7 @@ superdevkit gen                           # only the conversions, into build/gen
 
 It converts the assets in Java (`superdevkit png`, `superdevkit sfx`), compiles with dampf in the
 same Java for the SNES, and calls the system's C compiler for the desktop (Emscripten's `emcc` for
-the web), one call per file, after fetching raylib once. A SNES build also writes `build/snes/<name>.args`, dampf's argument file of
+the web), one call per file, after fetching raylib if the kit does not hold it. A SNES build also writes `build/snes/<name>.args`, dampf's argument file of
 what it compiled.
 
 A game with converters of its own names them in `superdevkit.toml`, and every build runs them first,
@@ -210,8 +210,8 @@ dampf build @examples/ertuep/build/snes/ertuep.args -o build/ertuep.sfc
 
 The launcher is `build/install/superdevkit/bin/dampf` (`./gradlew installDist`).
 
-`build` writes the ROM and next to it the generated assembly (`.s`, with the C source line and a
-comment for each instruction; the naive code also shows the processor state), the debug file
+`build` writes the ROM and next to it the generated assembly (`.s`, with the C source line; the naive code also has a comment for each instruction and the
+processor state), the debug file
 (`.dbg`, in ld65's format, which Mesen reads) and a label file. `--assembler ca65` assembles and
 links with ca65 and ld65 instead of dampf's own assembler and linker (the same ROM; ld65 also
 writes a map file). The runtime calls the entry function after start-up (`void name(void)`, default
@@ -233,8 +233,8 @@ ROM that reports through their ports, such as Blubber Blasen's `bench.c` in the 
 Open the ROM in Mesen (MesenCE; Mesen 2 works the same) with the `.dbg` file next to it. In the debugger's integration settings,
 let Mesen load `.dbg` files automatically; it then shows the C source. The debug file names the C
 sources relative to itself, so keep the repository's layout. From WSL, open the ROM through
-`\\wsl.localhost\...`. The book's [debugging](docs/book/guide/debugging.md) page shows how to
-step through C.
+`\\wsl.localhost\...`. The book's [debugging](docs/book/guide/debugging.md) page explains what a
+stop on a C line means and how to read the assembly beside it.
 
 ## Repository layout
 
@@ -242,7 +242,7 @@ The top level shows what a release of superdevkit holds (ADR
 [ADR-6F60Z9QJ](docs/adr/6F60Z9QJ-the-release-is-a-zip-per-system-with-a-java.md)), and the folders for
 developing it. `./gradlew installDist` writes the distribution in that shape to
 `build/install/superdevkit`: a superdevkit home with all a game needs (`bin/`, `java/`,
-`include/`, `lib/`, `tools/`, `examples/`, the desktop build in `dev/`), so a game outside this
+`include/`, `lib/`, `tools/`, `examples/`, `dev/replay.sh`), so a game outside this
 repository points at it. The book's [Getting started](docs/book/guide/getting-started.md) shows how;
 jre/ and raylib/ come with the release zips.
 
