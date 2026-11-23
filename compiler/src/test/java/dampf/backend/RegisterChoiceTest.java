@@ -313,6 +313,47 @@ class RegisterChoiceTest {
     }
 
     @Test
+    void theLoopsAreKnownAfterAnEarlierChoice() {
+        // w goes to X first, which cuts the code into new blocks; v, in Y for the loop only (the
+        // loop needs X for another index), must still find the loop among them
+        LFunction f = new LFunction(new LDirective(LDirective.Kind.PROC, null, List.of("f"), null, ".proc f"));
+        f.rebuild(new ArrayList<>(List.of(
+                ins("lda", place(P)), ins("inc", new LOperand.Acc()), ins("sta", place(W)),
+                ins("ldx", place(W)), ins("lda", global("_s", LOperand.Index.X)), ins("sta", global("_o0", LOperand.Index.NONE)),
+                ins("lda", place(P)), ins("inc", new LOperand.Acc()), ins("sta", place(V)),
+                ins("lda", global("_g", LOperand.Index.NONE)), ins("sec"), ins("sbc", place(V)), ins("sta", global("_o1", LOperand.Index.NONE)),
+                new dampf.lir.LLabel("loop"),
+                ins("ldx", new LOperand.Imm("$0005")), ins("lda", global("_a", LOperand.Index.X)), ins("sta", global("_o", LOperand.Index.NONE)),
+                ins("ldx", place(V)), ins("lda", global("_t", LOperand.Index.X)), ins("sta", global("_o2", LOperand.Index.NONE)),
+                ins("inc", place(V)), ins("lda", place(V)), ins("cmp", new LOperand.Imm("$0010")), ins("bcc", new LOperand.Label("loop")),
+                ins("lda", global("_h", LOperand.Index.NONE)), ins("sec"), ins("sbc", place(V)), ins("sta", global("_o3", LOperand.Index.NONE)),
+                ins("rtl"))));
+        java.util.Set<dampf.lir.LBlock> loop = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        loop.add(f.block("loop"));
+        PlaceColouring.Frame frame = new PlaceColouring.Frame() {
+            @Override
+            public Integer fixed(PlaceColouring.Place p) {
+                return p.key() == P ? 0 : null;
+            }
+
+            @Override
+            public int bytes(PlaceColouring.Place p) {
+                return 2;
+            }
+        };
+        RegisterChoice.run(f, o -> Set.of(P, V, W).contains(o.key()), frame, Map.of(f.block("loop"), 8.0), false, false, List.of(loop));
+        List<String> out = new ArrayList<>();
+        for (LInstr i : f.instrs()) {
+            out.add(i.mnemonic() + (i.op() == null ? "" : i.op() instanceof LOperand.Mem m && m.owner() != null ? " " + m.owner().key()
+                    : " " + i.op().text()));
+        }
+        assertEquals(List.of("lda p", "inc a", "tax", "lda _s,x", "sta _o0", "lda p", "inc a", "sta v",
+                "lda _g", "sec", "sbc v", "sta _o1", "ldy v",
+                "ldx #$0005", "lda _a,x", "sta _o", "lda _t,y", "sta _o2", "iny", "cpy #$0010", "bcc loop",
+                "sty v", "lda _h", "sec", "sbc v", "sta _o3", "rtl"), out);
+    }
+
+    @Test
     void aLoadLeftOutNeverReliesOnAStoreTheLoadFormTakes() {
         // v = g1, w = g6, both indexes later (registers); the reload of v before EOR must stay
         // (A held v after STA v only while LDA _g1 / STA v was not LDY _g1; a random loop

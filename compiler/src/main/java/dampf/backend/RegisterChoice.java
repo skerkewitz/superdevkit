@@ -106,6 +106,9 @@ final class RegisterChoice {
                    boolean highWordInX, boolean resultInA, List<java.util.Set<LBlock>> loops, dampf.util.PassLimit limit) {
         returnsX = highWordInX;
         returnsA = resultInA;
+        // (apply cuts the code into new blocks: these follow them)
+        Map<LBlock, Double> blockWeights = new IdentityHashMap<>(weights);
+        List<java.util.Set<LBlock>> blockLoops = new ArrayList<>(loops);
         int n = 0;
         for (Reg r : Reg.values()) {
             while (true) {
@@ -121,9 +124,9 @@ final class RegisterChoice {
                     if (g.into != null || g.fixed != null || g.direct || g.bytes != 2 || !allTracked(g, tracked)) {
                         continue;
                     }
-                    Plan p = plan(lf, an, round, g, r, weights, null);
-                    for (java.util.Set<LBlock> loop : loops) {
-                        Plan q = plan(lf, an, round, g, r, weights, loop);
+                    Plan p = plan(lf, an, round, g, r, blockWeights, null);
+                    for (java.util.Set<LBlock> loop : blockLoops) {
+                        Plan q = plan(lf, an, round, g, r, blockWeights, loop);
                         if (q != null && (p == null || q.benefit() > p.benefit())) {
                             p = q;
                         }
@@ -149,7 +152,9 @@ final class RegisterChoice {
                 if (chosen == 0) {
                     break;
                 }
+                Map<LItem, LBlock> origin = origins(lf, replace);
                 apply(lf, replace);
+                follow(lf, origin, blockWeights, blockLoops);
                 n += chosen;
             }
         }
@@ -157,6 +162,50 @@ final class RegisterChoice {
             limit.count("RegisterChoice flags", lf.name());
         }
         return n;
+    }
+
+    /** The block each item comes from, and each item that replaces it. */
+    private static Map<LItem, LBlock> origins(LFunction lf, Map<LItem, List<LItem>> replace) {
+        Map<LItem, LBlock> origin = new IdentityHashMap<>();
+        for (LBlock b : lf.blocks()) {
+            for (LItem it : b.items()) {
+                origin.put(it, b);
+                for (LItem x : replace.getOrDefault(it, List.of())) {
+                    origin.put(x, b);
+                }
+            }
+        }
+        return origin;
+    }
+
+    /** Gives the blocks of the code as it is now the weights and loops of the blocks they came from. */
+    private static void follow(LFunction lf, Map<LItem, LBlock> origin, Map<LBlock, Double> weights, List<java.util.Set<LBlock>> loops) {
+        Map<LBlock, LBlock> was = new IdentityHashMap<>();
+        for (LBlock b : lf.blocks()) {
+            for (LItem it : b.items()) {
+                if (origin.containsKey(it)) {
+                    was.put(b, origin.get(it));
+                    break;
+                }
+            }
+        }
+        Map<LBlock, Double> newWeights = new IdentityHashMap<>();
+        was.forEach((b, old) -> {
+            if (weights.containsKey(old)) {
+                newWeights.put(b, weights.get(old));
+            }
+        });
+        weights.clear();
+        weights.putAll(newWeights);
+        for (int k = 0; k < loops.size(); k++) {
+            java.util.Set<LBlock> loop = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+            for (Map.Entry<LBlock, LBlock> e : was.entrySet()) {
+                if (loops.get(k).contains(e.getValue())) {
+                    loop.add(e.getKey());
+                }
+            }
+            loops.set(k, loop);
+        }
     }
 
     /** N and Z describe the value of: A, X, Y (bits), as far as known. */

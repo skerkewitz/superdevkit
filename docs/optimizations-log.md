@@ -1775,3 +1775,14 @@ eight 32-bit loops measured for the split (hashes, bitboards, xorshift, CRC) are
 0.999 (370,752 to 370,259), the other examples 1.000; no worst case smaller or larger. The pair
 loops' code is the same, and only the check after them is 41 cycles shorter.
 
+
+## The register choice keeps its weights after the first choice (2026-11-23, on the examples)
+
+`RegisterChoice` cuts the code into new blocks each time it applies a choice, and its block weights
+and its list of loops still named the old ones. From the second round on, every block weighed 1 and
+no value could take a register for one loop only. They now follow the blocks.
+
+The examples: hello 0.995, Er-Tüp 0.999, Catch Me 1.000, Schach 1.000 (370,259 to 370,396), the rest
+the same; geometric mean 0.999. Pair loop B 0.998, the others the same. Of the worst cases 17 are
+smaller and 21 larger, by at most 1.5 % (`sfx_voice`, in every ROM). The spelling families are the
+same.
