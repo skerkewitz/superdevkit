@@ -104,8 +104,8 @@ Write whichever reads better; these cost the same:
   byte offsets (`(Ball *)((uint8_t *)balls + list[k])`), as long as the offsets fit its type;
 - **`same-named-temporary`** a named temporary or the expression written inline: a value used
   once stays in the accumulator either way;
-- **`same-32-bit-bits`** a value only combined bit by bit (a hash) as one `uint32_t` or as two
-  `uint16_t` halves: dampf splits it into the halves itself.
+- **`same-32-bit-bits`** a value only combined bit by bit (a hash, a mask tested with `!= 0` or
+  `==`) as one `uint32_t` or as two `uint16_t` halves: dampf splits it into the halves itself.
 
 ## 6. The hints
 

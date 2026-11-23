@@ -1764,3 +1764,14 @@ addition, and `same-32-bit-bits` holds the new fact.
 The examples hardly have such values: Catch Me 0.998 (the moved loads), hello 16 master cycles a tick
 more (0.03 %), the rest the same; one worst case smaller, none larger. The pair loops are the same.
 
+## Tests for equality on split 32-bit values (2026-11-23, on a collision loop)
+
+`if (rows[y] & mask[y])` on two `uint32_t` kept the value whole, because `SplitWords` did not take
+a comparison as a reader. It now takes a test for equality: `x != 0` is `(lo | hi) != 0`, and
+`x == y` compares `(xl ^ yl) | (xh ^ yh)` with 0. An ordered comparison still keeps the web whole.
+
+A loop that tests 32-bit rows against a mask went from 1,777 to 1,073 cycles (-40 %). The other
+eight 32-bit loops measured for the split (hashes, bitboards, xorshift, CRC) are the same. Schach
+0.999 (370,752 to 370,259), the other examples 1.000; no worst case smaller or larger. The pair
+loops' code is the same, and only the check after them is 41 cycles shorter.
+
