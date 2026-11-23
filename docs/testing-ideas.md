@@ -232,7 +232,7 @@ one variable; if the whole set is too slow for every build, a build runs a tenth
 the date, and `-Pexhaustive` all.
 
 **The change, LIR.** For every rewrite that the class comments of `Peephole`, `KnownCarry`,
-`ByteStretches`, `RedundantLoads` and `IndexInY` describe: the instructions before it as LIR text
+`ByteStretches` and `RedundantLoads` describe: the instructions before it as LIR text
 (`LParser`; `LirTest` is the model), what is live after them (which of A, X, Y, the flags N, Z, C
 and V, and which places), and the assertion that the pass changes them. Then both versions are
 assembled (`dampf.asm.Assembler`) and run on a bare CPU

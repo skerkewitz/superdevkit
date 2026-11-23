@@ -6,7 +6,6 @@ import dampf.lir.BranchRelax;
 import dampf.lir.LOperand;
 import dampf.lir.ByteStretches;
 import dampf.lir.DeadStores;
-import dampf.lir.IndexInY;
 import dampf.lir.RedundantLoads;
 import dampf.lir.KnownCarry;
 import dampf.lir.LFunction;
@@ -169,7 +168,6 @@ public final class MirCodeGen {
             lf.rebuild(lf.items().stream().filter(it -> !(it instanceof dampf.lir.LMark)).toList());
             boolean resultInA = f.result() != MType.VOID;
             limit.apply("RedundantLoads", f.name(), () -> new RedundantLoads(resultInA).run(lf));
-            limit.apply("IndexInY", f.name(), () -> new IndexInY().run(lf));
             limit.apply("Peephole", f.name(), () -> new Peephole(Selection.FRAME_START).run(lf));
             limit.apply("ByteStretches", f.name(), () -> ByteStretches.run(lf));
             limit.apply("ByteLoops", f.name(), () -> dampf.lir.ByteLoops.run(lf, resultInA));

@@ -1775,3 +1775,36 @@ eight 32-bit loops measured for the split (hashes, bitboards, xorshift, CRC) are
 0.999 (370,752 to 370,259), the other examples 1.000; no worst case smaller or larger. The pair
 loops' code is the same, and only the check after them is 41 cycles shorter.
 
+
+## The register choice keeps its weights after the first choice (2026-11-23, on the examples)
+
+`RegisterChoice` cuts the code into new blocks each time it applies a choice, and its block weights
+and its list of loops still named the old ones. From the second round on, every block weighed 1 and
+no value could take a register for one loop only. They now follow the blocks.
+
+The examples: hello 0.995, Er-Tüp 0.999, Catch Me 1.000, Schach 1.000 (370,259 to 370,396), the rest
+the same; geometric mean 0.999. Pair loop B 0.998, the others the same. Of the worst cases 17 are
+smaller and 21 larger, by at most 1.5 % (`sfx_voice`, in every ROM). The spelling families are the
+same.
+
+## The index register choice, tried in `RegisterChoice` (2026-11-23)
+
+The goal was one place that decides X or Y, without selection's `findXCounters`, `findYIndexes` and
+the pass `IndexInY`. Selection wrote every index into X. `RegisterChoice` gave X to a value live
+through a loop and moved other indexes out of its way to Y, and a new step spread the indexes left
+over both registers by how often they alternate. Nine versions were measured, none good enough:
+
+| Version | Examples | Pair loops | Largest worst case |
+| --- | ---: | --- | ---: |
+| X by benefit, a second round for X | 1.0001 | C 1.015, D 1.004 | +7 % |
+| X to the value that loses most in Y | 1.0000 | C 1.015, D 1.003 | +15 % (Mode 7's `make_map`), `pairs_down` +32 % |
+
+The choice is greedy and counts cycles on paths that exclude each other, so a short value can take
+Y from an index used all over a function (`pair_f`). Doing better needs a cost model of the whole
+function, so selection's two patterns stay. Without `findYIndexes` the pair loops B and D cost 1.7
+and 1.8 % more; without `findXCounters` the examples cost 0.15 % more, the pair loops up to 0.9 %
+and worst cases up to 3 %.
+
+`IndexInY` did go. Once the weights were right it found almost nothing: Schach does 21 master
+cycles a tick more (370,396 to 370,417, ADR-6F3CJR10's price for a pass less), everything else is
+the same, and no worst case changed.
