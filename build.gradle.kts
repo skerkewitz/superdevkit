@@ -4,7 +4,7 @@
 // `./gradlew releaseZip` adds the Java runtime and raylib and writes the zip of this system.
 allprojects {
     group = "superdevkit"
-    version = "0.9.1"
+    version = "0.9.2"
     repositories {
         mavenCentral()
     }

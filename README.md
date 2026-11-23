@@ -21,7 +21,7 @@ Linux and Windows and as a page in the browser. The kit holds:
 - the **book** ([online](https://skerkewitz.github.io/superdevkit/book/) from version 0.9.1,
   [docs/book](docs/book)): the user guide and the reference.
 
-Status: version 0.9.1. Milestones
+Status: version 0.9.2. Milestones
 M0 to M9 are done: M6 is dampf's own assembler and
 linker; with M5 Blubber Blasen (the kit's first user, a game in its own repository) builds its
 ROM with the kit and plays its recordings with the PC's checksums; with M7 a game builds and runs
@@ -120,6 +120,7 @@ working documents it is written from.
 - [docs/testing.md](docs/testing.md): the test layers and how they work.
 - [docs/brainstorm](docs/brainstorm): summaries of brainstorming sessions, the options weighed before a decision.
 - [docs/roadmap.md](docs/roadmap.md): milestones and their state, risks, open questions, the relation to Blubber Blasen.
+- [docs/releases](docs/releases): the notes of each release from 0.9.2, as GitHub shows them.
 - [dev/README.md](dev/README.md): the scripts in `dev/`, for developing the kit against the examples.
 
 ## Prerequisites
