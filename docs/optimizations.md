@@ -34,8 +34,9 @@ on 2026-11-20:
 | Hello | 60,916 | 62,016 | 65.9 % |
 | Mode 7 | 27,211 | 27,462 | 68.0 % |
 
-The naive code generator does 3.0 times the work on the geometric mean of all seven examples, from
-1.26 times (Mandelbrot, whose time is the runtime's 32-bit multiplication) to 6.4 times (Er-Tüp).
+On 2026-11-20, before the runtime used the CPU's multiplier, the naive code generator did 3.0
+times the work on the geometric mean of all seven examples, from 1.26 times (Mandelbrot, whose
+time was the runtime's 32-bit multiplication) to 6.4 times (Er-Tüp).
 
 Before, dampf was measured on Blubber Blasen's benchmark (`tools/snesbench` in the game
 repository), which ran the game code with a fixed input, every PVSnesLib call stubbed out; all
@@ -53,7 +54,7 @@ after the optimizations on the branch `optimise`
 | dampf's naive code generator | play 4.37 (worst 7.26), with the CPU partner 5.58 (worst 10.53), also FastROM; 5.5 times as slow in play |
 | Against Calypsi | 2.14 times as fast: in the play ticks where both play the same scene (102 ticks, up to 812), FastROM for both, Calypsi 1.42 frames per tick, dampf 0.66 (Calypsi drifts from the PC from tick 596 on, see [roadmap.md](roadmap.md#open-questions)) |
 | Against hand-written `level_solid_px` | 1.14 times the cycles: 827 against 724 master clocks per call, both FastROM |
-| On the console (playable ROM) | 1.16 frames per tick during a minute of play (3,600 frames, 3,098 ticks), no byte lost in the vertical blank. This includes waiting for the vertical blank and the platform layer, so it is not comparable with the benchmark |
+| In Mesen (playable ROM) | 1.16 frames per tick during a minute of play (3,600 frames, 3,098 ticks), no byte lost in the vertical blank. This includes waiting for the vertical blank and the platform layer, so it is not comparable with the benchmark |
 
 Play is not yet within the budget. With the CPU partner, the worst tick is where it is hardest
 to meet. The numbers are measured without block counts from a profile unless they say so.
@@ -98,8 +99,9 @@ are never negative), by indexed addressing (an index that is never negative), by
 variables and by the loop bounds of the timing analysis. The tests check every value the MIR
 interpreter computes against its range (`dampf mir -O --check-ranges`).
 
-Not built: ranges from array accesses, return values and enums; page-aligned arrays, `switch`
-jump tables and `DAMPF_TABLE`; declared subrange types. The design is in
+An index into an array needs no range for its access (ADR-6F8NBESR), but the value ranges do not
+learn from that access. Not built: ranges from array accesses, return values and enums;
+page-aligned arrays, `switch` jump tables and `DAMPF_TABLE`; declared subrange types. The design is in
 [subrange-types.md](subrange-types.md).
 
 ### Pointer compression
@@ -178,7 +180,7 @@ allowed (the platform layer uses them); this form does not need the rule against
 
 ## Ideas not yet built
 
-The open parts of the catalogue (D, L, M, the hardware multipliers, parameters in registers and
+The open parts of the catalogue (D, L, M, the divider and mode 7's multiplier, parameters in registers and
 tail calls, `<<8` as a byte access, full `REP`/`SEP` tracking, unrolling); page-aligned arrays with
 8-bit index registers; a points-to analysis for pointers into several objects or loaded from
 memory; induction variables for counters that count down, and an induction variable as the index

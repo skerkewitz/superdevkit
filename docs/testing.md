@@ -161,9 +161,10 @@ measures the work of each tick: its master cycles without the main loop's waitin
 that does the same work every tick (Mandelbrot) shows a faster compiler as less work, not as
 fewer frames. Its table has one line an example (on average, in the busiest 60 ticks, the share
 of dampf's runtime), and with `BASELINE=` the ratio to an earlier table and their geometric
-mean: an optimization or a tuned parameter is judged on all examples, not on one program. The
-naive code generator, for example, does three times the work on the geometric mean, between 1.3
-times (Mandelbrot, whose time is the runtime's multiplication) and 6.4 times (Er-Tüp).
+mean: an optimization or a tuned parameter is judged on all examples, not on one program. On
+2026-11-20, before the runtime used the CPU's multiplier, the naive code generator did three
+times the work on the geometric mean, between 1.3 times (Mandelbrot, whose time was the
+runtime's multiplication) and 6.4 times (Er-Tüp).
 A game outside the repository measures itself the same way: `dampf.emu.ExampleBench rom.sfc
 rom.lbl recording.txt`, from any folder (it finds the kit's `lib/snes/snes.c` through the debug file). With a fourth argument, `work.txt`, it also writes the work of every tick, one line `tick cycles` each.
 

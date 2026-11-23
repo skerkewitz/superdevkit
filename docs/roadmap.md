@@ -15,7 +15,7 @@ and the ROM plays its recordings with the PC's checksum on every tick. M7 as ver
 desktop, the debug view, and the `superdevkit` command. M8 as version 0.8.0 (2026-11-22): the web
 (`superdevkit build web` and `run web`), every example checked in the browser against the SNES.
 M9 as version 0.9.0 (2026-11-23): the optimizer's tests and canonical form, register choice by
-cost, 8-bit loops and value ranges for array indexes.
+cost, 8-bit loops and array indexes that need no range.
 During play the game took
 0.79 frames per tick on 2026-11-18 against a goal of 0.6, so the compiler work goes on while the
 game reduces its own work in parallel; the current numbers are in
@@ -114,6 +114,9 @@ Concluded on 2026-11-23 as version 0.9.0 ([History](#m9)).
   `--mute`, read-only lines in the debug view (`sdevkit_dbg_text`, `_value`), `--jump` and a tick
   back in a replay (Shift+F6), defines per target in `superdevkit.toml` (ADR-6FEWEE95), and filled
   boxes and arrows in the view (`sdevkit_dbg_fill`, `_arrow`).
+- **Defines for the game's own files on the SNES too.** ADR-6FEWEE95 keeps a project's defines
+  out of the kit's library. That holds on the desktop and the web, but on the SNES the defines of
+  `[snes]` also reach `lib/snes`, since dampf compiles both as one program with one set of options.
 - **A build step before the build, and `superdevkit gen`** (built 2026-11-22). `[build] before` in
   `superdevkit.toml` runs a game's own converters first (ADR-6FEVZD02), and `superdevkit gen` runs
   only the conversions, for a build system of the game's own (ADR-6FEW1T2S).
@@ -343,7 +346,7 @@ Constant shifts longer than 8 were written out in M9 (2026-11-22).
 - **Miscompilation.** Mitigated by the test layers, the naive reference and the examples' checks
   as oracle, a checksum every tick against the PC ([testing.md](testing.md)). When one shows,
   `dampf.emu.RomDiff` names the global it breaks first.
-- **The optimizer is tested by whole programs only in a few.** The execution tests and 50 random
+- **The optimizer is tested by few whole programs.** The execution tests and 50 random
   programs per build barely reached the optimizer's patterns; the optimizer was tested by whole
   programs: Blubber Blasen's benchmark and one replay until 2026-11-19, since then the examples'
   checks, a checksum every tick. Mitigated since by `RandomLoopProgram`, which generates the loops

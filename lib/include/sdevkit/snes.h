@@ -251,9 +251,10 @@ typedef struct {
     const uint8_t *const  *brr;           /* per sample: its BRR blocks */
     const uint16_t        *brr_size;      /* per sample: their bytes */
 } sdevkit_sfx_bank;
-/* Loads the bank's samples into the audio RAM and starts the sound: once, in game_init (the screen
- * is off). On the SNES it waits for the sound CPU's boot code and sends every byte through it,
- * about 350 bytes a frame (docs/sound.md). A null bank does nothing. */
+/* Loads the bank's samples into the audio RAM and starts the sound: once, in game_init. On the SNES
+ * it waits for the sound CPU's boot code and sends every byte through it, about 350 bytes a frame,
+ * and the CPU does nothing else meanwhile; a game that switches the screen on first shows its
+ * picture during the upload (docs/sound.md). A null bank does nothing. */
 void sdevkit_sfx_init(const sdevkit_sfx_bank *bank);
 /* Plays an effect: it starts after this tick, when a voice is free or the voice of an effect with
  * a lower priority (or the older one of the same) gives way; otherwise it is dropped. An effect

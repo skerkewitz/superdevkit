@@ -49,7 +49,8 @@ and ld65 instead, which give the same ROM. The debug file Mesen reads is in ld65
 
 ## Calypsi
 
-Another C compiler for the 65816. dampf's speed on Blubber Blasen is measured against it.
+Another C compiler for the 65816. dampf was measured against it until 2026-11-19; the kit no
+longer uses or measures it.
 
 ## CGRAM
 

@@ -115,8 +115,9 @@ Write whichever reads better; these cost the same:
   least `game_tick` and `game_vblank` with their callees: a worst case above `n` CPU cycles is a
   build error, above 90 % a warning, so a slower change is found when it is made.
 - **`DAMPF_RANGE(v, lo, hi)`** only where a measurement shows it changes the code. Today that is
-  a loop the timing report calls unbounded (a hint on its counter gives it a bound); an index
-  into an array needs none since 2026-11-20 (an access outside the array is undefined in C, and
+  a loop the timing report calls unbounded (a hint on its counter gives it a bound) and a value
+  whose range saves work: a signed division, a comparison with a sum, a multiplication of two
+  `uint16_t` below 256. An index into an array needs none since 2026-11-20 (an access outside the array is undefined in C, and
   dampf relies on that, ADR-6F8NBESR). A hint states a fact: a wrong one makes wrong code on the SNES and stops the
   program on the PC.
 
