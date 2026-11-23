@@ -172,6 +172,9 @@ allowed (the platform layer uses them); this form does not need the rule against
 - The index registers chosen by `RegisterChoice` alone, without `findXCounters` and `findYIndexes`:
   nine versions, none as good as selection's choice on the pair loops and the worst cases
   ([log](optimizations-log.md#the-index-register-choice-tried-in-registerchoice-2026-11-23)).
+- Selection without `FrameLayout`'s predictions: the examples do 1.1 % more work and 104 worst
+  cases grow, so they stay until a model of the whole function replaces them
+  ([log](optimizations-log.md#framelayouts-predictions-measured-and-kept-2026-11-23)).
 
 ## Ideas not yet built
 
