@@ -1715,3 +1715,52 @@ and `camera` 448 → 320, Ertüp's `crate_update` 502 → 384. Steinschlag does 
 others are the same within 0.04 %; geometric mean 0.999. 5 worst cases are smaller, none larger.
 The pair loops are the same.
 
+## `BIT` for bit tests, measured and not built (2026-11-23, on the examples)
+
+Row 6 of the roadmap expected 2 to 4 % for the whole row, which includes the `CMP #0` already left
+out. What `BIT` itself can add follows from the 65816's cycles. With a 16-bit A, on the direct page,
+`lda x; and #mask`, `lda x; bit #mask` and `lda #mask; bit x` all cost 7 cycles, so replacing one by
+another gains nothing. `BIT` gains where an instruction can go: the `AND` of a test of the top bit
+(N is already set by the load), the `AND` of a test of bit 14 or 6 (`BIT` on memory puts it in V),
+a load of the value `BIT #mask` left in A, or a load of the mask when A already holds it. `BIT` has
+no long or indirect modes, so it cannot read a local through `[dampf_frame],y`.
+
+Before building it, every example's check was played in dampf's emulator on `develop` at `ee9657b`,
+and every `AND #mask` directly before a `BEQ` or `BNE` was classified as it ran, with the measured
+cost of the instruction that would go. The frame-wait loop is left out, as in
+`dev/bench_examples.sh`. The numbers are shares of the example's work, and upper limits: the count
+does not check whether the result of the `AND` is still needed.
+
+| Share of the work (%) | CatchMe | Ertüp | Hello | Mandelbrot | Mode 7 | Schach | Steinschlag |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| All `AND #mask` before a branch | 1.41 | 2.29 | 0.18 | 0.15 | 0.31 | 2.61 | 0.57 |
+| Of these, the mask `$00FF` (a byte in a 16-bit A) | 1.00 | 2.05 | 0.03 | 0.07 | 0.00 | 0.93 | 0.19 |
+| Top bit: the `AND` goes | 0.00 | 0.03 | 0.00 | 0.00 | 0.15 | 0.00 | 0.00 |
+| `BIT #mask` keeps A, the same load comes next | 0.04 | 0.01 | 0.00 | 0.00 | 0.24 | 0.00 | 0.00 |
+| A already holds the mask | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.02 |
+| **The most `BIT` could save** | 0.04 | 0.04 | 0.00 | 0.00 | 0.40 | 0.00 | 0.03 |
+
+The last row adds the unrounded numbers. No test of bit 14 or bit 6 ran after a load `BIT` can
+replace. The geometric mean of the savings is 0.07 %, and Mode 7's 0.40 % is the largest. Theory and
+measurement agree: `BIT` saves a whole instruction, 3 cycles or more, where one of these cases
+applies, and in this code they are rare. Most of the tests are the mask `$00FF`, which is a matter of 8-bit code (row 3).
+
+Not built: the gain does not pay for another pass and its tests. Code written for it, with its flags
+in the top bits, would gain more. Blubber Blasen was not measured.
+
+## 32-bit values combined bit by bit, as two halves (2026-11-23, on the C guide)
+
+`hash ^= key` on two `uint32_t` cost 84 cycles against 36 for the same on two `uint16_t` halves:
+each word went through a frame place. An AND, OR or XOR never carries from one half to the other,
+so `SplitWords` makes a 32-bit value that is only loaded, combined bit by bit and stored into two
+16-bit values, with its constants, zero extensions and φs. Anything else that reads it (an
+addition, a comparison, a call) leaves the whole web as it is.
+
+The split alone gave 46 cycles: `Schedule` would not move the high half's loads past the store to
+the low half. A load may now pass a store whose address is known to be other bytes, of the same
+global or another one. `xor_32` costs 36, as the halves do. `slow-32-bit` now measures 32-bit
+addition, and `same-32-bit-bits` holds the new fact.
+
+The examples hardly have such values: Catch Me 0.998 (the moved loads), hello 16 master cycles a tick
+more (0.03 %), the rest the same; one worst case smaller, none larger. The pair loops are the same.
+

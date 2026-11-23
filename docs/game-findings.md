@@ -140,3 +140,12 @@ it have no tag.
 
 What the game would change: nothing it must. It can pin the kit to the tag instead of a commit
 named "Version x.y.z", and call `<home>/dev/replay.sh` from a release.
+
+## 7. A 32-bit value combined bit by bit costs what two halves cost (2026-11-23)
+
+dampf now splits a `uint32_t` that is only loaded, combined with `&`, `|` or `^` and stored into two
+16-bit values itself: `hash ^= key` costs 36 CPU cycles, the same as on two `uint16_t` halves
+(84 before). The C guide's `slow-32-bit` now speaks only of arithmetic, and `same-32-bit-bits` is
+new. What the game would change: nothing it must. A value kept as two halves only for the old rule
+can be one `uint32_t` again. Additions, comparisons and multiplications of 32-bit values still cost
+more than twice their 16-bit form.

@@ -80,7 +80,7 @@ FastROM, 12 hardware registers at constant addresses) are in [History](#history)
 | 3 | 8-bit stretches: the M flag followed (`REP`/`SEP`) across blocks, `uint8_t` code in 8-bit mode | 5-10 % | high | Fewer `AND #$00FF`, and 8-bit accesses are a cycle cheaper. Built: 8-bit mode across C lines within a block (`ByteStretches`), loops over bytes in 8 bits from entry to exit (`ByteLoops`, 2026-11-21). Measured then: the other switches are 0.5 to 4.5 % of the examples' work and nearly all around byte stores, where they are needed; the general placement is not built. |
 | 4 | Arrays of structs as one array per field (catalogue D, `DAMPF_SPLIT`), with HIR to do it in | 5-10 % in the bubble loops | high | `separate`, `bubbles_update` and `bubbles_draw` are 30 %. Needs a subset decision or a hint, since the layout then differs from the PC. Measured against it: in the game's pair loop (its finding 9) one array per field was 16 % slower for the counted loop and 1 % slower for the sorted list, and in `exec/pair_loops.c` 1.9 % slower for the counted loop; a loop that moves two fields of every element gains about 12 % (the spelling families `struct-fields` and `field-arrays`). The game reaches its objects through pointers (1,516 `->`), so a split needs to know where each pointer points. Taken up when a measured loop gains clearly, as the hint `DAMPF_SPLIT`. |
 | 5 | 8-bit index registers, arrays aligned to pages | 2-4 % | high | `LDA abs,X` a cycle cheaper; needs the X flag followed and the alignment in the memory map. |
-| 6 | Comparisons on the flags: `BIT` for bit tests | 2-4 % for the whole row | low to medium | Done for `CMP #0`. Most remaining `CMP #imm` compare with other constants and feed `BCC`/`BCS`. |
+| 6 | Comparisons on the flags: `BIT` for bit tests | 2-4 % for the whole row; `BIT` alone at most 0.07 % (measured) | dropped | Done for `CMP #0`. `BIT` is measured and not built (2026-11-23): `BIT #mask` costs what `AND #mask` costs, so at most 0.07 % of the examples' work on average and 0.4 % on Mode 7 would go ([optimizations.md](optimizations.md#tried-and-rejected)). Most remaining `CMP #imm` compare with other constants and feed `BCC`/`BCS`. |
 | 7 | Calling convention (catalogue C): the first argument in A, `JMP` for tail calls | 1-3 % | medium | `ground_px` is called 12,000 times in 800 ticks. |
 | 9 | Value ranges from array bounds | 1-2 % | medium | More 8-bit narrowing, fewer masks. Built 2026-11-20 as far as an index into an array goes (ADR-6F8NBESR). |
 
@@ -110,8 +110,8 @@ Also in M9:
   - a signed division by a power of two kept its rounding correction when a `DAMPF_RANGE` proved
     the value not negative: gone on 2026-11-22; `slow-signed-divide` stays for values dampf knows
     nothing about;
-  - 32-bit operands go through frame slots (`hash ^= key` copies all four words): retires
-    `slow-32-bit`;
+  - 32-bit operands went through frame slots (`hash ^= key` copied all four words): gone for bit
+    operations on 2026-11-23 (`same-32-bit-bits`); `slow-32-bit` stays for arithmetic;
   - a constant shift above 8 was a loop (`shl 9` as `ldx #9; asl; dex; bne`; found in Schach's
     Zobrist table): gone on 2026-11-22 with `slow-shift-above-8`.
 

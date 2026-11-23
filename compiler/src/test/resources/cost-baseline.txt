@@ -1,7 +1,7 @@
 # The static worst case in CPU cycles of every function of every example and of
 # every member of the spelling families (one call through spelling_entry; -1: unbounded).
 # Written by BackendOutputTest with -PbackendOutput=update; its diff shows what got slower.
-catchme _actors_draw 7068
+catchme _actors_draw 7056
 catchme _actors_hide 152
 catchme _actors_reset 730
 catchme _actors_scare 363

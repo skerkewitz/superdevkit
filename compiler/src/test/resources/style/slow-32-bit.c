@@ -1,25 +1,24 @@
 /* rule: slow-32-bit
- * claim: xor_32 slower xor_16_halves
- * A 32-bit value costs more than twice a 16-bit one: each operation goes through memory. A value
- * that is only ever combined bit by bit (a hash) can be kept as two 16-bit halves. */
+ * claim: add_32 slower add_16
+ * A 32-bit addition costs more than twice a 16-bit one: its words go through memory and the carry
+ * goes from one to the other. Bit operations are the exception (same-32-bit-bits). */
 #include <stdint.h>
 
-uint32_t hash32 = 0x12345678u, key32 = 0x9ABCDEF0u;
-uint16_t hash_lo = 0x5678, hash_hi = 0x1234, key_lo = 0xDEF0, key_hi = 0x9ABC;
+uint32_t sum32 = 0x12345678u, step32 = 0x00010002u;
+uint16_t sum16 = 0x5678, step16 = 0x0002;
 
-void xor_32(void)
+void add_32(void)
 {
-    hash32 ^= key32;
+    sum32 += step32;
 }
 
-void xor_16_halves(void)
+void add_16(void)
 {
-    hash_lo ^= key_lo;
-    hash_hi ^= key_hi;
+    sum16 = (uint16_t)(sum16 + step16);
 }
 
 void test_main(void)
 {
-    xor_32();
-    xor_16_halves();
+    add_32();
+    add_16();
 }
