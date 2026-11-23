@@ -44,7 +44,7 @@ jobs:
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: 25.0.5+8   # NOTICE links the source of exactly this build
+          java-version: 25.0.5+8.0.LTS   # NOTICE links the source of exactly this build
       - uses: gradle/actions/setup-gradle@v5
       - name: NOTICE names this Java
         shell: bash
