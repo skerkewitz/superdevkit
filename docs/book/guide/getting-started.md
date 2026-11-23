@@ -40,17 +40,17 @@ Download the zip for your system from the
 folder, `superdevkit-<version>`, and that folder is the superdevkit home.
 
 This page writes `<home>` for that folder. Put `<home>/bin` on your `PATH`. On Linux, for a home
-in `~/superdevkit-0.9.1`, add this line to `~/.bashrc` (or your shell's start-up file):
+in `~/superdevkit-0.9.2`, add this line to `~/.bashrc` (or your shell's start-up file):
 
 ```sh
-export PATH="$HOME/superdevkit-0.9.1/bin:$PATH"
+export PATH="$HOME/superdevkit-0.9.2/bin:$PATH"
 ```
 
 On Windows, for a home in your user folder, run this line once in PowerShell. It adds the folder
 to your user's `PATH`, which every new window then has:
 
 ```powershell
-[Environment]::SetEnvironmentVariable("Path", "$HOME\superdevkit-0.9.1\bin;" + [Environment]::GetEnvironmentVariable("Path", "User"), "User")
+[Environment]::SetEnvironmentVariable("Path", "$HOME\superdevkit-0.9.2\bin;" + [Environment]::GetEnvironmentVariable("Path", "User"), "User")
 ```
 
 The page writes `superdevkit` and `dampf` without their folder from here on. Check that a new
@@ -61,7 +61,7 @@ superdevkit --version
 ```
 
 ```
-superdevkit 0.9.1
+superdevkit 0.9.2
 ```
 
 From a checkout of the repository, with JDK 25 or newer, `./gradlew installDist` writes a home

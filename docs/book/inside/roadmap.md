@@ -13,7 +13,7 @@ also describes plans. What is not built yet, listed for users, is on
 
 ## Where dampf stands
 
-The kit is at version 0.9.1, and the milestones M0 to M9 are concluded (M9 as 0.9.0). A game is
+The kit is at version 0.9.2, and the milestones M0 to M9 are concluded (M9 as 0.9.0). A game is
 written once against the kit's console API, and the `superdevkit` command builds it for the SNES
 with dampf, as a program for Linux and Windows, and since 0.8.0 as a page in the browser, with
 the same picture on each, sound effects, save RAM, music on the desktop and the web, and a debug

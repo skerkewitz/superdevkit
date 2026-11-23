@@ -89,10 +89,13 @@ The steps are the `sker-pr` skill. For this project:
   last number rises, the middle one when a milestone is concluded. `./gradlew checkBook`, then
   `/docs-gen stale` for the pages it lists, until `checkBook` passes (ADR-6F60ZB4N); the version
   in `build.gradle.kts` and in the status line of `README.md`; a concluded milestone marked in
-  `docs/roadmap.md`; `./gradlew build`. The release pull request says what a user of the kit
-  notices: new features, changes to the command line, the subset, the files dampf writes.
+  `docs/roadmap.md`; the release notes in `docs/releases/<version>.md` (ADR-6FHSWZ2F);
+  `./gradlew build`. The release pull request says what a user of the kit notices: new features,
+  changes to the command line, the subset, the files dampf writes.
 - After the tag: the tag starts `.github/workflows/release.yml`, which builds and checks the
-  Linux and Windows zips and makes a draft release (ADR-6FHEEVST). The user tries a zip and
-  publishes the draft; Claude does not publish it. Publishing starts
+  Linux and Windows zips and makes a draft release with those notes (ADR-6FHEEVST). Never edit
+  a draft through the API: an edit without `tag_name` replaces its tag by `untagged-...`. To
+  change the notes, change the file. The user tries a zip and publishes the draft; Claude does
+  not publish it. Publishing starts
   `.github/workflows/pages.yml`, which puts the book and the example games on GitHub Pages
   (ADR-6FHKAC1X).
