@@ -93,4 +93,6 @@ The steps are the `sker-pr` skill. For this project:
   notices: new features, changes to the command line, the subset, the files dampf writes.
 - After the tag: the tag starts `.github/workflows/release.yml`, which builds and checks the
   Linux and Windows zips and makes a draft release (ADR-6FHEEVST). The user tries a zip and
-  publishes the draft; Claude does not publish it.
+  publishes the draft; Claude does not publish it. Publishing starts
+  `.github/workflows/pages.yml`, which puts the book and the example games on GitHub Pages
+  (ADR-6FHKAC1X).
