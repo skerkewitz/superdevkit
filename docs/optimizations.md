@@ -160,6 +160,11 @@ allowed (the platform layer uses them); this form does not need the rule against
   on the LIR (2026-11-22): without `findForwards` the examples were 1.6 % slower, without
   `Schedule` 0.5 %, without both 2.1 %, and the copy loops of the spelling families up to 77 %
   slower ([log](optimizations-log.md#without-findforwards-or-schedule-measured-2026-11-22)).
+- Rewriting a list of indexes into a list of byte offsets (2026-11-23): the whole gap of
+  `slow-index-list` is the multiplication by the element's size (17,505 cycles with indexes, 15,385
+  with offsets, 15,493 for the counter), so a pass could close it. Not built: no example has the
+  pattern and the game's sorted list is no longer a goal. The C guide has the form
+  (`same-list-of-offsets`).
 
 ## Ideas not yet built
 
