@@ -191,7 +191,6 @@ inlining limit, the block order), runs the user's own workload (a benchmark or a
 `dampf profile` does) in dampf's emulator and keeps the fastest build, each candidate checked
 against a reference of the results (the PC build's checksums), since a larger inlining limit once
 exposed a miscompilation (fixed on 2026-11-19). Which come next, by likely gain and effort, is in
-[roadmap.md](roadmap.md#m9-the-optimizer-090) (M9) and
 [roadmap.md](roadmap.md#m12-fine-tuning-0120) (M12).
 
 ## How close can dampf get to hand-written assembly?

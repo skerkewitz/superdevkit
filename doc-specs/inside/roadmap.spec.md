@@ -21,9 +21,9 @@ working history of `docs/roadmap.md`.
 2. **Versions** – milestone N is 0.N.0, the version is the dev kit's, everything before 1.0 is
    a pre-release, publishing is a step of its own.
 3. **Milestones** – a table: milestone, goal, version, state. Then one short section each for the
-   milestones in progress (M9, the optimizer; M10, language, platform and usability), saying
-   what of them is built and what is to come, one paragraph each for the planned milestones
-   after them, and one short section each for what is not scheduled for the dev kit (with the
+   milestone in progress (M10, language, platform and usability), saying
+   what of it is built and what is to come, one paragraph each for the planned milestones
+   after it, and one short section each for what is not scheduled for the dev kit (with the
    roadmap's future ideas in a sentence or two) and for publishing.
 4. **The checkpoint after M2** – the decision that the compiler and the game work in parallel,
    with the numbers that led to it.
