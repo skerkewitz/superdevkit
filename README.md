@@ -19,7 +19,7 @@ Linux and Windows and as a page in the browser. The kit holds:
   Er-Tüp, which are also the kit's test cases and its benchmark;
 - the **book** ([docs/book](docs/book)): the user guide and the reference.
 
-Status: version 0.9.0. Milestones
+Status: version 0.9.1. Milestones
 M0 to M9 are done: M6 is dampf's own assembler and
 linker; with M5 Blubber Blasen (the kit's first user, a game in its own repository) builds its
 ROM with the kit and plays its recordings with the PC's checksums; with M7 a game builds and runs
