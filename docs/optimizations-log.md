@@ -1808,3 +1808,32 @@ and worst cases up to 3 %.
 `IndexInY` did go. Once the weights were right it found almost nothing: Schach does 21 master
 cycles a tick more (370,396 to 370,417, ADR-6F3CJR10's price for a pass less), everything else is
 the same, and no worst case changed.
+
+## `FrameLayout`'s predictions, measured and kept (2026-11-23)
+
+Selection reads `FrameLayout`'s predicted places for three decisions: a value stepped in place
+(`ArithSelection.incDec`), a φ's operand already in the φ's place
+(`SelectionPlan.firstPhiCopyReads`), and a pointer in the direct page (`MemorySelection.via`,
+`SelectionPlan.addressNeedsNoA`). The experiment, against `af009ad`, disabled `incDec` and took
+the places out of the φ test. Work per tick, new against old:
+
+| Example | Ratio |
+| --- | ---: |
+| catchme | 0.9969 |
+| ertuep | 1.0039 |
+| hello | 1.0209 |
+| mandelbrot | 1.0013 |
+| mode7 | 1.0000 |
+| schach | 1.0076 |
+| steinschlag | 1.0487 |
+| geometric mean | 1.0112 |
+
+The pair loops: A 1.0034, B 1.0087, C 1.0056, D 0.9813. The spelling family `pairs_down` 1.006.
+Worst cases: 14 smaller, 104 larger, by up to 8 %.
+
+The pointer decision was counted without changing it. Er-Tüp has 5 accesses through a pointer
+predicted outside the direct page, of 384 through `[frame]`; Schach has none of 92, and the other
+examples have none. The case is rare and still has to compile correctly in large programs.
+
+Nothing of this was built. The predictions stay until a model of the whole function replaces them
+(ADR-6FGF7X0N).

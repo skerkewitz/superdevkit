@@ -68,7 +68,7 @@ document of its subject.
 | ADR-6F60ZDMF | [M5 is concluded as 0.6.0, and a version between milestones may carry features](adr/6F60ZDMF-m5-is-concluded-as-060-and-a-version-between.md) | Accepted | 2026-11-19 |
 | ADR-6F8NBESR | [An access to an array tells dampf its index is inside it](adr/6F8NBESR-an-access-to-an-array-tells-dampf-its-index-is.md) | Accepted | 2026-11-20 |
 | ADR-6F8NBFAQ | [LIR operands are typed, and LIR names places before it has addresses](adr/6F8NBFAQ-lir-operands-are-typed-and-lir-names-places-before.md) | Accepted; amends ADR-6F3CJEQA | 2026-11-20 |
-| ADR-6F8NBG4P | [Frame places are coloured on the LIR, and FrameLayout only proposes](adr/6F8NBG4P-frame-places-are-coloured-on-the-lir-and.md) | Accepted; amended by ADR-6F8NBHZ6 | 2026-11-20 |
+| ADR-6F8NBG4P | [Frame places are coloured on the LIR, and FrameLayout only proposes](adr/6F8NBG4P-frame-places-are-coloured-on-the-lir-and.md) | Accepted; amended by ADR-6F8NBHZ6, ADR-6FGF7X0N | 2026-11-20 |
 | ADR-6F8NBHZ6 | [φs go through their incoming places, and the colouring coalesces the copies](adr/6F8NBHZ6-phis-go-through-their-incoming-places-and-the.md) | Accepted; amends ADR-6F8NBG4P | 2026-11-20 |
 | ADR-6FB9QJ3R | [Every change goes through a pull request into develop, and a release through one into main](adr/6FB9QJ3R-every-change-goes-through-a-pull-request-into.md) | Accepted; amended by ADR-6FB9QKSV, ADR-6FD54GME | 2026-11-21 |
 | ADR-6FB9QKSV | [Claude works on GitHub as an app of its own, and the user approves](adr/6FB9QKSV-claude-works-on-github-as-an-app-of-its-own-and.md) | Accepted; amends ADR-6FB9QJ3R | 2026-11-21 |
@@ -82,6 +82,7 @@ document of its subject.
 | ADR-6FEVZD02 | [A project can name commands that run before its build](adr/6FEVZD02-a-project-can-name-commands-that-run-before-its.md) | Accepted | 2026-11-22 |
 | ADR-6FEW1T2S | [superdevkit gen runs only a project's conversions](adr/6FEW1T2S-superdevkit-gen-runs-only-a-project-s-conversions.md) | Accepted | 2026-11-22 |
 | ADR-6FEWEE95 | [A project can define macros per target for its own files](adr/6FEWEE95-a-project-can-define-macros-per-target-for-its-own.md) | Accepted | 2026-11-22 |
+| ADR-6FGF7X0N | [FrameLayout keeps its predictions until a model of the whole function replaces them](adr/6FGF7X0N-framelayout-keeps-its-predictions-until-a-model-of.md) | Accepted; amends ADR-6F8NBG4P | 2026-11-23 |
 
 ## Former numbers
 
