@@ -9,7 +9,6 @@ import dampf.lir.LFunction;
 import dampf.lir.LInstr;
 import dampf.lir.LItem;
 import dampf.lir.LMark;
-import dampf.lir.IndexInY;
 import dampf.lir.LOperand;
 import dampf.lir.RedundantLoads;
 import java.util.ArrayList;
@@ -106,6 +105,9 @@ final class RegisterChoice {
                    boolean highWordInX, boolean resultInA, List<java.util.Set<LBlock>> loops, dampf.util.PassLimit limit) {
         returnsX = highWordInX;
         returnsA = resultInA;
+        // (apply cuts the code into new blocks: these follow them)
+        Map<LBlock, Double> blockWeights = new IdentityHashMap<>(weights);
+        List<java.util.Set<LBlock>> blockLoops = new ArrayList<>(loops);
         int n = 0;
         for (Reg r : Reg.values()) {
             while (true) {
@@ -121,9 +123,9 @@ final class RegisterChoice {
                     if (g.into != null || g.fixed != null || g.direct || g.bytes != 2 || !allTracked(g, tracked)) {
                         continue;
                     }
-                    Plan p = plan(lf, an, round, g, r, weights, null);
-                    for (java.util.Set<LBlock> loop : loops) {
-                        Plan q = plan(lf, an, round, g, r, weights, loop);
+                    Plan p = plan(lf, an, round, g, r, blockWeights, null);
+                    for (java.util.Set<LBlock> loop : blockLoops) {
+                        Plan q = plan(lf, an, round, g, r, blockWeights, loop);
                         if (q != null && (p == null || q.benefit() > p.benefit())) {
                             p = q;
                         }
@@ -149,7 +151,9 @@ final class RegisterChoice {
                 if (chosen == 0) {
                     break;
                 }
+                Map<LItem, LBlock> origin = origins(lf, replace);
                 apply(lf, replace);
+                follow(lf, origin, blockWeights, blockLoops);
                 n += chosen;
             }
         }
@@ -157,6 +161,50 @@ final class RegisterChoice {
             limit.count("RegisterChoice flags", lf.name());
         }
         return n;
+    }
+
+    /** The block each item comes from, and each item that replaces it. */
+    private static Map<LItem, LBlock> origins(LFunction lf, Map<LItem, List<LItem>> replace) {
+        Map<LItem, LBlock> origin = new IdentityHashMap<>();
+        for (LBlock b : lf.blocks()) {
+            for (LItem it : b.items()) {
+                origin.put(it, b);
+                for (LItem x : replace.getOrDefault(it, List.of())) {
+                    origin.put(x, b);
+                }
+            }
+        }
+        return origin;
+    }
+
+    /** Gives the blocks of the code as it is now the weights and loops of the blocks they came from. */
+    private static void follow(LFunction lf, Map<LItem, LBlock> origin, Map<LBlock, Double> weights, List<java.util.Set<LBlock>> loops) {
+        Map<LBlock, LBlock> was = new IdentityHashMap<>();
+        for (LBlock b : lf.blocks()) {
+            for (LItem it : b.items()) {
+                if (origin.containsKey(it)) {
+                    was.put(b, origin.get(it));
+                    break;
+                }
+            }
+        }
+        Map<LBlock, Double> newWeights = new IdentityHashMap<>();
+        was.forEach((b, old) -> {
+            if (weights.containsKey(old)) {
+                newWeights.put(b, weights.get(old));
+            }
+        });
+        weights.clear();
+        weights.putAll(newWeights);
+        for (int k = 0; k < loops.size(); k++) {
+            java.util.Set<LBlock> loop = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+            for (Map.Entry<LBlock, LBlock> e : was.entrySet()) {
+                if (loops.get(k).contains(e.getValue())) {
+                    loop.add(e.getKey());
+                }
+            }
+            loops.set(k, loop);
+        }
     }
 
     /** N and Z describe the value of: A, X, Y (bits), as far as known. */
@@ -444,13 +492,13 @@ final class RegisterChoice {
 
     /**
      * The X-indexed accesses after {@code LDX p} at k that take Y instead with p in Y
-     * ({@link IndexInY#convertible}), or null; also null where p is written before the last of them
+     * ({@link #convertible}), or null; also null where p is written before the last of them
      * (INC p is INY with p in Y: Y would not hold what X was loaded with) or where an item up to
      * it has a replacement already (TXA / ADC t,X for LDA t,X / ADC p still needs X).
      */
     private static List<Integer> yIndexed(Analysis an, BitSet units, Map<LItem, List<LItem>> replace, List<LItem> items,
                                           int k, boolean xLiveOut) {
-        List<Integer> uses = IndexInY.convertible(items, k, xLiveOut);
+        List<Integer> uses = convertible(items, k, xLiveOut);
         if (uses == null) {
             return null;
         }
@@ -461,6 +509,69 @@ final class RegisterChoice {
             }
         }
         return uses;
+    }
+
+    /** The instructions with an absolute,Y form (not direct page, not long). */
+    private static final java.util.Set<String> ABS_Y = java.util.Set.of("lda", "sta", "adc", "sbc", "and", "ora", "eor", "cmp");
+
+    /**
+     * The X-indexed accesses after the LDX at k that can take Y instead, or null: all reads of X
+     * until X is written are such accesses, Y stays, and X is not read after that (at the end of
+     * the block: not live out).
+     */
+    private static List<Integer> convertible(List<LItem> items, int k, boolean liveOut) {
+        List<Integer> uses = new ArrayList<>();
+        boolean flagsSet = false;   // N and Z of the LDX are overwritten before anything reads them
+        for (int j = k + 1; j < items.size(); j++) {
+            if (!(items.get(j) instanceof LInstr in)) {
+                continue;
+            }
+            int nz = RedundantLoads.N | RedundantLoads.Z;
+            if (!flagsSet && (RedundantLoads.reads(in) & nz) != 0) {
+                return null;
+            }
+            flagsSet |= (RedundantLoads.writes(in) & nz) == nz;
+            if (readsX(in)) {
+                // an absolute address indexed by X (no direct page or long form has a Y twin)
+                if (!(in.op() instanceof LOperand.Mem m) || m.index() != LOperand.Index.X || m.indirect()
+                        || m.width() == LOperand.Width.DP || m.width() == LOperand.Width.LONG || !ABS_Y.contains(in.mnemonic())) {
+                    return null;
+                }
+                uses.add(j);
+            }
+            if (writesY(in)) {
+                return null;
+            }
+            if (writesX(in)) {
+                return uses.isEmpty() || !flagsSet ? null : uses;
+            }
+        }
+        return liveOut || uses.isEmpty() || !flagsSet ? null : uses;
+    }
+
+    private static boolean readsX(LInstr i) {
+        if (i.op() instanceof LOperand.Mem m && m.index() == LOperand.Index.X
+                || i.op() instanceof LOperand.Raw r && (r.text().endsWith(",x") || r.text().contains(",x)"))) {
+            return true;
+        }
+        return switch (i.mnemonic()) {
+            case "txa", "txy", "txs", "stx", "cpx", "inx", "dex", "phx", "rtl", "rts" -> true;
+            default -> false;
+        };
+    }
+
+    private static boolean writesX(LInstr i) {
+        return switch (i.mnemonic()) {
+            case "ldx", "tax", "tyx", "tsx", "plx", "inx", "dex", "jsl", "jsr" -> true;
+            default -> false;
+        };
+    }
+
+    private static boolean writesY(LInstr i) {
+        return switch (i.mnemonic()) {
+            case "ldy", "tay", "txy", "ply", "iny", "dey", "jsl", "jsr" -> true;
+            default -> false;
+        };
     }
 
     private static boolean allTracked(Group g, Predicate<LOperand.Owner> tracked) {

@@ -11,7 +11,9 @@ files Mesen needs.
 
 Build the program with `dampf build`. This page uses
 `compiler/src/test/resources/exec/calls.c`, one of dampf's execution tests and a single C file
-that builds without the kit; its [entry function](/glossary#entry-function) is `test_main`:
+that builds without the [kit](/glossary#dev-kit). The tests exist only in a checkout of the
+repository, so run the command from its top folder. The program's
+[entry function](/glossary#entry-function) is `test_main`:
 
 ```sh
 build/install/superdevkit/bin/dampf build --entry test_main -o build/calls.sfc compiler/src/test/resources/exec/calls.c
@@ -41,8 +43,9 @@ for a game it is the path from `build/snes/` to its `src/` folder, such as `../.
 in `examples/hello`. Mesen finds the sources as long as they keep their place relative to the
 ROM, so move the ROM and the sources together or not at all.
 
-If you build in WSL and run the Windows Mesen, open the ROM through `\\wsl.localhost\...`.
-The relative paths in the debug file then lead to the sources in the same file system.
+If you build in [WSL](/glossary#wsl) and run the Windows Mesen, open the ROM through
+`\\wsl.localhost\...`. The relative paths in the debug file then lead to the sources in the
+same file system.
 
 ## Step through C
 
@@ -92,8 +95,8 @@ what each instruction does, such as `; A = a + b`.
 
 The processor state is stated once at the top of the file:
 `A/X/Y are 16 bit (A goes to 8 bit where SEP #$20 says so), DBR = $7E` (the
-[DBR](/glossary#dbr) is the bank for data addresses). Where a line needs the accumulator in
-[8-bit mode](/glossary#_8-bit-and-16-bit-mode), as for the byte
+[DBR](/glossary#dbr) is the [bank](/glossary#bank) for data addresses). Where a line needs the
+accumulator in [8-bit mode](/glossary#_8-bit-and-16-bit-mode), as for the byte
 `small_result` above, `sep #$20` switches it, and the cycles of the instructions after it are
 counted for 8 bits. `rep #$20` switches back where code needs 16 bits again; dampf leaves it
 out as long as the following lines can stay in 8-bit mode, so here it comes at the start of
@@ -125,7 +128,7 @@ Narrow the difference down in steps:
    C line where the two builds part is the one to report.
 
 dampf's own tests compare every test program this way. Their PC side is clang, which gives the
-same results as gcc for the subset, built with the
+same results as gcc for the [subset](/glossary#subset), built with the
 [undefined behaviour sanitizer](/glossary#ubsan): a program whose result depends on undefined
 behaviour can differ between the two sides without either being wrong, and the sanitizer
 reports it on the PC.

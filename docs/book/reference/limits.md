@@ -1,10 +1,10 @@
 <!-- GENERATED from doc-specs/reference/limits.spec.md by /docs-gen. Do not edit; change the spec or its sources. -->
 # Limits
 
-superdevkit, and dampf with it, is at version 0.8.0: milestones M0 to M8 are concluded. dampf is
+superdevkit, and dampf with it, is at version 0.9.0: milestones M0 to M9 are concluded. dampf is
 the compiler of superdevkit, a [development kit](/glossary#dev-kit) for SNES games. The
-milestones named on this page are the open ones: M9 for the optimizer (in work), M10 for
-language, platform and usability, M11 for timing and debugging, and M12 for fine tuning.
+milestones named on this page are the open ones: M10 for language, platform and usability (in
+progress), M11 for timing and debugging, and M12 for fine tuning.
 Publishing is a step of its own and not scheduled yet, and some items below belong to no
 milestone at all. They are on the [Roadmap](/inside/roadmap), which also has their state and
 their order; nothing here goes beyond it. Every version before 1.0 is a pre-release, so [the
@@ -33,7 +33,10 @@ and what it saves is still open.
 in `assets/sfx/sfx.json`. Uploading the effects to the SPC700 when the game starts is slow,
 about 350 bytes a frame, so Schach's 13.8 KB take 40 frames after the splash screen; a loader
 that takes three bytes per exchange would be about three times faster, and is not built. None of
-these has a milestone.
+these has a milestone. During the upload the [PPU](/glossary#ppu) keeps showing its picture, so a
+game that draws its title and switches the screen on before it calls `sdevkit_sfx_init` shows the
+title instead of a black screen; the picture stands still and the [joypads](/glossary#joypad)
+are not read until the upload ends.
 
 **Only the console API, and only what both sides draw.** A game calls the console API and
 nothing else. The desktop and web builds check that the game's objects call only the kit's
@@ -69,10 +72,11 @@ dampf's own is clearer, is an open question of the roadmap; the work belongs to 
 **Intrinsics.** An [intrinsic](/glossary#intrinsic) gives C code access to the SNES hardware:
 the hardware multiplier and divider, [DMA](/glossary#dma), waiting for vertical blank, placing
 constant data in ROM banks. In the PC build each is a plain function. None is built; the roadmap
-places the intrinsics for the hardware multipliers, the divider and DMA in M10. The kit's
-library on the SNES needed none: it reaches the I/O registers through pointers to `volatile`
-memory, and casts a pointer to an integer to get the SNES address a DMA channel copies from
-([The C subset](/reference/c-subset)).
+places the intrinsics for the hardware multipliers, the divider and DMA in M10. dampf itself
+already multiplies two variables on the CPU's 8 x 8 multiplier, without a call when both are
+bytes. The kit's library on the SNES needed no intrinsic: it reaches the I/O registers through
+pointers to `volatile` memory, and casts a pointer to an integer to get the SNES address a DMA
+channel copies from ([The C subset](/reference/c-subset)).
 
 **Timing in master clocks and outside the CPU.** dampf computes a best and a worst case for
 every function, writes them to the [timing report](/glossary#timing-report) and checks
@@ -117,19 +121,16 @@ in [The C subset](/reference/c-subset). Assembling and linking need nothing else
 has its own assembler and linker, and [ca65 and ld65](/glossary#ca65-and-ld65) are only an
 alternative path that the tests compare it with.
 
-**Other systems, a bundle, and the game's tools in the window.** superdevkit builds a game for
-the SNES, Linux, Windows and the web ([The superdevkit command](/reference/superdevkit)). macOS
-is not scheduled: raylib runs there, but nobody can test it now. Nor is `superdevkit bundle`, one
-folder with every target, ready to publish. The desktop's window has the debug view
-([The desktop](/guide/the-desktop)), but not yet the development tools Blubber Blasen asked for
-so that it can drop its own desktop frontend. They are planned for M10, in the order they matter
-to the game: start options (a seed, and setting a registered toggle or range by name before the
-first tick), a bot or another source for the [joypad](/glossary#joypad), mute in the window, text
-in the debug view, stepping back in a replay and jumping to a tick, defines per target in
-`superdevkit.toml`, and filled boxes or arrows in the view. The ROMs themselves have run in
-[Mesen](/glossary#mesen) and in dampf's emulator, never on a real console: a run on a console or
-a flash cartridge, on NTSC and PAL, with the DMA margin measured there, is not scheduled until
-there is hardware.
+**Other systems, a bundle, and a real console.** superdevkit builds a game for the SNES, Linux,
+Windows and the web ([The superdevkit command](/reference/superdevkit)). macOS is not scheduled:
+raylib runs there, but nobody can test it now. Nor is `superdevkit bundle`, one folder with every
+target, ready to publish. The development tools in the desktop's window are built
+([The desktop](/guide/the-desktop)), with two limits. Shift+F6, a tick back in a replay, starts
+the program again and replays up to the tick before, so it is not on the web. A recording made
+with `--seed` or `--set` does not play in dampf's emulator, which refuses it because the SNES has
+neither. The ROMs themselves have run in [Mesen](/glossary#mesen) and in dampf's emulator, never
+on a real console: a run on a console or a flash cartridge, on NTSC and PAL, with the DMA margin
+measured there, is not scheduled until there is hardware.
 
 **Other items you might notice.** These are smaller, but each changes what you can write or
 expect:
@@ -152,6 +153,12 @@ expect:
   accepts arithmetic on it. The plan is to reject arithmetic on `char` beyond comparing and
   copying, so that its signedness can never change a result; this is decision 1 of the subset,
   open and to be taken in M10.
+- **Enum objects and pointers** take 4 bytes each in memory. Making them smaller is open, and
+  both decisions are to be taken in M10. Decision 2 of the subset would store an enum object in
+  the smallest width that holds its enumerators and allow only values of that enum in it, where
+  dampf now accepts any integer. Decision 3 is about 16-bit pointers into RAM. Within a function
+  and through parameters, dampf already turns a pointer into one object into a 16-bit offset
+  ([pointer compression](/glossary#pointer-compression)).
 - **Hand-written assembly** linked in with `dampf build --replace` works only with the
   [naive code generator](/glossary#naive-code-generator), and a function linked in this way
   cannot declare its calling convention, [direct page](/glossary#direct-page) use and cycles
@@ -178,18 +185,14 @@ expect:
   leaves out what `video.c` costs on the hardware. Your code may gain less from an optimization
   than the game did: the optimizations that made Blubber Blasen's play 13 % faster made the
   execution tests only 0.9 % faster, and the parameters chosen on the game, the inlining limit
-  and the block order, are still to be checked on the examples. The optimizer goes on in M9.
-  Register allocation is built in part (values go to the X or Y register by cost); left are the
-  [`M` flag](/glossary#m-and-x-flags) followed across blocks in general, arrays of structs
-  stored as one array per field once a measured loop gains from it, 8-bit index registers with
-  arrays aligned to pages, comparisons on the flags, a calling convention with the first
-  argument in A, and 16-bit pointers into RAM. M9 also closes three gaps that [Writing fast
-  C](/guide/writing-fast-c) measures, each of which is a rule there until its change retires or
-  changes it: a multiplication of two bytes calls `dampf_mul16` instead of the SNES's 8 x 8
-  multiplier at `$4202`, a signed division by a power of two keeps its rounding correction even
-  where a `DAMPF_RANGE` proves the value is not negative, and 32-bit operands are copied through
-  frame slots. Until then, that page says how to write around them. The fine tuning of M12
-  follows: the layout of blocks by a profile by default (it is built, but opt-in), a
+  and the block order, are still to be checked on the examples. The optimizer goes on in M12,
+  the fine tuning. Register allocation is built in part (values go to the X or Y register by
+  cost); left are the [`M` flag](/glossary#m-and-x-flags) followed across blocks in general,
+  arrays of structs stored as one array per field once a measured loop gains from it, 8-bit
+  index registers with arrays aligned to pages, a calling convention with the first argument
+  in A, and 32-bit arithmetic and ordered comparisons, which still go through frame slots;
+  [Writing fast C](/guide/writing-fast-c) measures that gap and says how to write around it.
+  Also in M12 are the layout of blocks by a profile by default (it is built, but opt-in), a
   superoptimizer for short hot sequences, `switch` as a jump table, `MVN` for copies,
   profile-guided inlining, a tuning option that tries the inlining limit and the block order on
   your own workload, and bank `$7F` for variables.

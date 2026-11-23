@@ -203,9 +203,9 @@ writes them to `calls.timing.txt`, the most expensive function first:
         best        worst  function
         1940         2594  dampf_sdiv32
         1888         2432  dampf_udiv32
-        1168         1968  dampf_mul32
          564          772  dampf_udiv16
-         287          367  dampf_mul16
+         398          400  dampf_mul32
+         108          108  dampf_mul16
           45           45  _test_main
           22           22  _add3
           18           18  _inc8

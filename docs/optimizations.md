@@ -34,8 +34,9 @@ on 2026-11-20:
 | Hello | 60,916 | 62,016 | 65.9 % |
 | Mode 7 | 27,211 | 27,462 | 68.0 % |
 
-The naive code generator does 3.0 times the work on the geometric mean of all seven examples, from
-1.26 times (Mandelbrot, whose time is the runtime's 32-bit multiplication) to 6.4 times (Er-Tüp).
+On 2026-11-20, before the runtime used the CPU's multiplier, the naive code generator did 3.0
+times the work on the geometric mean of all seven examples, from 1.26 times (Mandelbrot, whose
+time was the runtime's 32-bit multiplication) to 6.4 times (Er-Tüp).
 
 Before, dampf was measured on Blubber Blasen's benchmark (`tools/snesbench` in the game
 repository), which ran the game code with a fixed input, every PVSnesLib call stubbed out; all
@@ -53,7 +54,7 @@ after the optimizations on the branch `optimise`
 | dampf's naive code generator | play 4.37 (worst 7.26), with the CPU partner 5.58 (worst 10.53), also FastROM; 5.5 times as slow in play |
 | Against Calypsi | 2.14 times as fast: in the play ticks where both play the same scene (102 ticks, up to 812), FastROM for both, Calypsi 1.42 frames per tick, dampf 0.66 (Calypsi drifts from the PC from tick 596 on, see [roadmap.md](roadmap.md#open-questions)) |
 | Against hand-written `level_solid_px` | 1.14 times the cycles: 827 against 724 master clocks per call, both FastROM |
-| On the console (playable ROM) | 1.16 frames per tick during a minute of play (3,600 frames, 3,098 ticks), no byte lost in the vertical blank. This includes waiting for the vertical blank and the platform layer, so it is not comparable with the benchmark |
+| In Mesen (playable ROM) | 1.16 frames per tick during a minute of play (3,600 frames, 3,098 ticks), no byte lost in the vertical blank. This includes waiting for the vertical blank and the platform layer, so it is not comparable with the benchmark |
 
 Play is not yet within the budget. With the CPU partner, the worst tick is where it is hardest
 to meet. The numbers are measured without block counts from a profile unless they say so.
@@ -74,7 +75,7 @@ entry.
 | F | Loops | Partly. Counters in X, induction variables, the loop test moved to the offset, `INC`/`DEC` steps, loop-invariant code and loads (`Licm`), loop rotation; open: unrolling | 356,238 → 329,834, −7.4 % ([loop test on the offset](optimizations-log.md#the-loop-test-on-the-offset-2026-11-17)) |
 | G | Branches | Partly. Compare and branch in one, jump threading, short branches wherever they reach, `BRA` for near jumps, bit selections without a branch, tests against neighbouring constants as one range check (`RangeChecks`), the latch and single-predecessor successors laid out first, rare blocks laid out by a profile (`--block-counts`) | 494,619 → 488,323 with a profile ([blocks by a profile](optimizations-log.md#blocks-laid-out-by-a-profile-2026-11-17)) |
 | H | Standard optimizations: folding, identities, branch folding, block merging, value numbering, redundant loads, dead code, loops that do nothing and are proved to end (`DeadLoops`), comparisons computed again next to each branch that uses them (`SinkCompares`), index parameters passed as the offset into their struct array (`IndexParams`) | Built | 6.12 → 5.17 ([after H](optimizations-log.md#after-the-standard-optimizations-h-2026-11-17)) |
-| I | Multiply and divide | Partly. Constants as shifts and adds (in MIR for i32, in A for 8 and 16 bits), powers of two with C's signed rounding; open: the hardware multipliers | 2.29 → 2.07 ([multiplication in A](optimizations-log.md#arrays-indexed-with-x-multiplication-in-a-2026-11-17)) |
+| I | Multiply and divide | Partly. Constants as shifts and adds (in MIR for i32, in A for 8 and 16 bits), powers of two with C's signed rounding; two variables on the CPU's 8 x 8 multiplier (2026-11-22; two bytes without a call). Open: the PPU's multiplier, the hardware divider | 2.29 → 2.07 ([multiplication in A](optimizations-log.md#arrays-indexed-with-x-multiplication-in-a-2026-11-17)) |
 | J | Banks and placement | Partly. All code and constant data in banks $80 and up at FastROM speed (`--slowrom` switches it off), registers at constant addresses as long addresses | 1.31 → 1.10 ([FastROM](optimizations-log.md#fastrom-2026-11-17)) |
 | K | Peephole | Partly. A remembers every place it equals, `INC`/`DEC` in place, `STZ`, no `CMP #0` where N and Z already describe A, `TAX` for a reload of a stored value, shifts as a mask, the high byte as a byte load (`Peephole`), no `CLC` where the carry is known clear (`KnownCarry`) | 391,423 → 386,306 ([no `CMP #0`](optimizations-log.md#no-cmp-0-where-the-flags-are-set-2026-11-17)) |
 | L | `switch` as a jump table (`JMP (abs,X)`) | Not built | |
@@ -98,8 +99,9 @@ are never negative), by indexed addressing (an index that is never negative), by
 variables and by the loop bounds of the timing analysis. The tests check every value the MIR
 interpreter computes against its range (`dampf mir -O --check-ranges`).
 
-Not built: ranges from array accesses, return values and enums; page-aligned arrays, `switch`
-jump tables and `DAMPF_TABLE`; declared subrange types. The design is in
+An index into an array needs no range for its access (ADR-6F8NBESR), but the value ranges do not
+learn from that access. Not built: ranges from array accesses, return values and enums;
+page-aligned arrays, `switch` jump tables and `DAMPF_TABLE`; declared subrange types. The design is in
 [subrange-types.md](subrange-types.md).
 
 ### Pointer compression
@@ -160,10 +162,25 @@ allowed (the platform layer uses them); this form does not need the rule against
   on the LIR (2026-11-22): without `findForwards` the examples were 1.6 % slower, without
   `Schedule` 0.5 %, without both 2.1 %, and the copy loops of the spelling families up to 77 %
   slower ([log](optimizations-log.md#without-findforwards-or-schedule-measured-2026-11-22)).
+- `BIT` for bit tests (measured, not built, 2026-11-23): `BIT #mask` costs what `AND #mask` costs,
+  and the few places where it would gain add up to at most 0.07 % of the examples' work on average
+  and 0.4 % on Mode 7
+  ([log](optimizations-log.md#bit-for-bit-tests-measured-and-not-built-2026-11-23-on-the-examples)).
+- Rewriting a list of indexes into a list of byte offsets (2026-11-23): the whole gap of
+  `slow-index-list` is the multiplication by the element's size (17,505 cycles with indexes, 15,385
+  with offsets, 15,493 for the counter), so a pass could close it. Not built: no example has the
+  pattern and the game's sorted list is no longer a goal. The C guide has the form
+  (`same-list-of-offsets`).
+- The index registers chosen by `RegisterChoice` alone, without `findXCounters` and `findYIndexes`:
+  nine versions, none as good as selection's choice on the pair loops and the worst cases
+  ([log](optimizations-log.md#the-index-register-choice-tried-in-registerchoice-2026-11-23)).
+- Selection without `FrameLayout`'s predictions: the examples do 1.1 % more work and 104 worst
+  cases grow, so they stay until a model of the whole function replaces them
+  ([log](optimizations-log.md#framelayouts-predictions-measured-and-kept-2026-11-23)).
 
 ## Ideas not yet built
 
-The open parts of the catalogue (D, L, M, the hardware multipliers, parameters in registers and
+The open parts of the catalogue (D, L, M, the divider and mode 7's multiplier, parameters in registers and
 tail calls, `<<8` as a byte access, full `REP`/`SEP` tracking, unrolling); page-aligned arrays with
 8-bit index registers; a points-to analysis for pointers into several objects or loaded from
 memory; induction variables for counters that count down, and an induction variable as the index
@@ -176,7 +193,6 @@ inlining limit, the block order), runs the user's own workload (a benchmark or a
 `dampf profile` does) in dampf's emulator and keeps the fastest build, each candidate checked
 against a reference of the results (the PC build's checksums), since a larger inlining limit once
 exposed a miscompilation (fixed on 2026-11-19). Which come next, by likely gain and effort, is in
-[roadmap.md](roadmap.md#m9-the-optimizer-090) (M9) and
 [roadmap.md](roadmap.md#m12-fine-tuning-0120) (M12).
 
 ## How close can dampf get to hand-written assembly?

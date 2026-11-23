@@ -1,12 +1,16 @@
 # Further tests for dampf
 
+Archived on 2026-11-23. None of the eight steps is finished: V4 and V8 are partly covered, the
+others are not built. What is open, and what has changed since this was written, is in the
+[roadmap](../roadmap.md#tests-dampf-does-not-have-yet). The text below is as it was.
+
 How gcc, LLVM, MSVC and HotSpot keep a compiler right, what dampf has of that on 2026-11-20
 (commit `599a0bb`), and eight kinds of tests it does not have yet. Each is written as a step that
 someone who has not seen the code, a person or an AI, can build: the reason, the place in the
 code, the change, and how to tell that it works.
 
-The tests that exist are in [testing.md](testing.md). The steps T1 to T4 of
-[archive/compiler-flaws.md](archive/compiler-flaws.md#flaw-t-the-tests-cannot-see-these-flaws)
+The tests that exist are in [testing.md](../testing.md). The steps T1 to T4 of
+[archive/compiler-flaws.md](compiler-flaws.md#flaw-t-the-tests-cannot-see-these-flaws)
 are that document's and are not repeated here. The steps here are called V1 to V8, so their names
 do not collide with its letters. Nothing here is decided or scheduled; the
 [order](#order) at the end is a proposal. A step that is built gets its description in
@@ -44,7 +48,7 @@ independent of the code under test.
 
 ## Rules for whoever builds one of these
 
-The [rules of archive/compiler-flaws.md](archive/compiler-flaws.md#rules-for-whoever-implements-this)
+The [rules of archive/compiler-flaws.md](compiler-flaws.md#rules-for-whoever-implements-this)
 hold: one step a commit, with its tests and the documents it makes untrue; the book stays as it
 is. In addition:
 
@@ -67,7 +71,7 @@ the prefixes of that order and nothing else. The bugs of the last weeks were com
 one configuration did not have:
 
 - Inlining up to 80 instructions made the benchmark's checksums differ from the PC's
-  ([optimizations.md](optimizations.md#tried-and-rejected), 2026-11-18). The cause was a place
+  ([optimizations.md](../optimizations.md#tried-and-rejected), 2026-11-18). The cause was a place
   shared by two φs, found a day later in a game and fixed in `02fa308`. A run with a different
   inlining limit would have shown it in the kit's own tests.
 - `IndexParams` gave one of two outputs depending on hash codes (found while building T3).
@@ -76,8 +80,8 @@ HotSpot tests exactly this way: the flags in the table above make the optimizer'
 random, with a seed that reproduces the run.
 
 **Where.** `dampf.util.PassLimit.apply` is the one place every MIR and LIR pass goes through
-([Optimizer.java](../compiler/src/main/java/dampf/mir/Optimizer.java), `Run.pass` and
-`Run.module`; [MirCodeGen.java](../compiler/src/main/java/dampf/backend/MirCodeGen.java), the six
+([Optimizer.java](../../compiler/src/main/java/dampf/mir/Optimizer.java), `Run.pass` and
+`Run.module`; [MirCodeGen.java](../../compiler/src/main/java/dampf/backend/MirCodeGen.java), the six
 LIR passes). `Inline.run` asks `limit.allows()` for each call and has the limits `SMALL`,
 `SINGLE` and `CALLER_LIMIT`. The block layout takes `Compiler.Options.blockCounts`.
 
@@ -127,7 +131,7 @@ has not been measured; measuring it is the first part of this step. Any joypad i
 input by definition, the reference exists (the same game compiled by the naive code generator,
 and by gcc on the desktop), and the comparison exists (a checksum per tick, `ExampleCheck`).
 
-**Where.** [ExampleCheck.java](../compiler/src/main/java/dampf/emu/ExampleCheck.java):
+**Where.** [ExampleCheck.java](../../compiler/src/main/java/dampf/emu/ExampleCheck.java):
 `Input(ticks, presses, budgets)` and `run(rom, input, limitFrames)`, whose result has the
 checksum of every tick. `ExamplesTest.options(example, out)` gives an example's build options,
 `withBackend` chooses the code generator, and the test shows how the desktop program plays a
@@ -177,9 +181,9 @@ pass is wrong or a rule is missing from the document.
 **Where.** `MirParser.parse` (MIR text to a module), `Printer`, `Verifier`,
 `Interpreter.call(function, args)` and `load(address, size)`, `Optimizer.run(module, true)` with
 the verifier after every pass.
-[StrengthReduceTest.java](../compiler/src/test/java/dampf/mir/StrengthReduceTest.java)
+[StrengthReduceTest.java](../../compiler/src/test/java/dampf/mir/StrengthReduceTest.java)
 compares a module before and after the passes in the interpreter;
-[MirRunner.java](../compiler/src/test/java/dampf/exec/MirRunner.java) shows how the range
+[MirRunner.java](../../compiler/src/test/java/dampf/exec/MirRunner.java) shows how the range
 checker is attached.
 
 **The change.** `RandomMir` in the test tree writes a module as MIR text: one function with one
@@ -203,7 +207,7 @@ at the module.
 
 **Done when.** 10,000 functions run in every build in a time that is acceptable there (measure;
 reduce the number if it is not), and the meaning of the MIR instructions is one section of
-[architecture.md](architecture.md). Mutation check: one condition broken in each of `Simplify`,
+[architecture.md](../architecture.md). Mutation check: one condition broken in each of `Simplify`,
 `Gvn`, `Narrow` and `RangeNarrow`.
 
 ## V4. Every rewrite checked on every input
@@ -232,11 +236,11 @@ one variable; if the whole set is too slow for every build, a build runs a tenth
 the date, and `-Pexhaustive` all.
 
 **The change, LIR.** For every rewrite that the class comments of `Peephole`, `KnownCarry`,
-`ByteStretches`, `RedundantLoads` and `IndexInY` describe: the instructions before it as LIR text
+`ByteStretches` and `RedundantLoads` describe: the instructions before it as LIR text
 (`LParser`; `LirTest` is the model), what is live after them (which of A, X, Y, the flags N, Z, C
 and V, and which places), and the assertion that the pass changes them. Then both versions are
 assembled (`dampf.asm.Assembler`) and run on a bare CPU
-([CpuSingleStepTest.java](../compiler/src/test/java/dampf/emu/CpuSingleStepTest.java) shows how
+([CpuSingleStepTest.java](../../compiler/src/test/java/dampf/emu/CpuSingleStepTest.java) shows how
 to set one up with a memory of its own) for every value of A (65,536 with a 16-bit accumulator),
 both values of the carry and eight boundary values of each place, and everything live must be
 the same after both.
@@ -334,7 +338,7 @@ killed by a new MIR text test or listed with the reason it is equivalent.
 **Why.** The reference can be wrong. `RandomLoopProgram`'s seed 1157 differed from gcc because
 gcc 16.2.1 with `-fsanitize=bounds` miscompiled `a[i] ^= (... ? ... : a[i])`; clang and gcc
 without the bounds check agreed with dampf (the comment in
-[PcReference.java](../compiler/src/test/java/dampf/exec/PcReference.java)). Until someone saw
+[PcReference.java](../../compiler/src/test/java/dampf/exec/PcReference.java)). Until someone saw
 that, it was a bug of dampf's. Csmith never trusts one compiler for this reason.
 
 **The change.** In `PcReference`, only when dampf's result differs from gcc's (so a passing test
@@ -358,13 +362,13 @@ nowhere, a value that breaks a hint. Such a call does something different in the
 in the ROM from MIR, since their frames differ, and every one would be a false alarm. Sorting
 them out needs a referee that knows the bounds of every object. The MIR interpreter is not one:
 it checks hints and ranges, but an address only against the whole of its memory
-([Interpreter.java](../compiler/src/main/java/dampf/mir/Interpreter.java)). With poisoned bytes
+([Interpreter.java](../../compiler/src/main/java/dampf/mir/Interpreter.java)). With poisoned bytes
 between its objects it would catch most of them. That is work for after V2, if V2's coverage
 report leaves functions that no input reaches.
 
 **gcc's c-torture and LLVM's test-suite.** dampf rejects plain `int`, `short`, `long` and
 `unsigned`, recursion, free function pointers and every library function
-([subset.md](subset.md)), and nearly all of those tests use `int` and end in `abort` or `exit`.
+([subset.md](../subset.md)), and nearly all of those tests use `int` and end in `abort` or `exit`.
 They would have to be rewritten by a tool before a single one compiles, and how many are left
 after that nobody has counted. The same holds for the bought conformance suites. `RandomLoopProgram` is the cheaper way to the same kind of code.
 

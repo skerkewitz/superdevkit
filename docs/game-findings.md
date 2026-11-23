@@ -92,3 +92,61 @@ What the game would change:
 
 Nothing changes on the SNES or in the checksums: the ROM and the game's code stay as they are,
 apart from the line in `game.h`.
+
+## 4. Multiplying is about three times cheaper, and an indexed 16-bit store works (2026-11-22)
+
+dampf now multiplies on the SNES's 8 x 8 multiplier. A multiplication of two 16-bit variables costs
+about 140 CPU cycles instead of about 400, a 32-bit one about 400 plus its operands instead of up
+to 1,968, and two bytes go to the hardware without a call (62 cycles in the C guide's measurement).
+The rule `same-multiply-width` is now `fast-multiply-bytes`: where both factors fit a byte, keep
+them bytes. Multiplying by a constant is still cheaper than by a variable.
+
+The runtime uses the registers `$4202`, `$4203` and `$4216`. The game does not use them today. If
+it ever does, it must not multiply two variables between its write and its read.
+
+Your finding 13 is closed as well: the loop it describes, a 16-bit store into an array by an index
+with `DAMPF_RANGE`, now compiles to an indexed store (`sta array,x`) and no longer goes through a
+24-bit pointer. What the game would change: nothing it must. It went back to byte stores because
+of that finding and can try the 16-bit version again, and measure it.
+
+## 5. The black pause before the title: draw first, then load the sounds (2026-11-22)
+
+`sdevkit_sfx_init` sends the samples at about 350 bytes a frame and blocks until it is done. If
+the game calls it while the screen is still off, the player looks at a black screen for that
+long. The kit will not move this upload into the splash screen: which samples to load, and when,
+is the game's decision (your finding 12.2 is closed that way).
+
+The PPU keeps showing its picture during the upload, so the order in `game_init` is enough:
+
+```c
+draw_title();                      /* everything for the PPU first */
+sdevkit_set_brightness(15);
+sdevkit_sfx_init(&sfx_bank);       /* the title stays on screen meanwhile */
+```
+
+Measured on a copy of the kit's example Steinschlag in Mesen: 48 frames with the screen off during
+the upload before, none after, no byte lost, and the same checksums and sound over 1,700 ticks.
+
+What the game would change: move its `sdevkit_sfx_init` call behind the drawing of the first
+screen and the switch that turns it on. The picture stands still and the pads are not read until
+the upload ends, so the first screen should be one that can wait, and nothing may write to VRAM
+after the screen is on except in a vertical blank. This was not tried on the game itself.
+
+## 6. A release holds `dev/replay.sh`, and 0.8.0 has a tag (2026-11-23)
+
+Your finding 14 is closed. The kit's distribution has `dev/replay.sh`, both in the home that
+`installDist` writes and in a release's zip, and release 0.8.0 is tagged `v0.8.0`. Versions before
+it have no tag.
+
+What the game would change: nothing it must. It can pin the kit to the tag instead of a commit
+named "Version x.y.z", and call `<home>/dev/replay.sh` from a release.
+
+## 7. A 32-bit value combined bit by bit costs what two halves cost (2026-11-23)
+
+dampf now splits a `uint32_t` that is only loaded, combined with `&`, `|` or `^` and stored into two
+16-bit values itself: `hash ^= key` costs 36 CPU cycles, the same as on two `uint16_t` halves
+(84 before). The C guide's `slow-32-bit` now speaks only of arithmetic, and `same-32-bit-bits` is
+new. What the game would change: nothing it must. A value kept as two halves only for the old rule
+can be one `uint32_t` again. A test of such a value with `!= 0` or `==` is split too: a loop that
+tests 32-bit rows against a mask costs 40 % less. Additions, ordered comparisons and
+multiplications of 32-bit values still cost more than twice their 16-bit form.

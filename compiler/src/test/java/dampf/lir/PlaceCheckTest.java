@@ -70,6 +70,47 @@ class PlaceCheckTest {
         assertEquals(2, check(f).size());
     }
 
+    private static List<String> written(LFunction f) {
+        return PlaceCheck.written(f, PlaceCheck.of(OWN), o -> o.key() == P);
+    }
+
+    @Test
+    void beforeTheAddressesAPhiCopyReadsItsSourceAndWritesItsTarget() {
+        LFunction fine = function(
+                ins("lda", place(0, P)),
+                ins("sta", place(0, V)),
+                new LCopy(place(0, W), place(0, V)),
+                ins("ldy", place(0, W)));
+        assertEquals(List.of(), written(fine));
+        LFunction wrong = function(
+                new LCopy(place(0, W), place(0, V)),
+                ins("ldy", place(0, W)));
+        List<String> errors = written(wrong);
+        assertEquals(2, errors.size(), errors.toString());   // the two bytes of V; W counts as written
+        assertTrue(errors.getFirst().contains("where it was not written on every way"), errors.getFirst());
+    }
+
+    @Test
+    void beforeTheAddressesPlacesAtOneOffsetAreNoOverlap() {
+        // selection's offsets are not the final addresses: only the second check compares them
+        LFunction f = function(
+                ins("lda", place(0, P)),
+                ins("sta", place(2, V)),
+                ins("sta", place(2, W)),
+                ins("ldx", place(2, V)),
+                ins("ldy", place(2, W)));
+        assertEquals(List.of(), written(f));
+    }
+
+    @Test
+    void beforeTheAddressesAReadOfAPlaceNeverWrittenIsFound() {
+        // the bug of exec/regress_pointer_index_sum.c: the index handed on in A, read from its place
+        LFunction f = function(
+                ins("lda", place(0, P)),
+                ins("ldy", place(2, V)));
+        assertEquals(2, written(f).size());
+    }
+
     @Test
     void aWriteOverALiveValueIsFound() {
         LFunction f = function(

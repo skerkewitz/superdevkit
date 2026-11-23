@@ -1654,3 +1654,186 @@ copies through a pointer 1,823 → 3,219 without `Schedule`. Against it, some fu
 is open in the roadmap (M9, row 2). Without `Schedule` dampf also stopped on Ertüp, which led to
 the bug of the entry before.
 
+## Multiplication on the CPU's multiplier (2026-11-22, on the examples)
+
+`dampf_mul16` and `dampf_mul32` were loops of 16 and 32 shifts and adds, 287 to 367 and 1,168 to
+1,968 cycles, and Mandelbrot spent 87 % of its work in the runtime. The SNES has an 8 x 8 multiplier at
+`$4202`/`$4203` with the product in `$4216` after 8 CPU cycles. `dampf_mul16` now adds up the three
+byte products that reach the low 16 bits (108 cycles), `dampf_mul32` the ten that reach the low 32
+(398 to 400). Where both factors of a 16-bit product are below 256 by their ranges, or the result is
+a byte, the code goes to the multiplier directly, without a call: `(uint16_t)(ua * ub)` costs 62
+cycles in the C guide's measurement against 140 for two `uint16_t`.
+
+The emulator used to give the product at once, so a read that comes too early would have passed
+every test here and failed on a console. It now adds one bit per CPU cycle (`MultiplierTest`). With
+the runtime's wait one cycle shorter, both dampf's emulator and Mesen give wrong products.
+
+On the examples: Mandelbrot 230,944 → 76,575 (0.332), Mode 7 24,940 → 11,649 (0.467), Ertüp 0.981,
+Catch Me 0.990, the rest the same; geometric mean 0.763. 48 worst cases are smaller and none is
+larger. The pair loops multiply by constants and are the same. `same-multiply-width` is now
+`fast-multiply-bytes`.
+
+## A loaded value goes right before a store through a pointer (2026-11-22, on the examples)
+
+`memcpy` was 10 % faster without `Schedule` (the entry on `findForwards` and `Schedule`). A store's
+address and value are both read by the store alone, so each wanted the place right before it, and
+`Schedule` moved them in turns until its limit of rounds. In `memcpy` the address won: the loaded
+byte was stored in a temporary and loaded back while the address was computed, 8 cycles a byte.
+Where the address is a pointer plus a variable, whose sum needs A, and the value is a load, the
+load now comes right before the store. `memcpy` 5,046,223 → 4,521,943 at its worst case (10.4 %);
+every other worst case, the examples' work and the pair loops are the same.
+
+Wider rules measured worse. The value last for every store made Schach 0.5 % slower: its stores
+into global arrays need no A for the address, and the new order took Y from the counter of `next`.
+Only the other operand left in place made seven worst cases larger. What stays open is a computed
+value stored at an index into a global: value last makes Ertüp's `hud_lives` 12 % faster and
+Schach's `draw_square` slower, so that choice needs a cost model.
+
+## A signed division of a value known not to be negative (2026-11-22, on the C guide)
+
+`v / 8` on an `int16_t` with `DAMPF_RANGE(v, 0, 1000)` cost 63 cycles against 17 for the same
+division written as unsigned. C promotes `v` to 32 bits. `RangeNarrow` narrowed the division back
+to a signed 16-bit one, and `StrengthReduce`, later in the same round, gave it its correction for
+negative values before the next round could see that there are none. Where neither operand can be
+negative, `RangeNarrow` now narrows to the unsigned operation at once (`sdiv` to `udiv`, `srem` to
+`urem`, `ashr` to `lshr`). The division with the hint costs what the unsigned one costs. No example
+divides that way, so their code, the worst cases and the pair loops are the same.
+`slow-signed-divide` stays, for a value dampf knows nothing about.
+
+## A comparison with a sum, in 16 bits (2026-11-22, on the examples)
+
+`a > b + 32` on two `int16_t` is a 32-bit comparison: C adds in `int`, and the sum may not fit 16
+bits. But where it does not fit, the answer is known: a sum above 32767 is greater than every
+`int16_t`, one below -32768 less. `CompareSum` turns such a branch into a test whether the sum fits,
+which goes straight to the known answer if not, and a 16-bit comparison if it does; where the ranges
+show that it always fits, the next round removes the test. A branch that leaves a loop stays, since
+the loop passes read its test. Exact for every predicate and either order (`CompareSumTest`,
+`exec/compare_sum.c`, at the values where the sum stops fitting).
+
+The C guide's example costs 164 → 104 cycles (86 with the cast). Steinschlag's `approach` 183 → 119
+and `camera` 448 → 320, Ertüp's `crate_update` 502 → 384. Steinschlag does 0.9 % less work, the
+others are the same within 0.04 %; geometric mean 0.999. 5 worst cases are smaller, none larger.
+The pair loops are the same.
+
+## `BIT` for bit tests, measured and not built (2026-11-23, on the examples)
+
+Row 6 of the roadmap expected 2 to 4 % for the whole row, which includes the `CMP #0` already left
+out. What `BIT` itself can add follows from the 65816's cycles. With a 16-bit A, on the direct page,
+`lda x; and #mask`, `lda x; bit #mask` and `lda #mask; bit x` all cost 7 cycles, so replacing one by
+another gains nothing. `BIT` gains where an instruction can go: the `AND` of a test of the top bit
+(N is already set by the load), the `AND` of a test of bit 14 or 6 (`BIT` on memory puts it in V),
+a load of the value `BIT #mask` left in A, or a load of the mask when A already holds it. `BIT` has
+no long or indirect modes, so it cannot read a local through `[dampf_frame],y`.
+
+Before building it, every example's check was played in dampf's emulator on `develop` at `ee9657b`,
+and every `AND #mask` directly before a `BEQ` or `BNE` was classified as it ran, with the measured
+cost of the instruction that would go. The frame-wait loop is left out, as in
+`dev/bench_examples.sh`. The numbers are shares of the example's work, and upper limits: the count
+does not check whether the result of the `AND` is still needed.
+
+| Share of the work (%) | CatchMe | Ertüp | Hello | Mandelbrot | Mode 7 | Schach | Steinschlag |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| All `AND #mask` before a branch | 1.41 | 2.29 | 0.18 | 0.15 | 0.31 | 2.61 | 0.57 |
+| Of these, the mask `$00FF` (a byte in a 16-bit A) | 1.00 | 2.05 | 0.03 | 0.07 | 0.00 | 0.93 | 0.19 |
+| Top bit: the `AND` goes | 0.00 | 0.03 | 0.00 | 0.00 | 0.15 | 0.00 | 0.00 |
+| `BIT #mask` keeps A, the same load comes next | 0.04 | 0.01 | 0.00 | 0.00 | 0.24 | 0.00 | 0.00 |
+| A already holds the mask | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.02 |
+| **The most `BIT` could save** | 0.04 | 0.04 | 0.00 | 0.00 | 0.40 | 0.00 | 0.03 |
+
+The last row adds the unrounded numbers. No test of bit 14 or bit 6 ran after a load `BIT` can
+replace. The geometric mean of the savings is 0.07 %, and Mode 7's 0.40 % is the largest. Theory and
+measurement agree: `BIT` saves a whole instruction, 3 cycles or more, where one of these cases
+applies, and in this code they are rare. Most of the tests are the mask `$00FF`, which is a matter of 8-bit code (row 3).
+
+Not built: the gain does not pay for another pass and its tests. Code written for it, with its flags
+in the top bits, would gain more. Blubber Blasen was not measured.
+
+## 32-bit values combined bit by bit, as two halves (2026-11-23, on the C guide)
+
+`hash ^= key` on two `uint32_t` cost 84 cycles against 36 for the same on two `uint16_t` halves:
+each word went through a frame place. An AND, OR or XOR never carries from one half to the other,
+so `SplitWords` makes a 32-bit value that is only loaded, combined bit by bit and stored into two
+16-bit values, with its constants, zero extensions and φs. Anything else that reads it (an
+addition, a comparison, a call) leaves the whole web as it is.
+
+The split alone gave 46 cycles: `Schedule` would not move the high half's loads past the store to
+the low half. A load may now pass a store whose address is known to be other bytes, of the same
+global or another one. `xor_32` costs 36, as the halves do. `slow-32-bit` now measures 32-bit
+addition, and `same-32-bit-bits` holds the new fact.
+
+The examples hardly have such values: Catch Me 0.998 (the moved loads), hello 16 master cycles a tick
+more (0.03 %), the rest the same; one worst case smaller, none larger. The pair loops are the same.
+
+## Tests for equality on split 32-bit values (2026-11-23, on a collision loop)
+
+`if (rows[y] & mask[y])` on two `uint32_t` kept the value whole, because `SplitWords` did not take
+a comparison as a reader. It now takes a test for equality: `x != 0` is `(lo | hi) != 0`, and
+`x == y` compares `(xl ^ yl) | (xh ^ yh)` with 0. An ordered comparison still keeps the web whole.
+
+A loop that tests 32-bit rows against a mask went from 1,777 to 1,073 cycles (-40 %). The other
+eight 32-bit loops measured for the split (hashes, bitboards, xorshift, CRC) are the same. Schach
+0.999 (370,752 to 370,259), the other examples 1.000; no worst case smaller or larger. The pair
+loops' code is the same, and only the check after them is 41 cycles shorter.
+
+
+## The register choice keeps its weights after the first choice (2026-11-23, on the examples)
+
+`RegisterChoice` cuts the code into new blocks each time it applies a choice, and its block weights
+and its list of loops still named the old ones. From the second round on, every block weighed 1 and
+no value could take a register for one loop only. They now follow the blocks.
+
+The examples: hello 0.995, Er-Tüp 0.999, Catch Me 1.000, Schach 1.000 (370,259 to 370,396), the rest
+the same; geometric mean 0.999. Pair loop B 0.998, the others the same. Of the worst cases 17 are
+smaller and 21 larger, by at most 1.5 % (`sfx_voice`, in every ROM). The spelling families are the
+same.
+
+## The index register choice, tried in `RegisterChoice` (2026-11-23)
+
+The goal was one place that decides X or Y, without selection's `findXCounters`, `findYIndexes` and
+the pass `IndexInY`. Selection wrote every index into X. `RegisterChoice` gave X to a value live
+through a loop and moved other indexes out of its way to Y, and a new step spread the indexes left
+over both registers by how often they alternate. Nine versions were measured, none good enough:
+
+| Version | Examples | Pair loops | Largest worst case |
+| --- | ---: | --- | ---: |
+| X by benefit, a second round for X | 1.0001 | C 1.015, D 1.004 | +7 % |
+| X to the value that loses most in Y | 1.0000 | C 1.015, D 1.003 | +15 % (Mode 7's `make_map`), `pairs_down` +32 % |
+
+The choice is greedy and counts cycles on paths that exclude each other, so a short value can take
+Y from an index used all over a function (`pair_f`). Doing better needs a cost model of the whole
+function, so selection's two patterns stay. Without `findYIndexes` the pair loops B and D cost 1.7
+and 1.8 % more; without `findXCounters` the examples cost 0.15 % more, the pair loops up to 0.9 %
+and worst cases up to 3 %.
+
+`IndexInY` did go. Once the weights were right it found almost nothing: Schach does 21 master
+cycles a tick more (370,396 to 370,417, ADR-6F3CJR10's price for a pass less), everything else is
+the same, and no worst case changed.
+
+## `FrameLayout`'s predictions, measured and kept (2026-11-23)
+
+Selection reads `FrameLayout`'s predicted places for three decisions: a value stepped in place
+(`ArithSelection.incDec`), a φ's operand already in the φ's place
+(`SelectionPlan.firstPhiCopyReads`), and a pointer in the direct page (`MemorySelection.via`,
+`SelectionPlan.addressNeedsNoA`). The experiment, against `af009ad`, disabled `incDec` and took
+the places out of the φ test. Work per tick, new against old:
+
+| Example | Ratio |
+| --- | ---: |
+| catchme | 0.9969 |
+| ertuep | 1.0039 |
+| hello | 1.0209 |
+| mandelbrot | 1.0013 |
+| mode7 | 1.0000 |
+| schach | 1.0076 |
+| steinschlag | 1.0487 |
+| geometric mean | 1.0112 |
+
+The pair loops: A 1.0034, B 1.0087, C 1.0056, D 0.9813. The spelling family `pairs_down` 1.006.
+Worst cases: 14 smaller, 104 larger, by up to 8 %.
+
+The pointer decision was counted without changing it. Er-Tüp has 5 accesses through a pointer
+predicted outside the direct page, of 384 through `[frame]`; Schach has none of 92, and the other
+examples have none. The case is rare and still has to compile correctly in large programs.
+
+Nothing of this was built. The predictions stay until a model of the whole function replaces them
+(ADR-6FGF7X0N).

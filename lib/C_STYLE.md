@@ -59,26 +59,32 @@ call its own statement.
   (`if (!used(&a[j])) continue;`) rather than a list of the used slots' indexes
   (`&a[list[k]]`), unless most slots are free: dampf steps a counter's element offset by the
   element's size, where an index loaded from a list is multiplied by the size on every element.
-  Measured in Blubber Blasen's pair loop too, where the list cost three times as much a line.
+  Measured in Blubber Blasen's pair loop too, where the list cost three times as much a line. If
+  you need a list, let it hold byte offsets (`same-list-of-offsets`).
 - **`slow-multiply-variable`** Multiply by a constant where the factor is one: `va * vb` calls
   the runtime, `va * 40` is shifts and adds.
 - **`slow-divide-variable`** Divide by a constant power of two where you can: `va / vb` calls the
   runtime, `va / 8` of an unsigned value is a shift.
 - **`slow-signed-divide`** Divide a value that cannot be negative as unsigned:
   `(uint16_t)v / 8`, not `v / 8` on an `int16_t`. The signed form computes a rounding correction
-  for negative values, and a `DAMPF_RANGE` that proves `v` is not negative does not remove it.
+  for negative values, unless dampf knows that `v` is not negative (a comparison before it, or a
+  `DAMPF_RANGE`).
 - **`slow-hand-shifts`** Write a multiplication by a constant as a multiplication: `va * 40`, not
   `(va << 5) + (va << 3)`. dampf finds the shifts itself, and better.
-- **`slow-32-bit`** Keep 32-bit values out of hot code: every operation on one goes through
-  memory, more than twice the cost of a 16-bit one. A value only combined bit by bit (a hash) can
-  be two `uint16_t` halves.
+- **`slow-32-bit`** Keep 32-bit arithmetic out of hot code: an addition of two `uint32_t` goes
+  through memory, more than twice the cost of a 16-bit one. Bit operations are the exception
+  (`same-32-bit-bits`).
 - **`slow-compare-sum`** Compare with `(int16_t)(y + 32)`, not `y + 32`, where the sum fits: C adds
-  an `int16_t` and a constant in `int`, which has 32 bits, so the comparison is a 32-bit one, as the
-  sum may not fit 16 bits. The cast says it does. (Two `uint8_t` added stay 16-bit: dampf sees that
+  an `int16_t` and a constant in `int`, which has 32 bits and may not fit 16. dampf then tests
+  whether the sum fits before a 16-bit comparison. The cast says it does and saves that test; so
+  does a known range of `y`. (Two `uint8_t` added stay 16-bit: dampf sees that
   they cannot overflow.)
 
 ## 4. Fast
 
+- **`fast-multiply-bytes`** Multiply two values that fit a byte as bytes: `(uint16_t)(ua * ub)` on
+  two `uint8_t` goes straight to the SNES's 8 x 8 multiplier, without a call. Two `uint16_t` call
+  the runtime, unless dampf can prove that both are below 256.
 - **`fast-array-per-field`** In hot code, one array per field (`px[i]`, `py[i]`) is a little
   cheaper than an array of structs (`objs[i].x`). The gain is small: keep the struct elsewhere.
 - A multiplication or an unsigned division by a constant is cheap (`slow-multiply-variable`,
@@ -94,10 +100,12 @@ Write whichever reads better; these cost the same:
 - **`same-loop-form`** `for` or the same loop as `while`;
 - **`same-pointer-walk`** an array walked with a pointer beside the loop's counter (`o->x; o++`)
   or indexed (`a[i].x`);
+- **`same-list-of-offsets`** a counter over all slots, or a list of the used slots that holds their
+  byte offsets (`(Ball *)((uint8_t *)balls + list[k])`), as long as the offsets fit its type;
 - **`same-named-temporary`** a named temporary or the expression written inline: a value used
   once stays in the accumulator either way;
-- **`same-multiply-width`** a multiplication of two bytes or of two 16-bit values: both call the
-  runtime (the SNES's 8 x 8 multiplier is not used), so narrowing the factors buys nothing.
+- **`same-32-bit-bits`** a value only combined bit by bit (a hash, a mask tested with `!= 0` or
+  `==`) as one `uint32_t` or as two `uint16_t` halves: dampf splits it into the halves itself.
 
 ## 6. The hints
 
@@ -107,8 +115,9 @@ Write whichever reads better; these cost the same:
   least `game_tick` and `game_vblank` with their callees: a worst case above `n` CPU cycles is a
   build error, above 90 % a warning, so a slower change is found when it is made.
 - **`DAMPF_RANGE(v, lo, hi)`** only where a measurement shows it changes the code. Today that is
-  a loop the timing report calls unbounded (a hint on its counter gives it a bound); an index
-  into an array needs none since 2026-11-20 (an access outside the array is undefined in C, and
+  a loop the timing report calls unbounded (a hint on its counter gives it a bound) and a value
+  whose range saves work: a signed division, a comparison with a sum, a multiplication of two
+  `uint16_t` below 256. An index into an array needs none since 2026-11-20 (an access outside the array is undefined in C, and
   dampf relies on that, ADR-6F8NBESR). A hint states a fact: a wrong one makes wrong code on the SNES and stops the
   program on the PC.
 
@@ -118,23 +127,25 @@ The worst case of each function in CPU cycles, from the timing report; "is" is t
 test checks ("same": within 5 %).
 
 <!-- measurements: written by StyleGuideTest -->
-Measured 2026-11-22 (worst case of the timing report, code generator from MIR).
+Measured 2026-11-23 (worst case of the timing report, code generator from MIR).
 
 | Rule | This | CPU cycles | is | than this | CPU cycles |
 | --- | --- | ---: | --- | --- | ---: |
 | `fast-array-per-field` | `move_array_per_field` | 1,361 | faster | `move_array_of_structs` | 1,521 |
+| `fast-multiply-bytes` | `multiply_bytes` | 62 | faster | `multiply_words` | 140 |
+| `same-32-bit-bits` | `xor_32` | 36 | same | `xor_16_halves` | 36 |
 | `same-declaration-place` | `declared_at_top` | 5,025 | same | `declared_where_used` | 5,025 |
 | `same-increment-form` | `count_postfix` | 5,025 | same | `count_prefix` | 5,025 |
 | `same-index-form` | `read_indexed` | 5,025 | same | `read_pointer_arithmetic` | 5,025 |
+| `same-list-of-offsets` | `pairs_by_offsets` | 15,385 | same | `pairs_by_counter` | 15,493 |
 | `same-loop-form` | `loop_for` | 5,025 | same | `loop_while` | 5,025 |
-| `same-multiply-width` | `multiply_bytes` | 409 | same | `multiply_words` | 399 |
 | `same-named-temporary` | `with_temporary` | 45 | same | `inline_expression` | 45 |
 | `same-pointer-walk` | `move_by_pointer` | 1,521 | same | `move_by_index` | 1,521 |
-| `slow-32-bit` | `xor_32` | 84 | slower | `xor_16_halves` | 36 |
-| `slow-compare-sum` | `compare_sum` | 164 | slower | `compare_sum_narrowed` | 86 |
+| `slow-32-bit` | `add_32` | 86 | slower | `add_16` | 31 |
+| `slow-compare-sum` | `compare_sum` | 104 | slower | `compare_sum_narrowed` | 86 |
 | `slow-divide-variable` | `divide_variables` | 804 | slower | `divide_constant` | 17 |
 | `slow-hand-shifts` | `times_40_by_shifts` | 41 | slower | `times_40` | 31 |
 | `slow-index-list` | `pairs_by_list` | 17,505 | slower | `pairs_by_counter` | 15,493 |
-| `slow-multiply-variable` | `multiply_variables` | 399 | slower | `multiply_constant` | 31 |
-| `slow-signed-divide` | `divide_signed` | 63 | slower | `divide_unsigned` | 17 |
+| `slow-multiply-variable` | `multiply_variables` | 140 | slower | `multiply_constant` | 31 |
+| `slow-signed-divide` | `divide_signed` | 101 | slower | `divide_unsigned` | 17 |
 <!-- end of measurements -->

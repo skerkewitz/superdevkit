@@ -133,6 +133,21 @@ final class ArithSelection {
                     multiplyBy(v, c, t);
                     sel.maskResult(b);
                     sel.result(b, 0);
+                } else if (byteFactors(b)) {
+                    // the CPU's multiplier, without the call: 8 cycles until the product is there,
+                    // of which the two NOPs and LDA long's fetches are at least 4 + 4 even if a
+                    // later pass takes the REP out
+                    sel.ins("sep", "#$20");
+                    sel.ins("lda", sel.operand(x, 0));
+                    sel.ins("sta", WRMPYA);
+                    sel.ins("lda", sel.operand(y, 0));
+                    sel.ins("sta", WRMPYB);
+                    sel.ins("nop");
+                    sel.ins("nop");
+                    sel.ins("rep", "#$20");
+                    sel.ins("lda", RDMPY);
+                    sel.maskResult(b);
+                    sel.result(b, 0);
                 } else if (n == 1) {
                     sel.ins("lda", sel.operand(y, 0));
                     sel.ins("sta", Selection.reg("R0"));
@@ -185,6 +200,42 @@ final class ArithSelection {
             }
             case SHL, LSHR, ASHR -> shift(b);
         }
+    }
+
+    private static LOperand.Mem hardware(String address) {
+        return new LOperand.Mem(LOperand.Width.LONG, address, 0, LOperand.Index.NONE, false);
+    }
+
+    private static final LOperand.Mem WRMPYA = hardware("$004202");
+    private static final LOperand.Mem WRMPYB = hardware("$004203");
+    private static final LOperand.Mem RDMPY = hardware("$004216");
+
+    /**
+     * Whether x * y is the 16-bit product of two bytes, which the CPU's multiplier computes without
+     * a call: an i8 (its result depends on the low bytes alone), or an i16 whose two factors are
+     * below 256 by their ranges. Both factors must be places: the code loads them in 8 bits.
+     */
+    boolean byteFactors(Instr.Bin b) {
+        if (b.op != Instr.BinOp.MUL || b.op(0) instanceof Value.Const || b.op(1) instanceof Value.Const
+                || !inPlace(b.op(0)) || !inPlace(b.op(1))) {
+            return false;
+        }
+        if (b.type() == MType.I8) {
+            return true;
+        }
+        if (b.type() != MType.I16 || sel.ranges == null) {
+            return false;
+        }
+        Ranges.Range x = sel.ranges.atUnsigned(b.op(0), b.block());
+        Ranges.Range y = sel.ranges.atUnsigned(b.op(1), b.block());
+        return x != null && y != null && x.hi() <= 0xFF && y.hi() <= 0xFF;
+    }
+
+    /** Whether a value is read from a frame place (not a constant, an address, or undefined). */
+    private boolean inPlace(Value v) {
+        Value through = Selection.throughCopies(v);
+        return through instanceof Value.Param || through instanceof Instr i && !sel.xResident.containsKey(i)
+                && !sel.xSteps.containsKey(i);
     }
 
     /**

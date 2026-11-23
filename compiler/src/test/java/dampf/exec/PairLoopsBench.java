@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * The pair loops' benchmark (exec/pair_loops.c, the roadmap's M9): the four variants of a pair
+ * The pair loops' benchmark (exec/pair_loops.c, the roadmap's M12): the four variants of a pair
  * loop (a counter or a list sorted by x, over a struct array or one array per field), each built
  * with -DVARIANT and run in dampf's emulator, code from MIR. The master cycles per frame of a
  * variant are its run's less the run that only makes the frames (VARIANT=0). Written to

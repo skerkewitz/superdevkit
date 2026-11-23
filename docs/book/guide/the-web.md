@@ -156,6 +156,11 @@ information (`-g`), and it defines `SDEVKIT_WEB_DEBUG` for every file, the game'
 can test that macro to keep its own debug code, a cheat key say, to that build. It is defined in
 no other build: not on the desktop, where the debug view is always there, and not on the SNES.
 
+Two things of the desktop's window stay on the desktop. `Shift`+`F6` goes a tick back there by
+starting the program again, which a page cannot do, so on the web it steps a tick forward like
+`F6`. The page also starts the game without options, so `--mute`, `--seed`, `--set`, `--replay`
+and `--jump` do not reach it.
+
 ## Putting it online
 
 Copy the `index.*` files of `build/web/` to any web server that serves static files, from a

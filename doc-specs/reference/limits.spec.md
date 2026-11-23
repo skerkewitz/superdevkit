@@ -12,7 +12,6 @@ sources:
   - docs/optimizations.md
   - lib/snes/README.md
   - docs/sound.md
-  - docs/superdevkit-transition.md
   - compiler/src/main/java/dampf/frontend/Preprocessor.java
   - compiler/src/main/java/dampf/frontend/pp/*.java
 audience: Users who need to know what dampf does not do yet before they rely on it
@@ -29,7 +28,7 @@ repeating plans: what is not built yet, and what will never be.
    in sound, what a game can reach (the console API only, and of the hardware only what both
    `lib/snes` and Rachael draw), hints, intrinsics, timing in master cycles and outside the CPU
    (DMA, interrupts), the preprocessor's subset (what it rejects), the targets and tools not built
-   (macOS, the game's development tools in the kit's window, the ROM on a real console), other
+   (macOS, the ROM on a real console), other
    planned items of the roadmap that a user would notice.
    For each, a sentence on what it will do and what to do meanwhile, if the sources say.
 2. **Never planned** – the README's non-goals that limit a user: full C, other targets, an own

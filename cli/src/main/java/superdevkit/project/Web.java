@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The target web (M8, docs/superdevkit-transition.md): the game on Rachael in the browser, built by
+ * The target web (M8, docs/archive/superdevkit-transition.md): the game on Rachael in the browser, built by
  * Emscripten's emcc ({@code EMCC}, default emcc on the PATH) in the three steps of the desktop
  * ({@link Desktop}): the game's files alone, without the host's headers; the symbol check on their
  * objects (wasm objects, {@link Symbols}); the link with Rachael, the desktop's frontend, lib/web
@@ -68,6 +68,9 @@ final class Web {
             List<String> cmd = new ArrayList<>(common);
             // clang leaves the loops of functions called memcpy and memset alone (dampf's <string.h>)
             cmd.addAll(List.of("-nostdinc", "-ffreestanding", "-isystem", kit.dampfInclude().toString()));
+            for (String d : p.definesFor("web")) {
+                cmd.add("-D" + d);
+            }
             for (Path i : Build.includes(p, kit)) {
                 cmd.add("-I");
                 cmd.add(i.toString());

@@ -1,5 +1,7 @@
 # superdevkit
 
+> This is still an alpha release. It works for me, that doesn't necessarily mean it works for you at the moment. Sorry 😔.
+
 A development kit for SNES games written in C. A game is written once, against the kit's console
 API, and runs on the Super Nintendo and, with the same picture pixel for pixel, as a program for
 Linux and Windows and as a page in the browser. The kit holds:
@@ -17,11 +19,13 @@ Linux and Windows and as a page in the browser. The kit holds:
   Er-Tüp, which are also the kit's test cases and its benchmark;
 - the **book** ([docs/book](docs/book)): the user guide and the reference.
 
-Status: version 0.8.0. Milestones M0 to M8 are done: M6 is dampf's own assembler and
+Status: version 0.9.0. Milestones
+M0 to M9 are done: M6 is dampf's own assembler and
 linker; with M5 Blubber Blasen (the kit's first user, a game in its own repository) builds its
 ROM with the kit and plays its recordings with the PC's checksums; with M7 a game builds and runs
 on the SNES, Linux and Windows with the `superdevkit` command, with sound effects, save RAM, music
-on the desktop and a debug view; with M8 it runs in the browser too (`superdevkit build web`). The
+on the desktop and a debug view; with M8 it runs in the browser too (`superdevkit build web`);
+with M9 dampf's optimizer chooses registers by cost and keeps byte loops in 8-bit mode. The
 milestones and versions are in [docs/roadmap.md](docs/roadmap.md), why the kit is the project and
 dampf its compiler in [ADR-6F3CJX8T](docs/adr/6F3CJX8T-superdevkit-is-the-project-and-dampf-is-its.md).
 
@@ -109,12 +113,9 @@ working documents it is written from.
 - [docs/optimizations.md](docs/optimizations.md): where things stand, the optimization catalogue, the gap to hand-written assembly.
 - [docs/optimizations-log.md](docs/optimizations-log.md): dated measurements of each optimization step.
 - [docs/timing.md](docs/timing.md): exact timing, worst-case bounds and cycle budgets.
-- [docs/archive](docs/archive): finished plans and reviews, kept as they were (the way to LIR and to dampf's own assembler and linker, the status review of 2026-11-18, the compiler flaws measured on 2026-11-20 and fixed by 2026-11-21).
+- [docs/archive](docs/archive): finished plans and reviews, kept as they were (the way to LIR and to dampf's own assembler and linker, the status review of 2026-11-18, the compiler flaws measured on 2026-11-20 and fixed by 2026-11-21, the plan from dampf to superdevkit with its SNES, desktop and web targets, the survey of further tests, whose open steps are in the roadmap).
 - [docs/memory-map.md](docs/memory-map.md): where code, data, variables and pointers live.
 - [docs/testing.md](docs/testing.md): the test layers and how they work.
-- [docs/testing-ideas.md](docs/testing-ideas.md): how the large compilers are tested, and eight kinds of tests dampf does not have yet, as steps.
-- [docs/superdevkit-transition.md](docs/superdevkit-transition.md): the plan from here to superdevkit with its SNES, desktop and web targets, step by step.
-- [docs/parallel-tasks.md](docs/parallel-tasks.md): tasks prepared for parallel Claude Code sessions, one prompt each, from the game's findings and the transition plan.
 - [docs/brainstorm](docs/brainstorm): summaries of brainstorming sessions, the options weighed before a decision.
 - [docs/roadmap.md](docs/roadmap.md): milestones and their state, risks, open questions, the relation to Blubber Blasen.
 - [dev/README.md](dev/README.md): the scripts in `dev/`, for developing the kit against the examples.
@@ -169,12 +170,29 @@ superdevkit build linux                   # build/linux/mygame; win64 with MSVC,
 superdevkit run                           # builds the desktop program and plays it; run snes: Mesen
 superdevkit run web                       # build/web/index.html (emcc), served here, in the browser
 superdevkit build snes --plan             # the steps, without running them (--verbose: while running)
+superdevkit gen                           # only the conversions, into build/gen
 ```
 
 It converts the assets in Java (`superdevkit png`, `superdevkit sfx`), compiles with dampf in the
 same Java for the SNES, and calls the system's C compiler for the desktop (Emscripten's `emcc` for
 the web), one call per file, after fetching raylib once. A SNES build also writes `build/snes/<name>.args`, dampf's argument file of
 what it compiled.
+
+A game with converters of its own names them in `superdevkit.toml`, and every build runs them first,
+in the game's folder; they may write files that `sources` lists:
+
+```toml
+[build]
+before = ["./make_levels.sh"]
+```
+
+The tables `[snes]`, `[desktop]` (`linux` and `win64`) and `[web]` can name `defines` for the game's
+own files on that target, such as `defines = ["DEV_TOOLS", "LEVELS=3"]`. On the SNES they also
+reach `lib/snes`, because dampf compiles the game and the library as one program, so a define must
+not use a name the library uses.
+
+A game with a build system of its own gets the kit's generated files with `superdevkit gen`: the
+conversions into `build/gen`, and with music the tracks and their list in `build/gen/music`.
 
 ## Using dampf
 

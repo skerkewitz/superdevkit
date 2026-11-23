@@ -149,7 +149,7 @@ browser's frames and the clock that steps the game by them (ADR-6FCVAA30) are no
 every tick; F11 saves it in the format of `check.txt` (with `mark` and `hash` lines, which the
 other players skip), so a bug seen on the desktop can be played again: in the window
 (`--replay`, which pauses at the marks and at the first tick whose checksum differs from the
-recorded one), and on the SNES side (`dev/replay.sh` in dampf's emulator for any ROM, `dev/replay_example.sh` for an example, also in Mesen).
+recorded one), and on the SNES side (`dev/replay.sh` in dampf's emulator for any ROM, which can also write the ROM's checksums and sound to compare with the desktop's; `dev/replay_example.sh` for an example, also in Mesen).
 When the ROM from MIR differs and the naive one does not, `dampf.emu.RomDiff good.sfc bad.sfc
 recording.txt` plays both and names, tick by tick, the globals that differ (the video queues first,
 which depend on speed; then the one the miscompiled code writes).
@@ -161,11 +161,12 @@ measures the work of each tick: its master cycles without the main loop's waitin
 that does the same work every tick (Mandelbrot) shows a faster compiler as less work, not as
 fewer frames. Its table has one line an example (on average, in the busiest 60 ticks, the share
 of dampf's runtime), and with `BASELINE=` the ratio to an earlier table and their geometric
-mean: an optimization or a tuned parameter is judged on all examples, not on one program. The
-naive code generator, for example, does three times the work on the geometric mean, between 1.3
-times (Mandelbrot, whose time is the runtime's multiplication) and 6.4 times (Er-Tüp).
+mean: an optimization or a tuned parameter is judged on all examples, not on one program. On
+2026-11-20, before the runtime used the CPU's multiplier, the naive code generator did three
+times the work on the geometric mean, between 1.3 times (Mandelbrot, whose time was the
+runtime's multiplication) and 6.4 times (Er-Tüp).
 A game outside the repository measures itself the same way: `dampf.emu.ExampleBench rom.sfc
-rom.lbl recording.txt`, from any folder (it finds the kit's `lib/snes/snes.c` through the debug file).
+rom.lbl recording.txt`, from any folder (it finds the kit's `lib/snes/snes.c` through the debug file). With a fourth argument, `work.txt`, it also writes the work of every tick, one line `tick cycles` each.
 
 **The static timing on the examples** (`ExamplesTimingTest`) runs every example for 3,000 frames
 without input in dampf's emulator (the titles' demos, Mandelbrot computing, Schach playing) and
@@ -265,7 +266,9 @@ Every IR level ([architecture.md](architecture.md)) is to have a text format tha
 HIR and MIR, an interpreter, so a wrong result can be pinned to the lowering between two levels.
 MIR has all three; LIR has the text format and the verifier (`LVerifier`, after every code
 generation: labels, branch targets, known opcodes, the accumulator width on every path) and the
-place check (`PlaceCheck`, after the places are assigned); its
+place check (`PlaceCheck`: whether every place is written before it is read, before the choice
+of registers, which could hide such a read in a transfer from an unset register, and the whole
+check after the places are assigned); its
 meaning is checked by running the code. HIR is not built; its interpreter would be a second
 definition of what the program means, next to the PC's compiler.
 

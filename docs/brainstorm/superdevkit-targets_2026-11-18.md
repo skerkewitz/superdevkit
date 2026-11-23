@@ -1,7 +1,7 @@
 # superdevkit: the desktop and web targets, and what a project is
 
 Brainstorming session of 2026-11-18. The plan made from it is
-[superdevkit-transition.md](../superdevkit-transition.md).
+[superdevkit-transition.md](../archive/superdevkit-transition.md).
 
 ## Problem
 

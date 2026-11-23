@@ -3,7 +3,7 @@
 Archived 2026-11-19: steps 0 to 7 are built (see "Outcome" below); the decision is ADR-6F3CK2AR
 ([../adr/6F3CK2AR-every-name-of-the-console-api-starts-with.md](../adr/6F3CK2AR-every-name-of-the-console-api-starts-with.md)).
 Step 8, removing the compatibility headers in `lib/include/snes/` once Blubber Blasen uses the new
-names, is tracked in [superdevkit-transition.md](../superdevkit-transition.md) (M5) and, for the
+names, is tracked in [superdevkit-transition.md](superdevkit-transition.md) (M5) and, for the
 game, in [game-findings.md](../game-findings.md) (finding 8).
 
 A plan for renaming superdevkit's console API so that every name a game can use starts with
@@ -298,7 +298,7 @@ folder; the result compiles with the new headers only and gives the same replay 
 
 **Step 7. Documentation.** `lib/README.md` (the table of functions per platform with the new
 names, the build line with the new include path), `lib/snes/README.md`,
-`docs/superdevkit-transition.md` (the PC side and `SDK_HAS_SOUND`), the specs in `doc-specs/`
+`docs/archive/superdevkit-transition.md` (the PC side and `SDK_HAS_SOUND`), the specs in `doc-specs/`
 that name API functions, then `/docs-gen stale` for the book pages. Add an entry to
 `docs/game-findings.md` for the AI working on Blubber Blasen: the new header path, the rename
 script, and that `snes_vram` is now `sdevkit_dbg_vram`.

@@ -251,9 +251,10 @@ typedef struct {
     const uint8_t *const  *brr;           /* per sample: its BRR blocks */
     const uint16_t        *brr_size;      /* per sample: their bytes */
 } sdevkit_sfx_bank;
-/* Loads the bank's samples into the audio RAM and starts the sound: once, in game_init (the screen
- * is off). On the SNES it waits for the sound CPU's boot code and sends every byte through it,
- * about 350 bytes a frame (docs/sound.md). A null bank does nothing. */
+/* Loads the bank's samples into the audio RAM and starts the sound: once, in game_init. On the SNES
+ * it waits for the sound CPU's boot code and sends every byte through it, about 350 bytes a frame,
+ * and the CPU does nothing else meanwhile; a game that switches the screen on first shows its
+ * picture during the upload (docs/sound.md). A null bank does nothing. */
 void sdevkit_sfx_init(const sdevkit_sfx_bank *bank);
 /* Plays an effect: it starts after this tick, when a voice is free or the voice of an effect with
  * a lower priority (or the older one of the same) gives way; otherwise it is dropped. An effect
@@ -306,7 +307,10 @@ void sdevkit_dbg_hash(const void *data, uint16_t bytes);
  * can draw boxes over the picture (collision boxes, a target). On the SNES the functions are empty
  * and dampf removes the calls, so the game needs no #ifdef. name is a string constant (the view
  * keeps the pointer); at most 32 registrations. A change made in the view is not part of a
- * recording: from then on a replay plays another game (the window says so). */
+ * recording: from then on a replay plays another game (the window says so). The desktop's --set
+ * name=value sets a registration before the first tick, and a recording keeps that. So a bot needs
+ * no support of its own: a toggle ("autoplay") that game_tick reads to make its own pad instead of
+ * pad[0], switched on with --set autoplay=1. */
 void sdevkit_dbg_toggle(const char *name, uint8_t *flag);                         /* 0 or 1 */
 void sdevkit_dbg_range(const char *name, int16_t *value, int16_t lo, int16_t hi);  /* lo..hi */
 void sdevkit_dbg_color(const char *name, uint16_t *colour);                       /* BGR 5:5:5 */
@@ -314,9 +318,18 @@ void sdevkit_dbg_color(const char *name, uint16_t *colour);                     
  * and sets it back to 0 (dampf has no function pointers to call, and the game's state changes
  * only inside a tick). */
 void sdevkit_dbg_action(const char *name, uint8_t *pressed);
+/* A line the view only shows, read again every frame: text the game keeps up to date (a string
+ * ending in a zero byte, in memory that stays: the partner's goal, why a life was lost), or a value
+ * (shown in decimal and hex). Nothing changes the game, so a recording stays valid. */
+void sdevkit_dbg_text(const char *name, const char *text);
+void sdevkit_dbg_value(const char *name, const uint16_t *value);
 /* A box of w x h pixels at screen position (x, y), drawn over the picture in the debug view in the
  * colour of kind (0..7); for this tick only (the list is cleared before each game_tick). At most
  * 256 a tick. */
 void sdevkit_dbg_box(int16_t x, int16_t y, uint8_t w, uint8_t h, uint8_t kind);
+/* The same as a filled box the picture shows through (a danger zone), and as an arrow from (x, y)
+ * by (dx, dy) pixels (a direction, an air current). They count among the 256 of the tick. */
+void sdevkit_dbg_fill(int16_t x, int16_t y, uint8_t w, uint8_t h, uint8_t kind);
+void sdevkit_dbg_arrow(int16_t x, int16_t y, int8_t dx, int8_t dy, uint8_t kind);
 
 #endif /* SDEVKIT_SNES_H */
