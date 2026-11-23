@@ -70,9 +70,9 @@ call its own statement.
   `DAMPF_RANGE`).
 - **`slow-hand-shifts`** Write a multiplication by a constant as a multiplication: `va * 40`, not
   `(va << 5) + (va << 3)`. dampf finds the shifts itself, and better.
-- **`slow-32-bit`** Keep 32-bit values out of hot code: every operation on one goes through
-  memory, more than twice the cost of a 16-bit one. A value only combined bit by bit (a hash) can
-  be two `uint16_t` halves.
+- **`slow-32-bit`** Keep 32-bit arithmetic out of hot code: an addition of two `uint32_t` goes
+  through memory, more than twice the cost of a 16-bit one. Bit operations are the exception
+  (`same-32-bit-bits`).
 - **`slow-compare-sum`** Compare with `(int16_t)(y + 32)`, not `y + 32`, where the sum fits: C adds
   an `int16_t` and a constant in `int`, which has 32 bits and may not fit 16. dampf then tests
   whether the sum fits before a 16-bit comparison. The cast says it does and saves that test; so
@@ -100,7 +100,9 @@ Write whichever reads better; these cost the same:
 - **`same-pointer-walk`** an array walked with a pointer beside the loop's counter (`o->x; o++`)
   or indexed (`a[i].x`);
 - **`same-named-temporary`** a named temporary or the expression written inline: a value used
-  once stays in the accumulator either way.
+  once stays in the accumulator either way;
+- **`same-32-bit-bits`** a value only combined bit by bit (a hash) as one `uint32_t` or as two
+  `uint16_t` halves: dampf splits it into the halves itself.
 
 ## 6. The hints
 
@@ -121,19 +123,20 @@ The worst case of each function in CPU cycles, from the timing report; "is" is t
 test checks ("same": within 5 %).
 
 <!-- measurements: written by StyleGuideTest -->
-Measured 2026-11-22 (worst case of the timing report, code generator from MIR).
+Measured 2026-11-23 (worst case of the timing report, code generator from MIR).
 
 | Rule | This | CPU cycles | is | than this | CPU cycles |
 | --- | --- | ---: | --- | --- | ---: |
 | `fast-array-per-field` | `move_array_per_field` | 1,361 | faster | `move_array_of_structs` | 1,521 |
 | `fast-multiply-bytes` | `multiply_bytes` | 62 | faster | `multiply_words` | 140 |
+| `same-32-bit-bits` | `xor_32` | 36 | same | `xor_16_halves` | 36 |
 | `same-declaration-place` | `declared_at_top` | 5,025 | same | `declared_where_used` | 5,025 |
 | `same-increment-form` | `count_postfix` | 5,025 | same | `count_prefix` | 5,025 |
 | `same-index-form` | `read_indexed` | 5,025 | same | `read_pointer_arithmetic` | 5,025 |
 | `same-loop-form` | `loop_for` | 5,025 | same | `loop_while` | 5,025 |
 | `same-named-temporary` | `with_temporary` | 45 | same | `inline_expression` | 45 |
 | `same-pointer-walk` | `move_by_pointer` | 1,521 | same | `move_by_index` | 1,521 |
-| `slow-32-bit` | `xor_32` | 84 | slower | `xor_16_halves` | 36 |
+| `slow-32-bit` | `add_32` | 86 | slower | `add_16` | 31 |
 | `slow-compare-sum` | `compare_sum` | 104 | slower | `compare_sum_narrowed` | 86 |
 | `slow-divide-variable` | `divide_variables` | 804 | slower | `divide_constant` | 17 |
 | `slow-hand-shifts` | `times_40_by_shifts` | 41 | slower | `times_40` | 31 |
