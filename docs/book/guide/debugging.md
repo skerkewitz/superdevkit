@@ -50,21 +50,16 @@ same file system.
 ## Step through C
 
 Once the debug file is loaded, Mesen shows `calls.c` instead of the bare instructions. A C
-line covers every instruction from its `.dbg line` directive up to the next one, so stepping
-over a C statement runs all of them and stops at the first instruction of the next line. A
-breakpoint on a C line stops at that first instruction.
-
-::: warning TODO
-Which Mesen commands set a breakpoint on a C line and step over a C statement. None of the
-sources (`README.md`, `docs/architecture.md`) names them; the README would have to.
-:::
+line covers every instruction from its `.dbg line` directive up to the next one. A breakpoint
+on a C line stops at the first of them, and a step to the next C line runs them all and stops
+at the first instruction there.
 
 Expect fewer stops than the C source has lines. dampf compiles the
 [whole program](/glossary#whole-program) at once and the optimizer computes what it can at
 compile time: in the default build, `test_main` calls none of the three small functions,
 because their results are known constants (`result` is 3003, `small_result` is 0). A
 breakpoint in `add3` is never reached, and stepping through `test_main` passes each line in a
-few instructions. To step into every call as the C source shows it, build with
+few instructions. To see every call run as the C source shows it, build with
 `--backend naive`, the [naive code generator](/glossary#naive-code-generator), which
 translates each statement as written. Its options are on
 [Command line](/reference/command-line).

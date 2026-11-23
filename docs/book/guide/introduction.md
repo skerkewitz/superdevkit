@@ -99,10 +99,10 @@ dampf's goals:
 4. **Readable output.** The generated assembly is commented, so you can follow what each part is
    meant to do.
 5. **Correctness first.** Every optimization is checked automatically against a reference.
-6. **Nothing to install but Java.** dampf preprocesses, assembles and links with its own
-   preprocessor, assembler and linker, so a SNES build needs neither gcc nor
-   [ca65 and ld65](/glossary#ca65-and-ld65). The desktop and the web builds need the PC's C
-   compiler or Emscripten.
+6. **Nothing to install for a SNES build.** The release zip brings its own Java, and dampf
+   preprocesses, assembles and links with its own preprocessor, assembler and linker, so a SNES
+   build needs neither gcc nor [ca65 and ld65](/glossary#ca65-and-ld65). The desktop and the web
+   builds need the PC's C compiler or Emscripten.
 
 Its non-goals:
 
@@ -115,7 +115,7 @@ Its non-goals:
 
 ## Where it stands
 
-dampf compiles all of Blubber Blasen, and the kit's version is 0.9.0. The milestones M0
+dampf compiles all of Blubber Blasen, and the kit's version is 0.9.1. The milestones M0
 (define the subset), M1 (end to end, with stepping through C in Mesen), M2 (all of the game
 compiled by the [naive code generator](/glossary#naive-code-generator), with the PC's
 checksums), M3 (the optimizer: dampf lowers the program to [MIR](/glossary#mir), its
@@ -125,10 +125,10 @@ its own), M5 (Blubber Blasen builds its ROM with the dev kit from its own reposi
 desktop, Linux and Windows, and the `superdevkit` command), M8 (the web) and M9 (more of the
 optimizer: registers chosen by cost, byte loops kept in 8-bit mode) are concluded. Language,
 platform and usability are in progress in M10; timing and debugging follow in M11, and fine
-tuning until the frame budget is met in M12. Publishing the dev kit is a step of its own and
-not scheduled yet. This is still an alpha release: every version before 1.0 is a pre-release,
-so the subset, the command line and the files dampf writes may change from one version to the
-next.
+tuning until the frame budget is met in M12. Version 0.9.1 is the first release with downloads:
+a zip each for Linux and Windows on x64, with its own Java and raylib. This is still an alpha
+release: every version before 1.0 is a pre-release, so the subset, the command line and the
+files dampf writes may change from one version to the next.
 
 Until 2026-11-19 dampf was measured on Blubber Blasen's benchmark, which ran the game code with
 a fixed input and every PVSnesLib call stubbed out. During play (the benchmark's ticks of the

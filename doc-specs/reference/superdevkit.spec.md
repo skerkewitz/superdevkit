@@ -25,8 +25,8 @@ The page opens, before the first H2, with the usage lines exactly as `superdevki
 1. **init** – a new project from an example: its arguments, which example is the default, what
    it copies and changes (the name, the `CLAUDE.md` it writes), and where.
 2. **build** – the targets `snes`, `linux`, `win64` and `web`, the folder argument and its
-   default, and for each target what it runs (in a short table: compiler, what is fetched the
-   first time) and what it writes under `build/<target>/`. The options `--verbose`, `--plan`,
+   default, and for each target what it runs (in a short table: compiler, what is fetched when
+   missing) and what it writes under `build/<target>/`. The options `--verbose`, `--plan`,
    `--dry-run` and `--debug`, with what `--debug` means per target. The argument file a SNES
    build writes (`build/snes/<name>.args`) and that `dampf` takes it.
 3. **run** – the default target (macOS is not a target: say so, linking

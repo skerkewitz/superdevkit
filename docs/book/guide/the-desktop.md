@@ -23,9 +23,10 @@ compiler runs, the build runs the commands the project file names under `[build]
 converts the game's pictures and sound effects into C in `build/gen`
 (see [Graphics and sound](/guide/graphics-and-sound)). It needs a C compiler (`cc`, or the one
 `CC` names: gcc or clang) and the X11 and OpenGL libraries the program links with. raylib, the
-library behind the window and the sound, comes ready-built in version 5.5: the first build
-fetches it from raylib's releases on GitHub into the
-[superdevkit home](/glossary#superdevkit-home) (`raylib/linux`), and later builds reuse it.
+library behind the window and the sound, comes ready-built in version 5.5. A release zip of
+superdevkit already holds it for its own system, in `raylib/linux` of the
+[superdevkit home](/glossary#superdevkit-home). In a home built from the repository, the first
+build fetches it from raylib's releases on GitHub into that folder, and later builds reuse it.
 
 The build has three steps, and the first two are there to keep the game honest:
 
@@ -59,7 +60,11 @@ command's options are on [The superdevkit command](/reference/superdevkit).
 For Windows, run `superdevkit build win64`, on Windows or from WSL. It goes through the same
 three steps with Visual Studio's C compiler (MSVC, found with `vswhere`; it needs the C++ tools
 for x64) and raylib's MSVC package, and writes
-`build/win64/hello.exe`. Started from Windows, from Explorer for example, the program plays
+`build/win64/hello.exe`. The Windows release zip holds that package; from the Linux zip under
+WSL, the first `win64` build fetches it into `raylib/windows` of the home. Without Visual Studio
+or those tools, the build stops and says to install Visual Studio with the workload "Desktop
+development with C++", or to build for the SNES, which needs none of this:
+`superdevkit build snes`. Started from Windows, from Explorer for example, the program plays
 with the keyboard and with the gamepads Windows knows: WSL sees no gamepad, since Windows keeps
 every input device. It can also be started from WSL, with `superdevkit run win64` there. It is
 built as a Windows program without a console.
@@ -288,9 +293,9 @@ tick 200 has checksum 11edb09a on the SNES, the recording deadbeef
 That tick is where the SNES and the desktop part ways, the place to look for a difference
 between the two builds. The ROM must be built from the same source as the program that
 recorded the file; with any other change the checksums differ for that reason alone.
-`JAVA_HOME` picks the Java it runs with. A recording with a `seed` or `set` line does not play
-there: the SNES starts with seed 0 and has no debug registrations, so the emulator refuses the
-file.
+It runs with a release's own Java in `jre/`, else the one `JAVA_HOME` names, else the one on the
+`PATH`. A recording with a `seed` or `set` line does not play there: the SNES starts with
+seed 0 and has no debug registrations, so the emulator refuses the file.
 
 Name two more files after the recording to keep the ROM's checksums and DSP writes, in the
 formats of `hashes.txt` and `sound.txt`, and compare them with what the desktop's check wrote:
