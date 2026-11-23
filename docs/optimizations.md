@@ -164,6 +164,11 @@ allowed (the platform layer uses them); this form does not need the rule against
   and the few places where it would gain add up to at most 0.07 % of the examples' work on average
   and 0.4 % on Mode 7
   ([log](optimizations-log.md#bit-for-bit-tests-measured-and-not-built-2026-11-23-on-the-examples)).
+- Rewriting a list of indexes into a list of byte offsets (2026-11-23): the whole gap of
+  `slow-index-list` is the multiplication by the element's size (17,505 cycles with indexes, 15,385
+  with offsets, 15,493 for the counter), so a pass could close it. Not built: no example has the
+  pattern and the game's sorted list is no longer a goal. The C guide has the form
+  (`same-list-of-offsets`).
 
 ## Ideas not yet built
 

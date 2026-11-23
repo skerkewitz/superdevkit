@@ -59,7 +59,8 @@ call its own statement.
   (`if (!used(&a[j])) continue;`) rather than a list of the used slots' indexes
   (`&a[list[k]]`), unless most slots are free: dampf steps a counter's element offset by the
   element's size, where an index loaded from a list is multiplied by the size on every element.
-  Measured in Blubber Blasen's pair loop too, where the list cost three times as much a line.
+  Measured in Blubber Blasen's pair loop too, where the list cost three times as much a line. If
+  you need a list, let it hold byte offsets (`same-list-of-offsets`).
 - **`slow-multiply-variable`** Multiply by a constant where the factor is one: `va * vb` calls
   the runtime, `va * 40` is shifts and adds.
 - **`slow-divide-variable`** Divide by a constant power of two where you can: `va / vb` calls the
@@ -99,6 +100,8 @@ Write whichever reads better; these cost the same:
 - **`same-loop-form`** `for` or the same loop as `while`;
 - **`same-pointer-walk`** an array walked with a pointer beside the loop's counter (`o->x; o++`)
   or indexed (`a[i].x`);
+- **`same-list-of-offsets`** a counter over all slots, or a list of the used slots that holds their
+  byte offsets (`(Ball *)((uint8_t *)balls + list[k])`), as long as the offsets fit its type;
 - **`same-named-temporary`** a named temporary or the expression written inline: a value used
   once stays in the accumulator either way;
 - **`same-32-bit-bits`** a value only combined bit by bit (a hash) as one `uint32_t` or as two
@@ -133,6 +136,7 @@ Measured 2026-11-23 (worst case of the timing report, code generator from MIR).
 | `same-declaration-place` | `declared_at_top` | 5,025 | same | `declared_where_used` | 5,025 |
 | `same-increment-form` | `count_postfix` | 5,025 | same | `count_prefix` | 5,025 |
 | `same-index-form` | `read_indexed` | 5,025 | same | `read_pointer_arithmetic` | 5,025 |
+| `same-list-of-offsets` | `pairs_by_offsets` | 15,385 | same | `pairs_by_counter` | 15,493 |
 | `same-loop-form` | `loop_for` | 5,025 | same | `loop_while` | 5,025 |
 | `same-named-temporary` | `with_temporary` | 45 | same | `inline_expression` | 45 |
 | `same-pointer-walk` | `move_by_pointer` | 1,521 | same | `move_by_index` | 1,521 |
