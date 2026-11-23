@@ -11,6 +11,7 @@ on:
     paths:
       - .github/workflows/release.yml
       - build.gradle.kts
+      - NOTICE
       - cli/build.gradle.kts
       - cli/src/dist/**
       - cli/src/main/java/superdevkit/project/Desktop.java
@@ -43,8 +44,14 @@ jobs:
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: 25
+          java-version: 25.0.5+8   # NOTICE links the source of exactly this build
       - uses: gradle/actions/setup-gradle@v5
+      - name: NOTICE names this Java
+        shell: bash
+        run: |
+          java_build=$(java --version | sed -n 's/.*(build \([0-9.+]*\).*/\1/p' | head -1)
+          echo "Java $java_build"
+          [ -n "$java_build" ] && grep -qF "Eclipse Temurin $java_build," NOTICE
       - name: The tag is the version in the build file
         if: startsWith(github.ref, 'refs/tags/')
         shell: bash
