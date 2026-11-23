@@ -7,7 +7,9 @@ is a superdevkit home: everything a game needs is here.
 
 The documentation is the book in `docs/`. Start with `docs/guide/getting-started.md`: what you
 need, what is in this folder, and a first game of your own. The console API is in
-`docs/reference/console-api.md`, the terms in `docs/glossary.md`.
+`docs/reference/console-api.md`, the terms in `docs/glossary.md`. The book of the latest release
+is also at https://skerkewitz.github.io/superdevkit/book/, and some of the examples can be played
+at https://skerkewitz.github.io/superdevkit/example/.
 
 A release zip brings its own Java, so you do not need to install one. What else you need depends
 on the target:
