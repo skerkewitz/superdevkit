@@ -39,7 +39,9 @@ Use what is built in both columns of this table:
 | ADSR envelopes, echo, noise, pitch modulation, looped samples | not built | not built, reported | |
 | Save RAM: battery-backed, up to 32 KB, kept while the console is off | built: the cartridge's RAM at `$70:0000`, announced in the header by `dampf --sram` | built: `<game>.srm` next to the program; checks and recordings start with the save RAM they name | [`sdevkit_sram`](/reference/superdevkit#sram) |
 | Mouse, multitap, Super Scope | not built | not built | |
-| The CPU's multiplier and divider (`$4202`-`$4206`), mode 7's multiplier (`$2134`-`$2136`) | not used: dampf's runtime multiplies in software | not needed: the game is compiled for the PC | |
+| The CPU's multiplier (`$4202`, `$4203`, `$4216`) | used by dampf for every multiplication of two variables: a game that uses it itself must not multiply between its write and its read | not needed: the game is compiled for the PC | |
+| The CPU's divider (`$4204`-`$4206`) | not used: dampf's runtime divides in software. A multiplication overwrites the divider's results and a 32-bit one its dividend, so a game that uses the divider itself must not multiply between its write and its read | not needed: the game is compiled for the PC | |
+| Mode 7's multiplier (`$2134`-`$2136`) | not used | not needed: the game is compiled for the PC | |
 
 DMA (direct memory access) copies a block of memory without the CPU; HDMA writes a value to a
 register at the start of every line of the picture. VRAM holds the tiles and maps, CGRAM the

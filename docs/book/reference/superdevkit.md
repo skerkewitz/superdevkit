@@ -10,6 +10,7 @@ usage: superdevkit init NAME [--from EXAMPLE]   a new project in ./NAME, from an
        superdevkit run [TARGET] [FOLDER]         builds and starts it (the desktop; snes in Mesen;
                                                  web in the browser, served from this machine)
            --verbose  every step   --plan  the steps only   --dry-run  checks only   --debug  -O0 (web: and F1's view)
+       superdevkit gen [FOLDER]                  only the conversions, into build/gen
        superdevkit png tiles|tiles2|palette|mode7 picture.png NAME out_dir [FIRST]
        superdevkit sfx assets/sfx/sfx.json NAME out_dir
        superdevkit --version
@@ -19,7 +20,7 @@ Use `superdevkit --version`, or `superdevkit version`, to see which kit you have
 line on the standard output and exits with status 0:
 
 ```
-superdevkit 0.8.0
+superdevkit 0.9.0
 ```
 
 The command is the one in `bin/` of the [superdevkit home](/glossary#superdevkit-home), next to
@@ -43,7 +44,7 @@ the example's `build/` folder and changes two things:
 
 - **The project file.** `name` in `superdevkit.toml` becomes `NAME`, and the examples' `kit`
   line (the path to the kit's folder, which the examples are part of) becomes
-  `superdevkit = "0.8"`, the version of the kit that made the copy.
+  `superdevkit = "0.9"`, the version of the kit that made the copy.
 - **`CLAUDE.md`.** A new file that tells an AI working on the game to read the kit's guides
   first, `lib/C_STYLE.md` (C for dampf) and `lib/SNES_HARDWARE.md` (the hardware and what the
   kit has of it), with their full paths in the home.
@@ -74,11 +75,12 @@ superdevkit build linux ../chess  # the game in the folder ../chess
 ```
 
 The folder defaults to the current one and must hold a `superdevkit.toml`, the
-[project file](/glossary#project-file). Every build first converts the pictures and sounds the
-project file lists into `build/gen/` (with the same converters as [png](#png) and [sfx](#sfx)),
-and writes `build/compile_commands.json` last: each of the game's C files with the options
-dampf's preprocessor gets, for editors and their code completion. A build that succeeds prints
-what it made:
+[project file](/glossary#project-file). Every build first runs the commands the project file
+names under [`[build] before`](#build-before), then converts the pictures and sounds it lists
+into `build/gen/` (with the same converters as [png](#png) and [sfx](#sfx)), and writes
+`build/compile_commands.json` last: each of the game's C files with the options dampf's
+preprocessor gets, for editors and their code completion. A build that succeeds prints what it
+made:
 
 ```
 built build/snes/mygame.sfc
@@ -103,14 +105,15 @@ of the kit's folder (`build/raylib/<system>/` in a checkout of the repository), 
 The game's C files, the files in `build/gen/` and the kit's `lib/snes/` are compiled by dampf
 as one [whole program](/glossary#whole-program), with `--entry main`, the
 [code generator from MIR](/glossary#code-generator-from-mir), `-I` for the kit's `lib/include`,
-the game's include folders and `build/gen`, and `--sram` when the project file asks for save
-RAM. Next to the ROM dampf writes its other files (the assembly, the debug file for
+the game's include folders and `build/gen`, `-D` for the macros of the project file's
+[`[snes]`](#snes-desktop-and-web) table, and `--sram` when the project file asks for save RAM.
+Next to the ROM dampf writes its other files (the assembly, the debug file for
 [Mesen](/glossary#mesen), the label file, the timing report), which
 [The generated files](/reference/output-files) describes.
 
 Every SNES build also writes `build/snes/NAME.args`, an [args file](/glossary#args-file) of what
-it compiled: the include folders, `--entry`, `--sram` and every C file, one per line, with
-absolute paths. Use it to call dampf on the game with options of your own:
+it compiled: the include folders, the macros, `--entry`, `--sram` and every C file, one per
+line, with absolute paths. Use it to call dampf on the game with options of your own:
 
 ```sh
 dampf check @build/snes/mygame.args
@@ -122,8 +125,9 @@ dampf build @build/snes/mygame.args -o out.sfc --backend naive
 The desktop program is built on [Rachael](/glossary#rachael) in three steps. Each of the game's
 C files is compiled alone, as on the SNES, without the host's headers:
 `-nostdinc -ffreestanding`, dampf's `include/` and the kit's `lib/include`, with
-`-std=c99 -O2 -g -Wall -Wextra`. A check then reads the game's object files and stops the build
-when one of them calls a function that is not part of the kit's
+`-std=c99 -O2 -g -Wall -Wextra` and the macros of the project file's
+[`[desktop]`](#snes-desktop-and-web) table. A check then reads the game's object files and stops
+the build when one of them calls a function that is not part of the kit's
 [console API](/glossary#console-api) (`lib/include/sdevkit`):
 
 ```
@@ -148,8 +152,9 @@ error: the target win64 builds on Windows or WSL, with MSVC (ADR-6F60Z709)
 
 ### web
 
-The same three steps with `emcc`, with WebAssembly objects, and a link that adds the web's part
-of the frontend, `lib/web`. The page is `build/web/index.html`, with `index.js` and
+The same three steps with `emcc`, with WebAssembly objects and the macros of the
+[`[web]`](#snes-desktop-and-web) table, and a link that adds the web's part of the frontend,
+`lib/web`. The page is `build/web/index.html`, with `index.js` and
 `index.wasm` beside it, and `index.data` holding the music when the project has any. A browser
 loads the page only from a web server, not from a file: [run](#run) serves it.
 [The web](/guide/the-web) has the rest.
@@ -166,7 +171,9 @@ with `error: unknown option --name`, the usage and status 2.
   the pictures, `sfx.json`, the music and, for `web`, the kit's page `lib/web/shell.html`. Each
   missing one is a line `missing: <path> (for <step>)` on the standard error stream. It ends
   with `everything the build needs is there` and status 0, or with the number missing and
-  status 1. It does not check that a C compiler is installed.
+  status 1. It does not check that a C compiler is installed. The commands of
+  [`[build] before`](#build-before) do not run, and since they may write what the build needs,
+  a project that has them gets no `missing:` line at all.
 - **`--debug`** builds without optimization: `-O0` instead of `-O2` for `linux` and `web`,
   `/Od` instead of `/O2` for `win64`. For `web` it also adds `-g` and defines
   `SDEVKIT_WEB_DEBUG`, for the kit and the game's own files: only such a page has the debug view
@@ -220,6 +227,26 @@ one.
   is taken, the next free one, and opens the page in the browser. It prints the address and
   serves until you press Ctrl+C. Nothing is cached, so after a new build a reload of the page
   shows it.
+
+## gen
+
+Use `gen` when a game has a build system of its own and needs only what the kit generates. It
+runs the commands of [`[build] before`](#build-before) and the conversions of a build, and
+compiles nothing:
+
+```sh
+superdevkit gen            # the game in the current folder
+superdevkit gen ../chess   # the game in the folder ../chess
+```
+
+The files in `build/gen/` are the ones a build writes there. A project with music also gets its
+tracks in `build/gen/music/`, with `music_files.c`, the list of their paths for the desktop's
+frontend. The list has a folder of its own because a build compiles the `.c` files directly in
+`build/gen/` and must not take it.
+
+It ends with `generated build/gen`, or with `nothing to generate` for a project without pictures
+and sounds. The options `--verbose`, `--plan` and `--dry-run` work as for [build](#options);
+`--debug` changes nothing.
 
 ## png
 
@@ -314,11 +341,11 @@ A key the kit does not know is an error too, at the top as in a table, and names
 knows:
 
 ```
-error: superdevkit.toml: unknown key 'colour' (known: graphics, include, kit, name, sound, sources, sram, superdevkit)
+error: superdevkit.toml: unknown key 'colour' (known: build, desktop, graphics, include, kit, name, snes, sound, sources, sram, superdevkit, web)
 ```
 
 Every path in the file is relative to the folder of `superdevkit.toml`. A copy made with
-[init](#init) has `superdevkit = "0.8"` in place of the `kit` line.
+[init](#init) has `superdevkit = "0.9"` in place of the `kit` line.
 
 ### name
 
@@ -328,11 +355,11 @@ writes: `build/snes/catchme.sfc`, `build/linux/catchme`, `build/win64/catchme.ex
 ### superdevkit
 
 A string: the version of the kit the game needs, of two or three numbers. Two numbers
-(`"0.8"`) accept every kit of that version, `0.8.0` and `0.8.1` alike; three (`"0.8.0"`) only
+(`"0.9"`) accept every kit of that version, `0.9.0` and `0.9.1` alike; three (`"0.9.0"`) only
 that one. The command checks it against its own version and stops when they differ:
 
 ```
-error: the project needs superdevkit 0.7, this is 0.8.0 (<home>); install that version, or name a kit folder in superdevkit.toml: kit = "path"
+error: the project needs superdevkit 0.8, this is 0.9.0 (<home>); install that version, or name a kit folder in superdevkit.toml: kit = "path"
 ```
 
 Either `superdevkit` or `kit` is required.
@@ -399,6 +426,60 @@ A table with two keys, both optional:
   `index.data`. So two tracks may not have the same file name, even in different folders, nor
   the same name; a game has at most 255 tracks. On the SNES the music calls do nothing yet
   ([Limits](/reference/limits)).
+
+### [build] before {#build-before}
+
+A game with converters of its own names them here, so that every build has their output. The
+table `[build]` has one key, `before`, an array of strings, by default empty. Each string is a
+command:
+
+```toml
+[build]
+before = ["./make_levels.sh"]
+```
+
+The commands run in their order, in the project's folder, through the system's shell (`sh -c`,
+on Windows `cmd /c`), for every target and for [gen](#gen). They run before the build looks at
+the sources, so they may write files that `sources` lists; a build then checks that every entry
+of `sources` is there. What a command prints appears indented by four spaces, and `--plan` and
+`--dry-run` list the commands without running them. A command that ends with a status other
+than 0 stops the build with status 1, followed by what it printed:
+
+```
+error: before: './make_levels.sh' ended with status 3:
+no levels
+```
+
+### [snes], [desktop] and [web] {#snes-desktop-and-web}
+
+These three optional tables set macros per [target](/glossary#target): `[snes]` for `snes`,
+`[desktop]` for `linux` and `win64`, `[web]` for `web`. Each has one key, `defines`, an array of
+strings, by default empty. An entry is `NAME`, which defines the macro as 1, or `NAME=VALUE`,
+and has no spaces or double quotes:
+
+```toml
+[snes]
+defines = ["LEVELS=3"]
+
+[desktop]
+defines = ["DEV_TOOLS", "LEVELS=8"]
+```
+
+With this file, code inside `#ifdef DEV_TOOLS` is built for `linux` and `win64` only, `LEVELS`
+is 3 on the SNES and 8 on the desktop, and the web build defines neither.
+
+On the desktop and the web the macros reach the game's own files, those in `build/gen` included,
+and not the kit's library, which the link step compiles. On the SNES dampf compiles the game and
+the kit's `lib/snes` as one [whole program](/glossary#whole-program) with one set of options, so
+the macros of `[snes]` reach `lib/snes` too, and a macro with the name of something there
+changes the kit's code. The file `build/compile_commands.json` shows the files as dampf sees
+them and so holds the macros of `[snes]`, whatever the target.
+
+An entry of another form stops the build:
+
+```
+error: superdevkit.toml: [desktop] defines: 'TWO WORDS' is not NAME or NAME=VALUE without spaces
+```
 
 ## Environment
 

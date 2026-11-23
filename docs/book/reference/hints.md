@@ -90,13 +90,13 @@ the loop's length depends on the data: `nohint.c`, which is `names.c` without th
 # a known bound on the way; the first such loop in the function, or the first call
 # of a function without a bound, is named after it. "never": the function never returns.
         best        worst  function
-          24    unbounded  _test_main   (loop at nohint.c:10)
+          28    unbounded  _test_main   (loop at nohint.c:10)
           31    unbounded  _text_len   (loop at nohint.c:10)
         1940         2594  dampf_sdiv32
         1888         2432  dampf_udiv32
-        1168         1968  dampf_mul32
          564          772  dampf_udiv16
-         287          367  dampf_mul16
+         398          400  dampf_mul32
+         108          108  dampf_mul16
 ```
 
 With the hint, `n` is at most 10 each time the loop body runs, so the body runs at most 11
@@ -110,11 +110,11 @@ times, for `n` from 0 to 10, and the loop has a worst case (`names.timing.txt`):
         best        worst  function
         1940         2594  dampf_sdiv32
         1888         2432  dampf_udiv32
-        1168         1968  dampf_mul32
-          21         1338  _test_main
+          26         1130  _test_main
          564          772  dampf_udiv16
-         287          367  dampf_mul16
+         398          400  dampf_mul32
           26          235  _text_len
+         108          108  dampf_mul16
 ```
 
 The [value ranges](/glossary#value-range) dampf infers use the hint as well, for narrower code:

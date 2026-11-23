@@ -255,9 +255,11 @@ mode7 = [                     # stage 3 in mode 7: its colours from CGRAM 33 on
 Every `superdevkit build`, whatever its [target](/glossary#target), converts the pictures first,
 so that `build/gen/` holds the C before the compiler reads it. Then it hands that folder to the
 compiler twice: `-I build/gen` lets the game include `ball_gfx.h`, and `build/gen/` compiles
-`ball_gfx.c` and the others as part of the program. Use `--plan` to see the steps without
-running them. In a copy of hello, made with `superdevkit init hello`, and with the path of the
-home written as `<home>`:
+`ball_gfx.c` and the others as part of the program. Only the commands a project names in
+`[build] before` run earlier (see
+[The superdevkit command](/reference/superdevkit#the-project-file)). Use `--plan` to see the
+steps without running them. In a copy of hello, made with `superdevkit init hello`, and with the
+path of the home written as `<home>`:
 
 ```sh
 superdevkit build snes --plan
@@ -381,7 +383,7 @@ extern const sdevkit_sfx_bank sfx_bank;
 
 A game that plays an effect the file does not list stops at the compiler, since the name is not
 in the header. The game includes `sfx.h`, hands the bank to `sdevkit_sfx_init` once in
-`game_init`, while the screen is off, and calls `sdevkit_sfx_play` where the sound happens. Cut
+`game_init`, and calls `sdevkit_sfx_play` where the sound happens. Cut
 from `examples/steinschlag/src/game.c`, where `play` is what
 `game_tick` runs while a cave is played:
 
@@ -413,7 +415,11 @@ playing effect has a higher priority, the new one is dropped. A voice is free ag
 effect has played to its end, the length in [frames](/glossary#frame) that the build printed.
 
 On the SNES, `sdevkit_sfx_init` sends a small driver and the samples to the SPC700; the upload
-takes about a frame per 350 bytes, during `game_init` with the screen off. On the desktop and
+takes about a frame per 350 bytes. The CPU does nothing else until it ends, so the picture stands
+still and the pads are not read. What the player sees meanwhile is the game's choice, because the
+[PPU](/glossary#ppu) keeps showing its picture: Steinschlag uploads with the screen still off,
+and a game that draws its title and calls `sdevkit_set_brightness(15)` before `sdevkit_sfx_init`
+shows the title instead of a black screen. On the desktop and
 the web, [Rachael](/glossary#rachael) plays the same bytes with a DSP of her own, which decodes
 the BRR and interpolates between its samples as the S-DSP does. Which voice an effect gets is
 the same C code on both, so the choice is the same on the SNES and on the PC, frame by frame.

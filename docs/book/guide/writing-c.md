@@ -102,7 +102,9 @@ copy of known size. A pointer to an array, such as `const uint8_t (*rows)[16]` f
 The one library header is dampf's `<string.h>`, with `memset` and `memcpy` for clearing and
 copying memory. Their value is a byte and their size a 16-bit number, since there is no plain
 `int` and no object is larger than 32 KB, so a call written for the standard header, such as
-`memset(tiles, 0, sizeof tiles)`, works the same. The PC build uses the host's `<string.h>`.
+`memset(tiles, 0, sizeof tiles)`, works the same. The kit's desktop and web builds use this
+header too, because they compile a game without the host's headers; a PC build of your own can
+use the host's `<string.h>`.
 
 Write a function without parameters as `void game_init(void)`. An empty list,
 `void game_init()`, is rejected with `missing parameter type`.
@@ -157,8 +159,9 @@ macros with `#` and `##`, `#if`, `#elif`, `#ifdef`, `#ifndef`, `#else` and `#end
 them: `#warning is not supported by dampf's preprocessor`. The complete list is in
 [The C subset](/reference/c-subset#preprocessor).
 
-Use `__DAMPF__` to keep a branch apart that only one build may see. Here the PC build prints a
-trace with `printf`, and the dampf build never sees `<stdio.h>` or the `unsigned` cast:
+Use `__DAMPF__` to keep a branch apart that only one build may see. Here a PC build of your own
+with gcc prints a trace with `printf`, and the dampf build never sees `<stdio.h>` or the
+`unsigned` cast:
 
 ```c
 #include <stdint.h>
@@ -179,8 +182,18 @@ void add_points(uint8_t points)
 }
 ```
 
-The same works for macros that another compiler needs, such as an `__attribute__` for Calypsi:
-give dampf its own `#ifdef __DAMPF__` branch.
+The kit's `linux`, `win64` and `web` builds compile a game without the host's headers, so this
+`<stdio.h>` branch fails there as it would in dampf. The same use of `__DAMPF__` works for
+macros that another compiler needs, such as an `__attribute__` for Calypsi: give dampf its own
+`#ifdef __DAMPF__` branch.
+
+In a game built with the kit, name a feature instead of testing the compiler. The tables
+`[snes]`, `[desktop]` and `[web]` of the [project file](/glossary#project-file) each take a list
+`defines`, which reaches the game's own files on that target. On the SNES it also reaches the
+kit's `lib/snes`, because dampf compiles game and library as one program, so a define must not
+use a name the library uses. With `defines = ["DEV_TOOLS"]` under `[desktop]`, code inside
+`#ifdef DEV_TOOLS` is built for `linux` and `win64` only. See
+[The superdevkit command](/reference/superdevkit#the-project-file).
 
 ## Checking your code
 

@@ -16,7 +16,7 @@ different matter, covered in [Writing C for dampf](/guide/writing-c) and
 All figures below are the worst case of a function in CPU cycles, from its entry to its
 return with calls included, as the timing report gives it for the
 [code generator from MIR](/glossary#code-generator-from-mir). They were measured on
-2026-11-22.
+2026-11-23.
 
 ## Slow
 
@@ -32,7 +32,9 @@ element. The test file has 12 `Ball` structs of 10 bytes, 2 of them free, and `u
 `b->state == 2`; the [`DAMPF_RANGE`](/reference/hints) on `n` tells dampf that the list holds
 at most 12 indexes, so the worst case of the loops over it is that of 12 slots. Testing every
 pair of used balls takes 17,505 cycles with the list and 15,493 with the counter. The same was
-measured in [Blubber Blasen](/glossary#blubber-blasen).
+measured in [Blubber Blasen](/glossary#blubber-blasen). If you need a list, let it hold byte
+offsets, which cost what the counter costs (`same-list-of-offsets`, under
+[No difference](#no-difference)).
 
 ```c [compiler/src/test/resources/style/slow-index-list.c]
 void pairs_by_counter(void)
@@ -78,7 +80,7 @@ void pairs_by_list(void)
 
 **`slow-multiply-variable`: multiply by a constant where the factor is one.** A product of two
 variables calls a routine of the [runtime](/glossary#runtime); a product with a constant
-becomes shifts and adds. `va * vb` takes 399 cycles, `va * 40` takes 31.
+becomes shifts and adds. `va * vb` takes 140 cycles, `va * 40` takes 31.
 
 ```c [compiler/src/test/resources/style/slow-multiply-variable.c]
 uint16_t multiply_variables(void)
@@ -110,21 +112,20 @@ uint16_t divide_constant(void)
 
 **`slow-signed-divide`: divide a value that cannot be negative as unsigned.** C rounds a
 signed division towards zero, so `v / 8` on an `int16_t` computes a correction for negative
-values. A `DAMPF_RANGE` that proves `v` is not negative does not remove it today; the cast to
-`uint16_t` does. The signed form takes 63 cycles, the unsigned one 17.
+values, unless dampf knows that `v` is not negative from a comparison before it or a
+`DAMPF_RANGE`. Where it does not know, the cast to `uint16_t` removes the correction. The signed
+form takes 101 cycles, the unsigned one 17.
 
 ```c [compiler/src/test/resources/style/slow-signed-divide.c]
 int16_t divide_signed(void)
 {
     int16_t v = sv;
-    DAMPF_RANGE(v, 0, 1000);
     return (int16_t)(v / 8);
 }
 
 int16_t divide_unsigned(void)
 {
     int16_t v = sv;
-    DAMPF_RANGE(v, 0, 1000);
     return (int16_t)((uint16_t)v / 8);
 }
 ```
@@ -145,29 +146,27 @@ uint16_t times_40_by_shifts(void)
 }
 ```
 
-**`slow-32-bit`: keep 32-bit values out of hot code.** Every operation on a 32-bit value goes
-through memory and costs more than twice a 16-bit one. A value that is only combined bit by
-bit, such as a hash, can be kept as two `uint16_t` halves: the 32-bit XOR takes 84 cycles, the
-two 16-bit ones 36.
+**`slow-32-bit`: keep 32-bit arithmetic out of hot code.** An addition of two `uint32_t` goes
+through memory and costs more than twice a 16-bit one: 86 cycles against 31. Bit operations are
+the exception (`same-32-bit-bits`, under [No difference](#no-difference)).
 
 ```c [compiler/src/test/resources/style/slow-32-bit.c]
-void xor_32(void)
+void add_32(void)
 {
-    hash32 ^= key32;
+    sum32 += step32;
 }
 
-void xor_16_halves(void)
+void add_16(void)
 {
-    hash_lo ^= key_lo;
-    hash_hi ^= key_hi;
+    sum16 = (uint16_t)(sum16 + step16);
 }
 ```
 
 **`slow-compare-sum`: compare with `(int16_t)(y + 32)` where the sum fits.** C adds an
-`int16_t` and a constant in `int`, which has 32 bits, so a comparison with the sum is a 32-bit
-comparison: the sum may not fit 16 bits. Where it does, a cast to `int16_t` says so, and the
-comparison becomes a 16-bit one: 164 cycles without the casts, 86 with them. Two `uint8_t`
-added stay 16-bit, because dampf sees that they cannot overflow.
+`int16_t` and a constant in `int`, which has 32 bits, and the sum may not fit 16 bits. dampf
+then tests whether it fits before a 16-bit comparison. Where it does fit, a cast to `int16_t`
+says so and saves that test: 104 cycles without the casts, 86 with them. A known range of `y`
+saves it too. Two `uint8_t` added stay 16-bit, because dampf sees that they cannot overflow.
 
 ```c [compiler/src/test/resources/style/slow-compare-sum.c]
 void compare_sum(void)
@@ -192,6 +191,23 @@ void compare_sum_narrowed(void)
 ## Fast
 
 These forms are cheaper than the one you would write first. Use them in hot code.
+
+**`fast-multiply-bytes`: multiply two values that fit a byte as bytes.** A product of two
+`uint8_t` (`ua`, `ub`) goes straight to the SNES's 8 x 8 multiplier, without a call, and takes
+62 cycles. Two `uint16_t` (`va`, `vb`) call the runtime and take 140, unless dampf can prove
+that both are below 256.
+
+```c [compiler/src/test/resources/style/fast-multiply-bytes.c]
+uint16_t multiply_bytes(void)
+{
+    return (uint16_t)(ua * ub);
+}
+
+uint16_t multiply_words(void)
+{
+    return (uint16_t)(va * vb);
+}
+```
 
 **`fast-array-per-field`: one array per field.** In hot code, separate arrays such as `px[i]`
 and `py[i]` are a little cheaper than an array of structs (`objs[i].x`), because the element
@@ -233,18 +249,21 @@ Write whichever reads better; these pairs cost the same, within 5 %:
 - **`same-pointer-walk`**: an array walked with a pointer beside the loop's counter
   (`o->x`, `o++`) or indexed (`a[i].x`), 1,521 and 1,521 cycles. The pointer's offset and the
   counter become one variable in the X register.
+- **`same-list-of-offsets`**: a list of the used slots that holds their byte offsets
+  (`(Ball *)((uint8_t *)balls + list[k])`) or a counter over all slots, 15,385 and 15,493
+  cycles, as long as the offsets fit the list's type.
 - **`same-named-temporary`**: a named temporary or the expression written inline, 45 and 45
   cycles. A value used once stays in the accumulator either way.
-- **`same-multiply-width`**: a product of two bytes or of two 16-bit values, 409 and 399
-  cycles. Both call the runtime, because the SNES's 8 x 8 hardware multiplier is not used, so
-  narrowing the factors buys nothing.
+- **`same-32-bit-bits`**: a value only combined bit by bit (a hash, a mask tested with `!= 0` or
+  `==`) as one `uint32_t` or as two `uint16_t` halves, 36 and 36 cycles. dampf splits it into
+  the halves itself.
 
 ## How the rules are checked
 
-Each rule is one file in `compiler/src/test/resources/style/`, named after the rule. The file
-holds a pair of functions that compute the same thing in two ways, and a `test_main` that calls
-both. Its first comment names the rule and states the claim, the relation of the two
-functions' worst cases, as `slower`, `faster` or `same`:
+Each rule is one file in the repository's `compiler/src/test/resources/style/`, named after
+the rule. The file holds a pair of functions that compute the same thing in two ways, and a
+`test_main` that calls both. Its first comment names the rule and states the claim, the
+relation of the two functions' worst cases, as `slower`, `faster` or `same`:
 
 ```c [compiler/src/test/resources/style/slow-hand-shifts.c]
 /* rule: slow-hand-shifts

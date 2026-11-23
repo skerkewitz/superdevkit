@@ -29,7 +29,7 @@ accumulator and index registers 16 bits wide (both the
 [`M` and `X` flags](/glossary#m-and-x-flags) clear), `D = 0`, `DBR = $7E`, the stack at
 `$1FFF`, the screen in forced blank and every global variable at its initial value. It is
 `main` unless `--entry` names another function (see [Command line](/reference/command-line)),
-and has the form `void name(void)`.
+and has the form `void name(void)`, or `int main(void)`, whose result is ignored.
 
 When the entry function returns (with `RTL`, as every function dampf compiles does), the runtime
 writes 1 to `$21FB` and then waits in an endless loop. `$21FB` is an unused port on the SNES's
@@ -46,16 +46,25 @@ interrupt in the middle of a [tick](/glossary#tick) would overwrite the frames o
 interrupted: dampf keeps them at fixed places.
 
 The runtime leaves the sound chip alone. In a game built with the kit, the library uploads the
-sound driver when the game calls `sdevkit_sfx_init` in its `game_init`, with the screen off: it
-waits for the boot code of the SPC700, the SNES's sound processor, and sends it the driver, the
-sample directory and the samples through the ports `$2140`–`$2143`. The upload moves about 350
-bytes a frame, as Mesen measures it.
+sound driver when the game calls `sdevkit_sfx_init` in its `game_init`: it waits for the boot
+code of the SPC700, the SNES's sound processor, and sends it the driver, the sample directory
+and the samples through the ports `$2140`–`$2143`. The upload moves about 350 bytes a frame, as
+Mesen measures it, and the CPU does nothing else until it ends. A game that draws its title and
+turns the screen on before this call shows the title, standing still, instead of a black
+screen.
 
 The runtime also contains the arithmetic routines that generated code calls for multiplication
 and division (`dampf_mul16`, `dampf_mul32`, `dampf_udiv16`, `dampf_udiv32`, `dampf_sdiv32`).
-They are shift-and-add and shift-and-subtract loops, are called with `JSL` and return with
-`RTL`, and expect 16-bit registers and `D = 0`. They work in `dampf_regs`, an 18-byte scratch
-area in the direct page; an interrupt handler of your own that calls C code must save it.
+The two multiplications build their product from byte products on the CPU's 8 x 8 multiplier
+(factors at `$4202` and `$4203`, product at `$4216`); the three divisions are
+shift-and-subtract loops. All of them are called with `JSL`, return with `RTL` and expect 16-bit
+registers and `D = 0`. They work in `dampf_regs`, an 18-byte scratch area in the direct page; an
+interrupt handler of your own that calls C code must save it.
+
+The [code generator from MIR](/glossary#code-generator-from-mir) multiplies two values that fit
+a byte on the multiplier without a call. Assembly of your own that uses the multiplier or the
+CPU's divider must therefore not run a multiplication between its write and its read:
+`dampf_mul32` also writes `$4204`, the divider's dividend.
 
 ## RAM
 
@@ -253,11 +262,16 @@ long address, and the accumulator stays in 8-bit mode for the three accesses:
 A `volatile` byte is read as exactly one byte. A byte that is not `volatile` may be read as 16
 bits and masked, which reads the byte after it as well.
 
-A register with an index, `*(volatile uint8_t *)(0x210B + i)` for an `i` that is never negative,
-becomes `sta f:$00210B,x`. Other pointers made from numbers go through `dampf_ptr`, and so does
-every one in code from the naive code generator. In a playable game only the SNES platform layer
-in `lib/snes` writes registers: it implements the game's console API in C, and the game
-logic does not touch the registers itself.
+A register with an index, `*(volatile uint8_t *)(0x210B + i)`, becomes `sta f:$00210B,x` when
+dampf can see that `i` is never negative and that the sum stays below `$8000`, as with an `i` of
+type `uint8_t`. Other pointers made from numbers are computed and followed as 24-bit pointers:
+`[place],y` where their place is in the direct page, through `dampf_ptr` otherwise. Code from
+the naive code generator takes `dampf_ptr` for every one.
+
+In a playable game only the SNES platform layer in `lib/snes` writes registers from C: it
+implements the game's console API, and the game logic does not touch the registers itself.
+dampf's own code also uses the CPU's multiplier, see
+[Start-up and the entry function](#start-up-and-the-entry-function).
 
 The hardware intrinsics that will give C code access to the hardware are not built yet (see
 [intrinsic](/glossary#intrinsic) and [Limits](/reference/limits)).

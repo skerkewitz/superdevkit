@@ -25,7 +25,7 @@ Use `dampf --version`, or `dampf version`, to see which dampf you have. It print
 the standard output and exits with status 0:
 
 ```
-dampf 0.8.0
+dampf 0.9.0
 ```
 
 The commands `build`, `check` and `parse` print everything on the standard error stream;
@@ -240,8 +240,8 @@ build/gen/
 ../../lib/snes/
 ```
 
-The folder `build/gen` holds the graphics converted to C, so `superdevkit build snes` has to
-have written it before this build, which gives the same ROM:
+The folder `build/gen` holds the graphics converted to C, so `superdevkit build snes` or
+`superdevkit gen` has to have written it before this build, which gives the same ROM:
 
 ```sh
 dampf build @examples/ertuep/ertuep.args -o build/ertuep.sfc
@@ -586,7 +586,7 @@ line.c:1:2: error: #line is not supported by dampf's preprocessor
 | `check` | every file passes, also together | a file or the files together fail | usage error |
 | `parse` | no errors | at least one error | usage error |
 | `profile` | table printed | — | fewer than two arguments |
-| `mir` | MIR printed or run | error in the program | `--bench` function not defined |
+| `mir` | MIR printed or run | error in the program | `--bench` function not defined, or no such source file |
 | `bench` | benchmark finished | benchmark did not finish | wrong arguments |
 
 A usage error is a missing command or one dampf does not know, an option without its value at

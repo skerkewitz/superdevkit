@@ -142,11 +142,14 @@ of every [tick](/glossary#tick). F11 saves it in the format of `check.txt`, with
 `hash` lines that the other players skip, so a bug seen on the desktop can be played again: in
 the window with `--replay`, which pauses at the marks and at the first tick whose checksum is not
 the recorded one, and on the SNES side, with `dev/replay.sh` in dampf's emulator for any ROM and
-with `dev/replay_example.sh` for an example, in dampf's emulator and in Mesen. When the ROM from
-MIR differs and the naive one does not, `dampf.emu.RomDiff good.sfc bad.sfc recording.txt` plays
-both and names, tick by tick, the globals that differ. `ExamplesTest` writes every example's
-check as a recording too (`--record`), on the desktop and on the web, and requires the same
-buttons and the SNES's checksum for every tick in it.
+with `dev/replay_example.sh` for an example, in dampf's emulator and in Mesen. Given two more
+file names, `dev/replay.sh` also writes the ROM's checksums and sound in the formats of the
+desktop's `--check`, so a game can compare them with its desktop build using the kit alone. When
+the ROM from MIR differs and the naive one does not,
+`dampf.emu.RomDiff good.sfc bad.sfc recording.txt` plays both and names, tick by tick, the
+globals that differ. `ExamplesTest` writes every example's check as a recording too
+(`--record`), on the desktop and on the web, and requires the same buttons and the SNES's
+checksum for every tick in it.
 
 **The static timing on the examples** is checked by `ExamplesTimingTest`. It builds every
 example with the code generator from MIR and runs it for 3,000 frames without input in dampf's
@@ -171,10 +174,12 @@ table has one line per example: the work per tick on average and in the busiest 
 the share of it in dampf's runtime routines (multiplication, division, shifts by a variable).
 With `BASELINE=` and an earlier table it adds the ratio to that table per example and their
 geometric mean, so an optimization or a tuned parameter is judged on all examples, not on one
-program. The naive code generator, for example, does three times the work on the geometric
-mean, between 1.3 times (Mandelbrot, whose time is the runtime's multiplication) and 6.4 times
-(Er-Tüp). A game outside the repository measures itself the same way, with
-`dampf.emu.ExampleBench rom.sfc rom.lbl recording.txt`.
+program. On 2026-11-20, before the runtime's multiplication moved to the CPU's multiplier, the
+naive code generator did three times the work on the geometric mean, between 1.3 times
+(Mandelbrot, whose time was the runtime's multiplication) and 6.4 times (Er-Tüp). A game outside
+the repository measures itself the same way, with
+`dampf.emu.ExampleBench rom.sfc rom.lbl recording.txt`. With a fourth argument, `work.txt`, it
+also writes the work of every tick, one line `tick cycles` each.
 
 Two scripts play the examples in Mesen, which has the SNES's graphics chip (the PPU) that
 dampf's emulator lacks. `dev/check_example.sh` plays an example headless with the input of its
@@ -257,12 +262,16 @@ at full brightness, a press in frame 212, when the fade out has begun, changes n
 The SNES side of the tests runs in `dampf.emu`, a 65816 emulator in Java with LoROM and work
 RAM, the SPC700's boot protocol and the kit's sound driver, but no graphics, DMA or sound
 output. Of the picture it has only the timing that the kit's main loop polls: the line counter,
-the vertical blank flag and the automatic joypad read, and it has the joypads. It exists for two
-reasons. It runs inside the JVM, so a test needs no external program and runs much faster than a
-ROM started in Mesen; that is what makes 100 random programs on every build affordable. And
-it counts master cycles with the memory speeds of the SNES (work RAM and SlowROM 8 per access,
-I/O 6, internal cycles 6, DRAM refresh 40 per scanline), so the same run that checks the results
-also measures the speed.
+the vertical blank flag and the automatic joypad read, and it has the joypads. It also has the
+CPU's multiplier and divider. The multiplier adds one bit of its second factor per CPU cycle,
+lowest first, as on the console, so code that reads the product before the eighth cycle gets a
+partial product and fails here too (`MultiplierTest`).
+
+The emulator exists for two reasons. It runs inside the JVM, so a test needs no external program
+and runs much faster than a ROM started in Mesen; that is what makes 100 random programs on every
+build affordable. And it counts master cycles with the memory speeds of the SNES (work RAM and
+SlowROM 8 per access, I/O 6, internal cycles 6, DRAM refresh 40 per scanline), so the same run
+that checks the results also measures the speed.
 
 An emulator written for the tests is only worth something if it is right. It is checked in two
 ways:
@@ -275,7 +284,8 @@ ways:
 - **The whole machine against Mesen.** On Blubber Blasen's benchmark, while the game's code was
   here, both gave the same checksums on all 3,610 ticks and the same master cycles per tick
   within a few cycles out of millions. On the check of every example they give the same
-  checksum after every tick.
+  checksum after every tick. For the multiplier, the runtime's multiplication with one cycle
+  less of waiting gives wrong products in both.
 
 In the Gradle tests, Mesen runs only for the execution tests, and only when it is there: when
 `.mesen/` in the repository holds one (it is not in git) or `-Pmesen` names one.

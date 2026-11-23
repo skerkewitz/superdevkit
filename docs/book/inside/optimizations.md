@@ -13,8 +13,9 @@ as Er-Tüp, Schach and Mandelbrot: `dev/bench_examples.sh` gives the work per ti
 master clocks without the main loop's waiting, and compares a change with a baseline on all of
 them. dampf's own [naive code generator](/glossary#naive-code-generator) does 3.0 times the
 work of the code from MIR on the geometric mean of all seven examples, from 1.26 times for
-Mandelbrot, whose time goes to the runtime's 32-bit multiplication, to 6.4 times for Er-Tüp.
-The figures of each example are under [The measurements](#the-measurements).
+Mandelbrot, whose time went to the runtime's 32-bit multiplication, to 6.4 times for Er-Tüp.
+These figures were measured on 2026-11-20, before the runtime's multiplication moved to the
+CPU's multiplier; those of each example are under [The measurements](#the-measurements).
 
 Before that, every step was measured on the game's benchmark, which ran the same game code with
 a fixed input for 3,610 ticks and measured every tick. Most figures on this page are from
@@ -49,8 +50,9 @@ registers X and Y. The [direct page](/glossary#direct-page) takes the place of a
 a 256-byte window that one-byte addresses reach, where a load or store costs 4 cycles instead of
 5 and a pointer can be used as `[place],y` without copying it first. For dampf, "register
 allocation" therefore mostly means storing and loading less. The CPU has no multiply
-instruction either: dampf's [runtime](/glossary#runtime) multiplies in a loop of 16 or 32 steps,
-about 300 and 1,250 cycles.
+instruction either, only an 8 x 8 multiplier beside it, whose product is there after 8 CPU
+cycles: dampf's [runtime](/glossary#runtime) adds up byte products, 108 cycles for a 16-bit
+multiplication and 398 to 400 for a 32-bit one.
 
 C makes this worse. After the integer promotions, C computes in 32-bit `int`, even where every
 operand is a `uint8_t`. dampf must match gcc on x86-64 bit for bit, so it cannot drop the wide
@@ -69,10 +71,11 @@ the ranges their arguments have at every call and, if that narrowed any, runs th
 Then it inlines small functions, running the rounds on a function as soon as something was
 inlined into it, compresses pointer parameters
 ([pointer compression](/glossary#pointer-compression)) and turns index parameters into the
-offsets they stand for; if any of these changed anything, it runs the rounds again, followed by the pointer parameters and
-the parameter ranges once more. Last, once per function, comparisons are copied next to the
-branches that use them, and the instructions are scheduled. Every pass is exact: it changes how
-a value is computed, never the value.
+offsets they stand for; if any of these changed anything, it runs the rounds again, followed by
+the pointer parameters and the parameter ranges once more. Then `SplitWords` and after it
+`CompareSum` run on each function, and the rounds follow on a function they changed. Last, once
+per function, comparisons are copied next to the branches that use them, and the instructions
+are scheduled. Every pass is exact: it changes how a value is computed, never the value.
 
 Several passes need to know how a loop counts. One analysis answers that for all of them,
 `CountedLoops`: for every loop it finds the counters (a φ of the loop head stepped by one
@@ -99,14 +102,14 @@ optimization with a letter. The letters map to this page as follows:
 | F | Loops | `Induction`, `Licm`, `Collapse`, loop counters in X, `INC`/`DEC` steps, loop rotation; unrolling not built |
 | G | Branches | compare and branch, jump threading, `BitSelect`, `RangeChecks`, block layout (also by a profile), short branches, `BRA` |
 | H | Standard optimizations | `Simplify`, `Gvn`, `DeadCode`, `DeadLoops`, `SinkCompares`, `IndexParams`; loop-invariant code under F |
-| I | Multiply and divide | `StrengthReduce`, multiplication in A; hardware multipliers not built |
+| I | Multiply and divide | `StrengthReduce`, multiplication in A, two variables on the CPU's multiplier; the divider and Mode 7's multiplier not built |
 | J | Banks and placement | FastROM for all code and constant data, registers at constant addresses |
 | K | Peephole | A remembers every place it equals, `INC`/`DEC`, `STZ`, no `CMP #0` where the flags are set, `Peephole`, `KnownCarry` |
 | L | `switch` as jump table | not built |
 | M | Copy and fill with `MVN`/`MVP` or DMA | not built |
 | N | Values in X/Y | loop counters in X, a second index in Y, loop-invariant indexes in Y, an index through a pointer in Y, what A, X and Y hold across blocks, `RegisterChoice` |
 
-The optimizations not built yet (milestones M9 and M12) are on the [Roadmap](/inside/roadmap).
+The optimizations not built yet (milestone M12) are on the [Roadmap](/inside/roadmap).
 
 ### Simplify
 
@@ -344,7 +347,9 @@ Some values the types cannot narrow. `RangeNarrow` uses the [value ranges](#valu
 comparison whose outcome the ranges decide becomes a constant, and an i32 operation or
 comparison whose operands (and result, where it matters) fit 16 bits is done in 16 bits. Values
 that are never negative also get cheaper operations: `ashr`, `sdiv` and `srem` become `lshr`,
-`udiv` and `urem`, and a signed comparison becomes unsigned.
+`udiv` and `urem`, and a signed comparison becomes unsigned. An i32 operation of this kind whose
+operands are never negative narrows straight to the unsigned operation, because `StrengthReduce`,
+later in the same round, would give a signed division its correction for negative values.
 
 ```c
 #include <stdint.h>
@@ -371,7 +376,9 @@ This is the shape of `level_solid_px`, a hot function of the game: the value ran
 from 3,276 to 2,433 master clocks per call, and play from 4.48 to 4.38 frames per tick. The
 cheaper operations for values that are never negative took `level_solid_px` from 1,463 to
 1,230 master clocks per call and play from 1.76 to 1.74 frames per tick. All four figures are
-SlowROM.
+SlowROM. Narrowing straight to the unsigned operation took `v / 8` on an `int16_t` with
+`DAMPF_RANGE(v, 0, 1000)` from 63 to 17 CPU cycles, what the unsigned division costs; no example
+divides that way.
 
 ### Licm
 
@@ -760,6 +767,111 @@ counted pair loop or a list sorted by x, over an array of 23-byte structs or one
 `IndexParams` took 19.3 % off its counted loop over the struct array. The examples stayed the
 same: none passes an index into an array of structs to a function that is not inlined.
 
+### SplitWords
+
+An AND, OR or XOR never carries from one half of a value to the other, so `hash ^= key` on two
+`uint32_t` is two independent 16-bit operations, in the width the 65816 works in. `SplitWords`
+makes a 32-bit value two `i16` values where it is a load that is not volatile, an AND, OR or
+XOR, or a φ, where its operands are such values, constants or zero extensions of 16-bit values,
+and where everything that reads it can take the halves: a store, another such value, a
+truncation, `lshr` by 16, or a test for equality. A test `x != 0` becomes `(lo | hi) != 0`, and
+`x == y` compares `(xl ^ yl) | (xh ^ yh)` with 0. Any other reader, such as an addition, an
+ordered comparison or a call, keeps the whole web of values as it is, so a value is never put
+together again.
+
+```c
+#include <stdint.h>
+
+uint32_t hash;
+uint32_t key;
+
+void mix_key(void) {
+    hash ^= key;
+}
+```
+
+Before the passes, one 32-bit operation:
+
+```
+b0_entry:
+    %0 = load i32 @_hash                        ; hash.c:7
+    %1 = load i32 @_key                         ; hash.c:7
+    %2 = xor i32 %0, %1                         ; hash.c:7
+    store i32 @_hash, %2                        ; hash.c:7
+```
+
+After them, two 16-bit ones:
+
+```
+b0_entry:
+    %0 = ptradd @_hash, i16 2                   ; hash.c:7
+    %1 = load i16 @_key                         ; hash.c:7
+    %2 = load i16 @_hash                        ; hash.c:7
+    %3 = xor i16 %2, %1                         ; hash.c:7
+    store i16 @_hash, %3                        ; hash.c:7
+    %4 = ptradd @_key, i16 2                    ; hash.c:7
+    %5 = load i16 %4                            ; hash.c:7
+    %6 = load i16 %0                            ; hash.c:7
+    %7 = xor i16 %6, %5                         ; hash.c:7
+    store i16 %0, %7                            ; hash.c:7
+```
+
+The operation went from 84 to 36 CPU cycles, what it costs on two `uint16_t`. A loop that tests
+32-bit rows against a mask went from 1,777 to 1,073 cycles. The examples hardly have such values:
+Catch Me does 0.2 % less work, Schach 0.1 % less and Hello 0.03 % more.
+
+### CompareSum
+
+C adds an `int16_t` and a constant in `int`, so `a > b + 32` on two `int16_t` is a 32-bit
+comparison: the sum may not fit 16 bits. Where it does not fit, the answer is known, because a
+sum above 32,767 is greater than every `int16_t` and one below -32,768 is less. For a branch on
+such a comparison, `CompareSum` first tests whether the sum fits, goes straight to the known
+answer if it does not, and compares in 16 bits if it does. Where the value ranges show that the
+sum always fits, the next round removes the test. A branch that leaves a loop stays as it is,
+because the loop passes read its test.
+
+```c
+#include <stdint.h>
+
+int16_t player_x;
+int16_t enemy_x;
+uint8_t in_reach;
+
+void check_reach(void) {
+    if (player_x > enemy_x + 32) {
+        in_reach = 1;
+    }
+}
+```
+
+Before the passes, the comparison is in 32 bits:
+
+```
+    %3 = sext i16 %2 to i32                     ; reach.c:8
+    %4 = add i32 %3, 32                         ; reach.c:8
+    %5 = cmp sgt i32 %1, %4                     ; reach.c:8
+    br %5, b1_then, b2_endif                    ; reach.c:8
+```
+
+After them, `enemy_x < 32736` says that the sum fits. If it does not, the sum is above every
+`int16_t`, the condition is false, and the branch goes to `b2_endif`:
+
+```
+b0_entry:
+    %0 = load i16 @_player_x                    ; reach.c:8
+    %1 = load i16 @_enemy_x                     ; reach.c:8
+    %2 = cmp slt i16 %1, 32736                  ; reach.c:8
+    br %2, b3_fits, b2_endif                    ; reach.c:8
+; ...
+b3_fits:                    ; from b0_entry
+    %3 = add i16 %1, 32                         ; reach.c:8
+    %4 = cmp sgt i16 %0, %3                     ; reach.c:8
+    br %4, b1_then, b2_endif                    ; reach.c:8
+```
+
+The C guide's example of this form went from 164 to 104 CPU cycles. Steinschlag does 0.9 % less
+work, the other examples the same within 0.04 %; the geometric mean fell by 0.1 %.
+
 ### SinkCompares
 
 Value numbering merges equal comparisons: the `v < 0` of an inlined absolute value and the same
@@ -776,9 +888,16 @@ The last pass orders the instructions of each block for the single accumulator: 
 whose value only one later instruction of the same block uses moves right before that user.
 Then the code generator can hand the value over in A without storing it. A value that only φs
 read, a loop's step, goes to the end of its block, so a counter read before it stays the counter
-for the whole block. A load does not move past a store, a copy, a call or a volatile access, and
-instructions with an effect never move. Together with more hand-overs in A in the code
+for the whole block. A load does not move past a copy, a call, a volatile access or a store that
+may change what it reads; a store to another global, or to other bytes of the same one, cannot.
+Instructions with an effect never move. Together with more hand-overs in A in the code
 generator, play went from 1.67 to 1.61 frames per tick.
+
+A store through a pointer plus a variable, whose value is a load, gets that load right before
+it, after the address. The sum of the address needs A, and without this rule address and value
+took the place before the store in turns, so that in `memcpy` the loaded byte was stored in a
+temporary and loaded back. The rule took `memcpy` from 5,046,223 to 4,521,943 cycles at its worst
+case (10.4 %), and the examples' work stayed the same.
 
 Since the places and registers are chosen on the code, the LIR passes also remove loads of what
 A holds and stores nobody reads, so `Schedule` might no longer be needed. Measured without it on
@@ -795,7 +914,7 @@ again where their value is needed (`PointerRemat`) and takes out the checks of t
 (`Hints`). Selection names each place in the frame by the value that owns it; once a function
 is written, its places go to X or Y where that saves cycles (`RegisterChoice`), and the rest get
 their addresses on the code (`PlaceColouring`). Passes on the LIR (`dampf.lir`) then remove
-loads of what a register holds (`RedundantLoads`, `IndexInY`), apply peephole rules
+loads of what a register holds (`RedundantLoads`), apply peephole rules
 (`Peephole`), run short 16-bit stretches between byte stores in 8 bits (`ByteStretches`) and
 loops over bytes in 8 bits from entry to exit (`ByteLoops`), drop a `CLC` or `SEC` where the
 carry is known (`KnownCarry`), remove stores nobody reads (`DeadStores`), choose the branch forms
@@ -831,7 +950,11 @@ what it brought during play:
   ranges, each place taking first the address `FrameLayout` proposed before selection. Functions
   are coloured callees first, so a frame begins where the highest frame of everything it calls
   ends. Play 2.90 to 2.72 frames per tick for the shared places, when they were still coloured
-  on MIR; colouring them on the code changed no cycle count of the examples.
+  on MIR; colouring them on the code changed no cycle count of the examples. Selection also
+  reads `FrameLayout`'s proposals, to step a value in place, to see that a φ's operand is in the
+  φ's place already, and to find a pointer in the direct page. Measured without the first two on
+  2026-11-23, the examples did 1.1 % more work and 104 worst cases grew, by up to 8 %, so the
+  proposals stay until a model of the whole function replaces them.
 - **φs through their incoming places.** Every predecessor of a block writes the block's φ values
   into an incoming place, and the block copies each into the φ's own place. The colouring
   coalesces the two places of such a copy where they do not conflict, and the copy is then no
@@ -896,10 +1019,12 @@ what it brought during play:
   another index, as for the two bubbles of a pair, the access uses Y instead, for the
   instructions that have an absolute,Y form; an index that does not change in a loop prefers Y,
   and leaves X to the index that changes. Through a pointer, an index that is never negative
-  goes into Y for `lda [dp],y`, so the sum of pointer and index is not computed. `IndexInY`, a
-  pass on LIR, turns `LDX p` and `LDA table,X` into `LDA table,Y` where Y holds `p` on every way
-  in. Arrays indexed with X took play from 2.35 to 2.29 frames per tick; each use of Y brought
-  about 0.01 frames per tick more, and `IndexInY` 365 master clocks per tick.
+  goes into Y for `lda [dp],y`, so the sum of pointer and index is not computed. Arrays indexed
+  with X took play from 2.35 to 2.29 frames per tick; each use of Y brought about 0.01 frames per
+  tick more. A pass on LIR, `IndexInY`, turned `LDX p` and `LDA table,X` into `LDA table,Y` where
+  Y held `p` on every way in, which brought 365 master clocks per tick. It went on 2026-11-23,
+  when the register choice below left it almost nothing: without it Schach does 21 master clocks
+  more per tick, and the other examples the same.
 - **Loop counters in X.** A counter of a loop (from `CountedLoops`) can live in X for the whole
   loop when it is compared with a constant, or with a 16-bit value from outside the loop that has
   a place (`CPX` on it), indexes the loop's array accesses and is stepped by a constant once a
@@ -924,8 +1049,10 @@ what it brought during play:
   of the loop depth. A group may also take a register for one loop only, loaded where the loop is
   entered and stored where it is left. The steps of 2026-11-21 that built this took 1.9 %, 1.5 %,
   0.5 %, 0.2 % and 0.1 % off the geometric mean of the examples, each against the code before.
-  Without selection's patterns the examples still did 0.2 % more work, so the patterns stay and
-  the register choice takes what they leave.
+  Selection's patterns for the index registers stay, and the register choice takes what they
+  leave: nine versions that left X and Y to `RegisterChoice` alone, tried on 2026-11-23, were no
+  better on the pair loops and the worst cases, because the choice is greedy and counts cycles
+  on paths that exclude each other. Doing better needs a cost model of the whole function.
 - **Byte loads.** A byte load that is not volatile reads 16 bits and masks the high byte:
   `lda` and `and #$00FF` instead of switching to 8 bits and back. The byte after the object is in
   the same bank, because the last byte of every bank stays free; I/O registers are read one byte
@@ -937,6 +1064,14 @@ what it brought during play:
 - **Multiplication in A.** A multiplication by a constant in 8 or 16 bits is done in A, Horner's
   way over the non-adjacent form: a shift per digit, an add or subtract where the digit is ±1.
   Together with indexed addressing, play went from 2.35 to 2.07 frames per tick.
+- **Multiplication on the CPU's multiplier.** A multiplication of two variables that is an 8-bit
+  one, or a 16-bit one whose factors are below 256 by their ranges, goes to the multiplier
+  without a call: `sep #$20`, the factors into `$4202` and `$4203`, two `nop` while the hardware
+  takes its 8 CPU cycles, `rep #$20` and `lda` from `$4216`. Such a product costs 62 cycles,
+  against 140 for two `uint16_t`, which call the runtime. The runtime uses the same multiplier:
+  `dampf_mul16` adds up three byte products (108 cycles instead of 287 to 367) and `dampf_mul32`
+  ten (398 to 400 instead of 1,168 to 1,968). This took 66.8 % off Mandelbrot, 53.3 % off Mode 7
+  and 23.7 % off the geometric mean of the examples.
 - **Shifts.** Every shift by a constant below the width is written out; only shifts by a
   variable loop. A 16-bit shift by 8 or more starts with `XBA`, which swaps the bytes of A, then
   masks and shifts the rest. A 32-bit shift by 16 or more moves one word to the other, shifts it
@@ -1158,7 +1293,7 @@ master clocks per tick with FastROM. Together they took play from 326,596 to 324
 0.91 frames per tick, and play with the CPU partner from 528,446 to 527,096. Writing each
 function once, with the LIR passes in place of the repeated writing, cost 312 master clocks per
 tick in play (0.1 %), because selection no longer knew that Y held an index where a block
-starts; `IndexInY` won that back and more.
+starts; a pass for that, `IndexInY`, won it back and more.
 
 The steps after them were also measured on 2026-11-18 in dampf's emulator, one at a time, in
 master clocks per tick with FastROM (357,368 make a frame):
@@ -1191,7 +1326,7 @@ touched. The general steps help elsewhere too, much less than in the game.
 The game's last figures, measured on 2026-11-18 after these steps: play took 0.79 frames per
 tick (worst 1.42), play with the CPU partner 1.36 (worst 3.03). The other parts of the benchmark
 took 0.37 frames per tick on the title screen, 0.16 in the story and 1.41 in the round intro,
-and the whole benchmark 0.81, all FastROM. On the console, the playable ROM took 1.16 frames per
+and the whole benchmark 0.81, all FastROM. In Mesen, the playable ROM took 1.16 frames per
 tick during a minute of play (3,600 frames, 3,098 ticks), also after these steps, with no byte
 lost in the vertical blank; that includes waiting for the vertical blank and the [platform
 layer](/glossary#platform-layer), so it is not comparable with the benchmark.
@@ -1227,14 +1362,15 @@ baseline on all of them. Code from MIR, FastROM, measured on 2026-11-20:
 | Mode 7 | 27,211 | 27,462 | 68.0 % |
 
 The naive code generator does 3.0 times the work on the geometric mean of all seven examples,
-from 1.26 times for Mandelbrot to 6.4 times for Er-Tüp. Mandelbrot spends its time in the
-runtime's 32-bit multiplication, which neither code generator changes; Hello and Mode 7 also
-spend most of their work in the runtime.
+from 1.26 times for Mandelbrot to 6.4 times for Er-Tüp. On that date Mandelbrot spent its time
+in the runtime's 32-bit multiplication, which neither code generator changes; Hello and Mode 7
+also spent most of their work in the runtime. The CPU's multiplier came on 2026-11-22 and cut
+Mandelbrot's work to a third and Mode 7's to less than half, so the table is older than that.
 
 Each step since then was measured against the code before it, as the change of the examples'
 work per tick on their geometric mean, with the example that changed most. The steps are in
-the order they were made; those of 2026-11-21 and 2026-11-22 came after the table above was
-measured, so its figures do not include them.
+the order they were made; those from 2026-11-21 on came after the table above was measured, so
+its figures do not include them.
 
 | Step | Date | Geometric mean | Most changed |
 | --- | --- | --- | --- |
@@ -1258,11 +1394,16 @@ measured, so its figures do not include them.
 | no second variable for a word index | 2026-11-21 | −0.1 % | Schach −0.3 % |
 | a large function called once in a loop is inlined | 2026-11-21 | −2.5 % | Steinschlag −15.8 % |
 | constant shifts written out | 2026-11-22 | −2.2 % | Mode 7 −7.4 % |
+| multiplication on the CPU's multiplier | 2026-11-22 | −23.7 % | Mandelbrot −66.8 % |
+| a comparison with a sum in 16 bits (`CompareSum`) | 2026-11-22 | −0.1 % | Steinschlag −0.9 % |
+| the register choice keeps its weights | 2026-11-23 | −0.1 % | Hello −0.5 % |
 
 The other steps of these days left the geometric mean where it was: `DeadLoops` (Catch Me
 −0.8 %), `IndexParams`, `Collapse`, the canonical form, the ranges in two readings and from
-`CountedLoops`, and colouring the places on the code. Several of them were made for loops the
-examples do not have, and were measured on the pair loops and on small test functions instead.
+`CountedLoops`, colouring the places on the code, `SplitWords` (Catch Me −0.2 %), the loaded
+value right before a store through a pointer, the signed division of a value known not to be
+negative, and taking `IndexInY` out. Several of them were made for loops the examples do not
+have, and were measured on the pair loops and on small test functions instead.
 
 ## How far it can go
 
