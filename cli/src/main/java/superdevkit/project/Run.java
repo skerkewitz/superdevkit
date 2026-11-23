@@ -37,7 +37,7 @@ public final class Run {
                 : List.of(program.toAbsolutePath().toString());
         return new Build.Step("start", String.join(" ", cmd), List.of(), out -> {
             if (!Files.isRegularFile(program)) {
-                throw new Build.Failure(target.equals("snes") ? "no Mesen at " + program + " (MESEN=path, or dev/fetch_mesen.sh in the kit)"
+                throw new Build.Failure(target.equals("snes") ? "no Mesen at " + program + " (install MesenCE and name it with MESEN=path; in the kit's repository, dev/fetch_mesen.sh)"
                         : "no " + program);
             }
             Process pr = new ProcessBuilder(cmd).directory(p.dir().toFile()).inheritIO().start();

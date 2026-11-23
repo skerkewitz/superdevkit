@@ -49,6 +49,14 @@ This product includes software from third parties:
   At that commit these files carry no licence notice of their own. The changes to them are
   listed in compiler/src/main/antlr/dampf/parser/README.md.
 
+- In the release zips, a Java runtime in jre/, cut down with jlink from Eclipse Temurin (OpenJDK),
+  unmodified otherwise. GNU General Public License v2 with the Classpath Exception; the licence
+  texts are in jre/legal/, the exact version in jre/release. Source:
+  https://github.com/adoptium/jdk25u
+
+- In the release zips, raylib 5.5 (https://github.com/raysan5/raylib) in raylib/, ready-built
+  from raylib's own releases. zlib licence; the text is in the LICENSE file of each folder there.
+
 
 ANTLR 4 runtime licence
 -----------------------

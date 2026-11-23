@@ -86,6 +86,14 @@ public final class Raylib {
         }
     }
 
+    /** For the release build: puts raylib for the targets into a kit's folder (folder, targets...). */
+    public static void main(String[] args) throws IOException, InterruptedException {
+        Kit kit = new Kit(Path.of(args[0]));
+        for (int i = 1; i < args.length; i++) {
+            ensure(kit, args[i], System.out);
+        }
+    }
+
     /** The path inside the package without its first folder (raylib-5.5_.../include/raylib.h). */
     private static String strip(String name) {
         int slash = name.indexOf('/');

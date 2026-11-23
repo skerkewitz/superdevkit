@@ -1,0 +1,92 @@
+# The release zips (ADR-6F60Z9QJ, ADR-6FHEEVST): each is built and checked on its own system, because a Java
+# runtime is cut on the system it is for. A pull request that touches the packaging runs this as a
+# trial and keeps the zips as artifacts. A version tag also runs the full build and then makes a
+# draft release with the zips and their checksums, which the user tries and publishes.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - build.gradle.kts
+      - cli/build.gradle.kts
+      - cli/src/dist/**
+      - cli/src/main/java/superdevkit/project/Desktop.java
+      - cli/src/main/java/superdevkit/project/Raylib.java
+      - cli/src/main/java/superdevkit/project/Web.java
+      - dev/check_release.*
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  zip:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            system: linux
+          - os: windows-latest
+            system: windows
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25
+      - uses: gradle/actions/setup-gradle@v5
+      - name: The tag is the version in the build file
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: grep -qF "version = \"${GITHUB_REF_NAME#v}\"" build.gradle.kts
+      - name: Libraries of the desktop build
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -q && sudo apt-get install -y -q libgl1-mesa-dev libx11-dev
+      - name: The full build of a version
+        if: runner.os == 'Linux' && startsWith(github.ref, 'refs/tags/')
+        run: sudo apt-get install -y -q cc65 clang && ./gradlew build
+      - run: ./gradlew releaseZip
+      - name: Check the zip (Linux)
+        if: runner.os == 'Linux'
+        run: dev/check_release.sh build/release/superdevkit-*-linux-x64.zip
+      - name: Check the zip (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./dev/check_release.ps1 (Get-Item build/release/superdevkit-*-windows-x64.zip).FullName
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zip-${{ matrix.system }}
+          path: build/release/superdevkit-*.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    needs: zip
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: zip-*
+          merge-multiple: true
+      - run: sha256sum superdevkit-*.zip > SHA256SUMS && cat SHA256SUMS
+      - name: Draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: >
+          gh release create "$TAG" superdevkit-*.zip SHA256SUMS
+          --repo "$GITHUB_REPOSITORY" --draft --verify-tag --generate-notes
+          --title "superdevkit ${TAG#v}"

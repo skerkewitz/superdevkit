@@ -183,17 +183,6 @@ application {
     applicationDefaultJvmArgs = listOf("-Ddampf.include=__APP_HOME__/include")
 }
 
-// The launcher finds the installation's folder, and the jars in java/ (ADR-6F60Z9QJ: the kit's
-// library is lib/ in the release)
-tasks.startScripts {
-    doLast {
-        unixScript.writeText(unixScript.readText().replace("__APP_HOME__", "'\"\$APP_HOME\"'")
-            .replace("\$APP_HOME/lib/", "\$APP_HOME/java/"))
-        windowsScript.writeText(windowsScript.readText().replace("__APP_HOME__", "%APP_HOME%")
-            .replace("%APP_HOME%\\lib\\", "%APP_HOME%\\java\\"))
-    }
-}
-
 // dampf's headers next to the launcher (include/dampf.h), for the PC build of a game:
 // gcc -idirafter <dampf>/include
 distributions {

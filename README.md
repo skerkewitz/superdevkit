@@ -122,9 +122,11 @@ working documents it is written from.
 
 ## Prerequisites
 
-To use the kit: JDK 25 or newer; for the desktop build also a C compiler (raylib is fetched on the
-first build), for the web Emscripten's `emcc`, and Python 3 only for the rename script in
-`tools/`. To develop it, also clang, ca65 and ld65 from cc65 2.19
+To use the kit from a [release zip](https://github.com/skerkewitz/superdevkit/releases) (from
+version 0.9.1, for Linux and Windows on x64): nothing for the SNES, since the zip brings its own
+Java and raylib. The desktop needs a C compiler (on Windows, Visual Studio with "Desktop
+development with C++"), the web Emscripten's `emcc`, and the rename script in `tools/` Python 3.
+From the repository, also JDK 25 or newer. To develop the kit, also clang, ca65 and ld65 from cc65 2.19
 (`BackendOutputTest` builds the execution tests, 20 random programs and the examples with them
 as well and compares the ROMs) and Python 3; clang is the tests' reference on the PC and is used
 by `dev/subset_scan.py`. Mesen (MesenCE) is optional (the tests then also run there),
@@ -145,6 +147,7 @@ cd cc65 && make bin && sudo make install PREFIX=/usr/local
 ```bash
 ./gradlew build                          # compile and run the tests
 ./gradlew installDist                    # the launcher: build/install/superdevkit/bin/dampf
+./gradlew releaseZip                     # this system's release zip, in build/release (dev/check_release.sh checks it)
 ./gradlew test -Prandom=500 -PrandomSeed=1   # more random programs, from a given seed
 ./gradlew test -Pcoverage                # JaCoCo: build/reports/jacoco/test/html/index.html
 ./gradlew pmdMain pmdTest                # PMD: build/reports/pmd/ (not a gate)

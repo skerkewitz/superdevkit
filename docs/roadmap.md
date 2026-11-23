@@ -231,9 +231,9 @@ What it takes:
   building for the SNES needs nothing but the download. Done: the converters are Java in the CLI
   (M7), and dampf has its own preprocessor (M10).
 - **Hosting:** a release on GitHub, a zip per system with a Java runtime (jlink) and raylib (ADR
-  ADR-6F60Z9QJ), built by GitHub Actions (which already builds every pull request, with cc65 for
-  the tests that compare with ca65 and ld65 and without Mesen; `checkBook` after `build`,
-  ADR-6F60ZB4N), the book on GitHub Pages.
+  ADR-6F60Z9QJ). Built: `./gradlew releaseZip` and the workflow `release.yml`, which builds and
+  checks the Linux and the Windows zip on their own systems and makes a draft release from a
+  version tag. Still open: `checkBook` in CI (ADR-6F60ZB4N) and the book on GitHub Pages.
 
 ## Future ideas
 
