@@ -19,12 +19,13 @@ Linux and Windows and as a page in the browser. The kit holds:
   Er-Tüp, which are also the kit's test cases and its benchmark;
 - the **book** ([docs/book](docs/book)): the user guide and the reference.
 
-Status: version 0.9.0 in development (M9, the optimizer); the last release is 0.8.0. Milestones
-M0 to M8 are done: M6 is dampf's own assembler and
+Status: version 0.9.0. Milestones
+M0 to M9 are done: M6 is dampf's own assembler and
 linker; with M5 Blubber Blasen (the kit's first user, a game in its own repository) builds its
 ROM with the kit and plays its recordings with the PC's checksums; with M7 a game builds and runs
 on the SNES, Linux and Windows with the `superdevkit` command, with sound effects, save RAM, music
-on the desktop and a debug view; with M8 it runs in the browser too (`superdevkit build web`). The
+on the desktop and a debug view; with M8 it runs in the browser too (`superdevkit build web`);
+with M9 dampf's optimizer chooses registers by cost and keeps byte loops in 8-bit mode. The
 milestones and versions are in [docs/roadmap.md](docs/roadmap.md), why the kit is the project and
 dampf its compiler in [ADR-6F3CJX8T](docs/adr/6F3CJX8T-superdevkit-is-the-project-and-dampf-is-its.md).
 
@@ -186,7 +187,9 @@ before = ["./make_levels.sh"]
 ```
 
 The tables `[snes]`, `[desktop]` (`linux` and `win64`) and `[web]` can name `defines` for the game's
-own files on that target, such as `defines = ["DEV_TOOLS", "LEVELS=3"]`.
+own files on that target, such as `defines = ["DEV_TOOLS", "LEVELS=3"]`. On the SNES they also
+reach `lib/snes`, because dampf compiles the game and the library as one program, so a define must
+not use a name the library uses.
 
 A game with a build system of its own gets the kit's generated files with `superdevkit gen`: the
 conversions into `build/gen`, and with music the tracks and their list in `build/gen/music`.

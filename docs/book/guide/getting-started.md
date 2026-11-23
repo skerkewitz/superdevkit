@@ -59,7 +59,7 @@ superdevkit --version
 ```
 
 ```
-superdevkit 0.8.0
+superdevkit 0.9.0
 ```
 
 The tests run with `./gradlew build`, which you need only when you work on the kit itself;
@@ -114,7 +114,7 @@ such as `superdevkit init mygame --from catchme`. The folder is a copy of the ex
 # hello's project file (superdevkit.toml, ADR-6F3CJZBY): superdevkit build snes makes the ROM,
 # superdevkit run plays it on the desktop.
 name = "mygame"
-superdevkit = "0.8"                # the kit's version this game is built with
+superdevkit = "0.9"                # the kit's version this game is built with
 sources = ["src"]
 
 [graphics]
@@ -123,10 +123,10 @@ tiles = ["assets/font_gfx.png", "assets/ball_gfx.png"]
 
 In the project file, `name` names the ROM and the programs, `sources` the game's C files and
 folders, and `[graphics]` the PNG files the build converts into C. The line
-`superdevkit = "0.8"` says which kit builds the game: the `superdevkit` command takes its own
+`superdevkit = "0.9"` says which kit builds the game: the `superdevkit` command takes its own
 home, and refuses a game that asks for another version. In the home, the examples have
 `kit = "../.."` there instead, the kit two folders up; a plain copy of `<home>/examples/hello`
-works as well once that line is replaced by `superdevkit = "0.8"`.
+works as well once that line is replaced by `superdevkit = "0.9"`.
 
 Build the ROM, in the game's folder:
 

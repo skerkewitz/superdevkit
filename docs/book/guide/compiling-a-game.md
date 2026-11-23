@@ -103,7 +103,8 @@ wrote .../ertuep/build/ertuep/ertuep.sfc and .../ertuep/build/ertuep/ertuep.dbg
 A call this long belongs in a file. dampf reads its arguments from an
 [argument file](/glossary#args-file) as well, and every `superdevkit build snes` writes one for
 the game: `build/snes/<name>.args`, which names what the build compiled. It names every file on
-its own line, with absolute paths, and `--sram` as well when the project file asks for save RAM.
+its own line, with absolute paths, with a `-D` for each macro the project file defines for the
+SNES, and with `--sram` when the project file asks for save RAM.
 Er-Tüp's, with the game's paths cut to `.../ertuep/`, the home's written as `<home>` and most of
 its files left out:
 
@@ -274,20 +275,20 @@ starts like this (each table cut, the path of the home's file cut to `.../lib/`)
 
 ```
 ticks 5700 to 5732: 1.000 frames per tick
-  64.5 %      230522  main
+  64.6 %      231004  main
    5.7 %       20488  kettle_update
    4.8 %       17100  collide
    3.1 %       11021  effects
    3.0 %       10644  play
-   2.3 %        8326  draw_player
+   2.3 %        8315  draw_player
    2.2 %        7777  player_update
 ...
 C lines:
-  63.5 %      226970  .../lib/snes/snes.c:420
-   2.5 %        8847  src/boss.c:332
+  63.7 %      227464  .../lib/snes/snes.c:420
+   2.5 %        8848  src/boss.c:332
    1.2 %        4300  src/stage.c:338
-   1.1 %        3836  src/game.c:324
-   0.7 %        2567  src/game.c:527
+   1.1 %        3801  src/game.c:324
+   0.7 %        2534  src/draw.c:283
 ...
 ```
 

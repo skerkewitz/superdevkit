@@ -87,7 +87,8 @@ and runtime routine on the way (from its first instruction to the instruction af
 and checks best ≤ measured ≤ worst (`Timing.check`); `ExamplesTimingTest` does the same for every
 call of every example in its first 3,000 frames (and did for the 180,000 calls of Blubber
 Blasen's benchmark while the game's code was here). A runtime bound set too low on purpose
-(`dampf_mul16` worst 300 instead of 367) failed 94 tests at once; the measured maximum was 362.
+(the `dampf_mul16` of that time, a loop in software, worst 300 instead of 367) failed 94 tests at
+once; the measured maximum was 362.
 
 ### In the game
 

@@ -35,8 +35,9 @@ both has its functions in `lib/snes` and in `lib/rachael`.
 | ADSR envelopes, echo, noise, pitch modulation, looped samples | not built | not built, reported | |
 | Save RAM: battery-backed, up to 32 KB, kept while the console is off | built: the cartridge's RAM at `$70:0000`, announced in the header by `dampf --sram` | built: `<game>.srm` next to the program; checks and recordings start with the save RAM they name | `sdevkit_sram` |
 | Mouse, multitap, Super Scope | not built | not built | |
-| The CPU's multiplier (`$4202`, `$4203`, `$4216`) | used by dampf's runtime for every multiplication of two variables: a game that uses it itself must not multiply between its write and its read | not needed: the game is compiled for the PC | |
-| The CPU's divider (`$4204`-`$4206`), mode 7's multiplier (`$2134`-`$2136`) | not used: dampf's runtime divides in software | not needed: the game is compiled for the PC | |
+| The CPU's multiplier (`$4202`, `$4203`, `$4216`) | used by dampf for every multiplication of two variables: a game that uses it itself must not multiply between its write and its read | not needed: the game is compiled for the PC | |
+| The CPU's divider (`$4204`-`$4206`) | not used: dampf's runtime divides in software. A multiplication overwrites the divider's results and a 32-bit one its dividend, so a game that uses the divider itself must not multiply between its write and its read | not needed: the game is compiled for the PC | |
+| Mode 7's multiplier (`$2134`-`$2136`) | not used | not needed: the game is compiled for the PC | |
 
 "Reported": `sdevkit_reg_write` can set any PPU register, and Rachael counts every write she
 does not draw (a mode other than 1 and 7, mosaic, `SETINI` for interlace, high resolution and

@@ -12,7 +12,8 @@ around her. The API is two headers in `<home>/lib/include`, where `<home>` is th
 [superdevkit home](/glossary#superdevkit-home): `sdevkit/loop.h` for the frame rhythm and
 `sdevkit/snes.h` for everything else. `superdevkit build` passes `-I <home>/lib/include` to the
 compiler of every [target](/glossary#target) and builds the game together with the target's
-library (see [The superdevkit command](/reference/superdevkit#build)); the game includes both headers:
+library (see [The superdevkit command](/reference/superdevkit#build)); the game includes both
+headers:
 
 ```c
 #include "sdevkit/loop.h"
@@ -48,8 +49,9 @@ void game_vblank(void);
 
 The main loop calls `game_init` once, with the screen off. This is the place for the large
 copies: tiles, maps and palettes into VRAM and CGRAM, since with the screen off they may take as
-long as they need. It ends by switching the screen on, usually with
-`sdevkit_set_brightness(15)`. The main loop passes 0 as `seed` today.
+long as they need. Before it returns it switches the screen on, usually with
+`sdevkit_set_brightness(15)`. The value of `seed` is 0, unless a desktop build is started with
+`--seed N` ([The desktop](/guide/the-desktop#debugging-on-the-pc)).
 
 Once per [frame](/glossary#frame), while the picture is drawn, the main loop calls `game_tick`:
 the game logic of one [tick](/glossary#tick). It prepares what the next
@@ -371,8 +373,7 @@ Copies `tileSize` bytes of tiles to VRAM word `address`, copies `paletteSize` by
 to CGRAM from colour `paletteEntry * colorMode`, and sets the layer's tile base to `address`.
 `paletteEntry` is the number of the palette, and `colorMode` is `SDEVKIT_BG_16COLORS` or
 `SDEVKIT_BG_4COLORS`. It makes two DMA copies, so call it with the screen off or in
-`game_vblank`. Cost: 582 to 662 cycles, and `tileSize + paletteSize` bytes of the vertical
-blank.
+`game_vblank`. Cost: 301 cycles, and `tileSize + paletteSize` bytes of the vertical blank.
 
 ### `sdevkit_bg_init_map_set`
 
@@ -855,11 +856,14 @@ void sdevkit_sfx_init(const sdevkit_sfx_bank *bank);
 ```
 
 Loads the bank's samples into the audio RAM of the sound chip and starts the sound. Call it
-once, in `game_init`, while the screen is off; a second call does nothing, and so does a null
-`bank`. On the SNES it waits for the boot code of the SPC700, the sound CPU, and sends every byte
-through it, about 350 bytes a frame: Schach's 13.8 KB take 40 frames after the splash screen. On
-Rachael the same bytes go straight into her audio RAM. Cost: 51 cycles to unbounded, since the
-wait for the sound CPU has no bound the timing report can see.
+once, in `game_init`; a second call does nothing, and so does a null `bank`. On the SNES it waits
+for the boot code of the SPC700, the sound CPU, and sends every byte through it, about 350 bytes
+a frame: Schach's 13.8 KB take 40 frames after the splash screen. The CPU does nothing else
+meanwhile, so the pads are not read, but the PPU keeps showing its picture. A game that draws its
+title and switches the screen on before this call, as the last thing in `game_init`, shows the
+title during the upload instead of a black screen. On Rachael the same bytes go straight into her
+audio RAM. Cost: 51 cycles to unbounded, since the wait for the sound CPU has no bound the timing
+report can see.
 
 ### `sdevkit_sfx_play`
 
@@ -984,14 +988,20 @@ void best_load(void)
 The `sdevkit_dbg_*` functions exist on every platform and never change what the game computes.
 `sdevkit_dbg_vram` and `sdevkit_dbg_hash` serve the debug checks on the desktop and on the SNES.
 
-The other five feed the debug view of the desktop, which `F1` opens beside the picture; on the
+The other nine feed the debug view of the desktop, which `F1` opens beside the picture; on the
 web it is only in a build with `--debug`. How the view is used is in
 [The desktop](/guide/the-desktop#debugging-on-the-pc). A game registers once, in `game_init`,
-what it wants to change while it runs, and the view lists it; in each tick it can draw boxes over
-the picture. On the SNES these five functions are empty and dampf removes the calls, so the game
-needs no `#ifdef`. A `name` is a string constant, since the view keeps the pointer. A game has at
-most 32 registrations; a variable registered again replaces its entry. A change made in the view
-is not part of a recording: from then on, a replay plays another game, and the window says so.
+what it wants to change or read while it runs, and the view lists it; in each tick it can draw
+boxes and arrows over the picture. On the SNES these nine functions are empty and dampf removes
+the calls, so the game needs no `#ifdef`. A `name` is a string constant, since the view keeps the
+pointer. A game has at most 32 registrations; a variable registered again replaces its entry. A
+change made in the view is not part of a recording: from then on, a replay plays another game,
+and the window says so.
+
+To make a setting part of the recording, start a desktop build with `--set name=value`, which
+sets a registration before the first tick; the recording keeps it. So a bot needs no support of
+its own: a toggle named `autoplay`, which `game_tick` reads to make its own pad instead of
+`pad[0]`, is switched on with `--set autoplay=1`.
 
 ### `sdevkit_dbg_vram`
 
@@ -1072,6 +1082,27 @@ next `game_tick` and sets it back to 0. The view cannot call a function of the g
 dampf has no function pointers, and the game's state changes only inside a tick. Cost: 6 cycles
 for the empty function on the SNES; in a game dampf removes the call.
 
+### `sdevkit_dbg_text`
+
+```c
+void sdevkit_dbg_text(const char *name, const char *text);
+```
+
+Registers a line of text that the view shows and reads again every frame, such as why a life was
+lost. The game keeps `text` up to date: a string ending in a zero byte, in memory that stays, so
+not a local variable. The line changes nothing in the game, so a recording stays valid. Cost: 6
+cycles for the empty function on the SNES; in a game dampf removes the call.
+
+### `sdevkit_dbg_value`
+
+```c
+void sdevkit_dbg_value(const char *name, const uint16_t *value);
+```
+
+Registers a value that the view shows in decimal and in hexadecimal and reads again every frame.
+Like a line of `sdevkit_dbg_text`, it changes nothing in the game, so a recording stays valid.
+Cost: 6 cycles for the empty function on the SNES; in a game dampf removes the call.
+
 ### `sdevkit_dbg_box`
 
 ```c
@@ -1080,9 +1111,31 @@ void sdevkit_dbg_box(int16_t x, int16_t y, uint8_t w, uint8_t h, uint8_t kind);
 
 Draws a box of `w` by `h` pixels at screen position (`x`, `y`) over the picture in the debug
 view, a collision box or a target, in the colour of `kind`, 0 to 7. The box is for this tick
-only: the list is cleared before each `game_tick`, and it holds at most 256 boxes a tick. Cost:
+only: the list is cleared before each `game_tick`, and it holds at most 256 shapes a tick, boxes,
+filled boxes and arrows together. Cost: 6 cycles for the empty function on the SNES; in a game
+dampf removes the call, and the loops left empty by it.
+
+### `sdevkit_dbg_fill`
+
+```c
+void sdevkit_dbg_fill(int16_t x, int16_t y, uint8_t w, uint8_t h, uint8_t kind);
+```
+
+Draws the same box as `sdevkit_dbg_box`, filled, with the picture showing through it, for a
+danger zone for example. It is for this tick only and counts among the tick's 256 shapes. Cost:
 6 cycles for the empty function on the SNES; in a game dampf removes the call, and the loops
 left empty by it.
+
+### `sdevkit_dbg_arrow`
+
+```c
+void sdevkit_dbg_arrow(int16_t x, int16_t y, int8_t dx, int8_t dy, uint8_t kind);
+```
+
+Draws an arrow from screen position (`x`, `y`) by (`dx`, `dy`) pixels over the picture in the
+debug view, in the colour of `kind`, 0 to 7, to show a direction or an air current. It is for
+this tick only and counts among the tick's 256 shapes. Cost: 6 cycles for the empty function on
+the SNES; in a game dampf removes the call, and the loops left empty by it.
 
 ## The old names
 

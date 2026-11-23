@@ -19,7 +19,8 @@ superdevkit build linux
 
 It writes the program to `build/linux/hello`, named after the `name` in the game's
 [project file](/glossary#project-file), and prints `built build/linux/hello`. Before the C
-compiler runs, the build converts the game's pictures and sound effects into C in `build/gen`
+compiler runs, the build runs the commands the project file names under `[build] before`, then
+converts the game's pictures and sound effects into C in `build/gen`
 (see [Graphics and sound](/guide/graphics-and-sound)). It needs a C compiler (`cc`, or the one
 `CC` names: gcc or clang) and the X11 and OpenGL libraries the program links with. raylib, the
 library behind the window and the sound, comes ready-built in version 5.5: the first build
@@ -31,7 +32,8 @@ The build has three steps, and the first two are there to keep the game honest:
 1. **The game alone.** The game's sources are compiled as on the SNES, without the host's
    headers (`-nostdinc`, `-ffreestanding`). The only include folders are dampf's (`<stdint.h>`,
    `<string.h>`, `<dampf.h>`), the kit's public headers in `lib/include`, the game's own include
-   folders and `build/gen`. A game that includes `<stdio.h>` fails here.
+   folders and `build/gen`. A game that includes `<stdio.h>` fails here. The macros the project
+   file defines under `[desktop]` are set for these files.
 2. **The symbol check.** superdevkit reads what the game's object files leave undefined and
    accepts only the functions and variables declared in `lib/include/sdevkit`, what the game
    defines itself, and a few that the C compiler calls on its own (`memcpy`, `memset`,
@@ -98,7 +100,8 @@ The window plays the game's sound. The sound effects go through Rachael's DSP, t
 chip rebuilt in C, at 32 kHz in stereo. The music the game asks for with `sdevkit_music_play`
 plays from the track's file, which the build copies into `build/linux/music/` next to the
 program, over and over until the game stops it or asks for another; it pauses when the game is
-paused. On the SNES, music is not built yet (see [Limits](/reference/limits)). How a game gets
+paused. On the SNES, music is not built yet (see [Limits](/reference/limits)). Start with
+`--mute` for a window without sound; the game and its checksums run the same. How a game gets
 its sounds is in [Graphics and sound](/guide/graphics-and-sound).
 
 A game with save RAM (`sdevkit_sram`, sized by `sram` in its project file) keeps it in the file
@@ -117,8 +120,8 @@ All options, as the program prints them for an option it does not know or one th
 argument:
 
 ```
-usage: build/linux/hello [--scale N] [--no-crt] [--replay recording.txt]
-       build/linux/hello --check check.txt [--out dir] [--record recording.txt] [--wav sound.wav]
+usage: build/linux/hello [--scale N] [--no-crt] [--mute] [--seed N] [--set name=value] [--replay recording.txt [--jump TICK]]
+       build/linux/hello --check check.txt [--seed N] [--set name=value] [--out dir] [--record recording.txt] [--wav sound.wav]
                  [--view-shot view.png [--view-tab 0..3]]
 ```
 
@@ -146,6 +149,8 @@ The folder must exist. The file has one instruction a line; `#` starts a comment
 | `shot T` | a screenshot after T ticks |
 | `splash N` | a screenshot of frame N of the splash screen |
 | `sram H` | the save RAM at power-on, its bytes in hex, the rest zero (all zero without the line) |
+| `seed N` | the seed `game_init` gets (0 without the line) |
+| `set VALUE name` | a value for what the game registered with the debug view, before the first tick |
 
 The buttons are `b`, `y`, `select`, `start`, `up`, `down`, `left`, `right`, `a`, `x`, `l` and
 `r`. On the desktop every [frame](/glossary#frame) is one tick; the splash
@@ -218,9 +223,10 @@ hello: tick 1234 flagged, the recording is hello_rec_0.txt
 
 Each `F11` writes a new file with the next free number, holding the session from its start and
 every mark so far. A recording is a `check.txt`: its `ticks` line, the save RAM the session
-started with as an `sram` line (unless it was all zero), the joypad as a `press` line for each
-run of ticks with the same buttons held, and two more kinds of line, `mark T` for each mark and
-`hash T H` for the checksum of every tick. So one file plays in the window, in a check and on
+started with as an `sram` line (unless it was all zero), `seed` and `set` lines if the session
+started with them, the joypad as a `press` line for each run of ticks with the same buttons
+held, and two more kinds of line, `mark T` for each mark and `hash T H` for the checksum of
+every tick. So one file plays in the window, in a check and, without `seed` and `set` lines, on
 the SNES side, and from the same save RAM.
 
 Use `--replay` to play a recording in the window:
@@ -236,9 +242,23 @@ marks. Four keys control the play, also without a replay, and the window's title
 tick and the state:
 
 - **`F5`** pauses and goes on.
-- **`F6`** steps one tick while paused.
+- **`F6`** steps one tick while paused; `Shift`+`F6` goes one tick back.
 - **`F7`** runs eight ticks a frame, and turns that off again.
 - **`F8`** runs a tick every four frames (slow motion), and turns that off again.
+
+A game's state cannot be rewound, since its variables are its own. So `Shift`+`F6` starts the
+program again and plays up to the tick before, fast and without the splash screen, then pauses.
+A session goes into `<game>_back.txt` first, in the folder you started the program from, and
+from then on the program is a replay of that file, which leaves the `.srm` file alone. What the
+[debug view](#debugging-on-the-pc) changed is left out. The web build has no step back.
+
+Add `--jump` to a replay to reach a late tick without watching the way there. It plays fast to
+that tick and pauses, past any marks on the way, and stops earlier only at a checksum that
+differs:
+
+```sh
+build/linux/hello --replay hello_rec_0.txt --jump 1200
+```
 
 A recording also plays without a window: `--check` with a recording compares the checksums too,
 prints the first tick that differs and exits with status 1. Add `--record file` to a check to
@@ -268,7 +288,16 @@ tick 200 has checksum 11edb09a on the SNES, the recording deadbeef
 That tick is where the SNES and the desktop part ways, the place to look for a difference
 between the two builds. The ROM must be built from the same source as the program that
 recorded the file; with any other change the checksums differ for that reason alone.
-`JAVA_HOME` picks the Java it runs with.
+`JAVA_HOME` picks the Java it runs with. A recording with a `seed` or `set` line does not play
+there: the SNES starts with seed 0 and has no debug registrations, so the emulator refuses the
+file.
+
+Name two more files after the recording to keep the ROM's checksums and DSP writes, in the
+formats of `hashes.txt` and `sound.txt`, and compare them with what the desktop's check wrote:
+
+```sh
+<home>/dev/replay.sh build/snes/hello.sfc hello_rec_0.txt rom_hashes.txt rom_sound.txt
+```
 
 ## Debugging on the PC
 
@@ -276,9 +305,9 @@ Press `F1` to open the debug view, a panel beside the picture. At its top are th
 four buttons for the run, the same as `F5` to `F8`: Pause (Go while paused), Step, Slow and
 Fast. Below them are four tabs:
 
-- **Game**: what the game registered to change while it runs, a switch for the game's boxes
-  over the picture, and at the bottom the lost bytes, undrawn register writes and unheard DSP
-  writes so far.
+- **Game**: what the game registered to change or to show while it runs, a switch for the
+  game's boxes over the picture, and at the bottom the lost bytes, undrawn register writes and
+  unheard DSP writes so far.
 - **Palettes**: the 256 colours of [CGRAM](/glossary#cgram); a click on a row picks the palette
   the Tiles tab draws in.
 - **Tiles**: [VRAM](/glossary#vram) as tiles of 8 by 8 pixels with 4 bits a pixel, 16 a row, in
@@ -288,9 +317,12 @@ Fast. Below them are four tabs:
 
 A game registers in `game_init` what it wants to change while it runs: `sdevkit_dbg_toggle` a
 flag of 0 or 1, `sdevkit_dbg_range` a number between two bounds, `sdevkit_dbg_color` a colour,
-`sdevkit_dbg_action` a button, which sets its variable to 1. In each tick it can draw boxes over
-the picture with `sdevkit_dbg_box`, a collision box for instance, in one of eight colours. On
-the SNES these functions are empty and dampf removes the calls, so the game needs no `#ifdef`.
+`sdevkit_dbg_action` a button, which sets its variable to 1. Two more only show something and
+change nothing: `sdevkit_dbg_text` a line of text the game keeps up to date, `sdevkit_dbg_value`
+a 16-bit value, in decimal and hex. In each tick it can draw over the picture in one of eight
+colours: `sdevkit_dbg_box` a box, a collision box for instance, `sdevkit_dbg_fill` a filled box
+the picture shows through, and `sdevkit_dbg_arrow` an arrow. On the SNES these functions are
+empty and dampf removes the calls, so the game needs no `#ifdef`.
 In the following game the player moves left and right, and going past x = 200 sends it back to
 the start unless it is invincible. The view changes the player's speed, switches invincibility
 on and off and puts the player back to the start with a button; the player's box is green while
@@ -346,6 +378,18 @@ another game. The program says so once on the error output, the window's title a
 ```
 # the debug view changed player speed before tick 812: from there a replay plays another game
 ```
+
+To make such a change part of the recording, set it at the start with `--set name=value`, as
+often as you need; a name with a space goes in quotes. Add `--seed N` for the seed `game_init`
+gets, 0 without it. A recording keeps both, as `seed` and `set` lines, so its replay starts the
+same way:
+
+```sh
+build/linux/hello --seed 7 --set "player speed=4" --set invincible=1
+```
+
+A name the game does not register, or a value outside its bounds, ends the program with exit
+status 2, and the message for an unknown name lists the ones it has.
 
 With `--check`, `--view-shot file.png` draws the view once after the check into a PNG, in a
 hidden window, and `--view-tab 0..3` picks the tab; it is there for tests and documentation.

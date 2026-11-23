@@ -6,7 +6,7 @@ what was left of them moved to the milestones after M5 (see [History](#history))
 
 ## Where dampf stands
 
-M0 to M8 are concluded. M0 to M4 and M6 with version 0.4.0 (2026-11-18): all of Blubber Blasen
+M0 to M9 are concluded. M0 to M4 and M6 with version 0.4.0 (2026-11-18): all of Blubber Blasen
 compiles, the benchmark and the replays give the PC's checksums, on the SNES and in a playable
 ROM, dampf's code is faster than Calypsi's, and dampf assembles and links itself. M5 as version
 0.6.0 (2026-11-19): Blubber Blasen builds its SNES ROM with the dev kit from its own repository,
@@ -14,6 +14,8 @@ and the ROM plays its recordings with the PC's checksum on every tick. M7 as ver
 (2026-11-19): the desktop (Linux, Windows) from the kit, sound effects, save RAM, music on the
 desktop, the debug view, and the `superdevkit` command. M8 as version 0.8.0 (2026-11-22): the web
 (`superdevkit build web` and `run web`), every example checked in the browser against the SNES.
+M9 as version 0.9.0 (2026-11-23): the optimizer's tests and canonical form, register choice by
+cost, 8-bit loops and array indexes that need no range.
 During play the game took
 0.79 frames per tick on 2026-11-18 against a goal of 0.6, so the compiler work goes on while the
 game reduces its own work in parallel; the current numbers are in
@@ -21,8 +23,8 @@ game reduces its own work in parallel; the current numbers are in
 
 dampf is the compiler of a development kit for SNES games, superdevkit; this repository is
 superdevkit's (ADR
-[ADR-6F3CJX8T](adr/6F3CJX8T-superdevkit-is-the-project-and-dampf-is-its.md)). Next: the optimizer (M9),
-then language, platform and usability (M10).
+[ADR-6F3CJX8T](adr/6F3CJX8T-superdevkit-is-the-project-and-dampf-is-its.md)). Next: language, platform
+and usability (M10), then timing and debugging (M11).
 
 ## Versions
 
@@ -50,10 +52,10 @@ needs is an open question. The rule is ADR
 | M5 | Blubber Blasen builds its ROM with the dev kit, from its own repository | 0.6.0 | Done 2026-11-19 |
 | M7 | Windows and Linux: Rachael and the desktop frontend in the kit, the `superdevkit` command with `init`, `build`, `run`; the examples and Blubber Blasen run on the desktop from the kit | 0.7.0 | Done 2026-11-19 (the game's switch handed over to it) |
 | M8 | The web: the same games in the browser; Blubber Blasen's web build from the kit | 0.8.0 | Done 2026-11-22 (the game's switch handed over to it) |
-| M9 | The optimizer: what was left of M3; tests and a canonical form first, then register allocation | 0.9.0 | In progress |
+| M9 | The optimizer: what was left of M3; tests and a canonical form first, then register allocation | 0.9.0 | Done 2026-11-23 (what was left moved to M10 and M12) |
 | M10 | Language, platform and usability: C in interrupts, intrinsics, the open subset decisions, the game's development tools in the kit's window (the preprocessor and the tools are built) | 0.10.0 | In progress |
 | M11 | Timing and debugging: master cycles, bounds for more loops, locals and types in Mesen | 0.11.0 | Planned |
-| M12 | Fine tuning: what was left of M4, until the frame budget is met | 0.12.0 | Planned |
+| M12 | Fine tuning: what was left of M4 and M9, until the frame budget is met | 0.12.0 | Planned |
 
 What each concluded milestone reached is in [History](#history). The order after M5 follows the
 likely gain and what each milestone needs from the one before; it was kept when M5 was concluded.
@@ -69,61 +71,10 @@ Concluded on 2026-11-22 as version 0.8.0 ([History](#m8)).
 
 ## M9: the optimizer (0.9.0)
 
-What was left of M3. The rows are from the plan made on 2026-11-17 and keep its numbers; the
-gains are estimates from the profile's shares, not measurements, and several ideas that looked
-good measured zero ([optimizations.md](optimizations.md#tried-and-rejected)). The done rows (1
-FastROM, 12 hardware registers at constant addresses) are in [History](#history).
+What was left of M3: tests and a canonical form first, then register allocation. What it
+left is in M10 (the subset decisions 2 and 3) and M12 (the speedups).
 
-| # | Idea | Likely gain | Effort | Notes |
-| --- | --- | --- | --- | --- |
-| 2 | Register allocation: values in A, X and Y over several instructions instead of a direct page place each | 10-20 % | high | Loads and stores of direct page values are the largest share of the cycles. With one accumulator, choosing what lives where is the hard part. Today one pass per pattern (loop counters in X, indexes in Y, values handed on in A, `PointerRemat`, `ByteStretches`); a common model of what lives where comes first. Built by 2026-11-21 (the compiler flaws, step B): places get their addresses on the LIR (`PlaceColouring`, ADR-6F8NBG4P) and go to X or Y by cost (`RegisterChoice`), also for one loop only. Left: the choice of the index register is still selection's (`findXCounters`, `findYIndexes`; without the first the pair loops cost up to 0.9 % more, without the second up to 1.8 %), `FrameLayout`'s predictions for selection (kept until a model of the whole function replaces them, ADR-6FGF7X0N), and `Schedule`'s order for a computed value stored at an index into a global, which needs a cost model (value last makes `hud_lives` 12 % faster and Schach's `next` slower); `findForwards` and `Schedule` are still needed (2026-11-22: without them the examples are 1.6 and 0.5 % slower); registers across calls were measured at 0.35 % at most and are not built. |
-| 3 | 8-bit stretches: the M flag followed (`REP`/`SEP`) across blocks, `uint8_t` code in 8-bit mode | 5-10 % | high | Fewer `AND #$00FF`, and 8-bit accesses are a cycle cheaper. Built: 8-bit mode across C lines within a block (`ByteStretches`), loops over bytes in 8 bits from entry to exit (`ByteLoops`, 2026-11-21). Measured then: the other switches are 0.5 to 4.5 % of the examples' work and nearly all around byte stores, where they are needed; the general placement is not built. |
-| 4 | Arrays of structs as one array per field (catalogue D, `DAMPF_SPLIT`), with HIR to do it in | 5-10 % in the bubble loops | high | `separate`, `bubbles_update` and `bubbles_draw` are 30 %. Needs a subset decision or a hint, since the layout then differs from the PC. Measured against it: in the game's pair loop (its finding 9) one array per field was 16 % slower for the counted loop and 1 % slower for the sorted list, and in `exec/pair_loops.c` 1.9 % slower for the counted loop; a loop that moves two fields of every element gains about 12 % (the spelling families `struct-fields` and `field-arrays`). The game reaches its objects through pointers (1,516 `->`), so a split needs to know where each pointer points. Taken up when a measured loop gains clearly, as the hint `DAMPF_SPLIT`. |
-| 5 | 8-bit index registers, arrays aligned to pages | 2-4 % | high | `LDA abs,X` a cycle cheaper; needs the X flag followed and the alignment in the memory map. |
-| 6 | Comparisons on the flags: `BIT` for bit tests | 2-4 % for the whole row; `BIT` alone at most 0.07 % (measured) | dropped | Done for `CMP #0`. `BIT` is measured and not built (2026-11-23): `BIT #mask` costs what `AND #mask` costs, so at most 0.07 % of the examples' work on average and 0.4 % on Mode 7 would go ([optimizations.md](optimizations.md#tried-and-rejected)). Most remaining `CMP #imm` compare with other constants and feed `BCC`/`BCS`. |
-| 7 | Calling convention (catalogue C): the first argument in A, `JMP` for tail calls | 1-3 % | medium | `ground_px` is called 12,000 times in 800 ticks. |
-| 9 | Value ranges from array bounds | 1-2 % | medium | More 8-bit narrowing, fewer masks. Built 2026-11-20 as far as an index into an array goes (ADR-6F8NBESR). |
-
-Also in M9:
-
-- **Random programs and execution tests that reach the optimizer's patterns** (from M5, see
-  [Risks](#risks)). Done: `RandomLoopProgram` ([testing.md](testing.md)) generates the loops and
-  pointer walks the optimizer's passes work on.
-- **16-bit pointers into RAM** ([subset.md](subset.md), decision 3), and enum objects in one byte
-  (decision 2), each once its subset decision is taken.
-- **Constant shifts written out** (built 2026-11-22). Every shift by a constant below the width
-  is code without a loop: a 32-bit shift by 16 or more moves a word, one by 3 to 15 builds each
-  word from both, a 16-bit one above 8 swaps the bytes first; before, all of these looped, a
-  32-bit shift by 16 about 600 cycles.
-- **The gaps the C style guide measures** ([lib/C_STYLE.md](../lib/C_STYLE.md), each a rule that
-  `StyleGuideTest` checks; the change that closes a gap changes or retires its rule):
-  - a loop counter's width changed the cost of the loop: gone on 2026-11-20 with
-    `slow-u8-counter` (unsigned byte ranges) and `slow-u16-counter-words` (the loop test moved
-    to the derived offset, which also retired `slow-word-array`);
-  - an array with a 16-bit index went through a 24-bit pointer unless a `DAMPF_RANGE` bounded
-    the index: gone on 2026-11-20 with `fast-range-index` (ADR-6F8NBESR);
-  - a pointer walk cost more than indexing (`o->x; o++`): gone on 2026-11-20 (`same-pointer-walk`
-    now);
-  - a multiplication of two bytes called `dampf_mul16`, the SNES's 8 x 8 multiplier was not
-    used: gone on 2026-11-22, the runtime multiplies on it and two bytes need no call
-    (`same-multiply-width` is now `fast-multiply-bytes`);
-  - a signed division by a power of two kept its rounding correction when a `DAMPF_RANGE` proved
-    the value not negative: gone on 2026-11-22; `slow-signed-divide` stays for values dampf knows
-    nothing about;
-  - 32-bit operands went through frame slots (`hash ^= key` copied all four words): gone for bit
-    operations and tests for equality on 2026-11-23 (`same-32-bit-bits`); `slow-32-bit` stays for
-    arithmetic and ordered comparisons;
-  - a constant shift above 8 was a loop (`shl 9` as `ldx #9; asl; dex; bne`; found in Schach's
-    Zobrist table): gone on 2026-11-22 with `slow-shift-above-8`.
-
-The order (decided 2026-11-20) was the plan in [archive/compiler-flaws.md](archive/compiler-flaws.md),
-an analysis of why the same loop costs between 25 and 138 cycles a round depending on its
-spelling: tests and a canonical form before register allocation; rows 2, 3 and 9 and the gaps of
-the style guide above were its steps B3, B5, R3 and C/L. It was done on 2026-11-21; what it left
-is in rows 2 to 4. The split of struct arrays (4) once a measured loop asks for it, and 5 and 7,
-come after it. The rest has to come from the
-game doing less work: the pair loop of `separate` (16 %) and the CPU partner (the game's finding
-1, forwarded to it), as the checkpoint after M2 concluded.
+Concluded on 2026-11-23 as version 0.9.0 ([History](#m9)).
 
 ## M10: language, platform and usability (0.10.0)
 
@@ -136,8 +87,9 @@ game doing less work: the pair loop of `separate` (16 %) and the CPU partner (th
   ([optimizations.md](optimizations.md#knowing-the-machine) has the idea).
 - **Intrinsics** for the hardware multipliers, the divider and DMA ([subset.md](subset.md),
   *Intrinsics*).
-- **The open subset decision** 1 (plain `char` for text only) in [subset.md](subset.md); 2 and
-  3 come with M9. Decision 4 is taken: `goto` stays rejected (ADR
+- **The open subset decisions** in [subset.md](subset.md): 1 (plain `char` for text only), 2
+  (enum objects in one byte) and 3 (16-bit pointers into RAM), each built once it is taken.
+  Decision 4 is taken: `goto` stays rejected (ADR
   [ADR-6F3CJVHC](adr/6F3CJVHC-goto-and-labels-stay-rejected-and-a-forward-and.md)).
 - **Function pointers in constant tables**, allowed by design and not built.
 - **Hand-written assembly with the code generator from MIR:** `--replace` works only with the
@@ -162,6 +114,9 @@ game doing less work: the pair loop of `separate` (16 %) and the CPU partner (th
   `--mute`, read-only lines in the debug view (`sdevkit_dbg_text`, `_value`), `--jump` and a tick
   back in a replay (Shift+F6), defines per target in `superdevkit.toml` (ADR-6FEWEE95), and filled
   boxes and arrows in the view (`sdevkit_dbg_fill`, `_arrow`).
+- **Defines for the game's own files on the SNES too.** ADR-6FEWEE95 keeps a project's defines
+  out of the kit's library. That holds on the desktop and the web, but on the SNES the defines of
+  `[snes]` also reach `lib/snes`, since dampf compiles both as one program with one set of options.
 - **A build step before the build, and `superdevkit gen`** (built 2026-11-22). `[build] before` in
   `superdevkit.toml` runs a game's own converters first (ADR-6FEVZD02), and `superdevkit gen` runs
   only the conversions, for a build system of the game's own (ADR-6FEW1T2S).
@@ -201,16 +156,27 @@ writes the processor state line in the assembly as the naive code generator does
 
 ## M12: fine tuning (0.12.0)
 
-What was left of M4, until the frame budget is met:
+What was left of M4 and M9, until the frame budget is met. The rows keep the numbers of the
+plan made on 2026-11-17; the gains are estimates from the profile's shares, not measurements,
+and several ideas that looked good measured zero
+([optimizations.md](optimizations.md#tried-and-rejected)).
 
 | # | Idea | Likely gain | Effort | Notes |
 | --- | --- | --- | --- | --- |
+| 2 | Register allocation: values in A, X and Y over several instructions instead of a direct page place each | 10-20 % | high | Loads and stores of direct page values are the largest share of the cycles. With one accumulator, choosing what lives where is the hard part. Today one pass per pattern (loop counters in X, indexes in Y, values handed on in A, `PointerRemat`, `ByteStretches`); a common model of what lives where comes first. Built by 2026-11-21 (the compiler flaws, step B): places get their addresses on the LIR (`PlaceColouring`, ADR-6F8NBG4P) and go to X or Y by cost (`RegisterChoice`), also for one loop only. Left: the choice of the index register is still selection's (`findXCounters`, `findYIndexes`; without the first the pair loops cost up to 0.9 % more, without the second up to 1.8 %), `FrameLayout`'s predictions for selection (kept until a model of the whole function replaces them, ADR-6FGF7X0N), and `Schedule`'s order for a computed value stored at an index into a global, which needs a cost model (value last makes `hud_lives` 12 % faster and Schach's `next` slower); `findForwards` and `Schedule` are still needed (2026-11-22: without them the examples are 1.6 and 0.5 % slower); registers across calls were measured at 0.35 % at most and are not built. |
+| 3 | 8-bit stretches: the M flag followed (`REP`/`SEP`) across blocks, `uint8_t` code in 8-bit mode | 5-10 % | high | Fewer `AND #$00FF`, and 8-bit accesses are a cycle cheaper. Built: 8-bit mode across C lines within a block (`ByteStretches`), loops over bytes in 8 bits from entry to exit (`ByteLoops`, 2026-11-21). Measured then: the other switches are 0.5 to 4.5 % of the examples' work and nearly all around byte stores, where they are needed; the general placement is not built. |
+| 4 | Arrays of structs as one array per field (catalogue D, `DAMPF_SPLIT`), with HIR to do it in | 5-10 % in the bubble loops | high | `separate`, `bubbles_update` and `bubbles_draw` are 30 %. Needs a subset decision or a hint, since the layout then differs from the PC. Measured against it: in the game's pair loop (its finding 9) one array per field was 16 % slower for the counted loop and 1 % slower for the sorted list, and in `exec/pair_loops.c` 1.9 % slower for the counted loop; a loop that moves two fields of every element gains about 12 % (the spelling families `struct-fields` and `field-arrays`). The game reaches its objects through pointers (1,516 `->`), so a split needs to know where each pointer points. Taken up when a measured loop gains clearly, as the hint `DAMPF_SPLIT`. |
+| 5 | 8-bit index registers, arrays aligned to pages | 2-4 % | high | `LDA abs,X` a cycle cheaper; needs the X flag followed and the alignment in the memory map. |
+| 7 | Calling convention (catalogue C): the first argument in A, `JMP` for tail calls | 1-3 % | medium | `ground_px` is called 12,000 times in 800 ticks. |
 | 8 | The block layout by a profile by default | ~1 % | low | Built (`--block-counts`), opt-in; needs a profile of the program (`dampf bench --profile`). |
+| 9 | Value ranges from array bounds | 1-2 % | medium | More 8-bit narrowing, fewer masks. Built 2026-11-20 as far as an index into an array goes (ADR-6F8NBESR). |
 | 10 | Superoptimizer for short hot sequences | 1-3 % | high | Gains spread thin. |
 | 11 | `<<8` as a byte store, `switch` as a jump table, `MVN` for copies (and `memcpy`), unrolling by hint | <1 % each | low to medium | Large locally, small on the whole game. |
 
 Also in M12:
 
+- 32-bit arithmetic and ordered comparisons, which still go through frame slots (the rule
+  `slow-32-bit` of [lib/C_STYLE.md](../lib/C_STYLE.md));
 - profile-guided inlining, and code size spent for speed where the profile says it is hot;
 - a tuning option (`--tune`) that tries the parameters chosen today on one game (the inlining
   limit, the block order) on the user's own workload and keeps the fastest build, each candidate
@@ -221,6 +187,10 @@ Also in M12:
 - subrange types (`DAMPF_RANGED`, `DAMPF_AS`), only when a profile shows a hot value whose range
   dampf cannot infer ([subrange-types.md](subrange-types.md), ADR
   [ADR-6F0R6Q5P](adr/6F0R6Q5P-value-ranges-are-inferred-first-and-subrange-types.md)).
+
+The split of struct arrays (4) waits until a measured loop asks for it. The rest has to come
+from the game doing less work: the pair loop of `separate` (16 %) and the CPU partner (the
+game's finding 1, forwarded to it), as the checkpoint after M2 concluded.
 
 ## Not scheduled for the dev kit
 
@@ -376,7 +346,7 @@ Constant shifts longer than 8 were written out in M9 (2026-11-22).
 - **Miscompilation.** Mitigated by the test layers, the naive reference and the examples' checks
   as oracle, a checksum every tick against the PC ([testing.md](testing.md)). When one shows,
   `dampf.emu.RomDiff` names the global it breaks first.
-- **The optimizer is tested by whole programs only in a few.** The execution tests and 50 random
+- **The optimizer is tested by few whole programs.** The execution tests and 50 random
   programs per build barely reached the optimizer's patterns; the optimizer was tested by whole
   programs: Blubber Blasen's benchmark and one replay until 2026-11-19, since then the examples'
   checks, a checksum every tick. Mitigated since by `RandomLoopProgram`, which generates the loops
@@ -469,6 +439,10 @@ Dates are 2026-11-17 unless a line says otherwise. The measurements are in [opti
   PC side. Its web build can go with M8, but its desktop frontend stays until the kit's window
   has the game's development tools (the bot, start options, text in the view, stepping back in a
   replay), which no step of M8 planned. They moved to M10 (usability), so that 0.8.0 is the web.
+
+- **M9 concluded** (2026-11-23). M9's list of speedups had no finish line, so it was closed
+  with what was built, for a first public version. The speedups left (rows 2 to 5, 7 and 9, and
+  32-bit arithmetic) moved to M12, and the subset decisions 2 and 3 to M10.
 
 ### M0 to M2
 
@@ -614,6 +588,46 @@ Concluded on 2026-11-22 as version 0.8.0, narrowed to the web (see [Changes to t
 Blubber Blasen builds and plays its checks in the browser from the kit unchanged, and its switch
 to the kit's web build was handed over to it (finding 3 of
 [game-findings.md](game-findings.md)); its own desktop frontend goes with M10.
+
+### M9
+
+Built from 2026-11-20 to 2026-11-23, in the order of the plan in
+[archive/compiler-flaws.md](archive/compiler-flaws.md), an analysis of why the same loop costs
+between 25 and 138 cycles a round depending on its spelling: tests and a canonical form before
+register allocation. What rows 2, 3 and 9 reached is in their notes under M12. Also built:
+
+- **Random programs and execution tests that reach the optimizer's patterns** (from M5, see
+  [Risks](#risks)). Done: `RandomLoopProgram` ([testing.md](testing.md)) generates the loops and
+  pointer walks the optimizer's passes work on.
+- **Constant shifts written out** (built 2026-11-22). Every shift by a constant below the width
+  is code without a loop: a 32-bit shift by 16 or more moves a word, one by 3 to 15 builds each
+  word from both, a 16-bit one above 8 swaps the bytes first; before, all of these looped, a
+  32-bit shift by 16 about 600 cycles.
+- **The gaps the C style guide measures** ([lib/C_STYLE.md](../lib/C_STYLE.md), each a rule that
+  `StyleGuideTest` checks; the change that closes a gap changes or retires its rule):
+  - a loop counter's width changed the cost of the loop: gone on 2026-11-20 with
+    `slow-u8-counter` (unsigned byte ranges) and `slow-u16-counter-words` (the loop test moved
+    to the derived offset, which also retired `slow-word-array`);
+  - an array with a 16-bit index went through a 24-bit pointer unless a `DAMPF_RANGE` bounded
+    the index: gone on 2026-11-20 with `fast-range-index` (ADR-6F8NBESR);
+  - a pointer walk cost more than indexing (`o->x; o++`): gone on 2026-11-20 (`same-pointer-walk`
+    now);
+  - a multiplication of two bytes called `dampf_mul16`, the SNES's 8 x 8 multiplier was not
+    used: gone on 2026-11-22, the runtime multiplies on it and two bytes need no call
+    (`same-multiply-width` is now `fast-multiply-bytes`);
+  - a signed division by a power of two kept its rounding correction when a `DAMPF_RANGE` proved
+    the value not negative: gone on 2026-11-22; `slow-signed-divide` stays for values dampf knows
+    nothing about;
+  - 32-bit operands went through frame slots (`hash ^= key` copied all four words): gone for bit
+    operations and tests for equality on 2026-11-23 (`same-32-bit-bits`); `slow-32-bit` stays for
+    arithmetic and ordered comparisons;
+  - a constant shift above 8 was a loop (`shl 9` as `ldx #9; asl; dex; bne`; found in Schach's
+    Zobrist table): gone on 2026-11-22 with `slow-shift-above-8`.
+
+Row 6, comparisons on the flags: Done for `CMP #0`. `BIT` is measured and not built (2026-11-23): `BIT #mask` costs what `AND #mask` costs, so at most 0.07 % of the examples' work on average and 0.4 % on Mode 7 would go ([optimizations.md](optimizations.md#tried-and-rejected)). Most remaining `CMP #imm` compare with other constants and feed `BCC`/`BCS`.
+
+Concluded on 2026-11-23 as version 0.9.0, with what was left moved to M10 and M12 (see
+[Changes to the plan](#changes-to-the-plan)).
 
 ### M6
 

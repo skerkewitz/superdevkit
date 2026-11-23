@@ -159,6 +159,12 @@ times the struct's size, which the callers compute (`IndexParams`); if any of th
 something, the passes run again.
 Pointers that became offsets in the callers may then reach more callees, so `PointerParams` runs
 once more, and `ParamRanges` after it, each followed by the passes if it changed something.
+Two passes for 32-bit values come next, and the passes run again on every function they change.
+`SplitWords` makes two 16-bit values of 32-bit values that are only loaded, combined bit by bit
+and stored, since AND, OR and XOR never carry from one half to the other. `CompareSum` takes a
+branch on a 32-bit comparison of a 16-bit value with another plus a constant, which is what C's
+promotions make of `a > b + 32`. It first tests whether the sum fits 16 bits: if not, the answer
+is known, and if so, a 16-bit comparison gives it.
 Last, `SinkCompares` computes a comparison again right before a branch in another block that
 uses it, `Schedule` sets the order of the instructions for the code generator, and the verifier
 checks the result.
@@ -175,14 +181,14 @@ function's value ranges with the checks of the hints, then takes the checks out.
 selects the instructions of each function once (`Selection`, with one class per kind of MIR
 instruction and `FrameLayout` for the places): it sets the processor modes with `REP` and `SEP`
 and gives every value a place in a frame or in A, X or Y. Once every function is selected,
-`PlaceColouring` gives the places their addresses on the code, a function's frame above the
-frames of all it calls, and `RegisterChoice` moves some of them to X or Y where that saves
-cycles.
+`RegisterChoice` moves some of the places to X or Y where that saves cycles, and
+`PlaceColouring` gives the others their addresses on the code, a function's frame above the
+frames of all it calls.
 
 What instruction selection writes is LIR, the low-level intermediate representation: 65816
 instructions in basic blocks, each with the accumulator width it runs in. Its text is the ca65
 assembly file dampf writes, so the `.s` file next to the ROM is the LIR as the passes left it.
-The LIR passes remove loads of a value a register already holds (`RedundantLoads`, `IndexInY`),
+The LIR passes remove loads of a value a register already holds (`RedundantLoads`),
 apply peephole rules (`Peephole`), run short 16-bit stretches between byte stores in 8 bits
 (`ByteStretches`), run loops over bytes in 8 bits from entry to exit (`ByteLoops`), drop a
 `CLC` or `SEC` where the carry is known (`KnownCarry`), remove stores nobody reads

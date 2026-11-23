@@ -13,9 +13,9 @@ blocks with the accumulator width each runs in, whose text is the ca65 source da
 (`LPrinter`, `LParser`), a verifier (`LVerifier`) and passes. HIR will sit between the AST and MIR
 once struct splitting needs it. The code generator from MIR (`dampf.backend.MirCodeGen`, the
 default of `dampf build`) selects instructions once per function (`Selection` and the classes per
-kind of instruction, with `FrameLayout` proposing the places); the places get their addresses on
-the code (`PlaceColouring`, checked by `PlaceCheck`, ADR-6F8NBG4P), and some go to X or Y
-instead where that saves cycles (`RegisterChoice`); the LIR passes then remove loads of what a
+kind of instruction, with `FrameLayout` proposing the places); some places go to X or Y where
+that saves cycles (`RegisterChoice`), and the others get their addresses on the code
+(`PlaceColouring`, checked by `PlaceCheck`, ADR-6F8NBG4P); the LIR passes then remove loads of what a
 register holds or move them out of a loop (`RedundantLoads`, on `RegContents`), apply peephole rules
 (`Peephole`), run short 16-bit stretches between byte stores in 8 bits (`ByteStretches`) and
 loops over bytes in 8 bits from entry to exit (`ByteLoops`), drop a
@@ -34,9 +34,11 @@ constants (`StrengthReduce`), common subexpressions and redundant loads (`Gvn`),
 removal (`DeadCode`, `DeadLoops`) and two loops over the rows of a table as one (`Collapse`),
 repeated until nothing changes; then parameter ranges from the calls
 (`ParamRanges`), inlining (`Inline`), pointer parameters as offsets (`PointerParams`) and scaled
-index parameters as their product (`IndexParams`), and the passes once more; last, comparisons
-next to the branches that use them (`SinkCompares`) and the order of the instructions for the
-code generator (`Schedule`). The
+index parameters as their product (`IndexParams`), and the passes once more; then 32-bit values
+only combined bit by bit as two 16-bit values (`SplitWords`) and a 32-bit comparison with a sum
+of 16-bit values as a 16-bit one (`CompareSum`), each followed by the passes on what it changed;
+last, comparisons next to the branches that use them (`SinkCompares`) and the order of the
+instructions for the code generator (`Schedule`). The
 code generator itself first gives loop exits their own blocks (`ExitEdges`), copies return blocks
 into their predecessors (`Returns`), computes pointer sums again where their value is needed
 (`PointerRemat`) and takes out the checks of the hints (`Hints`). How values

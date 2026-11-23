@@ -182,9 +182,9 @@ not.
 A call costs its own cycles plus the bounds of the function it calls. dampf computes the
 callees first, which works because the subset has no recursion. The multiplication and division
 routines of the [runtime](/glossary#runtime) have fixed bounds, counted by hand from
-`runtime.s`: their loops run a fixed 16 or 32 rounds. A function that dampf has inlined is part
-of its caller's code and counts there; the report still lists the function as compiled on its
-own.
+`runtime.s`: the multiplications use the CPU's multiplier and have no loop, and the loops of the
+divisions run a fixed 16 or 32 rounds. A function that dampf has inlined is part of its caller's
+code and counts there; the report still lists the function as compiled on its own.
 
 ### Functions without a bound
 
@@ -207,14 +207,14 @@ above, the most expensive function first:
 # of a function without a bound, is named after it. "never": the function never returns.
         best        worst  function
        never    unbounded  _halt   (loop at game.c:33)
-         402    unbounded  _main   (loop at game.c:27)
+         223    unbounded  _main   (loop at game.c:27)
           22    unbounded  _wait_ready   (loop at game.c:27)
         1940         2594  dampf_sdiv32
         1888         2432  dampf_udiv32
-        1168         1968  dampf_mul32
           30          830  _sum_scores
          564          772  dampf_udiv16
-         287          367  dampf_mul16
+         398          400  dampf_mul32
+         108          108  dampf_mul16
           13           21  _abs16
 ```
 
@@ -227,7 +227,7 @@ file and line) or else the first call of a function without a bound (`calls` wit
 
 `_main` names the loop on line 27 although that line is in `wait_ready`: dampf inlined
 `wait_ready`, `sum_scores`, `abs16` and `halt` into `main`, so the loop is part of `main`'s
-code. Its best case of 402 includes the 287 cycles of `dampf_mul16`, which the multiplication
+code. Its best case of 223 includes the 108 cycles of `dampf_mul16`, which the multiplication
 on line 42 calls.
 
 The assembly carries the same cycle counts at a finer grain. Every instruction has its cycles in
@@ -323,8 +323,9 @@ example: each runs its first 3,000 frames without input in the emulator, and eac
 must lie within the bounds of its function. (While Blubber Blasen's code was in the repository,
 the same test ran on the game's benchmark, about 180,000 calls.)
 
-The check catches a wrong bound at once. A bound of `dampf_mul16` set too low on purpose, a
-worst case of 300 instead of 367, failed 94 tests; the largest measured call took 362 cycles.
+The check catches a wrong bound at once. In an earlier version of `dampf_mul16`, with a worst
+case of 367 cycles, a bound set too low on purpose, 300, failed 94 tests; the largest measured
+call took 362 cycles.
 
 ## Why it works this way
 
