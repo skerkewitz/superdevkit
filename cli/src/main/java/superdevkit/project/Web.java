@@ -1,8 +1,10 @@
 package superdevkit.project;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -126,11 +128,43 @@ final class Web {
 
     /** emcc, with a message that says what to install when it is not there. */
     private static void exec(Project p, List<String> cmd, java.io.PrintStream out) throws Exception {
+        String tool = emcc().getLast();
+        // cmd /c starts for any name and only then fails, so on Windows emcc is looked for first
+        if (Desktop.windows() && !found(tool, System.getenv("PATH"))) {
+            throw noEmscripten(tool, "not found");
+        }
         try {
             Desktop.exec(p.dir(), cmd, out);
         } catch (IOException e) {
-            throw new Build.Failure("no Emscripten (" + String.join(" ", emcc()) + "): the target web builds with emcc; "
-                    + "install the Emscripten SDK and put emcc on the PATH, or name it with EMCC=path (" + e.getMessage() + ")");
+            throw noEmscripten(tool, e.getMessage());
         }
+    }
+
+    private static Build.Failure noEmscripten(String tool, String why) {
+        return new Build.Failure("no Emscripten (" + tool + "): the target web builds with emcc; install the Emscripten "
+                + "SDK and put emcc on the PATH, or name it with EMCC=path. The SNES needs nothing else: "
+                + "superdevkit build snes (" + why + ")");
+    }
+
+    /** Whether Windows would find the command: a path as it is, a name in the PATH's folders. */
+    static boolean found(String command, String path) {
+        boolean named = command.contains("/") || command.contains("\\");
+        String[] dirs = named ? new String[] {""} : (path == null ? "" : path).split(File.pathSeparator);
+        for (String dir : dirs) {
+            String d = dir.replace("\"", "").strip();
+            if (d.isEmpty() && !named) {
+                continue;
+            }
+            for (String extension : List.of("", ".bat", ".cmd", ".exe")) {
+                try {
+                    if (Files.isRegularFile(Path.of(d, command + extension))) {
+                        return true;
+                    }
+                } catch (InvalidPathException e) {
+                    break;   // a PATH entry that is no path holds nothing
+                }
+            }
+        }
+        return false;
     }
 }

@@ -211,11 +211,14 @@ final class Desktop {
         return steps;
     }
 
+    private static final String NO_MSVC = "Install Visual Studio with the workload \"Desktop development with C++\", "
+            + "or build for the SNES, which needs nothing else: superdevkit build snes";
+
     private static String visualStudio() throws Build.Failure, IOException, InterruptedException {
         Path vswhere = windows() ? Path.of("C:\\Program Files (x86)\\Microsoft Visual Studio\\Installer\\vswhere.exe")
                 : Path.of("/mnt/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe");
         if (!Files.isRegularFile(vswhere)) {
-            throw new Build.Failure("no Visual Studio (" + vswhere + "); win64 builds with MSVC's C++ tools for x64");
+            throw new Build.Failure("no Visual Studio (" + vswhere + "); win64 builds with MSVC's C++ tools for x64. " + NO_MSVC);
         }
         Process pr = new ProcessBuilder(vswhere.toString(), "-latest", "-products", "*", "-requires",
                 "Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "-property", "installationPath")
@@ -223,7 +226,7 @@ final class Desktop {
         String vs = new String(pr.getInputStream().readAllBytes(), StandardCharsets.UTF_8).strip();
         pr.waitFor(60, TimeUnit.SECONDS);
         if (vs.isEmpty()) {
-            throw new Build.Failure("no Visual Studio with the C++ tools for x64 (vswhere found none)");
+            throw new Build.Failure("no Visual Studio with the C++ tools for x64 (vswhere found none). " + NO_MSVC);
         }
         return vs;
     }
