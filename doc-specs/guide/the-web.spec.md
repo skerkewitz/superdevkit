@@ -34,7 +34,7 @@ desktop's frontend, in a page any browser opens.
 
 1. **Building for the web** – `superdevkit build web`: what it needs ([Emscripten](/glossary#emscripten)'s
    emcc, found on the `PATH` or named by `EMCC`, from the Emscripten SDK or the system's
-   packages; raylib's web package, fetched on the first build), the three steps as on
+   packages; raylib's web package, in a release zip, else fetched on the first build), the three steps as on
    the desktop (each file alone, the symbol check, the link), and the files it writes into
    `build/web/` (`index.html`, `index.js`, `index.wasm`, and `index.data` with the music when
    the game has any; `obj/` and `music/` are the build's own). That the page must come from a

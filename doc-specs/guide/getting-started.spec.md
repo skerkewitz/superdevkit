@@ -18,7 +18,7 @@ sources:
   - cli/src/main/java/superdevkit/project/Run.java
   - cli/src/main/java/superdevkit/project/Raylib.java
   - cli/src/main/java/superdevkit/project/Desktop.java
-audience: A first-time user with a Linux or WSL machine who wants to write a SNES game with superdevkit
+audience: A first-time user on Linux, WSL or Windows who wants to write a SNES game with superdevkit
 ---
 
 ## Purpose
@@ -35,21 +35,24 @@ folder with the compiler, the `superdevkit` command, the kit's library, the tool
 and this book; a game lives in a folder of its own, with a `superdevkit.toml` that names the
 kit's version, and the home's `superdevkit` command builds it.
 
-1. **What you need** – the prerequisites, cut to what this page needs: Java 25 or newer, a C
-   compiler for the desktop build, and Mesen (MesenCE) for looking at the result; Emscripten's
-   `emcc` only for the web. dampf has its own preprocessor, assembler and linker, so nothing
-   else is installed for the SNES. ca65, ld65 and clang are needed only to develop the kit; say
-   so in one sentence and point to the README of the repository.
-2. **Get superdevkit** – today the home is built from a checkout of the repository, which is
-   not public yet (roadmap, *Publishing*): `./gradlew installDist` writes it to
-   `build/install/superdevkit`, which may be copied anywhere. Show how `<home>/bin` goes on the
-   `PATH` (one `export` line for the shell). Say in one sentence
-   that release downloads come later, with a link to the [roadmap](/inside/roadmap). The page
-   writes `<home>` for the folder; the reader puts `<home>/bin` on their `PATH`, and the page
-   writes `superdevkit` and `dampf` from then on. Running the tests is for developing the kit:
-   one sentence, a link to [Testing](/inside/testing).
+1. **What you need** – per target, from the table in `cli/src/dist/README.md`: the SNES needs
+   nothing but the download, which brings its own Java and raylib; Windows needs Visual Studio
+   with "Desktop development with C++"; Linux a C compiler with the OpenGL and X11 development
+   libraries; the web Emscripten's `emcc`. Mesen (MesenCE) is for looking at the result. ca65,
+   ld65 and clang are needed only to develop the kit; say so in one sentence and point to the
+   README of the repository.
+2. **Get superdevkit** – download the zip for your system from the
+   [releases](https://github.com/skerkewitz/superdevkit/releases)
+   (`superdevkit-<version>-linux-x64.zip` or `-windows-x64.zip`) and unpack it anywhere; that
+   folder is the home. Show how `<home>/bin` goes on the `PATH`: one `export` line for a Linux
+   shell, one PowerShell line for Windows. In one sentence: from a checkout of the repository,
+   with JDK 25 or newer, `./gradlew installDist` writes a home without Java and raylib to
+   `build/install/superdevkit`. The page writes `<home>` for the folder and `superdevkit` and
+   `dampf` from then on. Running the tests is for developing the kit: one sentence, a link to
+   [Testing](/inside/testing).
 3. **What is in the home** – the folders as a table, each with a phrase, from the distribution
-   in `cli/build.gradle.kts` (what it copies where) and its `README.md` (`cli/src/dist`);
+   and the task `releaseZip` in `cli/build.gradle.kts` (what they copy where, with `jre/`,
+   `raylib/` and `VERSION`) and its `README.md` (`cli/src/dist`);
    `docs/` is this book.
 4. **A first game** – `superdevkit init mygame` makes the game's folder, a copy of `hello`
    (`--from` names another example); say what it changes (the name, the kit's version instead
@@ -62,8 +65,9 @@ kit's version, and the home's `superdevkit` command builds it.
 5. **What you get** – the files the build writes into `build/` (`build/snes/` with the ROM and
    the args file, `build/gen/`, `build/compile_commands.json`), in a short list, each with a
    phrase; link [The generated files](/reference/output-files).
-6. **On the desktop** – the same game built with `superdevkit build linux` and played in a
-   window with `superdevkit run`; the keys of the joypad from the example's README; link
+6. **On the desktop** – the same game built with `superdevkit build linux` (on Windows
+   `superdevkit build win64`) and played in a window with `superdevkit run`, which on Windows
+   needs Visual Studio; without it, `superdevkit build snes` still works; the keys of the joypad from the example's README; link
    [The desktop](/guide/the-desktop). Then, in a sentence or two, the browser:
    `superdevkit build web` and `superdevkit run web`, with a link to [The web](/guide/the-web).
 7. **Look at it in Mesen** – open the ROM with the `.dbg` file next to it (or
@@ -79,9 +83,9 @@ kit's version, and the home's `superdevkit` command builds it.
 
 ## Pay attention to
 
-- Run every command on the page, in a copy of the home outside the repository and a game folder
-  outside both, and copy what it prints; replace the machine's paths by `<home>` and
-  `~/mygame`.
+- Run every command on the page, in a release zip (`./gradlew releaseZip`) unpacked outside the
+  repository and a game folder outside both, and copy what it prints; replace the machine's
+  paths by `<home>` and `~/mygame`.
 - From WSL, the Windows Mesen works; say how the ROM is opened from there, as the README does.
 - The desktop window, the browser and Mesen are not opened while writing the page: take the keys
   from the sources, and check `run` and the web with `--plan`.

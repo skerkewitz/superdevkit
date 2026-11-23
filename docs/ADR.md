@@ -83,6 +83,8 @@ document of its subject.
 | ADR-6FEW1T2S | [superdevkit gen runs only a project's conversions](adr/6FEW1T2S-superdevkit-gen-runs-only-a-project-s-conversions.md) | Accepted | 2026-11-22 |
 | ADR-6FEWEE95 | [A project can define macros per target for its own files](adr/6FEWEE95-a-project-can-define-macros-per-target-for-its-own.md) | Accepted | 2026-11-22 |
 | ADR-6FGF7X0N | [FrameLayout keeps its predictions until a model of the whole function replaces them](adr/6FGF7X0N-framelayout-keeps-its-predictions-until-a-model-of.md) | Accepted; amends ADR-6F8NBG4P | 2026-11-23 |
+| ADR-6FHEEVST | [Release zips are checked on their own system and published from a draft](adr/6FHEEVST-release-zips-are-checked-on-their-own-system-and.md) | Accepted | 2026-11-23 |
+| ADR-6FHKAC1X | [The website of a release is on GitHub Pages, with the book and the example games](adr/6FHKAC1X-the-website-of-a-release-is-on-github-pages-with.md) | Accepted | 2026-11-23 |
 
 ## Former numbers
 

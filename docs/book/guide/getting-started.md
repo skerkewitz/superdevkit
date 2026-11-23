@@ -9,46 +9,48 @@ home's `superdevkit` command builds it.
 
 ## What you need
 
-| Tool | Used for |
+The download brings its own Java and raylib, the library behind the desktop's window. What else
+you need depends on the [target](/glossary#target):
+
+| Target | You need |
 | --- | --- |
-| JDK 25 or newer | building the home and running dampf and `superdevkit` (the code targets Java 25) |
-| a C compiler (`cc`, gcc or clang) | the desktop build |
-| [Mesen](/glossary#mesen) (MesenCE) | running the ROM and stepping through the C source |
-| [Emscripten](/glossary#emscripten) (`emcc`) | only the build for the browser |
+| SNES (`superdevkit build snes`) | nothing else |
+| Windows (`superdevkit build win64`) | Visual Studio with "Desktop development with C++" |
+| Linux (`superdevkit build linux`) | a C compiler and the OpenGL and X11 development libraries |
+| Web (`superdevkit build web`) | [Emscripten](/glossary#emscripten)'s `emcc`, on the `PATH` |
+
+To look at the result you need [Mesen](/glossary#mesen) (MesenCE), which runs the ROM and steps
+through the C source.
 
 dampf preprocesses, assembles and links the ROM with its own preprocessor, assembler and linker,
-so the SNES build needs nothing but Java. Its preprocessor handles a subset of C99's directives
+so the SNES build needs no other tool. Its preprocessor handles a subset of C99's directives
 and macros, with dampf's own `<stdint.h>`; [The C subset](/reference/c-subset#preprocessor) says
 which.
 
 Only to develop the kit do you need [ca65 and ld65](/glossary#ca65-and-ld65) from cc65 2.19, and
-clang. The kit's tests build every program with ca65 and ld65 as well and compare the ROMs, and
-they take clang as the reference on the PC. The README of the repository says how to install
-them.
-
-The desktop build links with raylib, OpenGL and X11, so the system needs their libraries. The kit
-fetches raylib itself on the first desktop build.
+clang; the [README of the repository](https://github.com/skerkewitz/superdevkit#prerequisites)
+has the details.
 
 ## Get superdevkit
 
-Today the home is built from a checkout of the repository, which is not public yet
-([roadmap](/inside/roadmap#publishing-not-scheduled)). In the checkout, run the command below;
-Gradle comes with the wrapper in the repository, so there is nothing to install for it:
+Download the zip for your system from the
+[releases](https://github.com/skerkewitz/superdevkit/releases):
+`superdevkit-<version>-linux-x64.zip` for Linux and [WSL](/glossary#wsl),
+`superdevkit-<version>-windows-x64.zip` for Windows. Unpack it anywhere. The zip holds one
+folder, `superdevkit-<version>`, and that folder is the superdevkit home.
+
+This page writes `<home>` for that folder. Put `<home>/bin` on your `PATH`. On Linux, for a home
+in `~/superdevkit-0.9.1`, add this line to `~/.bashrc` (or your shell's start-up file):
 
 ```sh
-./gradlew installDist
+export PATH="$HOME/superdevkit-0.9.1/bin:$PATH"
 ```
 
-This writes the home to `build/install/superdevkit`. It runs no tests. The folder is
-self-contained: copy it anywhere you like, for example to `~/superdevkit`. Copy it before you put
-anything of your own into it, since the next `installDist` empties `build/install/superdevkit`
-first. Release downloads come later ([roadmap](/inside/roadmap)).
+On Windows, for a home in your user folder, run this line once in PowerShell. It adds the folder
+to your user's `PATH`, which every new window then has:
 
-This page writes `<home>` for the folder you copied. Put `<home>/bin` on your `PATH`, for a home
-in `~/superdevkit` with this line in `~/.bashrc` (or your shell's start-up file):
-
-```sh
-export PATH="$HOME/superdevkit/bin:$PATH"
+```powershell
+[Environment]::SetEnvironmentVariable("Path", "$HOME\superdevkit-0.9.1\bin;" + [Environment]::GetEnvironmentVariable("Path", "User"), "User")
 ```
 
 The page writes `superdevkit` and `dampf` without their folder from here on. Check that a new
@@ -59,8 +61,11 @@ superdevkit --version
 ```
 
 ```
-superdevkit 0.9.0
+superdevkit 0.9.1
 ```
+
+From a checkout of the repository, with JDK 25 or newer, `./gradlew installDist` writes a home
+without Java and raylib to `build/install/superdevkit`.
 
 The tests run with `./gradlew build`, which you need only when you work on the kit itself;
 [Testing](/inside/testing) describes them.
@@ -70,7 +75,9 @@ The tests run with `./gradlew build`, which you need only when you work on the k
 | Folder | What it holds |
 | --- | --- |
 | `bin/` | the launchers: `dampf`, the compiler, and `superdevkit`, the kit's command (with `.bat` files for Windows) |
+| `jre/` | the Java runtime the launchers start, cut down to the modules the kit uses |
 | `java/` | the jars of the two programs and of what they depend on |
+| `raylib/` | raylib for this system and for the web, ready-built |
 | `include/` | dampf's own headers: `<stdint.h>`, `<string.h>` and `<dampf.h>` |
 | `lib/` | the kit's library: the headers of the [console API](/glossary#console-api) (`include/`), the SNES side (`snes/`), the desktop and web side (`rachael/`, `desktop/`, `web/`), the sound effects (`sound/`), the splash screen; `C_STYLE.md` and `SNES_HARDWARE.md` |
 | `tools/` | tools for game developers: `brr_lab.html`, the editor of a game's sound effects, `sdevkit_rename.py` and `web_check` |
@@ -82,8 +89,9 @@ The two include folders are easy to mix up: `<home>/include` holds dampf's own h
 take the place of the PC's, and `<home>/lib/include` the console API a game calls,
 `sdevkit/snes.h` and `sdevkit/loop.h`.
 
-The `README.md` at the top of the home points to this page. The first desktop build adds
-`raylib/`, the raylib it fetched.
+The `README.md` at the top of the home points to this page, and the file `VERSION` holds the
+kit's version. A home written by `./gradlew installDist` has no `jre/`, `raylib/` or `VERSION`:
+it runs on the JDK of your system and fetches raylib on its first desktop build.
 
 Two guides in `lib/` are for writing a game: `C_STYLE.md` says how to write a game's C for dampf,
 and `SNES_HARDWARE.md` what the SNES allows and which of it the kit has.
@@ -196,21 +204,21 @@ Two more things are in `~/mygame/build/`:
 ## On the desktop
 
 The same game also runs in a window on the PC, on [Rachael](/glossary#rachael), the SNES rebuilt
-in portable C. Build it for the [target](/glossary#target) `linux`:
+in portable C. Build it for the [target](/glossary#target) `linux`, on Windows with
+`superdevkit build win64`:
 
 ```sh
 superdevkit build linux
 ```
 
-The build compiles the game's C with the PC's C compiler (`cc`, or the one `CC` names), without
-the PC's headers, checks that the game calls nothing but the console API, and links it with
-Rachael, the desktop's frontend and raylib. On its first run it fetches raylib from GitHub into
-`<home>/raylib/linux`:
-
 ```
-    fetching https://github.com/raysan5/raylib/releases/download/5.5/raylib-5.5_linux_amd64.tar.gz
 built build/linux/mygame
 ```
+
+The build compiles the game's C with the PC's C compiler (`cc`, or the one `CC` names; on
+Windows MSVC, the compiler of Visual Studio), without the PC's headers, checks that the game
+calls nothing but the console API, and links it with Rachael, the desktop's frontend and the
+home's raylib.
 
 The program is named after the game. To build it and play it in a window, run:
 
@@ -219,9 +227,10 @@ superdevkit run
 ```
 
 Without a target, `run` builds and starts the desktop program of this machine, `linux` (also
-under [WSL](/glossary#wsl), whose window WSLg shows), and waits until you close it. The keyboard
-is the joypad: the arrows, Z (B), X (A), A (Y), S (X), Q and W (L and R), Enter (Start). The
-arrows move the ball, and the picture is the one the SNES shows, pixel for pixel.
+under [WSL](/glossary#wsl), whose window WSLg shows) or `win64` on Windows, and waits until you
+close it. On Windows this needs Visual Studio; without it, `superdevkit build snes` still works.
+The keyboard is the joypad: the arrows, Z (B), X (A), A (Y), S (X), Q and W (L and R), Enter
+(Start). The arrows move the ball, and the picture is the one the SNES shows, pixel for pixel.
 [The desktop](/guide/the-desktop) has the rest: the retro TV filter, the debug view, recordings
 and the check that plays a game without a window.
 
@@ -251,7 +260,8 @@ export MESEN=~/mesen/Mesen
 superdevkit run snes
 ```
 
-From WSL, open the ROM in the Windows Mesen through the `\\wsl.localhost\...` path, as above.
+Since `run snes` hands Mesen a Linux path, open the ROM in the Windows Mesen from WSL through
+the `\\wsl.localhost\...` path instead, as above.
 
 [Debugging in Mesen](/guide/debugging) has more on stepping through C code.
 

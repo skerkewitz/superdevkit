@@ -1,4 +1,7 @@
+import java.io.PrintWriter
+import java.io.StringWriter
 import java.time.Duration
+import java.util.spi.ToolProvider
 
 // The superdevkit command (ADR-6F3CJZBY; docs/archive/superdevkit-transition.md, 7.4): init, build and run
 // come with M7. It builds the distribution: both launchers in bin/, the jars in java/, dampf's
@@ -38,15 +41,6 @@ application {
     applicationName = "superdevkit"
     // dampf runs in the same Java, and finds its headers in the installation's include/
     applicationDefaultJvmArgs = listOf("-Ddampf.include=__APP_HOME__/include")
-}
-
-tasks.startScripts {
-    doLast {
-        unixScript.writeText(unixScript.readText().replace("__APP_HOME__", "'\"\$APP_HOME\"'")
-            .replace("\$APP_HOME/lib/", "\$APP_HOME/java/"))
-        windowsScript.writeText(windowsScript.readText().replace("__APP_HOME__", "%APP_HOME%")
-            .replace("%APP_HOME%\\lib\\", "%APP_HOME%\\java\\"))
-    }
 }
 
 distributions {
@@ -97,3 +91,61 @@ tasks.installDist {
 }
 
 tasks.jar { archiveBaseName = "superdevkit" }
+
+// The release zip of the system this runs on (ADR-6F60Z9QJ): the installation, a Java runtime cut
+// down to the modules the jars use, and raylib for this system and the web. A runtime is cut on
+// the system it is for, so GitHub Actions builds each zip there (.github/workflows/release.yml).
+val releaseSystem = if (System.getProperty("os.name").lowercase().startsWith("windows")) "windows" else "linux"
+val releaseWork = layout.buildDirectory.dir("release")
+
+val releaseJre = tasks.register("releaseJre") {
+    description = "Cuts the Java runtime of a release down to the modules the jars use"
+    val jars = files(tasks.jar, configurations.runtimeClasspath)
+    val output = releaseWork.map { it.dir("jre") }
+    inputs.files(jars)
+    inputs.property("java", System.getProperty("java.runtime.version"))
+    outputs.dir(output)
+    doLast {
+        fun tool(name: String, vararg args: String): String {
+            val text = StringWriter()
+            val writer = PrintWriter(text)
+            val status = ToolProvider.findFirst(name).orElseThrow().run(writer, writer, *args)
+            writer.flush()
+            check(status == 0) { "$name failed:\n$text" }
+            return text.toString()
+        }
+        val out = output.get().asFile
+        out.deleteRecursively()   // jlink refuses a folder that exists
+        val paths = jars.files.map { it.path }
+        val modules = tool("jdeps", "--multi-release", "25", "--ignore-missing-deps", "--print-module-deps",
+            "--class-path", paths.joinToString(File.pathSeparator), *paths.toTypedArray()).trim().lines().last()
+        tool("jlink", "--add-modules", modules, "--strip-debug", "--no-man-pages", "--no-header-files",
+            "--compress=zip-9", "--output", out.path)
+    }
+}
+
+val releaseRaylib = tasks.register<JavaExec>("releaseRaylib") {
+    description = "Fetches the pinned raylib of this system and the web for a release"
+    val output = releaseWork.map { it.dir("home") }
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass = "superdevkit.project.Raylib"
+    args(output.get().asFile.path, if (releaseSystem == "windows") "win64" else "linux", "web")
+    outputs.dir(output)
+}
+
+tasks.register<Zip>("releaseZip") {
+    group = "distribution"
+    description = "Writes build/release/superdevkit-<version>-<system>-x64.zip for this system"
+    destinationDirectory = rootProject.layout.buildDirectory.dir("release")
+    archiveFileName = "superdevkit-$version-$releaseSystem-x64.zip"
+    useFileSystemPermissions()   // Gradle would drop the launchers' and the runtime's executable bits
+    val text = "$version\n"
+    into("superdevkit-$version") {
+        from(tasks.installDist)
+        from(releaseJre) { into("jre") }
+        from(releaseRaylib)
+        from(resources.text.fromString(text)) { rename { "VERSION" } }
+    }
+    val arch = System.getProperty("os.arch")
+    doFirst { check(arch == "amd64") { "a release is for x64, this machine is $arch" } }
+}

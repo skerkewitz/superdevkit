@@ -21,8 +21,9 @@ the generated assembly beside it.
    game's in `build/snes/`, built by `superdevkit build snes`), opening a game's ROM with
    `superdevkit run snes` (`MESEN`), loading the debug file automatically, how Mesen finds the C
    sources (relative paths), opening from WSL.
-2. **Step through C** – breakpoints in C lines, stepping over a C statement, with
-   `compiler/src/test/resources/exec/calls.c` as the example.
+2. **Step through C** – what a breakpoint on a C line stops at and why there are fewer stops
+   than lines, with `compiler/src/test/resources/exec/calls.c` as the example. Name no Mesen
+   menu, key or command for it, since no source names them, and leave no TODO about them.
 3. **Read the assembly beside it** – what each C line looks like in the `.s` file: the source
    line, the processor state, a comment and the cycles per instruction. Show a short excerpt of
    what dampf writes for one line of `calls.c`. Link

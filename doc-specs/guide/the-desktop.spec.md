@@ -34,7 +34,7 @@ the same as the SNES's pixel for pixel, but the PC's speed, not the console's.
 1. **Building for the desktop** – `superdevkit build linux` on Linux and `superdevkit build
    win64` with MSVC, on Windows or from WSL: what each needs, the three steps (the game alone
    without the host's headers, the symbol check, the link), where the program is written, and
-   raylib fetched on the first build. What the symbol check rejects and why. `superdevkit run`,
+   raylib, in a release zip for its own system, else fetched on the first build. What the symbol check rejects and why. `superdevkit run`,
    which builds the game and starts it in its window.
 2. **Playing** – the window, the keyboard and gamepad as the joypad (the key table from
    `main.c`), resizing, the retro TV filter (Tab, `--no-crt`), `--scale`, screenshots with F12.

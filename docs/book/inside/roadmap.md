@@ -13,7 +13,7 @@ also describes plans. What is not built yet, listed for users, is on
 
 ## Where dampf stands
 
-The kit is at version 0.9.0 (2026-11-23), and the milestones M0 to M9 are concluded. A game is
+The kit is at version 0.9.1, and the milestones M0 to M9 are concluded (M9 as 0.9.0). A game is
 written once against the kit's console API, and the `superdevkit` command builds it for the SNES
 with dampf, as a program for Linux and Windows, and since 0.8.0 as a page in the browser, with
 the same picture on each, sound effects, save RAM, music on the desktop and the web, and a debug
@@ -37,8 +37,8 @@ and is part of 0.4.0, and M5, concluded when 0.5 was already in use, took the fr
 
 Every version before 1.0 is a pre-release: the [subset](/glossary#subset), the command line and
 the files dampf writes may change from one version to the next. Publishing is a step of its
-own and not scheduled yet (see [Publishing](#publishing-not-scheduled)). What 1.0 needs is not
-decided.
+own: the repository is public, and 0.9.1 is its first release with downloads (see
+[Publishing](#publishing)). What 1.0 needs is not decided.
 
 Versions follow the milestones rather than what changed, as semantic versioning would have
 them, because before 1.0 nearly every milestone breaks something, and such numbers would say
@@ -128,9 +128,9 @@ Mesen shows the C source and the names of global variables from dampf's debug fi
 more; dampf's users would gain from variables shown with their C type, struct fields, and the
 locals of a function in their [direct page](/glossary#direct-page) places. dampf first fills
 what the debug file's format already has room for, then a small patch teaches Mesen to read it,
-offered to MesenCE, where Mesen is maintained now. The patch waits until the dev kit is public,
-because a patch from a compiler with users is easier to argue for. A debugger of dampf's own is
-not planned.
+offered to MesenCE, where Mesen is maintained now. The patch waited until the dev kit was
+public, as it now is, because a patch from a compiler with users is easier to argue for. A
+debugger of dampf's own is not planned.
 
 **M12, fine tuning**, takes up what was left of M4 and M9 until the frame budget is met. The
 gains named here are estimates from the shares of the cycles in a profile, made in the plan of
@@ -176,10 +176,10 @@ of tests, from a survey of how the large compilers are tested, are not scheduled
 them stress runs that make the optimizer's legal choices at random and a reducer for failing
 programs.
 
-### Publishing (not scheduled)
+### Publishing
 
-The dev kit goes public as superdevkit when it is useful to someone other than Blubber Blasen.
-The first steps are done. On 2026-11-19 the snapshot of Blubber Blasen, its replays and its
+The dev kit went public as superdevkit on 2026-11-23, after version 0.9.0.
+The first steps came earlier. On 2026-11-19 the snapshot of Blubber Blasen, its replays and its
 hand-written reference function left the repository and its git history, and the dev kit's
 examples took over their jobs: Er-Tüp is a test case of a whole game's size, the reference
 functions are functions of the examples, and `dev/bench_examples.sh` measures the work per tick
@@ -190,15 +190,20 @@ and the small ones. Until then every speed decision was measured on one game: th
 of 2026-11-18 made play of Blubber Blasen 13 % faster, but the execution tests only 0.9 %, and
 part of the gain comes from parameters chosen on this one game, such as the inlining limit and
 the block order. Those parameters are still to be checked on the whole set. The repository was
-renamed to superdevkit, with dampf as its compiler, on 2026-11-19; it is on GitHub, still
-private. With dampf's own preprocessor and the converters for pictures and sounds in Java,
-building for the SNES needs nothing but Java and the kit.
+renamed to superdevkit, with dampf as its compiler, on 2026-11-19. With dampf's own preprocessor
+and the converters for pictures and sounds in Java, building for the SNES needs nothing but Java
+and the kit.
 
-Still to come is the release itself: a zip per system on GitHub, with a Java runtime and raylib
-in it, so that a user installs no Java, and the book on GitHub Pages. For the desktop a C
-compiler stays needed. The licence is decided already: superdevkit, dampf included, is under the
-Apache License 2.0 with LLVM Exceptions, the same as LLVM, so code dampf and the library put
-into a ROM carries no licence conditions and games built with the dev kit can use any licence.
+The steps of a release are built and apply from version 0.9.1. A release is a zip per system on
+GitHub, for Linux and Windows on x64, with a Java runtime and raylib in it, so that a user
+installs no Java. A workflow builds each zip on its own system, checks it as a user gets it and
+makes a draft release from a version tag. The draft becomes public only when someone has tried
+a zip and published it. When a release is published, a second workflow puts the book and the
+seven examples on GitHub Pages, so the site always describes a released version. For the
+desktop a C compiler stays needed. A check in the automatic builds that the book is up to date
+is still open. The licence is decided already: superdevkit, dampf included, is under the Apache
+License 2.0 with LLVM Exceptions, the same as LLVM, so code dampf and the library put into a ROM
+carries no licence conditions and games built with the dev kit can use any licence.
 
 ## The checkpoint after M2
 

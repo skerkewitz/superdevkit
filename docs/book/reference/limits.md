@@ -1,15 +1,14 @@
 <!-- GENERATED from doc-specs/reference/limits.spec.md by /docs-gen. Do not edit; change the spec or its sources. -->
 # Limits
 
-superdevkit, and dampf with it, is at version 0.9.0: milestones M0 to M9 are concluded. dampf is
+superdevkit, and dampf with it, is at version 0.9.1: milestones M0 to M9 are concluded. dampf is
 the compiler of superdevkit, a [development kit](/glossary#dev-kit) for SNES games. The
 milestones named on this page are the open ones: M10 for language, platform and usability (in
 progress), M11 for timing and debugging, and M12 for fine tuning.
-Publishing is a step of its own and not scheduled yet, and some items below belong to no
-milestone at all. They are on the [Roadmap](/inside/roadmap), which also has their state and
-their order; nothing here goes beyond it. Every version before 1.0 is a pre-release, so [the
-subset](/glossary#subset), the command line and the files dampf writes may change from one
-version to the next.
+Some items below belong to no milestone at all. They are on the [Roadmap](/inside/roadmap),
+which also has their state and their order; nothing here goes beyond it. Every version before
+1.0 is a pre-release, so [the subset](/glossary#subset), the command line and the files dampf
+writes may change from one version to the next.
 
 ## Not built yet
 
@@ -102,7 +101,8 @@ measured cycles checked, and DRAM refresh, HDMA and interrupts at frame level. F
 cycles per function, use `dampf profile` ([Command line](/reference/command-line)).
 
 **The preprocessor's subset.** dampf preprocesses the C source with a preprocessor of its own,
-so building for the SNES needs nothing but Java. Like the language, the preprocessor is a subset
+so building for the SNES needs nothing besides a release zip, which brings its own Java; from
+the repository it needs a JDK 25 or newer. Like the language, the preprocessor is a subset
 of C99's: it has what the kit's code and Blubber Blasen use, with macro expansion as the standard
 describes it, and rejects the rest with an error that names it. Rejected are `__VA_OPT__`,
 `#line`, `#include_next`, an `#include` of a macro, `#warning`, `#ident` and gcc's other
@@ -172,7 +172,7 @@ expect:
 - **Locals in Mesen:** Mesen shows the C source and the names of globals, but not the locals
   that live in fixed direct page slots, nor the C type of a variable. Better C debugging in
   Mesen is planned for M11: dampf first fills what the debug format has, then a small patch is
-  to teach Mesen to read it, which waits until the dev kit is public.
+  to teach Mesen to read it.
 - **Speed.** The goal is that the game logic of a tick fits in 60 % of a frame. On the dev
   kit's examples, measured on 2026-11-20, the work per tick, FastROM, averages 150,410
   [master clocks](/glossary#master-clock) in Er-Tüp (a frame is 357,368), 286,177 in its

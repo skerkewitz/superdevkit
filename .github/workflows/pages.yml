@@ -1,0 +1,69 @@
+# The website on GitHub Pages: the start page, the book in book/ and the example games in example/.
+# It goes live when a release is published, built from that release's tag, so it always describes
+# a released version. A pull request that touches the site only builds it. To publish a tag again,
+# run this workflow by hand on the tag.
+name: pages
+
+on:
+  release:
+    types: [published]
+  pull_request:
+    paths:
+      - .github/workflows/pages.yml
+      - dev/build_site.py
+      - dev/site/**
+      - docs/book/.vitepress/**
+      - docs/book/package*.json
+      - lib/web/**
+  workflow_dispatch:
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25.0.5+8.0.LTS
+      - uses: gradle/actions/setup-gradle@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Libraries of the desktop build, for the screenshots
+        run: sudo apt-get update -q && sudo apt-get install -y -q libgl1-mesa-dev libx11-dev
+      - name: Emscripten
+        run: |
+          git clone --depth 1 --branch 7.0.0 https://github.com/emscripten-core/emsdk "$RUNNER_TEMP/emsdk"
+          "$RUNNER_TEMP/emsdk/emsdk" install 7.0.0
+          "$RUNNER_TEMP/emsdk/emsdk" activate 7.0.0
+          echo "$RUNNER_TEMP/emsdk/upstream/emscripten" >> "$GITHUB_PATH"
+      - run: ./gradlew installDist
+      - run: npm ci
+        working-directory: docs/book
+      - run: python3 dev/build_site.py build/site
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: build/site
+
+  deploy:
+    needs: build
+    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

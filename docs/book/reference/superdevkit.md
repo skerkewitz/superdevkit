@@ -20,7 +20,7 @@ Use `superdevkit --version`, or `superdevkit version`, to see which kit you have
 line on the standard output and exits with status 0:
 
 ```
-superdevkit 0.9.0
+superdevkit 0.9.1
 ```
 
 The command is the one in `bin/` of the [superdevkit home](/glossary#superdevkit-home), next to
@@ -86,19 +86,21 @@ made:
 built build/snes/mygame.sfc
 ```
 
-The targets differ in the compiler and in what they need the first time:
+The targets differ in the compiler and in what they fetch when it is not there:
 
-| Target | Builds with | Fetched the first time | Writes |
+| Target | Builds with | Fetched when missing | Writes |
 |---|---|---|---|
 | `snes` | dampf, in the same Java | nothing | `build/snes/NAME.sfc` |
 | `linux` | the system's C compiler (`CC`, default `cc`) | raylib 5.5 for Linux | `build/linux/NAME` |
 | `win64` | MSVC (Visual Studio's C++ tools for x64) | raylib 5.5 for MSVC | `build/win64/NAME.exe` |
 | `web` | [Emscripten](/glossary#emscripten)'s `emcc` (`EMCC`) | raylib 5.5 for WebAssembly | `build/web/index.html` |
 
-raylib draws the window and plays the sound of the desktop and web builds. The command fetches
-the ready-built package from raylib's releases on GitHub and unpacks it into `raylib/<system>/`
-of the kit's folder (`build/raylib/<system>/` in a checkout of the repository), once for each of
-`linux`, `windows` and `web`; after that a build needs no network.
+raylib draws the window and plays the sound of the desktop and web builds. A release zip holds
+it for its own system and the web, in `raylib/<system>/`. When it is not there, as for `win64`
+from WSL with the Linux zip, the command fetches the ready-built package from raylib's releases
+on GitHub and unpacks it into `raylib/<system>/` of the kit's folder (`build/raylib/<system>/`
+in a checkout of the repository), once for each of `linux`, `windows` and `web`; after that a
+build needs no network.
 
 ### snes
 
@@ -150,6 +152,15 @@ and from WSL; elsewhere it stops with
 error: the target win64 builds on Windows or WSL, with MSVC (ADR-6F60Z709)
 ```
 
+A machine without Visual Studio stops the build with the first message below, and one whose
+Visual Studio lacks the C++ tools for x64 with the second; `<vswhere>` stands for the path of
+`vswhere.exe` in Visual Studio's installer folder:
+
+```
+error: vswhere: no Visual Studio (<vswhere>); win64 builds with MSVC's C++ tools for x64. Install Visual Studio with the workload "Desktop development with C++", or build for the SNES, which needs nothing else: superdevkit build snes
+error: vswhere: no Visual Studio with the C++ tools for x64 (vswhere found none). Install Visual Studio with the workload "Desktop development with C++", or build for the SNES, which needs nothing else: superdevkit build snes
+```
+
 ### web
 
 The same three steps with `emcc`, with WebAssembly objects and the macros of the
@@ -158,6 +169,12 @@ The same three steps with `emcc`, with WebAssembly objects and the macros of the
 `index.wasm` beside it, and `index.data` holding the music when the project has any. A browser
 loads the page only from a web server, not from a file: [run](#run) serves it.
 [The web](/guide/the-web) has the rest.
+
+Without `emcc` the build stops and says what to install; `<reason>` is the system's own error:
+
+```
+error: emcc: no Emscripten (emcc): the target web builds with emcc; install the Emscripten SDK and put emcc on the PATH, or name it with EMCC=path. The SNES needs nothing else: superdevkit build snes (<reason>)
+```
 
 ### Options
 
@@ -222,7 +239,11 @@ one.
   window, its keys and its options.
 - **`snes`** opens the ROM in [Mesen](/glossary#mesen): the program `MESEN` names, else
   `.mesen/Mesen` or `.mesen/Mesen.exe` in the kit's folder. Without one it stops with
-  `error: start: no Mesen at <path> (MESEN=path, or dev/fetch_mesen.sh in the kit)`.
+
+  ```
+  error: start: no Mesen at <path> (install MesenCE and name it with MESEN=path; in the kit's repository, dev/fetch_mesen.sh)
+  ```
+
 - **`web`** serves `build/web` on this machine, at `http://127.0.0.1:8080/` or, when that port
   is taken, the next free one, and opens the page in the browser. It prints the address and
   serves until you press Ctrl+C. Nothing is cached, so after a new build a reload of the page
@@ -359,7 +380,7 @@ A string: the version of the kit the game needs, of two or three numbers. Two nu
 that one. The command checks it against its own version and stops when they differ:
 
 ```
-error: the project needs superdevkit 0.8, this is 0.9.0 (<home>); install that version, or name a kit folder in superdevkit.toml: kit = "path"
+error: the project needs superdevkit 0.8, this is 0.9.1 (<home>); install that version, or name a kit folder in superdevkit.toml: kit = "path"
 ```
 
 Either `superdevkit` or `kit` is required.
