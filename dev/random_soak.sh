@@ -9,9 +9,9 @@
 #   JOBS=4 dev/random_soak.sh          at most 4 Java processes at once (default: half the cores)
 # The programs of each generator are split into JOBS shares; each share is one Java process
 # (dampf.exec.RandomSoak, up to 2 GB of heap) that checks its programs one after another, as
-# RandomProgramTest does. The logs are in build/soak/. The JVMs compile with C1 only and collect
-# with one thread: with C2, eight of them spent two thirds of the machine's time compiling
-# (100 programs of each: 133 s with C2, 95 s with C1). JAVA_OPTS replaces these options.
+# RandomProgramTest does. The logs are in build/soak/. The JVMs collect with one thread and use
+# the full JIT: 1,000 programs of each generator on 8 cores took 675 s, against 940 s with C1 alone.
+# JAVA_OPTS replaces these options.
 set -e
 cd "$(dirname "$0")/.."
 COUNT=${1:-5000}
@@ -22,7 +22,7 @@ CP=$(cat compiler/build/soak/classpath.txt)
 OUT=$(pwd)/build/soak
 rm -rf "$OUT"
 mkdir -p "$OUT"
-JAVA="java -Xmx2g ${JAVA_OPTS:--XX:+UseSerialGC -XX:TieredStopAtLevel=1} -Ddampf.include=compiler/src/main/resources/dampf/include -cp $CP dampf.exec.RandomSoak"
+JAVA="java -Xmx2g ${JAVA_OPTS:--XX:+UseSerialGC} -Ddampf.include=compiler/src/main/resources/dampf/include -cp $CP dampf.exec.RandomSoak"
 SHARE=$(( (COUNT + JOBS - 1) / JOBS ))
 for gen in loop random; do
     first=${2:-$($JAVA first $gen)}
