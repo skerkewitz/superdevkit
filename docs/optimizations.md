@@ -160,6 +160,10 @@ allowed (the platform layer uses them); this form does not need the rule against
   on the LIR (2026-11-22): without `findForwards` the examples were 1.6 % slower, without
   `Schedule` 0.5 %, without both 2.1 %, and the copy loops of the spelling families up to 77 %
   slower ([log](optimizations-log.md#without-findforwards-or-schedule-measured-2026-11-22)).
+- `BIT` for bit tests (measured, not built, 2026-11-23): `BIT #mask` costs what `AND #mask` costs,
+  and the few places where it would gain add up to at most 0.07 % of the examples' work on average
+  and 0.4 % on Mode 7
+  ([log](optimizations-log.md#bit-for-bit-tests-measured-and-not-built-2026-11-23-on-the-examples)).
 
 ## Ideas not yet built
 
