@@ -112,10 +112,9 @@ working documents it is written from.
 - [docs/optimizations.md](docs/optimizations.md): where things stand, the optimization catalogue, the gap to hand-written assembly.
 - [docs/optimizations-log.md](docs/optimizations-log.md): dated measurements of each optimization step.
 - [docs/timing.md](docs/timing.md): exact timing, worst-case bounds and cycle budgets.
-- [docs/archive](docs/archive): finished plans and reviews, kept as they were (the way to LIR and to dampf's own assembler and linker, the status review of 2026-11-18, the compiler flaws measured on 2026-11-20 and fixed by 2026-11-21, the plan from dampf to superdevkit with its SNES, desktop and web targets).
+- [docs/archive](docs/archive): finished plans and reviews, kept as they were (the way to LIR and to dampf's own assembler and linker, the status review of 2026-11-18, the compiler flaws measured on 2026-11-20 and fixed by 2026-11-21, the plan from dampf to superdevkit with its SNES, desktop and web targets, the survey of further tests, whose open steps are in the roadmap).
 - [docs/memory-map.md](docs/memory-map.md): where code, data, variables and pointers live.
 - [docs/testing.md](docs/testing.md): the test layers and how they work.
-- [docs/testing-ideas.md](docs/testing-ideas.md): how the large compilers are tested, and eight kinds of tests dampf does not have yet, as steps.
 - [docs/brainstorm](docs/brainstorm): summaries of brainstorming sessions, the options weighed before a decision.
 - [docs/roadmap.md](docs/roadmap.md): milestones and their state, risks, open questions, the relation to Blubber Blasen.
 - [dev/README.md](dev/README.md): the scripts in `dev/`, for developing the kit against the examples.

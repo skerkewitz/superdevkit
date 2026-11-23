@@ -302,6 +302,45 @@ Ideas without a milestone; one becomes a step of a milestone when it is decided.
   spec, only the content tools and a way to check behaviour
   ([game-spec-proposal.md](game-spec-proposal.md)).
 
+### Tests dampf does not have yet
+
+Eight kinds of tests from the survey of how the large compilers are tested, in the order proposed
+on 2026-11-23. None is scheduled. Each step's place in the code, its change and how to tell that it
+works are in [archive/testing-ideas.md](archive/testing-ideas.md), written on 2026-11-20; where
+the two differ, this list is current.
+
+1. **[V1, stress runs](archive/testing-ideas.md#v1-stress-runs).** A seed makes the optimizer's
+   legal choices at random: passes skipped or reordered, other inlining limits, arbitrary block
+   counts. Not built; the pass limit it builds on exists. The back end was rewritten without it.
+   Its choices for selection's patterns and `FrameLayout` stay in the step, since those stay in
+   the compiler (`findXCounters`, `findYIndexes`, ADR-6FGF7X0N).
+2. **[V5, programs changed where they never ran](archive/testing-ideas.md#v5-programs-changed-where-they-never-ran).**
+   Code a run never reaches is changed, and the result must stay the same. Not built. It should
+   start from the execution tests and the random programs, which the sanitizer has checked,
+   instead of the examples as the step says. It needs block counts from dampf's emulator.
+3. **[V2, random joypad input](archive/testing-ideas.md#v2-random-joypad-input-on-the-examples).**
+   The naive and the optimized build of an example play the same random input and must agree on
+   every tick. Not built. First measure how much of each example its recorded input reaches, and
+   build the fuzzer only if that is little: a difference can also be the game's own undefined
+   behaviour, which someone then has to tell from a compiler bug.
+4. **[V4, every rewrite on every input](archive/testing-ideas.md#v4-every-rewrite-checked-on-every-input).**
+   Partly there: `SimplifyTest` checks `Simplify`'s rules on edge values. Open: all inputs for
+   `i8`, and the LIR rewrites run on a bare CPU.
+5. **[V8, a second opinion for the reference](archive/testing-ideas.md#v8-a-second-opinion-for-the-reference).**
+   Partly there: "clang is the tests' reference on the PC"
+   ([ADR-6FD2DGP0](adr/6FD2DGP0-clang-is-the-tests-reference-on-the-pc.md)) ended gcc's false
+   bounds reports. Open: another compiler on a failure, to tell a wrong reference from a dampf
+   bug, and the address sanitizer in the checked build.
+6. **[V6, a reducer](archive/testing-ideas.md#v6-a-reducer-for-failing-programs).** A failing
+   program shrinks to the lines that matter. Not built; `dev/bisect_passes.sh` already names the
+   pass.
+7. **[V3, random MIR](archive/testing-ideas.md#v3-random-mir).** Random programs in the optimizer's
+   own form, run in the MIR interpreter before and after the passes. Not built.
+8. **[V7, a mutation score](archive/testing-ideas.md#v7-a-mutation-score-for-each-pass).** PIT
+   breaks one condition of a pass at a time and lists what no test notices. Not built, and whether
+   PIT runs on Java 25 class files and JDK 27 has not been checked. Mutation checks are done by
+   hand until then.
+
 ## The playable ROM
 
 Built 2026-11-17, ahead of the game's own SNES port, so that every iteration of dampf can be played
