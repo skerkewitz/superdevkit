@@ -85,8 +85,9 @@ def main():
     if out.exists():
         shutil.rmtree(out)
     (out / "example").mkdir(parents=True)
-    shutil.copy(SITE / "index.html", out / "index.html")
-    shutil.copy(SITE / "style.css", out / "style.css")
+    # the last one is how Google Search knows the site is ours: it must stay, under this name
+    for name in ("index.html", "style.css", "google2bc10f9af5c5a68b.html"):
+        shutil.copy(SITE / name, out / name)
     build_book(out)
     for name, tick, *_ in GAMES:
         build_game(name, tick, out)
