@@ -169,6 +169,9 @@ allowed (the platform layer uses them); this form does not need the rule against
   with offsets, 15,493 for the counter), so a pass could close it. Not built: no example has the
   pattern and the game's sorted list is no longer a goal. The C guide has the form
   (`same-list-of-offsets`).
+- The index registers chosen by `RegisterChoice` alone, without `findXCounters` and `findYIndexes`:
+  nine versions, none as good as selection's choice on the pair loops and the worst cases
+  ([log](optimizations-log.md#the-index-register-choice-tried-in-registerchoice-2026-11-23)).
 
 ## Ideas not yet built
 

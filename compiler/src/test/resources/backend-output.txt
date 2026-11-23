@@ -17,7 +17,7 @@ example_mandelbrot.naive.s0 5d932d0be0f364a73dde4475
 example_mode7.mir.s0 025d243e09f2ac9a1b1ba4a2
 example_mode7.mir.timing c5935450602207e4a256120b
 example_mode7.naive.s0 e7d31ee41d322e23443fa8fb
-example_schach.mir.s0 8cfe3eeb0e5e467ddb897368
+example_schach.mir.s0 2728a7bb45cce9a92b8a14d6
 example_schach.mir.s1 5842a3c0775f46dfc303cceb
 example_schach.mir.timing 57249b2b657bc5643a71672b
 example_schach.naive.s0 a23f0bd1103fb6e1c1c51f9a
@@ -258,9 +258,9 @@ exec_string_h.layout.timing f3bf4b93375395b4c2ae12e0
 exec_string_h.mir.s0 9f2e1743771479b238cc20b2
 exec_string_h.mir.timing 2fc26705b15c3b2c3ab2b010
 exec_string_h.naive.s0 4f2a8c221da1025ad927cd38
-exec_strings.layout.s0 30ccd025246c8a972367b3be
+exec_strings.layout.s0 af6065d1b5dfc6cd8573f9ce
 exec_strings.layout.timing 1c1c31c267becfcf452d5787
-exec_strings.mir.s0 8f9095c923ef2f2a6dc1cbd9
+exec_strings.mir.s0 0418c9448c6f73452851863e
 exec_strings.mir.timing afc8b7ad42bfb8b50e1a5dd6
 exec_strings.naive.s0 0ed8b3b37d482dfa533a27f5
 exec_switch_narrow.layout.s0 7888b3618dc2ab8fd48c1eae
