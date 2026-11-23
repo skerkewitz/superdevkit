@@ -14,10 +14,10 @@ play them without installing anything. The roadmap had planned the book on GitHu
   never unfinished work on `develop`. A pull request that touches the site only builds it.
 - The site holds the latest release only. The book of an older version stays in that release's
   zip.
-- The gallery lists CatchMe, Steinschlag, Schach, Mandelbrot, mode7 and hello, each with a
-  screenshot from its own check. Er-Tüp is not listed for now: its name is a pun on a trademark,
-  and its proposal (`docs/archive/er-tuep-proposal.md`) already asks whether a public kit should
-  keep it. Listing it is one line in `dev/build_site.py`.
+- The gallery lists all seven examples, each with a screenshot from its own check. Er-Tüp is
+  among them under its name, although that name is a pun on a trademark and its proposal
+  (`docs/archive/er-tuep-proposal.md`) asks whether a public kit should keep it. It is a parody
+  with its own ship, creatures and art, and the project's owner chose to show it.
 
 **Alternatives.**
 

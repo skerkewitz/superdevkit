@@ -22,8 +22,11 @@ BASE = "/superdevkit/"
 SOURCE = "https://github.com/skerkewitz/superdevkit/tree/main/examples/"
 
 # name, tick of the screenshot (a "shot" line of its check.txt), title, what it is, its keys.
-# Er-Tuep is not listed: its name is a pun on a trademark (docs/archive/er-tuep-proposal.md).
 GAMES = [
+    ("ertuep", 4000, "Er-Tüp",
+     "A side-scrolling shooter in a German pub. You fly a beer tap with a crate of beer at its side, "
+     "and bottle caps are the shots.",
+     "Enter starts. The arrows fly, Z fires, X launches the crate and calls it back."),
     ("catchme", 700, "CatchMe",
      "A mouse eats the crumbs of a maze while four cats chase it. A chili turns the chase around for a while.",
      "Enter starts. The arrows move the mouse."),

@@ -233,7 +233,7 @@ What it takes:
 - **Hosting:** a release on GitHub, a zip per system with a Java runtime (jlink) and raylib (ADR
   ADR-6F60Z9QJ). Built: `./gradlew releaseZip` and the workflow `release.yml`, which builds and
   checks the Linux and the Windows zip on their own systems and makes a draft release from a
-  version tag. The workflow `pages.yml` puts the book and six example games on GitHub Pages when
+  version tag. The workflow `pages.yml` puts the book and the seven examples on GitHub Pages when
   a release is published (ADR-6FHKAC1X). Still open: `checkBook` in CI (ADR-6F60ZB4N).
 
 ## Future ideas
