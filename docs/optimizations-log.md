@@ -1748,3 +1748,19 @@ applies, and in this code they are rare. Most of the tests are the mask `$00FF`,
 Not built: the gain does not pay for another pass and its tests. Code written for it, with its flags
 in the top bits, would gain more. Blubber Blasen was not measured.
 
+## 32-bit values combined bit by bit, as two halves (2026-11-23, on the C guide)
+
+`hash ^= key` on two `uint32_t` cost 84 cycles against 36 for the same on two `uint16_t` halves:
+each word went through a frame place. An AND, OR or XOR never carries from one half to the other,
+so `SplitWords` makes a 32-bit value that is only loaded, combined bit by bit and stored into two
+16-bit values, with its constants, zero extensions and φs. Anything else that reads it (an
+addition, a comparison, a call) leaves the whole web as it is.
+
+The split alone gave 46 cycles: `Schedule` would not move the high half's loads past the store to
+the low half. A load may now pass a store whose address is known to be other bytes, of the same
+global or another one. `xor_32` costs 36, as the halves do. `slow-32-bit` now measures 32-bit
+addition, and `same-32-bit-bits` holds the new fact.
+
+The examples hardly have such values: Catch Me 0.998 (the moved loads), hello 16 master cycles a tick
+more (0.03 %), the rest the same; one worst case smaller, none larger. The pair loops are the same.
+

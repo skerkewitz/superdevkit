@@ -17,8 +17,8 @@ import java.util.Map;
  * read before it stays the counter for the whole block.
  *
  * <p>Arithmetic, comparisons, casts and ptradds can move anywhere after their operands. A load
- * does not move past a store, a copy, a call or a volatile access (any of them may change what
- * it reads). Instructions with an effect never move.
+ * does not move past a copy, a call, a volatile access or a store that may change what it reads
+ * (a store to another global, or to other bytes of the same one, cannot). Instructions with an effect never move.
  */
 public final class Schedule {
     private Schedule() {}
@@ -65,7 +65,7 @@ public final class Schedule {
                     if (target == k + 1) {
                         continue;   // in its place already
                     }
-                    if (i instanceof Instr.Load && !clear(is, k + 1, target)) {
+                    if (i instanceof Instr.Load l && !clear(is, k + 1, target, l)) {
                         continue;
                     }
                     is.remove(k);
@@ -134,15 +134,44 @@ public final class Schedule {
         };
     }
 
-    /** No instruction in [from, to) may change memory a load reads. */
-    private static boolean clear(List<Instr> is, int from, int to) {
+    /** No instruction in [from, to) may change the memory the load reads. */
+    private static boolean clear(List<Instr> is, int from, int to, Instr.Load load) {
         for (int k = from; k < to; k++) {
             Instr i = is.get(k);
+            if (i instanceof Instr.Store st && !st.isVolatile && disjoint(load, st)) {
+                continue;
+            }
             if (i instanceof Instr.Store || i instanceof Instr.Copy || i instanceof Instr.Call
                     || i instanceof Instr.Load l && l.isVolatile) {
                 return false;
             }
         }
         return true;
+    }
+
+    /** A global and a constant offset into it: an address known without running the code. */
+    private record Fixed(String symbol, long offset) {}
+
+    private static Fixed fixed(Value address) {
+        if (address instanceof Value.GlobalAddr g) {
+            return new Fixed(g.symbol(), 0);
+        }
+        if (address instanceof Instr.PtrAdd p && p.op(0) instanceof Value.GlobalAddr g && p.op(1) instanceof Value.Const k) {
+            return new Fixed(g.symbol(), k.type().signed(k.bits()));
+        }
+        return null;
+    }
+
+    /** Whether the load and the store touch different bytes, by their fixed addresses. */
+    private static boolean disjoint(Instr.Load load, Instr.Store store) {
+        Fixed a = fixed(load.op(0));
+        Fixed b = fixed(store.op(0));
+        if (a == null || b == null) {
+            return false;
+        }
+        if (!a.symbol().equals(b.symbol())) {
+            return true;
+        }
+        return a.offset() + load.type().size <= b.offset() || b.offset() + store.op(1).type().size <= a.offset();
     }
 }

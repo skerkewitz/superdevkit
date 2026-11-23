@@ -50,6 +50,30 @@ class ScheduleTest {
     }
 
     @Test
+    void aLoadMovesPastAStoreOnlyToOtherBytesOfAGlobal() {
+        String program = """
+                global @_a : 4
+                global @_b : 4
+                func @_main() -> void {
+                b0_entry:
+                    %%0 = load i16 %s
+                    store i16 @_a, 1
+                    %%1 = add i16 %%0, 1
+                    store i16 @_b, %%1
+                    ret
+                }
+                """;
+        for (String[] c : new String[][] {{"@_b", "moves"}, {"@_a", "stays"}}) {
+            MModule m = MirParser.parse(program.formatted(c[0]));
+            MFunction f = m.function("_main");
+            Schedule.run(f);
+            Verifier.verify(m);
+            boolean first = order(f).getFirst() == Instr.Load.class;
+            assertEquals(c[1].equals("stays"), first, c[0]);
+        }
+    }
+
+    @Test
     void aLoadDoesNotMovePastAStore() {
         MModule m = MirParser.parse(COPY_BYTE.formatted("""
                     %0 = load i8 %s
