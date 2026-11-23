@@ -7,7 +7,7 @@
 # --check, so a game can compare them with its desktop build using the kit alone.
 # Works in a superdevkit home (the jars in java/) and in the kit's repository (its installation).
 # The ROM must be the build of the same source as the desktop program that recorded the file.
-# JAVA_HOME picks the Java, as for bin/dampf.
+# The Java is the one bin/dampf takes: a release's own in jre/, else JAVA_HOME, else the PATH's.
 set -e
 ROM=$(realpath "${1:?usage: dev/replay.sh <rom.sfc> <recording>}")
 REC=$(realpath "${2:?usage: dev/replay.sh <rom.sfc> <recording> [hashes.txt [sound.txt]]}")
@@ -21,4 +21,5 @@ if [ ! -d "$JARS" ]; then                   # in the repository
 fi
 JAVA=java
 [ -n "$JAVA_HOME" ] && JAVA=$JAVA_HOME/bin/java
+[ -x jre/bin/java ] && JAVA=jre/bin/java
 "$JAVA" -cp "$JARS/*" dampf.emu.ExampleCheck "$ROM" "$REC" ${HASHES:+"$HASHES"} ${SOUND:+"$SOUND"}

@@ -22,26 +22,30 @@ it first calls the compiler, with this message; its end, the system's reason in 
 short here:
 
 ```
-error: emcc: no Emscripten (emcc): the target web builds with emcc; install the Emscripten SDK and put emcc on the PATH, or name it with EMCC=path (...)
+error: emcc: no Emscripten (emcc): the target web builds with emcc; install the Emscripten SDK and put emcc on the PATH, or name it with EMCC=path. The SNES needs nothing else: superdevkit build snes (...)
 ```
 
-It also needs raylib, the library behind the window, in its package for the web. The first web
-build fetches raylib 5.5 from GitHub into the [superdevkit home](/glossary#superdevkit-home)
-(`<home>/raylib/web`), and every build after it reuses it.
+On Windows the build looks for `emcc` itself before it calls it, on the `PATH` or at the path
+in `EMCC`, and the reason in the brackets is `not found`.
+
+It also needs raylib, the library behind the window, in its package for the web. The
+[superdevkit home](/glossary#superdevkit-home) of a release zip holds raylib 5.5 in
+`<home>/raylib/web`. A home built from the repository has none, so its first web build fetches
+raylib 5.5 from GitHub into that folder, and every build after it reuses it.
 
 The build has the three steps of the desktop: each of the game's files compiled alone, without
 the host's headers; the symbol check, which accepts only calls into the
 [console API](/glossary#console-api); and the link, with Rachael, the desktop's frontend
 (`lib/desktop`), what the web adds to it (`lib/web`) and raylib.
 [The desktop](/guide/the-desktop) explains why the first two steps are there. Use `--plan` to
-see the steps without running them; for a game made with `superdevkit init mygame`, with the
-compiler's options cut short:
+see the steps without running them; for a game made with `superdevkit init mygame` in a
+release, with the compiler's options cut short:
 
 ```
 superdevkit build web: mygame (kit <home>)
   png    tiles assets/font_gfx.png font_gfx build/gen
   png    tiles assets/ball_gfx.png ball_gfx build/gen
-  raylib 5.5 for web in <home>/raylib/web (fetched from GitHub first)
+  raylib 5.5 for web in <home>/raylib/web
   mkdir  build/web/obj
   emcc   emcc -std=c99 -O2 ... -c src/hello.c -o build/web/obj/src_hello.o
   emcc   emcc -std=c99 -O2 ... -c build/gen/ball_gfx.c -o build/web/obj/gen_ball_gfx.o
