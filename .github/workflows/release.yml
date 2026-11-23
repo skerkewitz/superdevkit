@@ -52,10 +52,12 @@ jobs:
           java_build=$(java --version | sed -n 's/.*(build \([0-9.+]*\).*/\1/p' | head -1)
           echo "Java $java_build"
           [ -n "$java_build" ] && grep -qF "Eclipse Temurin $java_build," NOTICE
-      - name: The tag is the version in the build file
+      - name: The tag is the version in the build file, and the version has its notes
         if: startsWith(github.ref, 'refs/tags/')
         shell: bash
-        run: grep -qF "version = \"${GITHUB_REF_NAME#v}\"" build.gradle.kts
+        run: |
+          grep -qF "version = \"${GITHUB_REF_NAME#v}\"" build.gradle.kts
+          test -s "docs/releases/${GITHUB_REF_NAME#v}.md"
       - name: Libraries of the desktop build
         if: runner.os == 'Linux'
         run: sudo apt-get update -q && sudo apt-get install -y -q libgl1-mesa-dev libx11-dev
@@ -84,6 +86,7 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v5   # the notes, docs/releases/<version>.md (ADR-6FHSWZ2F)
       - uses: actions/download-artifact@v4
         with:
           pattern: zip-*
@@ -95,5 +98,6 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: >
           gh release create "$TAG" superdevkit-*.zip SHA256SUMS
-          --repo "$GITHUB_REPOSITORY" --draft --verify-tag --generate-notes
+          --repo "$GITHUB_REPOSITORY" --draft --verify-tag
+          --notes-file "docs/releases/${TAG#v}.md"
           --title "superdevkit ${TAG#v}"
