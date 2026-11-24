@@ -32,6 +32,7 @@ expensive, or one with a `DAMPF_BUDGET`. Elsewhere it costs readability for noth
 | `f()`, K&R parameters | `missing parameter type` (write `f(void)`), `not supported yet: old-style (K&R) parameter declarations` |
 | variable-length arrays | `an array size must be a positive integer constant` |
 | compound literals, designated initializers | `not supported yet: compound literals`, `not supported yet: designated initializers` |
+| another value in an enum object (`mode = 1`, `mode++`, `(Mode)u`) | `an object of type Mode takes only its enumerators and values of Mode, not the constant 1 (...)`: store an enumerator, or keep the value in a `uint8_t` |
 | `_Bool` | `not supported yet: _Bool` (use `uint8_t`) |
 | a `volatile` variable | `not supported yet: volatile variables (only pointers to volatile memory)` |
 | inline assembly | `not supported yet: this statement` |
@@ -43,8 +44,9 @@ the console only through `sdevkit/snes.h` and `sdevkit/loop.h`.
 
 All of these pass `dampf check` and cost nothing extra: declarations anywhere, also in the `for`
 (`for (uint8_t i = 0; ...)`); struct assignment (`b = a;`, the way to copy a struct); `static`
-locals; `const` tables, also multi-dimensional (they stay in ROM); `switch`; `?:`; enums as
-constants; `memset` and `memcpy`; the hints `DAMPF_RANGE` and `DAMPF_BUDGET` (part 6);
+locals; `const` tables, also multi-dimensional (they stay in ROM); `switch`; `?:`; enums, as
+constants and as the type of an object that holds only their enumerators (1 byte for most,
+[docs/memory-map.md](../docs/memory-map.md#enum-objects)); `memset` and `memcpy`; the hints `DAMPF_RANGE` and `DAMPF_BUDGET` (part 6);
 pointers to arrays (`const uint8_t (*rows)[16]`).
 
 One rule of C that the checks find the hard way: **the order in which a call's arguments are
@@ -104,6 +106,8 @@ Write whichever reads better; these cost the same:
   byte offsets (`(Ball *)((uint8_t *)balls + list[k])`), as long as the offsets fit its type;
 - **`same-named-temporary`** a named temporary or the expression written inline: a value used
   once stays in the accumulator either way;
+- **`same-enum-object`** a state kept in an enum object or in a `uint8_t` with the enumerators as
+  constants: an enum whose enumerators fit a byte takes one;
 - **`same-32-bit-bits`** a value only combined bit by bit (a hash, a mask tested with `!= 0` or
   `==`) as one `uint32_t` or as two `uint16_t` halves: dampf splits it into the halves itself.
 
@@ -127,7 +131,7 @@ The worst case of each function in CPU cycles, from the timing report; "is" is t
 test checks ("same": within 5 %).
 
 <!-- measurements: written by StyleGuideTest -->
-Measured 2026-11-23 (worst case of the timing report, code generator from MIR).
+Measured 2026-11-24 (worst case of the timing report, code generator from MIR).
 
 | Rule | This | CPU cycles | is | than this | CPU cycles |
 | --- | --- | ---: | --- | --- | ---: |
@@ -135,6 +139,7 @@ Measured 2026-11-23 (worst case of the timing report, code generator from MIR).
 | `fast-multiply-bytes` | `multiply_bytes` | 62 | faster | `multiply_words` | 140 |
 | `same-32-bit-bits` | `xor_32` | 36 | same | `xor_16_halves` | 36 |
 | `same-declaration-place` | `declared_at_top` | 5,025 | same | `declared_where_used` | 5,025 |
+| `same-enum-object` | `step_enum` | 2,774 | same | `step_uint8` | 2,774 |
 | `same-increment-form` | `count_postfix` | 5,025 | same | `count_prefix` | 5,025 |
 | `same-index-form` | `read_indexed` | 5,025 | same | `read_pointer_arithmetic` | 5,025 |
 | `same-list-of-offsets` | `pairs_by_offsets` | 15,385 | same | `pairs_by_counter` | 15,493 |

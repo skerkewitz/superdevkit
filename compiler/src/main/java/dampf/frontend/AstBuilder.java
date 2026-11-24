@@ -146,8 +146,9 @@ public final class AstBuilder {
         long pc = Type.pcSize(t);
         if (pc != t.size()) {
             sizeDiffers.put(k, "sizeof " + t + " is " + t.size() + " in dampf but " + pc + " on the PC (dampf's pointers are 4 bytes, "
-                    + "8 on x86-64, and dampf does not pad struct fields): the program would compute other values than "
-                    + "its PC build. Only the element count sizeof a / sizeof a[0] is allowed for such types");
+                    + "8 on x86-64, its enum objects 1 or 2 bytes for most enums, 4 on x86-64, and dampf does not pad "
+                    + "struct fields): the program would compute other values than its PC build. Only the element count "
+                    + "sizeof a / sizeof a[0] is allowed for such types");
             pcSizes.put(k, pc);
         }
         return k;
@@ -334,12 +335,13 @@ public final class AstBuilder {
                 && dd.getText().startsWith("main(");
     }
 
-    /** An enumeration constant: in C it has type int. */
-    private record EnumConst(String name, long value) {}
+    /** An enumeration constant: in C it has type int. {@code def}: its enum. */
+    private record EnumConst(String name, long value, Type.EnumDef def) {}
 
     /**
-     * An enum type, as gcc sees it: unsigned int if no enumerator is negative, otherwise int.
-     * Its enumerators go into the current scope.
+     * An enum type. Its value is what gcc makes it, unsigned int if no enumerator is negative,
+     * otherwise int; its objects take the width that holds all enumerators
+     * ({@link Type.EnumDef}). Its enumerators go into the current scope.
      */
     private Type enumType(CParser.EnumSpecifierContext es) throws CompileError {
         String tag = es.Identifier() != null ? es.Identifier().getText() : null;
@@ -354,8 +356,9 @@ public final class AstBuilder {
             return t;
         }
         long next = 0;
-        boolean negative = false;
         Map<String, Object> scope = blockScopes.isEmpty() ? fileScope : blockScopes.peek();
+        Map<String, Long> values = new LinkedHashMap<>();
+        List<String> names = new ArrayList<>();
         for (CParser.EnumeratorContext en : es.enumeratorList().enumerator()) {
             String name = en.enumerationConstant().getText();
             long value = next;
@@ -372,11 +375,18 @@ public final class AstBuilder {
             if (scope.containsKey(name)) {
                 throw error(en, "'" + name + "' is already declared");
             }
-            scope.put(name, new EnumConst(name, value));
-            negative |= value < 0;
+            // while the enum is being defined, its enumerators are plain int constants
+            scope.put(name, new EnumConst(name, value, null));
+            names.add(name);
+            values.put(name, value);
             next = value + 1;
         }
-        Type t = negative ? Type.I32 : Type.U32;
+        // the same header gives the same name in every file
+        Type.EnumDef def = new Type.EnumDef(tag != null ? tag : "<anonymous at " + pos(es) + ">", values);
+        for (String name : names) {
+            scope.put(name, new EnumConst(name, values.get(name), def));
+        }
+        Type t = def.storage();
         if (tag != null) {
             enumTags.put(tag, t);
         }
@@ -671,6 +681,9 @@ public final class AstBuilder {
                     throw unsupported(id, "this kind of typedef");
                 }
                 typedefs.put(dec.name(), dec.type());
+                if (dec.type() instanceof Type.Int it && it.enumDef() != null) {
+                    it.enumDef().alias(dec.name());
+                }
             } else if (dec.isFunction()) {
                 if (id.initializer() != null) {
                     throw error(id, "a function cannot have an initializer");
@@ -1517,11 +1530,14 @@ public final class AstBuilder {
         } else {
             throw error(c, "the branches of ?: must both be numbers or pointers");
         }
+        Type.EnumDef both = enumOf(then) != null && enumOf(then).equals(enumOf(otherwise)) ? enumOf(then) : null;
         Long k = fold(cond);
-        if (k != null) {
-            return assignConvert(k != 0 ? then : otherwise, t, p);
+        Expr result = k != null ? assignConvert(k != 0 ? then : otherwise, t, p)
+                : new Expr.Conditional(cond, assignConvert(then, t, p), assignConvert(otherwise, t, p), t, p);
+        if (both != null) {
+            enumValues.put(result, both);
         }
-        return new Expr.Conditional(cond, assignConvert(then, t, p), assignConvert(otherwise, t, p), t, p);
+        return result;
     }
 
     /** The binary operator rules, from logical-or down to multiplicative: a left-to-right chain. */
@@ -1679,7 +1695,8 @@ public final class AstBuilder {
             return operand; // (void)x: only evaluated, the value is not used
         }
         if (t instanceof Type.Pointer pt) {
-            if (operand.type() instanceof Type.Pointer) {
+            if (operand.type() instanceof Type.Pointer from) {
+                enumPointers(from, pt, p);
                 return new Expr.PointerCast(operand, pt, p);
             }
             intType(operand, p);
@@ -1695,6 +1712,13 @@ public final class AstBuilder {
             return it.equals(Type.U32) ? a : new Expr.Convert(a, it, true, p);
         }
         intType(operand, p);
+        if (it.enumDef() != null && !it.enumDef().equals(enumOf(operand))) {
+            Long k = fold(operand);
+            if (k == null || !it.enumDef().hasValue(k)) {
+                throw new CompileError(p, "a cast to " + it + " needs a value of that type or a constant that is one of its "
+                        + "enumerators, not " + describe(operand) + " (enum objects hold only their enumerators, ADR-6FKZFDJ3)");
+            }
+        }
         if (operand instanceof Expr.Const k) {
             return keepOverflow(k, new Expr.Const(it.wrap(k.value()), it, p));
         }
@@ -1761,6 +1785,7 @@ public final class AstBuilder {
                 }
                 default -> {
                     checkAssignable(e, u);
+                    noStep(e, op.getText(), pos(op));
                     boolean increment = op.getText().equals("++");
                     if (hasSideEffects(e)) {
                         /* ++E with an E of side effects: E is evaluated once by E++ (whose value
@@ -1935,6 +1960,7 @@ public final class AstBuilder {
                 }
                 case "++", "--" -> {
                     checkAssignable(e, p);
+                    noStep(e, suffix, sp);
                     Type t = e.type();
                     int step = t instanceof Type.Pointer ? elementSize(e, sp) : 1;
                     if (!Type.isScalar(t)) {
@@ -2007,7 +2033,11 @@ public final class AstBuilder {
                 return new Expr.Var(v, pos(prim));
             }
             if (o instanceof EnumConst k) {
-                return new Expr.Const(k.value(), Type.I32, pos(prim));
+                Expr.Const c = new Expr.Const(k.value(), Type.I32, pos(prim));
+                if (k.def() != null) {
+                    enumValues.put(c, k.def());
+                }
+                return c;
             }
             if (o instanceof Function) {
                 throw unsupported(prim, "function pointers");
@@ -2206,7 +2236,10 @@ public final class AstBuilder {
         Expr build() throws CompileError;
     }
 
-    /** Converts a value as an assignment does (also for arguments, return values and initializers). */
+    /**
+     * Converts a value as an assignment does (also for arguments, return values and initializers).
+     * An enum object takes only the enumerators and values of its enum (ADR-6FKZFDJ3).
+     */
     private Expr assignConvert(Expr e, Type t, SourcePos pos) throws CompileError {
         e = rvalue(e);
         switch (t) {
@@ -2214,10 +2247,16 @@ public final class AstBuilder {
                 if (e.type() instanceof Type.Pointer) {
                     throw new CompileError(pos, "a pointer cannot be assigned to an integer without a cast");
                 }
+                if (it.enumDef() != null && !it.enumDef().equals(enumOf(e))) {
+                    throw new CompileError(pos, "an object of type " + it + " takes only its enumerators and values of "
+                            + it + ", not " + describe(e) + " (dampf keeps enum objects in fewer bytes than the PC, "
+                            + "ADR-6FKZFDJ3)");
+                }
                 return convert(e, it, pos);
             }
             case Type.Pointer pt -> {
-                if (e.type() instanceof Type.Pointer) {
+                if (e.type() instanceof Type.Pointer from) {
+                    enumPointers(from, pt, pos);
                     return e.type().equals(pt) ? e : new Expr.PointerCast(e, pt, pos);
                 }
                 Long k = fold(e);
@@ -2234,6 +2273,67 @@ public final class AstBuilder {
             }
             default -> throw new CompileError(pos, "cannot assign a value of type " + e.type() + " to " + t);
         }
+    }
+
+    /**
+     * Expressions whose value belongs to an enum although their type does not say so: its
+     * enumerators (int constants), and a {@code ?:} of two values of the enum.
+     */
+    private final Map<Expr, Type.EnumDef> enumValues = new java.util.IdentityHashMap<>();
+
+    /** The enum whose enumerators or values {@code e} gives, or null. */
+    private Type.EnumDef enumOf(Expr e) {
+        Type.EnumDef d = enumValues.get(e);
+        if (d != null) {
+            return d;
+        }
+        if (e instanceof Expr.Convert c && !c.explicit() && c.type().enumDef() == null) {
+            // a promotion or another implicit conversion that keeps every enumerator's value
+            Type.EnumDef inner = enumOf(c.operand());
+            return inner != null && c.type().min() <= inner.min() && inner.max() <= c.type().max() ? inner : null;
+        }
+        return e.type() instanceof Type.Int i ? i.enumDef() : null;
+    }
+
+    /** What a value is, for a message about enums. */
+    private String describe(Expr e) {
+        Type.EnumDef d = enumOf(e);
+        if (d != null) {
+            return "a value of " + d;
+        }
+        Long k = fold(e);
+        return k != null ? "the constant " + k : "a value of type " + e.type();
+    }
+
+    /** {@code ++} and {@code --} would store a value that need not be an enumerator. */
+    private static void noStep(Expr target, String op, SourcePos pos) throws CompileError {
+        if (target.type() instanceof Type.Int it && it.enumDef() != null) {
+            throw new CompileError(pos, "'" + op + "' cannot be used on an object of type " + it + ": it takes only its "
+                    + "enumerators and values of " + it + " (ADR-6FKZFDJ3)");
+        }
+    }
+
+    /**
+     * A pointer to an enum object converts only to a pointer to the same enum or to void: a
+     * store through a pointer to another type could put any value into the object.
+     */
+    private static void enumPointers(Type.Pointer from, Type.Pointer to, SourcePos pos) throws CompileError {
+        Type a = from.target();
+        Type b = to.target();
+        if (a instanceof Type.Void || b instanceof Type.Void || a.equals(b) || !hasEnum(a) && !hasEnum(b)) {
+            return;
+        }
+        throw new CompileError(pos, "a pointer to " + a + " cannot become a pointer to " + b
+                + ": enum objects take only their enumerators (ADR-6FKZFDJ3)");
+    }
+
+    private static boolean hasEnum(Type t) {
+        return switch (t) {
+            case Type.Int i -> i.enumDef() != null;
+            case Type.Pointer p -> hasEnum(p.target());
+            case Type.Array a -> hasEnum(a.element());
+            default -> false;
+        };
     }
 
     private Type.Int intType(Expr e, ParserRuleContext where) throws CompileError {
