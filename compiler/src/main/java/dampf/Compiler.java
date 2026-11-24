@@ -44,13 +44,23 @@ public final class Compiler {
      * @param optLimit     how many pass applications may run ({@link dampf.util.PassLimit}, to find
      *                     the pass that broke a program); negative: the limit the environment sets,
      *                     else none
+     * @param library      the sources (among {@code sources}) of a library ({@code --lib}): compiled
+     *                     without {@code defines}, which are for the program's own files (ADR-6FEWEE95, ADR-6FKYXP8C)
      */
     public record Options(List<Path> sources, List<Path> includeDirs, List<String> defines, String entry, Path output,
                           Map<String, Path> replacements, Backend backend,
                           java.util.function.BiFunction<String, String, Long> blockCounts, boolean fastRom, boolean ca65,
-                          int sram, long optLimit) {
+                          int sram, long optLimit, java.util.Set<Path> library) {
         /** The largest save RAM of a LoROM cartridge that dampf announces: 32 KB at $70:0000. */
         public static final int MAX_SRAM = 32 * 1024;
+
+        public Options(List<Path> sources, List<Path> includeDirs, List<String> defines, String entry, Path output,
+                       Map<String, Path> replacements, Backend backend,
+                       java.util.function.BiFunction<String, String, Long> blockCounts, boolean fastRom, boolean ca65,
+                       int sram, long optLimit) {
+            this(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fastRom, ca65, sram, optLimit,
+                    java.util.Set.of());
+        }
 
         public Options(List<Path> sources, List<Path> includeDirs, List<String> defines, String entry, Path output,
                        Map<String, Path> replacements, Backend backend,
@@ -86,20 +96,20 @@ public final class Compiler {
         }
 
         public Options withBackend(Backend b) {
-            return new Options(sources, includeDirs, defines, entry, output, replacements, b, blockCounts, fastRom, ca65, sram, optLimit);
+            return new Options(sources, includeDirs, defines, entry, output, replacements, b, blockCounts, fastRom, ca65, sram, optLimit, library);
         }
 
         public Options withBlockCounts(java.util.function.BiFunction<String, String, Long> counts) {
-            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, counts, fastRom, ca65, sram, optLimit);
+            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, counts, fastRom, ca65, sram, optLimit, library);
         }
 
         public Options withFastRom(boolean fast) {
-            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fast, ca65, sram, optLimit);
+            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fast, ca65, sram, optLimit, library);
         }
 
         /** {@code true}: assemble and link with ca65 and ld65. */
         public Options withCa65(boolean useCa65) {
-            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fastRom, useCa65, sram, optLimit);
+            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fastRom, useCa65, sram, optLimit, library);
         }
 
         /** With this many bytes of save RAM (0: none). */
@@ -107,12 +117,18 @@ public final class Compiler {
             if (bytes < 0 || bytes > MAX_SRAM) {
                 throw new IllegalArgumentException("save RAM of " + bytes + " bytes: 0 to " + MAX_SRAM);
             }
-            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fastRom, ca65, bytes, optLimit);
+            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fastRom, ca65, bytes, optLimit, library);
         }
 
         /** With at most this many pass applications (negative: the limit the environment sets, else none). */
         public Options withOptLimit(long limit) {
-            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fastRom, ca65, sram, limit);
+            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fastRom, ca65, sram, limit, library);
+        }
+
+        /** With these of the sources as a library's ({@code --lib}): compiled without {@code defines}. */
+        public Options withLibrary(java.util.Collection<Path> files) {
+            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fastRom, ca65, sram, optLimit,
+                    java.util.Set.copyOf(files));
         }
 
         /** The defines the preprocessor gets: the user's, and SDEVKIT_SRAM_SIZE with save RAM. */
@@ -123,6 +139,14 @@ public final class Compiler {
             List<String> all = new java.util.ArrayList<>(defines);
             all.add("SDEVKIT_SRAM_SIZE=" + sram);
             return all;
+        }
+
+        /** The defines the preprocessor gets for one source: a library's get only SDEVKIT_SRAM_SIZE. */
+        public List<String> definesFor(Path source) {
+            if (!library.contains(source)) {
+                return allDefines();
+            }
+            return sram == 0 ? List.of() : List.of("SDEVKIT_SRAM_SIZE=" + sram);
         }
 
         /** Block counts from a file of lines "function block count" ({@code dampf profile --blocks}). */
@@ -158,12 +182,12 @@ public final class Compiler {
 
     /** The front end; its warnings (docs/subset.md, "Warnings") are added to {@code warnings}. */
     public static Program frontEnd(Options o, List<String> warnings) throws CompileError, IOException {
-        Preprocessor pp = new Preprocessor(SystemHeaders.directory(), o.includeDirs(), o.allDefines());
         AstBuilder builder = new AstBuilder(SystemHeaders.directory());
         // every file, so that the errors of one do not hide those of the next
         List<dampf.frontend.Diagnostic> errors = new java.util.ArrayList<>();
         for (Path source : o.sources()) {
             try {
+                Preprocessor pp = new Preprocessor(SystemHeaders.directory(), o.includeDirs(), o.definesFor(source));
                 builder.addFile(Parser.parse(pp.run(source), source.toString()));
             } catch (CompileError e) {
                 errors.addAll(e.diagnostics());
