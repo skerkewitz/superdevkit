@@ -18,17 +18,21 @@ import java.util.Locale;
  * <pre>
  * dampf --version                                                      print dampf's version
  * dampf build|check|parse @file ...  (or --config file)                options from an argument file (ADR-6F3CJW9N);
- *                                                                      a folder stands for its .c files
- * dampf parse [-I dir] [-D name[=value]] file.c ...                   preprocess and parse
+ *                                                                      a folder stands for its .c files; --lib names
+ *                                                                      a library's file or folder, which the -D
+ *                                                                      defines do not reach (ADR-6FKYXP8C)
+ * dampf parse [-I dir] [-D name[=value]] file.c ... [--lib file.c ...]
+ *                                                                      preprocess and parse
  * dampf build [-I dir] [-D name[=value]] [--entry name] [--backend mir|naive] [--replace fn=file.s]
  *             [--block-counts file] [--slowrom] [--sram bytes] [--assembler dampf|ca65] [--opt-limit n]
- *             -o out.sfc file.c ...
+ *             -o out.sfc file.c ... [--lib file.c ...]
  *                                                                      compile to a ROM (block counts: dampf profile --blocks;
  *                                                                      --slowrom: no FastROM, for a SlowROM cartridge;
  *                                                                      --sram: battery-backed save RAM, defines SDEVKIT_SRAM_SIZE;
  *                                                                      --assembler ca65: ca65 and ld65 instead of dampf's own;
  *                                                                      --opt-limit: at most n pass applications, see PassLimit)
- * dampf check [-I dir] [-D name[=value]] file.c ...                   front end: every problem per file, then the
+ * dampf check [-I dir] [-D name[=value]] file.c ... [--lib file.c ...]
+ *                                                                      front end: every problem per file, then the
  *                                                                      files that pass together (recursion, calls of
  *                                                                      functions defined nowhere, double definitions)
  * dampf profile rom.sfc profile.txt [top] [--skip file.c ...] [--instructions] [--blocks file]
@@ -69,6 +73,7 @@ public final class Main {
         List<Path> includes = new ArrayList<>();
         List<String> defines = new ArrayList<>();
         List<Path> files = new ArrayList<>();
+        List<Path> library = new ArrayList<>();
         String entry = "main";
         Path output = null;
         java.util.Map<String, Path> replacements = new java.util.LinkedHashMap<>();
@@ -111,6 +116,15 @@ public final class Main {
                 if (optLimit < 0) {
                     System.err.println("--opt-limit " + value + ": a number of pass applications, 0 or more");
                     usage();
+                    System.exit(2);
+                }
+            } else if (a.equals("--lib") && i + 1 < args.length) {
+                try {
+                    List<Path> lib = ConfigFile.sources(Path.of(args[++i]));
+                    files.addAll(lib);
+                    library.addAll(lib);
+                } catch (ConfigFile.Error e) {
+                    System.err.println("dampf: --lib: " + e.getMessage());
                     System.exit(2);
                 }
             } else if (a.equals("--block-counts") && i + 1 < args.length) {
@@ -161,15 +175,17 @@ public final class Main {
                 }
             }
         }
+        Compiler.Options o = new Compiler.Options(files, includes, defines, entry, output, replacements,
+                backend != null ? backend : replacements.isEmpty() ? Compiler.Backend.MIR : Compiler.Backend.NAIVE,
+                blockCounts == null || !args[0].equals("build") ? null : Compiler.Options.readBlockCounts(blockCounts),
+                fastRom, ca65, sram, optLimit).withLibrary(library);
         if (args[0].equals("build")) {
             if (output == null || files.isEmpty()) {
                 usage();
                 System.exit(2);
             }
             try {
-                Compiler.Result r = Compiler.compile(new Compiler.Options(files, includes, defines, entry, output, replacements,
-                        backend != null ? backend : replacements.isEmpty() ? Compiler.Backend.MIR : Compiler.Backend.NAIVE,
-                        blockCounts == null ? null : Compiler.Options.readBlockCounts(blockCounts), fastRom, ca65, sram, optLimit));
+                Compiler.Result r = Compiler.compile(o);
                 r.warnings().forEach(System.err::println);
                 System.err.println("wrote " + r.rom().rom() + " and " + r.rom().dbg());
                 return;
@@ -185,7 +201,7 @@ public final class Main {
             for (Path f : files) {
                 try {
                     AstBuilder b = new AstBuilder(SystemHeaders.directory());
-                    Parser.Result parsed = Parser.parse(new Preprocessor(SystemHeaders.directory(), includes, defines).run(f), f.toString());
+                    Parser.Result parsed = Parser.parse(new Preprocessor(SystemHeaders.directory(), includes, o.definesFor(f)).run(f), f.toString());
                     b.addFile(parsed);
                     passed.add(parsed);
                     ok++;
@@ -214,12 +230,11 @@ public final class Main {
             }
             System.exit(ok == files.size() && whole ? 0 : 1);
         }
-        Preprocessor pp = new Preprocessor(SystemHeaders.directory(), includes, defines);
         int errors = 0;
         for (Path f : files) {
             Parser.Result r;
             try {
-                r = Parser.parse(pp.run(f), f.toString());
+                r = Parser.parse(new Preprocessor(SystemHeaders.directory(), includes, o.definesFor(f)).run(f), f.toString());
             } catch (CompileError e) {
                 e.diagnostics().forEach(System.err::println);
                 errors++;
@@ -248,9 +263,10 @@ public final class Main {
     private static void usage() {
         System.err.println("usage: dampf --version");
         System.err.println("       dampf parse|build|check @file ...   (or --config file: options from an argument file; a folder means its .c files)");
-        System.err.println("       dampf parse [-I dir] [-D name[=value]] file.c ...");
-        System.err.println("       dampf build [-I dir] [-D name[=value]] [--entry name] [--backend mir|naive] [--replace fn=file.s] [--block-counts file] [--slowrom] [--sram bytes] [--assembler dampf|ca65] [--opt-limit n] -o out.sfc file.c ...");
-        System.err.println("       dampf check [-I dir] [-D name[=value]] file.c ...");
+        System.err.println("       dampf parse [-I dir] [-D name[=value]] file.c ... [--lib file.c ...]");
+        System.err.println("       dampf build [-I dir] [-D name[=value]] [--entry name] [--backend mir|naive] [--replace fn=file.s] [--block-counts file] [--slowrom] [--sram bytes] [--assembler dampf|ca65] [--opt-limit n] -o out.sfc file.c ... [--lib file.c ...]");
+        System.err.println("       dampf check [-I dir] [-D name[=value]] file.c ... [--lib file.c ...]");
+        System.err.println("       (--lib: a library's file or folder, compiled without the -D defines)");
         System.err.println("       dampf profile rom.sfc profile.txt [top] [--skip file.c ...] [--instructions] [--blocks file]");
     }
 }

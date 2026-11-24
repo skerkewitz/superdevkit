@@ -195,9 +195,8 @@ before = ["./make_levels.sh"]
 ```
 
 The tables `[snes]`, `[desktop]` (`linux` and `win64`) and `[web]` can name `defines` for the game's
-own files on that target, such as `defines = ["DEV_TOOLS", "LEVELS=3"]`. On the SNES they also
-reach `lib/snes`, because dampf compiles the game and the library as one program, so a define must
-not use a name the library uses.
+own files on that target, such as `defines = ["DEV_TOOLS", "LEVELS=3"]`. They do not reach the
+kit's library: on the SNES the build hands `lib/snes` to dampf with `--lib`.
 
 A game with a build system of its own gets the kit's generated files with `superdevkit gen`: the
 conversions into `build/gen`, and with music the tracks and their list in `build/gen/music`.
@@ -223,7 +222,9 @@ timing report (`.timing.txt`). `--backend naive` picks the naive code generator,
 builds for a SlowROM cartridge (FastROM is the default), `--sram BYTES` gives the cartridge
 battery-backed save RAM (the header says so; `SDEVKIT_SRAM_SIZE` is defined), `--replace fn=file.s` links a
 hand-written function ([reference](reference/README.md)) and `--block-counts` lays out the
-blocks by a profile. `parse` only preprocesses and parses. `check` runs the front end on every
+blocks by a profile. `--lib FILE-OR-FOLDER` names a library's sources: they are compiled into the
+program like the others, but the `-D` defines do not reach them (`-I` and `--sram` do;
+[ADR-6FKYXP8C](docs/adr/6FKYXP8C-dampf-compiles-a-library-s-files-without-the.md)). `parse` only preprocesses and parses. `check` runs the front end on every
 file alone, then on all of them together (recursion, functions defined nowhere or twice). Every
 error of a run is reported, one per top-level declaration at most. `@file` (or `--config file`)
 reads options from an argument file: one per line, paths relative to the file, and a folder
