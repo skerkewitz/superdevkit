@@ -27,6 +27,16 @@
  */
 #define DAMPF_BUDGET(cycles) __attribute__((dampf_budget(cycles)))
 
+/*
+ * DAMPF_INTERRUPT(nmi) or DAMPF_INTERRUPT(irq), in front of a function definition: the function is
+ * the handler of that interrupt, 'void name(void)', called by the hardware through the runtime's
+ * entry stub and by no C code. It and every function it calls run in a context of their own, with
+ * their own frames, direct page and scratch registers and no hardware multiplier; a function
+ * called from two contexts is an error (docs/subset.md, "Interrupt handlers"). Built in the
+ * compiler, not yet for games: the kit's NMI and the game's IRQ come later (ADR-6FKTVDE8).
+ */
+#define DAMPF_INTERRUPT(kind) __attribute__((dampf_interrupt(kind)))
+
 #else
 
 /* one unsigned comparison: no "always true" warning for an unsigned v and lo 0 (-Wextra) */
@@ -48,6 +58,8 @@
 #endif
 /* checked by dampf at build time; the emulator tests measure it */
 #define DAMPF_BUDGET(cycles)
+/* on the PC an ordinary function, which nothing calls unless the program does */
+#define DAMPF_INTERRUPT(kind)
 
 #endif
 

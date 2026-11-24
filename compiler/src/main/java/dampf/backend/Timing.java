@@ -78,6 +78,26 @@ final class Timing {
             "dampf_udiv32", new Bound(1888, 2432),
             "dampf_sdiv32", new Bound(1940, 2594));
 
+    /**
+     * The multiplications of interrupt code, in software (ADR-6FM9TXV4), counted the same way: one
+     * round of 23 or 32 cycles per bit of the second factor up to its highest, and 32 rounds of 36
+     * or 61. Only a program with an interrupt handler has them.
+     */
+    static final Map<String, Bound> RUNTIME_SOFT = Map.of(
+            "dampf_mul16_soft", new Bound(22, 532),
+            "dampf_mul32_soft", new Bound(1168, 1968));
+
+    /**
+     * The runtime's entry stub of an interrupt handler (runtime.s), in CPU cycles: from the
+     * interrupt being taken (the CPU's 8 cycles of pushing PBR, PC and P and reading the vector) to
+     * the handler's first instruction, and from its RTL's target to the end of the RTI. The NMI
+     * reads RDNMI in 8 bits, so it takes 5 more cycles than the IRQ. The instruction the CPU was
+     * running when the interrupt came, which it finishes first, is not counted.
+     */
+    static final Map<dampf.ast.Interrupt, Integer> INTERRUPT_ENTRY = Map.of(dampf.ast.Interrupt.NMI, 71,
+            dampf.ast.Interrupt.IRQ, 66);
+    static final int INTERRUPT_EXIT = 31;
+
     private static final Object RET = new Object();
 
     private Timing() {}

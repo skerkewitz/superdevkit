@@ -3,6 +3,7 @@ package dampf.frontend;
 import dampf.ast.Expr;
 import dampf.ast.Function;
 import dampf.ast.Init;
+import dampf.ast.Interrupt;
 import dampf.ast.Program;
 import dampf.ast.Stmt;
 import dampf.ast.Type;
@@ -182,6 +183,8 @@ public final class AstBuilder {
     /** Whether specs() may meet DAMPF_BUDGET (only for a function definition), and what it found. */
     private boolean budgetAllowed;
     private Long budget; // NOPMD SingularField: set by specs() from DAMPF_BUDGET, read by functionDefinition()
+    /** The interrupt DAMPF_INTERRUPT names in front of a function definition, found by specs(). */
+    private Interrupt interrupt; // NOPMD SingularField: set by specs(), read by functionDefinition()
 
     /** Declaration specifiers: storage class, base type, and whether {@code const} or {@code volatile} was given. */
     private record Specs(Storage storage, Type type, boolean isConst, boolean isVolatile) {
@@ -268,6 +271,19 @@ public final class AstBuilder {
                         throw error(fs, "DAMPF_BUDGET belongs in front of a function definition");
                     }
                     budget = Long.parseLong(m.group(1));
+                }
+                case CParser.FunctionSpecifierContext fs when fs.gnuAttribute() != null
+                        && fs.getText().startsWith("__attribute__((dampf_interrupt") -> {
+                    java.util.regex.Matcher m = java.util.regex.Pattern.compile("__attribute__\\(\\(dampf_interrupt\\((\\w+)\\)\\)\\)")
+                            .matcher(fs.getText());
+                    Interrupt kind = m.matches() ? Interrupt.of(m.group(1)) : null;
+                    if (kind == null) {
+                        throw error(fs, "DAMPF_INTERRUPT needs 'nmi' or 'irq'");
+                    }
+                    if (!budgetAllowed) {
+                        throw error(fs, "DAMPF_INTERRUPT belongs in front of a function definition");
+                    }
+                    interrupt = kind;
                 }
                 case CParser.FunctionSpecifierContext fs -> {
                     if (!fs.getText().equals("inline")) {
@@ -1068,6 +1084,7 @@ public final class AstBuilder {
         }
         budgetAllowed = true;
         budget = null;
+        interrupt = null;
         Specs s;
         try {
             s = specs(fd.declarationSpecifiers().declarationSpecifier(), fd, isMain(fd.declarator()));
@@ -1076,6 +1093,8 @@ public final class AstBuilder {
         }
         Long cycles = budget;
         budget = null;
+        Interrupt handles = interrupt;
+        interrupt = null;
         if (s.storage() == Storage.TYPEDEF) {
             throw error(fd, "a function definition cannot be a typedef");
         }
@@ -1092,6 +1111,12 @@ public final class AstBuilder {
         }
         if (cycles != null) {
             f.setBudget(cycles);
+        }
+        if (handles != null) {
+            if (!(dec.type() instanceof Type.Void) || !dec.params().isEmpty()) {
+                throw new CompileError(dec.pos(), "an interrupt handler must be 'void " + f.name() + "(void)' (DAMPF_INTERRUPT)");
+            }
+            f.setInterrupt(handles);
         }
         current = f;
         currentLocals = f.locals();

@@ -92,6 +92,7 @@ document of its subject.
 | ADR-6FKZFDJ3 | [Enum objects take only values of their enum and the smallest width that holds them](adr/6FKZFDJ3-enum-objects-take-only-values-of-their-enum-and.md) | Accepted | 2026-11-24 |
 | ADR-6FM063YZ | [Plain `char` is text: a `char` value is only copied, tested and compared with `==` and `!=`](adr/6FM063YZ-plain-char-is-text-a-char-value-is-only-copied.md) | Accepted | 2026-11-24 |
 | ADR-6FM7MWGX | [A switch becomes a jump table where that costs fewer cycles than its compares](adr/6FM7MWGX-a-switch-becomes-a-jump-table-where-that-costs.md) | Accepted | 2026-11-24 |
+| ADR-6FM9TXV4 | [Interrupt handlers run in contexts of their own](adr/6FM9TXV4-interrupt-handlers-run-in-contexts-of-their-own.md) | Accepted | 2026-11-24 |
 
 ## Former numbers
 

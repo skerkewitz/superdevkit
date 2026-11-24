@@ -207,7 +207,9 @@ class BackendOutputTest {
         }
         // dampf's own assembler and linker build the same ROM as ca65 and ld65
         Path nativeDir = Files.createDirectories(dir.resolve("native"));
-        dampf.snes.RomBuilder.Rom own = dampf.snes.RomBuilder.buildNative(asm, nativeDir, "out", o.fastRom());
+        java.util.Set<dampf.ast.Interrupt> interrupts = new java.util.HashSet<>();
+        r.program().functions().stream().filter(f -> f.interrupt() != null && f.isDefined()).forEach(f -> interrupts.add(f.interrupt()));
+        dampf.snes.RomBuilder.Rom own = dampf.snes.RomBuilder.buildNative(asm, nativeDir, "out", o.fastRom(), interrupts);
         byte[] want = Files.readAllBytes(r.rom().rom());
         byte[] got = Files.readAllBytes(own.rom());
         assertEquals(want.length, got.length, key + ": the ROM's size (own linker vs ld65)");

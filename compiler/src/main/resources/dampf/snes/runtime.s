@@ -73,6 +73,9 @@ reset:
         mvn     #^__DATA_LOAD__, #$7E   ; leaves DBR = $7E, the destination bank
 @data_done:
 
+.if DAMPF_IRQ
+        cli                     ; an IRQ handler in C: IRQs come once the program sets the timer (NMITIMEN)
+.endif
         jsl     dampf_entry
 
 dampf_done:
@@ -90,10 +93,81 @@ irq:
         rti
 
 ; ---------------------------------------------------------------------------
+; Interrupt handlers in C (DAMPF_INTERRUPT, ADR-6FM9TXV4), assembled only for a program that has
+; one (DAMPF_NMI, DAMPF_IRQ). The entry stub saves A, X and Y in 16 bits, the data bank and the
+; direct page (the CPU has pushed P, PC and PBR), sets the data bank to $7E and the direct page to
+; the context's own page, whose first 32 bytes are its copy of dampf_regs and dampf_ptr and whose
+; rest holds its frames (the code generator exports dampf_nmi_dp and dampf_irq_dp). The vector
+; leads into bank $00; the stub's first instruction jumps on into bank $80. The cycles are in
+; dampf.backend.Timing (INTERRUPT_ENTRY, INTERRUPT_EXIT), from the interrupt being taken to the
+; first instruction of the handler and from its RTL to the end of the RTI.
+
+.if DAMPF_NMI
+        .import dampf_nmi_handler, dampf_nmi_dp
+        .export dampf_nmi
+dampf_nmi:
+        jml     @fast           ; on into bank $80, as reset does: FastROM, where the labels are
+@fast:  rep     #$30            ; (the RTI restores the widths)
+        .a16
+        .i16
+        pha
+        phx
+        phy
+        phb
+        phd
+        lda     #dampf_nmi_dp
+        tcd                     ; the NMI context's direct page
+        pea     $7E7E
+        plb                     ; DBR = $7E
+        plb
+        sep     #$20
+        .a8
+        lda     f:$004210       ; RDNMI: read in 8 bits, $4211 would end a pending IRQ
+        rep     #$20
+        .a16
+        jsl     dampf_nmi_handler
+        pld
+        plb
+        ply
+        plx
+        pla
+        rti
+.endif
+
+.if DAMPF_IRQ
+        .import dampf_irq_handler, dampf_irq_dp
+        .export dampf_irq
+dampf_irq:
+        jml     @fast           ; on into bank $80, as reset does: FastROM, where the labels are
+@fast:  rep     #$30
+        .a16
+        .i16
+        pha
+        phx
+        phy
+        phb
+        phd
+        lda     #dampf_irq_dp
+        tcd                     ; the IRQ context's direct page
+        pea     $7E7E
+        plb                     ; DBR = $7E
+        plb
+        lda     f:$004211       ; TIMEUP (and HVBJOY): ends the IRQ, which would come again at once
+        jsl     dampf_irq_handler
+        pld
+        plb
+        ply
+        plx
+        pla
+        rti
+.endif
+
+; ---------------------------------------------------------------------------
 ; Arithmetic routines for generated code, called with JSL (they may be in
 ; another bank than the caller) and left with RTL. All are entered and left
-; with A/X/Y 16 bit, D = 0. They work in dampf_regs (R0..R17 below), which is
-; scratch space: an interrupt handler that calls C code must save it.
+; with A/X/Y 16 bit, D = 0 (or an interrupt context's page). They work in
+; dampf_regs (R0..R17 below), which is scratch space: each interrupt context
+; has its own copy, in its own direct page.
 ;
 ; Simple shift-and-add / shift-and-subtract loops: this is the reference
 ; implementation. The SNES hardware multiplier and divider come later.
@@ -286,6 +360,57 @@ dampf_mul32:
         sta     z:R10
         rtl
 
+.if DAMPF_NMI | DAMPF_IRQ
+        .export dampf_mul16_soft, dampf_mul32_soft
+
+; The multiplications of interrupt code, without the CPU's multiplier: an interrupt between the
+; write of its factors and the read of the product would corrupt the interrupted product, and its
+; factors cannot be read back to save them (ADR-6FM9TXV4). Shift and add, the same results and
+; registers as dampf_mul16 and dampf_mul32.
+
+; A = A * R0, low 16 bits of the product. Destroys R0, R2, X. One round per bit of R0 up to its
+; highest one.
+dampf_mul16_soft:
+        sta     z:R2            ; a, shifted left each round
+        ldx     #0              ; the product
+        lda     z:R0
+        beq     @done
+@loop:  lsr     a               ; the next bit of b
+        sta     z:R0
+        bcc     @next
+        txa
+        clc
+        adc     z:R2
+        tax
+@next:  asl     z:R2
+        lda     z:R0
+        bne     @loop
+@done:  txa
+        rtl
+
+; R8:R10 = R0:R2 * R4:R6, low 32 bits of the product. Destroys R4, R6, X. 32 rounds, the bits of
+; R4:R6 from the top: the product doubles, and gets R0:R2 where the bit is 1.
+dampf_mul32_soft:
+        stz     z:R8
+        stz     z:R10
+        ldx     #32
+@loop:  asl     z:R8
+        rol     z:R10
+        asl     z:R4
+        rol     z:R6
+        bcc     @next
+        clc
+        lda     z:R8
+        adc     z:R0
+        sta     z:R8
+        lda     z:R10
+        adc     z:R2
+        sta     z:R10
+@next:  dex
+        bne     @loop
+        rtl
+.endif
+
 ; Unsigned A / R0: quotient in A, remainder in R2. Destroys R4, X.
 ; Division by zero gives quotient $FFFF (C leaves it undefined).
 dampf_udiv16:
@@ -423,9 +548,17 @@ dampf_sdiv32:
         .word   .loword(irq)                ; COP
         .word   .loword(irq)                ; BRK
         .word   .loword(irq)                ; ABORT
+.if DAMPF_NMI
+        .word   .loword(dampf_nmi)          ; NMI: the entry stub of a handler in C
+.else
         .word   .loword(nmi)                ; NMI
+.endif
         .word   0                           ; reserved
+.if DAMPF_IRQ
+        .word   .loword(dampf_irq)          ; IRQ: the entry stub of a handler in C
+.else
         .word   .loword(irq)                ; IRQ
+.endif
         ; $FFF0: emulation mode vectors
         .word   0, 0                        ; reserved
         .word   .loword(irq)                ; COP

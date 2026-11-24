@@ -16,6 +16,7 @@ public final class Function {
     private Stmt.Block body;
     private SourcePos definitionPos;
     private Long budget;
+    private Interrupt interrupt;
 
     public Function(String name, String label, Type returnType, List<Type> paramTypes, SourcePos pos) {
         this.name = name;
@@ -70,6 +71,15 @@ public final class Function {
 
     public void setBudget(long cycles) {
         this.budget = cycles;
+    }
+
+    /** The interrupt this function handles (DAMPF_INTERRUPT), or null for an ordinary function. */
+    public Interrupt interrupt() {
+        return interrupt;
+    }
+
+    public void setInterrupt(Interrupt kind) {
+        this.interrupt = kind;
     }
 
     public boolean isDefined() {

@@ -3,6 +3,7 @@ package dampf.check;
 import dampf.ast.Children;
 import dampf.ast.Expr;
 import dampf.ast.Function;
+import dampf.ast.Interrupt;
 import dampf.ast.Program;
 import dampf.ast.Stmt;
 import dampf.frontend.CompileError;
@@ -77,6 +78,102 @@ public final class CallGraph {
         path.removeLast();
         state.put(f, 2);
         return null;
+    }
+
+    /**
+     * The interrupt context of every function an interrupt handler reaches (DAMPF_INTERRUPT); the
+     * functions the entry reaches, and those nobody calls, are the main code's and not in the map.
+     * Each context gets frames, a direct page and scratch registers of its own (ADR-6FM9TXV4), so a
+     * function reached from two of them is an error, as are a handler that C code calls, a second
+     * handler of the same interrupt and an entry function marked as a handler.
+     */
+    public Map<Function, Interrupt> contexts(Function entry) throws CompileError {
+        if (entry.interrupt() != null) {
+            throw new CompileError(entry.definitionPos(), "the entry function '" + entry.name()
+                    + "' cannot be an interrupt handler (DAMPF_INTERRUPT)");
+        }
+        Map<Interrupt, Function> handlers = new java.util.EnumMap<>(Interrupt.class);
+        for (Function f : calls.keySet()) {
+            if (f.interrupt() == null) {
+                continue;
+            }
+            Function first = handlers.putIfAbsent(f.interrupt(), f);
+            if (first != null) {
+                throw new CompileError(f.definitionPos(), "'" + f.name() + "' is a second " + f.interrupt().name()
+                        + " handler; the first is '" + first.name() + "' at " + first.definitionPos());
+            }
+        }
+        for (Function f : calls.keySet()) {
+            for (Edge e : callsFrom(f)) {
+                if (e.callee().interrupt() != null) {
+                    throw new CompileError(e.pos(), "'" + e.callee().name() + "' is " + e.callee().interrupt().handler()
+                            + " (DAMPF_INTERRUPT): the hardware calls it, C code cannot");
+                }
+            }
+        }
+        Map<Function, Edge> mainReach = reach(entry);
+        Map<Function, Interrupt> out = new LinkedHashMap<>();
+        Map<Interrupt, Map<Function, Edge>> reached = new java.util.EnumMap<>(Interrupt.class);
+        for (Map.Entry<Interrupt, Function> h : handlers.entrySet()) {
+            Map<Function, Edge> mine = reach(h.getValue());
+            reached.put(h.getKey(), mine);
+            for (Function f : mine.keySet()) {
+                String other = null;
+                List<Function> otherPath = null;
+                if (mainReach.containsKey(f)) {
+                    other = "the main code";
+                    otherPath = path(f, mainReach);
+                } else if (out.containsKey(f)) {
+                    other = out.get(f).handler();
+                    otherPath = path(f, reached.get(out.get(f)));
+                }
+                if (other != null) {
+                    Edge last = mine.get(f);
+                    throw new CompileError(last.pos(), "'" + f.name() + "' is called from two contexts, " + other + " ("
+                            + names(otherPath) + ") and " + h.getKey().handler() + " (" + names(path(f, mine))
+                            + "); a function belongs to one context, so each needs a copy of its own (docs/subset.md, \"Interrupt handlers\")");
+                }
+                out.put(f, h.getKey());
+            }
+        }
+        return out;
+    }
+
+    /** Every function root reaches, root included, with the edge it was first reached by (null for root). */
+    private Map<Function, Edge> reach(Function root) {
+        Map<Function, Edge> seen = new LinkedHashMap<>();
+        seen.put(root, null);
+        java.util.ArrayDeque<Function> work = new java.util.ArrayDeque<>(List.of(root));
+        Map<Function, Function> parent = new HashMap<>();
+        while (!work.isEmpty()) {
+            Function f = work.poll();
+            for (Edge e : callsFrom(f)) {
+                if (!seen.containsKey(e.callee())) {
+                    seen.put(e.callee(), e);
+                    parent.put(e.callee(), f);
+                    work.add(e.callee());
+                }
+            }
+        }
+        parents.put(root, parent);
+        return seen;
+    }
+
+    private final Map<Function, Map<Function, Function>> parents = new HashMap<>();
+
+    /** The way from the root of {@code reached} to f. */
+    private List<Function> path(Function f, Map<Function, Edge> reached) {
+        Function root = reached.entrySet().stream().filter(e -> e.getValue() == null).findFirst().orElseThrow().getKey();
+        Map<Function, Function> parent = parents.get(root);
+        List<Function> p = new ArrayList<>();
+        for (Function x = f; x != null; x = parent.get(x)) {
+            p.addFirst(x);
+        }
+        return p;
+    }
+
+    private static String names(List<Function> path) {
+        return String.join(" → ", path.stream().map(Function::name).toList());
     }
 
     private static void collect(Stmt s, List<Edge> out) {

@@ -224,6 +224,16 @@ public final class Compiler {
         }
         java.util.function.Function<String, String> debugName =
                 file -> outDir.relativize(Path.of(file).toAbsolutePath().normalize()).toString().replace('\\', '/');
+        // interrupt handlers (DAMPF_INTERRUPT): the context of every function they reach, ADR-6FM9TXV4
+        Map<Function, dampf.ast.Interrupt> contexts = CallGraph.of(program).contexts(entry);
+        Map<dampf.ast.Interrupt, String> handlers = new java.util.EnumMap<>(dampf.ast.Interrupt.class);
+        Map<String, dampf.ast.Interrupt> contextByLabel = new java.util.HashMap<>();
+        contexts.forEach((f, c) -> contextByLabel.put(f.label(), c));
+        for (Function f : program.functions()) {
+            if (f.interrupt() != null && f.isDefined()) {
+                handlers.put(f.interrupt(), f.label());
+            }
+        }
         List<String> asm;
         Map<String, long[]> timing = Map.of();
         if (o.backend() == Backend.MIR) {
@@ -235,22 +245,26 @@ public final class Compiler {
             dampf.util.PassLimit limit = new dampf.util.PassLimit(
                     o.optLimit() >= 0 ? o.optLimit() : dampf.util.PassLimit.configured(), baseName);
             dampf.mir.Optimizer.run(mir, false, true, limit);
-            MirCodeGen gen = new MirCodeGen(mir, entry.label(), debugName, o.blockCounts(), limit);
+            MirCodeGen gen = new MirCodeGen(mir, entry.label(), debugName, o.blockCounts(), limit).interrupts(contextByLabel, handlers);
             asm = new java.util.ArrayList<>(gen.generate());
             timing = gen.timing();
             Map<String, String> why = gen.unboundedWhy();
-            writeTiming(timing, why, outDir.resolve(baseName + ".timing.txt"));
+            Map<String, String> notes = new java.util.HashMap<>(why);
+            handlers.forEach((c, label) -> notes.merge("dampf_" + c.key, "the " + c + " from the interrupt to the end of its RTI: entry stub and "
+                    + label, (a, b) -> b + "; " + a));
+            writeTiming(timing, notes, outDir.resolve(baseName + ".timing.txt"));
             // with a pass limit, the passes that prove a loop's bound may not have run: a budget
             // that cannot be guaranteed is then a warning, so the program can still be bisected
             checkBudgets(program, timing, why, warnings, limit.limited());
         } else {
-            asm = new java.util.ArrayList<>(new NaiveCodeGen(program, entry, o.replacements().keySet(), debugName).generate());
+            asm = new java.util.ArrayList<>(new NaiveCodeGen(program, entry, o.replacements().keySet(), debugName)
+                    .interrupts(contexts).generate());
         }
         for (Path s : o.replacements().values()) {
             asm.add(Files.readString(s));
         }
-        RomBuilder.Rom rom = o.ca65() ? RomBuilder.build(asm, outDir, baseName, o.fastRom())
-                : RomBuilder.buildNative(asm, outDir, baseName, o.fastRom());
+        RomBuilder.Rom rom = o.ca65() ? RomBuilder.build(asm, outDir, baseName, o.fastRom(), handlers.keySet())
+                : RomBuilder.buildNative(asm, outDir, baseName, o.fastRom(), handlers.keySet());
         if (o.sram() > 0) {
             RomBuilder.setSram(rom.rom(), o.sram());
         }
