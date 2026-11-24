@@ -10,12 +10,16 @@ examples) that had been done three days before but was buried in the history.
 **Decision.**
 
 - `docs/roadmap.md` holds what is to come: the milestones not yet concluded with what is left
-  of them, what is not scheduled, the open items outside the milestones, the future ideas, the
-  risks and the open questions, and the rule for versions.
+  of them, what is not scheduled, the open items outside the milestones, the future ideas and
+  the open questions, and the rule for versions.
 - `docs/history.md` holds what is done: the concluded milestones, what was built ahead of a
   milestone and released, the changes to the plan, the answered questions.
 - An item that is built and released leaves the roadmap. A note that says what is already there
   stays only where it is needed to say what is left.
+- The roadmap has no list of risks. Its list had become a description of how the project guards
+  against wrong code, which is in [testing.md](../testing.md) and [hints.md](../hints.md), with
+  figures that were out of date and points that repeated other sections. A risk to the plan
+  is said where the plan is, as the frame budget is in M12.
 - In a release's preparation, a concluded milestone moves from the roadmap to the history.
 
 **Alternatives.**

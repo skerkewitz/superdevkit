@@ -1,7 +1,7 @@
 # Roadmap
 
 What comes next for superdevkit: the milestones still open and what is left of them, the work
-without a milestone, ideas, risks and open questions. What is done and released is in
+without a milestone, ideas and open questions. What is done and released is in
 [history.md](history.md) (ADR-6FK7WP0H).
 
 ## Where things stand
@@ -234,35 +234,6 @@ the two differ, this list is current.
    breaks one condition of a pass at a time and lists what no test notices. Not built, and whether
    PIT runs on Java 25 class files and JDK 27 has not been checked. Mutation checks are done by
    hand until then.
-
-## Risks
-
-- **Miscompilation.** Mitigated by the test layers, the naive reference and the examples' checks
-  as oracle, a checksum every tick against the PC ([testing.md](testing.md)). When one shows,
-  `dampf.emu.RomDiff` names the global it breaks first.
-- **The optimizer is tested by few whole programs:** the examples' checks, a checksum every
-  tick. `RandomLoopProgram` generates the loops and pointer walks the optimizer's passes work on;
-  more examples would still help.
-- **Tuned on one game.** The block order and the idioms the optimizer looks for came from
-  Blubber Blasen. The inlining limits have been measured on the examples' benchmark
-  (`dev/bench_examples.sh`); the block order is still to be
-  ([Open without a milestone](#open-without-a-milestone)).
-- **Never run on a console.** Everything is checked in dampf's emulator and in Mesen; FastROM,
-  the DMA margin and timing at the edges have not run on hardware (not scheduled until there is
-  hardware).
-- **Different behaviour on PC and SNES.** Mitigated by fixed-width types only, exact promotion
-  rules and the differential tests against the PC (clang).
-- **The frame budget depends on the game.** The checkpoint after M2 concluded that the compiler
-  alone cannot reach it; with the CPU partner the worst tick takes 3 frames.
-- **Little human knowledge of the code.** About 23,000 lines were written in two days, mostly by
-  AI agents. A bug like the miscompilation of 2026-11-19 needs someone who knows how the code generator
-  works; today that knowledge is mostly in the documents and the ADR.
-- **Scope creep.** The compiler could become the project and stall the game. Mitigated by
-  running it in parallel and by milestones that are measured against Blubber Blasen.
-- **Gains smaller than hoped.** Each optimization is measured; the catalogue was re-prioritised
-  after M2.
-- **A wrong hint silently produces wrong code.** Mitigated by checking every fact hint as an
-  assertion on the PC, with the examples' checks running against them ([hints.md](hints.md)).
 
 ## Open questions
 

@@ -120,7 +120,7 @@ working documents it is written from.
 - [docs/memory-map.md](docs/memory-map.md): where code, data, variables and pointers live.
 - [docs/testing.md](docs/testing.md): the test layers and how they work.
 - [docs/brainstorm](docs/brainstorm): summaries of brainstorming sessions, the options weighed before a decision.
-- [docs/roadmap.md](docs/roadmap.md): what comes next: the open milestones, the work without a milestone, ideas, risks, open questions.
+- [docs/roadmap.md](docs/roadmap.md): what comes next: the open milestones, the work without a milestone, ideas, open questions.
 - [docs/history.md](docs/history.md): what is done: the concluded milestones, the changes to the plan, the answered questions, the relation to Blubber Blasen.
 - [docs/releases](docs/releases): the notes of each release from 0.9.2, as GitHub shows them.
 - [dev/README.md](dev/README.md): the scripts in `dev/`, for developing the kit against the examples.
