@@ -306,15 +306,16 @@ static uint8_t setup_from_board(void)
     return 1;
 }
 
-uint8_t set_fen(const char *fen)
+uint8_t set_fen(const char *text)
 {
+    const uint8_t *fen = (const uint8_t *)text;    /* bytes: dampf does no arithmetic on a char */
     uint8_t file = 0, rank = 7, sq;
 
     for (sq = 0; sq < 128; sq++) {
         board[sq] = EMPTY;
     }
     while (*fen != 0 && *fen != ' ') {
-        char c = *fen++;
+        uint8_t c = *fen++;
         if (c == '/') {
             if (rank == 0) {
                 return 0;

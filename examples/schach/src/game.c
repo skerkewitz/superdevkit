@@ -167,7 +167,7 @@ static void text_at(uint8_t x, uint8_t y, const char *s, uint8_t width, uint8_t 
     uint8_t n = 0;
 
     while (*s != 0 && x + n < 32) {
-        text_map[at + n] = (uint16_t)((uint8_t)(*s - 32) | PAL(pal) | SDEVKIT_BG_TIL_PRIO);
+        text_map[at + n] = (uint16_t)((uint8_t)((uint8_t)*s - 32) | PAL(pal) | SDEVKIT_BG_TIL_PRIO);
         s++;
         n++;
     }
