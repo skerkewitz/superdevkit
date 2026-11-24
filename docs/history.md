@@ -397,6 +397,10 @@ The dev kit went public as superdevkit on 2026-11-23, after version 0.9.0. What 
 - Mesen shows the C source with dampf's debug output: yes.
 - Licence: Apache License 2.0 with LLVM Exceptions
   ([ADR-6F0R6SCV](adr/6F0R6SCV-dampf-is-under-the-apache-license-20-with-llvm.md)).
+- A feature in Rachael as a dummy, which she does not draw but reports when it is used: not
+  enough to let a game use it. A feature of the picture is usable only when `lib/snes` and
+  Rachael both draw it (2026-11-24,
+  [ADR-6FKTVDE8](adr/6FKTVDE8-a-hardware-feature-is-usable-only-when-the-snes.md)).
 - What the Calypsi investigation finds: dampf is faster on the same scene; the order of the
   optimizations follows the plan above. Why Calypsi's results drifted from the PC's from tick 596
   on was not found; it is not pursued, since the game left Calypsi on 2026-11-19 and the kit no

@@ -28,7 +28,8 @@ working history of `docs/roadmap.md` and `docs/history.md` (the concluded milest
    roadmap's future ideas in a sentence or two) and for publishing.
 4. **The checkpoint after M2** – the decision that the compiler and the game work in parallel,
    with the numbers that led to it.
-5. **Open questions** – from the roadmap, those a user would care about.
+5. **Open questions** – those a user would care about: what 1.0 needs (in *Versions*), and the
+   open points the roadmap names in its milestones' items.
 
 ## Pay attention to
 

@@ -1,7 +1,7 @@
 # Roadmap
 
 What comes next for superdevkit: the milestones still open and what is left of them, the work
-without a milestone, ideas and open questions. What is done and released is in
+without a milestone, and ideas. What is done and released is in
 [history.md](history.md) (ADR-6FK7WP0H).
 
 ## Where things stand
@@ -18,7 +18,8 @@ The version is the dev kit's; it is in `build.gradle.kts`, and `dampf --version`
 Milestone N is released as version 0.N.0; between milestones the last number rises for every
 change worth naming, features included. Every version before 1.0 is a pre-release: the subset,
 the command line and the files dampf writes may change from one to the next. What 1.0 needs is
-an open question. The rule is ADR
+an open question: the frame budget met, the subset decisions taken, C in interrupts, or a set
+of users. The rule is ADR
 [ADR-6F3CJT1P](adr/6F3CJT1P-milestone-n-is-version-0n0-and-the-first-public.md), amended by
 [ADR-6F3CJX8T](adr/6F3CJX8T-superdevkit-is-the-project-and-dampf-is-its.md) and
 [ADR-6F60ZDMF](adr/6F60ZDMF-m5-is-concluded-as-060-and-a-version-between.md). When a milestone
@@ -56,7 +57,9 @@ in the kit's window, and a build step before the build with `superdevkit gen`
 - **Function pointers in constant tables**, allowed by design and not built.
 - **Hand-written assembly with the code generator from MIR:** `--replace` works only with the
   naive one, and a linked-in function has no way to declare its calling convention, direct page
-  use and cycles for the timing analysis.
+  use and cycles for the timing analysis. Once it does, more reference functions
+  ([reference/](../reference/README.md), Er-Tüp's `random16` and `sine` so far) can measure the
+  optimized code; candidates are the pair loop, Mandelbrot's iteration and Steinschlag's cave.
 - **Warnings where gcc warns by default**, first a constant that does not fit the type it
   initialises or is assigned to (`uint8_t w[] = { 420 }`): dampf truncates it as gcc does, but
   silently. It hid a bug in CatchMe (a cat's wait of 420 became 164) that only the desktop
@@ -64,7 +67,8 @@ in the kit's window, and a build step before the build with `superdevkit gen`
 - **Less memory for a compile:** Blubber Blasen took 1.8 GB.
 - **The SNES facts out of the code generators** (DBR `$7E`, the frame addresses, long I/O
   addresses) into the target ([architecture.md](architecture.md#core-and-target)).
-- **`restrict`** or a no-alias hint of dampf's own (see [Open questions](#open-questions)).
+- **`restrict`** or a no-alias hint of dampf's own. Open is how it is checked on the PC, and
+  which of the two is clearer ([hints.md](hints.md#open-questions)).
 - **Defines for the game's own files on the SNES too.** ADR-6FEWEE95 keeps a project's defines
   out of the kit's library. That holds on the desktop and the web, but on the SNES the defines of
   `[snes]` also reach `lib/snes`, since dampf compiles both as one program with one set of options.
@@ -84,14 +88,18 @@ Timing ([timing.md](timing.md#not-built-yet)):
   and a few thousand in play; its frame is guarded by a measured budget in `check.txt` instead
   (`budget T1 T2`, ExamplesTest). To be looked into: a hint for how often a path runs per call
   (`DAMPF_AT_MOST`, [hints.md](hints.md)), or a bound per call chain, would make budgets usable
-  there;
-- level 3: DRAM refresh, HDMA and interrupts at frame level.
+  there. This is how impossible path combinations get expressed, a question
+  [timing.md](timing.md#open-questions) left open until the bounds turned out too pessimistic;
+- level 3: DRAM refresh, HDMA and interrupts at frame level. Open is how the budget learns
+  which HDMA channels a game has on, since a game turns them on at run time
+  (`sdevkit_hdma_enable`).
 
 Better C debugging in Mesen: Mesen shows the C source and the names of global variables from
 the `.dbg` file, and that is all. Of a C symbol (`csym`) it reads only the name and the assembly
 symbol it belongs to, and the type that cc65 and dampf write is always `"00"`. dampf's users
 would gain from variables shown with their C type (`uint8_t`, signed `int16_t`), struct fields,
-and the locals of a function in their direct page places. The cc65 format already has fields
+and the locals of a function in their direct page places; open is how Mesen shows a place that
+several values share at different times. The cc65 format already has fields
 for part of this (a storage class `sc` and an offset on `csym`) that Mesen ignores. The plan:
 dampf first fills what the format has, then a small patch teaches Mesen to read it, offered to
 MesenCE, where Mesen is maintained now ([ADR-6F3CK1V6](adr/6F3CK1V6-mesence-is-the-emulator-for-the-console-checks.md)); NES developers who use cc65 would gain from it too. The patch waited
@@ -234,25 +242,6 @@ the two differ, this list is current.
    breaks one condition of a pass at a time and lists what no test notices. Not built, and whether
    PIT runs on Java 25 class files and JDK 27 has not been checked. Mutation checks are done by
    hand until then.
-
-## Open questions
-
-- **A feature in Rachael as a dummy** (2026-11-19, from the hardware guide). Is a feature that
-  Rachael does not draw but reports when it is used enough to let a game use it? It keeps the
-  desktop honest, but the desktop then cannot check that game's picture. Until it is decided, a
-  feature is usable only when both `lib/snes` and Rachael draw it
-  ([lib/SNES_HARDWARE.md](../lib/SNES_HARDWARE.md)).
-- What 1.0 needs: the frame budget met, the subset decisions taken, C in interrupts, or a set of
-  users.
-- How Mesen shows locals that live in fixed direct page places, several values sharing a place
-  (M11).
-- How to express impossible path combinations, should the worst-case bounds turn out too
-  pessimistic in practice ([timing.md](timing.md)).
-- How `restrict` is checked on the PC in practice, and whether a dampf-specific no-alias hint is
-  clearer than `restrict` ([hints.md](hints.md)).
-- Which functions become reference benchmarks. Er-Tüp's `random16` and `sine` so far
-  (`reference/`); candidates are the pair loop, Mandelbrot's iteration and Steinschlag's cave.
-- How much HDMA the game uses, since it changes the frame-level budget ([timing.md](timing.md)).
 
 ## History
 
