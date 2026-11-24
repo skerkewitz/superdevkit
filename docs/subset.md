@@ -106,7 +106,8 @@ only, see below), `void`, pointers, arrays (also multi-dimensional), pointers to
 well; the one exception is `int main(void)`, which the PC build needs (on the SNES the return value
 is ignored). There are no 64-bit types (`<stdint.h>` has no `uint64_t`). Also rejected today:
 `restrict`, `register`, enums with a fixed underlying type, flexible array members, anonymous
-struct members, typedefs of function types, and attributes other than `DAMPF_BUDGET`. Plain
+struct members, typedefs of function types, and attributes other than those of `DAMPF_BUDGET` and
+`DAMPF_ASM` ([hints.md](hints.md)). Plain
 integer types are rejected because their size differs between compilers: `int` is 32 bit on the
 PC and 16 bit with the other 65816 compilers (816-tcc, Calypsi). dampf itself gives `int` its PC
 meaning in the integer promotions, but game code says what width it means.
@@ -155,7 +156,9 @@ by design, but not built until something needs them.
 known at compile time.
 
 **Statements.** Everything in C99 except `goto`, labels, `setjmp`/`longjmp` and variable-length
-arrays (`goto` is decision 4 below, decided). Inline assembly is rejected too.
+arrays (`goto` is decision 4 below, decided). Inline assembly is rejected too; a whole function
+can be written in assembly in a file of its own, with its C body kept as the specification that
+dampf checks it against (`DAMPF_ASM`, [hints.md](hints.md)).
 
 **Expressions.** Everything in C99 except compound literals and the comma operator outside the
 first and third part of a `for`. A compound assignment whose left side has side effects
