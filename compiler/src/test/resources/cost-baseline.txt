@@ -806,8 +806,8 @@ schach _sdevkit_sram 11
 schach _search_clear 67601
 schach _search_run -1
 schach _search_start -1
-schach _set_fen 80527
-schach _set_start 80548
+schach _set_fen 78736
+schach _set_start 78757
 schach _set_x8 733
 schach _setup_from_board 44161
 schach _sfx_dsp -1

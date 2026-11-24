@@ -34,6 +34,7 @@ expensive, or one with a `DAMPF_BUDGET`. Elsewhere it costs readability for noth
 | compound literals, designated initializers | `not supported yet: compound literals`, `not supported yet: designated initializers` |
 | another value in an enum object (`mode = 1`, `mode++`, `(Mode)u`) | `an object of type Mode takes only its enumerators and values of Mode, not the constant 1 (...)`: store an enumerator, or keep the value in a `uint8_t` |
 | `_Bool` | `not supported yet: _Bool` (use `uint8_t`) |
+| arithmetic, `<`, `>`, shifts, an index on a plain `char` | `plain char is text, and whether it is signed differs between PCs, so a char may only be copied and compared with == or != against a char or a constant from 0 to 127: use uint8_t or int8_t for a number, or cast the char: (uint8_t)c` (write `(uint8_t)c - '0'`; `c == 'a'`, `while (*s)` and `switch (c)` are fine) |
 | a `volatile` variable | `not supported yet: volatile variables (only pointers to volatile memory)` |
 | inline assembly | `not supported yet: this statement` |
 

@@ -147,7 +147,7 @@ static void stage_init(void)
     memset(cell_bottom, 0, sizeof cell_bottom);
     for (i = 0; i < n; i++) {
         const CellDef *d = &cells[i];
-        uint8_t c = (uint8_t)(d->ch - ' ');
+        uint8_t c = (uint8_t)((uint8_t)d->ch - ' ');
         uint16_t base = (uint16_t)(d->sheet * 128);
         uint16_t pal = PAL(1 + d->sheet);
         cell_top[c] = (uint16_t)(cell_entry(base, d->top) | pal);
@@ -193,11 +193,11 @@ static uint8_t col_half;                   /* the upper half of next_col is buil
 static void build_rows(uint16_t col, uint8_t from, uint8_t to)
 {
     uint8_t r;
-    uint8_t above = (uint8_t)(stage[from > 0 ? from - 1 : 0][col] - ' ');
+    uint8_t above = (uint8_t)((uint8_t)stage[from > 0 ? from - 1 : 0][col] - ' ');
 
     for (r = from; r < to; r++) {
-        uint8_t c = (uint8_t)(stage[r][col] - ' ');
-        uint8_t below = r + 1 < ROWS ? (uint8_t)(stage[r + 1][col] - ' ') : c;
+        uint8_t c = (uint8_t)((uint8_t)stage[r][col] - ' ');
+        uint8_t below = r + 1 < ROWS ? (uint8_t)((uint8_t)stage[r + 1][col] - ' ') : c;
         if (c == 0) {
             col_buf[r] = 0;
         } else if (above != c) {
@@ -335,7 +335,7 @@ uint8_t solid_at(int16_t sx, int16_t sy)
         return 0;
     }
     row = (uint8_t)((uint16_t)sy >> 4);
-    return cell_solid[(uint8_t)(stage[row][col] - ' ')];
+    return cell_solid[(uint8_t)((uint8_t)stage[row][col] - ' ')];
 }
 
 /* --- the waves -------------------------------------------------------------------------------- */
