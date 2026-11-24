@@ -110,6 +110,36 @@ public final class NaiveCodeGen {
 
     private final java.util.Set<String> replaced;
 
+    /**
+     * The interrupt context of each function an interrupt handler reaches
+     * ({@link dampf.check.CallGraph#contexts}, ADR-6FM9TXV4). The naive code has no frames in low
+     * RAM: a context's own direct page gives it its own scratch registers, and its functions
+     * multiply in software.
+     */
+    private Map<Function, dampf.ast.Interrupt> contexts = Map.of();
+
+    /** The contexts of the functions interrupt handlers reach, before {@link #generate}. */
+    public NaiveCodeGen interrupts(Map<Function, dampf.ast.Interrupt> contextOf) {
+        this.contexts = Map.copyOf(contextOf);
+        return this;
+    }
+
+    /** The interrupt handlers, by interrupt. */
+    private Map<dampf.ast.Interrupt, Function> handlers() {
+        Map<dampf.ast.Interrupt, Function> h = new java.util.TreeMap<>();
+        for (Function f : program.functions()) {
+            if (f.interrupt() != null && f.isDefined()) {
+                h.put(f.interrupt(), f);
+            }
+        }
+        return h;
+    }
+
+    /** The runtime's 16-bit multiplication for the current function: in software in interrupt code. */
+    private String mul16() {
+        return contexts.containsKey(current) ? "dampf_mul16_soft" : "dampf_mul16";
+    }
+
     /** Where the frame of a function written in assembly starts: dampf_frame, as in the code from MIR. */
     private static final int ASM_FRAME = 0x20;
 
@@ -149,6 +179,7 @@ public final class NaiveCodeGen {
             if (m == 0) {
                 w.append(ram);
                 w.blank();   // (as when the text was copied in)
+                handlerExports(w);
             }
             for (int i = m * SEGMENTS_PER_MODULE; i < Math.min(banked.size(), (m + 1) * SEGMENTS_PER_MODULE); i++) {
                 if (i == entryBlock) {
@@ -163,6 +194,22 @@ public final class NaiveCodeGen {
             modules.add(w.toString());
         }
         return modules;
+    }
+
+    /**
+     * The symbols the runtime's interrupt entry stubs import: each handler and its direct page,
+     * one page each below the stack ({@link ContextAreas}).
+     */
+    private void handlerExports(AsmWriter w) {
+        Map<dampf.ast.Interrupt, Integer> none = new java.util.EnumMap<>(dampf.ast.Interrupt.class);
+        handlers().keySet().forEach(c -> none.put(c, 0));
+        Map<dampf.ast.Interrupt, Integer> pages = ContextAreas.pages(none);
+        handlers().forEach((c, f) -> {
+            w.raw("        .export dampf_" + c.key + "_handler, dampf_" + c.key + "_dp");
+            w.raw("dampf_" + c.key + "_handler = " + f.label() + "             ; the runtime's " + c + " entry calls this");
+            w.raw("dampf_" + c.key + "_dp = $" + String.format("%04X", pages.get(c)) + "                   ; with the direct page here");
+            w.blank();
+        });
     }
 
     /** The entry function must be {@code void name(void)}, or {@code int main(void)}. */
@@ -185,6 +232,9 @@ public final class NaiveCodeGen {
         w.raw("        .i16");
         w.raw("        .importzp dampf_regs, dampf_ptr");
         w.raw("        .import dampf_mul16, dampf_mul32, dampf_udiv16, dampf_udiv32, dampf_sdiv32");
+        if (!handlers().isEmpty()) {
+            w.raw("        .import dampf_mul16_soft, dampf_mul32_soft");
+        }
         if (modules > 1 || !replaced.isEmpty()) {
             // exported by the module that defines a label, imported by the others
             List<String> all = new ArrayList<>();
@@ -659,7 +709,7 @@ public final class NaiveCodeGen {
         }
         out.ins("ldx", imm(size), null);
         out.ins("stx", "z:R0", null);
-        out.ins("jsl", "dampf_mul16", "* " + size + " (element size)");
+        out.ins("jsl", mul16(), "* " + size + " (element size)");
     }
 
     /** Sets up X or Y for an access; returns the operand for the word at {@code extra}. */
@@ -948,7 +998,7 @@ public final class NaiveCodeGen {
                 genA(b.left());
                 out.ins("ldx", right, null);
                 out.ins("stx", "z:R0", null);
-                out.ins("jsl", "dampf_mul16", result + " (low 16 bits)");
+                out.ins("jsl", mul16(), result + " (low 16 bits)");
             }
             case SHL -> shift16(b, "asl", result);
             case SHR, DIV, MOD -> {
@@ -1205,7 +1255,7 @@ public final class NaiveCodeGen {
                 String t = temp();
                 String result;
                 if (b.op() == Expr.BinOp.MUL) {
-                    out.ins("jsl", "dampf_mul32", "R8 = R0 * R4");
+                    out.ins("jsl", contexts.containsKey(current) ? "dampf_mul32_soft" : "dampf_mul32", "R8 = R0 * R4");
                     result = "z:R8";
                 } else {
                     boolean signed = b.type().signed();

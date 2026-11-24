@@ -199,14 +199,18 @@ over when it left ([ADR-6F60Z819](adr/6F60Z819-the-examples-replace-blubber-blas
   execution and random-program tests and the examples inside the JVM, and counts master cycles with the memory speeds of the SNES (WRAM and SlowROM 8, I/O 6,
   internal cycles 6, DRAM refresh 40 per scanline). Of the picture it has the timing the kit's
   main loop polls: the line counter, the vertical blank flag, the automatic joypad read and the
-  joypads. It is validated
+  joypads. It has the interrupts too: the NMI at the vertical blank and the H/V timer IRQ
+  (`NMITIMEN`, `HTIME`, `VTIME`, `RDNMI`, `TIMEUP`; `InterruptTest`), with the cycles spent inside
+  interrupts counted apart, so the timing checks can leave them out. It is validated
   - against the SingleStepTests 65816 suite (github.com/SingleStepTests/65816,
     `CpuSingleStepTest`, `-PcpuTests`): native mode, all 256 opcodes, about 300 random tests
     each (76,059 in all); registers, flags, memory, CPU cycles and the number of memory accesses
     match. Emulation mode is only modelled as far as the start-up needs it;
   - against Mesen on Blubber Blasen's benchmark, while it was here: the same checksums on all
     3,610 ticks, and the same master cycles per tick within a few cycles out of millions
-    (`dampf bench`); and on every example's check, the same checksums every tick.
+    (`dampf bench`); and on every example's check, the same checksums every tick; and on
+    `exec/interrupts.c`, whose handlers check the line they run on, the same lines in both (Mesen
+    showed that a write of `VTIME` that makes the current line its own fires the IRQ at once).
 - **GitHub Actions** (`.github/workflows/build.yml`) runs `./gradlew build` for every pull
   request (ADR-6FB9QJ3R), with JDK 25 on Ubuntu, the
   runner's cc (the desktop library's tests), clang, python3 and node, and Ubuntu's cc65 (ca65 and ld65 for `BackendOutputTest`). Mesen, raylib, Emscripten and Playwright are not there: the execution

@@ -222,6 +222,17 @@ public final class Compiler {
         // Debug file names are relative to the .dbg file, so Mesen finds the sources wherever the ROM is opened.
         java.util.function.Function<String, String> debugName =
                 file -> outDir.relativize(Path.of(file).toAbsolutePath().normalize()).toString().replace('\\', '/');
+        // interrupt handlers (DAMPF_INTERRUPT): the context of every function they reach, ADR-6FM9TXV4
+        Map<Function, dampf.ast.Interrupt> contexts = CallGraph.of(program).contexts(entry);
+        Map<dampf.ast.Interrupt, String> handlers = new java.util.EnumMap<>(dampf.ast.Interrupt.class);
+        Map<String, dampf.ast.Interrupt> contextByLabel = new java.util.HashMap<>();
+        contexts.forEach((f, c) -> contextByLabel.put(f.label(), c));
+        for (Function f : program.functions()) {
+            if (f.interrupt() != null && f.isDefined()) {
+                handlers.put(f.interrupt(), f.label());
+            }
+        }
+        checkAsmInInterrupts(asmFunctions, contexts, program);
         List<String> asm;
         Map<String, long[]> timing = Map.of();
         MirCodeGen gen = null;
@@ -234,33 +245,37 @@ public final class Compiler {
             dampf.util.PassLimit limit = new dampf.util.PassLimit(
                     o.optLimit() >= 0 ? o.optLimit() : dampf.util.PassLimit.configured(), baseName);
             dampf.mir.Optimizer.run(mir, false, true, limit);
-            gen = new MirCodeGen(mir, entry.label(), debugName, o.blockCounts(), limit);
+            gen = new MirCodeGen(mir, entry.label(), debugName, o.blockCounts(), limit).interrupts(contextByLabel, handlers);
             for (AsmFunctions.Asm a : asmFunctions.values()) {
                 gen.asm(a.function().label(), a.paramSymbols(), a.result().best(), a.result().worst());
             }
             asm = new java.util.ArrayList<>(gen.generate());
             timing = gen.timing();
             Map<String, String> why = gen.unboundedWhy();
-            writeTiming(timing, why, asmFunctions, outDir.resolve(baseName + ".timing.txt"));
+            Map<String, String> notes = new java.util.HashMap<>(why);
+            handlers.forEach((c, label) -> notes.merge("dampf_" + c.key, "the " + c + " from the interrupt to the end of its RTI: entry stub and "
+                    + label, (x, y) -> y + "; " + x));
+            writeTiming(timing, notes, asmFunctions, outDir.resolve(baseName + ".timing.txt"));
             // with a pass limit, the passes that prove a loop's bound may not have run: a budget
             // that cannot be guaranteed is then a warning, so the program can still be bisected
             checkBudgets(program, timing, why, warnings, limit.limited());
         } else {
-            asm = new java.util.ArrayList<>(new NaiveCodeGen(program, entry, asmFunctions.keySet(), debugName).generate());
+            asm = new java.util.ArrayList<>(new NaiveCodeGen(program, entry, asmFunctions.keySet(), debugName)
+                    .interrupts(contexts).generate());
         }
         for (AsmFunctions.Asm a : asmFunctions.values()) {
             if (a.text() != null) {
                 asm.add(a.text());   // (a file with several functions once)
             }
         }
-        RomBuilder.Rom rom = o.ca65() ? RomBuilder.build(asm, outDir, baseName, o.fastRom())
-                : RomBuilder.buildNative(asm, outDir, baseName, o.fastRom());
+        RomBuilder.Rom rom = o.ca65() ? RomBuilder.build(asm, outDir, baseName, o.fastRom(), handlers.keySet())
+                : RomBuilder.buildNative(asm, outDir, baseName, o.fastRom(), handlers.keySet());
         if (o.sram() > 0) {
             RomBuilder.setSram(rom.rom(), o.sram());
         }
         List<dampf.emu.AsmCheck.Report> checks = List.of();
         if (gen != null && !asmFunctions.isEmpty()) {
-            checks = checkAsm(program, asm, gen, asmFunctions, o.fastRom());
+            checks = checkAsm(program, asm, gen, asmFunctions, o.fastRom(), handlers.keySet());
         }
         return new Result(program, asm, rom, timing, warnings, checks);
     }
@@ -271,11 +286,12 @@ public final class Compiler {
      * bodies as well; a difference is a compile error.
      */
     private static List<dampf.emu.AsmCheck.Report> checkAsm(Program program, List<String> modules, MirCodeGen gen,
-                                                            Map<String, AsmFunctions.Asm> asmFunctions, boolean fastRom)
+                                                            Map<String, AsmFunctions.Asm> asmFunctions, boolean fastRom,
+                                                            java.util.Set<dampf.ast.Interrupt> interrupts)
             throws CompileError, IOException {
         List<String> all = new java.util.ArrayList<>(modules);
         all.add(gen.checkModule());
-        dampf.asm.Linker.Image image = RomBuilder.linkInMemory(all, fastRom);
+        dampf.asm.Linker.Image image = RomBuilder.linkInMemory(all, fastRom, interrupts);
         Map<String, Long> at = image.globals();
         java.util.Set<dampf.ast.Variable> read = new java.util.HashSet<>();
         asmFunctions.values().forEach(a -> read.addAll(AsmFunctions.globalsOf(a.function())));
@@ -310,6 +326,27 @@ public final class Compiler {
         } catch (dampf.emu.AsmCheck.Failure e) {
             AsmFunctions.Asm a = asmFunctions.get(e.function());
             throw new CompileError(a.function().definitionPos(), e.getMessage() + " (" + a.name() + ", DAMPF_ASM)");
+        }
+    }
+
+    /**
+     * A function written in assembly (DAMPF_ASM or --replace) may not be reached from an interrupt
+     * handler: its convention (ADR-6FMATG2V) assumes the direct page 0 and its frame at dampf_frame
+     * in the main code's area, where an interrupt context has its own page and frames, and its code
+     * may use the CPU's multiplier, which interrupt code must not touch (ADR-6FM9TXV4).
+     */
+    private static void checkAsmInInterrupts(Map<String, AsmFunctions.Asm> asmFunctions,
+                                             Map<Function, dampf.ast.Interrupt> contexts, Program program) throws CompileError {
+        for (AsmFunctions.Asm a : asmFunctions.values()) {
+            dampf.ast.Interrupt c = contexts.get(a.function());
+            if (c == null) {
+                continue;
+            }
+            String handler = program.functions().stream().filter(f -> f.interrupt() == c).findFirst().orElseThrow().name();
+            throw new CompileError(a.function().definitionPos(), "'" + a.function().name() + "' is written in assembly ("
+                    + a.name() + ") and reached from " + c.handler() + " '" + handler + "': an assembly function assumes"
+                    + " the direct page 0 and the main code's frames and may use the CPU's multiplier, so interrupt code"
+                    + " cannot call it yet (docs/hints.md, DAMPF_ASM)");
         }
     }
 

@@ -211,8 +211,13 @@ The MIR passes treat an assembly function as unknown code: calls of it are not i
 parameters are not rewritten (`PointerParams`, `IndexParams`) and get no ranges from the callers,
 and it may write any memory. The MIR interpreter and the tests' PC side run the C body.
 
-An assembly function that an interrupt handler reaches is not handled yet: interrupt contexts
-are being built separately and will have to reject or place it.
+An assembly function that an interrupt handler reaches (`DAMPF_INTERRUPT`,
+[subset.md](subset.md)) is a compile error that names the function and the handler. Its
+convention assumes D = 0 and its frame at `dampf_frame` in the main code's area, while an
+interrupt context has its own direct page and frames, and nothing stops its code from using the
+CPU's multiplier, which interrupt code must not touch
+([ADR-6FM9TXV4](adr/6FM9TXV4-interrupt-handlers-run-in-contexts-of-their-own.md)). The two do
+not fit yet.
 
 **`DAMPF_TRIPS` is postponed.** On the PC it would have to count the rounds per entry into the
 loop, and a macro in front of or inside a loop cannot see the entry (nor a `break` or `return`

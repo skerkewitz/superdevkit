@@ -113,10 +113,20 @@ final class Selection {
         }
     }
 
-    static LOperand.Mem at(int offset) {
-        // a word that lies in the direct page is reached with direct page addressing (D = 0)
-        // (ca65 takes dampf_frame for a zero page symbol, so the others need "a:")
-        return new LOperand.Mem(FRAME_START + offset + 1 < 0x100 ? LOperand.Width.DP : LOperand.Width.ABS, FRAME, offset,
+    /**
+     * The symbol of the current function's absolute frame addresses ({@link MirCodeGen#frameSymbol}):
+     * {@code dampf_frame} in the main code, {@code dampf_frame_irq} in the IRQ context.
+     */
+    String absFrame = FRAME;
+    /** The current function runs in an interrupt context: no hardware multiplier (ADR-6FM9TXV4). */
+    boolean interrupt;
+
+    LOperand.Mem at(int offset) {
+        // a word that lies in the direct page is reached with direct page addressing, relative to
+        // the context's direct page (D = 0 in the main code); the others absolutely, in the
+        // context's area (ca65 takes dampf_frame for a zero page symbol, so they need "a:")
+        boolean dp = FRAME_START + offset + 1 < 0x100;
+        return new LOperand.Mem(dp ? LOperand.Width.DP : LOperand.Width.ABS, dp ? FRAME : absFrame, offset,
                 LOperand.Index.NONE, false);
     }
 
@@ -141,7 +151,7 @@ final class Selection {
             case Value.GlobalAddr g -> rom.contains(g.symbol())
                     ? (w == 0 ? new LOperand.Imm(".loword(" + g.symbol() + ")") : new LOperand.Imm("^" + g.symbol()))
                     : (w == 0 ? new LOperand.Imm(".loword(" + g.symbol() + ")") : imm(0x7E));
-            case Value.SlotAddr s -> w == 0 ? new LOperand.Imm(".loword(" + FRAME + "+" + place.get(s.slot()) + ")",
+            case Value.SlotAddr s -> w == 0 ? new LOperand.Imm(".loword(" + absFrame + "+" + place.get(s.slot()) + ")",
                     new LOperand.Owner(s.slot(), false, 0)) : imm(0x7E);
             case Value.Param p -> w >= words(p.type()) ? imm(0) : placeOf(p, w);
             case Instr i when FrameLayout.transparent(i) -> w >= words(i.type()) ? imm(0) : operand(i.op(0), w);

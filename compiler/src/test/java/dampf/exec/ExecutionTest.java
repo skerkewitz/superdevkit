@@ -21,7 +21,8 @@ import org.junit.jupiter.api.io.TempDir;
  * in dampf's emulator, and also in Mesen when one is available (.mesen/ or -Pmesen=...), so the
  * emulator is checked against a complete SNES emulator too. Each program's entry function is
  * {@code test_main}. Each program is built twice, with the naive code generator and with the one
- * from MIR; the emulator runs both.
+ * from MIR; the emulator runs both. The MIR interpreter runs each program too, except those with an
+ * interrupt handler ({@code exec/interrupts.c}).
  */
 class ExecutionTest {
     @TempDir
@@ -46,8 +47,12 @@ class ExecutionTest {
                     work.resolve(name + ".sfc")));
             List<Observed> globals = Observed.of(r.program().globals());
             Map<String, Long> pc = PcReference.wrap(PcReference.run(src, "test_main", globals, work), globals);
-            assertEquals(pc, MirRunner.run(r.program(), "test_main", globals), "globals after test_main() (PC vs MIR interpreter)");
-            assertEquals(pc, MirRunner.run(r.program(), "test_main", globals, true), "globals after test_main() (PC vs optimized MIR)");
+            // the MIR interpreter has no interrupts and no hardware registers: a program with an
+            // interrupt handler (DAMPF_INTERRUPT) runs only on the PC and on the SNES
+            if (r.program().functions().stream().noneMatch(f -> f.interrupt() != null)) {
+                assertEquals(pc, MirRunner.run(r.program(), "test_main", globals), "globals after test_main() (PC vs MIR interpreter)");
+                assertEquals(pc, MirRunner.run(r.program(), "test_main", globals, true), "globals after test_main() (PC vs optimized MIR)");
+            }
             Map<String, Long> snes = emulator.run(r.rom(), globals).values();
             assertEquals(pc, snes, "globals after test_main() (PC vs SNES in dampf's emulator)");
             if (mesenRunner != null) {

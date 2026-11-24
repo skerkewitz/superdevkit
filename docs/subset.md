@@ -106,8 +106,8 @@ only, see below), `void`, pointers, arrays (also multi-dimensional), pointers to
 well; the one exception is `int main(void)`, which the PC build needs (on the SNES the return value
 is ignored). There are no 64-bit types (`<stdint.h>` has no `uint64_t`). Also rejected today:
 `restrict`, `register`, enums with a fixed underlying type, flexible array members, anonymous
-struct members, typedefs of function types, and attributes other than those of `DAMPF_BUDGET` and
-`DAMPF_ASM` ([hints.md](hints.md)). Plain
+struct members, typedefs of function types, and attributes other than those of `DAMPF_BUDGET`,
+`DAMPF_ASM` ([hints.md](hints.md)) and `DAMPF_INTERRUPT`. Plain
 integer types are rejected because their size differs between compilers: `int` is 32 bit on the
 PC and 16 bit with the other 65816 compilers (816-tcc, Calypsi). dampf itself gives `int` its PC
 meaning in the integer promotions, but game code says what width it means.
@@ -178,6 +178,20 @@ truncates that number. On the PC the number is something else, so only distances
 object agree between both sides (`exec/pointer_to_int.c`). The SNES platform layer in
 `lib/snes` is written this way. The checker does not tell platform code from game code: a
 cast from an integer to a pointer is accepted anywhere.
+
+**Interrupt handlers.** Built in the compiler, not yet for games: the kit's NMI and a game's IRQ
+come with the data the tick publishes for them and with Rachael's IRQ (ADR-6FKTVDE8).
+`DAMPF_INTERRUPT(nmi)` or `DAMPF_INTERRUPT(irq)` from `<dampf.h>`, in front of a function
+definition, makes the function the handler of that interrupt. It must be `void name(void)`, there
+is at most one per interrupt, the hardware calls it through the runtime's entry stub and C code
+never does. The handler and every function it calls form a context of their own, with their own
+frames, direct page and scratch registers, and they multiply without the CPU's multiplier
+(ADR-6FM9TXV4, [memory-map.md](memory-map.md#interrupt-contexts)). A function called from two
+contexts (the main code and a handler, or both handlers) is an error that names both call paths,
+so a helper that both need is written twice. A function written in assembly (`DAMPF_ASM`,
+`--replace`) cannot be reached from a handler yet ([hints.md](hints.md)). On the PC the macro is empty and the handler is an
+ordinary function, which the program may call itself (`exec/interrupts.c` does, to compute the
+handlers' results there).
 
 **Library.** `<stdint.h>`, `<dampf.h>` (the hints) and `<string.h>` with `memset` and `memcpy`,
 which take a byte value and a 16-bit size, since there is no plain `int` and no object is larger

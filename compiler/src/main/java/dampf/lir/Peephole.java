@@ -27,10 +27,20 @@ import java.util.List;
  */
 public final class Peephole {
     private final int frameStart;
+    private final String absoluteFrame;
 
     /** {@code frameStart}: where the frame places start (for the direct page). */
     public Peephole(int frameStart) {
+        this(frameStart, LOperand.FRAME);
+    }
+
+    /**
+     * {@code absoluteFrame}: the symbol a frame place outside the direct page is written with
+     * ({@code dampf_frame_irq} in an interrupt context, whose direct page is not 0).
+     */
+    public Peephole(int frameStart, String absoluteFrame) {
         this.frameStart = frameStart;
+        this.absoluteFrame = absoluteFrame;
     }
 
     /** Applies the rules; returns how many places changed. */
@@ -191,6 +201,9 @@ public final class Peephole {
                 return null;   // only the frame's direct page places are known to have room
             }
             width = frameStart + offset + 1 < 0x100 ? LOperand.Width.DP : LOperand.Width.ABS;
+            if (width == LOperand.Width.ABS) {
+                return new LOperand.Mem(width, absoluteFrame, offset, m.index(), false).text();
+            }
         }
         return new LOperand.Mem(width, m.base(), offset, m.index(), false).text();
     }
