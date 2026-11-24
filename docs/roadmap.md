@@ -39,20 +39,38 @@ The order follows the likely gain and what each milestone needs from the one bef
 
 Built of it so far, and released in 0.9: dampf's own preprocessor, the game's development tools
 in the kit's window, and a build step before the build with `superdevkit gen`
-([history.md](history.md#built-for-m10-and-m11-released-in-09)). Left:
+([history.md](history.md#built-for-m10-and-m11-released-in-09)). Built since, for 0.10.0 (each
+moves to the history with that release):
+
+- **gcc's `-Woverflow` warning**: a constant that does not fit the type it initialises or is
+  assigned to (`uint8_t w[] = { 420 }`) is reported where gcc reports it (2026-11-24). It hid a
+  bug in CatchMe that only the desktop build showed.
+- **The project's defines kept out of `lib/snes`**: `--lib` compiles a library's files without
+  the `-D` defines, so `[snes]` reaches only the game's files, as on the desktop and the web
+  ([ADR-6FKYXP8C](adr/6FKYXP8C-dampf-compiles-a-library-s-files-without-the.md), 2026-11-24).
+- **Subset decision 1, plain `char` for text**: a `char` value is only copied, tested and
+  compared with `==` and `!=`
+  ([ADR-6FM063YZ](adr/6FM063YZ-plain-char-is-text-a-char-value-is-only-copied.md), 2026-11-24).
+- **Subset decision 2, enum objects in one byte**: an enum object takes only values of its enum,
+  in the smallest width that holds them
+  ([ADR-6FKZFDJ3](adr/6FKZFDJ3-enum-objects-take-only-values-of-their-enum-and.md), 2026-11-24).
+
+Left:
 
 - **C in interrupt handlers.** Frames have fixed places (ADR
   [ADR-6F0R668G](adr/6F0R668G-no-recursion-no-free-function-pointers-and-no-heap.md)), so C called from
   an NMI or IRQ would overwrite the frames of the code it interrupted, and the platform layer
   waits for the vertical blank instead. Nearly every SNES game has an NMI handler, and raster
-  effects need an IRQ handler. The functions an interrupt reaches can get a frame area of their
-  own; open is how a handler is declared and what it saves
-  ([optimizations.md](optimizations.md#knowing-the-machine) has the idea).
+  effects need an IRQ handler. The design is decided
+  ([brainstorm summary](brainstorm/interrupts-and-asm_2026-11-24.md), part 1): the kit owns the
+  NMI, the game an IRQ in C; interrupt contexts with frames and a direct page of their own; no
+  hardware multiply in interrupt code; interrupts read only data the tick published; Rachael
+  calls the IRQ at its line; then the NMI runs the frame's work. Being built, the contexts
+  first.
 - **Intrinsics** for the hardware multipliers, the divider and DMA ([subset.md](subset.md),
   *Intrinsics*).
-- **The open subset decisions** in [subset.md](subset.md): 1 (plain `char` for text only), 2
-  (enum objects in one byte) and 3 (16-bit pointers into RAM), each built once it is taken.
-  Decision 4 is taken: `goto` stays rejected (ADR
+- **Subset decision 3**, 16-bit pointers into RAM ([subset.md](subset.md)), built once it is
+  taken. Decisions 1 and 2 are built (above); decision 4 is taken: `goto` stays rejected (ADR
   [ADR-6F3CJVHC](adr/6F3CJVHC-goto-and-labels-stay-rejected-and-a-forward-and.md)).
 - **`switch` as a jump table** (moved up from M12 on 2026-11-24). A `switch` compares its way
   down the cases, about 5 cycles for each case before the one it takes, so a state machine or
@@ -60,20 +78,17 @@ in the kit's window, and a build step before the build with `superdevkit gen`
   dispatch cost the same for every case, for the 30 `switch` statements of the examples too.
 - **Hand-written assembly with the code generator from MIR:** `--replace` works only with the
   naive one, and a linked-in function has no way to declare its calling convention, direct page
-  use and cycles for the timing analysis. Once it does, more reference functions
+  use and cycles for the timing analysis. The design is decided
+  ([brainstorm summary](brainstorm/interrupts-and-asm_2026-11-24.md), part 2): `DAMPF_ASM("file.s")`
+  on the C function, named places as one convention for both code generators, cycles and safety
+  checks from dampf's own reading of the assembly, and the assembly checked against the C body;
+  being built. Once it is, more reference functions
   ([reference/](../reference/README.md), Er-Tüp's `random16` and `sine` so far) can measure the
   optimized code; candidates are the pair loop, Mandelbrot's iteration and Steinschlag's cave.
-- **Warnings where gcc warns by default**, first a constant that does not fit the type it
-  initialises or is assigned to (`uint8_t w[] = { 420 }`): dampf truncates it as gcc does, but
-  silently. It hid a bug in CatchMe (a cat's wait of 420 became 164) that only the desktop
-  build's `-Woverflow` showed.
 - **The SNES facts out of the code generators** (DBR `$7E`, the frame addresses, long I/O
   addresses) into the target ([architecture.md](architecture.md#core-and-target)).
 - **`restrict`** or a no-alias hint of dampf's own. Open is how it is checked on the PC, and
   which of the two is clearer ([hints.md](hints.md#open-questions)).
-- **Defines for the game's own files on the SNES too.** ADR-6FEWEE95 keeps a project's defines
-  out of the kit's library. That holds on the desktop and the web, but on the SNES the defines of
-  `[snes]` also reach `lib/snes`, since dampf compiles both as one program with one set of options.
 
 ## M11: timing and debugging (0.11.0)
 
