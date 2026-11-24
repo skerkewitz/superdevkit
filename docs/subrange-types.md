@@ -244,7 +244,7 @@ Most ranges do not need to be declared. Value range analysis is a standard compi
 | Shifts | `x >> 4` (8-bit unsigned) | 0..15 |
 | **Parameters, from all call sites** | every call of `move_to` passes a value in 2..6 | the parameter is 2..6, even if declared `uint8_t` (for optimization; whether it may count as a proof is an open question) |
 | Return values | every `return` of a function yields 0..3 | each call's result is 0..3 |
-| Enums | `enum State { IDLE, WALK, JUMP, DEAD };` | 0..3, if the subset forbids values outside the enumerators (to be decided, section 10; [subset.md](subset.md), decision 2, already recommends it) |
+| Enums | `enum State { IDLE, WALK, JUMP, DEAD };` | 0..3: the subset allows only enumerators and values of the enum in an enum object ([ADR-6FKZFDJ3](adr/6FKZFDJ3-enum-objects-take-only-values-of-their-enum-and.md)); dampf uses that for the object's width so far, not yet as a range |
 
 Inferred ranges are used for optimization exactly like declared ones. They need no run-time checks, because they are derived from code that dampf has fully seen. Which of them also count as proofs for the static check (section 6) is part of the fixed proof rules (section 10).
 
@@ -306,7 +306,6 @@ A list threaded through `bubbles[16]` has at most 16 elements **if it has no cyc
 
 ## 10. Open questions
 
-- **Enums:** should the subset forbid values outside the enumerators, so every enum type is automatically a subrange type? (Recommended; checked in the interpreter like subrange types.)
 - **Steps and sets:** ranges with a step ("even values only") or arbitrary sets of values are possible in principle (refinement types). Are they worth it, or are plain ranges enough?
 - **Debug ROM:** which checks go into it (all unproven stores, or only selected types), and how a violation is reported on the console.
 - **PC build:** is it worth adding an optional instrumented PC build (for example via a clang plugin) that checks subrange stores like the interpreter does, or is the interpreter run over the replays enough?

@@ -33,6 +33,15 @@ Bank `$7F` (another 64 KB) is not used yet.
 The linker sees RAM addresses without the bank (`$2000`, not `$7E2000`), so 16-bit address fixups
 fit. Code that needs a full 24-bit RAM address (a pointer) adds the bank itself.
 
+## Enum objects
+
+An object of an enum type takes the smallest width that holds all of its enumerators: 1 byte for
+an enum whose enumerators lie in 0..255 (or -128..127 when one is negative), 2 bytes up to
+65535 (or -32768..32767), 4 bytes beyond. The PC takes 4 bytes for every enum. The values are the
+same because an enum object takes only its enumerators and values of its enum
+([ADR-6FKZFDJ3](adr/6FKZFDJ3-enum-objects-take-only-values-of-their-enum-and.md)); struct fields
+and array elements of an enum type are laid out with that width.
+
 ## Pointers
 
 A pointer is 4 bytes in memory: the 16-bit address, the bank, and a zero byte (MIR's `ptr` type).
