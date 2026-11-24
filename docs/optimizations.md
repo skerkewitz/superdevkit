@@ -78,7 +78,7 @@ entry.
 | I | Multiply and divide | Partly. Constants as shifts and adds (in MIR for i32, in A for 8 and 16 bits), powers of two with C's signed rounding; two variables on the CPU's 8 x 8 multiplier (2026-11-22; two bytes without a call). Open: the PPU's multiplier, the hardware divider | 2.29 → 2.07 ([multiplication in A](optimizations-log.md#arrays-indexed-with-x-multiplication-in-a-2026-11-17)) |
 | J | Banks and placement | Partly. All code and constant data in banks $80 and up at FastROM speed (`--slowrom` switches it off), registers at constant addresses as long addresses | 1.31 → 1.10 ([FastROM](optimizations-log.md#fastrom-2026-11-17)) |
 | K | Peephole | Partly. A remembers every place it equals, `INC`/`DEC` in place, `STZ`, no `CMP #0` where N and Z already describe A, `TAX` for a reload of a stored value, shifts as a mask, the high byte as a byte load (`Peephole`), no `CLC` where the carry is known clear (`KnownCarry`) | 391,423 → 386,306 ([no `CMP #0`](optimizations-log.md#no-cmp-0-where-the-flags-are-set-2026-11-17)) |
-| L | `switch` as a jump table (`JMP (abs,X)`) | Not built | |
+| L | `switch` as a jump table (`JMP (abs,X)`) | Built (M10). A `switch` on an 8- or 16-bit value whose table costs fewer cycles than its compares on average over the cases, with at most four entries per case (ADR-6FM7MWGX): from 4 cases without a range check, 6 from 0, 7 far from 0 or negative; a first case 0 tested before the table. Open: a switch in a loop whose counter lives in X, 32-bit values, cases weighed by a profile | Ertüp's busiest tick 262,654 → 260,166 master clocks ([jump tables](optimizations-log.md#switch-as-a-jump-table-2026-11-24-on-the-examples)) |
 | M | Copy and fill with `MVN`/`MVP` or DMA | Not built | |
 | N | Values in X and Y | Partly. Loop counters in X (also next to an index in Y, and with their stepped value read after the step: a `do` loop's test, `i - 1` going down; compared with a constant or a 16-bit value in its place), a second index in Y, loop-invariant indexes in Y, the index through a pointer in Y (rows of 2D arrays included), what A, X and Y hold known across blocks | 329,834 → 326,596 ([index in Y](optimizations-log.md#a-pointer-plus-an-index-the-index-in-y-2026-11-17)) |
 
@@ -96,12 +96,13 @@ a parameter the join of its arguments at all call sites, for optimization only. 
 adds a range at one point ([hints.md](hints.md)). The ranges are used by `RangeNarrow` (16 bits
 instead of 32, comparisons the range decides, unsigned operations and comparisons for values that
 are never negative), by indexed addressing (an index that is never negative), by induction
-variables and by the loop bounds of the timing analysis. The tests check every value the MIR
+variables, by the loop bounds of the timing analysis and by the jump tables of `switch` (no range
+check where the value stays within the table). The tests check every value the MIR
 interpreter computes against its range (`dampf mir -O --check-ranges`).
 
 An index into an array needs no range for its access (ADR-6F8NBESR), but the value ranges do not
 learn from that access. Not built: ranges from array accesses, return values and enums;
-page-aligned arrays, `switch` jump tables and `DAMPF_TABLE`; declared subrange types. The design is in
+page-aligned arrays and `DAMPF_TABLE`; declared subrange types. The design is in
 [subrange-types.md](subrange-types.md).
 
 ### Pointer compression
@@ -157,6 +158,8 @@ allowed (the platform layer uses them); this form does not need the rule against
   `ASL`, `TAX`, `JMP (table,X)`) costs about 24 cycles, as much as the chain of compares over three
   to four cases, needs X, and gives the timing analysis an indirect jump. The game's switches are
   short; after the branch relaxation a matching case costs a taken `BEQ`.
+  Built in M10 after all (row L), for the switches where it costs fewer cycles than the compares:
+  with the value's range the check often goes, and the dispatch is 10 to 20 cycles.
 - Dropping `findForwards` (the code generator's plan for values handed on in A) or `Schedule` (a
   value moved next to its only user) and leaving their work to `RedundantLoads` and `DeadStores`
   on the LIR (2026-11-22): without `findForwards` the examples were 1.6 % slower, without

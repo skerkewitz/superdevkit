@@ -288,6 +288,9 @@ public final class Cycles65816 {
         if (o.startsWith("[")) {
             return o.endsWith(",y") ? "[dp],y" : "[dp]";
         }
+        if ((mnemonic.equals("jmp") || mnemonic.equals("jsr")) && o.startsWith("(")) {
+            return o.endsWith(",x)") ? "(abs,x)" : "(abs)";   // a jump table: JMP (table,X)
+        }
         boolean dp = o.startsWith("z:");
         if (o.endsWith(",x")) {
             return dp ? "dp,x" : "abs,x";

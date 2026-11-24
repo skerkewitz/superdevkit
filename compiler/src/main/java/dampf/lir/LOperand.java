@@ -194,7 +194,7 @@ public sealed interface LOperand {
         if (switch (mnemonic) {
             case "bra", "brl", "beq", "bne", "bcc", "bcs", "bmi", "bpl", "bvc", "bvs", "jmp", "jml", "jsl", "jsr" -> true;
             default -> false;
-        }) {
+        } && !text.startsWith("(") && !text.startsWith("[")) {   // (an indirect jump, JMP (table,X), is Raw)
             return new Label(text);
         }
         Matcher m = MEM.matcher(text);

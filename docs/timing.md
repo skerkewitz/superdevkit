@@ -23,7 +23,8 @@ calls a function); a line with a branch gets no sum.
   (accumulator width followed through the code; index registers 16 bit). Inside a block there
   are only forward branches over a few instructions and the code generator's small loops (shifts,
   copies), which it marks with their bound. A conditional branch costs 2 when not taken, 3 when
-  taken.
+  taken. The jump table of a `switch` (`JMP (table,X)`) is a way out to every entry of
+  the table, each at the same cost.
 - **Across blocks** (level 2): the loops of the function, innermost first, each collapsed into
   one node: worst case = (rounds - 1) × the longest way round + the longest way out, best case =
   the shortest way out (no round). The rest is free of cycles: shortest and longest path to the

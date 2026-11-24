@@ -24,7 +24,8 @@ import java.util.Set;
  * What instruction selection from MIR shares: the places of the values, the code being written
  * and what the registers hold while it is written, and the helpers that write instructions,
  * operands and results. The selection of each kind of instruction lives in its own class
- * ({@link ArithSelection}, {@link BranchSelection}, {@link MemorySelection}, {@link CallSelection});
+ * ({@link ArithSelection}, {@link BranchSelection}, {@link MemorySelection}, {@link CallSelection},
+ * {@link SwitchSelection});
  * {@link SelectionPlan} decides beforehand, from the MIR, how values are kept. See {@link MirCodeGen}.
  */
 final class Selection {
@@ -35,6 +36,7 @@ final class Selection {
     final BranchSelection branch = new BranchSelection(this);
     final MemorySelection memory = new MemorySelection(this);
     final CallSelection calls = new CallSelection(this);
+    final SwitchSelection switches = new SwitchSelection(this);
 
     Selection(MirCodeGen gen) {
         this.gen = gen;

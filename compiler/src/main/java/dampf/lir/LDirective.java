@@ -47,6 +47,38 @@ public record LDirective(Kind kind, String label, List<String> args, String comm
         return kind == Kind.BLANK || kind == Kind.COMMENT || kind == Kind.NOTE;
     }
 
+    /** Whether it puts data into the segment ({@code .byte}, {@code .word}, {@code .res}). */
+    public boolean data() {
+        return kind == Kind.BYTE || kind == Kind.WORD || kind == Kind.RES;
+    }
+
+    /** The bytes of data it puts into the segment (as dampf writes them: numbers and expressions, no strings). */
+    public int dataBytes() {
+        return switch (kind) {
+            case BYTE -> args.size();
+            case WORD -> 2 * args.size();
+            case RES -> args.isEmpty() ? 0 : Integer.decode(args.getFirst().replace("$", "0x"));
+            default -> 0;
+        };
+    }
+
+    /**
+     * The labels the entries of a jump table go to, one per entry: a {@code .word} of
+     * {@code .loword(label)} entries ({@link LInstr#isTableJump}); empty for anything else.
+     */
+    public List<String> tableEntries() {
+        if (kind != Kind.WORD) {
+            return List.of();
+        }
+        List<String> out = new java.util.ArrayList<>();
+        for (String a : args) {
+            if (a.startsWith(".loword(") && a.endsWith(")")) {
+                out.add(a.substring(".loword(".length(), a.length() - 1).strip());
+            }
+        }
+        return out;
+    }
+
     /** For {@code .dbg}: what it describes ("line", "file", "func", "sym"). */
     public String dbgKind() {
         return kind == Kind.DBG && !args.isEmpty() ? args.getFirst() : null;
