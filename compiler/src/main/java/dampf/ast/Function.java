@@ -72,6 +72,20 @@ public final class Function {
         this.budget = cycles;
     }
 
+    private String asmFile;
+
+    /**
+     * The file of hand-written assembly from DAMPF_ASM, as written in the source (relative to the
+     * C file the definition is in), or null.
+     */
+    public String asmFile() {
+        return asmFile;
+    }
+
+    public void setAsmFile(String file) {
+        this.asmFile = file;
+    }
+
     public boolean isDefined() {
         return body != null;
     }
