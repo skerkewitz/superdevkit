@@ -49,7 +49,7 @@ The numbers are those of the check, on its inputs, for the functions as dampf co
 their own (2026-11-24). dampf's `sine` masks the byte it read (`and #$00FF`), since its 8-bit
 results have a clean high byte; the hand-written one leaves the byte above it as it is, which the
 convention allows. In the game the code from MIR inlines both functions into their callers: with
-the two references linked, Er-Tüp's benchmark does 132,250 master cycles of work a tick against
-132,235 for dampf alone, so dampf's inlined code is a little faster than calls of the hand-written
+the two references linked, Er-Tüp's benchmark does 132,233 master cycles of work a tick against
+132,217 for dampf alone, so dampf's inlined code is a little faster than calls of the hand-written
 functions. Against the naive code generator (until 2026-11-24 the comparison, in master cycles
 a tick) the references were 2.3 and 1.4 times as fast.
