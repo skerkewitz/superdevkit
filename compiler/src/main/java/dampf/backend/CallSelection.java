@@ -29,6 +29,11 @@ final class CallSelection {
             }
         }
         sel.ins("jsl", c.callee);
+        if (callee.isAsm() && c.type() == MType.I8) {
+            // an assembly function's byte result is the low byte of A (DAMPF_ASM); dampf's
+            // results are clean
+            sel.ins("and", Selection.imm(0xFF));
+        }
         if (c.type() != MType.VOID) {
             sel.result(c, 0);
             if (Selection.words(c.type()) == 2) {

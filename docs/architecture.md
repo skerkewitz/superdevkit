@@ -23,7 +23,17 @@ loops over bytes in 8 bits from entry to exit (`ByteLoops`), drop a
 reads (`DeadStores`), choose the branch forms (`BranchRelax`) and number the local labels
 (`LocalLabels`); `Timing` gives the best and worst case on the LIR. The way there is in
 [archive/transition-to-lir.md](archive/transition-to-lir.md). The naive code generator works on the AST and stays the reference for optimized
-builds (`--backend naive`; `--replace` works only with it; see [testing.md](testing.md)).
+builds (`--backend naive`; see [testing.md](testing.md)).
+
+A function can be written by hand in assembly (`DAMPF_ASM`, or `--replace` on the command line;
+[hints.md](hints.md)). `dampf.asm.AsmFunction` reads its file with dampf's assembler, follows the
+machine code from its label (control flow, register widths, the stack) and gives its cycles and
+the bytes of its locals; `dampf.AsmFunctions` finds and analyses the program's assembly functions.
+In MIR such a function is a stand-in (`MFunction.isAsm`) that the passes do not look into, and
+`MirCodeGen` reserves its frame from `dampf_frame` and exports its parameters' places instead of
+writing code; the naive generator puts the frame at the same place. The C body is lowered as well,
+under another label, and `dampf.emu.AsmCheck` runs it against the assembly in a second ROM that
+`RomBuilder.linkInMemory` links without writing files.
 
 The MIR passes (`dampf.mir.Optimizer`): simplification (`Simplify`), tests against neighbouring
 constants as one range check (`RangeChecks`), a bit chosen by a bit

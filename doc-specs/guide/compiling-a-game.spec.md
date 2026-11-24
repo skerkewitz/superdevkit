@@ -38,9 +38,11 @@ it writes, finding what does not fit the subset, and measuring where the cycles 
 3. **Where the time goes** – `dampf.emu.ExampleProfile`: it plays the ROM with the input of a
    `check.txt` in dampf's emulator and charges the cycles of a range of ticks to functions and,
    with the `.dbg` file, to C lines; the call, and a short excerpt of real output on Er-Tüp.
-4. **Replacing a function with assembly** – `--replace fn=file.s`, what it is for (comparing a
-   hand-written function with dampf's, as `reference/` does with Er-Tüp's `random16`), and that
-   it works with the naive code generator only.
+4. **Replacing a function with assembly** – `DAMPF_ASM("file.s")` on the function in the source,
+   and `--replace fn=file.s` on the command line for the same without touching the source; what
+   it is for (a hot function where dampf's code is far from hand-written assembly, and comparing
+   the two, as `reference/` does with Er-Tüp's `random16`); that dampf times the file and checks it
+   against the C body in every build; link [Hints](/reference/hints) for the convention.
 
 ## Pay attention to
 
@@ -57,8 +59,8 @@ it writes, finding what does not fit the subset, and measuring where the cycles 
   where the `--replace` example uses it.
 - Say in one sentence that a ROM of a game needs a [platform layer](/glossary#platform-layer)
   for the library it calls, compiled with it (`lib/snes` in Er-Tüp's argument file).
-- Budgets and the timing file come from the code generator from MIR; say so where `--replace`
-  needs the naive one.
+- Budgets, the timing file and the check of an assembly function come from the code generator from
+  MIR, the default.
 
 ## Out of scope
 

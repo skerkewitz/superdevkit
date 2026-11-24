@@ -2,6 +2,7 @@ package dampf;
 
 import dampf.ast.Function;
 import dampf.ast.Program;
+import dampf.ast.Type;
 import dampf.backend.MirCodeGen;
 import dampf.backend.NaiveCodeGen;
 import dampf.mir.Lower;
@@ -25,10 +26,8 @@ public final class Compiler {
      * @param entry        the function the runtime calls after start-up; must be {@code void name(void)}
      * @param output       the ROM to write; the assembly, .dbg and label files go next to it (with ca65, also ld65's map)
      * @param replacements functions linked from hand-written assembly instead of being compiled
-     *                     (C name to .s file): the escape hatch for reference versions
-     *                     (docs/optimizations.md). The function keeps dampf's calling convention:
-     *                     parameters in its static frame ({@code _<name>__<param>}), result in A
-     *                     (and X for 32 bits), JSL/RTL, A/X/Y 16 bit, DBR $7E.
+     *                     (C name to .s file, {@code --replace}): as DAMPF_ASM in the source, which
+     *                     they override, with its convention and checks (docs/hints.md)
      * @param blockCounts  how often each block ran, (function label, block name) → count, from a
      *                     profile ({@code dampf profile --blocks}); null without one. Only the order
      *                     of the blocks follows it, so a profile of other code makes the code
@@ -172,7 +171,12 @@ public final class Compiler {
      * it is converted to, as gcc warns; a function close to its budget).
      */
     public record Result(Program program, List<String> assembly, RomBuilder.Rom rom, Map<String, long[]> timing,
-                         List<String> warnings) {}
+                         List<String> warnings, List<dampf.emu.AsmCheck.Report> asmChecks) {
+        public Result(Program program, List<String> assembly, RomBuilder.Rom rom, Map<String, long[]> timing,
+                      List<String> warnings) {
+            this(program, assembly, rom, timing, warnings, List.of());
+        }
+    }
 
     private Compiler() {}
 
@@ -214,47 +218,99 @@ public final class Compiler {
         Files.createDirectories(outDir);   // the timing report is written before the ROM builder makes it
         String fileName = o.output().getFileName().toString();
         String baseName = fileName.endsWith(".sfc") ? fileName.substring(0, fileName.length() - 4) : fileName;
+        Map<String, AsmFunctions.Asm> asmFunctions = AsmFunctions.collect(program, o, entry);
         // Debug file names are relative to the .dbg file, so Mesen finds the sources wherever the ROM is opened.
-        for (String name : o.replacements().keySet()) {
-            Function f = program.function(name);
-            if (f == null || !f.isDefined()) {
-                throw new CompileError(new SourcePos(o.sources().getFirst().toString(), 1, 1),
-                        "--replace " + name + ": there is no function '" + name + "' to replace");
-            }
-        }
         java.util.function.Function<String, String> debugName =
                 file -> outDir.relativize(Path.of(file).toAbsolutePath().normalize()).toString().replace('\\', '/');
         List<String> asm;
         Map<String, long[]> timing = Map.of();
+        MirCodeGen gen = null;
         if (o.backend() == Backend.MIR) {
-            if (!o.replacements().isEmpty()) {
-                throw new CompileError(entry.pos(), "--replace works with the naive code generator only");
-            }
             NaiveCodeGen.checkEntry(entry);
-            dampf.mir.MModule mir = Lower.lower(program);
+            Map<String, Integer> locals = new java.util.HashMap<>();
+            asmFunctions.values().forEach(a -> locals.put(a.function().label(), a.result().localsBytes()));
+            // with assembly functions, their C bodies too: the check runs them against each other
+            dampf.mir.MModule mir = Lower.lower(program, locals, true);
             dampf.util.PassLimit limit = new dampf.util.PassLimit(
                     o.optLimit() >= 0 ? o.optLimit() : dampf.util.PassLimit.configured(), baseName);
             dampf.mir.Optimizer.run(mir, false, true, limit);
-            MirCodeGen gen = new MirCodeGen(mir, entry.label(), debugName, o.blockCounts(), limit);
+            gen = new MirCodeGen(mir, entry.label(), debugName, o.blockCounts(), limit);
+            for (AsmFunctions.Asm a : asmFunctions.values()) {
+                gen.asm(a.function().label(), a.paramSymbols(), a.result().best(), a.result().worst());
+            }
             asm = new java.util.ArrayList<>(gen.generate());
             timing = gen.timing();
             Map<String, String> why = gen.unboundedWhy();
-            writeTiming(timing, why, outDir.resolve(baseName + ".timing.txt"));
+            writeTiming(timing, why, asmFunctions, outDir.resolve(baseName + ".timing.txt"));
             // with a pass limit, the passes that prove a loop's bound may not have run: a budget
             // that cannot be guaranteed is then a warning, so the program can still be bisected
             checkBudgets(program, timing, why, warnings, limit.limited());
         } else {
-            asm = new java.util.ArrayList<>(new NaiveCodeGen(program, entry, o.replacements().keySet(), debugName).generate());
+            asm = new java.util.ArrayList<>(new NaiveCodeGen(program, entry, asmFunctions.keySet(), debugName).generate());
         }
-        for (Path s : o.replacements().values()) {
-            asm.add(Files.readString(s));
+        for (AsmFunctions.Asm a : asmFunctions.values()) {
+            if (a.text() != null) {
+                asm.add(a.text());   // (a file with several functions once)
+            }
         }
         RomBuilder.Rom rom = o.ca65() ? RomBuilder.build(asm, outDir, baseName, o.fastRom())
                 : RomBuilder.buildNative(asm, outDir, baseName, o.fastRom());
         if (o.sram() > 0) {
             RomBuilder.setSram(rom.rom(), o.sram());
         }
-        return new Result(program, asm, rom, timing, warnings);
+        List<dampf.emu.AsmCheck.Report> checks = List.of();
+        if (gen != null && !asmFunctions.isEmpty()) {
+            checks = checkAsm(program, asm, gen, asmFunctions, o.fastRom());
+        }
+        return new Result(program, asm, rom, timing, warnings, checks);
+    }
+
+    /**
+     * Runs every assembly function against its C body in dampf's emulator (DAMPF_ASM is a fact
+     * hint, and fact hints are checked: docs/hints.md), in a ROM of its own that holds the C
+     * bodies as well; a difference is a compile error.
+     */
+    private static List<dampf.emu.AsmCheck.Report> checkAsm(Program program, List<String> modules, MirCodeGen gen,
+                                                            Map<String, AsmFunctions.Asm> asmFunctions, boolean fastRom)
+            throws CompileError, IOException {
+        List<String> all = new java.util.ArrayList<>(modules);
+        all.add(gen.checkModule());
+        dampf.asm.Linker.Image image = RomBuilder.linkInMemory(all, fastRom);
+        Map<String, Long> at = image.globals();
+        java.util.Set<dampf.ast.Variable> read = new java.util.HashSet<>();
+        asmFunctions.values().forEach(a -> read.addAll(AsmFunctions.globalsOf(a.function())));
+        List<dampf.emu.AsmCheck.Global> globals = new java.util.ArrayList<>();
+        for (dampf.ast.Variable v : program.globals()) {
+            Long address = at.get(v.label());
+            if (!v.inRom() && address != null && address >= 0x2000 && address + v.type().size() <= 0x10000) {
+                globals.add(new dampf.emu.AsmCheck.Global(v.name(), (int) (long) address, v.type().size(),
+                        read.contains(v) && !AsmFunctions.holdsPointer(v.type())));
+            }
+        }
+        List<dampf.emu.AsmCheck.Function> functions = new java.util.ArrayList<>();
+        for (AsmFunctions.Asm a : asmFunctions.values()) {
+            Function f = a.function();
+            String c = dampf.mir.Lower.CHECK_PREFIX + f.label();
+            List<Integer> asmPlaces = new java.util.ArrayList<>();
+            List<Integer> cPlaces = new java.util.ArrayList<>();
+            int offset = 0;
+            for (int k = 0; k < f.params().size(); k++) {
+                asmPlaces.add(0x20 + offset);
+                offset += dampf.asm.AsmFunction.paramBytes(f.params().get(k).type().size());
+                cPlaces.add(gen.paramAddress(c, k));
+            }
+            Type r = f.returnType();
+            functions.add(new dampf.emu.AsmCheck.Function(f.name(), (int) (long) at.get(f.label()), (int) (long) at.get(c),
+                    AsmFunctions.checkParams(f), asmPlaces, cPlaces, r instanceof Type.Void ? 0 : r.size(),
+                    r instanceof Type.Pointer, a.result().best(), a.result().worst()));
+        }
+        try {
+            return dampf.emu.AsmCheck.run(image.rom(), (int) (long) at.get("dampf_entry"), functions, globals,
+                    dampf.emu.AsmCheck.INPUTS);
+        } catch (dampf.emu.AsmCheck.Failure e) {
+            AsmFunctions.Asm a = asmFunctions.get(e.function());
+            throw new CompileError(a.function().definitionPos(), e.getMessage() + " (" + a.name() + ", DAMPF_ASM)");
+        }
     }
 
     /** Above this share of its budget, a function gets a warning. */
@@ -297,7 +353,10 @@ public final class Compiler {
     }
 
     /** The timing report: every function's best and worst case, the most expensive first. */
-    private static void writeTiming(Map<String, long[]> timing, Map<String, String> why, Path file) throws IOException {
+    private static void writeTiming(Map<String, long[]> timing, Map<String, String> why, Map<String, AsmFunctions.Asm> asm,
+                                    Path file) throws IOException {
+        Map<String, String> notes = new java.util.HashMap<>(why);
+        asm.values().forEach(a -> notes.put(a.function().label(), "assembly, " + a.name()));
         StringBuilder out = new StringBuilder("""
                 # dampf timing: best and worst case per function in CPU cycles, from entry to return,
                 # calls included, interrupts and DMA not (docs/timing.md). "unbounded": a loop without
@@ -309,7 +368,7 @@ public final class Compiler {
                 .sorted((a, b) -> Long.compare(b.getValue()[1] < 0 ? Long.MAX_VALUE : b.getValue()[1],
                         a.getValue()[1] < 0 ? Long.MAX_VALUE : a.getValue()[1]))
                 .forEach(e -> {
-                    String reason = why.get(e.getKey());
+                    String reason = notes.get(e.getKey());
                     out.append(String.format("%12s %12s  %s%s%n", e.getValue()[0] < 0 ? "never" : Long.toString(e.getValue()[0]),
                             e.getValue()[1] < 0 ? "unbounded" : Long.toString(e.getValue()[1]), e.getKey(),
                             reason == null ? "" : "   (" + reason + ")"));
