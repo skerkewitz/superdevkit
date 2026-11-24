@@ -64,14 +64,14 @@ desktop running the ROM in an emulator and Mesen as the desktop are not schedule
 
 Concluded on 2026-11-19 as version 0.6.0 (ADR
 [ADR-6F60ZDMF](../adr/6F60ZDMF-m5-is-concluded-as-060-and-a-version-between.md),
-[roadmap](../roadmap.md#m5)): Blubber Blasen's ROM, built with the kit, plays its recordings with
+[history](../history.md#m5)): Blubber Blasen's ROM, built with the kit, plays its recordings with
 the PC's checksums. Steps 5.1, 5.2, 5.3 (but the getting started), 5.4's miscompilation and 5.6
 are done. What is left moved: the rest of 5.4 to M9, `hello` as the getting started and 5.5 to the
 book before the release, 5.7 until there is hardware.
 
 ### 5.1 dampf can be called by a game
 
-Built: argument files, every error of a run, `<string.h>` ([roadmap](../roadmap.md#m5)).
+Built: argument files, every error of a run, `<string.h>` ([history](../history.md#m5)).
 
 ### 5.2 The converter
 
@@ -136,7 +136,7 @@ Checked in Mesen with the region set to PAL before the console: the speed, and n
 
 ## M7: Windows and Linux (0.7.0)
 
-Concluded on 2026-11-19 as version 0.7.0 ([roadmap](../roadmap.md#m7)); Blubber Blasen's switch to the
+Concluded on 2026-11-19 as version 0.7.0 ([history](../history.md#m7)); Blubber Blasen's switch to the
 kit's desktop build is with the game (its finding 1).
 
 ### 7.1 Rachael, the pseudo SNES, in the kit
@@ -234,7 +234,7 @@ recordings stay its own, reached through `sdevkit_dbg_action`).
 
 ## M8: the web (0.8.0)
 
-Concluded on 2026-11-22 as version 0.8.0 ([roadmap](../roadmap.md#m8)). Built
+Concluded on 2026-11-22 as version 0.8.0 ([history](../history.md#m8)). Built
 ([ADR-6FCVAA30](../adr/6FCVAA30-the-web-runs-the-desktop-s-frontend-which-waits.md)):
 `web` as a target of the CLI (`superdevkit.project.Web`) with `emcc` and raylib's prebuilt web
 package, the game compiled on its own as on the desktop and its objects checked (`Symbols` reads

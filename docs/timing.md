@@ -185,6 +185,8 @@ down; with it, the build refuses the change that causes it.
 
 ## Open questions
 
-- How to express impossible path combinations, should the worst-case bounds turn out too
-  pessimistic in practice.
-- How much HDMA the game uses in the end, since it changes the frame-level budget.
+- How to express impossible path combinations. The bounds did turn out too pessimistic for pair
+  loops (Er-Tüp's `collide`); a hint for how often a path runs per call, or a bound per call
+  chain, is a step of M11 ([roadmap.md](roadmap.md#m11-timing-and-debugging-0110)).
+- How the frame-level budget learns which HDMA channels a game has on, since a game turns them
+  on at run time.

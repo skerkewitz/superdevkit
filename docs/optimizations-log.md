@@ -849,8 +849,8 @@ matches Mesen on Calypsi's ROM), in the play ticks where both play the same scen
 Calypsi took 1.67 frames per tick and dampf 1.14 (both at SlowROM speed), 1.47 times as fast;
 with FastROM for both and the steps since, Calypsi takes 1.42 and dampf 0.79, 1.81 times as fast.
 Calypsi's results drift
-from the PC's from tick 596 on, so later ticks compare other scenes ([roadmap.md](roadmap.md),
-*The plan from here*). The hand-written `level_solid_px` takes
+from the PC's from tick 596 on, so later ticks compare other scenes
+([history.md](history.md#answered-questions)). The hand-written `level_solid_px` takes
 856 clocks (at SlowROM speed), so for that function dampf is now 1.34 times hand-written assembly
 (1,149 clocks at the same speed).
 
