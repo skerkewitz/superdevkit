@@ -40,13 +40,18 @@ public final class BranchRelax {
         Map<String, Integer> refs = new HashMap<>();
         for (int k = 0; k < items.size(); k++) {
             LItem i = items.get(k);
-            pos[k + 1] = pos[k] + (i instanceof LInstr in ? in.length() : 0);
+            pos[k + 1] = pos[k] + (i instanceof LInstr in ? in.length() : i instanceof LDirective d ? d.dataBytes() : 0);
             if (i instanceof LLabel l && !l.unnamed()) {
                 labelPos.put(l.name(), pos[k]);
                 labelIndex.put(l.name(), k);
             }
             if (i instanceof LInstr in && in.operand() != null) {
                 refs.merge(in.operand(), 1, Integer::sum);
+            }
+            if (i instanceof LDirective d) {
+                for (String entry : d.tableEntries()) {
+                    refs.merge(entry, 1, Integer::sum);   // a label a jump table goes to
+                }
             }
         }
         Map<Integer, LItem> replace = new HashMap<>();

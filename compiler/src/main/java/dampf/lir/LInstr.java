@@ -147,6 +147,30 @@ public final class LInstr implements LItem {
         return operand;
     }
 
+    /**
+     * {@code JMP (.loword(table+k),X)}: a jump through a table of the function, the dispatch of a
+     * {@code switch} (its targets: {@link LFunction#tableTargets}).
+     */
+    public boolean isTableJump() {
+        return mnemonic.equals("jmp") && operand != null && operand.startsWith("(") && operand.endsWith(",x)");
+    }
+
+    /** The label of the table a {@link #isTableJump table jump} reads, or null. */
+    public String tableLabel() {
+        if (!isTableJump()) {
+            return null;
+        }
+        String e = operand.substring(1, operand.length() - 3).strip();
+        if (e.startsWith(".loword(") && e.endsWith(")")) {
+            e = e.substring(".loword(".length(), e.length() - 1);
+        }
+        int end = 0;
+        while (end < e.length() && (Character.isLetterOrDigit(e.charAt(end)) || e.charAt(end) == '_' || e.charAt(end) == '@')) {
+            end++;
+        }
+        return e.substring(0, end);
+    }
+
     /** The same instruction with another operand. */
     public LInstr withOperand(String newOperand) {
         return new LInstr(mnemonic, newOperand, comment, m16, x16, relaxable);

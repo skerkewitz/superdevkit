@@ -90,6 +90,13 @@ call its own statement.
   the runtime, unless dampf can prove that both are below 256.
 - **`fast-array-per-field`** In hot code, one array per field (`px[i]`, `py[i]`) is a little
   cheaper than an array of structs (`objs[i].x`). The gain is small: keep the struct elsewhere.
+- **`fast-switch-table`** Dispatch on many values with a `switch`, not an `if`/`else if` chain:
+  where the cases lie close together, dampf makes the switch a jump table, and every case costs the
+  same (the worst of 12 cases 33 cycles, the chain 90). That takes 6 cases from 0, 4 where the
+  value cannot leave the cases' range (`k & 7`), 7 where they start far from 0 or are negative
+  (ADR-6FM7MWGX). Fewer cases, cases far apart and a switch in a loop whose counter dampf keeps in
+  X are compared one after the other in the order written: put the common case first. A first
+  `case 0` is tested before the table too, so the empty slots of an object array stay cheap.
 - A multiplication or an unsigned division by a constant is cheap (`slow-multiply-variable`,
   `slow-divide-variable`): write it as such, in the clear form.
 
@@ -138,6 +145,7 @@ Measured 2026-11-24 (worst case of the timing report, code generator from MIR).
 | --- | --- | ---: | --- | --- | ---: |
 | `fast-array-per-field` | `move_array_per_field` | 1,361 | faster | `move_array_of_structs` | 1,521 |
 | `fast-multiply-bytes` | `multiply_bytes` | 62 | faster | `multiply_words` | 140 |
+| `fast-switch-table` | `dispatch_switch` | 33 | faster | `dispatch_if_chain` | 90 |
 | `same-32-bit-bits` | `xor_32` | 36 | same | `xor_16_halves` | 36 |
 | `same-declaration-place` | `declared_at_top` | 5,025 | same | `declared_where_used` | 5,025 |
 | `same-enum-object` | `step_enum` | 2,774 | same | `step_uint8` | 2,774 |

@@ -635,6 +635,7 @@ public final class MirCodeGen {
         sel.forward.removeAll(sel.xSteps.keySet());
         sel.forward.removeAll(sel.xBounds);
         List<Block> blocks = layoutOrder(f, blockCounts == null ? null : blockName -> blockCounts.apply(f.name(), blockName));
+        List<SwitchSelection.Written> tables = new ArrayList<>();
         for (int k = 0; k < blocks.size(); k++) {
             Block b = blocks.get(k);
             Block next = k + 1 < blocks.size() ? blocks.get(k + 1) : null;
@@ -662,13 +663,36 @@ public final class MirCodeGen {
                 if (sel.folded.contains(i)) {
                     continue;   // the loads and stores add the offset themselves; a copying cast reads its source
                 }
+                SwitchSelection.Table table = i instanceof Instr.Switch s ? sel.switches.plan(s, b) : null;
+                if (table != null) {
+                    // the φ copies, but X for a successor's loop counter on the way there
+                    Map<Block, Value> xInit = sel.switches.xInits(b, i);
+                    phiCopies(b, i, false);
+                    tables.add(sel.switches.table((Instr.Switch) i, b, table, xInit));
+                    continue;
+                }
                 if (i.isTerminator()) {
-                    phiCopies(b, i);
+                    phiCopies(b, i, true);
                 }
                 instr(i, next);
             }
         }
         sel.flushHeld();
+        for (SwitchSelection.Written t : tables) {
+            // the jump tables of its switches, in the function's segment: JMP (abs,X) reads them
+            // from the bank of the code (C lines: the switch's)
+            if (t.pos() != null) {
+                sourceLine(t.pos());
+            }
+            sel.out.label(t.label());
+            for (int k = 0; k < t.entries().size(); k += 4) {
+                List<String> words = new ArrayList<>();
+                for (String e : t.entries().subList(k, Math.min(t.entries().size(), k + 4))) {
+                    words.add(".loword(" + e + ")");
+                }
+                sel.out.raw("        .word   " + String.join(", ", words));
+            }
+        }
         sel.out.raw(".endproc");
         return blocks;
     }
@@ -900,8 +924,11 @@ public final class MirCodeGen {
         return line >= 1 && line <= lines.size() ? lines.get(line - 1).strip() : "";
     }
 
-    /** Before a block's jump: every φ of every successor gets this block's operand. */
-    void phiCopies(Block b, Instr terminator) {
+    /**
+     * Before a block's jump: every φ of every successor gets this block's operand; {@code loadX}:
+     * also X for a successor's φ that lives in X (else the jump does that on its way there).
+     */
+    void phiCopies(Block b, Instr terminator, boolean loadX) {
         Value xInit = null;
         for (Block s : new LinkedHashSet<>(terminator.successors())) {
             for (Instr i : s.instrs()) {
@@ -932,7 +959,7 @@ public final class MirCodeGen {
                 }
             }
         }
-        if (xInit != null) {
+        if (xInit != null && loadX) {
             sel.ins("ldx", sel.operand(xInit, 0));   // (not where X belongs to another loop: the guard checks)
         }
     }
@@ -998,24 +1025,7 @@ public final class MirCodeGen {
                     sel.branch.jumpOn("bne", null, false, br.ifTrue, br.ifFalse, next);
                 }
             }
-            case Instr.Switch s -> {
-                MType t = s.op(0).type();
-                for (int k = 0; k < s.cases.size(); k++) {
-                    long c = t.wrap(s.cases.get(k));
-                    String nextCase = sel.label();
-                    for (int w = 0; w < Selection.words(t); w++) {
-                        sel.ins("lda", sel.operand(s.op(0), w));
-                        sel.ins("cmp", Selection.imm(c >> (16 * w)));
-                        // in the long form; BranchRelax makes it BEQ to the case where that reaches
-                        sel.ins("bne", nextCase, Selection.words(t) == 1);
-                    }
-                    sel.ins("jmp", s.targets.get(k).name(), true);
-                    sel.place(nextCase);
-                }
-                if (s.otherwise != next) {
-                    sel.ins("jmp", s.otherwise.name(), true);
-                }
-            }
+            case Instr.Switch s -> sel.switches.chain(s, next);
             case Instr.Unreachable u -> throw new IllegalStateException("the checks of hints are taken out before code generation");
             case Instr.Ret r -> {
                 if (!r.operands().isEmpty()) {

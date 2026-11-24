@@ -26,7 +26,8 @@ import java.util.function.Function;
  *
  * <p>Within a block the code is straight, except for forward branches over a few instructions
  * and the small loops the code generator marks with their bound (shifts, copies). Every way out
- * of a block (to another block, or the return) gets a cost interval.
+ * of a block (to another block, or the return) gets a cost interval; a jump table of a switch is
+ * a way out to each of its entries.
  *
  * <p>Across blocks: the loops of the function, innermost first, each collapsed into one node. A
  * loop needs a bound on how often its head runs, from a counter that every way back steps by the
@@ -115,7 +116,7 @@ final class Timing {
             int from = labelAt.get(b.name());
             int to = k + 1 < order.size() ? labelAt.get(order.get(k + 1).name()) : items.size();
             Block next = k + 1 < order.size() ? order.get(k + 1) : null;
-            exits.put(b, block(items, from + 1, to, labelAt, loopBounds, byName, next, callees));
+            exits.put(b, block(items, from + 1, to, labelAt, loopBounds, byName, next, callees, code::tableTargets));
         }
         // loops, innermost first, become single nodes
         Map<Block, Node> node = new IdentityHashMap<>();
@@ -231,7 +232,7 @@ final class Timing {
     /** The ways out of one block's code, items [from, to), with their cost intervals. */
     private static Map<Object, Bound> block(List<LItem> items, int from, int to, Map<String, Integer> labelAt,
                                             Map<String, Integer> loopBounds, Map<String, Block> byName, Block next,
-                                            Function<String, Bound> callees) {
+                                            Function<String, Bound> callees, Function<String, List<String>> tables) {
         int n = to - from;
         long[] min = new long[n + 1];
         long[] max = new long[n + 1];
@@ -278,6 +279,25 @@ final class Timing {
                     relax(min, max, t - from, taken);
                 }
                 relax(min, max, i + 1, a.plus(new Bound(it.cycles(), it.cycles())));
+            } else if (it.isTableJump()) {
+                // a switch's jump table: to each of its entries, a block or a stub behind the jump
+                Bound go = a.plus(new Bound(it.cycles(), it.cycles()));
+                List<String> entries = tables.apply(it.tableLabel());
+                if (entries.isEmpty()) {
+                    throw new IllegalStateException("a jump through a table that is not in the function: " + it);
+                }
+                for (String entry : entries) {
+                    Block tb = byName.get(entry);
+                    if (tb != null) {
+                        join(out, tb, go);
+                        continue;
+                    }
+                    Integer t = labelAt.get(entry);
+                    if (t == null || t <= from + i || t >= to) {
+                        throw new IllegalStateException("a table entry neither a block nor behind its jump: " + entry);
+                    }
+                    relax(min, max, t - from, go);
+                }
             } else if (m.equals("jmp") || m.equals("bra") || m.equals("brl") || m.equals("jml")) {
                 Bound go = a.plus(new Bound(it.cycles(), it.cycles()));
                 if (target != null) {

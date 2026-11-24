@@ -1837,3 +1837,46 @@ examples have none. The case is rare and still has to compile correctly in large
 
 Nothing of this was built. The predictions stay until a model of the whole function replaces them
 (ADR-6FGF7X0N).
+
+## `switch` as a jump table (2026-11-24, on the examples)
+
+Row L of the catalogue, moved into M10. A `switch` on an 8- or 16-bit value can now jump through a
+table in its function's segment (`ASL A / TAX / JMP (.loword(table),X)`, 10 cycles), with a range
+check in front where the value's range does not keep it within the table (`CMP / BCC` or `BCS`, 5
+cycles per end, or `SEC / SBC #lo` and one `CMP / BCS`). The break-even against the chain of
+compares was measured in dampf's emulator: for each form and number of cases n, one program per
+value, `test_main` a switch over cases with a store each, the code generator once forced to the
+chain and once to the table. The table below gives the table's average CPU cycles over the n
+cases minus the chain's (negative: the table is faster); the value that is no case cost the table
+19 to 26 cycles whatever n was, the chain 5 more for each case.
+
+| Form | n = 3 | 4 | 5 | 6 | 7 | 8 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `uint16_t`, cases 0..n-1, upper check | +3.6 | +2.5 | +0.8 | −1.1 | −3.3 | −5.5 |
+| `uint8_t`, cases 0..n-1, upper check | +3.6 | +2.5 | +0.8 | −1.1 | −3.3 | −5.5 |
+| `v & 15`, cases 0..n-1, no check from n = 4 | +3.6 | −1.3 | −3.2 | −5.3 | −7.6 | −9.9 |
+| `uint16_t`, cases 100.., two checks | +8.3 | +6.0 | +3.6 | +1.2 | −1.3 | −3.8 |
+| `int16_t`, cases around 0, subtraction and check | +8.3 | +6.0 | +3.6 | +1.2 | −1.3 | −3.8 |
+
+The cost model in `SwitchSelection` (the chain 5k + 6 for its k-th case, 3 less when the first case
+is 0 and needs no `CMP`; the table its dispatch, and a first case 0 tested before it with a `BEQ`)
+gives the same break-even in every row: 6 cases, 4, 7. That is the rule (ADR-6FM7MWGX), with at
+most four entries per case.
+
+The first version assumed every case equally likely and tested no case before the table. On the
+examples Ertüp got 0.8 % slower: `draw_items` and `draw_parts` walk arrays whose empty slots, the
+first case `0`, are most of them, and the chain reached that case with one `BEQ`. Testing a first
+case 0 before the table costs 2 cycles on the other ways and fixed it.
+
+| Example | Work before | after | Busiest tick before | after | Code bytes before | after |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| CatchMe | 47,297 | 47,297 | 127,586 | 127,586 | 24,887 | 24,887 |
+| Ertüp | 132,235 | 132,217 | 262,654 | 260,166 | 86,087 | 85,954 |
+| Schach | 370,417 | 370,307 | 523,463 | 523,337 | 43,782 | 43,791 |
+| Steinschlag | 74,322 | 74,628 | 134,089 | 134,423 | 27,513 | 27,500 |
+
+Hello, Mandelbrot and Mode 7 have no switch that changed. Of the 48 switches the examples have after
+inlining, 8 became tables; most of the others have two to five cases. Steinschlag is 0.4 % slower:
+`cave_scan_rows` switches on the kind of each cell that moves, and its first case, the boulder, is
+by far the most common, where the chain needs one compare. The worst cases of the timing report
+went down in every function that changed (`cost-baseline.txt`).
