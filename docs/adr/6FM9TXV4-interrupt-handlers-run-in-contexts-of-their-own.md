@@ -40,6 +40,10 @@ roots of the call graph (1), an entry stub that puts each interrupt on a direct 
   the multiplication of two bytes without a call.
 - The timing report gives each interrupt a line of its own (`dampf_irq`, `dampf_nmi`): the stub's
   cycles plus the handler's bounds.
+- A function written in assembly (`DAMPF_ASM` or `--replace`, ADR-6FMATG2V) that an interrupt
+  handler reaches is a compile error. Its convention assumes D = 0 and its frame at `dampf_frame`
+  in the main code's area, and its analysis does not forbid the CPU's multiplier; an interrupt
+  context has its own page and frames and must not touch the multiplier. The two do not fit yet.
 - Both code generators do all of this. The naive one keeps no frames in low RAM, so its contexts
   take one page each.
 - It is built in the compiler and not offered to games. A feature is usable only when the SNES

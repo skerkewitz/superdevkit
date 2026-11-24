@@ -232,6 +232,7 @@ public final class Compiler {
                 handlers.put(f.interrupt(), f.label());
             }
         }
+        checkAsmInInterrupts(asmFunctions, contexts, program);
         List<String> asm;
         Map<String, long[]> timing = Map.of();
         MirCodeGen gen = null;
@@ -325,6 +326,27 @@ public final class Compiler {
         } catch (dampf.emu.AsmCheck.Failure e) {
             AsmFunctions.Asm a = asmFunctions.get(e.function());
             throw new CompileError(a.function().definitionPos(), e.getMessage() + " (" + a.name() + ", DAMPF_ASM)");
+        }
+    }
+
+    /**
+     * A function written in assembly (DAMPF_ASM or --replace) may not be reached from an interrupt
+     * handler: its convention (ADR-6FMATG2V) assumes the direct page 0 and its frame at dampf_frame
+     * in the main code's area, where an interrupt context has its own page and frames, and its code
+     * may use the CPU's multiplier, which interrupt code must not touch (ADR-6FM9TXV4).
+     */
+    private static void checkAsmInInterrupts(Map<String, AsmFunctions.Asm> asmFunctions,
+                                             Map<Function, dampf.ast.Interrupt> contexts, Program program) throws CompileError {
+        for (AsmFunctions.Asm a : asmFunctions.values()) {
+            dampf.ast.Interrupt c = contexts.get(a.function());
+            if (c == null) {
+                continue;
+            }
+            String handler = program.functions().stream().filter(f -> f.interrupt() == c).findFirst().orElseThrow().name();
+            throw new CompileError(a.function().definitionPos(), "'" + a.function().name() + "' is written in assembly ("
+                    + a.name() + ") and reached from " + c.handler() + " '" + handler + "': an assembly function assumes"
+                    + " the direct page 0 and the main code's frames and may use the CPU's multiplier, so interrupt code"
+                    + " cannot call it yet (docs/hints.md, DAMPF_ASM)");
         }
     }
 

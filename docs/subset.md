@@ -188,7 +188,8 @@ never does. The handler and every function it calls form a context of their own,
 frames, direct page and scratch registers, and they multiply without the CPU's multiplier
 (ADR-6FM9TXV4, [memory-map.md](memory-map.md#interrupt-contexts)). A function called from two
 contexts (the main code and a handler, or both handlers) is an error that names both call paths,
-so a helper that both need is written twice. On the PC the macro is empty and the handler is an
+so a helper that both need is written twice. A function written in assembly (`DAMPF_ASM`,
+`--replace`) cannot be reached from a handler yet ([hints.md](hints.md)). On the PC the macro is empty and the handler is an
 ordinary function, which the program may call itself (`exec/interrupts.c` does, to compute the
 handlers' results there).
 

@@ -94,6 +94,41 @@ class InterruptContextsTest {
     }
 
     @Test
+    void anAssemblyFunctionCannotBeReachedFromAHandler() throws Exception {
+        // its convention (ADR-6FMATG2V) assumes D = 0 and its frame at dampf_frame, and its code
+        // may use the multiplier: neither fits an interrupt context (ADR-6FM9TXV4)
+        Files.createDirectories(tmp.resolve("asm"));
+        Files.writeString(tmp.resolve("asm/seven.s"), """
+                        .p816
+                        .smart  off
+                        .a16
+                        .i16
+                        .export _seven
+                        .segment "C_seven"
+                .proc _seven
+                        lda     #7
+                        rtl
+                .endproc
+                """);
+        String code = """
+                static uint16_t seven(void) DAMPF_ASM("asm/seven.s") { return 7; }
+                HANDLER void on_irq(void) { g = seven(); }
+                void test_main(void) { g = 1; }
+                """;
+        for (Compiler.Backend b : Compiler.Backend.values()) {
+            Path f = tmp.resolve("a.c");
+            Files.writeString(f, "#include <stdint.h>\n#include <dampf.h>\nuint16_t g;\n" + code.replace("HANDLER", "DAMPF_INTERRUPT(irq)"));
+            CompileError e = assertThrows(CompileError.class, () -> build(f, b));
+            assertTrue(e.getMessage().contains("'seven' is written in assembly (")
+                    && e.getMessage().contains("asm/seven.s) and reached from the IRQ handler 'on_irq'"), b + ": " + e.getMessage());
+            // the same function in the main code builds
+            Files.writeString(f, "#include <stdint.h>\n#include <dampf.h>\nuint16_t g;\n"
+                    + code.replace("HANDLER ", "").replace("g = 1;", "on_irq();"));
+            build(f, b);
+        }
+    }
+
+    @Test
     void eachHandlerIsTheRootOfItsContext() throws Exception {
         Program p = Compiler.frontEnd(new Compiler.Options(List.of(program()), List.of(), List.of(), "test_main", tmp.resolve("x.sfc")));
         Map<String, Interrupt> byName = new HashMap<>();
