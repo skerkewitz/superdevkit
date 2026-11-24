@@ -34,7 +34,10 @@ import org.antlr.v4.runtime.tree.TerminalNode;
  * anything else. The full subset checker comes later; the subset rule enforced here already is
  * that {@code short}, {@code int}, {@code long}, {@code signed} and {@code unsigned} may not be
  * written in game code, only in dampf's own {@code <stdint.h>}. Plain {@code char} is allowed for
- * text and means what it means on x86-64: a signed 8-bit type (docs/subset.md, decision 1).
+ * text and means what it means on x86-64: a signed 8-bit type. Its value may only be copied,
+ * converted to another 8-bit type, tested for zero and compared with {@code ==} and {@code !=}
+ * against another char or a constant from 0 to 127, so that the signedness never shows
+ * (docs/subset.md, decision 1; ADR-6FM063YZ): see {@link #convert}.
  */
 public final class AstBuilder {
     private final Path systemHeaders;
@@ -267,7 +270,7 @@ public final class AstBuilder {
             return Type.VOID;
         }
         if (kw.equals(List.of("char"))) {
-            return Type.I8; // text; signed 8 bit as on x86-64
+            return Type.CHAR; // text; signed 8 bit as on x86-64
         }
         for (String k : kw) {
             switch (k) {
@@ -1378,7 +1381,9 @@ public final class AstBuilder {
     private Stmt switchStatement(CParser.SelectionStatementContext sel) throws CompileError {
         Expr value = rvalue(expression(sel.expression()));
         Type.Int t = Type.promote(intType(value, sel));
-        value = convert(value, t, pos(sel.expression()));
+        // a switch on a char compares it with each case value: fine for values from 0 to 127
+        boolean text = isPlainChar(value);
+        value = text ? widen(value, t, pos(sel.expression())) : convert(value, t, pos(sel.expression()));
         CParser.StatementContext bodyCtx = sel.statement(0);
         if (bodyCtx.compoundStatement() == null) {
             throw unsupported(bodyCtx, "a switch body that is not a block");
@@ -1393,7 +1398,7 @@ public final class AstBuilder {
                 if (item.declaration() != null) {
                     localDeclaration(item.declaration(), body);
                 } else {
-                    switchItem(item.statement(), t, seen, body);
+                    switchItem(item.statement(), t, text, seen, body);
                 }
             }
         }
@@ -1403,7 +1408,8 @@ public final class AstBuilder {
     }
 
     /** A statement of a switch body; case labels become markers, followed by their statement. */
-    private void switchItem(CParser.StatementContext st, Type.Int t, Set<Long> seen, List<Stmt> body) throws CompileError {
+    private void switchItem(CParser.StatementContext st, Type.Int t, boolean text, Set<Long> seen, List<Stmt> body)
+            throws CompileError {
         CParser.LabeledStatementContext ls = st.labeledStatement();
         if (ls != null && (ls.getStart().getText().equals("case") || ls.getStart().getText().equals("default"))) {
             Long v = null;
@@ -1412,13 +1418,17 @@ public final class AstBuilder {
                 if (v == null) {
                     throw error(ls, "a case label must be an integer constant");
                 }
+                if (text && (v < 0 || v > 127)) {
+                    throw error(ls, "case " + v + " on a plain char: " + CHAR_RULE
+                            + "; only case values from 0 to 127 are allowed, or switch on (uint8_t)");
+                }
             }
             if (!seen.add(v)) {
                 throw error(ls, v == null ? "more than one default label" : "duplicate case value " + v);
             }
             body.add(new Stmt.Case(v, pos(ls)));
             if (ls.statement() != null) {
-                switchItem(ls.statement(), t, seen, body);
+                switchItem(ls.statement(), t, text, seen, body);
             }
             return;
         }
@@ -1543,7 +1553,10 @@ public final class AstBuilder {
         Type.Int lt = intType(left, pos);
         Type.Int rt = intType(right, pos);
         Expr result;
-        if (bop.isShift()) {
+        if ((bop == Expr.BinOp.EQ || bop == Expr.BinOp.NE) && textEquality(left, right)) {
+            // a char against a char or a constant from 0 to 127: equal on every PC or on none
+            result = new Expr.Binary(bop, widen(left, Type.I32, pos), widen(right, Type.I32, pos), Type.I32, pos);
+        } else if (bop.isShift()) {
             Type.Int t = Type.promote(lt);
             result = new Expr.Binary(bop, convert(left, t, pos), convert(right, Type.promote(rt), pos), t, pos);
         } else {
@@ -1615,6 +1628,7 @@ public final class AstBuilder {
                 return new Expr.PointerCast(operand, pt, p);
             }
             intType(operand, p);
+            checkCharCast(operand, t, p);
             return new Expr.PointerCast(operand, pt, p);
         }
         if (!(t instanceof Type.Int it)) {
@@ -1627,6 +1641,9 @@ public final class AstBuilder {
             return it.equals(Type.U32) ? a : new Expr.Convert(a, it, true, p);
         }
         intType(operand, p);
+        if (it.bits() > 8) {
+            checkCharCast(operand, it, p);
+        }
         if (operand instanceof Expr.Const k) {
             return new Expr.Const(it.wrap(k.value()), it, p);
         }
@@ -1858,6 +1875,9 @@ public final class AstBuilder {
                     int step = t instanceof Type.Pointer ? elementSize(e, sp) : 1;
                     if (!Type.isScalar(t)) {
                         throw new CompileError(sp, "'" + suffix + "' needs a number or a pointer");
+                    }
+                    if (isPlainChar(e)) {
+                        throw charAsNumber(e, sp);
                     }
                     e = new Expr.PostIncDec(e, suffix.equals("++"), step, sp);
                     i += 1;
@@ -2130,8 +2150,22 @@ public final class AstBuilder {
         }
     }
 
-    /** Converts to {@code t} as C does implicitly; constants are folded. */
+    /**
+     * Converts to {@code t} as C does implicitly; constants are folded. A plain char may only be
+     * converted to another 8-bit type (the same byte on every PC): every wider conversion, and so
+     * every arithmetic, shift, bit operation, relational comparison, index and widening
+     * assignment on it, depends on whether char is signed, and is rejected. The exceptions that
+     * do not ({@code ==} and {@code !=}, switch) go through {@link #widen}.
+     */
     private static Expr convert(Expr e, Type.Int t, SourcePos pos) throws CompileError {
+        if (isPlainChar(e) && t.bits() > 8 && !asciiConstant(e)) {
+            throw charAsNumber(e, pos);
+        }
+        return widen(e, t, pos);
+    }
+
+    /** {@link #convert} without the plain char rule. */
+    private static Expr widen(Expr e, Type.Int t, SourcePos pos) throws CompileError {
         if (!(e.type() instanceof Type.Int)) {
             throw new CompileError(pos, e.type() instanceof Type.Void ? "a void value is used" : "a number is needed here, not " + e.type());
         }
@@ -2142,6 +2176,38 @@ public final class AstBuilder {
             return new Expr.Const(t.wrap(k.value()), t, k.pos());
         }
         return new Expr.Convert(e, t, false, pos);
+    }
+
+    private static final String CHAR_RULE = "plain char is text, and whether it is signed differs between PCs, "
+            + "so a char may only be copied and compared with == or != against a char or a constant from 0 to 127";
+
+    private static boolean isPlainChar(Expr e) {
+        return e.type() instanceof Type.Int i && i.plainChar();
+    }
+
+    /** A constant from 0 to 127: the same value whether char is signed or not. */
+    private static boolean asciiConstant(Expr e) {
+        Long k = fold(e);
+        return k != null && k >= 0 && k <= 127;
+    }
+
+    /** {@code ==} or {@code !=} whose result is the same whether char is signed or not. */
+    private static boolean textEquality(Expr a, Expr b) {
+        return isPlainChar(a) && (isPlainChar(b) || asciiConstant(b)) || isPlainChar(b) && asciiConstant(a);
+    }
+
+    /** A plain char used as a number. */
+    private static CompileError charAsNumber(Expr e, SourcePos pos) {
+        String name = e instanceof Expr.Var v ? v.variable().name() : "c";
+        return new CompileError(pos, CHAR_RULE + ": use uint8_t or int8_t for a number, or cast the char: (uint8_t)" + name);
+    }
+
+    /** A cast of a plain char to a wider type (or a pointer), which shows its signedness. */
+    private static void checkCharCast(Expr operand, Type t, SourcePos pos) throws CompileError {
+        if (isPlainChar(operand) && !asciiConstant(operand)) {
+            throw new CompileError(pos, "a cast of a plain char to " + t + " depends on whether char is signed, which differs "
+                    + "between PCs: cast to uint8_t or int8_t first, as in (" + t + ")(uint8_t)c");
+        }
     }
 
     /** True if evaluating {@code e} changes something (so it must not be evaluated twice). */

@@ -33,6 +33,7 @@ expensive, or one with a `DAMPF_BUDGET`. Elsewhere it costs readability for noth
 | variable-length arrays | `an array size must be a positive integer constant` |
 | compound literals, designated initializers | `not supported yet: compound literals`, `not supported yet: designated initializers` |
 | `_Bool` | `not supported yet: _Bool` (use `uint8_t`) |
+| arithmetic, `<`, `>`, shifts, an index on a plain `char` | `plain char is text, and whether it is signed differs between PCs, so a char may only be copied and compared with == or != against a char or a constant from 0 to 127: use uint8_t or int8_t for a number, or cast the char: (uint8_t)c` (write `(uint8_t)c - '0'`; `c == 'a'`, `while (*s)` and `switch (c)` are fine) |
 | a `volatile` variable | `not supported yet: volatile variables (only pointers to volatile memory)` |
 | inline assembly | `not supported yet: this statement` |
 

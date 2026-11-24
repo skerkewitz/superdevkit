@@ -29,6 +29,8 @@ compiled silently. Link [Writing C for dampf](/guide/writing-c) for the introduc
 
 1. **Types** – accepted and rejected types, with the reason for rejecting plain integer types.
    The sizes dampf uses for each accepted type, including enums and pointers, as it does today.
+   Plain `char` as text: what a `char` value may and may not do, with the message, and why
+   (ADR-6FM063YZ).
 2. **Semantics** – the arithmetic rules, which are those of gcc on x86-64; dampf's `<stdint.h>`.
 3. **Functions** – no recursion (the message names the cycle; show it), no variadic functions,
    structs only by pointer, parameters, `inline`.

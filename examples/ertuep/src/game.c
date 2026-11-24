@@ -100,7 +100,7 @@ static void hud_text(uint8_t x, uint8_t y, const char *s)
     uint8_t i;
 
     for (i = 0; i < 32 && s[i] != 0; i++) {
-        uint8_t c = (uint8_t)(s[i] - ' ');
+        uint8_t c = (uint8_t)((uint8_t)s[i] - ' ');
         hud_put((uint8_t)(x + i), y, (uint16_t)(TILE_FONT + (c < 96 ? char_tile[c] : 0)));
     }
 }
@@ -112,8 +112,8 @@ static void hud_pfand_at(uint8_t x, uint8_t y)
     uint16_t euros = pfand / 100;
     uint8_t cents = (uint8_t)(pfand % 100);
 
-    s[0] = euros >= 100 ? (char)('0' + euros / 100) : ' ';
-    s[1] = euros >= 10 ? (char)('0' + (euros / 10) % 10) : ' ';
+    s[0] = (char)(euros >= 100 ? '0' + euros / 100 : ' ');
+    s[1] = (char)(euros >= 10 ? '0' + (euros / 10) % 10 : ' ');
     s[2] = (char)('0' + euros % 10);
     s[3] = ',';
     s[4] = (char)('0' + cents / 10);
@@ -605,7 +605,7 @@ void game_init(uint16_t seed)
     }
     sdevkit_oam_init();
     for (i = 0; CHARSET[i] != 0; i++) {
-        char_tile[(uint8_t)(CHARSET[i] - ' ')] = i;
+        char_tile[(uint8_t)((uint8_t)CHARSET[i] - ' ')] = i;
     }
     sway_init();
     title();

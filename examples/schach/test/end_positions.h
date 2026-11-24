@@ -57,8 +57,8 @@ static uint8_t end_of(uint8_t i)
 
     set_fen(END_FEN[i]);
     while (*m != 0) {
-        uint8_t from = SQ((uint8_t)(m[0] - 'a'), (uint8_t)(m[1] - '1'));
-        uint8_t to = SQ((uint8_t)(m[2] - 'a'), (uint8_t)(m[3] - '1'));
+        uint8_t from = SQ((uint8_t)((uint8_t)m[0] - 'a'), (uint8_t)((uint8_t)m[1] - '1'));
+        uint8_t to = SQ((uint8_t)((uint8_t)m[2] - 'a'), (uint8_t)((uint8_t)m[3] - '1'));
         uint8_t k, found = 0xFF;
         list_legal();
         for (k = 0; k < legal_n; k++) {

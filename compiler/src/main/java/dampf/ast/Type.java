@@ -62,7 +62,27 @@ public sealed interface Type {
         }
     }
 
-    record Int(int bits, boolean signed) implements Type {
+    /**
+     * An integer type. {@code plainChar} marks plain {@code char}, which is text: the front end
+     * lets a value of it only be copied and compared with {@code ==} and {@code !=}, so that its
+     * signedness (signed on x86-64, unsigned on ARM) never shows (docs/subset.md, ADR-6FM063YZ).
+     * For everything else, equality too, it is {@code int8_t}, as on x86-64.
+     */
+    record Int(int bits, boolean signed, boolean plainChar) implements Type {
+        public Int(int bits, boolean signed) {
+            this(bits, signed, false);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            return o instanceof Int i && i.bits == bits && i.signed == signed;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(bits, signed);
+        }
+
         @Override
         public int size() {
             return bits / 8;
@@ -85,7 +105,7 @@ public sealed interface Type {
 
         @Override
         public String toString() {
-            return (signed ? "int" : "uint") + bits + "_t";
+            return plainChar ? "char" : (signed ? "int" : "uint") + bits + "_t";
         }
     }
 
@@ -200,6 +220,8 @@ public sealed interface Type {
 
     Void VOID = new Void();
     Int I8 = new Int(8, true);
+    /** Plain {@code char}: {@link #I8} for the code generators, text for the front end. */
+    Int CHAR = new Int(8, true, true);
     Int U8 = new Int(8, false);
     Int I16 = new Int(16, true);
     Int U16 = new Int(16, false);

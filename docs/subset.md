@@ -184,10 +184,11 @@ yet.
 
 ## Decisions
 
-Decisions 1 to 3 are open; each has a recommendation, which dampf implements until it is
-decided. Decisions 4 and 5 are decided. What dampf does today:
+Decisions 2 and 3 are open; each has a recommendation, which dampf implements until it is
+decided. Decisions 1, 4 and 5 are decided. What dampf does today:
 
-- decision 1: plain `char` is a signed 8-bit type; the restriction to text is not enforced yet;
+- decision 1: plain `char` is a signed 8-bit type for text: a `char` value is only copied,
+  tested for zero and compared with `==` and `!=` ([ADR-6FM063YZ](adr/6FM063YZ-plain-char-is-text-a-char-value-is-only-copied.md));
 - decision 2: both code generators store enum objects in 4 bytes, like the PC, and the checker
   accepts any integer stored into an enum object; narrowing them is an optimization, not built;
 - decision 3: pointers are 4 bytes in memory (address, bank, a zero byte) with both code
@@ -197,11 +198,20 @@ decided. Decisions 4 and 5 are decided. What dampf does today:
 - decision 4: `goto` and labels are rejected ([ADR-6F3CJVHC](adr/6F3CJVHC-goto-and-labels-stay-rejected-and-a-forward-and.md));
 - decision 5: a `sizeof` that differs from the PC is rejected, except the element count.
 
-1. **Plain `char` for text.** The game uses `char` only for strings and name buffers. Plain
-   `char` is signed with gcc and clang on x86-64 and with MSVC, unsigned on ARM. Recommendation:
-   allow `char` and give it the x86-64 meaning (signed 8 bit), and have the checker reject
-   arithmetic on `char` beyond comparisons and copying, so the signedness can never change a
-   result. The alternative is a `typedef uint8_t text_t` in the game, which touches 27 places.
+1. **Plain `char` for text** (decided 2026-11-24). The game uses `char` only for strings and
+   name buffers. Plain `char` is signed with gcc and clang on x86-64 and with MSVC, unsigned on
+   ARM. `char` keeps the x86-64 meaning (signed 8 bit), and the front end lets a `char` value be
+   used only where its signedness cannot change the result. Allowed: copying it (assignment,
+   parameters, results, arrays, string literals), storing any number into a `char`, converting
+   it to another 8-bit type (`uint8_t u = c`, `(int8_t)c`), testing it for zero (`if (c)`,
+   `while (*s)`, `!c`), `==` and `!=` against another `char` or a constant from 0 to 127, and a
+   `switch` whose case values are all from 0 to 127. Rejected: arithmetic, shifts and bit
+   operations, `<`, `<=`, `>`, `>=`, `++`, `--` and compound assignment on a `char`, a `char`
+   as an index or a pointer offset, a conversion or cast to a wider type (`int16_t x = c`), and
+   a `?:` with a `char` branch. Digit arithmetic is rejected too: `c - '0'` is written
+   `(uint8_t)c - '0'`. The message says the same: "plain char is text, ... use uint8_t or int8_t
+   for a number, or cast the char: (uint8_t)c". ADR
+   [ADR-6FM063YZ](adr/6FM063YZ-plain-char-is-text-a-char-value-is-only-copied.md), with the options weighed.
 
 2. **Size of enum-typed objects.** On the PC an `enum` object is 4 bytes. dampf wants 1 byte for
    `g_state`. Recommendation: the checker allows only enumerators of the same enum (or values of
@@ -236,7 +246,8 @@ Very little:
 2. `BB_FAST` in `internal.h` expands to `__attribute__((tiny))` for Calypsi and to nothing
    otherwise. It needs a `__DAMPF__` branch that expands to `DAMPF_DP` ([hints.md](hints.md))
    once that hint is built.
-3. If decision 1 goes the other way: replace `char` in the 27 text declarations.
+3. Where the game computes with a `char` (a tile number from a letter, the value of a digit),
+   cast it to `uint8_t` first (decision 1). dampf names each place.
 
 Generated data (`build/generated/level_data.c`, `gfx_data.c`) is plain `const` C arrays and fits
 the subset. For the PVSnesLib and Calypsi builds, `map2c --snes` and `gfx2c --snes` write the
