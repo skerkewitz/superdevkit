@@ -119,6 +119,29 @@ is rejected. dampf gets the same results on the 65816 and narrows operations onl
 prove the result is identical. dampf ships its own `<stdint.h>` with the same underlying types as the
 PC (`int32_t` is `int`), so the types mean the same thing on both sides.
 
+**Warnings.** Where gcc warns without any warning option, dampf is to warn too, in gcc's form,
+and the build goes on; `dampf build` and `dampf check` print the warnings. So far there is one,
+gcc's `-Woverflow` on a constant converted to an integer type that cannot hold it, in an
+initializer, an assignment, an argument or a return value. `uint8_t wait[] = { 420 };` stores
+164 on both sides, and dampf says
+
+```
+cat.c:2:20: warning: unsigned conversion from 'int32_t' to 'uint8_t' changes value from '420' to '164' [-Woverflow]
+```
+
+The rule is gcc's: a constant gets the warning only when the type cannot hold it as a signed or
+as an unsigned number of its width. `uint8_t x = -1` and `int8_t y = 255` (or `0x80`) are
+silent, `uint8_t x = 256`, `uint8_t x = -129` and `uint16_t z = 65536` are not. A constant is
+what dampf folds: literals, enumerators, macros, and arithmetic, casts and `?:` on them; a
+`const` variable is not one. A cast to the target type says the truncation is meant and silences
+the warning. gcc is also silent in code that is never evaluated (the operand of `sizeof`, the
+right side of `0 &&`, the branch of `?:` that a constant condition does not take) and when the
+constant overflowed while it was folded (`2147483647 + 1`), and so is dampf.
+`ConversionWarningTest` compiles a file of cases with dampf and gcc and compares where each
+warns. gcc folds a little more than dampf (`n * 0 + 300`, `n ? 300 : 300`), so there gcc warns
+and dampf does not. gcc's warning about the overflow itself (`integer overflow in expression`)
+is not built yet, and neither are gcc's other default warnings.
+
 **Functions.** No recursion (the checker names the cycle), no variadic functions, no `inline`
 requirement (inlining is the compiler's decision; `inline` is accepted and ignored), structs only
 by pointer. A function without parameters is written `f(void)`; an empty list `f()` and old-style
