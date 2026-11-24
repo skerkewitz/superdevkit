@@ -43,7 +43,9 @@ scalar elements (`a[2]`, `s.x`), must have the same values on both sides. Pointe
 | The BRR Lab | Every use of `tools/brr_lab.html`, and its bytes against `superdevkit sfx` ([tools/lab_test](../tools/lab_test/README.md)) | Headless Chromium (Playwright), when installed | 10 seconds |
 | Timing on the examples | Every call of every example against its static bounds | dampf's emulator | 20 seconds |
 
-**Unit tests** cover the front end (`PreprocessorTest`, `ParserTest`, `AstBuilderTest`), MIR
+**Unit tests** cover the front end (`PreprocessorTest`, `ParserTest`, `AstBuilderTest`;
+`ConversionWarningTest` compiles a file of constants that do not fit their type with dampf and
+gcc and compares where each warns, and `ExamplesTest` fails if an example gets that warning), MIR
 passes written as MIR text (`NarrowTest`, `GvnTest`, `InlineTest`, `LicmTest`, `RangesTest`,
 ...), timing and budgets (`TimingTest`, `BudgetTest`) and the cycle table (`Cycles65816Test`).
 `MirTextTest` prints the MIR of every execution program and of every example, parses it back

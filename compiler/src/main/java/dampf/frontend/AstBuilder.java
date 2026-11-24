@@ -119,6 +119,27 @@ public final class AstBuilder {
     private final Map<Expr.Const, String> sizeDiffers = new java.util.IdentityHashMap<>();
     private final Map<Expr.Const, Long> pcSizes = new java.util.IdentityHashMap<>();
 
+    /** Warnings: gcc's default warnings that dampf gives too (docs/subset.md, "Warnings"). */
+    private final List<Diagnostic> warnings = new ArrayList<>();
+
+    /**
+     * Constants whose folding overflowed a signed type, as {@code 2147483647 + 1} does (gcc's
+     * TREE_OVERFLOW): gcc gives no conversion warning for them, and neither does dampf.
+     */
+    private final Set<Expr.Const> overflowed = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+
+    /**
+     * Above 0 while building an expression that is never evaluated: the operand of sizeof, the
+     * right side of {@code 0 &&} and {@code 1 ||}, the branch of {@code ?:} a constant condition
+     * does not take. gcc gives no conversion warning there.
+     */
+    private int unevaluated;
+
+    /** The warnings of the files added so far, in the order they were found. */
+    public List<Diagnostic> warnings() {
+        return List.copyOf(warnings);
+    }
+
     /** sizeof a type: dampf's size; noted if gcc on x86-64 gives another. */
     private Expr.Const sizeOf(Type t, SourcePos p) {
         Expr.Const k = new Expr.Const(t.size(), Type.SIZE, p);
@@ -882,6 +903,7 @@ public final class AstBuilder {
 
     /** One scalar of static data: a number or an address constant. */
     private Init.Item scalarInit(Type t, Expr e, int offset, ParserRuleContext where) throws CompileError {
+        constantFits(e, t, where);
         Expr v = assignConvert(e, t, pos(where));
         if (t instanceof Type.Int it) {
             Long k = fold(v);
@@ -1155,7 +1177,9 @@ public final class AstBuilder {
                 Variable v = new Variable(dec.name(), uniqueLabel(current.label() + "__" + dec.name()), t, Variable.Kind.LOCAL, dec.pos());
                 currentLocals.add(v);
                 scope.put(dec.name(), v); // C: the variable is in scope inside its own initializer
-                Expr value = assignConvert(rvalue(assignment(id.initializer().assignmentExpression())), t, pos(id.initializer()));
+                Expr init = rvalue(assignment(id.initializer().assignmentExpression()));
+                constantFits(init, t, id.initializer());
+                Expr value = assignConvert(init, t, pos(id.initializer()));
                 out.add(new Stmt.ExprStmt(new Expr.Assign(new Expr.Var(v, dec.pos()), value, dec.pos()), pos(d)));
                 continue;
             }
@@ -1216,7 +1240,9 @@ public final class AstBuilder {
             if (rt instanceof Type.Void) {
                 throw error(js, "'return' with a value in a void function");
             }
-            return new Stmt.Return(assignConvert(rvalue(expression(js.expression())), rt, pos(js.expression())), pos(st));
+            Expr value = rvalue(expression(js.expression()));
+            constantFits(value, rt, js.expression());
+            return new Stmt.Return(assignConvert(value, rt, pos(js.expression())), pos(st));
         }
         if (st.selectionStatement() != null) {
             CParser.SelectionStatementContext sel = st.selectionStatement();
@@ -1450,6 +1476,7 @@ public final class AstBuilder {
         checkAssignable(target, a.unaryExpression());
         Expr rhs = rvalue(assignment(a.assignmentExpression()));
         if (op.getText().equals("=")) {
+            constantFits(rhs, target.type(), a.assignmentExpression());
             return new Expr.Assign(target, assignConvert(rhs, target.type(), p), p);
         }
         if (hasSideEffects(target)) {
@@ -1475,8 +1502,10 @@ public final class AstBuilder {
         }
         cond = rvalue(cond);
         scalar(cond, c);
-        Expr then = rvalue(expression(c.expression()));
-        Expr otherwise = rvalue(conditional(c.conditionalExpression()));
+        // with a constant condition, the branch it does not take is never evaluated
+        Long known = fold(cond);
+        Expr then = rvalue(unevaluatedIf(known != null && known == 0, () -> expression(c.expression())));
+        Expr otherwise = rvalue(unevaluatedIf(known != null && known != 0, () -> conditional(c.conditionalExpression())));
         SourcePos p = pos(c);
         Type t;
         if (then.type() instanceof Type.Int a && otherwise.type() instanceof Type.Int b) {
@@ -1503,7 +1532,11 @@ public final class AstBuilder {
         Expr left = chain((ParserRuleContext) ctx.getChild(0));
         for (int i = 1; i < ctx.getChildCount(); i += 2) {
             TerminalNode op = (TerminalNode) ctx.getChild(i);
-            Expr right = chain((ParserRuleContext) ctx.getChild(i + 1));
+            // 0 && x, 1 || x: x is never evaluated
+            Long k = op.getText().equals("&&") || op.getText().equals("||") ? fold(rvalue(left)) : null;
+            boolean skipped = k != null && (op.getText().equals("&&") ? k == 0 : k != 0);
+            ParserRuleContext rightCtx = (ParserRuleContext) ctx.getChild(i + 1);
+            Expr right = unevaluatedIf(skipped, () -> chain(rightCtx));
             left = binaryOp(op.getText(), rvalue(left), rvalue(right), pos(op.getSymbol()));
         }
         return left;
@@ -1552,7 +1585,42 @@ public final class AstBuilder {
             result = new Expr.Binary(bop, convert(left, t, pos), convert(right, t, pos), resultType, pos);
         }
         Long k = fold(result);
-        return k != null ? new Expr.Const(k, (Type.Int) result.type(), pos) : result;
+        if (k == null) {
+            return result;
+        }
+        Expr.Const folded = new Expr.Const(k, (Type.Int) result.type(), pos);
+        Expr.Binary b = (Expr.Binary) result;
+        if (!bop.isComparison() && (overflowed(b.left()) || overflowed(b.right()) || signedOverflow(b))) {
+            overflowed.add(folded);
+        }
+        return folded;
+    }
+
+    /** True if {@code e} is a constant whose folding overflowed a signed type. */
+    private boolean overflowed(Expr e) {
+        return e instanceof Expr.Const k && overflowed.contains(k);
+    }
+
+    /**
+     * True if a binary operator on two constants of a signed type gives a value the type cannot
+     * hold ({@code 2147483647 + 1}, {@code INT_MIN / -1}); gcc warns about such an expression
+     * (dampf not yet) and gives no conversion warning for its value.
+     */
+    private static boolean signedOverflow(Expr.Binary b) {
+        if (!b.type().signed() || !(b.left() instanceof Expr.Const l) || !(b.right() instanceof Expr.Const r)) {
+            return false;
+        }
+        long x = l.value();
+        long y = r.value();
+        Long exact = switch (b.op()) {
+            case ADD -> x + y;
+            case SUB -> x - y;
+            case MUL -> x * y;
+            case DIV -> y == 0 ? null : x / y;
+            case MOD -> y == -1 && x == b.type().min() ? b.type().max() + 1 : null; // gcc: INT_MIN % -1 overflows
+            default -> null;
+        };
+        return exact != null && b.type().wrap(exact) != exact;
     }
 
     /** Pointer arithmetic and pointer comparisons. */
@@ -1628,7 +1696,7 @@ public final class AstBuilder {
         }
         intType(operand, p);
         if (operand instanceof Expr.Const k) {
-            return new Expr.Const(it.wrap(k.value()), it, p);
+            return keepOverflow(k, new Expr.Const(it.wrap(k.value()), it, p));
         }
         return new Expr.Convert(operand, it, true, p);
     }
@@ -1665,14 +1733,22 @@ public final class AstBuilder {
             }
             e = sizeOf(t, pos(u));
             first--;
-        } else if (u.postfixExpression() != null) {
-            e = postfix(u.postfixExpression());
-        } else if (u.unaryOperator != null) {
-            e = unaryOperator(u.unaryOperator, cast(u.castExpression()), u);
-        } else if (u.unaryExpression() != null) {
-            e = unary(u.unaryExpression()); // sizeof unary-expression (GNU form)
         } else {
-            throw unsupported(u, "this expression");
+            // the operand of sizeof is never evaluated
+            boolean inSizeof = false;
+            for (int i = 0; i < first; i++) {
+                inSizeof |= u.getChild(i).getText().equals("sizeof");
+            }
+            e = unevaluatedIf(inSizeof, () -> {
+                if (u.postfixExpression() != null) {
+                    return postfix(u.postfixExpression());
+                } else if (u.unaryOperator != null) {
+                    return unaryOperator(u.unaryOperator, cast(u.castExpression()), u);
+                } else if (u.unaryExpression() != null) {
+                    return unary(u.unaryExpression()); // sizeof unary-expression (GNU form)
+                }
+                throw unsupported(u, "this expression");
+            });
         }
         for (int i = first - 1; i >= 0; i--) {
             Token op = ((TerminalNode) u.getChild(i)).getSymbol();
@@ -1735,7 +1811,12 @@ public final class AstBuilder {
             case "+" -> conv;
             case "-", "~" -> {
                 if (conv instanceof Expr.Const k) {
-                    yield new Expr.Const(t.wrap(op.equals("-") ? -k.value() : ~k.value()), t, p);
+                    long v = op.equals("-") ? -k.value() : ~k.value();
+                    Expr.Const r = keepOverflow(k, new Expr.Const(t.wrap(v), t, p));
+                    if (t.signed() && t.wrap(v) != v) {
+                        overflowed.add(r); // -INT_MIN
+                    }
+                    yield r;
                 }
                 yield new Expr.Unary(op.equals("-") ? Expr.UnOp.NEG : Expr.UnOp.NOT, conv, t, p);
             }
@@ -1911,6 +1992,7 @@ public final class AstBuilder {
         List<Expr> args = new ArrayList<>();
         for (int i = 0; i < argCtx.size(); i++) {
             Expr a = rvalue(assignment(argCtx.get(i)));
+            constantFits(a, f.paramTypes().get(i), argCtx.get(i));
             args.add(assignConvert(a, f.paramTypes().get(i), pos(argCtx.get(i))));
         }
         firstCall.putIfAbsent(f, pos(name));
@@ -2079,8 +2161,53 @@ public final class AstBuilder {
         return e;
     }
 
+    /**
+     * gcc's conversion warning for a constant converted as by assignment (an initializer, an
+     * assignment, an argument, a return value) to an integer type that cannot hold it, at the
+     * start of the value ({@code where}). gcc warns only if the value fits the type with neither
+     * signedness: 255 into an int8_t and -1 into a uint8_t are silent, 256 and -129 are not. It
+     * is silent for a constant whose folding overflowed, in code that is never evaluated, and in
+     * system headers; a cast makes the conversion explicit and silent.
+     */
+    private void constantFits(Expr value, Type target, ParserRuleContext where) {
+        if (!(target instanceof Type.Int to) || !(value.type() instanceof Type.Int from) || from.equals(to)
+                || unevaluated > 0 || overflowed(value) || inSystemHeader(where)) {
+            return;
+        }
+        Long v = fold(value);
+        if (v == null || v >= -(1L << (to.bits() - 1)) && v <= (1L << to.bits()) - 1) {
+            return;
+        }
+        String kind = to.signed() ? "overflow in conversion" : from.signed() ? "unsigned conversion" : "conversion";
+        warnings.add(new Diagnostic(Diagnostic.Severity.WARNING, pos(where), kind + " from '" + from + "' to '" + to
+                + "' changes value from '" + v + "' to '" + to.wrap(v) + "' [-Woverflow]"));
+    }
+
+    /** {@code to}, a constant made from {@code from}, overflowed if {@code from} did. */
+    private Expr.Const keepOverflow(Expr.Const from, Expr.Const to) {
+        if (overflowed.contains(from)) {
+            overflowed.add(to);
+        }
+        return to;
+    }
+
+    /** Builds an expression; {@code never}: one that is never evaluated (see {@link #unevaluated}). */
+    private Expr unevaluatedIf(boolean never, ExprBuilder b) throws CompileError {
+        unevaluated += never ? 1 : 0;
+        try {
+            return b.build();
+        } finally {
+            unevaluated -= never ? 1 : 0;
+        }
+    }
+
+    @FunctionalInterface
+    private interface ExprBuilder {
+        Expr build() throws CompileError;
+    }
+
     /** Converts a value as an assignment does (also for arguments, return values and initializers). */
-    private static Expr assignConvert(Expr e, Type t, SourcePos pos) throws CompileError {
+    private Expr assignConvert(Expr e, Type t, SourcePos pos) throws CompileError {
         e = rvalue(e);
         switch (t) {
             case Type.Int it -> {
@@ -2131,7 +2258,7 @@ public final class AstBuilder {
     }
 
     /** Converts to {@code t} as C does implicitly; constants are folded. */
-    private static Expr convert(Expr e, Type.Int t, SourcePos pos) throws CompileError {
+    private Expr convert(Expr e, Type.Int t, SourcePos pos) throws CompileError {
         if (!(e.type() instanceof Type.Int)) {
             throw new CompileError(pos, e.type() instanceof Type.Void ? "a void value is used" : "a number is needed here, not " + e.type());
         }
@@ -2139,7 +2266,7 @@ public final class AstBuilder {
             return e;
         }
         if (e instanceof Expr.Const k) {
-            return new Expr.Const(t.wrap(k.value()), t, k.pos());
+            return keepOverflow(k, new Expr.Const(t.wrap(k.value()), t, k.pos()));
         }
         return new Expr.Convert(e, t, false, pos);
     }
