@@ -2,6 +2,7 @@ package dampf.ast;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -21,6 +22,7 @@ public sealed interface Type {
     static long pcSize(Type t) {
         return switch (t) {
             case Pointer p -> 8;
+            case Int i when i.enumDef() != null -> 4;
             case Array a -> pcSize(a.element()) * Math.max(a.length(), 0);
             case Struct s -> {
                 long offset = 0;
@@ -42,6 +44,7 @@ public sealed interface Type {
             case Pointer p -> 8;
             case Array a -> pcAlign(a.element());
             case Struct s -> s.def().fields().stream().mapToLong(f -> pcAlign(f.type())).max().orElse(1);
+            case Int i when i.enumDef() != null -> 4;
             case Int i -> Math.max(1, i.size());
             default -> Math.max(1, t.size());
         };
@@ -63,24 +66,35 @@ public sealed interface Type {
     }
 
     /**
-     * An integer type. {@code plainChar} marks plain {@code char}, which is text: the front end
-     * lets a value of it only be copied and compared with {@code ==} and {@code !=}, so that its
-     * signedness (signed on x86-64, unsigned on ARM) never shows (docs/subset.md, ADR-6FM063YZ).
-     * For everything else, equality too, it is {@code int8_t}, as on x86-64.
+     * An integer type. {@code enumDef} is set for an enum type: the object then has the width
+     * that holds all of its enumerators ({@link EnumDef#storage}), and its value is promoted to
+     * the enum's type on the PC, unsigned int or int ({@link #promote}). {@code plainChar} marks
+     * plain {@code char}, which is text: the front end lets a value of it only be copied and
+     * compared with {@code ==} and {@code !=}, so that its signedness (signed on x86-64, unsigned
+     * on ARM) never shows (docs/subset.md, ADR-6FM063YZ). For everything else, equality too, it is
+     * {@code int8_t}, as on x86-64; an enum type is equal only to itself.
      */
-    record Int(int bits, boolean signed, boolean plainChar) implements Type {
+    record Int(int bits, boolean signed, EnumDef enumDef, boolean plainChar) implements Type {
         public Int(int bits, boolean signed) {
-            this(bits, signed, false);
+            this(bits, signed, null, false);
+        }
+
+        public Int(int bits, boolean signed, EnumDef enumDef) {
+            this(bits, signed, enumDef, false);
+        }
+
+        public Int(int bits, boolean signed, boolean plainChar) {
+            this(bits, signed, null, plainChar);
         }
 
         @Override
         public boolean equals(Object o) {
-            return o instanceof Int i && i.bits == bits && i.signed == signed;
+            return o instanceof Int i && i.bits == bits && i.signed == signed && Objects.equals(i.enumDef, enumDef);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(bits, signed);
+            return Objects.hash(bits, signed, enumDef);
         }
 
         @Override
@@ -105,7 +119,7 @@ public sealed interface Type {
 
         @Override
         public String toString() {
-            return plainChar ? "char" : (signed ? "int" : "uint") + bits + "_t";
+            return plainChar ? "char" : enumDef != null ? enumDef.toString() : (signed ? "int" : "uint") + bits + "_t";
         }
     }
 
@@ -218,6 +232,81 @@ public sealed interface Type {
         }
     }
 
+    /**
+     * An enum's enumerators. Two definitions are equal if their tags and enumerators are: the
+     * same enum defined in a header that several files include. An enum object is stored in the
+     * smallest of 8, 16 and 32 bits that holds all enumerators, unsigned if none is negative
+     * (ADR-6FKZFDJ3); the checker allows only enumerators and values of the enum to be stored
+     * into one, so it holds the value the PC's 4 bytes would.
+     */
+    final class EnumDef {
+        private final String name;
+        private final Map<String, Long> enumerators;
+        private final long min;
+        private final long max;
+        private final Int storage;
+        private String alias;
+
+        /** {@code name}: the tag, or a name made from the position for an enum without one. */
+        public EnumDef(String name, Map<String, Long> enumerators) {
+            this.name = name;
+            this.enumerators = Map.copyOf(enumerators);
+            min = enumerators.values().stream().mapToLong(Long::longValue).min().orElse(0);
+            max = enumerators.values().stream().mapToLong(Long::longValue).max().orElse(0);
+            int bits = min >= 0 ? (max <= 0xFF ? 8 : max <= 0xFFFF ? 16 : 32)
+                    : (min >= -0x80 && max <= 0x7F ? 8 : min >= -0x8000 && max <= 0x7FFF ? 16 : 32);
+            storage = new Int(bits, min < 0, this);
+        }
+
+        public String name() {
+            return name;
+        }
+
+        /** The type of an object of this enum. */
+        public Int storage() {
+            return storage;
+        }
+
+        /** The enum's type on the PC (gcc): unsigned int if no enumerator is negative, else int. */
+        public Int valueType() {
+            return min < 0 ? I32 : U32;
+        }
+
+        public long min() {
+            return min;
+        }
+
+        public long max() {
+            return max;
+        }
+
+        public boolean hasValue(long v) {
+            return enumerators.containsValue(v);
+        }
+
+        /** The name of a typedef for an enum without a tag, for messages. */
+        public void alias(String typedefName) {
+            if (alias == null) {
+                alias = typedefName;
+            }
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            return o instanceof EnumDef d && name.equals(d.name) && enumerators.equals(d.enumerators);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(name, enumerators);
+        }
+
+        @Override
+        public String toString() {
+            return name.startsWith("<") && alias != null ? alias : "enum " + name;
+        }
+    }
+
     Void VOID = new Void();
     Int I8 = new Int(8, true);
     /** Plain {@code char}: {@link #I8} for the code generators, text for the front end. */
@@ -231,8 +320,14 @@ public sealed interface Type {
     /** {@code size_t}. It is 64 bit on the PC; sizes and indexes in game code fit 32 bits. */
     Int SIZE = U32;
 
-    /** The integer promotions: everything narrower than int becomes int. */
+    /**
+     * The integer promotions: everything narrower than int becomes int; an enum value becomes
+     * the enum's type on the PC, whatever the width of its object.
+     */
     static Int promote(Int t) {
+        if (t.enumDef() != null) {
+            return t.enumDef().valueType();
+        }
         return t.bits() < 32 ? I32 : t;
     }
 

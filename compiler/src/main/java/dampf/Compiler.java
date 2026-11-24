@@ -168,7 +168,8 @@ public final class Compiler {
     /**
      * What a compilation produced. {@code timing}: per function (by label) the best and worst case
      * in CPU cycles, worst -1 if unbounded (the code generator from MIR only; empty otherwise).
-     * {@code warnings}: messages that do not stop the build (a function close to its budget).
+     * {@code warnings}: messages that do not stop the build (a constant that does not fit the type
+     * it is converted to, as gcc warns; a function close to its budget).
      */
     public record Result(Program program, List<String> assembly, RomBuilder.Rom rom, Map<String, long[]> timing,
                          List<String> warnings) {}
@@ -176,6 +177,11 @@ public final class Compiler {
     private Compiler() {}
 
     public static Program frontEnd(Options o) throws CompileError, IOException {
+        return frontEnd(o, new java.util.ArrayList<>());
+    }
+
+    /** The front end; its warnings (docs/subset.md, "Warnings") are added to {@code warnings}. */
+    public static Program frontEnd(Options o, List<String> warnings) throws CompileError, IOException {
         AstBuilder builder = new AstBuilder(SystemHeaders.directory());
         // every file, so that the errors of one do not hide those of the next
         List<dampf.frontend.Diagnostic> errors = new java.util.ArrayList<>();
@@ -192,11 +198,13 @@ public final class Compiler {
         }
         Program program = builder.finish();
         CallGraph.of(program).checkNoRecursion();
+        builder.warnings().forEach(w -> warnings.add(w.toString()));
         return program;
     }
 
     public static Result compile(Options o) throws CompileError, IOException {
-        Program program = frontEnd(o);
+        List<String> warnings = new java.util.ArrayList<>();
+        Program program = frontEnd(o, warnings);
         Function entry = program.function(o.entry());
         if (entry == null || !entry.isDefined()) {
             throw new CompileError(new SourcePos(o.sources().getFirst().toString(), 1, 1),
@@ -218,7 +226,6 @@ public final class Compiler {
                 file -> outDir.relativize(Path.of(file).toAbsolutePath().normalize()).toString().replace('\\', '/');
         List<String> asm;
         Map<String, long[]> timing = Map.of();
-        List<String> warnings = new java.util.ArrayList<>();
         if (o.backend() == Backend.MIR) {
             if (!o.replacements().isEmpty()) {
                 throw new CompileError(entry.pos(), "--replace works with the naive code generator only");

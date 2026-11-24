@@ -213,5 +213,120 @@ class AstBuilderTest {
                 void test_main(void) { s = sizeof(Quad); }
                 """);
     }
+
+    // enum objects take the width that holds their enumerators (ADR-6FKZFDJ3)
+
+    private static final String ENUMS = """
+            #include <stdint.h>
+            typedef enum { M_IDLE, M_WALK, M_JUMP } Mode;
+            enum Turn { T_LEFT = -1, T_NONE, T_RIGHT };
+            enum Other { O_A, O_B };
+            Mode mode;
+            enum Turn turn;
+            uint8_t u;
+            """;
+
+    @Test
+    void enumObjectsTakeTheWidthOfTheirEnumerators() throws Exception {
+        Program p = build("""
+                #include <stdint.h>
+                enum Small { S_A, S_B = 255 } small;
+                enum Word { W_A, W_B = 256 } word;
+                enum Negative { N_A = -128, N_B = 127 } negative;
+                enum NegativeWord { NW_A = -129, NW_B } negativeWord;
+                enum Long { L_A, L_B = 65536 } wide;
+                enum NegativeLong { NL_A = -40000, NL_B } negativeWide;
+                typedef struct { uint8_t a; enum Small s; enum Word w; } Packed;
+                Packed packed;
+                enum Small list[3];
+                """);
+        assertEquals(List.of("8u", "16u", "8s", "16s", "32u", "32s"), p.globals().stream().limit(6)
+                .map(v -> ((Type.Int) v.type()).bits() + (((Type.Int) v.type()).signed() ? "s" : "u")).toList());
+        assertEquals(4, p.global("packed").type().size());
+        assertEquals(3, p.global("list").type().size());
+        // the value is still the PC's: unsigned int, or int with a negative enumerator
+        assertEquals(Type.U32, Type.promote((Type.Int) p.global("small").type()));
+        assertEquals(Type.I32, Type.promote((Type.Int) p.global("negative").type()));
+    }
+
+    @Test
+    void enumObjectsTakeEnumeratorsAndValuesOfTheirEnum() throws Exception {
+        build(ENUMS + """
+                static Mode next(Mode m) { return m == M_IDLE ? M_WALK : M_IDLE; }
+                static void set(enum Turn *t, enum Turn v) { *t = v; }
+                typedef struct { Mode mode; enum Turn turn; } Actor;
+                Actor actors[2] = { { M_WALK, T_LEFT }, { M_JUMP, T_RIGHT } };
+                const Mode table[2] = { M_JUMP, M_IDLE };
+                void test_main(void) {
+                    Mode m = M_JUMP;
+                    mode = m;
+                    mode = next(mode);
+                    mode = u ? M_WALK : mode;
+                    mode = table[u & 1];
+                    mode = actors[1].mode;
+                    actors[0] = actors[1];
+                    actors[0].turn = turn = T_RIGHT;
+                    set(&turn, T_NONE);
+                    turn = (enum Turn)-1;
+                    turn = (enum Turn)turn;
+                    u = mode;
+                    u = (uint8_t)(turn + 1);
+                    switch (mode) { case M_IDLE: u = 1; break; default: break; }
+                }
+                """);
+    }
+
+    private String enumError(String body) {
+        CompileError e = fails(ENUMS + "void test_main(void) {\n" + body + "\n}\n");
+        assertEquals(9, e.diagnostics().getFirst().pos().line(), e.toString());
+        return e.diagnostics().getFirst().message();
+    }
+
+    @Test
+    void enumObjectsRejectOtherValues() {
+        String msg = enumError("mode = 1;");
+        assertTrue(msg.contains("an object of type Mode takes only its enumerators and values of Mode, not the constant 1"), msg);
+        msg = enumError("turn = O_B;");
+        assertTrue(msg.contains("not a value of enum Other"), msg);
+        msg = enumError("mode = u;");
+        assertTrue(msg.contains("not a value of type uint8_t"), msg);
+        assertTrue(enumError("mode = M_IDLE + 1;").contains("not the constant 1"));
+        assertTrue(enumError("mode = mode + 1;").contains("not a value of type uint32_t"));
+        assertTrue(enumError("mode += 1;").contains("takes only its enumerators"));
+        assertTrue(enumError("mode = u ? M_WALK : 2;").contains("takes only its enumerators"));
+        assertTrue(enumError("mode = (uint8_t)mode;").contains("not a value of type uint8_t"));
+        assertTrue(enumError("mode++;").contains("'++' cannot be used on an object of type Mode"));
+        assertTrue(enumError("--turn;").contains("'--' cannot be used on an object of type enum Turn"));
+        // a cast only from a value of the enum or a constant that is one of its enumerators
+        assertTrue(enumError("mode = (Mode)u;").contains("a cast to Mode needs a value of that type or a constant"));
+        assertTrue(enumError("turn = (enum Turn)2;").contains("not the constant 2"));
+        assertTrue(enumError("turn = (enum Turn)mode;").contains("not a value of Mode"));
+        // a pointer to an enum object only to the same enum, or void
+        assertTrue(enumError("uint8_t *p = (uint8_t *)&mode; *p = 7;").contains("a pointer to Mode cannot become a pointer to uint8_t"));
+        assertTrue(enumError("Mode *p = &u;").contains("a pointer to uint8_t cannot become a pointer to Mode"));
+    }
+
+    @Test
+    void enumParametersInitializersAndReturnsAreChecked() {
+        assertEquals(8, fails(ENUMS + "Mode bad = 2;\n").diagnostics().getFirst().pos().line());
+        assertTrue(fails(ENUMS + "Mode f(void) { return 0; }\n").getMessage().contains("not the constant 0"));
+        assertTrue(fails(ENUMS + "void f(Mode m) { (void)m; }\nvoid test_main(void) { f(u); }\n").getMessage()
+                .contains("not a value of type uint8_t"));
+        assertTrue(fails(ENUMS + "typedef struct { Mode m; } S;\nS s = { 5 };\n").getMessage().contains("not the constant 5"));
+    }
+
+    @Test
+    void sizeofOfAnEnumObjectIsRejectedButItsElementCountIsNot() throws Exception {
+        String msg = fails(ENUMS + "uint32_t s;\nvoid test_main(void) { s = sizeof mode; }\n").diagnostics().getFirst().message();
+        assertTrue(msg.contains("sizeof Mode is 1 in dampf but 4 on the PC"), msg);
+        build(ENUMS + "Mode list[6];\nuint32_t s;\nvoid test_main(void) { s = sizeof list / sizeof list[0]; }\n");
+    }
+
+    @Test
+    void theSameEnumFromAHeaderIsOneTypeInEveryFile() throws Exception {
+        Files.writeString(tmp.resolve("e.h"), "typedef enum { A, B } State;\nextern State state;\nState get(void);\n");
+        buildFiles("#include \"e.h\"\nState state = B;\nState get(void) { return state; }\n",
+                "#include \"e.h\"\nvoid test_main(void) { state = get(); }\n");
+    }
 }
 

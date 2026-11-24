@@ -61,6 +61,8 @@ public class ExamplesTest {
             String name = ex.getFileName().toString();
             Compiler.Result r = compile(ex, ex.resolve("build/" + name + "_test.sfc"));
             assertTrue(Files.size(r.rom().rom()) >= 32 * 1024, "no ROM written");
+            List<String> overflow = r.warnings().stream().filter(w -> w.contains("[-Woverflow]")).toList();
+            assertTrue(overflow.isEmpty(), name + ": constants that do not fit their type\n" + String.join("\n", overflow));
 
             Path check = ex.resolve("check.txt");
             if (!Files.isRegularFile(check)) {

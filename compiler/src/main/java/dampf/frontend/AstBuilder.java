@@ -122,14 +122,36 @@ public final class AstBuilder {
     private final Map<Expr.Const, String> sizeDiffers = new java.util.IdentityHashMap<>();
     private final Map<Expr.Const, Long> pcSizes = new java.util.IdentityHashMap<>();
 
+    /** Warnings: gcc's default warnings that dampf gives too (docs/subset.md, "Warnings"). */
+    private final List<Diagnostic> warnings = new ArrayList<>();
+
+    /**
+     * Constants whose folding overflowed a signed type, as {@code 2147483647 + 1} does (gcc's
+     * TREE_OVERFLOW): gcc gives no conversion warning for them, and neither does dampf.
+     */
+    private final Set<Expr.Const> overflowed = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+
+    /**
+     * Above 0 while building an expression that is never evaluated: the operand of sizeof, the
+     * right side of {@code 0 &&} and {@code 1 ||}, the branch of {@code ?:} a constant condition
+     * does not take. gcc gives no conversion warning there.
+     */
+    private int unevaluated;
+
+    /** The warnings of the files added so far, in the order they were found. */
+    public List<Diagnostic> warnings() {
+        return List.copyOf(warnings);
+    }
+
     /** sizeof a type: dampf's size; noted if gcc on x86-64 gives another. */
     private Expr.Const sizeOf(Type t, SourcePos p) {
         Expr.Const k = new Expr.Const(t.size(), Type.SIZE, p);
         long pc = Type.pcSize(t);
         if (pc != t.size()) {
             sizeDiffers.put(k, "sizeof " + t + " is " + t.size() + " in dampf but " + pc + " on the PC (dampf's pointers are 4 bytes, "
-                    + "8 on x86-64, and dampf does not pad struct fields): the program would compute other values than "
-                    + "its PC build. Only the element count sizeof a / sizeof a[0] is allowed for such types");
+                    + "8 on x86-64, its enum objects 1 or 2 bytes for most enums, 4 on x86-64, and dampf does not pad "
+                    + "struct fields): the program would compute other values than its PC build. Only the element count "
+                    + "sizeof a / sizeof a[0] is allowed for such types");
             pcSizes.put(k, pc);
         }
         return k;
@@ -316,12 +338,13 @@ public final class AstBuilder {
                 && dd.getText().startsWith("main(");
     }
 
-    /** An enumeration constant: in C it has type int. */
-    private record EnumConst(String name, long value) {}
+    /** An enumeration constant: in C it has type int. {@code def}: its enum. */
+    private record EnumConst(String name, long value, Type.EnumDef def) {}
 
     /**
-     * An enum type, as gcc sees it: unsigned int if no enumerator is negative, otherwise int.
-     * Its enumerators go into the current scope.
+     * An enum type. Its value is what gcc makes it, unsigned int if no enumerator is negative,
+     * otherwise int; its objects take the width that holds all enumerators
+     * ({@link Type.EnumDef}). Its enumerators go into the current scope.
      */
     private Type enumType(CParser.EnumSpecifierContext es) throws CompileError {
         String tag = es.Identifier() != null ? es.Identifier().getText() : null;
@@ -336,8 +359,9 @@ public final class AstBuilder {
             return t;
         }
         long next = 0;
-        boolean negative = false;
         Map<String, Object> scope = blockScopes.isEmpty() ? fileScope : blockScopes.peek();
+        Map<String, Long> values = new LinkedHashMap<>();
+        List<String> names = new ArrayList<>();
         for (CParser.EnumeratorContext en : es.enumeratorList().enumerator()) {
             String name = en.enumerationConstant().getText();
             long value = next;
@@ -354,11 +378,18 @@ public final class AstBuilder {
             if (scope.containsKey(name)) {
                 throw error(en, "'" + name + "' is already declared");
             }
-            scope.put(name, new EnumConst(name, value));
-            negative |= value < 0;
+            // while the enum is being defined, its enumerators are plain int constants
+            scope.put(name, new EnumConst(name, value, null));
+            names.add(name);
+            values.put(name, value);
             next = value + 1;
         }
-        Type t = negative ? Type.I32 : Type.U32;
+        // the same header gives the same name in every file
+        Type.EnumDef def = new Type.EnumDef(tag != null ? tag : "<anonymous at " + pos(es) + ">", values);
+        for (String name : names) {
+            scope.put(name, new EnumConst(name, values.get(name), def));
+        }
+        Type t = def.storage();
         if (tag != null) {
             enumTags.put(tag, t);
         }
@@ -653,6 +684,9 @@ public final class AstBuilder {
                     throw unsupported(id, "this kind of typedef");
                 }
                 typedefs.put(dec.name(), dec.type());
+                if (dec.type() instanceof Type.Int it && it.enumDef() != null) {
+                    it.enumDef().alias(dec.name());
+                }
             } else if (dec.isFunction()) {
                 if (id.initializer() != null) {
                     throw error(id, "a function cannot have an initializer");
@@ -885,6 +919,7 @@ public final class AstBuilder {
 
     /** One scalar of static data: a number or an address constant. */
     private Init.Item scalarInit(Type t, Expr e, int offset, ParserRuleContext where) throws CompileError {
+        constantFits(e, t, where);
         Expr v = assignConvert(e, t, pos(where));
         if (t instanceof Type.Int it) {
             Long k = fold(v);
@@ -1158,7 +1193,9 @@ public final class AstBuilder {
                 Variable v = new Variable(dec.name(), uniqueLabel(current.label() + "__" + dec.name()), t, Variable.Kind.LOCAL, dec.pos());
                 currentLocals.add(v);
                 scope.put(dec.name(), v); // C: the variable is in scope inside its own initializer
-                Expr value = assignConvert(rvalue(assignment(id.initializer().assignmentExpression())), t, pos(id.initializer()));
+                Expr init = rvalue(assignment(id.initializer().assignmentExpression()));
+                constantFits(init, t, id.initializer());
+                Expr value = assignConvert(init, t, pos(id.initializer()));
                 out.add(new Stmt.ExprStmt(new Expr.Assign(new Expr.Var(v, dec.pos()), value, dec.pos()), pos(d)));
                 continue;
             }
@@ -1219,7 +1256,9 @@ public final class AstBuilder {
             if (rt instanceof Type.Void) {
                 throw error(js, "'return' with a value in a void function");
             }
-            return new Stmt.Return(assignConvert(rvalue(expression(js.expression())), rt, pos(js.expression())), pos(st));
+            Expr value = rvalue(expression(js.expression()));
+            constantFits(value, rt, js.expression());
+            return new Stmt.Return(assignConvert(value, rt, pos(js.expression())), pos(st));
         }
         if (st.selectionStatement() != null) {
             CParser.SelectionStatementContext sel = st.selectionStatement();
@@ -1460,6 +1499,7 @@ public final class AstBuilder {
         checkAssignable(target, a.unaryExpression());
         Expr rhs = rvalue(assignment(a.assignmentExpression()));
         if (op.getText().equals("=")) {
+            constantFits(rhs, target.type(), a.assignmentExpression());
             return new Expr.Assign(target, assignConvert(rhs, target.type(), p), p);
         }
         if (hasSideEffects(target)) {
@@ -1485,8 +1525,10 @@ public final class AstBuilder {
         }
         cond = rvalue(cond);
         scalar(cond, c);
-        Expr then = rvalue(expression(c.expression()));
-        Expr otherwise = rvalue(conditional(c.conditionalExpression()));
+        // with a constant condition, the branch it does not take is never evaluated
+        Long known = fold(cond);
+        Expr then = rvalue(unevaluatedIf(known != null && known == 0, () -> expression(c.expression())));
+        Expr otherwise = rvalue(unevaluatedIf(known != null && known != 0, () -> conditional(c.conditionalExpression())));
         SourcePos p = pos(c);
         Type t;
         if (then.type() instanceof Type.Int a && otherwise.type() instanceof Type.Int b) {
@@ -1498,11 +1540,14 @@ public final class AstBuilder {
         } else {
             throw error(c, "the branches of ?: must both be numbers or pointers");
         }
+        Type.EnumDef both = enumOf(then) != null && enumOf(then).equals(enumOf(otherwise)) ? enumOf(then) : null;
         Long k = fold(cond);
-        if (k != null) {
-            return assignConvert(k != 0 ? then : otherwise, t, p);
+        Expr result = k != null ? assignConvert(k != 0 ? then : otherwise, t, p)
+                : new Expr.Conditional(cond, assignConvert(then, t, p), assignConvert(otherwise, t, p), t, p);
+        if (both != null) {
+            enumValues.put(result, both);
         }
-        return new Expr.Conditional(cond, assignConvert(then, t, p), assignConvert(otherwise, t, p), t, p);
+        return result;
     }
 
     /** The binary operator rules, from logical-or down to multiplicative: a left-to-right chain. */
@@ -1513,7 +1558,11 @@ public final class AstBuilder {
         Expr left = chain((ParserRuleContext) ctx.getChild(0));
         for (int i = 1; i < ctx.getChildCount(); i += 2) {
             TerminalNode op = (TerminalNode) ctx.getChild(i);
-            Expr right = chain((ParserRuleContext) ctx.getChild(i + 1));
+            // 0 && x, 1 || x: x is never evaluated
+            Long k = op.getText().equals("&&") || op.getText().equals("||") ? fold(rvalue(left)) : null;
+            boolean skipped = k != null && (op.getText().equals("&&") ? k == 0 : k != 0);
+            ParserRuleContext rightCtx = (ParserRuleContext) ctx.getChild(i + 1);
+            Expr right = unevaluatedIf(skipped, () -> chain(rightCtx));
             left = binaryOp(op.getText(), rvalue(left), rvalue(right), pos(op.getSymbol()));
         }
         return left;
@@ -1565,7 +1614,42 @@ public final class AstBuilder {
             result = new Expr.Binary(bop, convert(left, t, pos), convert(right, t, pos), resultType, pos);
         }
         Long k = fold(result);
-        return k != null ? new Expr.Const(k, (Type.Int) result.type(), pos) : result;
+        if (k == null) {
+            return result;
+        }
+        Expr.Const folded = new Expr.Const(k, (Type.Int) result.type(), pos);
+        Expr.Binary b = (Expr.Binary) result;
+        if (!bop.isComparison() && (overflowed(b.left()) || overflowed(b.right()) || signedOverflow(b))) {
+            overflowed.add(folded);
+        }
+        return folded;
+    }
+
+    /** True if {@code e} is a constant whose folding overflowed a signed type. */
+    private boolean overflowed(Expr e) {
+        return e instanceof Expr.Const k && overflowed.contains(k);
+    }
+
+    /**
+     * True if a binary operator on two constants of a signed type gives a value the type cannot
+     * hold ({@code 2147483647 + 1}, {@code INT_MIN / -1}); gcc warns about such an expression
+     * (dampf not yet) and gives no conversion warning for its value.
+     */
+    private static boolean signedOverflow(Expr.Binary b) {
+        if (!b.type().signed() || !(b.left() instanceof Expr.Const l) || !(b.right() instanceof Expr.Const r)) {
+            return false;
+        }
+        long x = l.value();
+        long y = r.value();
+        Long exact = switch (b.op()) {
+            case ADD -> x + y;
+            case SUB -> x - y;
+            case MUL -> x * y;
+            case DIV -> y == 0 ? null : x / y;
+            case MOD -> y == -1 && x == b.type().min() ? b.type().max() + 1 : null; // gcc: INT_MIN % -1 overflows
+            default -> null;
+        };
+        return exact != null && b.type().wrap(exact) != exact;
     }
 
     /** Pointer arithmetic and pointer comparisons. */
@@ -1624,7 +1708,8 @@ public final class AstBuilder {
             return operand; // (void)x: only evaluated, the value is not used
         }
         if (t instanceof Type.Pointer pt) {
-            if (operand.type() instanceof Type.Pointer) {
+            if (operand.type() instanceof Type.Pointer from) {
+                enumPointers(from, pt, p);
                 return new Expr.PointerCast(operand, pt, p);
             }
             intType(operand, p);
@@ -1644,8 +1729,15 @@ public final class AstBuilder {
         if (it.bits() > 8) {
             checkCharCast(operand, it, p);
         }
+        if (it.enumDef() != null && !it.enumDef().equals(enumOf(operand))) {
+            Long k = fold(operand);
+            if (k == null || !it.enumDef().hasValue(k)) {
+                throw new CompileError(p, "a cast to " + it + " needs a value of that type or a constant that is one of its "
+                        + "enumerators, not " + describe(operand) + " (enum objects hold only their enumerators, ADR-6FKZFDJ3)");
+            }
+        }
         if (operand instanceof Expr.Const k) {
-            return new Expr.Const(it.wrap(k.value()), it, p);
+            return keepOverflow(k, new Expr.Const(it.wrap(k.value()), it, p));
         }
         return new Expr.Convert(operand, it, true, p);
     }
@@ -1682,14 +1774,22 @@ public final class AstBuilder {
             }
             e = sizeOf(t, pos(u));
             first--;
-        } else if (u.postfixExpression() != null) {
-            e = postfix(u.postfixExpression());
-        } else if (u.unaryOperator != null) {
-            e = unaryOperator(u.unaryOperator, cast(u.castExpression()), u);
-        } else if (u.unaryExpression() != null) {
-            e = unary(u.unaryExpression()); // sizeof unary-expression (GNU form)
         } else {
-            throw unsupported(u, "this expression");
+            // the operand of sizeof is never evaluated
+            boolean inSizeof = false;
+            for (int i = 0; i < first; i++) {
+                inSizeof |= u.getChild(i).getText().equals("sizeof");
+            }
+            e = unevaluatedIf(inSizeof, () -> {
+                if (u.postfixExpression() != null) {
+                    return postfix(u.postfixExpression());
+                } else if (u.unaryOperator != null) {
+                    return unaryOperator(u.unaryOperator, cast(u.castExpression()), u);
+                } else if (u.unaryExpression() != null) {
+                    return unary(u.unaryExpression()); // sizeof unary-expression (GNU form)
+                }
+                throw unsupported(u, "this expression");
+            });
         }
         for (int i = first - 1; i >= 0; i--) {
             Token op = ((TerminalNode) u.getChild(i)).getSymbol();
@@ -1702,6 +1802,7 @@ public final class AstBuilder {
                 }
                 default -> {
                     checkAssignable(e, u);
+                    noStep(e, op.getText(), pos(op));
                     boolean increment = op.getText().equals("++");
                     if (hasSideEffects(e)) {
                         /* ++E with an E of side effects: E is evaluated once by E++ (whose value
@@ -1752,7 +1853,12 @@ public final class AstBuilder {
             case "+" -> conv;
             case "-", "~" -> {
                 if (conv instanceof Expr.Const k) {
-                    yield new Expr.Const(t.wrap(op.equals("-") ? -k.value() : ~k.value()), t, p);
+                    long v = op.equals("-") ? -k.value() : ~k.value();
+                    Expr.Const r = keepOverflow(k, new Expr.Const(t.wrap(v), t, p));
+                    if (t.signed() && t.wrap(v) != v) {
+                        overflowed.add(r); // -INT_MIN
+                    }
+                    yield r;
                 }
                 yield new Expr.Unary(op.equals("-") ? Expr.UnOp.NEG : Expr.UnOp.NOT, conv, t, p);
             }
@@ -1871,6 +1977,7 @@ public final class AstBuilder {
                 }
                 case "++", "--" -> {
                     checkAssignable(e, p);
+                    noStep(e, suffix, sp);
                     Type t = e.type();
                     int step = t instanceof Type.Pointer ? elementSize(e, sp) : 1;
                     if (!Type.isScalar(t)) {
@@ -1931,6 +2038,7 @@ public final class AstBuilder {
         List<Expr> args = new ArrayList<>();
         for (int i = 0; i < argCtx.size(); i++) {
             Expr a = rvalue(assignment(argCtx.get(i)));
+            constantFits(a, f.paramTypes().get(i), argCtx.get(i));
             args.add(assignConvert(a, f.paramTypes().get(i), pos(argCtx.get(i))));
         }
         firstCall.putIfAbsent(f, pos(name));
@@ -1945,7 +2053,11 @@ public final class AstBuilder {
                 return new Expr.Var(v, pos(prim));
             }
             if (o instanceof EnumConst k) {
-                return new Expr.Const(k.value(), Type.I32, pos(prim));
+                Expr.Const c = new Expr.Const(k.value(), Type.I32, pos(prim));
+                if (k.def() != null) {
+                    enumValues.put(c, k.def());
+                }
+                return c;
             }
             if (o instanceof Function) {
                 throw unsupported(prim, "function pointers");
@@ -2099,18 +2211,72 @@ public final class AstBuilder {
         return e;
     }
 
-    /** Converts a value as an assignment does (also for arguments, return values and initializers). */
-    private static Expr assignConvert(Expr e, Type t, SourcePos pos) throws CompileError {
+    /**
+     * gcc's conversion warning for a constant converted as by assignment (an initializer, an
+     * assignment, an argument, a return value) to an integer type that cannot hold it, at the
+     * start of the value ({@code where}). gcc warns only if the value fits the type with neither
+     * signedness: 255 into an int8_t and -1 into a uint8_t are silent, 256 and -129 are not. It
+     * is silent for a constant whose folding overflowed, in code that is never evaluated, and in
+     * system headers; a cast makes the conversion explicit and silent.
+     */
+    private void constantFits(Expr value, Type target, ParserRuleContext where) {
+        if (!(target instanceof Type.Int to) || !(value.type() instanceof Type.Int from) || from.equals(to)
+                || unevaluated > 0 || overflowed(value) || inSystemHeader(where)) {
+            return;
+        }
+        Long v = fold(value);
+        if (v == null || v >= -(1L << (to.bits() - 1)) && v <= (1L << to.bits()) - 1) {
+            return;
+        }
+        String kind = to.signed() ? "overflow in conversion" : from.signed() ? "unsigned conversion" : "conversion";
+        warnings.add(new Diagnostic(Diagnostic.Severity.WARNING, pos(where), kind + " from '" + from + "' to '" + to
+                + "' changes value from '" + v + "' to '" + to.wrap(v) + "' [-Woverflow]"));
+    }
+
+    /** {@code to}, a constant made from {@code from}, overflowed if {@code from} did. */
+    private Expr.Const keepOverflow(Expr.Const from, Expr.Const to) {
+        if (overflowed.contains(from)) {
+            overflowed.add(to);
+        }
+        return to;
+    }
+
+    /** Builds an expression; {@code never}: one that is never evaluated (see {@link #unevaluated}). */
+    private Expr unevaluatedIf(boolean never, ExprBuilder b) throws CompileError {
+        unevaluated += never ? 1 : 0;
+        try {
+            return b.build();
+        } finally {
+            unevaluated -= never ? 1 : 0;
+        }
+    }
+
+    @FunctionalInterface
+    private interface ExprBuilder {
+        Expr build() throws CompileError;
+    }
+
+    /**
+     * Converts a value as an assignment does (also for arguments, return values and initializers).
+     * An enum object takes only the enumerators and values of its enum (ADR-6FKZFDJ3).
+     */
+    private Expr assignConvert(Expr e, Type t, SourcePos pos) throws CompileError {
         e = rvalue(e);
         switch (t) {
             case Type.Int it -> {
                 if (e.type() instanceof Type.Pointer) {
                     throw new CompileError(pos, "a pointer cannot be assigned to an integer without a cast");
                 }
+                if (it.enumDef() != null && !it.enumDef().equals(enumOf(e))) {
+                    throw new CompileError(pos, "an object of type " + it + " takes only its enumerators and values of "
+                            + it + ", not " + describe(e) + " (dampf keeps enum objects in fewer bytes than the PC, "
+                            + "ADR-6FKZFDJ3)");
+                }
                 return convert(e, it, pos);
             }
             case Type.Pointer pt -> {
-                if (e.type() instanceof Type.Pointer) {
+                if (e.type() instanceof Type.Pointer from) {
+                    enumPointers(from, pt, pos);
                     return e.type().equals(pt) ? e : new Expr.PointerCast(e, pt, pos);
                 }
                 Long k = fold(e);
@@ -2127,6 +2293,67 @@ public final class AstBuilder {
             }
             default -> throw new CompileError(pos, "cannot assign a value of type " + e.type() + " to " + t);
         }
+    }
+
+    /**
+     * Expressions whose value belongs to an enum although their type does not say so: its
+     * enumerators (int constants), and a {@code ?:} of two values of the enum.
+     */
+    private final Map<Expr, Type.EnumDef> enumValues = new java.util.IdentityHashMap<>();
+
+    /** The enum whose enumerators or values {@code e} gives, or null. */
+    private Type.EnumDef enumOf(Expr e) {
+        Type.EnumDef d = enumValues.get(e);
+        if (d != null) {
+            return d;
+        }
+        if (e instanceof Expr.Convert c && !c.explicit() && c.type().enumDef() == null) {
+            // a promotion or another implicit conversion that keeps every enumerator's value
+            Type.EnumDef inner = enumOf(c.operand());
+            return inner != null && c.type().min() <= inner.min() && inner.max() <= c.type().max() ? inner : null;
+        }
+        return e.type() instanceof Type.Int i ? i.enumDef() : null;
+    }
+
+    /** What a value is, for a message about enums. */
+    private String describe(Expr e) {
+        Type.EnumDef d = enumOf(e);
+        if (d != null) {
+            return "a value of " + d;
+        }
+        Long k = fold(e);
+        return k != null ? "the constant " + k : "a value of type " + e.type();
+    }
+
+    /** {@code ++} and {@code --} would store a value that need not be an enumerator. */
+    private static void noStep(Expr target, String op, SourcePos pos) throws CompileError {
+        if (target.type() instanceof Type.Int it && it.enumDef() != null) {
+            throw new CompileError(pos, "'" + op + "' cannot be used on an object of type " + it + ": it takes only its "
+                    + "enumerators and values of " + it + " (ADR-6FKZFDJ3)");
+        }
+    }
+
+    /**
+     * A pointer to an enum object converts only to a pointer to the same enum or to void: a
+     * store through a pointer to another type could put any value into the object.
+     */
+    private static void enumPointers(Type.Pointer from, Type.Pointer to, SourcePos pos) throws CompileError {
+        Type a = from.target();
+        Type b = to.target();
+        if (a instanceof Type.Void || b instanceof Type.Void || a.equals(b) || !hasEnum(a) && !hasEnum(b)) {
+            return;
+        }
+        throw new CompileError(pos, "a pointer to " + a + " cannot become a pointer to " + b
+                + ": enum objects take only their enumerators (ADR-6FKZFDJ3)");
+    }
+
+    private static boolean hasEnum(Type t) {
+        return switch (t) {
+            case Type.Int i -> i.enumDef() != null;
+            case Type.Pointer p -> hasEnum(p.target());
+            case Type.Array a -> hasEnum(a.element());
+            default -> false;
+        };
     }
 
     private Type.Int intType(Expr e, ParserRuleContext where) throws CompileError {
@@ -2157,7 +2384,7 @@ public final class AstBuilder {
      * assignment on it, depends on whether char is signed, and is rejected. The exceptions that
      * do not ({@code ==} and {@code !=}, switch) go through {@link #widen}.
      */
-    private static Expr convert(Expr e, Type.Int t, SourcePos pos) throws CompileError {
+    private Expr convert(Expr e, Type.Int t, SourcePos pos) throws CompileError {
         if (isPlainChar(e) && t.bits() > 8 && !asciiConstant(e)) {
             throw charAsNumber(e, pos);
         }
@@ -2165,7 +2392,7 @@ public final class AstBuilder {
     }
 
     /** {@link #convert} without the plain char rule. */
-    private static Expr widen(Expr e, Type.Int t, SourcePos pos) throws CompileError {
+    private Expr widen(Expr e, Type.Int t, SourcePos pos) throws CompileError {
         if (!(e.type() instanceof Type.Int)) {
             throw new CompileError(pos, e.type() instanceof Type.Void ? "a void value is used" : "a number is needed here, not " + e.type());
         }
@@ -2173,7 +2400,7 @@ public final class AstBuilder {
             return e;
         }
         if (e instanceof Expr.Const k) {
-            return new Expr.Const(t.wrap(k.value()), t, k.pos());
+            return keepOverflow(k, new Expr.Const(t.wrap(k.value()), t, k.pos()));
         }
         return new Expr.Convert(e, t, false, pos);
     }

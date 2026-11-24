@@ -119,6 +119,29 @@ is rejected. dampf gets the same results on the 65816 and narrows operations onl
 prove the result is identical. dampf ships its own `<stdint.h>` with the same underlying types as the
 PC (`int32_t` is `int`), so the types mean the same thing on both sides.
 
+**Warnings.** Where gcc warns without any warning option, dampf is to warn too, in gcc's form,
+and the build goes on; `dampf build` and `dampf check` print the warnings. So far there is one,
+gcc's `-Woverflow` on a constant converted to an integer type that cannot hold it, in an
+initializer, an assignment, an argument or a return value. `uint8_t wait[] = { 420 };` stores
+164 on both sides, and dampf says
+
+```
+cat.c:2:20: warning: unsigned conversion from 'int32_t' to 'uint8_t' changes value from '420' to '164' [-Woverflow]
+```
+
+The rule is gcc's: a constant gets the warning only when the type cannot hold it as a signed or
+as an unsigned number of its width. `uint8_t x = -1` and `int8_t y = 255` (or `0x80`) are
+silent, `uint8_t x = 256`, `uint8_t x = -129` and `uint16_t z = 65536` are not. A constant is
+what dampf folds: literals, enumerators, macros, and arithmetic, casts and `?:` on them; a
+`const` variable is not one. A cast to the target type says the truncation is meant and silences
+the warning. gcc is also silent in code that is never evaluated (the operand of `sizeof`, the
+right side of `0 &&`, the branch of `?:` that a constant condition does not take) and when the
+constant overflowed while it was folded (`2147483647 + 1`), and so is dampf.
+`ConversionWarningTest` compiles a file of cases with dampf and gcc and compares where each
+warns. gcc folds a little more than dampf (`n * 0 + 300`, `n ? 300 : 300`), so there gcc warns
+and dampf does not. gcc's warning about the overflow itself (`integer overflow in expression`)
+is not built yet, and neither are gcc's other default warnings.
+
 **Functions.** No recursion (the checker names the cycle), no variadic functions, no `inline`
 requirement (inlining is the compiler's decision; `inline` is accepted and ignored), structs only
 by pointer. A function without parameters is written `f(void)`; an empty list `f()` and old-style
@@ -184,13 +207,13 @@ yet.
 
 ## Decisions
 
-Decisions 2 and 3 are open; each has a recommendation, which dampf implements until it is
-decided. Decisions 1, 4 and 5 are decided. What dampf does today:
+Decision 3 is open; it has a recommendation, which dampf implements until it is
+decided. Decisions 1, 2, 4 and 5 are decided. What dampf does today:
 
 - decision 1: plain `char` is a signed 8-bit type for text: a `char` value is only copied,
   tested for zero and compared with `==` and `!=` ([ADR-6FM063YZ](adr/6FM063YZ-plain-char-is-text-a-char-value-is-only-copied.md));
-- decision 2: both code generators store enum objects in 4 bytes, like the PC, and the checker
-  accepts any integer stored into an enum object; narrowing them is an optimization, not built;
+- decision 2: an enum object takes only enumerators and values of its enum, and both code
+  generators store it in the smallest width that holds its enumerators ([ADR-6FKZFDJ3](adr/6FKZFDJ3-enum-objects-take-only-values-of-their-enum-and.md));
 - decision 3: pointers are 4 bytes in memory (address, bank, a zero byte) with both code
   generators; the code generator from MIR turns a pointer into one object into a 16-bit offset
   within a function and through parameters ([optimizations.md](optimizations.md#pointer-compression)); 16-bit
@@ -213,11 +236,16 @@ decided. Decisions 1, 4 and 5 are decided. What dampf does today:
    for a number, or cast the char: (uint8_t)c". ADR
    [ADR-6FM063YZ](adr/6FM063YZ-plain-char-is-text-a-char-value-is-only-copied.md), with the options weighed.
 
-2. **Size of enum-typed objects.** On the PC an `enum` object is 4 bytes. dampf wants 1 byte for
-   `g_state`. Recommendation: the checker allows only enumerators of the same enum (or values of
-   that enum type) to be stored into an enum-typed object; then storing it in the smallest width
-   that holds all enumerators gives the same behaviour. The game already keeps to it: `g_state`
-   is assigned in three places, always a `GameState` value.
+2. **Size of enum-typed objects** (decided 2026-11-24). On the PC an `enum` object is 4 bytes;
+   dampf wanted 1 byte for `g_state`. The checker allows only enumerators of the same enum and
+   values of that enum type to be stored into an enum object, and a cast to an enum only from
+   such a value or from a constant that is one of its enumerators; `++`, `--` and compound
+   assignments on an enum object are rejected. dampf stores the object in the smallest width
+   that holds all enumerators: unsigned 8 or 16 bit, or signed when an enumerator is negative,
+   32 bit only beyond that. Its value is still promoted to `unsigned int` or `int` as on the PC.
+   So `sizeof` of an enum object now differs from the PC and is rejected (decision 5), except
+   the element count. The game keeps to the rule: `g_state` is assigned in three places, always
+   a `GameState` value. The rule with the options weighed: [ADR-6FKZFDJ3](adr/6FKZFDJ3-enum-objects-take-only-values-of-their-enum-and.md).
 
 3. **Pointer width.** The `LevelDef` pointer fields and the `const char *` string tables point
    into ROM, and the ROM data is larger than one bank (the PVSnesLib build has 310 KB of ROM).
