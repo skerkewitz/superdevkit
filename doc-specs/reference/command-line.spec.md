@@ -3,6 +3,7 @@ title: Command line
 sources:
   - compiler/src/main/java/dampf/ConfigFile.java
   - docs/adr/6F3CJW9N-options-can-be-kept-in-an-argument-file-given-by.md
+  - docs/adr/6FKYXP8C-dampf-compiles-a-library-s-files-without-the.md
   - compiler/src/main/java/dampf/Main.java
   - compiler/src/main/java/dampf/Compiler.java
   - compiler/src/main/java/dampf/tools/*.java
@@ -27,7 +28,8 @@ sentence that sends the reader who builds a whole game to
 
 1. **build** – compile to a ROM. Each option: `-I`, `-D` (both also written joined, `-Idir`;
    what dampf's own preprocessor does with them), `--entry`, `--backend`, `--replace`, `--sram`,
-   `--opt-limit`, `-o`. Defaults, which are required, what is printed on success. The rule for
+   `--lib` (a library's sources, which the `-D` defines do not reach; the `superdevkit` build
+   passes `lib/snes` with it), `--opt-limit`, `-o`. Defaults, which are required, what is printed on success. The rule for
    the default of `--backend` with and without `--replace`.
 2. **check** – the front end only, every file on its own, every problem of each file (the first after FAILS, the others below it); the lines
    it prints and its exit status.

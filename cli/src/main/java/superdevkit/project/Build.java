@@ -195,16 +195,21 @@ public final class Build {
         return inc;
     }
 
-    /** dampf's options for the SNES: the game, then the kit's lib/snes, entry main, the save RAM. */
+    /**
+     * dampf's options for the SNES: the game, then the kit's lib/snes as a library, which the defines
+     * of [snes] do not reach (ADR-6FEWEE95, ADR-6FKYXP8C), entry main, the save RAM.
+     */
     public static Compiler.Options dampfOptions(Project p, Kit kit, Path rom) throws Failure, IOException {
         List<Path> sources = new ArrayList<>(gameSources(p));
+        List<Path> library;
         try {
-            sources.addAll(ConfigFile.sources(kit.lib().resolve("snes")));
+            library = ConfigFile.sources(kit.lib().resolve("snes"));
         } catch (ConfigFile.Error e) {
             throw new Failure(e.getMessage());
         }
+        sources.addAll(library);
         return new Compiler.Options(sources, includes(p, kit), p.definesFor("snes"), "main", rom)
-                .withBackend(Compiler.Backend.MIR).withSram(p.sram());
+                .withBackend(Compiler.Backend.MIR).withSram(p.sram()).withLibrary(library);
     }
 
     /** What a build of the target writes: the ROM, the program, or the web's page. */
@@ -240,7 +245,7 @@ public final class Build {
         if (p.generates()) {
             line.append(" build/gen/");
         }
-        line.append(' ').append(rel(p, kit.lib().resolve("snes"))).append('/');
+        line.append(" --lib ").append(rel(p, kit.lib().resolve("snes"))).append('/');
         List<Path> needs = new ArrayList<>();
         for (String s : p.sources()) {
             needs.add(p.path(s));
@@ -277,12 +282,15 @@ public final class Build {
             s.append("--sram ").append(o.sram()).append('\n');
         }
         for (Path f : o.sources()) {
-            s.append(f.toAbsolutePath().normalize()).append('\n');
+            s.append(o.library().contains(f) ? "--lib " : "").append(f.toAbsolutePath().normalize()).append('\n');
         }
         Files.writeString(rom.resolveSibling(p.name() + ".args"), s.toString(), StandardCharsets.UTF_8);
     }
 
-    /** build/compile_commands.json: each of the game's files with the options dampf's preprocessor gets. */
+    /**
+     * build/compile_commands.json: each of the game's files with the options dampf's preprocessor gets.
+     * lib/snes is not in it: it is the kit's, and gets none of the defines of [snes].
+     */
     private static Step compileCommands(Project p, Kit kit) {
         Path file = p.dir().resolve("build").resolve("compile_commands.json");
         return new Step("write", rel(p, file), List.of(), out -> {

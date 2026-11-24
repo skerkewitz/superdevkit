@@ -88,6 +88,7 @@ document of its subject.
 | ADR-6FHSWZ2F | [The notes of a release are a file in the repository, and its draft is not edited](adr/6FHSWZ2F-the-notes-of-a-release-are-a-file-in-the.md) | Accepted | 2026-11-23 |
 | ADR-6FK7WP0H | [The roadmap holds what is to come, and a concluded milestone moves to the history](adr/6FK7WP0H-the-roadmap-holds-what-is-to-come-and-a-concluded.md) | Accepted | 2026-11-24 |
 | ADR-6FKTVDE8 | [A hardware feature is usable only when the SNES and Rachael both draw it](adr/6FKTVDE8-a-hardware-feature-is-usable-only-when-the-snes.md) | Accepted | 2026-11-24 |
+| ADR-6FKYXP8C | [dampf compiles a library's files without the program's defines](adr/6FKYXP8C-dampf-compiles-a-library-s-files-without-the.md) | Accepted | 2026-11-24 |
 
 ## Former numbers
 

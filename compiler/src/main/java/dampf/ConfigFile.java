@@ -21,9 +21,9 @@ public final class ConfigFile {
 
     /** Options followed by a value. */
     private static final Set<String> TAKES_VALUE = Set.of("-I", "-D", "-o", "--entry", "--backend", "--assembler",
-            "--block-counts", "--replace", "--sram");
+            "--block-counts", "--replace", "--sram", "--lib");
     /** Options whose value is a path. */
-    private static final Set<String> PATH_VALUE = Set.of("-I", "-o", "--block-counts");
+    private static final Set<String> PATH_VALUE = Set.of("-I", "-o", "--block-counts", "--lib");
 
     /** A mistake in an argument file or in how it was named, with the place. */
     public static final class Error extends RuntimeException {
