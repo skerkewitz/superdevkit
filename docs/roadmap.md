@@ -54,7 +54,10 @@ in the kit's window, and a build step before the build with `superdevkit gen`
   (enum objects in one byte) and 3 (16-bit pointers into RAM), each built once it is taken.
   Decision 4 is taken: `goto` stays rejected (ADR
   [ADR-6F3CJVHC](adr/6F3CJVHC-goto-and-labels-stay-rejected-and-a-forward-and.md)).
-- **Function pointers in constant tables**, allowed by design and not built.
+- **`switch` as a jump table** (moved up from M12 on 2026-11-24). A `switch` compares its way
+  down the cases, about 5 cycles for each case before the one it takes, so a state machine or
+  an interpreter with many cases pays for its last ones on every call. A jump table makes the
+  dispatch cost the same for every case, for the 30 `switch` statements of the examples too.
 - **Hand-written assembly with the code generator from MIR:** `--replace` works only with the
   naive one, and a linked-in function has no way to declare its calling convention, direct page
   use and cycles for the timing analysis. Once it does, more reference functions
@@ -122,7 +125,7 @@ good measured zero ([optimizations.md](optimizations.md#tried-and-rejected)).
 | 8 | The block layout by a profile by default | ~1 % | low | Opt-in today (`--block-counts`); needs a profile of the program (`dampf bench --profile`). |
 | 9 | Value ranges from array bounds | 1-2 % | medium | More 8-bit narrowing, fewer masks. An index into an array needs no range for its access since M9 (ADR-6F8NBESR), but the value ranges do not learn from that access yet. |
 | 10 | Superoptimizer for short hot sequences | 1-3 % | high | Gains spread thin. |
-| 11 | `<<8` as a byte store, `switch` as a jump table, `MVN` for copies (and `memcpy`), unrolling by hint | <1 % each | low to medium | Large locally, small on the whole game. |
+| 11 | `<<8` as a byte store, `MVN` for copies (and `memcpy`), unrolling by hint | <1 % each | low to medium | Large locally, small on the whole game. |
 
 Also in M12:
 
@@ -167,6 +170,10 @@ The ROM on a real SNES or a flash cartridge, on NTSC and PAL, and the DMA margin
 Music on the SNES (the calls are a stub there; sound effects and save RAM are built).
 macOS (raylib runs there; nobody can test it now), `superdevkit bundle` (one folder with every
 target, ready to publish), the desktop running the ROM in an emulator and Mesen as the desktop.
+Function pointers in constant tables, which ADR-6F0R668G allows: they were built on the branch
+`m10-function-tables` and not merged on 2026-11-24, since no example and no game uses them and a
+`switch` on an enum does the same (PR #59 has the example and the reasons); the branch stays for
+when a game asks for them.
 
 ## Future ideas
 
