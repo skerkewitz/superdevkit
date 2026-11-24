@@ -141,7 +141,7 @@ public final class Schedule {
             if (i instanceof Instr.Store st && !st.isVolatile && disjoint(load, st)) {
                 continue;
             }
-            if (i instanceof Instr.Store || i instanceof Instr.Copy || i instanceof Instr.Call
+            if (i instanceof Instr.Store || i instanceof Instr.Copy || i instanceof Instr.Call || i instanceof Instr.CallPtr
                     || i instanceof Instr.Load l && l.isVolatile) {
                 return false;
             }

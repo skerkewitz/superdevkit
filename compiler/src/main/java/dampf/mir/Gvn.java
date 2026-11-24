@@ -68,6 +68,7 @@ public final class Gvn {
                     case Instr.Store s -> true;
                     case Instr.Copy c -> true;
                     case Instr.Call c -> m.function(c.callee) == null || writes(m, m.function(c.callee), memo);
+                    case Instr.CallPtr c -> c.targets.stream().anyMatch(n -> m.function(n) == null || writes(m, m.function(n), memo));
                     default -> false;
                 };
             }
@@ -105,6 +106,14 @@ public final class Gvn {
                     MFunction callee = module.function(c.callee);
                     if (callee == null || writes.getOrDefault(callee, true)) {
                         loads.clear();
+                    }
+                }
+                case Instr.CallPtr c -> {
+                    for (String n : c.targets) {
+                        MFunction callee = module.function(n);
+                        if (callee == null || writes.getOrDefault(callee, true)) {
+                            loads.clear();
+                        }
                     }
                 }
                 default -> { }

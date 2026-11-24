@@ -12,7 +12,7 @@ import java.util.Locale;
  */
 public abstract sealed class Instr implements Value
         permits Instr.Bin, Instr.Cmp, Instr.Cast, Instr.PtrAdd, Instr.Load, Instr.Store, Instr.Copy, Instr.Call,
-        Instr.Phi, Instr.Jump, Instr.Branch, Instr.Ret, Instr.Switch, Instr.Unreachable {
+        Instr.CallPtr, Instr.Phi, Instr.Jump, Instr.Branch, Instr.Ret, Instr.Switch, Instr.Unreachable {
 
     protected final List<Value> ops = new ArrayList<>();
     private final MType type;
@@ -174,6 +174,31 @@ public abstract sealed class Instr implements Value
         public Call(String callee, MType result, List<Value> args, SourcePos pos) {
             super(result, pos, args.toArray(Value[]::new));
             this.callee = callee;
+        }
+    }
+
+    /**
+     * A call through a function pointer from a constant table: operand 0 is the pointer, the
+     * others are the arguments. {@code targets} are the functions it can reach (the table's
+     * entries there, each with the same signature), so the call graph stays complete.
+     */
+    public static final class CallPtr extends Instr {
+        public final List<String> targets;
+
+        public CallPtr(Value pointer, List<String> targets, MType result, List<Value> args, SourcePos pos) {
+            super(result, pos, pointer);
+            ops.addAll(args);
+            this.targets = List.copyOf(targets);
+        }
+
+        /** The number of arguments. */
+        public int args() {
+            return ops.size() - 1;
+        }
+
+        /** Argument k. */
+        public Value arg(int k) {
+            return ops.get(k + 1);
         }
     }
 

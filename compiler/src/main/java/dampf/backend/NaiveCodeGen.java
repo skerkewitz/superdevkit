@@ -66,6 +66,9 @@ public final class NaiveCodeGen {
     private static final String VIA_Q = "[dampf_ptr+4],y";
 
     private final Program program;
+    private final dampf.check.FunctionTables tables;
+    /** Whether the program calls through a function table (it then imports dampf_icall). */
+    private boolean tableCalls;
     private final Function entry;
     private final java.util.function.Function<String, String> debugName;
     /** Where globals() and frames() write: the RAM part, or the block of one ROM object. */
@@ -103,6 +106,7 @@ public final class NaiveCodeGen {
     public NaiveCodeGen(Program program, Function entry, java.util.Set<String> replaced,
                         java.util.function.Function<String, String> debugName) {
         this.program = program;
+        this.tables = new dampf.check.FunctionTables(program);
         this.entry = entry;
         this.replaced = java.util.Set.copyOf(replaced);
         this.debugName = debugName;
@@ -180,8 +184,8 @@ public final class NaiveCodeGen {
         w.raw("        .smart  off");
         w.raw("        .a16");
         w.raw("        .i16");
-        w.raw("        .importzp dampf_regs, dampf_ptr");
-        w.raw("        .import dampf_mul16, dampf_mul32, dampf_udiv16, dampf_udiv32, dampf_sdiv32");
+        w.raw("        .importzp dampf_regs, dampf_ptr" + (tableCalls ? ", dampf_fptr" : ""));
+        w.raw("        .import dampf_mul16, dampf_mul32, dampf_udiv16, dampf_udiv32, dampf_sdiv32" + (tableCalls ? ", dampf_icall" : ""));
         if (modules > 1 || !replaced.isEmpty()) {
             // exported by the module that defines a label, imported by the others
             List<String> all = new ArrayList<>();
@@ -231,7 +235,7 @@ public final class NaiveCodeGen {
     private void globals() {
         for (Variable v : program.globals()) {
             Init init = program.initialValues().get(v);
-            boolean zero = init == null || init.items().stream().allMatch(i -> i.address() == null && i.value() == 0);
+            boolean zero = init == null || init.items().stream().allMatch(i -> i.address() == null && i.function() == null && i.value() == 0);
             String segment = v.inRom() ? romSegment(v.label()) : zero ? "BSS" : "DATA";
             AsmWriter ram = asm;
             if (v.inRom()) {
@@ -258,7 +262,7 @@ public final class NaiveCodeGen {
         TreeMap<Integer, Init.Item> addresses = new TreeMap<>();
         byte[] bytes = new byte[size];
         for (Init.Item i : items) {
-            if (i.address() != null) {
+            if (i.address() != null || i.function() != null) {
                 addresses.put(i.offset(), i);
             } else {
                 for (int b = 0; b < i.size(); b++) {
@@ -273,8 +277,8 @@ public final class NaiveCodeGen {
             if (a != null) {
                 flushBytes(line);
                 count = 0;
-                String target = a.address().label() + offset(a.addressOffset());
-                if (a.address().inRom()) {
+                String target = a.function() != null ? a.function().label() : a.address().label() + offset(a.addressOffset());
+                if (a.function() != null || a.address().inRom()) {
                     asm.raw("        .word   .loword(" + target + ")");
                     asm.raw("        .byte   ^(" + target + "), 0");
                 } else {
@@ -868,6 +872,7 @@ public final class NaiveCodeGen {
                 }
             }
             case Expr.Call c -> call(c);
+            case Expr.TableCall c -> tableCall(c);
             case Expr.AddressOf a -> out.ins("lda", addressOf(placeOf(a.lvalue())), "A = address (low word)");
             case Expr.Decay d -> out.ins("lda", addressOf(placeOf(d.array())), "A = address (low word)");
             case Expr.PointerAdd p -> out.ins("lda", gen32(p), null);
@@ -1077,6 +1082,13 @@ public final class NaiveCodeGen {
             }
             case Expr.Call c -> {
                 call(c);
+                String t = temp();
+                out.ins("sta", t, "result, low word ...");
+                out.ins("stx", t + "+2", "... and high word");
+                return t;
+            }
+            case Expr.TableCall c -> {
+                tableCall(c);
                 String t = temp();
                 out.ins("sta", t, "result, low word ...");
                 out.ins("stx", t + "+2", "... and high word");
@@ -1499,8 +1511,54 @@ public final class NaiveCodeGen {
                 + (f.returnType().size() == 4 ? " (low) and X (high)" : "")));
     }
 
+    /**
+     * A call through a function table: the function's address from the table into dampf_fptr,
+     * every argument into the parameter of every function the call can reach (their frames never
+     * overlap here), then {@code JSL dampf_icall}, which jumps to the function.
+     */
+    private void tableCall(Expr.TableCall c) throws CompileError {
+        tableCalls = true;
+        List<Function> targets = tables.targets(c.callee());
+        for (Function f : targets) {
+            if (!f.isDefined()) {
+                throw new CompileError(c.pos(), "function '" + f.name() + "' is not defined");
+            }
+        }
+        String fp = temp();
+        copy32(gen32(c.callee()), fp, "the function: " + ExprPrinter.print(c.callee()));
+        List<String> values = new ArrayList<>();
+        for (int i = 0; i < c.args().size(); i++) {
+            Expr a = c.args().get(i);
+            String t = temp();
+            if (a.type().size() == 4) {
+                copy32(gen32(a), t, "argument " + (i + 1));
+            } else {
+                genA(a);
+                out.ins("sta", t, "argument " + (i + 1));
+            }
+            values.add(t);
+        }
+        for (Function f : targets) {
+            for (int i = 0; i < f.params().size(); i++) {
+                Variable p = f.params().get(i);
+                if (p.type().size() == 4) {
+                    copy32(values.get(i), p.label(), f.name() + "(): " + p.name() + " = argument " + (i + 1));
+                } else {
+                    out.ins("lda", values.get(i), null);
+                    storeA(new Place.Fixed(p.label(), 0, false), p.type().size(), f.name() + "(): " + p.name());
+                }
+            }
+        }
+        out.ins("lda", fp, null);
+        out.ins("sta", "z:dampf_fptr", null);
+        out.ins("lda", fp + "+2", null);
+        out.ins("sta", "z:dampf_fptr+2", null);
+        out.ins("jsl", "dampf_icall", ExprPrinter.print(c) + " (to " + String.join(", ", targets.stream().map(Function::name).toList()) + ")"
+                + (c.type() instanceof Type.Void ? "" : ", result in A" + (c.type().size() == 4 ? " (low) and X (high)" : "")));
+    }
+
     private static boolean containsCall(Expr e) {
-        return e instanceof Expr.Call || Children.of(e).stream().anyMatch(NaiveCodeGen::containsCall);
+        return e instanceof Expr.Call || e instanceof Expr.TableCall || Children.of(e).stream().anyMatch(NaiveCodeGen::containsCall);
     }
 
     /**

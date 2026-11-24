@@ -273,6 +273,24 @@ public final class MirParser {
                 }
                 instr = new Instr.Call(callee, type, args, pos);
             }
+            case "callptr" -> {
+                MType type = type(t.next());
+                Value pointer = value(t.next(), MType.PTR, pending, 0);
+                t.expect("[");
+                List<String> targets = new ArrayList<>();
+                while (!t.accept("]")) {
+                    targets.add(t.symbol('@'));
+                    t.accept(",");
+                }
+                t.expect("(");
+                List<Value> args = new ArrayList<>();
+                while (!t.accept(")")) {
+                    MType at = type(t.next());
+                    args.add(value(t.next(), at, pending, args.size() + 1));
+                    t.accept(",");
+                }
+                instr = new Instr.CallPtr(pointer, targets, type, args, pos);
+            }
             case "phi" -> {
                 MType type = type(t.next());
                 Instr.Phi phi = new Instr.Phi(type, pos);

@@ -155,6 +155,7 @@ public final class MirCodeGen {
         if (frameTotal > MAX_FRAME) {
             throw new IllegalStateException("the frames need " + frameTotal + " bytes, more than " + MAX_FRAME);
         }
+        thunks();
         for (MFunction f : module.functions()) {
             AsmWriter code = codes.get(f);
             List<Block> order = orders.get(f);
@@ -188,6 +189,7 @@ public final class MirCodeGen {
         }
         AsmWriter ram = new AsmWriter();
         globals(ram);
+        banked.addAll(thunkCode.values());
 
         List<String> modules = new ArrayList<>();
         int chunks = Math.max(1, (banked.size() + SEGMENTS_PER_MODULE - 1) / SEGMENTS_PER_MODULE);
@@ -332,6 +334,76 @@ public final class MirCodeGen {
         done.add(f);
     }
 
+    /** The cycles of the runtime's dampf_icall: {@code JML [dampf_fptr]}. */
+    static final long ICALL = dampf.target.Cycles65816.cycles(0xDC, true, true, false);
+
+    /** Per set of functions a table call can reach, the name its calls use for dampf_icall (by it, the timing knows the set). */
+    final Map<List<String>, String> dispatch = new LinkedHashMap<>();
+    final Map<String, List<String>> dispatchTargets = new HashMap<>();
+
+    /** The label a call through a table to these functions calls. */
+    String dispatch(List<String> targets) {
+        return dispatch.computeIfAbsent(List.copyOf(targets), t -> {
+            String name = "dampf_icall_" + (dispatch.size() + 1);
+            dispatchTargets.put(name, t);
+            return name;
+        });
+    }
+
+    /** Per function in a table that has parameters: the label of its thunk. */
+    final Map<String, String> thunk = new LinkedHashMap<>();
+    final Map<String, Long> thunkCycles = new HashMap<>();
+    final Map<String, AsmWriter> thunkCode = new LinkedHashMap<>();
+
+    /**
+     * The thunks: a table call leaves the arguments in dampf_regs, word by word, since the
+     * functions of a table have their parameters in different places. A function with
+     * parameters is entered there through its thunk, which copies them into its parameters and
+     * jumps to it; the table holds the thunk's address. Written after the places have their
+     * addresses.
+     */
+    void thunks() {
+        Set<String> labels = new HashSet<>();
+        module.functions().forEach(f -> labels.add(f.name()));
+        module.globals().forEach(g -> labels.add(g.symbol()));
+        for (String name : new java.util.TreeSet<>(module.tableFunctions())) {
+            MFunction f = module.function(name);
+            if (f.params().isEmpty()) {
+                continue;
+            }
+            String label = name + "__table";
+            while (labels.contains(label)) {
+                label += "_";
+            }
+            labels.add(label);
+            AsmWriter w = new AsmWriter();
+            w.blank();
+            w.raw("; ---- " + name + " called through a function table: its arguments from dampf_regs into its parameters");
+            w.raw("        .segment \"" + NaiveCodeGen.codeSegment(label) + "\"");
+            w.raw(".proc " + label);
+            int at = 0;
+            for (Value.Param p : f.params()) {
+                int place = placeAt.get(new PlaceColouring.Place(p, false));
+                for (int k = 0; k < Selection.words(p.type()); k++) {
+                    w.insOp("lda", CallSelection.ARGS.plus(at), null);
+                    w.insOp("sta", Selection.at(place + 2 * k), "parameter " + p + (k > 0 ? " (high word)" : ""));
+                    at += 2;
+                }
+            }
+            w.ins("jml", name, null);
+            w.raw(".endproc");
+            long cycles = 0;
+            for (dampf.lir.LBlock b : w.function().blocks()) {
+                for (dampf.lir.LInstr i : b.instrs()) {
+                    cycles += i.cycles();
+                }
+            }
+            thunk.put(name, label);
+            thunkCycles.put(name, cycles);
+            thunkCode.put(name, w);
+        }
+    }
+
     /** The notes that say where f's parameters are, at the start of its code. */
     void parameterNotes(MFunction f, LFunction lf) {
         List<dampf.lir.LItem> items = new ArrayList<>();
@@ -351,12 +423,13 @@ public final class MirCodeGen {
         w.raw("        .smart  off");
         w.raw("        .a16");
         w.raw("        .i16");
-        w.raw("        .importzp dampf_regs, dampf_ptr");
-        w.raw("        .import dampf_mul16, dampf_mul32, dampf_udiv16, dampf_udiv32, dampf_sdiv32");
+        w.raw("        .importzp dampf_regs, dampf_ptr" + (dispatch.isEmpty() ? "" : ", dampf_fptr"));
+        w.raw("        .import dampf_mul16, dampf_mul32, dampf_udiv16, dampf_udiv32, dampf_sdiv32" + (dispatch.isEmpty() ? "" : ", dampf_icall"));
         if (modules > 1) {
             List<String> all = new ArrayList<>();
             this.module.functions().forEach(f -> all.add(f.name()));
             this.module.globals().forEach(g -> all.add(g.symbol()));
+            all.addAll(thunk.values());
             for (int i = 0; i < all.size(); i += 8) {
                 w.raw("        .global " + String.join(", ", all.subList(i, Math.min(all.size(), i + 8))));
             }
@@ -369,6 +442,9 @@ public final class MirCodeGen {
             w.raw("R" + r + (r < 10 ? "  " : " ") + "= dampf_regs+" + r);
         }
         w.raw(Selection.FRAME + " = $" + Selection.hex(Selection.FRAME_START, 4) + "            ; the frames (compiled stack), $0020-$1DFF; below $0100 in the direct page");
+        for (Map.Entry<List<String>, String> e : dispatch.entrySet()) {
+            w.raw(e.getValue() + " = dampf_icall        ; a call through a function table to " + String.join(", ", e.getKey()));
+        }
     }
 
     String fileDirective(String file, Path path) {
@@ -433,6 +509,13 @@ public final class MirCodeGen {
                     if (why == null && i instanceof Instr.Call c && !bound(c.callee, new HashSet<>()).bounded()) {
                         why = "calls " + c.callee;
                     }
+                    if (why == null && i instanceof Instr.CallPtr c) {
+                        for (String t : c.targets) {
+                            if (why == null && !bound(t, new HashSet<>()).bounded()) {
+                                why = "calls " + t + " through a function table";
+                            }
+                        }
+                    }
                 }
             }
             out.put(f.name(), why == null ? "a loop without a bound" : why);
@@ -448,6 +531,19 @@ public final class MirCodeGen {
         Timing.Bound runtime = Timing.RUNTIME.get(name);
         if (runtime != null) {
             return runtime;
+        }
+        List<String> targets = dispatchTargets.get(name);
+        if (targets != null) {
+            // dampf_icall's JML [dampf_fptr], then the costliest (and the cheapest) way on: a
+            // function's thunk, if it has one, and the function
+            long best = Timing.UNBOUNDED;
+            long worst = 0;
+            for (String t : targets) {
+                Timing.Bound b = new Timing.Bound(thunkCycles.getOrDefault(t, 0L), thunkCycles.getOrDefault(t, 0L)).plus(bound(t, path));
+                best = Math.min(best, b.best());
+                worst = Math.max(worst, b.worst());
+            }
+            return new Timing.Bound(Timing.add(ICALL, best), Timing.add(ICALL, worst));
         }
         MFunction f = module.function(name);
         if (f == null || !path.add(name)) {
@@ -577,8 +673,9 @@ public final class MirCodeGen {
             if (a != null) {
                 flush(w, line);
                 count = 0;
-                String target = a.symbol() + (a.value() == 0 ? "" : (a.value() > 0 ? "+" : "") + a.value());
-                if (sel.rom.contains(a.symbol())) {
+                String symbol = thunk.getOrDefault(a.symbol(), a.symbol());
+                String target = symbol + (a.value() == 0 ? "" : (a.value() > 0 ? "+" : "") + a.value());
+                if (sel.rom.contains(a.symbol()) || module.function(a.symbol()) != null) {
                     w.raw("        .word   .loword(" + target + ")");
                     w.raw("        .byte   ^(" + target + "), 0");
                 } else {
@@ -623,6 +720,7 @@ public final class MirCodeGen {
         sel.layout = layouts.get(f);
         sel.ranges = sel.layout.ranges;
         sel.plan.findMasks(f);
+        sel.calls.planFunctionPointers(f);
         sel.ranges = sel.layout.ranges;
         sel.forward.clear();
         sel.fused.clear();
@@ -984,6 +1082,7 @@ public final class MirCodeGen {
             case Instr.Store s -> sel.memory.store(s);
             case Instr.Copy c -> sel.memory.copy(c);
             case Instr.Call c -> sel.calls.call(c);
+            case Instr.CallPtr c -> sel.calls.callPtr(c);
             case Instr.Phi p -> throw new IllegalStateException("φ after the start of a block");
             case Instr.Jump j -> {
                 if (j.target != next) {

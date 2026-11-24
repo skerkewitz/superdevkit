@@ -14,8 +14,9 @@
         .import __BSS_RUN__, __BSS_SIZE__
         .import __DATA_LOAD__, __DATA_RUN__, __DATA_SIZE__
         .export dampf_done
-        .exportzp dampf_regs, dampf_ptr
+        .exportzp dampf_regs, dampf_ptr, dampf_fptr
         .export dampf_mul16, dampf_mul32, dampf_udiv16, dampf_udiv32, dampf_sdiv32
+        .export dampf_icall
 
 DONE_PORT = $21FB
 
@@ -103,6 +104,9 @@ dampf_regs:     .res    18
 ; Two 24-bit pointers (4 bytes each: address, bank, unused) for [dp],y
 ; accesses: generated code copies a pointer here right before it uses it.
 dampf_ptr:      .res    8
+; The function a call through a function table goes to (address, bank, unused), for
+; dampf_icall. The ZEROPAGE ends before $0020, where the frames begin.
+dampf_fptr:     .res    4
 
 R0  = dampf_regs+0
 R2  = dampf_regs+2
@@ -398,6 +402,12 @@ dampf_sdiv32:
         sbc     z:R14
         sta     z:R14
 @done:  rtl
+
+; A call through a function table (docs/subset.md, "Function pointers"): the caller puts the
+; function's 24-bit address into dampf_fptr, the arguments into dampf_regs, and calls this with
+; JSL, so the function's RTL returns to the caller. JML [abs] reads its pointer in bank 0.
+dampf_icall:
+        jml     [dampf_fptr]
 
         .segment "HEADER"
         ; $FFC0: internal header (LoROM, no RAM). The ROM size and the checksum

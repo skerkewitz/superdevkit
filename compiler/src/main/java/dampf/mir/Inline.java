@@ -56,6 +56,9 @@ public final class Inline {
                     if (i instanceof Instr.Call c) {
                         sites.merge(c.callee, 1, Integer::sum);
                     }
+                    if (i instanceof Instr.CallPtr c) {
+                        c.targets.forEach(n -> sites.merge(n, 1, Integer::sum));   // the function stays for the table
+                    }
                 }
             }
         }
@@ -240,6 +243,7 @@ public final class Inline {
             case Instr.Store x -> new Instr.Store(x.op(0), x.op(1), x.isVolatile, x.pos());
             case Instr.Copy x -> new Instr.Copy(x.op(0), x.op(1), x.size, x.pos());
             case Instr.Call x -> new Instr.Call(x.callee, x.type(), x.operands(), x.pos());
+            case Instr.CallPtr x -> new Instr.CallPtr(x.op(0), x.targets, x.type(), x.operands().subList(1, x.operands().size()), x.pos());
             case Instr.Phi x -> {
                 Instr.Phi p = new Instr.Phi(x.type(), x.pos());
                 // the copy takes the same values, so what a pass knew of them still holds (an

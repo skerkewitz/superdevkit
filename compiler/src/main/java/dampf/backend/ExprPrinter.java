@@ -30,6 +30,7 @@ final class ExprPrinter {
             case Expr.Logical l -> operand(l.left()) + (l.and() ? " && " : " || ") + operand(l.right());
             case Expr.Conditional c -> operand(c.cond()) + " ? " + operand(c.then()) + " : " + operand(c.otherwise());
             case Expr.Call c -> c.function().name() + "(" + c.args().stream().map(ExprPrinter::print).collect(Collectors.joining(", ")) + ")";
+            case Expr.TableCall c -> print(c.callee()) + "(" + c.args().stream().map(ExprPrinter::print).collect(Collectors.joining(", ")) + ")";
         };
     }
 
@@ -43,6 +44,7 @@ final class ExprPrinter {
             case Expr.Const k -> print(k);
             case Expr.Var v -> print(v);
             case Expr.Call c -> print(c);
+            case Expr.TableCall c -> print(c);
             case Expr.Index i -> print(i);
             case Expr.Member m -> print(m);
             case Expr.Decay d -> print(d);

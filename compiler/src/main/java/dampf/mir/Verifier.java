@@ -225,6 +225,25 @@ public final class Verifier {
                     }
                 }
             }
+            case Instr.CallPtr c -> {
+                if (c.op(0).type() != MType.PTR || c.targets.isEmpty()) {
+                    error(f, b, i, "callptr needs a pointer and the functions it can reach");
+                }
+                for (String name : c.targets) {
+                    MFunction callee = module.function(name);
+                    if (callee == null) {
+                        error(f, b, i, "can reach an unknown function " + name);
+                    } else if (callee.result() != c.type() || callee.params().size() != c.args()) {
+                        error(f, b, i, "does not match " + name + "'s signature");
+                    } else {
+                        for (int k = 0; k < c.args(); k++) {
+                            if (c.arg(k).type() != callee.params().get(k).type()) {
+                                error(f, b, i, "argument " + (k + 1) + " has the wrong type for " + name);
+                            }
+                        }
+                    }
+                }
+            }
             case Instr.Phi p -> {
                 for (Value v : p.operands()) {
                     if (v.type() != p.type()) {

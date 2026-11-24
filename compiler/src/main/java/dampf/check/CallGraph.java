@@ -15,8 +15,9 @@ import java.util.Map;
 
 /**
  * The complete call graph of the program. dampf can build it completely because there are no
- * free function pointers, and it must be free of cycles: static frames (every local at a fixed
- * address) are only correct without recursion.
+ * free function pointers: a call through a constant function table is an edge to every function
+ * the call can reach in the table ({@link FunctionTables}). It must be free of cycles: static
+ * frames (every local at a fixed address) are only correct without recursion.
  */
 public final class CallGraph {
     /** A call from one function to another, at a place in the source. */
@@ -28,10 +29,11 @@ public final class CallGraph {
 
     public static CallGraph of(Program program) {
         CallGraph g = new CallGraph();
+        FunctionTables tables = new FunctionTables(program);
         for (Function f : program.functions()) {
             List<Edge> edges = new ArrayList<>();
             if (f.isDefined()) {
-                collect(f.body(), edges);
+                collect(f.body(), edges, tables);
             }
             g.calls.put(f, edges);
         }
@@ -79,15 +81,20 @@ public final class CallGraph {
         return null;
     }
 
-    private static void collect(Stmt s, List<Edge> out) {
-        Children.exprsOf(s).forEach(e -> collect(e, out));
-        Children.stmtsOf(s).forEach(x -> collect(x, out));
+    private static void collect(Stmt s, List<Edge> out, FunctionTables tables) {
+        Children.exprsOf(s).forEach(e -> collect(e, out, tables));
+        Children.stmtsOf(s).forEach(x -> collect(x, out, tables));
     }
 
-    private static void collect(Expr e, List<Edge> out) {
-        Children.of(e).forEach(x -> collect(x, out));
+    private static void collect(Expr e, List<Edge> out, FunctionTables tables) {
+        Children.of(e).forEach(x -> collect(x, out, tables));
         if (e instanceof Expr.Call c) {
             out.add(new Edge(c.function(), c.pos()));
+        }
+        if (e instanceof Expr.TableCall c) {
+            for (Function f : tables.targets(c.callee())) {
+                out.add(new Edge(f, c.pos()));
+            }
         }
     }
 }

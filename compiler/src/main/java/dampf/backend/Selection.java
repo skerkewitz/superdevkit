@@ -83,9 +83,11 @@ final class Selection {
         for (MFunction f : gen.module.functions()) {
             for (Block b : f.blocks()) {
                 for (Instr i : b.instrs()) {
-                    if (i instanceof Instr.Call c) {
+                    List<String> called = i instanceof Instr.Call c ? List.of(c.callee)
+                            : i instanceof Instr.CallPtr c ? c.targets : List.of();
+                    for (String name : called) {
                         List<MFunction> l = gen.callees.computeIfAbsent(f.name(), k -> new ArrayList<>());
-                        MFunction callee = gen.module.function(c.callee);
+                        MFunction callee = gen.module.function(name);
                         if (callee != null && !l.contains(callee)) {
                             l.add(callee);
                         }
@@ -143,6 +145,7 @@ final class Selection {
                     new LOperand.Owner(s.slot(), false, 0)) : imm(0x7E);
             case Value.Param p -> w >= words(p.type()) ? imm(0) : placeOf(p, w);
             case Instr i when FrameLayout.transparent(i) -> w >= words(i.type()) ? imm(0) : operand(i.op(0), w);
+            case Instr i when fixedDest.containsKey(i) -> fixedDest.get(i).plus(2 * w);
             case Instr i -> w >= words(i.type()) ? imm(0) : placeOf(i, w);
         };
     }
@@ -161,8 +164,12 @@ final class Selection {
     }
 
     LOperand dest(Instr i, int w) {
-        return placeOf(i, w);
+        LOperand.Mem fixed = fixedDest.get(i);
+        return fixed != null ? fixed.plus(2 * w) : placeOf(i, w);
     }
+
+    /** Values whose code stores them somewhere else than in a place: a table call's function, into dampf_fptr. */
+    final Map<Instr, LOperand.Mem> fixedDest = new HashMap<>();
 
     /**
      * Masks the result of i, if it is an i1 (always) or an i8 that must be clean ({@link #masked}).

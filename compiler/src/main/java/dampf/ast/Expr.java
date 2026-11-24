@@ -159,6 +159,19 @@ public sealed interface Expr {
         return e instanceof Var || e instanceof Index || e instanceof Member || e instanceof Deref;
     }
 
+    /**
+     * A call through a function pointer in a constant table ({@code handlers[state](x)}).
+     * {@code callee} is the lvalue of the table entry, an {@link Index} and {@link Member} chain
+     * on a const {@link Var} in ROM; the functions it can reach are the table's entries there
+     * ({@code dampf.check.FunctionTables}). Each argument already has its parameter's type.
+     */
+    record TableCall(Expr callee, Type.Func signature, List<Expr> args, SourcePos pos) implements Expr {
+        @Override
+        public Type type() {
+            return signature.result();
+        }
+    }
+
     /** A call; each argument already has its parameter's type. */
     record Call(Function function, List<Expr> args, SourcePos pos) implements Expr {
         @Override

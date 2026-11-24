@@ -51,6 +51,7 @@ public final class DeadCode {
             case Instr.Store s -> true;
             case Instr.Copy c -> true;
             case Instr.Call c -> true;
+            case Instr.CallPtr c -> true;
             case Instr.Load l -> l.isVolatile;
             default -> i.isTerminator();
         };

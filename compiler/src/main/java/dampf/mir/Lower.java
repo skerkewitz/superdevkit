@@ -33,6 +33,7 @@ import java.util.Set;
  */
 public final class Lower {
     private final MModule module = new MModule();
+    private dampf.check.FunctionTables tables;
 
     // per function
     private MFunction mf;
@@ -51,12 +52,14 @@ public final class Lower {
 
     public static MModule lower(Program program) {
         Lower l = new Lower();
+        l.tables = new dampf.check.FunctionTables(program);
         for (Variable v : program.globals()) {
             List<MModule.Datum> init = new ArrayList<>();
             dampf.ast.Init astInit = program.initialValues().get(v);
             if (astInit != null) {
                 for (dampf.ast.Init.Item i : astInit.items()) {
-                    init.add(i.address() == null ? new MModule.Datum(i.offset(), i.size(), i.value(), null)
+                    init.add(i.function() != null ? new MModule.Datum(i.offset(), 4, 0, i.function().label())
+                            : i.address() == null ? new MModule.Datum(i.offset(), i.size(), i.value(), null)
                             : new MModule.Datum(i.offset(), 4, i.addressOffset(), i.address().label()));
                 }
             }
@@ -556,6 +559,15 @@ public final class Lower {
                     args.add(value(a));
                 }
                 yield emit(new Instr.Call(c.function().label(), mtype(c.function().returnType()), args, pos));
+            }
+            case Expr.TableCall c -> {
+                Value pointer = value(c.callee());
+                List<Value> args = new ArrayList<>();
+                for (Expr a : c.args()) {
+                    args.add(value(a));
+                }
+                List<String> to = tables.targets(c.callee()).stream().map(Function::label).toList();
+                yield emit(new Instr.CallPtr(pointer, to, mtype(c.type()), args, pos));
             }
             case Expr.AddressOf a -> address(a.lvalue());
             case Expr.Decay d -> address(d.array());

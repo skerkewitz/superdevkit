@@ -78,7 +78,7 @@ final class SelectionPlan {
             return false;
         }
         return i instanceof Instr.Bin || i instanceof Instr.Load || i instanceof Instr.Cast
-                || i instanceof Instr.Call || i instanceof Instr.Cmp;
+                || i instanceof Instr.Call || i instanceof Instr.CallPtr || i instanceof Instr.Cmp;
     }
 
     /** u's code starts by loading v into A, and reads v nowhere else. */
@@ -239,6 +239,7 @@ final class SelectionPlan {
         natural.put(i, false);   // (a cycle runs through a φ, which is not looked into)
         boolean r = switch (i) {
             case Instr.Call c -> true;
+            case Instr.CallPtr c -> true;
             case Instr.Bin b -> switch (b.op) {
                 case AND -> clean(b.op(0), need, natural) || clean(b.op(1), need, natural);
                 case OR, XOR -> clean(b.op(0), need, natural) && clean(b.op(1), need, natural);
@@ -562,6 +563,7 @@ final class SelectionPlan {
             for (Instr i : b.instrs()) {
                 boolean bad = switch (i) {
                     case Instr.Call c -> true;
+                    case Instr.CallPtr c -> true;
                     case Instr.Bin x -> switch (x.op) {
                         case MUL -> Selection.words(x.type()) == 2 || !(x.op(0) instanceof Value.Const || x.op(1) instanceof Value.Const);
                         case UDIV, UREM, SDIV, SREM -> true;

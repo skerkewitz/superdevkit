@@ -30,6 +30,23 @@ public final class MModule {
         return functions;
     }
 
+    /**
+     * The functions that are entries of a function table (a datum names them): calls through
+     * the table reach them too, so passes that change a function's parameters for its callers
+     * leave them alone.
+     */
+    public java.util.Set<String> tableFunctions() {
+        java.util.Set<String> out = new java.util.HashSet<>();
+        for (Global g : globals) {
+            for (Datum d : g.init()) {
+                if (d.symbol() != null && function(d.symbol()) != null) {
+                    out.add(d.symbol());
+                }
+            }
+        }
+        return out;
+    }
+
     public MFunction function(String name) {
         return functions.stream().filter(f -> f.name().equals(name)).findFirst().orElse(null);
     }

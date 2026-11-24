@@ -123,6 +123,45 @@ public sealed interface Type {
         }
     }
 
+    /**
+     * A function type, only as the target of a function pointer, which the subset allows in
+     * constant tables (ADR-6F0R668G, docs/subset.md). It is no object: size 0.
+     */
+    record Func(Type result, List<Type> params) implements Type {
+        public Func {
+            params = List.copyOf(params);
+        }
+
+        @Override
+        public int size() {
+            return 0;
+        }
+
+        @Override
+        public String toString() {
+            StringBuilder s = new StringBuilder(result + " (");
+            for (int i = 0; i < params.size(); i++) {
+                s.append(i > 0 ? ", " : "").append(params.get(i));
+            }
+            return s.append(params.isEmpty() ? "void)" : ")").toString();
+        }
+    }
+
+    /** A pointer to a function. */
+    static boolean isFunctionPointer(Type t) {
+        return t instanceof Pointer p && p.target() instanceof Func;
+    }
+
+    /** Whether an object of this type holds a function pointer: it is one, or an array or struct with one inside. */
+    static boolean holdsFunctionPointer(Type t) {
+        return switch (t) {
+            case Pointer p -> p.target() instanceof Func;
+            case Array a -> holdsFunctionPointer(a.element());
+            case Struct s -> s.def().fields().stream().anyMatch(f -> holdsFunctionPointer(f.type()));
+            default -> false;
+        };
+    }
+
     record Struct(StructDef def) implements Type {
         @Override
         public int size() {

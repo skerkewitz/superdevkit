@@ -120,6 +120,8 @@ public final class Licm {
                         MFunction callee = m.function(c.callee);
                         yield callee == null || writes.getOrDefault(callee, true);
                     }
+                    case Instr.CallPtr c -> c.targets.stream().anyMatch(n -> m.function(n) == null
+                            || writes.getOrDefault(m.function(n), true));
                     default -> false;
                 };
                 if (writesIt) {

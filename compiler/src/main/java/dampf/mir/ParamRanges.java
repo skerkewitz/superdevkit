@@ -49,10 +49,11 @@ public final class ParamRanges {
         }
         Map<MFunction, Ranges> ranges = new HashMap<>();
         boolean changed = false;
+        java.util.Set<String> tables = m.tableFunctions();
         for (int n = post.size() - 1; n >= 0; n--) {
             MFunction f = post.get(n);
             List<Instr.Call> calls = sites.getOrDefault(f, List.of());
-            if (calls.isEmpty()) {
+            if (calls.isEmpty() || tables.contains(f.name())) {   // a table call may pass anything
                 continue;
             }
             for (int k = 0; k < f.params().size(); k++) {

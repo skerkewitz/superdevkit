@@ -27,6 +27,10 @@ public final class Interpreter {
     private final byte[] mem = new byte[SIZE];
     private final Map<String, Integer> globalAddress = new HashMap<>();
     private final Map<String, Integer> globalSize = new HashMap<>();
+    /** Where function tables point: an address per function, outside the memory. */
+    private static final long FUNCTIONS = 0xF00000;
+    private final Map<String, Long> functionAddress = new HashMap<>();
+    private final Map<Long, String> functionAt = new HashMap<>();
     private int frameTop = FRAMES;
     private long steps;
     private final long maxSteps;
@@ -44,10 +48,18 @@ public final class Interpreter {
                 throw new IllegalStateException("the globals do not fit the interpreter's memory");
             }
         }
+        // functions get addresses outside the memory, so that only a call can use them
+        for (int k = 0; k < module.functions().size(); k++) {
+            long a = FUNCTIONS + 16L * k;
+            functionAddress.put(module.functions().get(k).name(), a);
+            functionAt.put(a, module.functions().get(k).name());
+        }
         for (MModule.Global g : module.globals()) {
             int base = globalAddress.get(g.symbol());
             for (MModule.Datum d : g.init()) {
-                long v = d.symbol() == null ? d.value() : globalAddress.get(d.symbol()) + d.value();
+                long v = d.symbol() == null ? d.value()
+                        : globalAddress.containsKey(d.symbol()) ? globalAddress.get(d.symbol()) + d.value()
+                        : functionAddress.get(d.symbol()) + d.value();
                 store(base + d.offset(), d.size(), v);
             }
         }
@@ -288,6 +300,16 @@ public final class Interpreter {
             case Instr.Call c -> {
                 List<Long> args = c.operands().stream().map(a -> eval(a, frame)).toList();
                 yield t.wrap(run(module.function(c.callee), args));
+            }
+            case Instr.CallPtr c -> {
+                long address = eval(c.op(0), frame);
+                String name = functionAt.get(address);
+                if (name == null || !c.targets.contains(name)) {
+                    throw new IllegalStateException("a call through a function table reaches $" + Long.toHexString(address)
+                            + ", which is not one of " + c.targets);
+                }
+                List<Long> args = c.operands().subList(1, c.operands().size()).stream().map(a -> eval(a, frame)).toList();
+                yield t.wrap(run(module.function(name), args));
             }
             default -> throw new IllegalStateException("cannot execute " + Printer.instr(i));
         };

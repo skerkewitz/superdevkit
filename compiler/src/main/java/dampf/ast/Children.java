@@ -29,6 +29,12 @@ public final class Children {
             case Expr.Convert c -> List.of(c.operand());
             case Expr.Assign a -> List.of(a.target(), a.value());
             case Expr.Call c -> c.args();
+            case Expr.TableCall c -> {
+                List<Expr> l = new ArrayList<>();
+                l.add(c.callee());
+                l.addAll(c.args());
+                yield l;
+            }
         };
     }
 

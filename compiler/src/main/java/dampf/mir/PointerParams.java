@@ -31,10 +31,11 @@ public final class PointerParams {
                 }
             }
         }
+        java.util.Set<String> tables = m.tableFunctions();
         for (MFunction f : m.functions()) {
             List<Instr.Call> sites = calls.getOrDefault(f.name(), List.of());
-            if (sites.isEmpty()) {
-                continue;   // the entry function, or never called
+            if (sites.isEmpty() || tables.contains(f.name())) {
+                continue;   // the entry function, never called, or reached through a table, whose calls pass pointers
             }
             for (int k = 0; k < f.params().size(); k++) {
                 Value.Param old = f.params().get(k);

@@ -95,6 +95,10 @@ public final class Printer {
             case Instr.Copy c -> "copy " + c.size + " " + c.op(0) + ", " + c.op(1);
             case Instr.Call c -> "call " + c.type() + " @" + c.callee + "("
                     + c.operands().stream().map(v -> v.type() + " " + v).collect(Collectors.joining(", ")) + ")";
+            case Instr.CallPtr c -> "callptr " + c.type() + " " + c.op(0) + " ["
+                    + c.targets.stream().map(n -> "@" + n).collect(Collectors.joining(", ")) + "]("
+                    + c.operands().subList(1, c.operands().size()).stream().map(v -> v.type() + " " + v)
+                            .collect(Collectors.joining(", ")) + ")";
             case Instr.Phi p -> {
                 StringBuilder s = new StringBuilder("phi " + p.type());
                 for (int k = 0; k < p.from.size(); k++) {

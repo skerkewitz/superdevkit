@@ -147,7 +147,9 @@ public final class AstBuilder {
                 throw new CompileError(v.pos(), "the size of '" + v.name() + "' is unknown");
             }
         }
-        return new Program(List.copyOf(globals), Map.copyOf(initialValues), List.copyOf(functions));
+        Program program = new Program(List.copyOf(globals), Map.copyOf(initialValues), List.copyOf(functions));
+        dampf.check.FunctionTables.checkUses(program);
+        return program;
     }
 
     // ---------------------------------------------------------------- declarations
@@ -466,10 +468,20 @@ public final class AstBuilder {
             // T (*p)[N]: the suffixes after the parentheses apply first (an array of N T), then the
             // inner declarator to that (a pointer to it). A parameter list there is a function pointer.
             List<Integer> outer = new ArrayList<>();
+            List<Param> fnParams = null;
             for (int i = 3; i < dd.getChildCount(); i++) {
                 ParseTree c = dd.getChild(i);
                 if (c instanceof TerminalNode tn && tn.getText().equals("(")) {
-                    throw unsupported(dd, "this kind of declarator (function pointers, bit fields)");
+                    // T (*p)(params): a pointer to a function (only allowed in constant tables, which
+                    // the declaration checks)
+                    if (fnParams != null || !outer.isEmpty()) {
+                        throw unsupported(dd, "this kind of declarator");
+                    }
+                    fnParams = dd.getChild(i + 1) instanceof CParser.ParameterTypeListContext ptl ? parameters(ptl) : List.of();
+                    if (!(dd.getChild(i + 1) instanceof CParser.ParameterTypeListContext)) {
+                        throw error(dd, "a function pointer needs a parameter list: write (void) for none");
+                    }
+                    continue;
                 }
                 if (c instanceof TerminalNode tn && tn.getText().equals("[")) {
                     if (!(dd.getChild(i + 1) instanceof CParser.AssignmentExpressionContext size)) {
@@ -487,6 +499,22 @@ public final class AstBuilder {
             Type inside = t;
             for (int i = outer.size() - 1; i >= 0; i--) {
                 inside = new Type.Array(inside, outer.get(i));
+            }
+            if (fnParams != null) {
+                if (pointers) {
+                    throw unsupported(dd, "function pointers that return pointers");
+                }
+                if (t instanceof Type.Struct || t instanceof Type.Array) {
+                    throw unsupported(dd, "function pointers that return a struct or an array");
+                }
+                Declared d2 = declare(new Type.Func(t, fnParams.stream().map(Param::type).toList()), false, false, inner);
+                if (d2.isFunction()) {
+                    throw unsupported(dd, "functions that return function pointers");
+                }
+                if (d2.type() instanceof Type.Func) {
+                    throw unsupported(dd, "this kind of function declarator: write the name without parentheses");
+                }
+                return d2;
             }
             return declare(inside, outer.isEmpty() ? objectConst : constElements(inside, baseConst, objectConst), false, inner);
         }
@@ -619,6 +647,10 @@ public final class AstBuilder {
             if (t instanceof Type.Array a) {
                 t = new Type.Pointer(a.element()); // an array parameter is a pointer
             }
+            if (Type.holdsFunctionPointer(t)) {
+                throw new CompileError(p, "function pointers cannot be passed: they live only in constant tables "
+                        + "(pass the index into the table instead)");
+            }
             if (t instanceof Type.Struct) {
                 throw new CompileError(p, "structs passed by value are not supported: pass a pointer");
             }
@@ -663,6 +695,9 @@ public final class AstBuilder {
 
     private Function declareFunction(Declared dec, Specs s) throws CompileError {
         List<Type> paramTypes = dec.params().stream().map(Param::type).toList();
+        if (Type.holdsFunctionPointer(dec.type())) {
+            throw new CompileError(dec.pos(), "functions cannot return function pointers: they live only in constant tables");
+        }
         Object existing = fileScope.get(dec.name());
         if (existing == null && s.storage() != Storage.STATIC) {
             existing = externFunctions.get(dec.name());
@@ -719,6 +754,7 @@ public final class AstBuilder {
             definedAt.putIfAbsent(v.label(), dec.pos());
             definedGlobals.add(v.label());
         }
+        checkFunctionTable(v, init != null, s.storage() == Storage.EXTERN);
         if (init != null) {
             if (s.storage() == Storage.EXTERN) {
                 throw error(init, "an extern declaration cannot have an initializer");
@@ -750,6 +786,23 @@ public final class AstBuilder {
         throw new CompileError(dec.pos(), "conflicting types for '" + dec.name() + "' (first declared at " + old.pos() + ")");
     }
 
+    /**
+     * A variable that holds function pointers must be a constant table in ROM with an initializer
+     * (ADR-6F0R668G): then every function a call through it can reach is known.
+     */
+    private static void checkFunctionTable(Variable v, boolean hasInit, boolean isExtern) throws CompileError {
+        if (!Type.holdsFunctionPointer(v.type())) {
+            return;
+        }
+        if (!v.readOnly()) {
+            throw new CompileError(v.pos(), "'" + v.name() + "' holds function pointers, which are only allowed in constant "
+                    + "tables: declare it const (static void (*const " + v.name() + "[])(void) = { ... })");
+        }
+        if (!hasInit && !isExtern) {
+            throw new CompileError(v.pos(), "the function table '" + v.name() + "' needs an initializer that sets every entry");
+        }
+    }
+
     /** Replaces a global by the same variable with a completed type. */
     private Variable replace(Variable old, Type t) {
         Variable v = new Variable(old.name(), old.label(), t, old.kind(), old.pos(), old.readOnly());
@@ -770,6 +823,22 @@ public final class AstBuilder {
         int length = initialize(t, init, 0, items);
         if (t instanceof Type.Array a && a.length() < 0) {
             v = replace(v, new Type.Array(a.element(), length));
+        }
+        if (Type.holdsFunctionPointer(v.type())) {
+            List<Long> entries = new ArrayList<>();
+            dampf.check.FunctionTables.pointerOffsets(v.type(), 0, entries);
+            Set<Long> set = new HashSet<>();
+            for (Init.Item i : items) {
+                if (i.function() != null) {
+                    set.add((long) i.offset());
+                }
+            }
+            for (long o : entries) {
+                if (!set.contains(o)) {
+                    throw error(init, "the function table '" + v.name() + "' leaves the entry at byte " + o
+                            + " unset: every function pointer in a table needs a function");
+                }
+            }
         }
         initialValues.put(v, new Init(items));
         return v;
@@ -797,6 +866,10 @@ public final class AstBuilder {
             }
             if (!Type.isScalar(t)) {
                 throw error(init, "an array or struct needs a brace initializer");
+            }
+            if (Type.isFunctionPointer(t)) {
+                items.add(functionEntry((Type.Func) ((Type.Pointer) t).target(), a, offset));
+                return 1;
             }
             items.add(scalarInit(t, rvalue(assignment(a)), offset, init));
             return 1;
@@ -878,6 +951,22 @@ public final class AstBuilder {
         } else {
             aggregate(m, list, pos, offset, items, false); // brace elision
         }
+    }
+
+    /** An entry of a function table: a function's name, or {@code &name}, of the table's type. */
+    private Init.Item functionEntry(Type.Func type, CParser.AssignmentExpressionContext a, int offset) throws CompileError {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\(*&?\\(*([A-Za-z_][A-Za-z_0-9]*)\\)*").matcher(a.getText());
+        Object o = m.matches() ? lookup(m.group(1)) : null;
+        if (!(o instanceof Function f)) {
+            throw error(a, "an entry of a function table must name a function (and cannot be null): "
+                    + "a table call goes to every entry");
+        }
+        Type.Func ft = new Type.Func(f.returnType(), f.paramTypes());
+        if (!ft.equals(type)) {
+            throw error(a, "'" + f.name() + "' is " + ft + ", but the table holds " + type);
+        }
+        firstCall.putIfAbsent(f, pos(a));
+        return Init.Item.function(offset, f);
     }
 
     /** One scalar of static data: a number or an address constant. */
@@ -1127,10 +1216,15 @@ public final class AstBuilder {
             if (scope.containsKey(dec.name())) {
                 throw new CompileError(dec.pos(), "redeclaration of '" + dec.name() + "'");
             }
+            if (Type.holdsFunctionPointer(dec.type()) && s.storage() != Storage.STATIC) {
+                throw new CompileError(dec.pos(), "the function table '" + dec.name() + "' must be static const: function "
+                        + "pointers live only in constant tables in ROM");
+            }
             if (s.storage() == Storage.STATIC) {
                 // a static local is a global with a name only this block sees
                 Variable v = new Variable(dec.name(), uniqueLabel(current.label() + "__" + dec.name()), dec.type(),
                         Variable.Kind.STATIC_LOCAL, dec.pos(), dec.objectConst());
+                checkFunctionTable(v, id.initializer() != null, false);
                 globals.add(v);
                 definedGlobals.add(v.label());
                 if (id.initializer() != null) {
@@ -1809,10 +1903,8 @@ public final class AstBuilder {
         int n = p.getChildCount();
         Expr e = null;
         int i = 1;
-        if (n > 1 && p.getChild(1).getText().equals("(")) {
-            if (prim.Identifier() == null) {
-                throw unsupported(p, "calls through expressions");
-            }
+        if (n > 1 && p.getChild(1).getText().equals("(") && prim.Identifier() != null
+                && !(lookup(prim.Identifier().getText()) instanceof Variable)) {
             List<CParser.AssignmentExpressionContext> args = List.of();
             i = 3;
             if (p.getChild(2) instanceof CParser.ArgumentExpressionListContext al) {
@@ -1862,7 +1954,16 @@ public final class AstBuilder {
                     e = new Expr.PostIncDec(e, suffix.equals("++"), step, sp);
                     i += 1;
                 }
-                case "(" -> throw unsupported(p, "calling the result of an expression");
+                case "(" -> {
+                    List<CParser.AssignmentExpressionContext> args = List.of();
+                    int next = i + 2;
+                    if (p.getChild(i + 1) instanceof CParser.ArgumentExpressionListContext al) {
+                        args = al.assignmentExpression();
+                        next = i + 3;
+                    }
+                    e = tableCall(e, args, sp);
+                    i = next;
+                }
                 default -> throw unsupported(p, "postfix '" + suffix + "'");
             }
         }
@@ -1892,6 +1993,39 @@ public final class AstBuilder {
             throw new CompileError(p, "indexing an array of incomplete type");
         }
         return new Expr.Index(b, convert(x, it, p), element, p);
+    }
+
+    /** The arguments of a table call travel in the runtime's registers, dampf_regs. */
+    static final int TABLE_CALL_ARGUMENT_BYTES = 18;
+
+    /** A call through a function pointer, which must be an entry of a constant table: {@code handlers[state](x)}. */
+    private Expr tableCall(Expr e, List<CParser.AssignmentExpressionContext> argCtx, SourcePos p) throws CompileError {
+        Expr callee = e instanceof Expr.Deref d && d.type() instanceof Type.Func ? d.pointer() : e;
+        if (!Type.isFunctionPointer(callee.type())) {
+            throw new CompileError(p, "only a function or a function pointer can be called, not " + callee.type());
+        }
+        if (!dampf.check.FunctionTables.isTableEntry(callee)) {
+            throw new CompileError(p, "a function pointer can only be called straight from its constant table "
+                    + "(table[i](...) on a static const table), so that the functions it reaches are known");
+        }
+        Type.Func sig = (Type.Func) ((Type.Pointer) callee.type()).target();
+        int bytes = 0;
+        for (Type t : sig.params()) {
+            bytes += t.size() == 4 ? 4 : 2;
+        }
+        if (bytes > TABLE_CALL_ARGUMENT_BYTES) {
+            throw new CompileError(p, "a call through a function table passes at most " + TABLE_CALL_ARGUMENT_BYTES
+                    + " bytes of arguments (2 for each 8- or 16-bit one, 4 for a 32-bit one or a pointer), not " + bytes);
+        }
+        if (argCtx.size() != sig.params().size()) {
+            throw new CompileError(p, "the functions of this table take " + sig.params().size() + " argument(s), not " + argCtx.size());
+        }
+        List<Expr> args = new ArrayList<>();
+        for (int i = 0; i < argCtx.size(); i++) {
+            Expr a = rvalue(assignment(argCtx.get(i)));
+            args.add(assignConvert(a, sig.params().get(i), pos(argCtx.get(i))));
+        }
+        return new Expr.TableCall(callee, sig, args, p);
     }
 
     private Expr call(Token name, List<CParser.AssignmentExpressionContext> argCtx) throws CompileError {
@@ -1928,7 +2062,8 @@ public final class AstBuilder {
                 return new Expr.Const(k.value(), Type.I32, pos(prim));
             }
             if (o instanceof Function) {
-                throw unsupported(prim, "function pointers");
+                throw error(prim, "a function's name can only be called, or be an entry of a constant function table "
+                        + "(free function pointers are not supported)");
             }
             throw error(prim, "'" + name + "' is not declared");
         }
@@ -2146,7 +2281,7 @@ public final class AstBuilder {
 
     /** True if evaluating {@code e} changes something (so it must not be evaluated twice). */
     private static boolean hasSideEffects(Expr e) {
-        if (e instanceof Expr.Assign || e instanceof Expr.PostIncDec || e instanceof Expr.Call) {
+        if (e instanceof Expr.Assign || e instanceof Expr.PostIncDec || e instanceof Expr.Call || e instanceof Expr.TableCall) {
             return true;
         }
         for (Expr c : dampf.ast.Children.of(e)) {
