@@ -26,7 +26,9 @@ import java.util.Locale;
  * dampf build [-I dir] [-D name[=value]] [--entry name] [--backend mir|naive] [--replace fn=file.s]
  *             [--block-counts file] [--slowrom] [--sram bytes] [--assembler dampf|ca65] [--opt-limit n]
  *             -o out.sfc file.c ... [--lib file.c ...]
- *                                                                      compile to a ROM (block counts: dampf profile --blocks;
+ *                                                                      compile to a ROM (--replace: f's code from an assembly
+ *                                                                      file, as DAMPF_ASM says, which it overrides;
+ *                                                                      block counts: dampf profile --blocks;
  *                                                                      --slowrom: no FastROM, for a SlowROM cartridge;
  *                                                                      --sram: battery-backed save RAM, defines SDEVKIT_SRAM_SIZE;
  *                                                                      --assembler ca65: ca65 and ld65 instead of dampf's own;
@@ -176,7 +178,7 @@ public final class Main {
             }
         }
         Compiler.Options o = new Compiler.Options(files, includes, defines, entry, output, replacements,
-                backend != null ? backend : replacements.isEmpty() ? Compiler.Backend.MIR : Compiler.Backend.NAIVE,
+                backend != null ? backend : Compiler.Backend.MIR,
                 blockCounts == null || !args[0].equals("build") ? null : Compiler.Options.readBlockCounts(blockCounts),
                 fastRom, ca65, sram, optLimit).withLibrary(library);
         if (args[0].equals("build")) {

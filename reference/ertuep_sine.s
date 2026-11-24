@@ -9,26 +9,24 @@
 ;       return SINE[a & 63];
 ;   }
 ;
-; dampf's calling convention (naive code generator): the parameter in the function's static
-; frame, the result in A (an int8_t sign-extended to 16 bits), JSL/RTL, A/X/Y 16 bit, DBR = $7E,
-; D = 0. The table lies in a ROM bank of its own: a long address.
+; dampf's convention for functions written in assembly (docs/hints.md, DAMPF_ASM): the parameter
+; in its place in the frame (imported), an 8-bit result in the low byte of A (the caller extends
+; it), JSL/RTL, A/X/Y 16 bit, DBR = $7E, D = 0. The table lies in a ROM bank of its own: a long
+; address.
 
         .p816
         .smart  off
         .a16
         .i16
-        .import _sine__a, _SINE
+        .importzp _sine__a
+        .import _SINE
         .export _sine
 
         .segment "C_sine"
 .proc _sine
-        lda     _sine__a                ; the byte, and the one after it in the frame ...
+        lda     z:_sine__a              ; the byte, and the undefined one after it ...
         and     #$003F                  ; ... a & 63
         tax
-        lda     f:_SINE,x
-        and     #$00FF
-        cmp     #$0080                  ; sign-extend the byte
-        bcc     :+
-        ora     #$FF00
-:       rtl
+        lda     f:_SINE,x               ; the low byte is the result
+        rtl
 .endproc

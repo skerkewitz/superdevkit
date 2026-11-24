@@ -250,6 +250,24 @@ public final class Snes implements Bus {
         return done;
     }
 
+    /**
+     * Runs on from the current state, without a reset, until the master clock passes {@code limit}
+     * or the listener calls {@link #stop}: then the instruction it was called for does not run.
+     * Returns whether the listener stopped it. For running single functions (the check of an
+     * assembly function against its C body).
+     */
+    public boolean resume(long limit, StepListener steps) {
+        done = false;
+        while (master < limit) {
+            steps.before(cpu.pbr << 16 | cpu.pc);
+            if (done) {
+                return true;
+            }
+            cpu.step();
+        }
+        return false;
+    }
+
     // ------------------------------------------------------------------ the bus
 
     private void tick(int cycles) {

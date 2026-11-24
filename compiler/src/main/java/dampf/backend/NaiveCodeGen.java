@@ -140,6 +140,9 @@ public final class NaiveCodeGen {
         return contexts.containsKey(current) ? "dampf_mul16_soft" : "dampf_mul16";
     }
 
+    /** Where the frame of a function written in assembly starts: dampf_frame, as in the code from MIR. */
+    private static final int ASM_FRAME = 0x20;
+
     /** At most this many segments per assembly module: ca65 allows about 256 per object file. */
     private static final int SEGMENTS_PER_MODULE = 200;
 
@@ -236,7 +239,11 @@ public final class NaiveCodeGen {
             // exported by the module that defines a label, imported by the others
             List<String> all = new ArrayList<>();
             for (Function f : program.functions()) {
-                if (f.isDefined()) {
+                if (f.isDefined() && replaced.contains(f.name())) {
+                    all.add(f.label());
+                    f.params().forEach(v -> all.add(v.label()));
+                    all.add(f.label() + dampf.asm.AsmFunction.LOCALS);
+                } else if (f.isDefined()) {
                     all.add(f.label());
                     f.params().forEach(v -> all.add(v.label()));
                     f.locals().forEach(v -> all.add(v.label()));
@@ -352,6 +359,19 @@ public final class NaiveCodeGen {
 
     private void frames() {
         for (Function f : program.functions()) {
+            if (f.isDefined() && replaced.contains(f.name())) {
+                // hand-written assembly (DAMPF_ASM): its frame at the start of the frames' area,
+                // in the convention of both code generators (a leaf: no other such frame is live)
+                asm.blank();
+                asm.note("frame of " + f.name() + "(), hand-written assembly");
+                int at = 0;
+                for (Variable v : f.params()) {
+                    asm.raw(pad(v.label(), 28) + "= $" + hex(ASM_FRAME + at, 4) + "   ; parameter " + v.type() + " " + v.name());
+                    at += dampf.asm.AsmFunction.paramBytes(v.type().size());
+                }
+                asm.raw(pad(f.label() + dampf.asm.AsmFunction.LOCALS, 28) + "= $" + hex(ASM_FRAME + at, 4) + "   ; its locals");
+                continue;
+            }
             int temps = tempCount.getOrDefault(f, 0);
             if (!f.isDefined() || f.params().isEmpty() && f.locals().isEmpty() && temps == 0) {
                 continue;
@@ -1547,6 +1567,9 @@ public final class NaiveCodeGen {
         }
         out.ins("jsl", f.label(), ExprPrinter.print(c) + (f.returnType() instanceof Type.Void ? "" : ", result in A"
                 + (f.returnType().size() == 4 ? " (low) and X (high)" : "")));
+        if (replaced.contains(f.name()) && f.returnType() instanceof Type.Int t && t.size() == 1) {
+            extend8(t, "the low byte of A is an assembly function's result");
+        }
     }
 
     private static boolean containsCall(Expr e) {

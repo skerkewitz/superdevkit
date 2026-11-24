@@ -176,8 +176,17 @@ measures every call of every function, from its first instruction to the instruc
 JSL that called it: each must lie within the function's static bounds ([timing.md](timing.md)).
 
 **The reference functions** (`ReferenceFunctionsTest`): an example with hand-written functions in
-`reference/` is built with them in place of the compiled ones, plays its `check.txt`, and every
-tick's checksum must be the normal build's.
+`reference/` is built with the code generator from MIR and them in place of the compiled ones
+(`--replace`), which runs each against its C body (the check of `DAMPF_ASM`, [hints.md](hints.md));
+then it plays its `check.txt`, and every tick's checksum must be the normal build's. The test
+prints each function's cycles per call, by hand and by dampf.
+
+**Functions written in assembly** (`DAMPF_ASM`): the execution test `asm_functions.c` (with
+`asm/asm_functions.s`) calls them with 8-, 16- and 32-bit and pointer parameters, from a loop, in
+both code generators, and its timing check measures their calls against their bounds;
+`AsmFunctionTest` checks the analysis (cycles, locals, and each thing it rejects) and
+`AsmDeclarationTest` the declaration, the timing report and the check against the C body
+(a wrong result, a wrong write to memory, a bound comment set too low).
 
 Until 2026-11-19 a copy of Blubber Blasen's code was a layer of its own: its benchmark of 3,610
 ticks against a PC build, its recorded games played on both sides and through the platform layer
@@ -261,7 +270,7 @@ over when it left ([ADR-6F60Z819](adr/6F60Z819-the-examples-replace-blubber-blas
   build) and CPD for copied code.
 - **Reference assembly benchmarks:** hand-written versions of the examples' functions as the
   yardstick ([optimizations.md](optimizations.md), [reference/README.md](../reference/README.md)):
-  Er-Tüp's `random16` and `sine`, linked with `--replace`.
+  Er-Tüp's `random16` and `sine`, linked with `--replace` into the build from MIR.
 - **Performance tracking** per commit is planned; today the numbers are written down by hand in
   [optimizations.md](optimizations.md).
 

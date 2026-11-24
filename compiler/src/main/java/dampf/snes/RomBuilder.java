@@ -175,6 +175,37 @@ public final class RomBuilder {
         return rom;
     }
 
+    /**
+     * Assembles and links in memory, with dampf's own assembler and linker, and writes no file:
+     * the image and the addresses of the global symbols (for a ROM only dampf runs, such as the
+     * check of the assembly functions against their C bodies).
+     */
+    public static dampf.asm.Linker.Image linkInMemory(List<String> modules, boolean fastRom) throws IOException {
+        return linkInMemory(modules, fastRom, java.util.Set.of());
+    }
+
+    /** {@code interrupts}: as for {@link #build(List, Path, String, boolean, java.util.Set)}. */
+    public static dampf.asm.Linker.Image linkInMemory(List<String> modules, boolean fastRom,
+                                                      java.util.Set<dampf.ast.Interrupt> interrupts) throws IOException {
+        String runtime;
+        try (InputStream in = RomBuilder.class.getResourceAsStream(RES + "runtime.s")) {
+            if (in == null) {
+                throw new IOException("missing resource " + RES + "runtime.s");
+            }
+            runtime = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        }
+        List<dampf.asm.ObjectFile> objects = new ArrayList<>();
+        objects.add(dampf.asm.Assembler.assemble("dampf_runtime.s", runtime, runtimeDefines(fastRom, interrupts)));
+        List<String> banked = new ArrayList<>();
+        for (int i = 0; i < modules.size(); i++) {
+            objects.add(dampf.asm.Assembler.assemble("module_" + (i + 1) + ".s", modules.get(i), Map.of()));
+            banked.addAll(bankedSegments(modules.get(i)));
+        }
+        Map<String, Integer> sizes = new LinkedHashMap<>(dampf.asm.Linker.sizes(objects));
+        sizes.putIfAbsent("DATA", 0);
+        return dampf.asm.Linker.link(objects, pack(banked, sizes));
+    }
+
     /** Size and modification time (seconds) of a file, for the debug file. */
     private static long[] fileInfo(Path file) throws IOException {
         return new long[] {Files.size(file), Files.getLastModifiedTime(file).toMillis() / 1000};

@@ -232,16 +232,19 @@ Hot functions are written by hand in 65816 assembly as reference versions, the y
 the programs' code ([reference/README.md](../reference/README.md)). The first was Blubber Blasen's
 `level_solid_px`; its first version was wrong, and the benchmark's checksums caught it:
 hand-written code needs the same oracle as compiled code. Since the game's code left, they are
-functions of the examples, checked by the examples' checksums (`ReferenceFunctionsTest`): Er-Tüp's
-`random16` and `sine`, 2.3 and 1.4 times faster than the naive code generator's (the one from MIR
-inlines both). Candidates for more: Er-Tüp's pair loop, Mandelbrot's iteration with its products,
-Steinschlag's cave scan.
+functions of the examples, checked against their C bodies and by the examples' checksums
+(`ReferenceFunctionsTest`): Er-Tüp's `random16` and `sine`, which were 2.3 and 1.4 times faster
+than the naive code generator's. Against the code from MIR, as functions of their own, `random16`
+takes 68 cycles both ways and `sine` 24 against 21 (in the game the code from MIR inlines both).
+Candidates for more: Er-Tüp's pair loop, Mandelbrot's iteration with its products, Steinschlag's
+cave scan.
 
 Each reference and dampf's version of the same function run in the cycle-counting emulator on the
-same inputs, which gives a ratio per function, tracked over the milestones. Where the reference is
-faster, the reason becomes a hint or an optimization rule. If dampf stays too far behind on one
-function, the reference can be linked in its place, with a declared calling convention and direct
-page use so the timing analysis still knows what it does; only when measurement demands it.
+same inputs (the check of `DAMPF_ASM`, which links a reference in place of the compiled function),
+which gives a ratio per function, tracked over the milestones. Where the reference is faster, the
+reason becomes a hint or an optimization rule. If dampf stays too far behind on one function, a
+game links the hand-written version in its place with `DAMPF_ASM`, whose convention and analysis
+keep the timing exact ([hints.md](hints.md)); only when measurement demands it.
 Hand-written assembly for the whole game was tried years ago and failed.
 
 ## Knowing the machine

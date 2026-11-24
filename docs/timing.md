@@ -68,6 +68,15 @@ calls a function); a line with a branch gets no sum.
   code multiplies in software, `dampf_mul16_soft` 22–532 cycles (one round per bit of the second
   factor) and `dampf_mul32_soft` 1,168–1,968, where the main code takes 108 and 398–400 on the
   CPU's multiplier.
+- **Functions written in assembly** (`DAMPF_ASM`, [hints.md](hints.md)): `dampf.asm.AsmFunction`
+  follows the machine code from the function's label with the same cycle table, the register
+  widths through `SEP`, `REP`, `PHP` and `PLP`; a conditional branch costs 2 or 3 as above, and
+  with 8-bit index registers an indexed read may cross a page, which the worst case counts. Every
+  backward branch carries its bound as a comment, `; dampf: at most N` (the loop from its target
+  runs at most N rounds per entry); the loops are collapsed innermost first with the formula
+  above. The report marks such a function `(assembly, file.s)`. The check against the C body
+  measures every call it makes and stops the build if one lies outside these bounds, so a bound
+  comment set too low is found.
 
 ### Budgets
 
@@ -116,8 +125,7 @@ really run forever in C; they need a hint. Examples: `abs16` 13–21 cycles, `fl
 
 - Master cycles: memory speeds are not counted (the benchmark measures them in the emulator).
 - Level 3: DRAM refresh, HDMA and interrupts at frame level.
-- The naive code generator (`--backend naive`, or `--replace`) writes no report and checks no
-  budget.
+- The naive code generator (`--backend naive`) writes no report and checks no budget.
 - `DAMPF_TRIPS(n)` for loops without a counter.
 - The costliest path per C line, in the report and in the budget error message.
 - Best and worst case in the assembly comments of lines with a branch.

@@ -100,6 +100,9 @@ public final class Optimizer {
 
         /** The passes on one function, until nothing changes. */
         void function(MFunction f) {
+            if (f.isAsm()) {
+                return;   // a stand-in for hand-written assembly: nothing to look into
+            }
             boolean changed = true;
             for (int round = 0; changed && round < 20; round++) {
                 changed = pass("Simplify", f, () -> Simplify.run(f));
@@ -120,6 +123,9 @@ public final class Optimizer {
         }
 
         boolean pass(String name, MFunction f, BooleanSupplier run) {
+            if (f.isAsm()) {
+                return false;
+            }
             boolean changed = limit.apply(name, f.name(), run);
             if (verifyEach) {
                 Verifier.verify(m, f);

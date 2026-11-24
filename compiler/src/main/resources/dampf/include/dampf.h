@@ -37,6 +37,15 @@
  */
 #define DAMPF_INTERRUPT(kind) __attribute__((dampf_interrupt(kind)))
 
+/*
+ * DAMPF_ASM("file.s"), after the parameter list of a function definition:
+ *     uint16_t random16(uint16_t s) DAMPF_ASM("asm/random16.s") { ... }
+ * dampf links the hand-written assembly in the file (relative to this C file) instead of
+ * compiling the body; the body stays what the PC compiles and what dampf checks the assembly
+ * against. The convention and the checks: docs/hints.md, "DAMPF_ASM".
+ */
+#define DAMPF_ASM(file) __attribute__((dampf_asm(file)))
+
 #else
 
 /* one unsigned comparison: no "always true" warning for an unsigned v and lo 0 (-Wextra) */
@@ -60,6 +69,8 @@
 #define DAMPF_BUDGET(cycles)
 /* on the PC an ordinary function, which nothing calls unless the program does */
 #define DAMPF_INTERRUPT(kind)
+/* the PC compiles the C body; dampf checks the assembly against it */
+#define DAMPF_ASM(file)
 
 #endif
 

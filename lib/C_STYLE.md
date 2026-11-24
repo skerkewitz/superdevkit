@@ -47,7 +47,7 @@ All of these pass `dampf check` and cost nothing extra: declarations anywhere, a
 (`for (uint8_t i = 0; ...)`); struct assignment (`b = a;`, the way to copy a struct); `static`
 locals; `const` tables, also multi-dimensional (they stay in ROM); `switch`; `?:`; enums, as
 constants and as the type of an object that holds only their enumerators (1 byte for most,
-[docs/memory-map.md](../docs/memory-map.md#enum-objects)); `memset` and `memcpy`; the hints `DAMPF_RANGE` and `DAMPF_BUDGET` (part 6);
+[docs/memory-map.md](../docs/memory-map.md#enum-objects)); `memset` and `memcpy`; the hints `DAMPF_RANGE`, `DAMPF_BUDGET` and `DAMPF_ASM` (part 6);
 pointers to arrays (`const uint8_t (*rows)[16]`).
 
 One rule of C that the checks find the hard way: **the order in which a call's arguments are
@@ -121,7 +121,7 @@ Write whichever reads better; these cost the same:
 
 ## 6. The hints
 
-`<dampf.h>` has two (the book's page "Hints" has the details):
+`<dampf.h>` has three (the book's page "Hints" and [docs/hints.md](../docs/hints.md) have the details):
 
 - **`DAMPF_BUDGET(n)`** in front of every function called each frame whose time matters, at
   least `game_tick` and `game_vblank` with their callees: a worst case above `n` CPU cycles is a
@@ -132,6 +132,11 @@ Write whichever reads better; these cost the same:
   `uint16_t` below 256. An index into an array needs none since 2026-11-20 (an access outside the array is undefined in C, and
   dampf relies on that, ADR-6F8NBESR). A hint states a fact: a wrong one makes wrong code on the SNES and stops the
   program on the PC.
+- **`DAMPF_ASM("file.s")`** after a function's parameter list, for a hot leaf function written by
+  hand in assembly, where a measurement shows dampf's code is far from it. Keep the C body: the PC
+  compiles it, and every build runs the assembly against it. dampf's code is often as good: Er-Tüp's
+  `random16` takes 68 cycles by hand and by dampf, and dampf inlines it, which a hand-written
+  function prevents ([reference/README.md](../reference/README.md)).
 
 ## Measurements
 

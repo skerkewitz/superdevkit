@@ -502,6 +502,8 @@ public final class AstBuilder {
                         throw unsupported(p, "this kind of pointer");
                     }
                 }
+            } else if (c instanceof CParser.GccDeclaratorExtensionContext && isAsmHint(c)) {
+                throw error(d, "DAMPF_ASM belongs on a function's definition, after its parameter list");
             } else if (c instanceof CParser.DeclarationSpecifiersContext || c instanceof CParser.GnuAttributeContext
                     || c instanceof CParser.GccDeclaratorExtensionContext) {
                 throw unsupported(d, "attributes and extensions in declarators");
@@ -1098,6 +1100,7 @@ public final class AstBuilder {
         if (s.storage() == Storage.TYPEDEF) {
             throw error(fd, "a function definition cannot be a typedef");
         }
+        String asmFile = asmFile(fd.declarator());
         Declared dec = declare(s, fd.declarator());
         if (!dec.isFunction()) {
             throw error(fd, "expected a function");
@@ -1117,6 +1120,9 @@ public final class AstBuilder {
                 throw new CompileError(dec.pos(), "an interrupt handler must be 'void " + f.name() + "(void)' (DAMPF_INTERRUPT)");
             }
             f.setInterrupt(handles);
+        }
+        if (asmFile != null) {
+            f.setAsmFile(asmFile);
         }
         current = f;
         currentLocals = f.locals();
@@ -1138,6 +1144,45 @@ public final class AstBuilder {
         blockScopes.pop();
         f.define(params, body, dec.pos());
         current = null;
+    }
+
+    private static final java.util.regex.Pattern DAMPF_ASM =
+            java.util.regex.Pattern.compile("__attribute__\\(\\(dampf_asm\\((\".*\")\\)\\)\\)", java.util.regex.Pattern.DOTALL);
+
+    /**
+     * DAMPF_ASM("file.s") after a definition's parameter list: the file as written (null if there
+     * is none). The attribute is taken out of the declarator, which accepts no other.
+     */
+    private String asmFile(CParser.DeclaratorContext d) throws CompileError {
+        String file = null;
+        if (d.children == null) {
+            return null;
+        }
+        for (ParseTree c : List.copyOf(d.children)) {
+            if (c instanceof CParser.GccDeclaratorExtensionContext ext && isAsmHint(ext)) {
+                java.util.regex.Matcher m = DAMPF_ASM.matcher(ext.getText());
+                if (!m.matches()) {
+                    throw error(ext, "DAMPF_ASM needs one string, the assembly file: DAMPF_ASM(\"asm/f.s\")");
+                }
+                if (file != null) {
+                    throw error(ext, "a function has at most one DAMPF_ASM");
+                }
+                try {
+                    file = unescape(m.group(1));
+                } catch (IllegalArgumentException e) {
+                    throw error(ext, "DAMPF_ASM: " + e.getMessage());
+                }
+                if (file.isBlank()) {
+                    throw error(ext, "DAMPF_ASM needs the name of the assembly file");
+                }
+                d.children.remove(c);
+            }
+        }
+        return file;
+    }
+
+    private static boolean isAsmHint(ParseTree t) {
+        return t.getText().startsWith("__attribute__((dampf_asm");
     }
 
     private Stmt.Block block(CParser.CompoundStatementContext cs) throws CompileError {

@@ -19,7 +19,7 @@ The first 8 KB of bank `$7E` are the same memory as `$0000-$1FFF` in bank 0. The
 | Address (bank $7E) | Use |
 | --- | --- |
 | `$0000-$001F` | direct page: the runtime's scratch registers (`dampf_regs`, `dampf_ptr`) |
-| `$0020-$1DFF` | the frames (`dampf_frame`, a compiled stack; the part below `$0100` is in the direct page). Unused by the naive generator. |
+| `$0020-$1DFF` | the frames (`dampf_frame`, a compiled stack; the part below `$0100` is in the direct page). The naive generator uses only the start, for the frame of a function written in assembly ([hints.md](hints.md), `DAMPF_ASM`). |
 | below `$1E00` | only with interrupt handlers in C: each interrupt context's direct page and frames, whole pages ([below](#interrupt-contexts)) |
 | `$1E00-$1FFF` | stack |
 | `$2000-$FFFE` | variables: globals, static locals, and the naive generator's frames |
@@ -47,8 +47,8 @@ entry stub sets D to it.
 
 The main code's frames must end below the lowest page: with two small handlers the NMI's page is
 `$1D00`, the IRQ's `$1C00`, and the main code has `$0020-$1BFF` (7,136 bytes instead of 7,648);
-with one, `$0020-$1CFF`. The naive code generator has no frames in low RAM, so its contexts take
-one page each. A program without handlers keeps the whole area.
+with one, `$0020-$1CFF`. The naive code generator keeps the frames of C functions static from
+`$2000`, so its contexts take one page each. A program without handlers keeps the whole area.
 
 The linker sees RAM addresses without the bank (`$2000`, not `$7E2000`), so 16-bit address fixups
 fit. Code that needs a full 24-bit RAM address (a pointer) adds the bank itself.

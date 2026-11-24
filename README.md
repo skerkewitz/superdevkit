@@ -221,7 +221,8 @@ writes a map file). The runtime calls the entry function after start-up (`void n
 timing report (`.timing.txt`). `--backend naive` picks the naive code generator, `--slowrom`
 builds for a SlowROM cartridge (FastROM is the default), `--sram BYTES` gives the cartridge
 battery-backed save RAM (the header says so; `SDEVKIT_SRAM_SIZE` is defined), `--replace fn=file.s` links a
-hand-written function ([reference](reference/README.md)) and `--block-counts` lays out the
+hand-written function in place of the compiled one, as `DAMPF_ASM` does in the source
+([docs/hints.md](docs/hints.md), [reference](reference/README.md)), and `--block-counts` lays out the
 blocks by a profile. `--lib FILE-OR-FOLDER` names a library's sources: they are compiled into the
 program like the others, but the `-D` defines do not reach them (`-I` and `--sram` do;
 [ADR-6FKYXP8C](docs/adr/6FKYXP8C-dampf-compiles-a-library-s-files-without-the.md)). `parse` only preprocesses and parses. `check` runs the front end on every

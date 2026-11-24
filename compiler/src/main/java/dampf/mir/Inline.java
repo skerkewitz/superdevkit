@@ -69,6 +69,9 @@ public final class Inline {
                     for (Instr i : List.copyOf(b.instrs())) {
                         if (i instanceof Instr.Call c && i.block() == b) {
                             MFunction callee = m.function(c.callee);
+                            if (callee.isAsm()) {
+                                continue;   // hand-written assembly stays a call
+                            }
                             int n = size(callee);
                             boolean single = sites.getOrDefault(c.callee, 0) == 1
                                     && (n <= SINGLE || n <= SINGLE_IN_LOOP && inLoop(f, b) && Loops.find(callee).isEmpty());

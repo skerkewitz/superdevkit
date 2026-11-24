@@ -48,6 +48,34 @@ public final class MFunction {
         return blocks.getFirst();
     }
 
+    private boolean asm;
+    private String checkOf;
+
+    /**
+     * Written by hand in assembly (DAMPF_ASM): its blocks are a stand-in (a return of 0) that no
+     * pass may look into. Calls of it stay calls, its parameters stay as they are, and it may
+     * write any memory; the code generator reserves its frame and generates no code for it.
+     */
+    public boolean isAsm() {
+        return asm;
+    }
+
+    public void setAsm(boolean asm) {
+        this.asm = asm;
+    }
+
+    /**
+     * For the C body of an assembly function, lowered so that dampf can run it against the
+     * assembly: the assembly function's label; null otherwise. Nothing calls it.
+     */
+    public String checkOf() {
+        return checkOf;
+    }
+
+    public void setCheckOf(String label) {
+        this.checkOf = label;
+    }
+
     /** A block with a given name (for the parser). */
     Block addBlock(String name) {
         Block b = new Block(name);
