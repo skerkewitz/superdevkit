@@ -13,6 +13,7 @@ sources:
   - compiler/src/test/resources/exec/pointer_to_int.c
   - compiler/src/main/java/dampf/check/CallGraph.java
   - compiler/src/test/java/dampf/frontend/*.java
+  - compiler/src/test/resources/warnings/overflow.c
 audience: Users who need to know whether a construct is accepted, and what it means
 ---
 
@@ -30,6 +31,10 @@ compiled silently. Link [Writing C for dampf](/guide/writing-c) for the introduc
 1. **Types** – accepted and rejected types, with the reason for rejecting plain integer types.
    The sizes dampf uses for each accepted type, including enums and pointers, as it does today.
 2. **Semantics** – the arithmetic rules, which are those of gcc on x86-64; dampf's `<stdint.h>`.
+   Then an H3 **Warnings**: dampf warns where gcc warns by default, so far a constant that does
+   not fit the type it is converted to (`uint8_t w[] = { 420 }`, the message as dampf prints
+   it); gcc's rule for when (-1 into `uint8_t` and 255 into `int8_t` are silent), a cast to
+   silence it, and where gcc warns and dampf does not yet.
 3. **Functions** – no recursion (the message names the cycle; show it), no variadic functions,
    structs only by pointer, parameters, `inline`.
 4. **Function pointers** – not accepted, and why the call graph must stay complete.

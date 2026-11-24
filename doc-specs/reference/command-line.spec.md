@@ -30,14 +30,16 @@ sentence that sends the reader who builds a whole game to
    `--opt-limit`, `-o`. Defaults, which are required, what is printed on success. The rule for
    the default of `--backend` with and without `--replace`.
 2. **check** – the front end only, every file on its own, every problem of each file (the first after FAILS, the others below it); the lines
-   it prints and its exit status.
+   it prints (a file's warnings below its "ok") and its exit status.
 3. **parse** – preprocess and parse; what it prints.
 4. **profile** – its arguments, what the profile file is and where it comes from, what the
    optional `top` does.
 5. **mir** – print the MIR or run it in the MIR interpreter: `-O`, `--check-ranges`, `--bench`.
 6. **bench** – run the benchmark ROM in dampf's emulator, `--profile`.
 7. **Messages** – the format of a message (file, line, column, severity, text) as printed, with
-   one real example; the preprocessor's messages.
+   one real example; the preprocessor's messages. Warnings do not stop the build and change
+   no exit status: the ones gcc gives by default (a constant that does not fit its type, link
+   [The C subset](/reference/c-subset#warnings)) and the budget's.
 8. **Exit status** – 0, 1 and 2, and when each happens, for each command.
 
 ## Pay attention to

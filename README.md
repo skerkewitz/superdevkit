@@ -225,7 +225,8 @@ battery-backed save RAM (the header says so; `SDEVKIT_SRAM_SIZE` is defined), `-
 hand-written function ([reference](reference/README.md)) and `--block-counts` lays out the
 blocks by a profile. `parse` only preprocesses and parses. `check` runs the front end on every
 file alone, then on all of them together (recursion, functions defined nowhere or twice). Every
-error of a run is reported, one per top-level declaration at most. `@file` (or `--config file`)
+error of a run is reported, one per top-level declaration at most. `build` and `check` also print
+warnings where gcc warns by default, without stopping ([docs/subset.md](docs/subset.md), "Warnings"). `@file` (or `--config file`)
 reads options from an argument file: one per line, paths relative to the file, and a folder
 stands for the `.c` files in it ([ADR-6F3CJW9N](docs/adr/6F3CJW9N-options-can-be-kept-in-an-argument-file-given-by.md)).
 `dampf mir`, `dampf profile` and `dampf bench` are tools for working on dampf with a benchmark

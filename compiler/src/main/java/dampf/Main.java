@@ -190,6 +190,7 @@ public final class Main {
                     passed.add(parsed);
                     ok++;
                     System.err.println("ok      " + f);
+                    b.warnings().forEach(w -> System.err.println("        " + w));
                 } catch (CompileError e) {
                     System.err.println("FAILS   " + e.diagnostics().getFirst());
                     e.diagnostics().stream().skip(1).forEach(d -> System.err.println("        " + d));
