@@ -481,8 +481,11 @@ final class SelectionPlan {
                     case Instr.Cmp c when sel.fused.contains(c) && Selection.throughCopies(c.op(0)) == x && placeBound(c.op(1), x, loop)
                             && (c.pred == Instr.Pred.EQ || c.pred == Instr.Pred.NE || c.pred == Instr.Pred.ULT || c.pred == Instr.Pred.UGE) ->
                             bounds.add(c.op(1));
-                    case Instr.PtrAdd q when sel.folded.contains(q) && sel.layout.indexable(q) && Selection.throughCopies(q.op(1)) == x
-                            && q.op(0) != x -> {
+                    // x plus a constant that only indexes (a[i + 1]): the accesses add it in the operand
+                    case Instr.Bin b when sel.folded.contains(b) && b.op == Instr.BinOp.ADD ->
+                            work.addAll(users.getOrDefault(b, List.of()));
+                    case Instr.PtrAdd q when sel.folded.contains(q) && sel.layout.indexable(q)
+                            && Selection.throughCopies(sel.layout.indexOf(q)) == x && q.op(0) != x -> {
                         // the address is formed where it is used, with X: the φ's after the step
                         // would take the next element (an offset added to it, then a store
                         // after the step), and the stepped value's must stay in the round

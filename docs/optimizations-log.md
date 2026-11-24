@@ -1880,3 +1880,35 @@ inlining, 8 became tables; most of the others have two to five cases. Steinschla
 `cave_scan_rows` switches on the kind of each cell that moves, and its first case, the boulder, is
 by far the most common, where the chain needs one compare. The worst cases of the timing report
 went down in every function that changed (`cost-baseline.txt`).
+
+## A constant on an index into the operand (2026-11-25, on the examples)
+
+`a[i + 1]` with `a` a global indexed by a 16-bit value computed the sum for every access:
+`CLC`, `LDA i`, `ADC #1`, `TAY`, then `STA a,y` (11 cycles more than the access). The constant
+now goes into the operand, `STA a+1,y`, and X or Y holds `i` (`FrameLayout.offsetIndex`). X adds as
+an unsigned 16-bit number in both forms, so they reach the same byte exactly when `i + k` cannot
+pass `$FFFF`; the unsigned range of `i` shows it. Only a positive constant (a negative one puts the
+operand before the symbol), and only where the sum has no other use: a sum that is computed may
+have taken `i` handed on in A, and then `i`'s place was never written. The first version missed
+that rule and failed the frame check on CatchMe's `actors_draw` (`id = 4 + i * 4` read by
+`oam[id]`, with `id + 1` to `id + 3` folded onto it); `exec/global_index_offset.c` has the case. A
+loop counter that indexes only through such sums now stays in X (`SelectionPlan.usesFitX`).
+
+Found while measuring the console API's sprite calls
+([brainstorm](brainstorm/console-api-shadow-state_2026-11-24.md), measurement B): packing 128
+sprites from parallel arrays into the sprite table, 37,455 → 29,646 cycles worst case.
+
+| Example | Work before | after | Busiest tick before | after | Code bytes before | after |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| CatchMe | 47,297 | 45,114 | 127,586 | 125,400 | 24,887 | 24,457 |
+| Ertüp | 132,217 | 131,906 | 260,166 | 259,452 | 85,954 | 85,503 |
+| Hello | 58,869 | 58,870 | 59,838 | 59,838 | 11,481 | 11,246 |
+| Mandelbrot | 76,575 | 76,463 | 89,588 | 89,576 | 14,683 | 14,425 |
+| Mode 7 | 11,649 | 11,649 | 11,673 | 11,673 | 12,175 | 11,923 |
+| Schach | 370,307 | 370,306 | 523,337 | 523,336 | 43,753 | 43,496 |
+| Steinschlag | 74,628 | 74,629 | 134,423 | 134,408 | 27,500 | 27,260 |
+
+The geometric mean of the work is 0.7 % lower; every example's code is smaller. Most of the gain
+is in the console API's own sprite functions (`sdevkit_oam_set` 293–405 → 217–329 cycles,
+`lib/README.md`), which CatchMe calls for every actor. Er-Tüp writes its sprites through a pointer
+(`o[1]`), which this does not touch.
