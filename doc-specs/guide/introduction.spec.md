@@ -6,6 +6,7 @@ sources:
   - docs/adr/*.md
   - README.md
   - docs/roadmap.md
+  - docs/history.md
   - docs/optimizations.md
   - lib/snes/README.md
   - tools/README.md

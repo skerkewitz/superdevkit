@@ -5,6 +5,7 @@ sources:
   - docs/ADR.md
   - docs/adr/*.md
   - docs/roadmap.md
+  - docs/history.md
   - README.md
 audience: Users and contributors who want to know what comes next
 ---
@@ -12,7 +13,7 @@ audience: Users and contributors who want to know what comes next
 ## Purpose
 
 The milestones, their state, and the open questions, in a form a user can read without the
-working history of `docs/roadmap.md`.
+working history of `docs/roadmap.md` and `docs/history.md` (the concluded milestones are there).
 
 ## Sections
 

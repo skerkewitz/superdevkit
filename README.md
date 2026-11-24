@@ -28,7 +28,8 @@ ROM with the kit and plays its recordings with the PC's checksums; with M7 a gam
 on the SNES, Linux and Windows with the `superdevkit` command, with sound effects, save RAM, music
 on the desktop and a debug view; with M8 it runs in the browser too (`superdevkit build web`);
 with M9 dampf's optimizer chooses registers by cost and keeps byte loops in 8-bit mode. The
-milestones and versions are in [docs/roadmap.md](docs/roadmap.md), why the kit is the project and
+milestones to come are in [docs/roadmap.md](docs/roadmap.md), the concluded ones in
+[docs/history.md](docs/history.md), why the kit is the project and
 dampf its compiler in [ADR-6F3CJX8T](docs/adr/6F3CJX8T-superdevkit-is-the-project-and-dampf-is-its.md).
 
 `./gradlew installDist` writes a superdevkit home to `build/install/superdevkit`: the compiler,
@@ -119,7 +120,8 @@ working documents it is written from.
 - [docs/memory-map.md](docs/memory-map.md): where code, data, variables and pointers live.
 - [docs/testing.md](docs/testing.md): the test layers and how they work.
 - [docs/brainstorm](docs/brainstorm): summaries of brainstorming sessions, the options weighed before a decision.
-- [docs/roadmap.md](docs/roadmap.md): milestones and their state, risks, open questions, the relation to Blubber Blasen.
+- [docs/roadmap.md](docs/roadmap.md): what comes next: the open milestones, the work without a milestone, ideas, risks, open questions.
+- [docs/history.md](docs/history.md): what is done: the concluded milestones, the changes to the plan, the answered questions, the relation to Blubber Blasen.
 - [docs/releases](docs/releases): the notes of each release from 0.9.2, as GitHub shows them.
 - [dev/README.md](dev/README.md): the scripts in `dev/`, for developing the kit against the examples.
 

@@ -52,7 +52,7 @@ after the optimizations on the branch `optimise`
 | Title, story, round intro | 0.37, 0.16, 1.41 |
 | The whole benchmark | 0.81 |
 | dampf's naive code generator | play 4.37 (worst 7.26), with the CPU partner 5.58 (worst 10.53), also FastROM; 5.5 times as slow in play |
-| Against Calypsi | 2.14 times as fast: in the play ticks where both play the same scene (102 ticks, up to 812), FastROM for both, Calypsi 1.42 frames per tick, dampf 0.66 (Calypsi drifts from the PC from tick 596 on, see [roadmap.md](roadmap.md#open-questions)) |
+| Against Calypsi | 2.14 times as fast: in the play ticks where both play the same scene (102 ticks, up to 812), FastROM for both, Calypsi 1.42 frames per tick, dampf 0.66 (Calypsi drifts from the PC from tick 596 on, see [history.md](history.md#answered-questions)) |
 | Against hand-written `level_solid_px` | 1.14 times the cycles: 827 against 724 master clocks per call, both FastROM |
 | In Mesen (playable ROM) | 1.16 frames per tick during a minute of play (3,600 frames, 3,098 ticks), no byte lost in the vertical blank. This includes waiting for the vertical blank and the platform layer, so it is not comparable with the benchmark |
 

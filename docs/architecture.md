@@ -2,7 +2,7 @@
 
 How dampf is built: the pipeline from C source to ROM, the intermediate representations, the
 split between the 65816 core and the SNES target, and what the generated assembly looks like.
-Milestone state is in [roadmap.md](roadmap.md).
+What comes next is in [roadmap.md](roadmap.md), what is done in [history.md](history.md).
 
 ## Where the code stands
 
@@ -144,7 +144,7 @@ dampf writes ca65 assembly and assembles and links it itself (`dampf.asm`, M6). 
 its own assembler and linker gain nothing over ca65 and ld65: with whole-program compilation the
 compiler already knows every instruction size (so it decides branch distances itself) and
 controls placement through segments. They exist so that using dampf needs no cc65
-([roadmap.md](roadmap.md)); ca65 and ld65 stay the oracle in the tests, which build every program
+([history.md](history.md#m6)); ca65 and ld65 stay the oracle in the tests, which build every program
 both ways and compare the ROMs and the debug files. dampf writes the `.dbg` debug file in ld65's
 format, which Mesen reads. With source line directives (`.dbg line`) in the assembly, Mesen shows and
 steps through the C source. This was the biggest pain in the earlier attempt, so it was verified
