@@ -54,6 +54,12 @@ moves to the history with that release):
 - **Subset decision 2, enum objects in one byte**: an enum object takes only values of its enum,
   in the smallest width that holds them
   ([ADR-6FKZFDJ3](adr/6FKZFDJ3-enum-objects-take-only-values-of-their-enum-and.md), 2026-11-24).
+- **`switch` as a jump table** (moved up from M12): a `switch` becomes a table where that costs
+  fewer cycles than its compares, from 4 to 7 cases depending on the range check
+  ([ADR-6FM7MWGX](adr/6FM7MWGX-a-switch-becomes-a-jump-table-where-that-costs.md), 2026-11-24).
+  On the examples the work per tick is the same; the worst cases went down. Open: weighing the
+  cases by a profile (`--block-counts`), since a table treats every case as equally likely and
+  Steinschlag, whose first case is the common one, got 0.4 % slower.
 
 Left:
 
@@ -72,10 +78,6 @@ Left:
 - **Subset decision 3**, 16-bit pointers into RAM ([subset.md](subset.md)), built once it is
   taken. Decisions 1 and 2 are built (above); decision 4 is taken: `goto` stays rejected (ADR
   [ADR-6F3CJVHC](adr/6F3CJVHC-goto-and-labels-stay-rejected-and-a-forward-and.md)).
-- **`switch` as a jump table** (moved up from M12 on 2026-11-24). A `switch` compares its way
-  down the cases, about 5 cycles for each case before the one it takes, so a state machine or
-  an interpreter with many cases pays for its last ones on every call. A jump table makes the
-  dispatch cost the same for every case, for the 30 `switch` statements of the examples too.
 - **Hand-written assembly with the code generator from MIR:** `--replace` works only with the
   naive one, and a linked-in function has no way to declare its calling convention, direct page
   use and cycles for the timing analysis. The design is decided
