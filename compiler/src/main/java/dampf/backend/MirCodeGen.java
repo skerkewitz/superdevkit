@@ -53,7 +53,8 @@ import java.util.TreeMap;
  * in low RAM from $0020 ({@code dampf_frame}); the leaves of the call graph, which are small and
  * often hot, start there, in the direct page, where an access is a cycle cheaper and a pointer can
  * be used as {@code [place],y} without copying it. A caller stores the arguments straight into
- * the callee's parameters.
+ * the callee's parameters; a call through a function table stores them into dampf_regs, and the
+ * callee's thunk copies them into its parameters ({@link #thunks}).
  *
  * <p><b>φs</b> get a second place, "incoming": every predecessor stores its operand there right
  * before its jump, and the block copies it into the φ's own place on entry. That is correct for

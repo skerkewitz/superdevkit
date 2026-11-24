@@ -26,7 +26,7 @@ document of its subject.
 | ADR-6F0R633Z | [dampf compiles a subset of C, enforced by a checker after a broad parser](adr/6F0R633Z-dampf-compiles-a-subset-of-c-enforced-by-a-checker.md) | Accepted | 2026-11-17 |
 | ADR-6F0R64GD | [Every result matches gcc on x86-64 bit for bit](adr/6F0R64GD-every-result-matches-gcc-on-x86-64-bit-for-bit.md) | Accepted | 2026-11-17 |
 | ADR-6F0R65FW | [The whole program is compiled at once](adr/6F0R65FW-the-whole-program-is-compiled-at-once.md) | Accepted | 2026-11-17 |
-| ADR-6F0R668G | [No recursion, no free function pointers and no heap, so frames have fixed places](adr/6F0R668G-no-recursion-no-free-function-pointers-and-no-heap.md) | Accepted | 2026-11-17 |
+| ADR-6F0R668G | [No recursion, no free function pointers and no heap, so frames have fixed places](adr/6F0R668G-no-recursion-no-free-function-pointers-and-no-heap.md) | Accepted; amended by ADR-6FM08ZXM | 2026-11-17 |
 | ADR-6F0R6752 | [`gcc -E` preprocesses, without host headers or host macros](adr/6F0R6752-gcc-e-preprocesses-without-host-headers-or-host.md) | Superseded; superseded by ADR-6FD4GDN5 | 2026-11-17 |
 | ADR-6F0R68AN | [Hints are macros, and a hint that states a fact is checked on the PC](adr/6F0R68AN-hints-are-macros-and-a-hint-that-states-a-fact-is.md) | Accepted | 2026-11-17 |
 | ADR-6F0R69B6 | [All variables live in bank $7E, and DBR stays $7E](adr/6F0R69B6-all-variables-live-in-bank-7e-and-dbr-stays-7e.md) | Accepted | 2026-11-17 |
@@ -89,6 +89,7 @@ document of its subject.
 | ADR-6FK7WP0H | [The roadmap holds what is to come, and a concluded milestone moves to the history](adr/6FK7WP0H-the-roadmap-holds-what-is-to-come-and-a-concluded.md) | Accepted | 2026-11-24 |
 | ADR-6FKTVDE8 | [A hardware feature is usable only when the SNES and Rachael both draw it](adr/6FKTVDE8-a-hardware-feature-is-usable-only-when-the-snes.md) | Accepted | 2026-11-24 |
 | ADR-6FKYXP8C | [dampf compiles a library's files without the program's defines](adr/6FKYXP8C-dampf-compiles-a-library-s-files-without-the.md) | Accepted | 2026-11-24 |
+| ADR-6FM08ZXM | [A call through a function table goes through dampf_icall, with its arguments in dampf_regs](adr/6FM08ZXM-a-call-through-a-function-table-goes-through-dampf.md) | Accepted | 2026-11-24 |
 
 ## Former numbers
 

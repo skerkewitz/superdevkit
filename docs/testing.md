@@ -45,7 +45,9 @@ scalar elements (`a[2]`, `s.x`), must have the same values on both sides. Pointe
 
 **Unit tests** cover the front end (`PreprocessorTest`, `ParserTest`, `AstBuilderTest`), MIR
 passes written as MIR text (`NarrowTest`, `GvnTest`, `InlineTest`, `LicmTest`, `RangesTest`,
-...), timing and budgets (`TimingTest`, `BudgetTest`) and the cycle table (`Cycles65816Test`).
+...), timing and budgets (`TimingTest`, `BudgetTest`), function tables (`FunctionTablesTest`: what
+the front end accepts and rejects, the call graph through a table, a table call's timing and
+budget) and the cycle table (`Cycles65816Test`).
 `MirTextTest` prints the MIR of every execution program and of every example, parses it back
 and checks that it verifies and prints to the same text. `StrengthReduceTest` compares every
 reduced multiplication and division with the original in the interpreter (all 8-bit inputs,

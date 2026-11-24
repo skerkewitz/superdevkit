@@ -98,6 +98,11 @@ exec_flags_after.layout.timing a7b6c7f3538759aea489f572
 exec_flags_after.mir.s0 853d81473c22084f8b03f73f
 exec_flags_after.mir.timing 4786d9e7cdb0d6503d4c8f06
 exec_flags_after.naive.s0 0ad5196a2d3fd4840e6eb00b
+exec_function_tables.layout.s0 966fdb3cd7363f48a0d4db5c
+exec_function_tables.layout.timing f71afccf71e25a1840aab437
+exec_function_tables.mir.s0 b2dec336844a2e8b12656cd1
+exec_function_tables.mir.timing 0c5c2ad5517665eca94bddd8
+exec_function_tables.naive.s0 d49c8f2509b9201c7f41acec
 exec_hint_range.layout.s0 cb1a8f03e3798f88a7de9311
 exec_hint_range.layout.timing d232d6c04bbce584826a3eb2
 exec_hint_range.mir.s0 c9871575914a73b63e3009f7

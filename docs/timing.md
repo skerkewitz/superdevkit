@@ -57,7 +57,11 @@ calls a function); a line with a branch gets no sum.
   widening (a counter of a loop of 768 rounds is 0..768, not the whole type), and give a
   parameter the join of its arguments' ranges at every call (`ParamRanges`).
 - **Calls**: callee bounds first (no recursion); the runtime's multiplication and division have
-  fixed bounds counted from `runtime.s`.
+  fixed bounds counted from `runtime.s`. A call through a function table
+  ([subset.md](subset.md), *Function pointers*) costs the `JML` of `dampf_icall` plus, for the
+  worst case, the costliest function it can reach, with the thunk that copies its arguments,
+  and for the best case the cheapest. The parameters of a function in a table get no range from
+  their callers (`ParamRanges` leaves them out), since a table call may pass anything.
 
 ### Budgets
 

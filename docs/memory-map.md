@@ -18,7 +18,7 @@ The first 8 KB of bank `$7E` are the same memory as `$0000-$1FFF` in bank 0. The
 
 | Address (bank $7E) | Use |
 | --- | --- |
-| `$0000-$001F` | direct page: the runtime's scratch registers (`dampf_regs`, `dampf_ptr`) |
+| `$0000-$001F` | direct page: the runtime's scratch registers (`dampf_regs`, `dampf_ptr`), and `dampf_fptr`, where a call through a function table puts the function's address |
 | `$0020-$1DFF` | the frames (`dampf_frame`, a compiled stack; the part below `$0100` is in the direct page). Unused by the naive generator. |
 | `$1E00-$1FFF` | stack |
 | `$2000-$FFFE` | variables: globals, static locals, and the naive generator's frames |

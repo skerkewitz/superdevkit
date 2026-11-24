@@ -124,9 +124,36 @@ requirement (inlining is the compiler's decision; `inline` is accepted and ignor
 by pointer. A function without parameters is written `f(void)`; an empty list `f()` and old-style
 (K&R) parameters are rejected. The game needs at most 6 parameters; there is no fixed limit.
 
-**Function pointers.** Not used by the game. Free function pointers are never allowed: the call
-graph must stay complete. Function pointers in constant tables known at compile time are allowed
-by design, but not built until something needs them.
+**Function pointers.** Only in constant tables, and only called straight from there, so that
+the call graph stays complete: no free function pointers
+([ADR-6F0R668G](adr/6F0R668G-no-recursion-no-free-function-pointers-and-no-heap.md)). How a
+call through a table runs, and why so, is
+[ADR-6FM08ZXM](adr/6FM08ZXM-a-call-through-a-function-table-goes-through-dampf.md). A table
+is a `const` object with static storage and an initializer, a global or a `static` local: an
+array, a struct, a single pointer, or any mix of these. Every function pointer in it names a
+function of its type, by name or as `&name`:
+
+```c
+typedef void (*Tick)(void);
+static const Tick tick[] = { title_tick, play_tick, pause_tick };
+static uint16_t (*const ops[2])(uint16_t a, uint8_t b) = { op_add, op_sub };
+static const Rule rules[] = { { 1, calm }, { 4, angry } };   /* a field int8_t (*react)(int8_t) */
+
+tick[state]();
+total = ops[i & 1](total, 3);
+level = rules[r].react(level);
+```
+
+`(*tick[state])()` is the same call. A call through a table reaches every entry its place can be
+(all entries of `tick` for `tick[state]`, only `react` fields for `rules[r].react`), and the call
+graph has an edge to each, for the recursion check, the frames and the timing (the worst case is
+the dispatch plus the costliest entry). Rejected, each with a message: a function pointer in a
+variable, a parameter or a result; a table that is not `const` or not static; an entry that is
+null, left unset, or a function of another type; a function pointer read as a value, compared,
+converted or stored; `&f` and a bare function name anywhere else; a call through a pointer to a
+table entry (`p->react()` for a `const Rule *p`). The arguments of a table call may take at most
+18 bytes (2 for an 8- or 16-bit argument, 4 for a 32-bit one or a pointer). The game uses none
+of this; the [C style guide](../lib/C_STYLE.md) says when a `switch` is the faster choice.
 
 **Memory.** No `malloc` and no heap of any kind: all objects are static, and total memory use is
 known at compile time.

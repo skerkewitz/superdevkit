@@ -25,7 +25,8 @@ expensive, or one with a `DAMPF_BUDGET`. Elsewhere it costs readability for noth
 | `float`, `double` | `'float' is not supported: dampf has no floating point` |
 | recursion | `recursion is not supported: f → f` |
 | `malloc`, any heap | no `<stdlib.h>`; a declared `malloc` gives `function 'malloc' is called but never defined` |
-| function pointers | `not supported yet: this kind of declarator (function pointers, bit fields)` |
+| a function pointer outside a constant table | `'p' holds function pointers, which are only allowed in constant tables: declare it const ...`, `function pointers cannot be passed: ...` (pass the index into the table) |
+| a function pointer read, compared or converted | `a function pointer can only be called, straight from its constant table (table[i](...)); ...` |
 | `goto` | `not supported yet: 'goto'` |
 | unions, bit fields | `unions are not supported`, `bit fields are not supported` |
 | a struct as parameter or result | `structs passed by value are not supported: pass a pointer`, `structs returned by value are not supported` |
@@ -43,8 +44,10 @@ the console only through `sdevkit/snes.h` and `sdevkit/loop.h`.
 
 All of these pass `dampf check` and cost nothing extra: declarations anywhere, also in the `for`
 (`for (uint8_t i = 0; ...)`); struct assignment (`b = a;`, the way to copy a struct); `static`
-locals; `const` tables, also multi-dimensional (they stay in ROM); `switch`; `?:`; enums as
-constants; `memset` and `memcpy`; the hints `DAMPF_RANGE` and `DAMPF_BUDGET` (part 6);
+locals; `const` tables, also multi-dimensional (they stay in ROM); tables of functions, called straight
+from the table (`static void (*const tick[])(void) = { title_tick, play_tick };` and
+`tick[state]();`, also with arguments and results, and as a field of a `const` table of
+structs); `switch`; `?:`; enums as constants; `memset` and `memcpy`; the hints `DAMPF_RANGE` and `DAMPF_BUDGET` (part 6);
 pointers to arrays (`const uint8_t (*rows)[16]`).
 
 One rule of C that the checks find the hard way: **the order in which a call's arguments are
@@ -80,6 +83,11 @@ call its own statement.
   does a known range of `y`. (Two `uint8_t` added stay 16-bit: dampf sees that
   they cannot overflow.)
 
+- **`slow-table-call-few`** Call one of a few handlers (up to five) from a `switch`, not through
+  a table of functions. A table call costs the same for every entry, as much as a `switch` over
+  six cases costs for its last one; a `switch` tests one case after the other, so its first
+  cases are cheaper still, and it can inline a short handler, which a table call never does.
+
 ## 4. Fast
 
 - **`fast-multiply-bytes`** Multiply two values that fit a byte as bytes: `(uint16_t)(ua * ub)` on
@@ -87,6 +95,9 @@ call its own statement.
   the runtime, unless dampf can prove that both are below 256.
 - **`fast-array-per-field`** In hot code, one array per field (`px[i]`, `py[i]`) is a little
   cheaper than an array of structs (`objs[i].x`). The gain is small: keep the struct elsewhere.
+- **`fast-table-call-many`** Call one of many handlers (eight or more) through a table of
+  functions rather than from a `switch`: the table call costs the same for every entry, the
+  `switch` tests the cases one after the other.
 - A multiplication or an unsigned division by a constant is cheap (`slow-multiply-variable`,
   `slow-divide-variable`): write it as such, in the clear form.
 
@@ -127,12 +138,13 @@ The worst case of each function in CPU cycles, from the timing report; "is" is t
 test checks ("same": within 5 %).
 
 <!-- measurements: written by StyleGuideTest -->
-Measured 2026-11-23 (worst case of the timing report, code generator from MIR).
+Measured 2026-11-24 (worst case of the timing report, code generator from MIR).
 
 | Rule | This | CPU cycles | is | than this | CPU cycles |
 | --- | --- | ---: | --- | --- | ---: |
 | `fast-array-per-field` | `move_array_per_field` | 1,361 | faster | `move_array_of_structs` | 1,521 |
 | `fast-multiply-bytes` | `multiply_bytes` | 62 | faster | `multiply_words` | 140 |
+| `fast-table-call-many` | `by_table` | 527 | faster | `by_switch` | 578 |
 | `same-32-bit-bits` | `xor_32` | 36 | same | `xor_16_halves` | 36 |
 | `same-declaration-place` | `declared_at_top` | 5,025 | same | `declared_where_used` | 5,025 |
 | `same-increment-form` | `count_postfix` | 5,025 | same | `count_prefix` | 5,025 |
@@ -148,4 +160,5 @@ Measured 2026-11-23 (worst case of the timing report, code generator from MIR).
 | `slow-index-list` | `pairs_by_list` | 17,505 | slower | `pairs_by_counter` | 15,493 |
 | `slow-multiply-variable` | `multiply_variables` | 140 | slower | `multiply_constant` | 31 |
 | `slow-signed-divide` | `divide_signed` | 101 | slower | `divide_unsigned` | 17 |
+| `slow-table-call-few` | `by_table` | 527 | slower | `by_switch` | 518 |
 <!-- end of measurements -->
