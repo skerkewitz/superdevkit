@@ -64,7 +64,6 @@ in the kit's window, and a build step before the build with `superdevkit gen`
   initialises or is assigned to (`uint8_t w[] = { 420 }`): dampf truncates it as gcc does, but
   silently. It hid a bug in CatchMe (a cat's wait of 420 became 164) that only the desktop
   build's `-Woverflow` showed.
-- **Less memory for a compile:** Blubber Blasen took 1.8 GB.
 - **The SNES facts out of the code generators** (DBR `$7E`, the frame addresses, long I/O
   addresses) into the target ([architecture.md](architecture.md#core-and-target)).
 - **`restrict`** or a no-alias hint of dampf's own. Open is how it is checked on the PC, and
@@ -157,6 +156,8 @@ concluded.
 - **Blubber Blasen on the kit's desktop and web builds.** Both switches were handed over to the
   game with M7 and M8. Its own desktop frontend and its own web build go when it has switched;
   the tools its frontend needed are in the kit's window since 0.9.
+- **Less memory for a compile.** Blubber Blasen took 1.8 GB. Moved out of M10 on 2026-11-24:
+  dampf's own speed and memory are tuned once it is more or less feature complete.
 
 ## Not scheduled for the dev kit
 
