@@ -11,8 +11,8 @@
  * at most SDEVKIT_QUEUE_ENTRIES copies. The numbers hold when the commit runs at the start of
  * game_vblank, after at most the other layers' commits (sdevkit/easy.h); lib/README.md ("The
  * commit's time") has where they come from. The source must still hold the data at the commit.
- * A game that copies with the core in its own game_vblank pays nothing for this layer but its
- * memory.
+ * A game that copies with the core in its own game_vblank pays nothing for this layer: dampf
+ * leaves out what a program does not call.
  */
 
 #include "sdevkit/snes.h"

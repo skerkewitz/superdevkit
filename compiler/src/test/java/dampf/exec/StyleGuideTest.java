@@ -109,7 +109,7 @@ class StyleGuideTest {
         long[] ta = r.timing().get("_" + a), tb = r.timing().get("_" + b);
         assertTrue(ta != null && tb != null, src + ": no timing for " + a + " or " + b);
         assertTrue(ta[1] >= 0 && tb[1] >= 0, src + ": " + a + " or " + b + " has no worst case");
-        List<Observed> globals = Observed.of(r.program().globals());
+        List<Observed> globals = Observed.of(r.program());
         Map<String, Long> pc = PcReference.wrap(PcReference.run(src, "test_main", globals, work), globals);
         EmulatorRunner emulator = new EmulatorRunner();
         assertEquals(pc, emulator.run(r.rom(), globals).values(), src + ": the PC and the SNES differ");

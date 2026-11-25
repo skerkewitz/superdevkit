@@ -37,7 +37,7 @@ under another label, and `dampf.emu.AsmCheck` runs it against the assembly in a 
 
 The MIR passes (`dampf.mir.Optimizer`): simplification (`Simplify`), tests against neighbouring
 constants as one range check (`RangeChecks`), a bit chosen by a bit
-(`BitSelect`), 8.8 values read as bytes (`ByteLoads`), width narrowing (`Narrow`, and
+(`BitSelect`), 8.8 values and values written in halves read as bytes (`ByteLoads`), width narrowing (`Narrow`, and
 `RangeNarrow` with the value ranges of `Ranges`), loop-invariant code (`Licm`), induction
 variables (`Induction`), pointer compression (`PointerOffsets`), multiplication and division by
 constants (`StrengthReduce`), common subexpressions and redundant loads (`Gvn`), dead code
@@ -48,7 +48,11 @@ index parameters as their product (`IndexParams`), and the passes once more; the
 only combined bit by bit as two 16-bit values (`SplitWords`) and a 32-bit comparison with a sum
 of 16-bit values as a 16-bit one (`CompareSum`), each followed by the passes on what it changed;
 last, comparisons next to the branches that use them (`SinkCompares`) and the order of the
-instructions for the code generator (`Schedule`). The
+instructions for the code generator (`Schedule`). Before all of them, the functions that neither
+the entry, the interrupt handlers nor the assembly functions reach are dropped, with the globals
+only they used (`Reachable`, ADR-6FNWEJAA): a library's functions a program does not call take no
+ROM and their variables no RAM; a function that is called keeps its body even where it is inlined,
+so the timing report keeps it. The
 code generator itself first gives loop exits their own blocks (`ExitEdges`), copies return blocks
 into their predecessors (`Returns`), computes pointer sums again where their value is needed
 (`PointerRemat`) and takes out the checks of the hints (`Hints`). How values

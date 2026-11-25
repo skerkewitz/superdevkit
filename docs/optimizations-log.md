@@ -2009,3 +2009,30 @@ vertical blank.
 Found on the way: dampf's emulator took a LoROM for HiROM when the byte at file offset `$FFD5`
 was `$21`, and Schach's data put one there once its code moved by twenty bytes; the ROM then
 started at `$0000`. It now trusts the header whose checksum and complement agree (`MappingTest`).
+
+## Unreachable functions left out (2026-11-25, on the examples)
+
+dampf compiled every function of every file into the ROM. `Reachable` (ADR-6FNWEJAA) now drops,
+after lowering and before the optimizer, the functions the entry, the interrupt handlers and the
+assembly functions do not reach, and the globals only those used. Work per tick is unchanged
+(Schach 0.997, the others within 0.01 %, from the layout); code and RAM, against the console API's
+core and layers before it and the PVSnesLib API (with all of dampf's other changes):
+
+| Example | Code bytes, PVSnesLib API | before | after | RAM bytes, PVSnesLib API | after |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| CatchMe | 24,457 | 25,272 | 21,381 | 3,226 | 3,916 |
+| Ertüp | 85,503 | 85,988 | 79,789 | 4,864 | 4,604 |
+| Hello | 11,246 | 11,434 | 7,721 | 2,941 | 3,081 |
+| Mandelbrot | 14,425 | 14,506 | 8,674 | 1,240 | 435 |
+| Mode 7 | 11,923 | 12,260 | 6,428 | 17,670 | 16,865 |
+| Schach | 43,496 | 43,778 | 42,051 | 45,141 | 45,056 |
+| Steinschlag | 27,260 | 27,720 | 24,065 | 4,758 | 4,216 |
+
+What goes: the optional layers where an example does not use them, the debug calls' and the music's
+empty functions, `sdevkit_sram` and the queue's state where nothing calls them. The examples on the
+core need less RAM than with the old API (the kit's 544-byte sprite table is gone); CatchMe more
+(its own sprite table and the layers'). The first version ran after the optimizer and dropped
+what inlining had made unused too: 25 to 35 % less code again (Mode 7 4,181 bytes), but such a
+function left the timing report, and 40 tests that measure a function by its entry failed with it
+(roadmap, ideas). The execution tests' harness reported a global left out as missing; it now
+compares the global's initial value, which the PC's run must still have.

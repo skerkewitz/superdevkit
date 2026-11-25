@@ -5,7 +5,8 @@
  * The register shadow, an optional layer above the core (ADR-6FNPPCSX): the PPU's registers and
  * the HDMA channels in memory, laid out as the hardware is. game_tick writes them whenever it
  * likes; sdevkit_shadow_commit in game_vblank writes them into the hardware. A game that uses the
- * core's sdevkit_reg_write instead pays nothing for this layer but its memory.
+ * core's sdevkit_reg_write instead pays nothing for this layer: dampf leaves out what a program
+ * does not call, and the memory only that uses.
  *
  * The commit writes INIDISP every time and the other registers only when the tick marks their
  * group in sdevkit_marks, since the vertical blank is short and most registers change seldom:

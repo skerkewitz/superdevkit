@@ -6,8 +6,8 @@
  * anew each tick appends them to the list with sdevkit_sprite, and sdevkit_sprites_commit in
  * game_vblank copies into OAM what the list filled, and hides what it filled the tick before and
  * not in this one. Only the entries in use are copied, not the whole table. A game that keeps its
- * sprite table itself uses the core's sdevkit_oam_copy instead and pays nothing for this layer
- * but its memory.
+ * sprite table itself uses the core's sdevkit_oam_copy instead and pays nothing for this layer:
+ * dampf leaves out what a program does not call, and the memory only that uses.
  */
 
 #include "sdevkit/snes.h"

@@ -345,16 +345,19 @@ class ProjectTest {
 
     @Test
     void theDefinesOfSnesDoNotReachTheKitsLibrary() throws Exception {
-        // SETUP_LINES is a macro lib/snes/snes.c takes if it is defined (the margin of sdevkit_dma_fits)
+        // SETUP_LINES is a macro lib/snes/snes.c takes if it is defined (the margin of sdevkit_dma_fits,
+        // which the game calls: dampf leaves out a function nothing calls)
         Files.createDirectories(tmp.resolve("src"));
         Files.writeString(tmp.resolve("src/g.c"), """
                 #include "sdevkit/loop.h"
+                #include "sdevkit/snes.h"
                 #ifndef ON_SNES
                 #error the defines of [snes] did not arrive
                 #endif
+                uint8_t fits;
                 void game_init(uint16_t seed) { (void)seed; }
                 void game_tick(const uint16_t pad[SDEVKIT_PADS]) { (void)pad; }
-                void game_vblank(void) { }
+                void game_vblank(void) { fits = sdevkit_dma_fits(100); }
                 """);
         String toml = """
                 name = "g"

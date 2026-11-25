@@ -84,6 +84,10 @@ moves to the history with that release):
   after the [brainstorm](brainstorm/console-api-shadow-state_2026-11-24.md)'s shadow state was
   built and turned out to cost a game that knew the vertical blank's rules). The examples draw the
   same pictures, pixel for pixel, the core's faster than before (with DMA's time counted).
+- **Unreachable functions left out**: dampf drops the functions a program cannot reach and the
+  globals only they used, so an optional layer a game does not call costs it nothing
+  ([ADR-6FNWEJAA](adr/6FNWEJAA-dampf-leaves-out-the-functions-a-program-cannot.md), 2026-11-25);
+  the examples' code 4 to 48 % smaller.
 
 Left:
 
@@ -219,6 +223,11 @@ when a game asks for them.
 ## Future ideas
 
 Ideas without a milestone; one becomes a step of a milestone when it is decided.
+
+- **Inlined functions without a copy of their own.** A function inlined at every call keeps its
+  body in the ROM, so the timing report has it (ADR-6FNWEJAA). Dropping that body but keeping its
+  entry in the report would shrink the examples' code by another 25 to 35 % (measured on
+  2026-11-25).
 
 - **dampf in Compiler Explorer.** A local Compiler Explorer (godbolt) knows extra compilers from
   `etc/config/c.local.properties`; a wrapper script takes its gcc-style arguments (`-S -o out.s

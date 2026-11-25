@@ -1,7 +1,7 @@
 /*
  * The optional layers of the console API on the SNES (sdevkit/easy.h, ADR-6FNPPCSX): their logic
  * is ../layers/layers.h, the same as Rachael's; here what the SNES does its own way. A game that
- * uses none of them pays for this file only in ROM and RAM.
+ * uses none of them pays nothing for this file: dampf leaves out what a program does not call.
  */
 #include <dampf.h>
 #include "sdevkit/easy.h"

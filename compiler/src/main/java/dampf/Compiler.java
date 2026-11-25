@@ -244,6 +244,7 @@ public final class Compiler {
             dampf.mir.MModule mir = Lower.lower(program, locals, true);
             dampf.util.PassLimit limit = new dampf.util.PassLimit(
                     o.optLimit() >= 0 ? o.optLimit() : dampf.util.PassLimit.configured(), baseName);
+            dampf.mir.Reachable.run(mir, roots(entry, handlers.values(), asmFunctions.values()));
             dampf.mir.Optimizer.run(mir, false, true, limit);
             gen = new MirCodeGen(mir, entry.label(), debugName, o.blockCounts(), limit).interrupts(contextByLabel, handlers);
             for (AsmFunctions.Asm a : asmFunctions.values()) {
@@ -278,6 +279,29 @@ public final class Compiler {
             checks = checkAsm(program, asm, gen, asmFunctions, o.fastRom(), handlers.keySet());
         }
         return new Result(program, asm, rom, timing, warnings, checks);
+    }
+
+    /**
+     * What the program starts from for dead-code elimination ({@link dampf.mir.Reachable}): the
+     * entry, the interrupt handlers, the functions written in assembly and their C bodies (checked
+     * against them), and every C symbol their assembly names.
+     */
+    private static java.util.Set<String> roots(Function entry, java.util.Collection<String> handlers,
+                                               java.util.Collection<AsmFunctions.Asm> asmFunctions) {
+        java.util.Set<String> roots = new java.util.HashSet<>(handlers);
+        roots.add(entry.label());
+        java.util.regex.Pattern symbol = java.util.regex.Pattern.compile("\\b_[A-Za-z_]\\w*");
+        for (AsmFunctions.Asm a : asmFunctions) {
+            roots.add(a.function().label());
+            roots.add(dampf.mir.Lower.CHECK_PREFIX + a.function().label());   // its C body, checked against it
+            if (a.text() != null) {
+                java.util.regex.Matcher m = symbol.matcher(a.text());
+                while (m.find()) {
+                    roots.add(m.group());
+                }
+            }
+        }
+        return roots;
     }
 
     /**

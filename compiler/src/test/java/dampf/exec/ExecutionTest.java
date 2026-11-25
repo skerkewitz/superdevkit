@@ -45,7 +45,7 @@ class ExecutionTest {
             Path work = Files.createDirectories(tmp.resolve(name));
             Compiler.Result r = Compiler.compile(new Compiler.Options(List.of(src), List.of(), List.of(), "test_main",
                     work.resolve(name + ".sfc")));
-            List<Observed> globals = Observed.of(r.program().globals());
+            List<Observed> globals = Observed.of(r.program());
             Map<String, Long> pc = PcReference.wrap(PcReference.run(src, "test_main", globals, work), globals);
             // the MIR interpreter has no interrupts and no hardware registers: a program with an
             // interrupt handler (DAMPF_INTERRUPT) runs only on the PC and on the SNES

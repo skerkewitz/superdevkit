@@ -96,6 +96,7 @@ document of its subject.
 | ADR-6FMATG2V | [Hand-written assembly replaces a C function through DAMPF_ASM and is checked against its body](adr/6FMATG2V-hand-written-assembly-replaces-a-c-function.md) | Accepted | 2026-11-24 |
 | ADR-6FMHDB6H | [The console API is the hardware's state in memory, which the kit commits in the vertical blank](adr/6FMHDB6H-the-console-api-is-the-hardware-s-state-in-memory.md) | Superseded; superseded by ADR-6FNPPCSX | 2026-11-25 |
 | ADR-6FNPPCSX | [The console API is the hardware at once, with optional layers above it](adr/6FNPPCSX-the-console-api-is-the-hardware-at-once-with.md) | Accepted | 2026-11-25 |
+| ADR-6FNWEJAA | [dampf leaves out the functions a program cannot reach](adr/6FNWEJAA-dampf-leaves-out-the-functions-a-program-cannot.md) | Accepted | 2026-11-25 |
 
 ## Former numbers
 
