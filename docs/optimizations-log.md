@@ -2036,3 +2036,25 @@ what inlining had made unused too: 25 to 35 % less code again (Mode 7 4,181 byte
 function left the timing report, and 40 tests that measure a function by its entry failed with it
 (roadmap, ideas). The execution tests' harness reported a global left out as missing; it now
 compares the global's initial value, which the PC's run must still have.
+
+## Every pointer as `restrict`: the ceiling (2026-11-25, on the examples)
+
+What `restrict`, or a no-alias hint of dampf's own, could gain at most. dampf assumes that a store
+through a pointer whose target it does not know may overlap anything: after such a store `Gvn`
+forgets every value it had loaded and `Licm` keeps loads in the loop (`Gvn.mayOverlap`), and the
+LIR forgets what the registers hold (`RegContents.writesAnyPlace`). For the measurement both
+rules were switched off, as if every pointer were `restrict` (a build that may compute wrong
+results, never merged), and the examples' benchmark was run against `develop`:
+
+| Example | Work per tick | Every pointer `restrict` | Change |
+| --- | --- | --- | --- |
+| CatchMe | 46,174 | 46,170 | -0.01 % |
+| Ertüp | 134,080 | 134,071 | -0.01 % |
+| Schach | 371,566 | 371,572 | +0.002 % |
+| Steinschlag | 75,134 | 75,173 | +0.05 % (busiest +0.5 %) |
+| Hello, Mandelbrot, Mode 7 | | | unchanged |
+
+Nothing to gain: pointer compression and inlining already tell dampf where nearly every pointer
+points, and the stores left through unknown pointers are not in hot code. Steinschlag got slower
+because the registers freed changed other choices. `restrict` stays rejected, and the no-alias
+hint is not built.

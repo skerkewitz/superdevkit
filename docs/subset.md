@@ -222,9 +222,10 @@ example).
 bounds, placement). In the dampf build they expand to built-ins, in the PC build to checked
 assertions or nothing. See [hints.md](hints.md).
 
-**Intrinsics.** For the SNES hardware: hardware multiply and divide, DMA, waiting for vertical
-blank, placing constant data in ROM banks. In the PC build they are plain functions. Not built
-yet.
+**Intrinsics.** None. The hardware's arithmetic is used by dampf itself (the CPU's multiplier
+for every product of two variables; the divider is planned, chosen by value range, in M12 of the
+[roadmap](roadmap.md)); DMA and the wait for the vertical blank are calls of the console API;
+dampf places constant data in its ROM banks itself.
 
 ## Decisions
 
