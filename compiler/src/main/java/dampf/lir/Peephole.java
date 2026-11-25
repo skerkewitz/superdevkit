@@ -1,5 +1,6 @@
 package dampf.lir;
 
+import dampf.target.SnesTarget;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,20 +27,19 @@ import java.util.List;
  * </ul>
  */
 public final class Peephole {
-    private final int frameStart;
     private final String absoluteFrame;
 
-    /** {@code frameStart}: where the frame places start (for the direct page). */
-    public Peephole(int frameStart) {
-        this(frameStart, LOperand.FRAME);
+    /** For the main code: frame places outside the direct page are written with {@code dampf_frame}. */
+    public Peephole() {
+        this(LOperand.FRAME);
     }
 
     /**
      * {@code absoluteFrame}: the symbol a frame place outside the direct page is written with
-     * ({@code dampf_frame_irq} in an interrupt context, whose direct page is not 0).
+     * ({@code dampf_frame_irq} in an interrupt context, whose direct page is not 0). Which places
+     * lie in the direct page the target says ({@link SnesTarget#inDirectPage}).
      */
-    public Peephole(int frameStart, String absoluteFrame) {
-        this.frameStart = frameStart;
+    public Peephole(String absoluteFrame) {
         this.absoluteFrame = absoluteFrame;
     }
 
@@ -200,7 +200,7 @@ public final class Peephole {
             if (!m.frame() || m.index() != LOperand.Index.NONE) {
                 return null;   // only the frame's direct page places are known to have room
             }
-            width = frameStart + offset + 1 < 0x100 ? LOperand.Width.DP : LOperand.Width.ABS;
+            width = SnesTarget.inDirectPage(offset, 2) ? LOperand.Width.DP : LOperand.Width.ABS;
             if (width == LOperand.Width.ABS) {
                 return new LOperand.Mem(width, absoluteFrame, offset, m.index(), false).text();
             }

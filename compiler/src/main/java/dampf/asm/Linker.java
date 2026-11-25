@@ -1,5 +1,6 @@
 package dampf.asm;
 
+import dampf.target.SnesTarget;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -21,7 +22,7 @@ import java.util.Set;
 public final class Linker {
     public static final int FIRST_BANK = 0x80;
     public static final int BANK = 0x8000;
-    private static final int RAM = 0x2000;
+    private static final int RAM = SnesTarget.VARIABLES_START;
     private static final List<String> FIXED = List.of("STARTUP", "DAMPF_CODE", "DATA");
 
     /** Where a piece of a segment lies: run address (labels), load address (bytes). */

@@ -6,6 +6,7 @@ import dampf.mir.Instr;
 import dampf.mir.MType;
 import dampf.mir.Ranges;
 import dampf.mir.Value;
+import dampf.target.SnesTarget;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -55,8 +56,11 @@ final class SwitchSelection {
     /** CMP #imm and a branch not taken; SEC and SBC #imm. */
     static final int CHECK_CYCLES = 3 + 2;
     static final int SUBTRACT_CYCLES = 2 + 3;
-    /** Below this the base of the table, {@code table-2*lo}, cannot wrap below the bank's $8000. */
-    static final int BASE_LIMIT = 0x2000;
+    /**
+     * Up to this lo the base of the table, {@code table-2*lo}, cannot wrap below the start of the
+     * bank: the table lies at {@link SnesTarget#ROM_START} or above, its base at half that or above.
+     */
+    static final int BASE_LIMIT = SnesTarget.ROM_START / 4;
 
     /**
      * A jump table: entry k for the 16-bit value {@code lo + k}. {@code subtract}: the dispatch

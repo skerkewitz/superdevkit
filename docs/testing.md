@@ -47,7 +47,8 @@ scalar elements (`a[2]`, `s.x`), must have the same values on both sides. Pointe
 `ConversionWarningTest` compiles a file of constants that do not fit their type with dampf and
 gcc and compares where each warns, and `ExamplesTest` fails if an example gets that warning), MIR
 passes written as MIR text (`NarrowTest`, `GvnTest`, `InlineTest`, `LicmTest`, `RangesTest`,
-...), timing and budgets (`TimingTest`, `BudgetTest`) and the cycle table (`Cycles65816Test`).
+...), timing and budgets (`TimingTest`, `BudgetTest`), the cycle table (`Cycles65816Test`) and the
+target's facts against the runtime's own copies of them (`SnesTargetTest`).
 `MirTextTest` prints the MIR of every execution program and of every example, parses it back
 and checks that it verifies and prints to the same text. `StrengthReduceTest` compares every
 reduced multiplication and division with the original in the interpreter (all 8-bit inputs,

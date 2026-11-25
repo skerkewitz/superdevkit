@@ -6,6 +6,7 @@ import dampf.mir.Instr;
 import dampf.mir.MType;
 import dampf.mir.Ranges;
 import dampf.mir.Value;
+import dampf.target.SnesTarget;
 import java.util.List;
 
 /** Instruction selection for arithmetic, shifts and casts. */
@@ -202,13 +203,9 @@ final class ArithSelection {
         }
     }
 
-    private static LOperand.Mem hardware(String address) {
-        return new LOperand.Mem(LOperand.Width.LONG, address, 0, LOperand.Index.NONE, false);
-    }
-
-    private static final LOperand.Mem WRMPYA = hardware("$004202");
-    private static final LOperand.Mem WRMPYB = hardware("$004203");
-    private static final LOperand.Mem RDMPY = hardware("$004216");
+    private static final LOperand.Mem WRMPYA = Selection.number(SnesTarget.WRMPYA);
+    private static final LOperand.Mem WRMPYB = Selection.number(SnesTarget.WRMPYB);
+    private static final LOperand.Mem RDMPY = Selection.number(SnesTarget.RDMPY);
 
     /**
      * Whether x * y is the 16-bit product of two bytes, which the CPU's multiplier computes without

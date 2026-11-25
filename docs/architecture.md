@@ -61,8 +61,8 @@ get places, registers and frames is in [optimizations.md](optimizations.md).
 Interrupt handlers in C (`DAMPF_INTERRUPT`, ADR-6FM9TXV4) are built in the compiler, not yet for
 games. Each handler is the root of a context (`CallGraph.contexts`, which rejects a function
 reached from two of them). Both code generators give a context its own direct page below the stack
-(`ContextAreas`), with its copy of the runtime's scratch registers; the code generator from MIR
-lays out the context's frames from that page with the main code's rule and writes their absolute
+(`dampf.target.ContextAreas`), with its copy of the runtime's scratch registers; the code
+generator from MIR lays out the context's frames from that page with the main code's rule and writes their absolute
 places with the context's symbol (`dampf_frame_irq`), and both multiply in software there. The
 runtime gets an entry stub per handler, assembled only into a program that has one
 ([memory-map.md](memory-map.md#interrupt-contexts), [timing.md](timing.md)).
@@ -152,14 +152,21 @@ selection. SNES specifics live in one target module:
 
 Nothing is built for a second target, but the split keeps one possible.
 
-As built, the split is only partly there. The SNES side is `dampf.snes.RomBuilder` (memory map,
-banks, header) and the runtime `compiler/src/main/resources/dampf/snes/runtime.s` (start-up, arithmetic
-routines, header, vectors, and the entry stubs of interrupt handlers in C); the 65816 cycle table is
-`dampf.target.Cycles65816`. The code
-generators still contain SNES facts themselves (DBR `$7E`, the RAM and frame addresses, long
-addresses for I/O registers). Of the list above the memory map is built, and the CPU's
-multiplier, which the runtime and the code generators use for every product of two variables;
-the cost model counts CPU cycles, and division is a software routine in the runtime.
+As built, the target is the package `dampf.target` (ADR-6FPTPCDM): `SnesTarget` holds the banks of
+RAM (the data bank, the variables' bank, the bank of a pointer to a frame place) and how a fixed
+address is reached (variables through the data bank; ROM data and I/O registers long), where the
+frames, the direct page, the stack and the variables lie, the I/O registers that are no memory,
+and the multiplier's registers; `ContextAreas` places the interrupt contexts' pages below the
+stack; `Cycles65816` is the cycle table. Both code generators, the optimizer, the linker and the
+checks of assembly functions ask it for these instead of knowing them. It answers in numbers
+and booleans and knows none of the compiler's types. Outside it, on the SNES side, are
+`dampf.snes.RomBuilder` and `dampf.asm.Linker` (the ROM's layout: banks, header, vectors) and the
+runtime `compiler/src/main/resources/dampf/snes/runtime.s` (start-up, arithmetic routines,
+header, vectors, and the entry stubs of interrupt handlers in C), whose data bank, stack and
+multiplier registers `SnesTargetTest` checks against `SnesTarget`. Of the list above, the cost
+model counts CPU cycles only; the multiplier is used for a product of two bytes and in the
+runtime's multiplication, division is a software routine (the hardware divider is planned in
+M12 of the [roadmap](roadmap.md)), and there are no intrinsics.
 
 ## Assembly output and debugging
 
