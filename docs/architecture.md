@@ -65,7 +65,9 @@ reached from two of them). Both code generators give a context its own direct pa
 generator from MIR lays out the context's frames from that page with the main code's rule and writes their absolute
 places with the context's symbol (`dampf_frame_irq`), and both multiply in software there. The
 runtime gets an entry stub per handler, assembled only into a program that has one
-([memory-map.md](memory-map.md#interrupt-contexts), [timing.md](timing.md)).
+([memory-map.md](memory-map.md#interrupt-contexts), [timing.md](timing.md)). Handlers read the
+game's data through the copy the tick publishes, which the kit's header `sdevkit/publish.h` makes
+after every tick, guarded by a volatile flag (ADR-6FPV1EQV); no compiler pass knows about it.
 
 ## Pipeline
 
