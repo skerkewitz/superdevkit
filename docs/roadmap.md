@@ -60,6 +60,17 @@ moves to the history with that release):
   On the examples the work per tick is the same; the worst cases went down. Open: weighing the
   cases by a profile (`--block-counts`), since a table treats every case as equally likely and
   Steinschlag, whose first case is the common one, got 0.4 % slower.
+- **Hand-written assembly with the code generator from MIR**: `DAMPF_ASM("file.s")` on a C
+  function, one convention for both code generators, cycles and safety checks from dampf's own
+  reading of the assembly, and the assembly checked against the C body in every build
+  ([ADR-6FMATG2V](adr/6FMATG2V-hand-written-assembly-replaces-a-c-function.md), 2026-11-24).
+  Er-Tüp's two reference functions are now measured against the optimized code.
+- **Interrupt contexts, the groundwork of C in interrupt handlers**: `DAMPF_INTERRUPT(irq|nmi)`,
+  frames and a direct page per context, an entry stub (about 97 cycles beyond the handler, 102
+  for the NMI), no hardware multiply in interrupt code, the timing per handler, and NMI and
+  timer IRQs in dampf's emulator
+  ([ADR-6FM9TXV4](adr/6FM9TXV4-interrupt-handlers-run-in-contexts-of-their-own.md), 2026-11-24).
+  Not for games yet: an assembly function in interrupt code is rejected.
 
 Left:
 
@@ -71,22 +82,17 @@ Left:
   ([brainstorm summary](brainstorm/interrupts-and-asm_2026-11-24.md), part 1): the kit owns the
   NMI, the game an IRQ in C; interrupt contexts with frames and a direct page of their own; no
   hardware multiply in interrupt code; interrupts read only data the tick published; Rachael
-  calls the IRQ at its line; then the NMI runs the frame's work. Being built, the contexts
-  first.
+  calls the IRQ at its line; then the NMI runs the frame's work. The contexts are built (above).
+  Left, in this order: the data the tick publishes, with a barrier the optimizer respects before
+  the swap; Rachael calling the IRQ at its line, and an API to set the line, which make the IRQ
+  usable by games; then the NMI running `game_vblank` and the frame's work, where `game_vblank`
+  joins the NMI context and may call nothing the tick calls unless a function can be compiled
+  once per context (idea 2 of the summary).
 - **Intrinsics** for the hardware multipliers, the divider and DMA ([subset.md](subset.md),
   *Intrinsics*).
 - **Subset decision 3**, 16-bit pointers into RAM ([subset.md](subset.md)), built once it is
   taken. Decisions 1 and 2 are built (above); decision 4 is taken: `goto` stays rejected (ADR
   [ADR-6F3CJVHC](adr/6F3CJVHC-goto-and-labels-stay-rejected-and-a-forward-and.md)).
-- **Hand-written assembly with the code generator from MIR:** `--replace` works only with the
-  naive one, and a linked-in function has no way to declare its calling convention, direct page
-  use and cycles for the timing analysis. The design is decided
-  ([brainstorm summary](brainstorm/interrupts-and-asm_2026-11-24.md), part 2): `DAMPF_ASM("file.s")`
-  on the C function, named places as one convention for both code generators, cycles and safety
-  checks from dampf's own reading of the assembly, and the assembly checked against the C body;
-  being built. Once it is, more reference functions
-  ([reference/](../reference/README.md), Er-Tüp's `random16` and `sine` so far) can measure the
-  optimized code; candidates are the pair loop, Mandelbrot's iteration and Steinschlag's cave.
 - **The SNES facts out of the code generators** (DBR `$7E`, the frame addresses, long I/O
   addresses) into the target ([architecture.md](architecture.md#core-and-target)).
 - **`restrict`** or a no-alias hint of dampf's own. Open is how it is checked on the PC, and
@@ -176,6 +182,11 @@ concluded.
 - **Blubber Blasen on the kit's desktop and web builds.** Both switches were handed over to the
   game with M7 and M8. Its own desktop frontend and its own web build go when it has switched;
   the tools its frontend needed are in the kit's window since 0.9.
+- **More reference functions** ([reference/](../reference/README.md)), now that `DAMPF_ASM`
+  measures them against the optimized code: candidates are the pair loop, Mandelbrot's
+  iteration and Steinschlag's cave. Later, from the same brainstorm: `dampf eject`, which writes
+  a function's optimized code as the start of a `.s` file, and arguments in registers together
+  with M12's calling convention (row 7).
 - **Less memory for a compile.** Blubber Blasen took 1.8 GB. Moved out of M10 on 2026-11-24:
   dampf's own speed and memory are tuned once it is more or less feature complete.
 
