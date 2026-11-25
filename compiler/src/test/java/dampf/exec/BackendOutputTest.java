@@ -136,8 +136,8 @@ class BackendOutputTest {
         Path exec = Path.of(BackendOutputTest.class.getResource("/exec").toURI());
         try (Stream<Path> s = Files.list(exec)) {
             for (Path p : s.filter(p -> p.toString().endsWith(".c")).sorted().toList()) {
-                cases.add(new Case("exec_" + p.getFileName().toString().replace(".c", ""), List.of(p), List.of(), List.of(),
-                        "test_main", true));
+                cases.add(new Case("exec_" + p.getFileName().toString().replace(".c", ""), List.of(p),
+                        List.of(PcReference.KIT_INCLUDE), List.of(), "test_main", true));
             }
         }
         Path random = Files.createDirectories(OUT.resolve("random-sources"));

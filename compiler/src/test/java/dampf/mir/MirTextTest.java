@@ -27,7 +27,9 @@ class MirTextTest {
             programs = s.filter(p -> p.toString().endsWith(".c")).sorted().toList();
         }
         return programs.stream().map(src -> DynamicTest.dynamicTest(src.getFileName().toString(), () -> assertTimeoutPreemptively(java.time.Duration.ofMinutes(2), () -> {
-            Program p = Compiler.frontEnd(new Compiler.Options(List.of(src), List.of(), List.of(), "test_main", Path.of("x.sfc")));
+            // the kit's public headers, as ExecutionTest gives them (exec/published.c includes one)
+            Program p = Compiler.frontEnd(new Compiler.Options(List.of(src), List.of(Path.of("lib/include")), List.of(), "test_main",
+                    Path.of("x.sfc")));
             roundTrip(Lower.lower(p));
         }, "took too long: hangs?")));
     }

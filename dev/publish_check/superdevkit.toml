@@ -1,0 +1,6 @@
+# The data the tick publishes for interrupt code (lib/include/sdevkit/publish.h) on the kit's frame
+# rhythm, played by PublishedDataTest as ExamplesTest plays an example: the SNES with an IRQ and
+# the NMI that read the published copy, the desktop and the web without interrupts. Not an example.
+name = "publish_check"
+kit = "../.."
+sources = ["src"]

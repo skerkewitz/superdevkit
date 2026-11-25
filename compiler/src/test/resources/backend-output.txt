@@ -198,6 +198,11 @@ exec_pointers.layout.timing 0c19f6b19d0be64fc1bb7730
 exec_pointers.mir.s0 95e1ae9bd1cf33953fcc3bc5
 exec_pointers.mir.timing 5b79423f7c29d09c31514d33
 exec_pointers.naive.s0 079b88c2a54fea20e42660c4
+exec_published.layout.s0 421c91d76e75c565a5af2443
+exec_published.layout.timing 9a116419578d486617ef3f37
+exec_published.mir.s0 580ba438ad322e8208480e68
+exec_published.mir.timing b0eb2b4786e6fbe67b8cdb56
+exec_published.naive.s0 61f98d68a21ebc471e490541
 exec_regress_branch_phis.layout.s0 524336f5546a1dd7f3f9a8a4
 exec_regress_branch_phis.layout.timing 4ce4002f6781116b344340ed
 exec_regress_branch_phis.mir.s0 66d516353ca0f59adf3099b2

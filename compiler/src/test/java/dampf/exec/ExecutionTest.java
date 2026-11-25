@@ -22,7 +22,8 @@ import org.junit.jupiter.api.io.TempDir;
  * emulator is checked against a complete SNES emulator too. Each program's entry function is
  * {@code test_main}. Each program is built twice, with the naive code generator and with the one
  * from MIR; the emulator runs both. The MIR interpreter runs each program too, except those with an
- * interrupt handler ({@code exec/interrupts.c}).
+ * interrupt handler ({@code exec/interrupts.c}). Both sides find the kit's public headers
+ * ({@code lib/include}, for {@code exec/published.c}).
  */
 class ExecutionTest {
     @TempDir
@@ -43,7 +44,7 @@ class ExecutionTest {
         return programs.stream().map(src -> DynamicTest.dynamicTest(src.getFileName().toString(), () -> assertTimeoutPreemptively(java.time.Duration.ofMinutes(3), () -> {
             String name = src.getFileName().toString().replace(".c", "");
             Path work = Files.createDirectories(tmp.resolve(name));
-            Compiler.Result r = Compiler.compile(new Compiler.Options(List.of(src), List.of(), List.of(), "test_main",
+            Compiler.Result r = Compiler.compile(new Compiler.Options(List.of(src), List.of(PcReference.KIT_INCLUDE), List.of(), "test_main",
                     work.resolve(name + ".sfc")));
             List<Observed> globals = Observed.of(r.program());
             Map<String, Long> pc = PcReference.wrap(PcReference.run(src, "test_main", globals, work), globals);
@@ -58,13 +59,13 @@ class ExecutionTest {
             if (mesenRunner != null) {
                 assertEquals(pc, mesenRunner.run(r.rom(), globals), "globals after test_main() (PC vs SNES in Mesen)");
             }
-            Compiler.Result m = Compiler.compile(new Compiler.Options(List.of(src), List.of(), List.of(), "test_main",
+            Compiler.Result m = Compiler.compile(new Compiler.Options(List.of(src), List.of(PcReference.KIT_INCLUDE), List.of(), "test_main",
                     work.resolve(name + "_mir.sfc")).withBackend(Compiler.Backend.MIR));
             assertEquals(pc, emulator.run(m.rom(), globals).values(), "globals after test_main() (PC vs SNES, code generated from MIR)");
             Timing.check(m, emulator, src.getFileName().toString());
             // block counts only change the order of the blocks: an arbitrary profile (about a third
             // of the blocks "never ran") must give the same results
-            Compiler.Result l = Compiler.compile(new Compiler.Options(List.of(src), List.of(), List.of(), "test_main",
+            Compiler.Result l = Compiler.compile(new Compiler.Options(List.of(src), List.of(PcReference.KIT_INCLUDE), List.of(), "test_main",
                     work.resolve(name + "_layout.sfc")).withBackend(Compiler.Backend.MIR)
                     .withBlockCounts((function, block) -> (long) Math.floorMod((function + block).hashCode(), 3)));
             assertEquals(pc, emulator.run(l.rom(), globals).values(), "globals after test_main() (PC vs SNES, blocks laid out by a profile)");
