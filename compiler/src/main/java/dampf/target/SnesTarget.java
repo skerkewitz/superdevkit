@@ -88,8 +88,23 @@ public final class SnesTarget {
     public static final int STACK = 0x1E00;
     /** The most bytes the frames may take, from {@link #FRAME_START} up to the stack. */
     public static final int MAX_FRAME = STACK - FRAME_START;
+    /** The end of low RAM: bank 0's $0000-$1FFF, the same memory as the start of WRAM's first bank. */
+    public static final int LOW_RAM_END = 0x2000;
+    /** Where the variables start in their bank, after low RAM. */
+    public static final int VARIABLES_START = LOW_RAM_END;
+    /** Where they end: $FFFF stays free, so a pointer just past an object never wraps to the bank's start. */
+    public static final int VARIABLES_END = 0xFFFF;
     /** The bytes of a direct page. */
     static final int DIRECT_PAGE = 0x100;
+
+    /**
+     * Whether a 24-bit address reaches low RAM: $0000-$1FFF of WRAM's first bank, or of a bank
+     * that mirrors it ($00-$3F, $80-$BF).
+     */
+    public static boolean inLowRam(long address) {
+        long bank = address >> 16;
+        return (address & 0xFFFF) < LOW_RAM_END && (bank == FRAME_BANK || (bank & 0x40) == 0);
+    }
 
     /**
      * Whether {@code bytes} bytes of the frames from {@code offset} (counted from {@link

@@ -322,7 +322,7 @@ public final class Compiler {
         List<dampf.emu.AsmCheck.Global> globals = new java.util.ArrayList<>();
         for (dampf.ast.Variable v : program.globals()) {
             Long address = at.get(v.label());
-            if (!v.inRom() && address != null && address >= 0x2000 && address + v.type().size() <= 0x10000) {
+            if (!v.inRom() && address != null && address >= dampf.target.SnesTarget.VARIABLES_START && address + v.type().size() <= 0x10000) {
                 globals.add(new dampf.emu.AsmCheck.Global(v.name(), (int) (long) address, v.type().size(),
                         read.contains(v) && !AsmFunctions.holdsPointer(v.type())));
             }

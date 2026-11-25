@@ -499,23 +499,27 @@ public final class AsmFunction {
     private void fixedAddress(int line, long v, int size) throws CompileError {
         long low;
         if (size == 3) {
-            int bank = (int) (v >> 16);
-            boolean lowRam = bank == 0x7E || (bank & 0x40) == 0 && (v & 0xFFFF) < 0x2000;
-            if (!lowRam || (v & 0xFFFF) >= 0x2000) {
+            if (!SnesTarget.inLowRam(v)) {
                 return;
             }
             low = v & 0xFFFF;
         } else {
             low = v;
         }
-        if (low >= 0x20 && low < 0x1E00) {
-            throw error(line, "a fixed address in the frames ($0020-$1DFF): an assembly function uses its parameters ("
+        if (low >= SnesTarget.FRAME_START && low < SnesTarget.STACK) {
+            throw error(line, "a fixed address in the frames (" + range(SnesTarget.FRAME_START, SnesTarget.STACK)
+                    + "): an assembly function uses its parameters ("
                     + String.join(", ", spec.params().stream().map(Param::symbol).toList()) + ") and "
                     + spec.label() + LOCALS + "+n");
         }
-        if (low >= 0x1E00 && low < 0x2000) {
-            throw error(line, "a fixed address in the stack ($1E00-$1FFF)");
+        if (low >= SnesTarget.STACK && low < SnesTarget.LOW_RAM_END) {
+            throw error(line, "a fixed address in the stack (" + range(SnesTarget.STACK, SnesTarget.LOW_RAM_END) + ")");
         }
+    }
+
+    /** "$0020-$1DFF": the addresses from {@code start} up to {@code end}, without it. */
+    private static String range(int start, int end) {
+        return String.format("$%04X-$%04X", start, end - 1);
     }
 
     /** The expression with the file's equates put in (labels and imported names stay). */
