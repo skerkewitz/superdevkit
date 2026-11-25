@@ -11,6 +11,7 @@ name it can use starts with `sdevkit_` or `SDEVKIT_`
 | `include/sdevkit/snes.h` | The console API's core ([ADR-6FNPPCSX](../docs/adr/6FNPPCSX-the-console-api-is-the-hardware-at-once-with.md)): the hardware at once. Every PPU register (`sdevkit_reg_write`, `sdevkit_reg_write_twice`, `SDEVKIT_PPU_*`, and macros that build values: `SDEVKIT_BGSC`, `SDEVKIT_OBSEL`, `SDEVKIT_OAM_ATTR`, ...), copies by DMA into VRAM, CGRAM and OAM (`sdevkit_dma`, `sdevkit_vram_copy`, `sdevkit_oam_copy`, ...), HDMA (`sdevkit_hdma_*`), sound effects (`sdevkit_sfx_*`), music (`sdevkit_music_*`), save RAM (`sdevkit_sram`), and the debug calls (`sdevkit_dbg_*`). |
 | `include/sdevkit/loop.h` | The frame rhythm: the library's main loop calls `game_init`, then per frame `game_tick(pad)` while the picture is drawn and `game_vblank` in the vertical blank, which every game defines; the joypads' bits `SDEVKIT_KEY_*`. The kit writes nothing in the vertical blank itself. |
 | `include/sdevkit/shadow.h`, `sprites.h`, `queue.h`, `input.h`, `easy.h` | The optional layers above the core, each opt-in: the registers and HDMA channels in memory with their marks (`sdevkit_ppu`, `sdevkit_hdma`, `sdevkit_marks`, `sdevkit_shadow_commit`), a sprite list (`sdevkit_sprite`, `sdevkit_sprites_commit`), an upload queue with a budget the SNES and the PC decide the same (`sdevkit_queue_*`), the buttons pressed since the last tick (`sdevkit_input_update`), and all of them with one commit (`easy.h`, `sdevkit_commit`). |
+| `doxygen/` | The HTML reference of the public headers: `doxygen lib/doxygen/Doxyfile` from the repository's top folder writes `build/doxygen/html/index.html` (the `Doxyfile` and the main page, `mainpage.md`). |
 | `layers/` | The optional layers' logic, the same on both platforms (`layers.h`, included by `snes/layers.c` and `rachael/layers.c`), written against the core; each platform adds the queue's commit, and Rachael the check of the marks. |
 | `snes/` | The SNES: the core in C with registers as `volatile` pointers (`snes.c`, `hw.h`), the layers (`layers.c`) and the main loop (`main.c`), compiled by dampf with the game. See its [README](snes/README.md). |
 | `rachael/` | The desktop and the web: [Rachael](#rachael), the SNES rebuilt in portable C (`ppu.c`: memories, ports, registers and the core; `render.c`; `layers.c`). `rachael.h` is its interface to the frontends (`sdevkit__vblank`, `sdevkit__render`, ...), not for games. Taken over from Blubber Blasen's `src/snes`; new against the game's copy: 16 x 16 background tiles, the ports of VRAM, CGRAM and OAM, and row y of the picture is scanline y + 1 as on the SNES. |
@@ -96,7 +97,8 @@ long Voight-Kampff test gives her away; the name is [ADR-6F60Z3ZB](../docs/adr/6
 - The public headers are the API's documentation: a game is written from them alone, so they
   explain the hardware at the names that reach it (the picture, the frame, every register and its
   bits, the formats of tiles, maps, colours and sprites, timing), in Doxygen comments, one for
-  every function, type, variable, field and macro (`LibDocTest`).
+  every function, type, variable, field and macro (`LibDocTest`; where Doxygen is installed, it also
+  builds the HTML from them without a warning).
 
 `LibApiTest` checks that every function of `sdevkit/snes.h` and of the layers' headers is defined
 in `snes/` and in `rachael/` (or in `layers/`, which both include), and has its row here. `LibNamesTest` checks the names: every name of the public headers has the

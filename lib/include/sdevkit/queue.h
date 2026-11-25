@@ -104,7 +104,7 @@ uint8_t  sdevkit_queue_mode7_map(uint16_t e, const void *src, uint16_t bytes);
  */
 uint8_t  sdevkit_queue_mode7_tiles(uint16_t b, const void *src, uint16_t bytes);
 
-/** @brief How many bytes one more copy may have now (0: none fits). */
+/** @brief How many bytes one more copy may have now. @return the bytes; 0 when none fits */
 uint16_t sdevkit_queue_room(void);
 
 /**

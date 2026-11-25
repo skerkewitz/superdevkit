@@ -2,22 +2,26 @@ package dampf.lib;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.TimeUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * The public headers (lib/include/sdevkit) are the console API's documentation: a game is written
  * from them alone. So everything a game reaches has a Doxygen comment of its own: a header its
  * {@code @file} block, a function, a type or a variable a {@code /** ... *}{@code /} block right
  * before it, a struct's field and a macro a {@code /**<} comment on its line, or a macro the block
- * right before it or the {@code @{ ... @}} group it is in.
+ * right before it or the {@code @{ ... @}} group it is in. And Doxygen (lib/doxygen/Doxyfile)
+ * builds its HTML from them without a warning, where it is installed.
  */
 class LibDocTest {
     private static final Path PUBLIC = Path.of("lib/include/sdevkit");
@@ -97,6 +101,34 @@ class LibDocTest {
             }
         }
         assertEquals(List.of(), missing, "declarations of lib/include/sdevkit without a Doxygen comment of their own");
+    }
+
+    @TempDir
+    Path tmp;
+
+    @Test
+    void doxygenBuildsTheReferenceWithoutAWarning() throws Exception {
+        assumeTrue(runs("doxygen", "--version"), "no doxygen");
+        // the Doxyfile, its output into tmp; FAIL_ON_WARNINGS makes a warning the exit status
+        String config = Files.readString(Path.of("lib/doxygen/Doxyfile")) + "\nOUTPUT_DIRECTORY = " + tmp + "\n";
+        Process p = new ProcessBuilder("doxygen", "-").redirectErrorStream(true).start();
+        p.getOutputStream().write(config.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        p.getOutputStream().close();
+        String out = new String(p.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(p.waitFor(5, TimeUnit.MINUTES), "doxygen took too long");
+        assertEquals(0, p.exitValue(), out);
+        assertTrue(Files.isRegularFile(tmp.resolve("html/index.html")) && Files.isRegularFile(tmp.resolve("html/snes_8h.html")),
+                "no HTML in " + tmp);
+    }
+
+    private static boolean runs(String... cmd) {
+        try {
+            Process p = new ProcessBuilder(cmd).redirectErrorStream(true).start();
+            p.getInputStream().readAllBytes();
+            return p.waitFor(30, TimeUnit.SECONDS) && p.exitValue() == 0;
+        } catch (IOException | InterruptedException e) {
+            return false;
+        }
     }
 
     private static int count(String s, String what) {

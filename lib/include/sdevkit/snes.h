@@ -666,7 +666,7 @@ void sdevkit_music_stop(void);
  * --sram, which defines SDEVKIT_SRAM_SIZE; the desktop build gets the same define); without, the
  * size is 0 and sdevkit_sram() returns 0. The game reads and writes the block like memory,
  * whenever it likes; the kit keeps it: the cartridge's battery on the SNES (at $70:0000, the
- * header announces it), a file next to the program on the desktop (<game>.srm, written when it
+ * header announces it), a file next to the program on the desktop (`GAME.srm`, written when it
  * changed and on exit). The first time it holds zeros on the desktop and in the checks, on a
  * cartridge whatever the RAM held: a game marks its data as valid (a magic number, a checksum)
  * and clears the block when the mark is missing. A recording starts with the save RAM of its
@@ -685,7 +685,7 @@ void sdevkit_music_stop(void);
 #endif
 /** @} */
 
-/** @brief The save RAM, SDEVKIT_SRAM_SIZE bytes; 0 (a null pointer) without. */
+/** @brief The save RAM. @return SDEVKIT_SRAM_SIZE bytes; 0 (a null pointer) without save RAM */
 uint8_t *sdevkit_sram(void);
 
 /* --- Debug (sdevkit_dbg_*) --------------------------------------------------------------- */
@@ -694,6 +694,7 @@ uint8_t *sdevkit_sram(void);
  *
  * Only Rachael can read VRAM like memory; on the SNES it returns a single zero word, so a check
  * that uses it runs only on the desktop.
+ * @return VRAM's words on the desktop; one zero word on the SNES
  */
 const uint16_t *sdevkit_dbg_vram(void);
 

@@ -134,7 +134,8 @@ development with C++"), the web Emscripten's `emcc`.
 From the repository, also JDK 25 or newer. To develop the kit, also clang, ca65 and ld65 from cc65 2.19
 (`BackendOutputTest` builds the execution tests, 20 random programs and the examples with them
 as well and compares the ROMs) and Python 3; clang is the tests' reference on the PC and is used
-by `dev/subset_scan.py`. Mesen (MesenCE) is optional (the tests then also run there),
+by `dev/subset_scan.py`. Doxygen is optional (`doxygen lib/doxygen/Doxyfile` makes the console
+API's HTML reference, and `LibDocTest` then checks it has no warning). Mesen (MesenCE) is optional (the tests then also run there),
 Node.js only for the book and the browser tests (the BRR Lab's,
 [tools/lab_test](tools/lab_test/README.md), and the examples' on the web,
 [tools/web_check](tools/web_check/README.md), with Playwright; the web's also with Emscripten). Gradle comes with the wrapper. The book's
