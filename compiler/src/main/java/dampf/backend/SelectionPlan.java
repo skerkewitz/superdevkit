@@ -9,6 +9,7 @@ import dampf.mir.MFunction;
 import dampf.mir.MType;
 import dampf.mir.Ranges;
 import dampf.mir.Value;
+import dampf.target.SnesTarget;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -165,7 +166,7 @@ final class SelectionPlan {
         while (p instanceof Instr i && FrameLayout.transparent(i)) {
             p = i.op(0);
         }
-        return (p instanceof Value.Param || p instanceof Instr) && sel.place.containsKey(p) && Selection.FRAME_START + sel.place.get(p) + 3 < 0x100;
+        return (p instanceof Value.Param || p instanceof Instr) && sel.place.containsKey(p) && SnesTarget.inDirectPage(sel.place.get(p), 4);
     }
 
     /**

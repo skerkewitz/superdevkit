@@ -1,5 +1,6 @@
 package dampf.emu;
 
+import dampf.target.SnesTarget;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -144,9 +145,10 @@ public final class AsmCheck {
                         + "' computes: " + inputText(f, args, globals, memory, k) + ", the C body returns "
                         + number(c.result() & mask, f.resultSize()) + ", the assembly " + number(a.result() & mask, f.resultSize()));
             }
-            int b = java.util.Arrays.mismatch(c.ram(), 0x2000, 0x20000, a.ram(), 0x2000, 0x20000);
+            int from = SnesTarget.VARIABLES_START;
+            int b = java.util.Arrays.mismatch(c.ram(), from, 0x20000, a.ram(), from, 0x20000);
             if (b >= 0) {
-                b += 0x2000;
+                b += from;
                 throw new Failure(f.name(), "the assembly does not compute what the C body of '" + f.name()
                         + "' computes: " + inputText(f, args, globals, memory, k) + ", the C body leaves "
                         + where(b, globals) + " at $" + hex(c.ram()[b] & 0xFF, 2) + ", the assembly at $"
@@ -180,7 +182,7 @@ public final class AsmCheck {
         cpu.m = false;
         cpu.xf = false;
         cpu.dec = false;
-        cpu.dbr = 0x7E;
+        cpu.dbr = SnesTarget.DATA_BANK;
         cpu.d = 0;
         cpu.a = registers[0];
         cpu.x = registers[1];
@@ -197,9 +199,9 @@ public final class AsmCheck {
                     + " CPU cycles for " + argsText(f, args));
         }
         long took = cpu.cycles - cycles;
-        if (cpu.m || cpu.xf || cpu.dbr != 0x7E || cpu.d != 0) {
+        if (cpu.m || cpu.xf || cpu.dbr != SnesTarget.DATA_BANK || cpu.d != 0) {
             throw new Failure(f.name(), what + " of '" + f.name() + "' returned with another CPU state (16-bit A, X and Y, "
-                    + "DBR $7E, D 0) for " + argsText(f, args));
+                    + "DBR $" + hex(SnesTarget.DATA_BANK, 2) + ", D 0) for " + argsText(f, args));
         }
         long result = (cpu.a & 0xFFFF) | (long) (cpu.x & 0xFFFF) << 16;
         return new Outcome(result, wram.clone(), took);

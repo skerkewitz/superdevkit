@@ -3,6 +3,7 @@ package dampf.asm;
 import dampf.frontend.CompileError;
 import dampf.frontend.SourcePos;
 import dampf.target.Cycles65816;
+import dampf.target.SnesTarget;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -30,7 +31,7 @@ import java.util.regex.Pattern;
  * <li>calls ({@code JSR}, {@code JSL}), jumps out of the function's segment, indirect jumps, and
  *     any return but {@code RTL};</li>
  * <li>an {@code RTL} with another CPU state than at the entry: A, X and Y 16 bit, DBR and D as
- *     they were (DBR $7E, D 0), the interrupt flag as it was, decimal mode off, nothing left on
+ *     they were (DBR {@link SnesTarget#DATA_BANK}, D 0), the interrupt flag as it was, decimal mode off, nothing left on
  *     the stack;</li>
  * <li>a place of the frames other than its own: its parameters ({@code _<f>__<p>}) and its locals
  *     ({@code _<f>__locals+n}), each within its bytes; the runtime's scratch registers
@@ -400,7 +401,8 @@ public final class AsmFunction {
                     + "; dampf's code expects A, X and Y 16 bit (REP #$30)");
         }
         if (s.dbr() != ORIGINAL) {
-            throw error(line, "returns with another data bank; DBR must be $7E again (PHB ... PLB)");
+            throw error(line, "returns with another data bank; DBR must be $" + String.format("%02X", SnesTarget.DATA_BANK)
+                    + " again (PHB ... PLB)");
         }
         if (s.d() != ORIGINAL) {
             throw error(line, "returns with another direct page; D must be 0 again (PHD ... PLD)");
@@ -497,23 +499,27 @@ public final class AsmFunction {
     private void fixedAddress(int line, long v, int size) throws CompileError {
         long low;
         if (size == 3) {
-            int bank = (int) (v >> 16);
-            boolean lowRam = bank == 0x7E || (bank & 0x40) == 0 && (v & 0xFFFF) < 0x2000;
-            if (!lowRam || (v & 0xFFFF) >= 0x2000) {
+            if (!SnesTarget.inLowRam(v)) {
                 return;
             }
             low = v & 0xFFFF;
         } else {
             low = v;
         }
-        if (low >= 0x20 && low < 0x1E00) {
-            throw error(line, "a fixed address in the frames ($0020-$1DFF): an assembly function uses its parameters ("
+        if (low >= SnesTarget.FRAME_START && low < SnesTarget.STACK) {
+            throw error(line, "a fixed address in the frames (" + range(SnesTarget.FRAME_START, SnesTarget.STACK)
+                    + "): an assembly function uses its parameters ("
                     + String.join(", ", spec.params().stream().map(Param::symbol).toList()) + ") and "
                     + spec.label() + LOCALS + "+n");
         }
-        if (low >= 0x1E00 && low < 0x2000) {
-            throw error(line, "a fixed address in the stack ($1E00-$1FFF)");
+        if (low >= SnesTarget.STACK && low < SnesTarget.LOW_RAM_END) {
+            throw error(line, "a fixed address in the stack (" + range(SnesTarget.STACK, SnesTarget.LOW_RAM_END) + ")");
         }
+    }
+
+    /** "$0020-$1DFF": the addresses from {@code start} up to {@code end}, without it. */
+    private static String range(int start, int end) {
+        return String.format("$%04X-$%04X", start, end - 1);
     }
 
     /** The expression with the file's equates put in (labels and imported names stay). */
