@@ -717,16 +717,21 @@ public final class NaiveCodeGen {
     /** Sets up X or Y for an access; returns the operand for the word at {@code extra}. */
     private String operand(Place p, long extra) {
         return switch (p) {
-            case Place.Fixed f -> (f.rom() ? "f:" : "") + f.symbol() + offset(f.offset() + extra);
+            case Place.Fixed f -> prefix(f.rom()) + f.symbol() + offset(f.offset() + extra);
             case Place.Indexed i -> {
                 out.ins("ldx", i.index(), null);
-                yield (i.rom() ? "f:" : "") + i.symbol() + offset(i.offset() + extra) + ",x";
+                yield prefix(i.rom()) + i.symbol() + offset(i.offset() + extra) + ",x";
             }
             case Place.Pointed q -> {
                 out.ins("ldy", imm(extra), null); // the offset is already in the pointer (preparePointer)
                 yield VIA_P;
             }
         };
+    }
+
+    /** The operand's prefix for a variable or ROM data: "f:" where the target reaches it long. */
+    private static String prefix(boolean rom) {
+        return (rom ? SnesTarget.romData() : SnesTarget.variable()) == SnesTarget.Reach.LONG ? "f:" : "";
     }
 
     /**

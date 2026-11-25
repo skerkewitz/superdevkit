@@ -28,6 +28,56 @@ public final class SnesTarget {
      */
     public static final int FRAME_BANK = 0x7E;
 
+    /** How the code reaches memory at a fixed address. */
+    public enum Reach {
+        /** With a 16-bit address, through the data bank ({@code lda abs}, {@code lda abs,x}). */
+        DATA_BANK,
+        /** With a 24-bit long address ({@code lda f:long}, {@code lda f:long,x}). */
+        LONG
+    }
+
+    /** A variable: through the data bank while the variables are in it, else long. */
+    public static Reach variable() {
+        return VARIABLE_BANK == DATA_BANK ? Reach.DATA_BANK : Reach.LONG;
+    }
+
+    /** Constant data in ROM: long, since the data bank is RAM. */
+    public static Reach romData() {
+        return Reach.LONG;
+    }
+
+    /**
+     * An address given as a number, a pointer made from a constant: an I/O register in bank 0, or
+     * save RAM. Long, since the data bank is RAM and an absolute $210B would reach $7E:210B.
+     */
+    public static Reach number() {
+        return Reach.LONG;
+    }
+
+    /**
+     * The CPU's 8 x 8 bit multiplier, in bank 0: the factors (writing WRMPYB starts it) and the
+     * 16-bit product, there 8 CPU cycles after the write. The runtime's routines name the same
+     * addresses (runtime.s).
+     */
+    public static final int WRMPYA = 0x004202;
+    public static final int WRMPYB = 0x004203;
+    public static final int RDMPY = 0x004216;
+
+    /**
+     * Whether a 24-bit address is a register of the PPU, the sound or the CPU that holds no memory
+     * and starts no DMA when written: $2100-$217F, $4200-$420A, $420D and $4300-$437F, in the
+     * banks that have them. The WRAM port ($2180) and MDMAEN and HDMAEN ($420B, $420C) are not:
+     * they write memory.
+     */
+    public static boolean isPlainRegister(long address) {
+        long bank = (address >> 16) & 0xFF, a = address & 0xFFFF;
+        return (bank < 0x40 || bank >= 0x80 && bank < 0xC0)
+                && (a >= 0x2100 && a <= 0x217F || a >= 0x4200 && a <= 0x420A || a == 0x420D || a >= 0x4300 && a <= 0x437F);
+    }
+
+    /** Where code and constant data start in each ROM bank (LoROM: $8000-$FFFF; dampf.snes.RomBuilder). */
+    public static final int ROM_START = 0x8000;
+
     /**
      * Where the frames start: after the runtime's scratch registers ({@code dampf_regs},
      * {@code dampf_ptr}, $0000-$001F) in the main code's direct page, and at the same byte of

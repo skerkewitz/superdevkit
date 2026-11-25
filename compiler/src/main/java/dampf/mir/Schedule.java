@@ -1,5 +1,6 @@
 package dampf.mir;
 
+import dampf.target.SnesTarget;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -155,17 +156,14 @@ public final class Schedule {
     }
 
     /**
-     * A register of the PPU, the sound or the CPU: no memory, and a write to it starts no DMA
-     * ($2100-$217F, $4200-$420A, $420D, $4300-$437F in the banks that have them). The WRAM port
-     * ($2180) and MDMAEN and HDMAEN ($420B, $420C) are left out: they write memory.
+     * A pointer made from a constant that is a register of the PPU, the sound or the CPU: no
+     * memory, and a write to it starts no DMA ({@link SnesTarget#isPlainRegister}).
      */
     static boolean isRegister(Value address) {
         if (!(address instanceof Instr.Cast c) || c.kind != Instr.CastKind.INTTOPTR || !(c.op(0) instanceof Value.Const k)) {
             return false;
         }
-        long bank = (k.bits() >> 16) & 0xFF, a = k.bits() & 0xFFFF;
-        return (bank < 0x40 || bank >= 0x80 && bank < 0xC0)
-                && (a >= 0x2100 && a <= 0x217F || a >= 0x4200 && a <= 0x420A || a == 0x420D || a >= 0x4300 && a <= 0x437F);
+        return SnesTarget.isPlainRegister(k.bits());
     }
 
     /** A global and a constant offset into it: an address known without running the code. */

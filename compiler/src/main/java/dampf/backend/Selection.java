@@ -205,15 +205,24 @@ final class Selection {
     /** A memory operand for byte {@code k} of the object at a fixed address, or null if the address is not fixed. */
     LOperand.Mem fixed(Value address, int k) {
         return switch (address) {
-            case Value.GlobalAddr g -> new LOperand.Mem(rom.contains(g.symbol()) ? LOperand.Width.LONG : LOperand.Width.NONE,
+            case Value.GlobalAddr g -> new LOperand.Mem(width(rom.contains(g.symbol()) ? SnesTarget.romData() : SnesTarget.variable()),
                     g.symbol(), k, LOperand.Index.NONE, false);
             case Value.SlotAddr s -> at(place.get(s.slot()) + k).owned(new LOperand.Owner(s.slot(), false, k));
-            // a number made into a pointer (a hardware register): long addressing, since the data
-            // bank is $7E and an absolute $210B would reach WRAM
-            case Value.Const c -> new LOperand.Mem(LOperand.Width.LONG, String.format("$%06X", (c.bits() + k) & 0xFFFFFF), 0,
-                    LOperand.Index.NONE, false);
+            // a number made into a pointer (a hardware register): as the target reaches numbers
+            case Value.Const c -> number(c.bits() + k);
             default -> null;
         };
+    }
+
+    /** The operand width for memory the target reaches so: long, or left to the assembler (absolute). */
+    static LOperand.Width width(SnesTarget.Reach reach) {
+        return reach == SnesTarget.Reach.LONG ? LOperand.Width.LONG : LOperand.Width.NONE;
+    }
+
+    /** The operand for an address given as a number (a hardware register), {@link SnesTarget#number}. */
+    static LOperand.Mem number(long address) {
+        return new LOperand.Mem(width(SnesTarget.number()), String.format("$%06X", address & 0xFFFFFF), 0,
+                LOperand.Index.NONE, false);
     }
 
     /** Copies a pointer into the direct page for [dp],y. */
