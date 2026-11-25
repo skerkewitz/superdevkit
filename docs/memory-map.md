@@ -7,6 +7,10 @@ every pointer to `dampf_ptr` before reading through it, and it reaches I/O regis
 `dampf_ptr`. D pointing at the current object (optimization D) or DBR switched locally (J) would
 change the layout; neither is built.
 
+The compiler takes these addresses and banks from one place, `dampf.target.SnesTarget`, and the
+interrupt contexts' pages from `dampf.target.ContextAreas` (ADR-6FPTPCDM); the runtime has its
+own copies, which a test compares with them.
+
 ## RAM: everything in bank $7E, DBR = $7E
 
 The data bank register (DBR) is set to `$7E` at start-up and never changes. All variables live in

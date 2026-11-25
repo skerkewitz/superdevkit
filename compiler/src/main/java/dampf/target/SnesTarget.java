@@ -1,16 +1,21 @@
 package dampf.target;
 
 /**
- * The SNES facts the code generators and the checks of the compiler ask about: where the frames,
- * the direct page and the stack lie in low RAM (docs/memory-map.md). The code generators are
- * plain 65816 and ask here instead of knowing; the interrupt contexts' pages are {@link
- * ContextAreas}, the cycles {@link Cycles65816}, the ROM's layout {@code dampf.snes.RomBuilder}.
+ * The SNES facts the code generators and the checks of the compiler ask about (docs/memory-map.md):
+ * the banks of RAM and how a fixed address is reached, where the frames, the direct page, the stack
+ * and the variables lie, the I/O registers and the multiplier. The code generators are plain 65816
+ * and ask here instead of knowing. The rest of the target: the interrupt contexts' pages in {@link
+ * ContextAreas}, the cycles in {@link Cycles65816}, the ROM's layout in {@code dampf.snes.RomBuilder}
+ * and {@code dampf.asm.Linker}, the start-up and the arithmetic routines in the runtime
+ * ({@code dampf/snes/runtime.s}, checked against this class by SnesTargetTest).
  *
- * <p>The answers are numbers and booleans: the target knows nothing of the compiler's own types,
- * so the compiler depends on it and not the other way round.
+ * <p>The answers are numbers, booleans and {@link Reach}: the target knows nothing of the
+ * compiler's own types, so the compiler depends on it and not the other way round (ADR-6FPTPCDM).
  */
 public final class SnesTarget {
     private SnesTarget() {}
+
+    // ------------------------------------------------------------------ RAM banks, and how a fixed address is reached
 
     /**
      * The data bank: the runtime sets DBR to it at start-up, and it never changes (ADR-6F0R69B6).
@@ -54,6 +59,8 @@ public final class SnesTarget {
         return Reach.LONG;
     }
 
+    // ------------------------------------------------------------------ I/O registers and ROM
+
     /**
      * The CPU's 8 x 8 bit multiplier, in bank 0: the factors (writing WRMPYB starts it) and the
      * 16-bit product, there 8 CPU cycles after the write. The runtime's routines name the same
@@ -77,6 +84,8 @@ public final class SnesTarget {
 
     /** Where code and constant data start in each ROM bank (LoROM: $8000-$FFFF; dampf.snes.RomBuilder). */
     public static final int ROM_START = 0x8000;
+
+    // ------------------------------------------------------------------ low RAM and the variables
 
     /**
      * Where the frames start: after the runtime's scratch registers ({@code dampf_regs},

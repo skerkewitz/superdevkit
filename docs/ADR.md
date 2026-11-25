@@ -97,6 +97,7 @@ document of its subject.
 | ADR-6FMHDB6H | [The console API is the hardware's state in memory, which the kit commits in the vertical blank](adr/6FMHDB6H-the-console-api-is-the-hardware-s-state-in-memory.md) | Superseded; superseded by ADR-6FNPPCSX | 2026-11-25 |
 | ADR-6FNPPCSX | [The console API is the hardware at once, with optional layers above it](adr/6FNPPCSX-the-console-api-is-the-hardware-at-once-with.md) | Accepted | 2026-11-25 |
 | ADR-6FNWEJAA | [dampf leaves out the functions a program cannot reach](adr/6FNWEJAA-dampf-leaves-out-the-functions-a-program-cannot.md) | Accepted | 2026-11-25 |
+| ADR-6FPTPCDM | [The SNES facts the compiler asks about live in dampf.target, which knows none of its types](adr/6FPTPCDM-the-snes-facts-the-compiler-asks-about-live-in.md) | Accepted | 2026-11-25 |
 
 ## Former numbers
 
