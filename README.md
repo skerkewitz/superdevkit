@@ -14,7 +14,7 @@ Linux and Windows and as a page in the browser. The kit holds:
 - the **`superdevkit` command**, which builds a game for every target and converts its pictures
   (`superdevkit png`) and sound effects (`superdevkit sfx`);
 - the **tools** ([tools](tools/README.md)): the editor of a game's sound effects (BRR Lab,
-  [docs/sound.md](docs/sound.md)) and the rename script;
+  [docs/sound.md](docs/sound.md));
 - **examples** ([examples](examples/)): games and programs, from `hello` to the shooter
   Er-Tüp, which are also the kit's test cases and its benchmark; from version 0.9.1, all seven
   can be [played in the browser](https://skerkewitz.github.io/superdevkit/example/);
@@ -130,7 +130,7 @@ working documents it is written from.
 To use the kit from a [release zip](https://github.com/skerkewitz/superdevkit/releases) (from
 version 0.9.1, for Linux and Windows on x64): nothing for the SNES, since the zip brings its own
 Java and raylib. The desktop needs a C compiler (on Windows, Visual Studio with "Desktop
-development with C++"), the web Emscripten's `emcc`, and the rename script in `tools/` Python 3.
+development with C++"), the web Emscripten's `emcc`.
 From the repository, also JDK 25 or newer. To develop the kit, also clang, ca65 and ld65 from cc65 2.19
 (`BackendOutputTest` builds the execution tests, 20 random programs and the examples with them
 as well and compares the ROMs) and Python 3; clang is the tests' reference on the PC and is used
@@ -257,7 +257,7 @@ compiler/      dampf, the compiler, with its emulator and the tests of the whole
 cli/           the superdevkit command: init, build, run, and the converters png and sfx (Gradle subproject)
 lib/           the dev kit's library: the console API (include/), the SNES (snes/), Rachael, the
                desktop; see its README.md
-tools/         tools for game developers: brr_lab.html, sdevkit_rename.py (the converters are in cli/)
+tools/         tools for game developers: brr_lab.html, web_check (the converters are in cli/)
 examples/      the dev kit's examples: test cases and the benchmark (each has its README.md)
 reference/     hand-written assembly of the examples' functions, the yardstick for dampf's code
 dev/           scripts for developing the kit: benchmark, checks in Mesen, art
@@ -289,7 +289,6 @@ main/resources/dampf/include/  dampf's own <stdint.h>, <string.h> and <dampf.h>
 main/resources/dampf/snes/     SNES runtime (start-up, header, vectors)
 test/java/dampf/               unit, execution, random, example and emulator tests; book source checks
 test/resources/exec/           execution test programs
-test/python/                   the tests of tools/ (ToolsTest runs them)
 ```
 
 ## Trademarks

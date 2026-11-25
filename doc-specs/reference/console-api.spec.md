@@ -19,7 +19,6 @@ sources:
   - docs/sound.md
   - cli/src/main/java/superdevkit/project/Project.java
   - cli/src/main/java/superdevkit/project/Build.java
-  - tools/sdevkit_rename.py
   - compiler/src/test/java/dampf/lib/LibApiTest.java
   - compiler/src/test/java/dampf/lib/LibCostTest.java
   - compiler/src/test/java/dampf/lib/LibNamesTest.java
@@ -74,9 +73,6 @@ can differ a little, since dampf compiles the whole program at once.
     and what data `sdevkit_dbg_hash` may be given; then the registrations of the debug view
     (`sdevkit_dbg_toggle`, `_range`, `_color`, `_action`) and `sdevkit_dbg_box`, which are empty on
     the SNES.
-12. **The old names** – `tools/sdevkit_rename.py`, which converts a game from the old names
-   (PVSnesLib's, `KEY_*`, `u8`...) to the `sdevkit_` ones; the kit has no header for the old
-   names any more.
 
 In sections 2 to 11, each function is an entry of its own (H3 with its name): its declaration as
 in the header, what it does in one to three sentences, its parameters where the header's names

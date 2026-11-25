@@ -58,6 +58,6 @@ the queue's budget is 3,072 bytes a frame (lib/README.md, "The commit's time"). 
 the game migrate; most of the game's calls keep their form (`game_vblank`, `sdevkit_reg_write`,
 `sdevkit_hdma_set`, `sdevkit_dma_fits`), the copies change their argument order to
 destination first. Supersedes ADR-6FMHDB6H; amends ADR-6F3CK2AR (the PVSnesLib form is gone, and
-`tools/sdevkit_rename.py` converts into names that are gone), ADR-6F0R6NS5 and ADR-6F3CJX8T (the
+`tools/sdevkit_rename.py`, which converted into these names, is deleted), ADR-6F0R6NS5 and ADR-6F3CJX8T (the
 main loop copies no sprite table). The NMI step of the interrupt design runs `game_vblank` again,
 as planned before ADR-6FMHDB6H.
