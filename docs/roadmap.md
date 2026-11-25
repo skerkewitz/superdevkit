@@ -107,8 +107,6 @@ Left:
   once per context (idea 2 of the summary).
 - **The SNES facts out of the code generators** (DBR `$7E`, the frame addresses, long I/O
   addresses) into the target ([architecture.md](architecture.md#core-and-target)).
-- **`restrict`** or a no-alias hint of dampf's own. Open is how it is checked on the PC, and
-  which of the two is clearer ([hints.md](hints.md#open-questions)).
 
 ## M11: timing and debugging (0.11.0)
 

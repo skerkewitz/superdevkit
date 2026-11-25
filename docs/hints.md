@@ -11,7 +11,7 @@ does not say. This is the agreed design; where the hints fit into the milestones
 | `DAMPF_ASM` | yes (see "As built") |
 | `DAMPF_TRIPS` | no, postponed (see "As built") |
 | `DAMPF_AT_MOST` | no, to be looked into ([roadmap.md](roadmap.md), M11) |
-| `restrict` | no, rejected by the front end ("not supported yet") |
+| `restrict` | no, rejected by the front end: measured on 2026-11-25 to gain nothing ([optimizations.md](optimizations.md#tried-and-rejected)) |
 | `DAMPF_LIKELY` / `DAMPF_UNLIKELY`, unroll hint, `DAMPF_PIN_X`, `DAMPF_SPLIT`, `DAMPF_TABLE`, `DAMPF_DP` | no |
 | subrange types (`DAMPF_RANGED`, `DAMPF_AS`) | no ([subrange-types.md](subrange-types.md)) |
 
@@ -87,11 +87,6 @@ do damage on the SNES.
    assembly benchmarks ([optimizations.md](optimizations.md)) are the loop that keeps teaching it.
 2. **Too many hints make code unreadable.** Hints belong only where measurement shows the code is
    hot. Most of the code should carry none.
-
-## Open questions
-
-- How `restrict` is checked on the PC in practice, and whether a dampf-specific no-alias hint is
-  clearer than `restrict`.
 
 ## As built
 

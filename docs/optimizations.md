@@ -122,6 +122,10 @@ allowed (the platform layer uses them); this form does not need the rule against
 
 ## Tried and rejected
 
+- `restrict`, or a no-alias hint (2026-11-25): with every pointer treated as `restrict`, the most
+  any such hint could promise, the examples' work per tick changed by 0.01 % at most, Steinschlag
+  got slower; pointer compression and inlining already know where the pointers point
+  ([log](optimizations-log.md#every-pointer-as-restrict-the-ceiling-2026-11-25-on-the-examples)).
 - Counting down to zero: exact, faster on the title, slower in play and over the whole benchmark,
   because copying the bound in at every loop entry costs more than the comparisons it saves in
   the game's short loops ([log](optimizations-log.md#counting-down-tried-2026-11-17)).
