@@ -71,6 +71,11 @@ moves to the history with that release):
   timer IRQs in dampf's emulator
   ([ADR-6FM9TXV4](adr/6FM9TXV4-interrupt-handlers-run-in-contexts-of-their-own.md), 2026-11-24).
   Not for games yet: an assembly function in interrupt code is rejected.
+- **The SNES facts out of the code generators**: the banks of RAM, where frames, the direct page,
+  the stack and the variables lie, how an I/O register is reached and the multiplier's
+  registers are answered by `dampf.target.SnesTarget`, which both code generators ask; the
+  generated code is byte for byte the same
+  ([ADR-6FPTPCDM](adr/6FPTPCDM-the-snes-facts-the-compiler-asks-about-live-in.md), 2026-11-25).
 - **A constant on an index into the operand**: `a[i + 1]` of a global is `sta a+1,x`, the sum
   never computed (2026-11-25); the examples' work 0.7 % lower, every one's code smaller
   ([log](optimizations-log.md#a-constant-on-an-index-into-the-operand-2026-11-25-on-the-examples)).
@@ -105,8 +110,6 @@ Left:
   usable by games; then the NMI running `game_vblank` and the frame's work, where `game_vblank`
   joins the NMI context and may call nothing the tick calls unless a function can be compiled
   once per context (idea 2 of the summary).
-- **The SNES facts out of the code generators** (DBR `$7E`, the frame addresses, long I/O
-  addresses) into the target ([architecture.md](architecture.md#core-and-target)).
 
 ## M11: timing and debugging (0.11.0)
 
@@ -176,7 +179,11 @@ Also in M12:
   intrinsics planned in M10 (dropped on 2026-11-24): the multiplier is used for every product
   since M9, a division by a constant is a multiplication, DMA and the wait for the vertical
   blank are console API calls, and dampf places constant data in its banks itself;
-- bank `$7F` for variables ([memory-map.md](memory-map.md));
+- bank `$7F` for variables ([memory-map.md](memory-map.md)): a pointer's bank and how a
+  variable is reached are each answered in one place since the target module (ADR-6FPTPCDM); left
+  are a bank per variable, a RAM area in `$7F` for the linker, the runtime's start-up copy, the
+  instructions that have no long form, and the check of assembly functions, which uses `$7F` as
+  scratch memory;
 - subset decision 3, 16-bit pointers into RAM ([subset.md](subset.md); moved from M10 on
   2026-11-24): a pointer stored in a struct field, a global or an array takes 4 bytes today, and
   a pointer that provably points only into bank `$7E` could take 2, with cheaper loads and
