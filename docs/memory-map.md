@@ -54,6 +54,12 @@ The main code's frames must end below the lowest page: with two small handlers t
 with one, `$0020-$1CFF`. The naive code generator keeps the frames of C functions static from
 `$2000`, so its contexts take one page each. A program without handlers keeps the whole area.
 
+Interrupt code reads the game's data only through the copy the tick publishes
+(`sdevkit/publish.h`, ADR-6FPV1EQV, not for games yet). It is an ordinary global among the
+variables from `$2000`, as large as the game's struct, beside the struct itself and one byte,
+`sdevkit_publishing`, which says which of the two interrupt code reads; the kit reserves nothing
+for a game that does not publish.
+
 The linker sees RAM addresses without the bank (`$2000`, not `$7E2000`), so 16-bit address fixups
 fit. Code that needs a full 24-bit RAM address (a pointer) adds the bank itself.
 

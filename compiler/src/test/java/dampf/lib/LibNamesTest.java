@@ -29,6 +29,8 @@ class LibNamesTest {
     private static final Set<String> GAME_CALLBACKS = Set.of("game_init", "game_tick", "game_vblank");
 
     private static final Pattern DEFINE = Pattern.compile("(?m)^\\s*#\\s*define\\s+(\\w+)");
+    /** A preprocessor line with the lines a backslash continues it on. */
+    private static final String DIRECTIVE = "(?m)^\\s*#(?:[^\\n]*\\\\\\n)*[^\\n]*$";
     /** A function declaration at file scope: the name before the parameter list. */
     private static final Pattern FUNCTION = Pattern.compile("\\b(\\w+)\\s*\\([^(){};]*\\)\\s*;");
     private static final Pattern EXTERN = Pattern.compile("\\bextern\\b[^;(]*?\\b(\\w+)\\s*(?:\\[[^\\]]*\\])*\\s*;");
@@ -53,15 +55,18 @@ class LibNamesTest {
         Set<String> names = new TreeSet<>();
         for (Path h : files(PUBLIC, ".h")) {
             String c = withoutComments(Files.readString(h));
-            for (Pattern p : List.of(DEFINE, EXTERN, TYPEDEF)) {
-                Matcher m = p.matcher(c);
+            Matcher d = DEFINE.matcher(c);
+            while (d.find()) {
+                names.add(d.group(1));
+            }
+            // a macro's body declares nothing at file scope: its names are its parameters'
+            // (sdevkit/publish.h's macros define the game's variables)
+            String code = c.replaceAll(DIRECTIVE, " ");
+            for (Pattern p : List.of(EXTERN, TYPEDEF, FUNCTION)) {
+                Matcher m = p.matcher(code);
                 while (m.find()) {
                     names.add(m.group(1));
                 }
-            }
-            Matcher m = FUNCTION.matcher(c.replaceAll("(?m)^\\s*#.*$", " "));
-            while (m.find()) {
-                names.add(m.group(1));
             }
         }
         return names;

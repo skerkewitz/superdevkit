@@ -11,6 +11,7 @@ name it can use starts with `sdevkit_` or `SDEVKIT_`
 | `include/sdevkit/snes.h` | The console API's core ([ADR-6FNPPCSX](../docs/adr/6FNPPCSX-the-console-api-is-the-hardware-at-once-with.md)): the hardware at once. Every PPU register (`sdevkit_reg_write`, `sdevkit_reg_write_twice`, `SDEVKIT_PPU_*`, and macros that build values: `SDEVKIT_BGSC`, `SDEVKIT_OBSEL`, `SDEVKIT_OAM_ATTR`, ...), copies by DMA into VRAM, CGRAM and OAM (`sdevkit_dma`, `sdevkit_vram_copy`, `sdevkit_oam_copy`, ...), HDMA (`sdevkit_hdma_*`), sound effects (`sdevkit_sfx_*`), music (`sdevkit_music_*`), save RAM (`sdevkit_sram`), and the debug calls (`sdevkit_dbg_*`). |
 | `include/sdevkit/loop.h` | The frame rhythm: the library's main loop calls `game_init`, then per frame `game_tick(pad)` while the picture is drawn and `game_vblank` in the vertical blank, which every game defines; the joypads' bits `SDEVKIT_KEY_*`. The kit writes nothing in the vertical blank itself. |
 | `include/sdevkit/shadow.h`, `sprites.h`, `queue.h`, `input.h`, `easy.h` | The optional layers above the core, each opt-in: the registers and HDMA channels in memory with their marks (`sdevkit_ppu`, `sdevkit_hdma`, `sdevkit_marks`, `sdevkit_shadow_commit`), a sprite list (`sdevkit_sprite`, `sdevkit_sprites_commit`), an upload queue with a budget the SNES and the PC decide the same (`sdevkit_queue_*`), the buttons pressed since the last tick (`sdevkit_input_update`), and all of them with one commit (`easy.h`, `sdevkit_commit`). |
+| `include/sdevkit/publish.h` | Not for games yet: the data the tick publishes for interrupt code ([ADR-6FPV1EQV](../docs/adr/6FPV1EQV-interrupt-code-reads-a-copy-of-the-tick-s-data.md)). `SDEVKIT_PUBLISH(type, name, tick)` defines the game's struct, its published copy and `game_tick`, which runs the game's tick and then copies the struct; `SDEVKIT_PUBLISHED(name)` gives interrupt code one tick's data, complete. Macros only, the same C on every platform ([below](#the-published-datas-cost)). |
 | `doxygen/` | The HTML reference of the public headers: `doxygen lib/doxygen/Doxyfile` from the repository's top folder writes `build/doxygen/html/index.html` (the `Doxyfile` and the main page, `mainpage.md`). |
 | `layers/` | The optional layers' logic, the same on both platforms (`layers.h`, included by `snes/layers.c` and `rachael/layers.c`), written against the core; each platform adds the queue's commit, and Rachael the check of the marks. |
 | `snes/` | The SNES: the core in C with registers as `volatile` pointers (`snes.c`, `hw.h`), the layers (`layers.c`) and the main loop (`main.c`), compiled by dampf with the game. See its [README](snes/README.md). |
@@ -190,3 +191,20 @@ with one copy of all its bytes, in turn; the sprite list full, then empty, in tu
 in Mesen. On 2026-11-25 no byte reached VRAM or OAM outside the vertical blank, the last DMA
 started on line 256, and the commit's last write (INIDISP) was on line 259 of the vertical blank's
 225 to 261. Run it again when the layers' code or dampf's code for it changes.
+
+## The published data's cost
+
+A game that publishes data for interrupt code (`sdevkit/publish.h`) pays for it after every tick:
+two writes of the flag `sdevkit_publishing` and the copy of its struct, a loop of 21 cycles per
+two bytes through dampf's struct copy. In CPU cycles on the SNES, from the timing report of a tick
+that changes one word (2026-11-25):
+
+| Struct | Cycles after the tick |
+| --- | ---: |
+| 32 bytes | 389 |
+| 128 bytes | 1,397 |
+| 512 bytes | 5,429 |
+
+About 55 cycles and 10.5 a byte; a frame has about 50,000. The RAM is one more copy of the
+struct and the flag's byte. Interrupt code reads the data through a pointer (`[dp],y`, a cycle or
+two more per access than a global). A game that does not include the header pays nothing.

@@ -457,6 +457,18 @@ class ProjectTest {
         symbolCheck(List.of("cc"));
     }
 
+    /**
+     * What the symbol check allows is what the public headers declare: a variable declared extern
+     * (sdevkit_publishing), not the parameters of a macro's body (sdevkit/publish.h's
+     * SDEVKIT_PUBLISH declares `tick` and `name` there).
+     */
+    @Test
+    void theSymbolCheckTakesTheHeadersDeclarationsNotAMacrosBody() throws Exception {
+        java.util.Set<String> api = Symbols.api(Path.of("lib/include/sdevkit"));
+        assertTrue(api.containsAll(List.of("sdevkit_reg_write", "sdevkit_publishing", "game_tick")), api.toString());
+        assertTrue(!api.contains("tick") && !api.contains("name") && !api.contains("type"), api.toString());
+    }
+
     /** The same for WebAssembly objects, of emcc (the target web); skipped without Emscripten. */
     @Test
     void theSymbolCheckReadsWebAssemblyObjects() throws Exception {

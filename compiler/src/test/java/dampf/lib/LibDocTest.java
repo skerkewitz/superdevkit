@@ -46,9 +46,14 @@ class LibDocTest {
             int groups = 0;
             boolean inStruct = false;
             String guard = "SDEVKIT_" + name.replace(".h", "").toUpperCase() + "_H";
+            boolean inMacro = false;
             for (int i = 0; i < lines.size(); i++) {
                 String line = lines.get(i);
                 String t = line.strip();
+                if (inMacro) {   // a macro's body, documented with the macro
+                    inMacro = t.endsWith("\\");
+                    continue;
+                }
                 if (inComment) {
                     groups += count(t, "@{") - count(t, "@}");
                     if (t.contains("*/")) {
@@ -78,7 +83,8 @@ class LibDocTest {
                             && !(i + 1 < lines.size() && lines.get(i + 1).contains("/**<"))) {
                         missing.add(where);
                     }
-                    docJustEnded = t.endsWith("\\") && docJustEnded;
+                    inMacro = t.endsWith("\\");
+                    docJustEnded = false;
                     continue;
                 }
                 if (inStruct) {

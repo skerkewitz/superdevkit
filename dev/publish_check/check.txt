@@ -1,0 +1,4 @@
+ticks 600
+press 100 160 right
+press 200 230 a
+press 300 420 left b

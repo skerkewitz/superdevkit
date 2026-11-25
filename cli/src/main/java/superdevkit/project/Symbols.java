@@ -48,7 +48,7 @@ public final class Symbols {
         }
         for (Path h : headers) {
             String c = Files.readString(h).replaceAll("(?s)/\\*.*?\\*/", " ").replaceAll("//[^\\n]*", " ")
-                    .replaceAll("(?m)^\\s*#.*$", " ");
+                    .replaceAll("(?m)^\\s*#(?:[^\\n]*\\\\\\n)*[^\\n]*$", " ");   // with a macro's body
             for (Pattern p : List.of(DECLARATION, EXTERN)) {
                 Matcher m = p.matcher(c);
                 while (m.find()) {

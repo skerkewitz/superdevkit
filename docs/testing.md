@@ -149,6 +149,12 @@ compares them with the SNES's as it compares the desktop's, so emcc's WebAssembl
 pointers and `long`) computed the same game as gcc and dampf. The check has no window: the
 browser's frames and the clock that steps the game by them (ADR-6FCVAA30) are not part of it.
 
+`PublishedDataTest` plays `dev/publish_check`, a program of the kit's tests rather than an
+example, the same way on all three: the data the tick publishes for interrupt code
+(`sdevkit/publish.h`, ADR-6FPV1EQV), which on the SNES the NMI and an IRQ on every line of the
+tick in turn read and check. Its checksums name what the interrupts found, so they are the same
+on the desktop and the web, which have no interrupts, only when the SNES's never found torn data.
+
 **Recordings.** Every session in the desktop's window is recorded, the joypad and the checksum of
 every tick; F11 saves it in the format of `check.txt` (with `mark` and `hash` lines, which the
 other players skip), so a bug seen on the desktop can be played again: in the window

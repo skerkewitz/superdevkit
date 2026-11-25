@@ -55,55 +55,67 @@ public class ExamplesTest {
     Stream<DynamicTest> everyExampleBuildsAndPlaysTheSameOnBoth() throws IOException {
         List<Path> examples = examples();
         assertTrue(!examples.isEmpty(), "no examples with a superdevkit.toml");
-        boolean desktop = Files.isRegularFile(Path.of("build/raylib/linux/lib/libraylib.a"));
+        boolean desktop = desktop();
         boolean web = web();
-        return examples.stream().map(ex -> DynamicTest.dynamicTest(ex.getFileName().toString(), () -> {
-            String name = ex.getFileName().toString();
-            Compiler.Result r = compile(ex, ex.resolve("build/" + name + "_test.sfc"));
-            assertTrue(Files.size(r.rom().rom()) >= 32 * 1024, "no ROM written");
-            List<String> overflow = r.warnings().stream().filter(w -> w.contains("[-Woverflow]")).toList();
-            assertTrue(overflow.isEmpty(), name + ": constants that do not fit their type\n" + String.join("\n", overflow));
+        return examples.stream().map(ex -> DynamicTest.dynamicTest(ex.getFileName().toString(), () -> playsTheSameOnBoth(ex, desktop, web)));
+    }
 
-            Path check = ex.resolve("check.txt");
-            if (!Files.isRegularFile(check)) {
-                return;
-            }
-            ExampleCheck.Input input = ExampleCheck.parse(check);
-            ExampleCheck.Result snes = ExampleCheck.run(Files.readAllBytes(r.rom().rom()), input, 40 * input.ticks() + 2000);
-            Path emu = Files.createDirectories(ex.resolve("build/emu-check"));
-            Files.write(emu.resolve("hashes.txt"), snes.lines());
-            Files.write(emu.resolve("sound.txt"), snes.sound());
-            List<String> ticks = new ArrayList<>();
-            for (int i = 0; i < snes.tickEnds().size(); i++) {
-                ticks.add(i + " " + (snes.tickEnds().get(i) - (i == 0 ? snes.tickEnds().get(0) : snes.tickEnds().get(i - 1))));
-            }
-            Files.write(emu.resolve("ticks.txt"), ticks);
-            long[] second = snes.slowestWindow(60);
-            Files.writeString(emu.resolve("frames.txt"), String.format(
-                    "frames %d ticks %d frames per tick %.3f slowest tick %d frames slowest 60 ticks %.3f frames per tick from tick %d%n",
-                    snes.frames(), snes.hashes().size(), snes.framesPerTick(), (snes.slowestTick() + ExampleCheck.FRAME - 1) / ExampleCheck.FRAME,
-                    second[0] / 60.0 / ExampleCheck.FRAME, second[1]));
-            for (ExampleCheck.Budget b : input.budgets()) {
-                List<Long> over = snes.overBudget(b);
-                assertTrue(over.isEmpty(), name + ": ticks " + over + " took more than a frame (budget " + b.from() + " to " + b.to()
-                        + " in check.txt; build/emu-check/ticks.txt has the cycles of every tick)");
-            }
-            if (desktop) {
-                buildTarget(ex, "linux");
-                Path out = Files.createDirectories(ex.resolve("build/desktop-check"));
-                Path recording = out.resolve("recording.txt");
-                String result = run(ex.resolve("build/linux/" + name).toString(), "--check", check.toString(), "--out", out.toString(),
-                        "--record", recording.toString());
-                sameAsTheSnes(name, "the desktop", out, result, input, snes);
-            }
-            if (web) {
-                buildTarget(ex, "web");
-                Path out = Files.createDirectories(ex.resolve("build/web-check"));
-                String result = run("node", WEB_CHECK.resolve("web_check.js").toString(), ex.resolve("build/web").toString(),
-                        check.toString(), out.toString(), "--record", out.resolve("recording.txt").toString());
-                sameAsTheSnes(name, "the web", out, result, input, snes);
-            }
-        }));
+    /**
+     * One project (an example, or a check of the kit's such as dev/publish_check) as the class
+     * comment says: built for the SNES and played there, then on the desktop and the web where
+     * they build, with the same checksum after every tick and the same sound.
+     */
+    static void playsTheSameOnBoth(Path ex, boolean desktop, boolean web) throws Exception {
+        String name = ex.getFileName().toString();
+        Compiler.Result r = compile(ex, ex.resolve("build/" + name + "_test.sfc"));
+        assertTrue(Files.size(r.rom().rom()) >= 32 * 1024, "no ROM written");
+        List<String> overflow = r.warnings().stream().filter(w -> w.contains("[-Woverflow]")).toList();
+        assertTrue(overflow.isEmpty(), name + ": constants that do not fit their type\n" + String.join("\n", overflow));
+
+        Path check = ex.resolve("check.txt");
+        if (!Files.isRegularFile(check)) {
+            return;
+        }
+        ExampleCheck.Input input = ExampleCheck.parse(check);
+        ExampleCheck.Result snes = ExampleCheck.run(Files.readAllBytes(r.rom().rom()), input, 40 * input.ticks() + 2000);
+        Path emu = Files.createDirectories(ex.resolve("build/emu-check"));
+        Files.write(emu.resolve("hashes.txt"), snes.lines());
+        Files.write(emu.resolve("sound.txt"), snes.sound());
+        List<String> ticks = new ArrayList<>();
+        for (int i = 0; i < snes.tickEnds().size(); i++) {
+            ticks.add(i + " " + (snes.tickEnds().get(i) - (i == 0 ? snes.tickEnds().get(0) : snes.tickEnds().get(i - 1))));
+        }
+        Files.write(emu.resolve("ticks.txt"), ticks);
+        long[] second = snes.slowestWindow(60);
+        Files.writeString(emu.resolve("frames.txt"), String.format(
+                "frames %d ticks %d frames per tick %.3f slowest tick %d frames slowest 60 ticks %.3f frames per tick from tick %d%n",
+                snes.frames(), snes.hashes().size(), snes.framesPerTick(), (snes.slowestTick() + ExampleCheck.FRAME - 1) / ExampleCheck.FRAME,
+                second[0] / 60.0 / ExampleCheck.FRAME, second[1]));
+        for (ExampleCheck.Budget b : input.budgets()) {
+            List<Long> over = snes.overBudget(b);
+            assertTrue(over.isEmpty(), name + ": ticks " + over + " took more than a frame (budget " + b.from() + " to " + b.to()
+                    + " in check.txt; build/emu-check/ticks.txt has the cycles of every tick)");
+        }
+        if (desktop) {
+            buildTarget(ex, "linux");
+            Path out = Files.createDirectories(ex.resolve("build/desktop-check"));
+            Path recording = out.resolve("recording.txt");
+            String result = run(ex.resolve("build/linux/" + name).toString(), "--check", check.toString(), "--out", out.toString(),
+                    "--record", recording.toString());
+            sameAsTheSnes(name, "the desktop", out, result, input, snes);
+        }
+        if (web) {
+            buildTarget(ex, "web");
+            Path out = Files.createDirectories(ex.resolve("build/web-check"));
+            String result = run("node", WEB_CHECK.resolve("web_check.js").toString(), ex.resolve("build/web").toString(),
+                    check.toString(), out.toString(), "--record", out.resolve("recording.txt").toString());
+            sameAsTheSnes(name, "the web", out, result, input, snes);
+        }
+    }
+
+    /** Whether the desktop's check runs here: raylib fetched by a superdevkit build linux before. */
+    static boolean desktop() {
+        return Files.isRegularFile(Path.of("build/raylib/linux/lib/libraylib.a"));
     }
 
     /**
@@ -153,7 +165,7 @@ public class ExamplesTest {
      * The web's check runs where the web builds (raylib fetched for the web, emcc) and Playwright is
      * installed in tools/web_check (its README.md).
      */
-    private static boolean web() {
+    static boolean web() {
         return DesktopIsolationTest.webBuilds() && Files.isDirectory(WEB_CHECK.resolve("node_modules/@playwright/test"));
     }
 
