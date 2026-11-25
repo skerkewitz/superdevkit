@@ -148,8 +148,7 @@ selection. SNES specifics live in one target module:
   current layout is in [memory-map.md](memory-map.md); dampf builds LoROM only);
 - the cost of each memory access in cycles (FastROM, WRAM and I/O registers differ); the
   optimizer and the timing analysis need these ([timing.md](timing.md));
-- the multiply and divide registers;
-- intrinsics for DMA, vertical blank and ROM banks.
+- the multiply and divide registers.
 
 Nothing is built for a second target, but the split keeps one possible.
 
@@ -158,9 +157,9 @@ banks, header) and the runtime `compiler/src/main/resources/dampf/snes/runtime.s
 routines, header, vectors, and the entry stubs of interrupt handlers in C); the 65816 cycle table is
 `dampf.target.Cycles65816`. The code
 generators still contain SNES facts themselves (DBR `$7E`, the RAM and frame addresses, long
-addresses for I/O registers). Of the list above only the memory map is built: the cost model
-counts CPU cycles, multiplication and division are software routines in the runtime, and there
-are no intrinsics.
+addresses for I/O registers). Of the list above the memory map is built, and the CPU's
+multiplier, which the runtime and the code generators use for every product of two variables;
+the cost model counts CPU cycles, and division is a software routine in the runtime.
 
 ## Assembly output and debugging
 

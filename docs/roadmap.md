@@ -29,7 +29,7 @@ is concluded, it moves to [history.md](history.md).
 
 | Milestone | Goal | Version | State |
 | --- | --- | --- | --- |
-| M10 | Language, platform and usability: C in interrupts, intrinsics, hand-written assembly, the subset decisions on `char` and enums | 0.10.0 | In progress |
+| M10 | Language, platform and usability: C in interrupts, hand-written assembly, the subset decisions on `char` and enums | 0.10.0 | In progress |
 | M11 | Timing and debugging: master cycles, bounds for more loops, locals and types in Mesen | 0.11.0 | Planned |
 | M12 | Fine tuning: what was left of M4 and M9, until the frame budget is met | 0.12.0 | Planned |
 
@@ -105,8 +105,6 @@ Left:
   usable by games; then the NMI running `game_vblank` and the frame's work, where `game_vblank`
   joins the NMI context and may call nothing the tick calls unless a function can be compiled
   once per context (idea 2 of the summary).
-- **Intrinsics** for the hardware multipliers, the divider and DMA ([subset.md](subset.md),
-  *Intrinsics*).
 - **The SNES facts out of the code generators** (DBR `$7E`, the frame addresses, long I/O
   addresses) into the target ([architecture.md](architecture.md#core-and-target)).
 - **`restrict`** or a no-alias hint of dampf's own. Open is how it is checked on the PC, and
@@ -174,6 +172,12 @@ Also in M12:
   checked against the PC's results ([optimizations.md](optimizations.md));
 - `DAMPF_TABLE`, `DAMPF_PIN_X`, `DAMPF_LIKELY`/`DAMPF_UNLIKELY` and the other transforming
   hints ([hints.md](hints.md));
+- the CPU's hardware divider (16 by 8 bits) for a division by a variable whose divisor dampf's
+  value ranges prove to fit a byte, chosen automatically, built when a measured program divides
+  by variables on a hot path (the examples do it once: Schach's opening book). It replaces the
+  intrinsics planned in M10 (dropped on 2026-11-24): the multiplier is used for every product
+  since M9, a division by a constant is a multiplication, DMA and the wait for the vertical
+  blank are console API calls, and dampf places constant data in its banks itself;
 - bank `$7F` for variables ([memory-map.md](memory-map.md));
 - subset decision 3, 16-bit pointers into RAM ([subset.md](subset.md); moved from M10 on
   2026-11-24): a pointer stored in a struct field, a global or an array takes 4 bytes today, and
