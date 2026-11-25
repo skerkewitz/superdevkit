@@ -71,6 +71,23 @@ moves to the history with that release):
   timer IRQs in dampf's emulator
   ([ADR-6FM9TXV4](adr/6FM9TXV4-interrupt-handlers-run-in-contexts-of-their-own.md), 2026-11-24).
   Not for games yet: an assembly function in interrupt code is rejected.
+- **A constant on an index into the operand**: `a[i + 1]` of a global is `sta a+1,x`, the sum
+  never computed (2026-11-25); the examples' work 0.7 % lower, every one's code smaller
+  ([log](optimizations-log.md#a-constant-on-an-index-into-the-operand-2026-11-25-on-the-examples)).
+- **The console API's core and its optional layers**: the core is the hardware at once (every
+  PPU register by `sdevkit_reg_write`, DMA, VRAM, CGRAM and OAM copies, HDMA), and the kit writes
+  nothing in the vertical blank itself; above it optional layers in portable C (the registers in
+  memory with marks, a sprite list, an upload queue with a budget the same on both platforms, the
+  buttons pressed), one commit for all of them in `game_vblank`; the desktop counts a register
+  written while the picture is drawn
+  ([ADR-6FNPPCSX](adr/6FNPPCSX-the-console-api-is-the-hardware-at-once-with.md), 2026-11-25,
+  after the [brainstorm](brainstorm/console-api-shadow-state_2026-11-24.md)'s shadow state was
+  built and turned out to cost a game that knew the vertical blank's rules). The examples draw the
+  same pictures, pixel for pixel, the core's faster than before (with DMA's time counted).
+- **Unreachable functions left out**: dampf drops the functions a program cannot reach and the
+  globals only they used, so an optional layer a game does not call costs it nothing
+  ([ADR-6FNWEJAA](adr/6FNWEJAA-dampf-leaves-out-the-functions-a-program-cannot.md), 2026-11-25);
+  the examples' code 4 to 48 % smaller.
 
 Left:
 
@@ -206,6 +223,11 @@ when a game asks for them.
 ## Future ideas
 
 Ideas without a milestone; one becomes a step of a milestone when it is decided.
+
+- **Inlined functions without a copy of their own.** A function inlined at every call keeps its
+  body in the ROM, so the timing report has it (ADR-6FNWEJAA). Dropping that body but keeping its
+  entry in the report would shrink the examples' code by another 25 to 35 % (measured on
+  2026-11-25).
 
 - **dampf in Compiler Explorer.** A local Compiler Explorer (godbolt) knows extra compilers from
   `etc/config/c.local.properties`; a wrapper script takes its gcc-style arguments (`-S -o out.s

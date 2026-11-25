@@ -1,0 +1,5 @@
+# The commit's worst case in every frame (dev/commit_stress.sh): every group marked, the HDMA
+# channels 1 to 7 set, the queue full. Not an example: a check of the queue's budget in Mesen.
+name = "stress"
+kit = "../.."
+sources = ["src"]

@@ -15,18 +15,22 @@ mean. *Documented*: the kit does not check it; take care yourself.
 A game reaches the hardware only through the console API (`sdevkit/snes.h`), and a feature is
 usable only when both platforms have it: one Rachael does not know would make the desktop show
 something else than the SNES, and every check on the desktop would be worthless for that game.
-Use what is built in both columns. `SnesHardwareGuideTest` checks that each feature built on
-both has its functions in `lib/snes` and in `lib/rachael`.
+Use what is built in both columns. The last column names how a game reaches a feature with the
+core (`sdevkit/snes.h`: a register by `sdevkit_reg_write` and its name `SDEVKIT_PPU_*`, a copy, a
+macro) and, where one helps, with the optional layers (a field of the register shadow
+`sdevkit_ppu`, the sprite list, the queue). `SnesHardwareGuideTest` checks that each feature built
+on both names only what the public headers have, and that its functions are in `lib/snes` and in
+`lib/rachael`.
 
-| Feature | SNES (`lib/snes`) | Rachael | Functions |
+| Feature | SNES (`lib/snes`) | Rachael | Reached through |
 | --- | --- | --- | --- |
-| Mode 1 (BG1 and BG2 with 16 colours, BG3 with 4), 8 x 8 and 16 x 16 tiles, scrolling | built | built | `sdevkit_set_mode`, `sdevkit_bg_init_tile_set`, `sdevkit_bg_set_map_ptr`, `sdevkit_bg_set_scroll` |
-| Sprites, with the limits of 32 a line and 34 tiles a line | built | built, and counted | `sdevkit_oam_init_gfx_set`, `sdevkit_oam_set`, `sdevkit_oam_set_ex`, `sdevkit_oam_clear` |
-| Windows, main and sub screen, colour math, brightness | built | built | `sdevkit_set_color_effect`, `sdevkit_set_color_intensity`, `sdevkit_bg_set_enable_sub`, `sdevkit_set_brightness`, `sdevkit_reg_write` |
-| HDMA in direct mode: one register, two, or one written twice (a scroll register: a wave down the screen) | built | built | `sdevkit_hdma_set`, `sdevkit_hdma_enable` |
-| DMA to VRAM and CGRAM, within the vertical blank's budget; down a column of a map | built | built, lost bytes counted | `sdevkit_dma_copy_vram`, `sdevkit_dma_copy_vram_column`, `sdevkit_dma_copy_cgram`, `sdevkit_dma_fits` |
+| Mode 1 (BG1 and BG2 with 16 colours, BG3 with 4), 8 x 8 and 16 x 16 tiles, scrolling | built | built | `sdevkit_reg_write`, `sdevkit_reg_write_twice`, `SDEVKIT_PPU_BGMODE`, `SDEVKIT_BGSC`, `SDEVKIT_BGNBA`, `SDEVKIT_PPU_BG1HOFS`; `sdevkit_ppu.bgmode`, `sdevkit_ppu.hofs` |
+| Sprites, with the limits of 32 a line and 34 tiles a line | built | built, and counted | `sdevkit_oam_copy`, `SDEVKIT_OBSEL`, `SDEVKIT_OAM_ATTR`, `SDEVKIT_OAM_HIDE_Y`; `sdevkit_sprite`, `sdevkit_sprites_commit` |
+| Windows, main and sub screen, colour math, brightness | built | built | `sdevkit_reg_write`, `SDEVKIT_PPU_WH0`, `SDEVKIT_PPU_TS`, `SDEVKIT_PPU_CGWSEL`, `SDEVKIT_PPU_COLDATA`, `SDEVKIT_PPU_INIDISP`; `sdevkit_ppu.wh`, `sdevkit_ppu.coldata`, `sdevkit_ppu.inidisp` |
+| HDMA in direct mode: one register, two, or one written twice (a scroll register: a wave down the screen) | built | built | `sdevkit_hdma_set`, `sdevkit_hdma_enable`; `sdevkit_hdma[n]`, `sdevkit_ppu.hdmaen` |
+| DMA to VRAM, CGRAM and OAM, within the vertical blank's budget; down a column of a map; any B-bus register | built | built, lost bytes counted | `sdevkit_vram_copy`, `sdevkit_vram_column_copy`, `sdevkit_cgram_copy`, `sdevkit_oam_copy`, `sdevkit_dma`, `sdevkit_dma_fits`; `sdevkit_queue_vram`, `sdevkit_queue_room` |
 | Modes 0 and 2 to 6 | not built | not built, reported | |
-| Mode 7: one layer of 1024 x 1024 pixels, rotated, scaled and mirrored, and what lies outside it; with HDMA on BGMODE and TM, mode 1 above it (a status line on BG3) | built | built | `sdevkit_mode7_load_map`, `sdevkit_mode7_load_tiles`, `sdevkit_mode7_set_matrix`, `sdevkit_mode7_set_center`, `sdevkit_mode7_set_select` |
+| Mode 7: one layer of 1024 x 1024 pixels, rotated, scaled and mirrored, and what lies outside it; with HDMA on BGMODE and TM, mode 1 above it (a status line on BG3) | built | built | `sdevkit_mode7_map_copy`, `sdevkit_mode7_tiles_copy`, `sdevkit_reg_write_twice`, `SDEVKIT_PPU_M7A`, `SDEVKIT_PPU_M7SEL`, `SDEVKIT_M7_WRAP`; `sdevkit_ppu.m7a` |
 | Mode 7's second layer (EXTBG), direct colour | not built | not built, reported | |
 | Mosaic, high resolution, interlace | not built | not built, reported | |
 | Raster interrupts (H/V IRQ), the timers | not built: the game is never interrupted (`sdevkit/loop.h`) | not built | |
@@ -41,7 +45,8 @@ both has its functions in `lib/snes` and in `lib/rachael`.
 
 "Reported": `sdevkit_reg_write` can set any PPU register, and Rachael counts every write she
 does not draw (a mode other than 1 and 7, mosaic, `SETINI` for interlace, high resolution and
-EXTBG, direct colour, and the ports of VRAM, CGRAM and OAM, which go around her memories). The desktop check prints
+EXTBG, direct colour, `VMAIN`'s address remapping, a DMA from the PPU, HDMA not in direct mode).
+The desktop check prints
 `undrawn N` and fails on it, as on a lost byte (*enforced*).
 
 What each function costs on the SNES, in CPU cycles, is the last column of the table in
@@ -51,13 +56,25 @@ What each function costs on the SNES, in CPU cycles, is the last column of the t
 
 - **Write VRAM, CGRAM and OAM only in the vertical blank or with the screen off** (forced
   blank), never during the picture: the PPU drops what comes then. Prepare in `game_tick`,
-  upload in `game_vblank` (*enforced*: Rachael counts lost bytes, and the Mesen check of an
-  example fails on one).
-- **Copy with DMA**, never with a loop of the CPU. A vertical blank takes about 5,700 bytes of
-  DMA (37 lines of 1,364 master cycles, 8 a byte, less the sprite table's 544); more is lost
-  (*enforced*). `sdevkit_dma_fits(n)` says whether `n` more bytes fit.
-- **Keep the sprite table in RAM and upload all of it each frame**: the kit's main loop copies
-  `sdevkit_oam_memory` in every vertical blank; a game only writes the copy.
+  copy in `game_vblank` (*enforced*: Rachael counts lost bytes, and the Mesen check of an
+  example fails on one). The optional queue (`sdevkit/queue.h`) does it for a game: it queues in
+  the tick and `sdevkit_commit` copies in the vertical blank.
+- **Write the registers in the vertical blank too**: a scroll or a brightness written while the
+  picture is drawn takes effect from that line on, and the picture tears. Only switching the
+  screen off may come at any time (*enforced*: Rachael counts a register or an HDMA channel
+  written while the picture is drawn, `drawing`, and the desktop check fails on it). The optional
+  register shadow (`sdevkit/shadow.h`) keeps them in memory for the tick and writes the groups
+  marked in `sdevkit_marks` in the vertical blank (*enforced*: a group changed without its mark
+  is counted, `unmarked`).
+- **Copy with DMA**, never with a loop of the CPU, but for a few bytes, which the CPU writes
+  cheaper than a DMA's setup (one colour, one sprite). A vertical blank takes about 6,300 bytes of
+  DMA (37 lines of 1,364 master cycles, 8 a byte) when the game does nothing else in it; more is
+  lost (*enforced*). `sdevkit_dma_fits(n)` says whether `n` more bytes fit; the queue decides it
+  in the tick, the same on both platforms.
+- **Keep the sprite table in RAM and copy only what changed**: the entries in use and the high
+  table's bytes for them, not all 544 bytes, with `sdevkit_oam_copy` from any even byte. The kit
+  copies nothing itself. The optional sprite list (`sdevkit/sprites.h`) copies the entries it
+  filled and hides the ones of the tick before.
 - **Upload what changed, not everything**: a row of the map, a tile of an animation. Animate by
   copying a new frame over a tile that the map names in many places (Steinschlag's README shows
   both).
@@ -233,8 +250,8 @@ loaded once in `game_init`. What else is built, on the SNES and on Rachael, is i
 ## The console is not the emulator
 
 - **Start values**: at power on, a console's registers and video memory hold whatever is there,
-  where emulators start with zeros. The kit's start-up on the SNES (`sdevkit__reset_video`)
-  clears every PPU register, VRAM, CGRAM and the sprite table before `game_init`, and C zeroes
+  where emulators start with zeros. The kit's start-up on the SNES (`sdevkit__reset_ppu`)
+  clears every PPU register, VRAM and CGRAM and hides every sprite before `game_init`, and C zeroes
   the game's static variables, so a game of the kit starts from known values on both (*enforced
   by the kit*). What stays a risk is a local variable read before it is written: compile the PC
   build with `-Wall -Wextra` and fix every "may be used uninitialized".

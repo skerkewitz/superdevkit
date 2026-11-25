@@ -12,15 +12,15 @@
 #define SDEVKIT__W 256
 #define SDEVKIT__H 224
 
-/* What one vertical blank can copy into VRAM and CGRAM: NTSC lines 225..261
- * are 37 x 1364 master cycles, DMA takes 8 per byte, less the 544 bytes of
- * the OAM copy. Writes beyond it, or outside the vertical blank, are lost
+/* What one vertical blank can copy into VRAM, CGRAM and OAM: NTSC lines
+ * 225..261 are 37 x 1364 master cycles, DMA takes 8 per byte, less a margin
+ * for the setup. Writes beyond it, or outside the vertical blank, are lost
  * unless the screen is switched off (forced blank). */
-#define SDEVKIT__VBLANK_DMA_BYTES 5700
+#define SDEVKIT__VBLANK_DMA_BYTES 6244
 
 typedef struct {
     uint16_t dma_bytes;          /* bytes copied by DMA in the last vertical blank */
-    uint16_t dma_lost;           /* bytes written to VRAM / CGRAM that did not arrive (outside the vertical blank or over budget) */
+    uint16_t dma_lost;           /* bytes written to VRAM / CGRAM / OAM that did not arrive (outside the vertical blank or over budget) */
     uint8_t  range_over_lines;   /* lines with more than 32 sprites (the rest are not drawn) */
     uint8_t  time_over_lines;    /* lines with more than 34 sprite tiles (some tiles are not drawn) */
     uint8_t  most_sprites;       /* on the busiest line */
@@ -29,18 +29,19 @@ typedef struct {
 
 void                 sdevkit__reset(void);              /* power on: memories cleared, screen off */
 /* The frame rhythm of the console: sdevkit__vblank() starts the vertical blank
- * (OAM shadow to OAM, DMA budget restarts), sdevkit__render() draws the picture,
- * which ends it. VRAM and CGRAM accept writes only in between, within
- * SDEVKIT__VBLANK_DMA_BYTES, or while the screen is off. */
+ * (the DMA budget restarts), sdevkit__render() draws the picture, which ends
+ * it. VRAM, CGRAM and OAM accept writes only in between, within
+ * SDEVKIT__VBLANK_DMA_BYTES, or while the screen is off; a register written
+ * outside is counted (sdevkit__rachael.drawing). */
 void                 sdevkit__vblank(void);
 void                 sdevkit__render(uint16_t *out);    /* SDEVKIT__W * SDEVKIT__H colours, BGR 5:5:5 */
 void                 sdevkit__display(void);            /* the picture is drawn, without making it (tests): VRAM closes */
 sdevkit__frame_stats sdevkit__stats(void);              /* of the last sdevkit__render (DMA: of the last frame) */
 const uint16_t      *sdevkit__cgram(void);              /* 256 colours */
-const uint8_t       *sdevkit__oam(void);                /* 544 bytes, as copied at the last vertical blank */
+const uint8_t       *sdevkit__oam(void);                /* 544 bytes, as OAM holds them */
 uint8_t              sdevkit__reg(uint8_t reg);         /* last value written to a PPU register */
 /* The checksum of the tick that just ended (the main loop calls it after game_tick): the bytes the
- * game named with sdevkit_dbg_hash, then the sprite table; the next tick starts afresh. */
+ * game named with sdevkit_dbg_hash since the last; the next tick starts afresh. */
 #define SDEVKIT__HASH_START 2166136261u
 uint32_t             sdevkit__tick_hash(void);
 
@@ -53,7 +54,7 @@ typedef struct {
 typedef struct {
     uint16_t       vram[SDEVKIT__VRAM_WORDS];
     uint16_t       cgram[256];
-    uint8_t        oam[128 * 4 + 8 * 4];   /* copied from sdevkit_oam_memory at the vertical blank */
+    uint8_t        oam[128 * 4 + 8 * 4];   /* OAM, as the port and DMA wrote it */
     uint8_t        regs[0x40];             /* last value written, by SDEVKIT_PPU_* */
     uint16_t       hofs[4], vofs[4];       /* background scroll, 10 bits */
     uint8_t        scroll_latch;
@@ -66,6 +67,17 @@ typedef struct {
     uint16_t       dma_count;              /* bytes since the last vertical blank */
     uint16_t       dma_lost;               /* bytes that did not arrive since then */
     uint8_t        in_vblank;              /* between sdevkit__vblank() and sdevkit__render() */
+    /* the ports of VRAM, CGRAM and OAM, as the SNES has them */
+    uint8_t        vmain;                  /* VMAIN: the step, and after which byte */
+    uint16_t       vram_addr;              /* VMADD: a word address */
+    uint8_t        cg_addr;                /* CGADD: a colour */
+    uint8_t        cg_latch, cg_high;      /* the low byte written, and that the next is the high one */
+    uint16_t       oam_addr;               /* a byte address: OAMADD * 2, 0..543 */
+    uint8_t        oam_latch;              /* the even byte of the low table, written with the odd one */
+    uint16_t       drawing;                /* register writes while the picture was drawn, since power on */
+    uint8_t        drawing_reg, drawing_value;   /* the first of them */
+    uint16_t       unmarked;               /* sdevkit/shadow.h: groups changed without their mark, since power on */
+    uint8_t        unmarked_group;         /* the first of them, SDEVKIT_MARK_* */
     uint16_t       undrawn;                /* register writes Rachael does not draw, since power on */
     uint8_t        undrawn_reg, undrawn_value;   /* the first of them */
     sdevkit__frame_stats stats;
@@ -74,7 +86,12 @@ typedef struct {
 
 extern sdevkit__rachael_state sdevkit__rachael;
 
+/* A register write as the hardware takes it, without the check of when (the kit's own writes). */
 void sdevkit__write_reg(uint8_t reg, uint8_t value);
+
+/* The optional layers (layers.c): back to their state at power on; copies the queue refused. */
+void    sdevkit__layers_reset(void);
+uint8_t sdevkit__queue_refused(void);
 
 /* --- Sound (dsp.c, sfx.c; docs/sound.md) ---------------------------------------------------- */
 #define SDEVKIT__DSP_RATE 32000   /* the S-DSP's samples a second */
@@ -99,8 +116,8 @@ void sdevkit__sfx_frame(void);
 
 /* A register write whose effect Rachael does not draw, so the SNES would show something else:
  * a mode other than 1 and 7, mosaic, SETINI (interlace, high resolution, overscan, EXTBG),
- * direct colour (CGWSEL bit 0), and the ports of VRAM, CGRAM and OAM, which would go around her
- * memories (the API's DMA functions do not).
+ * direct colour (CGWSEL bit 0), VMAIN's address remapping, and a DMA she does not model (from
+ * the PPU to memory, or HDMA with indirect tables).
  * Counted in sdevkit__rachael.undrawn; the frontends report it as they report lost bytes. */
 uint8_t sdevkit__undrawn(uint8_t reg, uint8_t value);
 

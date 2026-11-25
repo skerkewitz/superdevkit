@@ -63,7 +63,7 @@ class ConstAddressTest {
         assertTrue(asm.contains("f:$7F8000"), "a long address for the constant pointer");
         assertTrue(asm.contains("f:$001E40,x"), "a long address indexed with X");
         assertFalse(asm.contains("[dampf_ptr]"), "no access through dampf_ptr");
-        Map<String, Long> v = new EmulatorRunner().run(r.rom(), Observed.of(r.program().globals())).values();
+        Map<String, Long> v = new EmulatorRunner().run(r.rom(), Observed.of(r.program())).values();
         assertEquals(77L, v.get("read_far"));
         assertEquals(0x1234L, v.get("read_word"));
         assertEquals(5L, v.get("read_low[0]"));
@@ -111,7 +111,7 @@ class ConstAddressTest {
                 """);
         Compiler.Result r = Compiler.compile(new Compiler.Options(List.of(src), List.of(), List.of(), "test_main",
                 tmp.resolve("pair.sfc"), Map.of(), Compiler.Backend.MIR));
-        Map<String, Long> v = new EmulatorRunner().run(r.rom(), Observed.of(r.program().globals())).values();
+        Map<String, Long> v = new EmulatorRunner().run(r.rom(), Observed.of(r.program())).values();
         long[] want = {0x34, 0x12, 0x78, 0x56, 0xCD, 0xAB};
         for (int k = 0; k < want.length; k++) {
             assertEquals(want[k], v.get("read_low[" + k + "]"), "read_low[" + k + "]");

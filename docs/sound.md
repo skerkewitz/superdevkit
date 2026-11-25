@@ -168,7 +168,7 @@ instead of a black screen:
 void game_init(uint16_t seed)
 {
     draw_title();                      /* everything for the PPU first */
-    sdevkit_set_brightness(15);
+    sdevkit_reg_write(SDEVKIT_PPU_INIDISP, 15);   /* the screen on */
     sdevkit_sfx_init(&sfx_bank);       /* the title stays on screen meanwhile */
 }
 ```

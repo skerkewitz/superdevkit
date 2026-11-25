@@ -147,7 +147,8 @@ public final class ExampleBench {
         Set<String> lines = new HashSet<>();
         for (String name : List.of("void sdevkit__wait_vblank(void)", "void sdevkit__read_pads(")) {
             int i = 0;
-            while (i < src.size() && !src.get(i).startsWith(name)) {
+            // the definition, not a declaration of it further up (a line ending in ";")
+            while (i < src.size() && !(src.get(i).startsWith(name) && !src.get(i).strip().endsWith(";"))) {
                 i++;
             }
             if (i == src.size()) {

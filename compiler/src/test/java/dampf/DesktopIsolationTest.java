@@ -123,7 +123,7 @@ class DesktopIsolationTest {
                     ok = b.bytes[299] == (uint8_t)(299 * 7) && b.sum == 12345 && a.bytes[5] == 0;
                     memcpy(&a, &b, sizeof a);
                     ok = ok && a.bytes[100] == (uint8_t)(100 * 7);
-                    if (!ok) { sdevkit_dma_copy_vram(b.bytes, 0, 16); }
+                    if (!ok) { sdevkit_vram_copy(0, b.bytes, 16); }
                 }
                 """);
         Run build = build(dir, "linux");

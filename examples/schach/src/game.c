@@ -10,6 +10,9 @@
  * tiles: the panel at the right, the moves below. The cursor and the piece in the hand are
  * sprites.
  *
+ * It uses the optional layers of sdevkit/easy.h: the registers in sdevkit_ppu, the sprite list,
+ * the map copies queued in the tick; game_vblank is one call.
+ *
  * VRAM (16-bit words): the board's tiles at 0x0000, the font at 0x1000, the board's map at
  * 0x2000, the text's map at 0x2400, the sprites at 0x4000. CGRAM: palettes 0 to 3 the board,
  * 4 and 5 the text (white, yellow), sprite palette 0 the pieces and the cursor.
@@ -26,13 +29,12 @@
 #include "book.h"
 #include "schach.h"
 #include "sdevkit/loop.h"
-#include "sdevkit/snes.h"
+#include "sdevkit/easy.h"
 #include "board_gfx.h"
 #include "sprites_gfx.h"
 #include "font_gfx.h"
 #include "sfx.h"
 
-#define BG1_TILES_16   (1 << 4)        /* BGMODE: layer 1 has 16 x 16 tiles */
 #define VRAM_BOARD     0x0000
 #define VRAM_FONT      0x1000
 #define VRAM_BOARD_MAP 0x2000
@@ -51,8 +53,6 @@
 #define PANEL          19              /* the panel's first text column */
 #define LIST_ROW       21              /* the move list's first text row */
 #define LIST_ROWS      7
-#define OAM_CURSOR     0               /* sprites, as byte offsets into the sprite table */
-#define OAM_HELD       4
 
 enum { ST_TITLE, ST_PLAYER, ST_PROMOTE, ST_THINK, ST_OVER };
 
@@ -67,7 +67,7 @@ static uint8_t last_from = NO_SQ, last_to = NO_SQ;
 static uint8_t cur_file = 4, cur_rank = 1;   /* the cursor: e2 */
 static uint8_t held = NO_SQ;           /* the square of the piece in the hand */
 static uint8_t promo_from, promo_to, promo_choice;
-static uint16_t last_pad, repeat_wait;
+static uint16_t repeat_wait;
 static uint16_t timer;
 static uint16_t think_frames;
 static uint8_t shown_depth;
@@ -253,25 +253,23 @@ static void draw_labels(void)
 }
 
 /* --- the sprites ----------------------------------------------------------------------------- */
+/* Drawn anew every tick (the sprite list, sdevkit_sprite): the cursor in front, then the piece in
+ * the hand, three pixels above its square. The cursor blinks while the console thinks. */
 static void draw_sprites(void)
 {
-    uint16_t x = (uint16_t)(BOARD_PX + cur_file * 16);
-    uint16_t y = (uint16_t)(BOARD_PX + (7 - cur_rank) * 16 - 1);
+    int16_t x = (int16_t)(BOARD_PX + cur_file * 16);
+    int16_t y = (int16_t)(BOARD_PX + (7 - cur_rank) * 16);
 
     if (state == ST_TITLE || state == ST_OVER) {
-        sdevkit_oam_set_visible(OAM_CURSOR, SDEVKIT_OBJ_HIDE);
-        sdevkit_oam_set_visible(OAM_HELD, SDEVKIT_OBJ_HIDE);
         return;
     }
-    sdevkit_oam_set(OAM_CURSOR, x, y, 3, 0, 0, element_tile(held != NO_SQ ? 1 : 0), 0);
-    sdevkit_oam_set_ex(OAM_CURSOR, SDEVKIT_OBJ_SMALL, (state == ST_THINK && ((timer >> 4) & 1)) ? SDEVKIT_OBJ_HIDE : SDEVKIT_OBJ_SHOW);
+    if (!(state == ST_THINK && ((timer >> 4) & 1))) {
+        sdevkit_sprite(x, y, element_tile(held != NO_SQ ? 1 : 0), SDEVKIT_OAM_ATTR(0, 3, 0, 0), 0);
+    }
     if (held != NO_SQ) {
         uint8_t p = board[held];
         uint8_t e = (uint8_t)(COLOR(p) == WHITE ? 1 + TYPE(p) : 7 + TYPE(p));
-        sdevkit_oam_set(OAM_HELD, x, (uint16_t)(y - 3), 3, 0, 0, element_tile(e), 0);
-        sdevkit_oam_set_ex(OAM_HELD, SDEVKIT_OBJ_SMALL, SDEVKIT_OBJ_SHOW);
-    } else {
-        sdevkit_oam_set_visible(OAM_HELD, SDEVKIT_OBJ_HIDE);
+        sdevkit_sprite(x, (int16_t)(y - 3), element_tile(e), SDEVKIT_OAM_ATTR(0, 3, 0, 0), 0);
     }
 }
 
@@ -583,30 +581,31 @@ void game_init(uint16_t init_seed)
     uint16_t j;
 
     seed = init_seed;
-    sdevkit_set_mode(SDEVKIT_BG_MODE1, BG1_TILES_16);
-    sdevkit_bg_set_disable(2);
-    sdevkit_bg_init_tile_set(0, board_gfx_tiles, board_gfx_pal, 0, BOARD_GFX_TILES_SIZE, BOARD_GFX_PAL_SIZE, SDEVKIT_BG_16COLORS,
-                  VRAM_BOARD);
-    for (i = 1; i < 4; i++) {            /* palettes 1 to 3: the board's, other square colours */
-        sdevkit_dma_copy_cgram(board_gfx_pal, (uint16_t)(i * 16), BOARD_GFX_PAL_SIZE);
+    sdevkit_ppu.bgmode = SDEVKIT_BG_MODE1 | SDEVKIT_BG1_TILES_16;
+    sdevkit_ppu.tm = SDEVKIT_BG1_ENABLE | SDEVKIT_BG2_ENABLE | SDEVKIT_OBJ_ENABLE;
+    sdevkit_ppu.bgnba[0] = SDEVKIT_BGNBA(VRAM_BOARD, VRAM_FONT);
+    sdevkit_ppu.bgsc[0] = SDEVKIT_BGSC(VRAM_BOARD_MAP, SDEVKIT_SC_32x32);
+    sdevkit_ppu.bgsc[1] = SDEVKIT_BGSC(VRAM_TEXT_MAP, SDEVKIT_SC_32x32);
+    sdevkit_ppu.hofs[0] = (uint16_t)(16 - BOARD_PX + 0x400);
+    sdevkit_ppu.vofs[0] = (uint16_t)(16 - BOARD_PX - 1 + 0x400);
+    sdevkit_ppu.vofs[1] = 0x3FF;
+    sdevkit_ppu.obsel = SDEVKIT_OBSEL(VRAM_SPRITES, SDEVKIT_OBJ_SIZE16_L32);
+    sdevkit_vram_copy(VRAM_BOARD, board_gfx_tiles, BOARD_GFX_TILES_SIZE);
+    for (i = 0; i < 4; i++) {            /* palettes 0 to 3: the board's; 1 to 3 get other square colours */
+        sdevkit_cgram_copy((uint8_t)(i * 16), board_gfx_pal, BOARD_GFX_PAL_SIZE);
     }
-    sdevkit_set_palette_color(PAL_LAST * 16 + 1, 0x43BE);    /* the last move: yellow */
-    sdevkit_set_palette_color(PAL_LAST * 16 + 2, 0x26D9);
-    sdevkit_set_palette_color(PAL_TARGET * 16 + 1, 0x4B76);  /* where the piece in the hand can go: green */
-    sdevkit_set_palette_color(PAL_TARGET * 16 + 2, 0x328F);
-    sdevkit_set_palette_color(PAL_CHECK * 16 + 1, 0x3A1E);   /* the king in check: red */
-    sdevkit_set_palette_color(PAL_CHECK * 16 + 2, 0x2559);
-    sdevkit_bg_set_map_ptr(0, VRAM_BOARD_MAP, SDEVKIT_SC_32x32);
-    sdevkit_bg_set_scroll(0, (uint16_t)(16 - BOARD_PX + 0x400), (uint16_t)(16 - BOARD_PX - 1 + 0x400));
-    sdevkit_bg_init_tile_set(1, font_gfx_tiles, font_gfx_pal, PAL_TEXT, FONT_GFX_TILES_SIZE, FONT_GFX_PAL_SIZE, SDEVKIT_BG_16COLORS,
-                  VRAM_FONT);
-    sdevkit_dma_copy_cgram(font_gfx_pal, PAL_YELLOW * 16, FONT_GFX_PAL_SIZE);
-    sdevkit_set_palette_color(PAL_YELLOW * 16 + 1, 0x235F);
-    sdevkit_bg_set_map_ptr(1, VRAM_TEXT_MAP, SDEVKIT_SC_32x32);
-    sdevkit_bg_set_scroll(1, 0, 0x3FF);
-    sdevkit_oam_init_gfx_set(sprites_gfx_tiles, SPRITES_GFX_TILES_SIZE, sprites_gfx_pal, SPRITES_GFX_PAL_SIZE, 0, VRAM_SPRITES,
-                  SDEVKIT_OBJ_SIZE16_L32);
-    sdevkit_oam_init();
+    sdevkit_cgram_set(PAL_LAST * 16 + 1, 0x43BE);    /* the last move: yellow */
+    sdevkit_cgram_set(PAL_LAST * 16 + 2, 0x26D9);
+    sdevkit_cgram_set(PAL_TARGET * 16 + 1, 0x4B76);  /* where the piece in the hand can go: green */
+    sdevkit_cgram_set(PAL_TARGET * 16 + 2, 0x328F);
+    sdevkit_cgram_set(PAL_CHECK * 16 + 1, 0x3A1E);   /* the king in check: red */
+    sdevkit_cgram_set(PAL_CHECK * 16 + 2, 0x2559);
+    sdevkit_vram_copy(VRAM_FONT, font_gfx_tiles, FONT_GFX_TILES_SIZE);
+    sdevkit_cgram_copy(PAL_TEXT * 16, font_gfx_pal, FONT_GFX_PAL_SIZE);
+    sdevkit_cgram_copy(PAL_YELLOW * 16, font_gfx_pal, FONT_GFX_PAL_SIZE);
+    sdevkit_cgram_set(PAL_YELLOW * 16 + 1, 0x235F);
+    sdevkit_vram_copy(VRAM_SPRITES, sprites_gfx_tiles, SPRITES_GFX_TILES_SIZE);
+    sdevkit_cgram_copy(128, sprites_gfx_pal, SPRITES_GFX_PAL_SIZE);
     for (j = 0; j < 16 * 32; j++) {      /* around the board: an empty element, the backdrop */
         board_map[j] = element_tile(31);
     }
@@ -617,19 +616,38 @@ void game_init(uint16_t init_seed)
     panel_yellow(1, "Schach");
     title();
     /* the screen is still off: copy the whole maps at once */
-    sdevkit_dma_copy_vram((const uint8_t *)board_map, VRAM_BOARD_MAP, sizeof board_map);
-    sdevkit_dma_copy_vram((const uint8_t *)text_map, VRAM_TEXT_MAP, sizeof text_map);
+    sdevkit_vram_copy(VRAM_BOARD_MAP, board_map, sizeof board_map);
+    sdevkit_vram_copy(VRAM_TEXT_MAP, text_map, sizeof text_map);
     board_dirty = 0;
     text_from = 0xFF;
     text_to = 0;
-    sdevkit_set_brightness(15);
+    sdevkit_ppu.inidisp = 15;
 }
 
-void game_tick(const uint16_t pad[SDEVKIT_PADS])
+/* What changed in the maps, queued for the vertical blank; what does not fit stays due. */
+static void queue_maps(void)
 {
-    uint16_t pressed = (uint16_t)(pad[0] & ~last_pad);
+    if (board_dirty                      /* the board's eight rows of map cells */
+        && sdevkit_queue_vram(VRAM_BOARD_MAP + 32, &board_map[32], 8 * 32 * 2)) {
+        board_dirty = 0;
+    }
+    if (text_from != 0xFF) {
+        uint16_t first = (uint16_t)text_from * 32;
+        if (sdevkit_queue_vram((uint16_t)(VRAM_TEXT_MAP + first), &text_map[first],
+                               (uint16_t)((text_to - text_from + 1) * 64))) {
+            text_from = 0xFF;
+            text_to = 0;
+        }
+    }
+}
 
-    last_pad = pad[0];
+void game_tick(const uint16_t pads[SDEVKIT_PADS])
+{
+    uint16_t pad, pressed;
+
+    sdevkit_input_update(pads);
+    pad = sdevkit_input.pad[0];
+    pressed = sdevkit_input.pressed[0];
     timer++;
     switch (state) {
     case ST_TITLE:
@@ -646,13 +664,13 @@ void game_tick(const uint16_t pad[SDEVKIT_PADS])
         }
         break;
     case ST_PLAYER:
-        player(pad[0], pressed);
+        player(pad, pressed);
         break;
     case ST_PROMOTE:
         promote(pressed);
         break;
     case ST_THINK:
-        move_cursor(pad[0], pressed);    /* the cursor moves while the console thinks */
+        move_cursor(pad, pressed);       /* the cursor moves while the console thinks */
         think();
         break;
     default:                             /* ST_OVER */
@@ -663,6 +681,7 @@ void game_tick(const uint16_t pad[SDEVKIT_PADS])
         break;
     }
     draw_sprites();
+    queue_maps();
     /* the state for the checks, which compare the SNES and the PC after every tick
      * (sdevkit_dbg_hash): the position, its key, and where the game is */
     sdevkit_dbg_hash(board, sizeof board);
@@ -670,19 +689,11 @@ void game_tick(const uint16_t pad[SDEVKIT_PADS])
     sdevkit_dbg_hash(&hash_hi, sizeof hash_hi);
     sdevkit_dbg_hash(&state, sizeof state);
     sdevkit_dbg_hash(&plies, sizeof plies);
+    sdevkit_dbg_hash(sdevkit_oam, 8);    /* the cursor and the piece in the hand */
 }
 
 void game_vblank(void)
 {
-    if (board_dirty) {                   /* the board's eight rows of map cells */
-        sdevkit_dma_copy_vram((const uint8_t *)&board_map[32], VRAM_BOARD_MAP + 32, 8 * 32 * 2);
-        board_dirty = 0;
-    }
-    if (text_from != 0xFF) {
-        uint16_t first = (uint16_t)text_from * 32;
-        sdevkit_dma_copy_vram((const uint8_t *)&text_map[first], (uint16_t)(VRAM_TEXT_MAP + first),
-                    (uint16_t)((text_to - text_from + 1) * 64));
-        text_from = 0xFF;
-        text_to = 0;
-    }
+    sdevkit_commit();
 }
+

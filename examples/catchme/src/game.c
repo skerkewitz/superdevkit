@@ -1,9 +1,14 @@
 /*
  * CatchMe: the course of the game, and the frame rhythm of superdevkit (sdevkit/loop.h).
  *
- *   game_init     once, with the screen off: graphics and palettes into VRAM and CGRAM
- *   game_tick     once per frame: the game logic, the sprite table, what the map should show
- *   game_vblank   in the vertical blank: the map into VRAM when it changed, palette changes
+ *   game_init     once, with the screen off: graphics and palettes into VRAM and CGRAM at once
+ *   game_tick     once per frame: the game logic, the sprite table, the map, and the copies of
+ *                 what changed (the map, the walls' colours) queued for the vertical blank
+ *   game_vblank   the sprites' slots into OAM, and the optional layers' commit (sdevkit/easy.h)
+ *
+ * It mixes the layers and the core: the registers, the copies and the buttons pressed go through
+ * the layers, the six sprites keep fixed slots in a table of CatchMe's own (actors.c), and
+ * game_vblank copies just those slots.
  *
  * VRAM: the background tiles from word 0x0000, the background map at 0x1000 (32 x 32 entries),
  * the sprite tiles at 0x4000. CGRAM: background palette 0 (colours 0..15), sprite palettes 0..6
@@ -42,7 +47,6 @@ uint8_t level;
 static uint8_t state;
 static uint16_t timer;
 static uint8_t frame;
-static uint16_t last_pad;
 static uint16_t rng = 0xACE1;
 static uint32_t score;
 static uint32_t best = 5000;
@@ -51,7 +55,7 @@ static uint8_t extra_given;
 static uint8_t caught_in_row;          /* cats caught on one chili: 200, 400, 800, 1600 */
 static uint8_t eaten;                  /* crumbs eaten in this level, for the cheese */
 static uint16_t cheese_left;           /* frames the cheese stays */
-static uint8_t blink, blink_dirty;     /* the walls blink after a level, in the vertical blank */
+static uint8_t blink, blink_dirty;     /* the walls blink after a level, queued for the vertical blank */
 
 /* A 16-bit linear feedback shift register: the same seed gives the same game. */
 uint16_t random16(void)
@@ -174,7 +178,7 @@ static void title(void)
     text(10, 22, "HI", 1);
     number(13, 22, best, 6);
     actors_hide();
-    sdevkit_oam_set_visible(ID_BONUS, SDEVKIT_OBJ_HIDE);
+    sprite_hide(ID_BONUS);
 }
 
 /* The mouse runs across the title, the cats after it. */
@@ -206,7 +210,7 @@ static void ready(void)
     actors_reset();
     caught_in_row = 0;
     cheese_left = 0;
-    sdevkit_oam_set_visible(ID_BONUS, SDEVKIT_OBJ_HIDE);
+    sprite_hide(ID_BONUS);
     text(13, 19, "READY!", 1);
 }
 
@@ -281,11 +285,9 @@ static uint8_t collisions(void)
             cheese_left = 0;
         }
         if (cheese_left > 0) {
-            sdevkit_oam_set(ID_BONUS, 7 * 16 + 8, 8 * 16 + MAZE_TOP - 1, 3, 0, 0, SPRITE_CHEESE,
-                            PAL_HOT);
-            sdevkit_oam_set_ex(ID_BONUS, SDEVKIT_OBJ_SMALL, SDEVKIT_OBJ_SHOW);
+            sprite_set(ID_BONUS, 7 * 16 + 8, 8 * 16 + MAZE_TOP, SPRITE_CHEESE, PAL_HOT);
         } else {
-            sdevkit_oam_set_visible(ID_BONUS, SDEVKIT_OBJ_HIDE);
+            sprite_hide(ID_BONUS);
         }
     }
     return 0;
@@ -295,37 +297,38 @@ static uint8_t collisions(void)
 void game_init(uint16_t seed)
 {
     rng = (uint16_t)(rng ^ seed);
-    sdevkit_set_mode(SDEVKIT_BG_MODE1, 0);
-    sdevkit_bg_set_disable(1);
-    sdevkit_bg_set_disable(2);
-    sdevkit_bg_init_tile_set(0, maze_gfx_tiles, maze_gfx_pal, 0, MAZE_GFX_TILES_SIZE,
-                             MAZE_GFX_PAL_SIZE, SDEVKIT_BG_16COLORS, VRAM_BG_TILES);
-    sdevkit_bg_set_map_ptr(0, VRAM_BG_MAP, SDEVKIT_SC_32x32);
-    sdevkit_bg_set_scroll(0, 0, 0x3FF);          /* the first line of the map on the first line of the screen */
-    sdevkit_oam_init_gfx_set(sprites_gfx_tiles, SPRITES_GFX_TILES_SIZE, sprites_gfx_pal,
-                             SPRITES_GFX_PAL_SIZE, 0, VRAM_SPRITES, SDEVKIT_OBJ_SIZE16_L32);
-    sdevkit_dma_copy_cgram(pal_ginger_pal, 128 + 16 * 1, PAL_GINGER_PAL_SIZE);
-    sdevkit_dma_copy_cgram(pal_black_pal, 128 + 16 * 2, PAL_BLACK_PAL_SIZE);
-    sdevkit_dma_copy_cgram(pal_white_pal, 128 + 16 * 3, PAL_WHITE_PAL_SIZE);
-    sdevkit_dma_copy_cgram(pal_brown_pal, 128 + 16 * 4, PAL_BROWN_PAL_SIZE);
-    sdevkit_dma_copy_cgram(pal_scared_pal, 128 + 16 * 5, PAL_SCARED_PAL_SIZE);
-    sdevkit_dma_copy_cgram(pal_hot_pal, 128 + 16 * 6, PAL_HOT_PAL_SIZE);
-    sdevkit_oam_init();
+    sdevkit_ppu.bgmode = SDEVKIT_BG_MODE1;
+    sdevkit_ppu.tm = SDEVKIT_BG1_ENABLE | SDEVKIT_OBJ_ENABLE;
+    sdevkit_ppu.bgnba[0] = SDEVKIT_BGNBA(VRAM_BG_TILES, 0);
+    sdevkit_ppu.bgsc[0] = SDEVKIT_BGSC(VRAM_BG_MAP, SDEVKIT_SC_32x32);
+    sdevkit_ppu.vofs[0] = 0x3FF;                 /* the first line of the map on the first line of the screen */
+    sdevkit_ppu.obsel = SDEVKIT_OBSEL(VRAM_SPRITES, SDEVKIT_OBJ_SIZE16_L32);
+    sdevkit_vram_copy(VRAM_BG_TILES, maze_gfx_tiles, MAZE_GFX_TILES_SIZE);   /* the screen is off */
+    sdevkit_cgram_copy(0, maze_gfx_pal, MAZE_GFX_PAL_SIZE);
+    sdevkit_vram_copy(VRAM_SPRITES, sprites_gfx_tiles, SPRITES_GFX_TILES_SIZE);
+    sdevkit_cgram_copy(128, sprites_gfx_pal, SPRITES_GFX_PAL_SIZE);
+    sdevkit_cgram_copy(128 + 16 * 1, pal_ginger_pal, PAL_GINGER_PAL_SIZE);
+    sdevkit_cgram_copy(128 + 16 * 2, pal_black_pal, PAL_BLACK_PAL_SIZE);
+    sdevkit_cgram_copy(128 + 16 * 3, pal_white_pal, PAL_WHITE_PAL_SIZE);
+    sdevkit_cgram_copy(128 + 16 * 4, pal_brown_pal, PAL_BROWN_PAL_SIZE);
+    sdevkit_cgram_copy(128 + 16 * 5, pal_scared_pal, PAL_SCARED_PAL_SIZE);
+    sdevkit_cgram_copy(128 + 16 * 6, pal_hot_pal, PAL_HOT_PAL_SIZE);
     best_load();
     debug_register();
     level = 1;
     title();
-    sdevkit_dma_copy_vram((const uint8_t *)bg_map, VRAM_BG_MAP, MAP_BYTES);   /* the screen is still off */
+    sdevkit_vram_copy(VRAM_BG_MAP, bg_map, MAP_BYTES);   /* the screen is still off */
     bg_map_dirty = 0;
-    sdevkit_set_brightness(15);
+    sdevkit_ppu.inidisp = 15;
 }
 
 void game_tick(const uint16_t pad[SDEVKIT_PADS])
 {
-    uint16_t pressed = (uint16_t)(pad[0] & ~last_pad);
+    uint16_t pressed;
 
+    sdevkit_input_update(pad);
+    pressed = sdevkit_input.pressed[0];
     sdevkit_dbg_hash(sdevkit_sram(), SAVE_BYTES);   /* the checks compare the save RAM too */
-    last_pad = pad[0];
     frame++;
     switch (state) {
     case ST_TITLE:
@@ -344,7 +347,7 @@ void game_tick(const uint16_t pad[SDEVKIT_PADS])
         }
         break;
     case ST_PLAY:
-        mouse_move(pad[0]);
+        mouse_move(sdevkit_input.pad[0]);
         if (!dbg_cats_frozen) {
             cats_move();
         }
@@ -360,7 +363,7 @@ void game_tick(const uint16_t pad[SDEVKIT_PADS])
             state = ST_CLEAR;
             timer = 120;
             actors_hide();
-            sdevkit_oam_set_visible(ID_BONUS, SDEVKIT_OBJ_HIDE);
+            sprite_hide(ID_BONUS);
         }
         actors_draw(frame);
         break;
@@ -368,10 +371,10 @@ void game_tick(const uint16_t pad[SDEVKIT_PADS])
         actors_hide();
         mouse.dir = (uint8_t)((timer >> 2) & 3);
         actors_draw(0);
-        sdevkit_oam_set_visible(4, SDEVKIT_OBJ_HIDE);
-        sdevkit_oam_set_visible(8, SDEVKIT_OBJ_HIDE);
-        sdevkit_oam_set_visible(12, SDEVKIT_OBJ_HIDE);
-        sdevkit_oam_set_visible(16, SDEVKIT_OBJ_HIDE);
+        sprite_hide(4);
+        sprite_hide(8);
+        sprite_hide(12);
+        sprite_hide(16);
         if (--timer == 0) {
             lives--;
             hud();
@@ -404,16 +407,17 @@ void game_tick(const uint16_t pad[SDEVKIT_PADS])
         }
         break;
     }
+    /* what changed, for the vertical blank; what does not fit is queued again in the next tick */
+    if (bg_map_dirty && sdevkit_queue_vram(VRAM_BG_MAP, bg_map, MAP_BYTES)) {
+        bg_map_dirty = 0;
+    }
+    if (blink_dirty && maze_blink(blink)) {
+        blink_dirty = 0;
+    }
 }
 
 void game_vblank(void)
 {
-    if (bg_map_dirty) {
-        sdevkit_dma_copy_vram((const uint8_t *)bg_map, VRAM_BG_MAP, MAP_BYTES);
-        bg_map_dirty = 0;
-    }
-    if (blink_dirty) {
-        maze_blink(blink);
-        blink_dirty = 0;
-    }
+    sprites_copy();
+    sdevkit_commit();
 }

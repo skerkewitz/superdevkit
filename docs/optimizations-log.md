@@ -1880,3 +1880,159 @@ inlining, 8 became tables; most of the others have two to five cases. Steinschla
 `cave_scan_rows` switches on the kind of each cell that moves, and its first case, the boulder, is
 by far the most common, where the chain needs one compare. The worst cases of the timing report
 went down in every function that changed (`cost-baseline.txt`).
+
+## A constant on an index into the operand (2026-11-25, on the examples)
+
+`a[i + 1]` with `a` a global indexed by a 16-bit value computed the sum for every access:
+`CLC`, `LDA i`, `ADC #1`, `TAY`, then `STA a,y` (11 cycles more than the access). The constant
+now goes into the operand, `STA a+1,y`, and X or Y holds `i` (`FrameLayout.offsetIndex`). X adds as
+an unsigned 16-bit number in both forms, so they reach the same byte exactly when `i + k` cannot
+pass `$FFFF`; the unsigned range of `i` shows it. Only a positive constant (a negative one puts the
+operand before the symbol), and only where the sum has no other use: a sum that is computed may
+have taken `i` handed on in A, and then `i`'s place was never written. The first version missed
+that rule and failed the frame check on CatchMe's `actors_draw` (`id = 4 + i * 4` read by
+`oam[id]`, with `id + 1` to `id + 3` folded onto it); `exec/global_index_offset.c` has the case. A
+loop counter that indexes only through such sums now stays in X (`SelectionPlan.usesFitX`).
+
+Found while measuring the console API's sprite calls
+([brainstorm](brainstorm/console-api-shadow-state_2026-11-24.md), measurement B): packing 128
+sprites from parallel arrays into the sprite table, 37,455 → 29,646 cycles worst case.
+
+| Example | Work before | after | Busiest tick before | after | Code bytes before | after |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| CatchMe | 47,297 | 45,114 | 127,586 | 125,400 | 24,887 | 24,457 |
+| Ertüp | 132,217 | 131,906 | 260,166 | 259,452 | 85,954 | 85,503 |
+| Hello | 58,869 | 58,870 | 59,838 | 59,838 | 11,481 | 11,246 |
+| Mandelbrot | 76,575 | 76,463 | 89,588 | 89,576 | 14,683 | 14,425 |
+| Mode 7 | 11,649 | 11,649 | 11,673 | 11,673 | 12,175 | 11,923 |
+| Schach | 370,307 | 370,306 | 523,337 | 523,336 | 43,753 | 43,496 |
+| Steinschlag | 74,628 | 74,629 | 134,423 | 134,408 | 27,500 | 27,260 |
+
+The geometric mean of the work is 0.7 % lower; every example's code is smaller. Most of the gain
+is in the console API's own sprite functions (`sdevkit_oam_set` 293–405 → 217–329 cycles,
+`lib/README.md`), which CatchMe calls for every actor. Er-Tüp writes its sprites through a pointer
+(`o[1]`), which this does not touch.
+
+## The console API as shadow state, measured against the old one (2026-11-25, on the examples)
+
+The console API changed from PVSnesLib's calls to shadow state (ADR-6FMHDB6H). Both measured
+with the same dampf (the constant-offset fold above included), the old API at the commit before
+the change. Work per tick in master cycles (`dev/bench_examples.sh`), and code bytes:
+
+| Example | Work, old API | new API | Ratio | Code bytes, old | new |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| CatchMe | 45,114 | 44,127 | 0.978 | 24,457 | 26,324 |
+| Ertüp | 131,906 | 136,926 | 1.038 | 85,503 | 86,636 |
+| Hello | 58,870 | 63,814 | 1.084 | 11,246 | 13,215 |
+| Mandelbrot | 76,463 | 78,988 | 1.033 | 14,425 | 15,812 |
+| Mode 7 | 11,649 | 14,203 | 1.219 | 11,923 | 13,671 |
+| Schach | 370,306 | 372,543 | 1.006 | 43,496 | 45,416 |
+| Steinschlag | 74,629 | 80,421 | 1.078 | 27,260 | 28,999 |
+
+The geometric mean of the work is 1.060: the examples, which draw one to six sprites and upload
+little, pay for what the kit now does every tick whether a game needs it or not. Per tick, against
+the old main loop: the checks hash the registers and, when there are copies, the queue (five port
+writes each, about 550 master cycles); the joypads' newly pressed buttons are worked out; the
+commit's calls. A queued copy costs about 200 cycles in the tick and 150 in the vertical blank,
+where the old `sdevkit_dma_copy_vram` cost 116: dampf passes `queue_add`'s six parameters twice.
+Per sprite the list is cheaper than the old calls (`sdevkit_sprite` at most 118 cycles, against
+217 to 329 for `sdevkit_oam_set` and 71 to 183 for `sdevkit_oam_set_ex`), and a register is a
+store instead of a call (a scroll 78 cycles before, a mark and two stores now). A typical frame of
+a game with more on the screen (64 sprites that move, two layers that scroll, a colour that
+changes, a row of a map uploaded, the brightness) costs 119,184 master cycles a tick against
+160,347 with the old calls, 26 % less. The code grows by 1,100 to 2,000 bytes: the commit links
+its code for every group, used or not.
+
+Four steps on the way, each measured on the examples: the checks first hashed 11 regions a tick
+(the seven HDMA channels each), 6,700 master cycles; the sprite list cleared the whole high table
+for its first sprite, 2,700; the commit wrote 30 registers every frame (283 cycles) until only
+INIDISP stayed unmarked (Mode 7 from 2.18 times the old work to 1.22, the geometric mean from 1.25
+to 1.06); and the list's high-table bytes are cleared after the commit, not in `sdevkit_sprite`,
+whose worst case had grown with that loop (Schach's `draw_sprites` 2,431 cycles at worst, now 614;
+the typical frame 136,142 with a read-modify-write per sprite instead). A bench fix came with it:
+`ExampleBench` took a declaration of `sdevkit__wait_vblank` for its definition and counted the
+wrong lines as waiting.
+
+Open: the queue in hand-written assembly (`DAMPF_ASM`: its RAM effects are checked against the C
+body) would roughly halve a copy's cost in the tick and in the vertical blank, and with it raise
+the queue's budget.
+
+## The console API's core and its optional layers, measured with DMA's time (2026-11-25, on the examples)
+
+The shadow state above cost every game a fixed amount of work a tick and gave a game that knew the
+vertical blank's rules nothing (Er-Tüp 1.038). The API was rebuilt as a core that is the hardware
+at once, with the shadow state, a sprite list, the queue and the buttons pressed as optional
+layers above it (ADR-6FNPPCSX). Mode 7, Mandelbrot, Steinschlag and Er-Tüp use the core, Hello,
+CatchMe and Schach the layers (CatchMe with a sprite table of its own).
+
+**DMA's time.** dampf's emulator gave a DMA no time, so the old main loop's copy of the whole sprite
+table (544 bytes, 4,368 master cycles) in every vertical blank was missing from the old numbers,
+and a game that copies less could not show it. A general DMA now halts the CPU for 8 master
+cycles a byte, 8 a channel and 8 more (`dampf.emu.Snes`). The old API was measured again with it,
+on the ROMs of the commit before the shadow state (Mode 7 11,649 → 16,126).
+
+| Example | Work, old API | new | Ratio | Busiest, old | new | Code bytes, old | new |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| CatchMe | 51,239 | 46,174 | 0.901 | 146,798 | 143,023 | 24,457 | 25,272 |
+| Ertüp | 136,759 | 134,081 | 0.980 | 264,360 | 261,957 | 85,503 | 85,988 |
+| Hello | 80,195 | 80,274 | 1.001 | 81,214 | 81,273 | 11,246 | 11,434 |
+| Mandelbrot | 80,995 | 75,223 | 0.929 | 94,112 | 88,334 | 14,425 | 14,506 |
+| Mode 7 | 16,126 | 10,692 | 0.663 | 16,161 | 10,717 | 11,923 | 12,260 |
+| Schach | 375,206 | 372,746 | 0.993 | 527,899 | 525,310 | 43,496 | 43,778 |
+| Steinschlag | 79,961 | 75,135 | 0.940 | 140,820 | 136,020 | 27,260 | 27,720 |
+
+The geometric mean of the work is 0.908. The examples on the core gain what the old main loop
+did for them whether they needed it or not (the full sprite copy, its hash) and copy only what is
+in use; those on the layers are about where they were. The code grows by 80 to 820 bytes: the
+layers are linked into every ROM, used or not (dampf keeps functions nobody calls), and each
+example now names its sprite state for the checks itself. A register write is one store
+(`sdevkit_reg_write` with a constant register, inlined), a copy 100 to 120 cycles.
+
+**Two byte loads for a value written in halves.** `sdevkit_reg_write_twice(reg, v)` loaded `v` once
+and kept it in X while the accumulator switched to 8 bits for the low byte and back for the high
+one (34 cycles). `ByteLoads` now turns a 16-bit load whose uses are its low byte and its high byte
+into two byte loads, and `Schedule` moves a load past a volatile store to a register of the PPU,
+the sound or the CPU, which cannot change memory (not `$2180`, `$420B`, `$420C`): each byte is
+loaded next to its store, in one run of 8-bit code. The layers' register commit went from 2,267 to
+2,062 cycles at worst, its scroll part from 34 to 18 cycles a register. On the examples the work is
+0.6 % lower on the geometric mean (Mode 7 3.4 %, Mandelbrot 0.4 %, the others below 0.1 %).
+
+**The queue's budget.** The layers' commit has a worse worst case than the shadow state's: the
+sprite list (up to four DMAs, 560 cycles) and the HDMA channels through the core. The queue takes
+3,072 bytes a frame now, from the commit's measured worst case (lib/README.md); `dev/commit_stress.sh`
+with every group, seven HDMA channels, the queue full and the sprite list full and empty in turn:
+no byte lost in Mesen, the commit's last write on line 259 of 261. With 3,840 it ended on line 264
+and lost bytes. The sprite list hides the entries of the tick before by a DMA from a table of
+hidden entries and clears their high-table bytes by a DMA from zeros, so no loop runs in the
+vertical blank.
+
+Found on the way: dampf's emulator took a LoROM for HiROM when the byte at file offset `$FFD5`
+was `$21`, and Schach's data put one there once its code moved by twenty bytes; the ROM then
+started at `$0000`. It now trusts the header whose checksum and complement agree (`MappingTest`).
+
+## Unreachable functions left out (2026-11-25, on the examples)
+
+dampf compiled every function of every file into the ROM. `Reachable` (ADR-6FNWEJAA) now drops,
+after lowering and before the optimizer, the functions the entry, the interrupt handlers and the
+assembly functions do not reach, and the globals only those used. Work per tick is unchanged
+(Schach 0.997, the others within 0.01 %, from the layout); code and RAM, against the console API's
+core and layers before it and the PVSnesLib API (with all of dampf's other changes):
+
+| Example | Code bytes, PVSnesLib API | before | after | RAM bytes, PVSnesLib API | after |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| CatchMe | 24,457 | 25,272 | 21,381 | 3,226 | 3,916 |
+| Ertüp | 85,503 | 85,988 | 79,789 | 4,864 | 4,604 |
+| Hello | 11,246 | 11,434 | 7,721 | 2,941 | 3,081 |
+| Mandelbrot | 14,425 | 14,506 | 8,674 | 1,240 | 435 |
+| Mode 7 | 11,923 | 12,260 | 6,428 | 17,670 | 16,865 |
+| Schach | 43,496 | 43,778 | 42,051 | 45,141 | 45,056 |
+| Steinschlag | 27,260 | 27,720 | 24,065 | 4,758 | 4,216 |
+
+What goes: the optional layers where an example does not use them, the debug calls' and the music's
+empty functions, `sdevkit_sram` and the queue's state where nothing calls them. The examples on the
+core need less RAM than with the old API (the kit's 544-byte sprite table is gone); CatchMe more
+(its own sprite table and the layers'). The first version ran after the optimizer and dropped
+what inlining had made unused too: 25 to 35 % less code again (Mode 7 4,181 bytes), but such a
+function left the timing report, and 40 tests that measure a function by its entry failed with it
+(roadmap, ideas). The execution tests' harness reported a global left out as missing; it now
+compares the global's initial value, which the PC's run must still have.

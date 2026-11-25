@@ -249,10 +249,10 @@ void stage_start(uint16_t at)
     next_wall = (uint16_t)(at >> 5);
     for (i = 0; i < 18 && stage_no < 2; i++) {
         build_column(next_col);
-        sdevkit_dma_copy_vram_column((const uint8_t *)col_buf, col_vram, sizeof col_buf);
+        sdevkit_vram_column_copy(col_vram, col_buf, sizeof col_buf);
         next_col++;
         build_wall(next_wall);
-        sdevkit_dma_copy_vram_column((const uint8_t *)wall_buf, wall_vram, sizeof wall_buf);
+        sdevkit_vram_column_copy(wall_vram, wall_buf, sizeof wall_buf);
         next_wall++;
     }
     col_vram = 0;
@@ -300,18 +300,20 @@ void stage_vblank(void)
         return;
     }
     if (col_vram != 0) {
-        sdevkit_dma_copy_vram_column((const uint8_t *)col_buf, col_vram, sizeof col_buf);
+        sdevkit_vram_column_copy(col_vram, col_buf, sizeof col_buf);
         col_vram = 0;
     }
     if (wall_vram != 0) {
-        sdevkit_dma_copy_vram_column((const uint8_t *)wall_buf, wall_vram, sizeof wall_buf);
+        sdevkit_vram_column_copy(wall_vram, wall_buf, sizeof wall_buf);
         wall_vram = 0;
     }
-    sdevkit_bg_set_scroll(0, (uint16_t)(shown_cam & 0x3FF), 0x3FF);
+    sdevkit_reg_write_twice(SDEVKIT_PPU_BG1HOFS, (uint16_t)(shown_cam & 0x3FF));
+    sdevkit_reg_write_twice(SDEVKIT_PPU_BG1VOFS, 0x3FF);
     if (walls_off) {
         boss_vblank();
     } else {
-        sdevkit_bg_set_scroll(1, (uint16_t)((shown_cam >> 1) & 0x3FF), 0x3FF);
+        sdevkit_reg_write_twice(SDEVKIT_PPU_BG2HOFS, (uint16_t)((shown_cam >> 1) & 0x3FF));
+        sdevkit_reg_write_twice(SDEVKIT_PPU_BG2VOFS, 0x3FF);
     }
 }
 

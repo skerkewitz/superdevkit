@@ -67,19 +67,19 @@ void boss_start(void)
     }
     maps = kind == 0 ? BOSS_MAP : BOSS2_MAP;
     if (kind == 0) {
-        sdevkit_dma_copy_vram(boss_gfx_tiles, VRAM_BG2_TILES, BOSS_GFX_TILES_SIZE);
-        sdevkit_dma_copy_cgram(boss_gfx_pal, 64, BOSS_GFX_PAL_SIZE);
+        sdevkit_vram_copy(VRAM_BG2_TILES, boss_gfx_tiles, BOSS_GFX_TILES_SIZE);
+        sdevkit_cgram_copy(64, boss_gfx_pal, BOSS_GFX_PAL_SIZE);
     } else {
-        sdevkit_dma_copy_vram(boss2_gfx_tiles, VRAM_BG2_TILES, BOSS2_GFX_TILES_SIZE);
-        sdevkit_dma_copy_cgram(boss2_gfx_pal, 64, BOSS2_GFX_PAL_SIZE);
+        sdevkit_vram_copy(VRAM_BG2_TILES, boss2_gfx_tiles, BOSS2_GFX_TILES_SIZE);
+        sdevkit_cgram_copy(64, boss2_gfx_pal, BOSS2_GFX_PAL_SIZE);
     }
     for (r = 0; r < 64; r++) {                      /* 64 rows of 32 entries: both halves */
-        sdevkit_dma_copy_vram((const uint8_t *)zero, (uint16_t)(VRAM_BG2_MAP + r * 32), sizeof zero);
+        sdevkit_vram_copy((uint16_t)(VRAM_BG2_MAP + r * 32), zero, sizeof zero);
     }
     look = 0;
     for (r = 0; r < BOSS_H; r++) {
         build_row(r);
-        sdevkit_dma_copy_vram((const uint8_t *)row_buf, (uint16_t)(VRAM_BG2_MAP + r * 32), sizeof row_buf);
+        sdevkit_vram_copy((uint16_t)(VRAM_BG2_MAP + r * 32), row_buf, sizeof row_buf);
     }
     shown_look = 0;
     rows_left = 0;
@@ -106,10 +106,11 @@ void boss_vblank(void)
     if (rows_left > 0) {
         uint8_t r = (uint8_t)(BOSS_H - rows_left);
         build_row(r);
-        sdevkit_dma_copy_vram((const uint8_t *)row_buf, (uint16_t)(VRAM_BG2_MAP + r * 32), sizeof row_buf);
+        sdevkit_vram_copy((uint16_t)(VRAM_BG2_MAP + r * 32), row_buf, sizeof row_buf);
         rows_left--;
     }
-    sdevkit_bg_set_scroll(1, (uint16_t)(-bx & 0x3FF), (uint16_t)((-by - 1) & 0x3FF));
+    sdevkit_reg_write_twice(SDEVKIT_PPU_BG2HOFS, (uint16_t)(-bx & 0x3FF));
+    sdevkit_reg_write_twice(SDEVKIT_PPU_BG2VOFS, (uint16_t)((-by - 1) & 0x3FF));
 }
 
 static void set_look(uint8_t l)

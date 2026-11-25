@@ -15,13 +15,15 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The table of features in lib/SNES_HARDWARE.md says what the kit has: a feature built on the SNES
- * and on Rachael names its functions, and each is a function of the console API (sdevkit/snes.h)
- * that lib/snes and lib/rachael define. So a row cannot say "built" for something a platform lacks.
+ * and on Rachael names how a game reaches it, each a name of the public headers (a function, which
+ * lib/snes and lib/rachael must both define, a macro, a variable), or a field of the register
+ * shadow ({@code sdevkit_ppu.mosaic}) that sdevkit/shadow.h declares. So a row cannot say "built" for
+ * something a platform lacks or the API does not have.
  */
 class SnesHardwareGuideTest {
     private static final Path GUIDE = Path.of("lib/SNES_HARDWARE.md");
     private static final Pattern ROW = Pattern.compile("^\\| ([^|]+) \\| ([^|]+) \\| ([^|]+) \\| ([^|]*) \\|$", Pattern.MULTILINE);
-    private static final Pattern NAME = Pattern.compile("`(\\w+)`");
+    private static final Pattern NAME = Pattern.compile("`(\\w+)(?:\\.(\\w+)|\\[\\w*\\])*`");
 
     @Test
     void everyFeatureBuiltOnBothHasItsFunctionsOnBoth() throws Exception {
@@ -29,6 +31,12 @@ class SnesHardwareGuideTest {
         int from = guide.indexOf("## What the kit has"), to = guide.indexOf("\n## ", from + 1);
         assertTrue(from >= 0, GUIDE + " has no section \"What the kit has\"");
         Set<String> api = LibApiTest.consoleApi();
+        Set<String> names = LibNamesTest.publicNames();
+        StringBuilder headers = new StringBuilder();
+        for (String h : List.of("snes.h", "shadow.h", "sprites.h", "queue.h", "input.h", "easy.h")) {
+            headers.append(Files.readString(Path.of("lib/include/sdevkit").resolve(h)));
+        }
+        String header = headers.toString();
         Set<String> snes = LibApiTest.defined(Path.of("lib/snes")), rachael = LibApiTest.defined(Path.of("lib/rachael"));
         List<String> wrong = new ArrayList<>();
         int built = 0;
@@ -46,15 +54,17 @@ class SnesHardwareGuideTest {
             boolean any = false;
             while (n.find()) {
                 any = true;
-                String f = n.group(1);
-                if (!api.contains(f)) {
-                    wrong.add(feature + ": " + f + " is not in sdevkit/snes.h");
-                } else if (!snes.contains(f) || !rachael.contains(f)) {
+                String f = n.group(1), field = n.group(2);
+                if (!names.contains(f)) {
+                    wrong.add(feature + ": " + f + " is not a name of the public headers");
+                } else if (field != null && !Pattern.compile("\\b" + field + "\\b").matcher(header).find()) {
+                    wrong.add(feature + ": " + f + " has no field " + field);
+                } else if (api.contains(f) && (!snes.contains(f) || !rachael.contains(f))) {
                     wrong.add(feature + ": " + f + " is not defined in " + (!snes.contains(f) ? "lib/snes" : "lib/rachael"));
                 }
             }
             if (!any) {
-                wrong.add(feature + ": built on both, but names no function");
+                wrong.add(feature + ": built on both, but names nothing a game reaches it with");
             }
         }
         assertFalse(built == 0, "no feature built on both in " + GUIDE);

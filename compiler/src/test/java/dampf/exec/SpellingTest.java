@@ -130,7 +130,7 @@ class SpellingTest {
         Files.writeString(file, fam.text() + main);
         Compiler.Result r = Compiler.compile(new Compiler.Options(List.of(file), List.of(), List.of(), "test_main",
                 work.resolve(fam.name() + ".sfc")).withBackend(Compiler.Backend.MIR));
-        List<Observed> globals = Observed.of(r.program().globals());
+        List<Observed> globals = Observed.of(r.program());
         Map<String, Long> pc = PcReference.wrap(PcReference.run(file, "test_main", globals, work), globals);
         EmulatorRunner emulator = new EmulatorRunner();
         assertEquals(pc, emulator.run(r.rom(), globals).values(), fam.name() + ": the PC and the SNES differ");

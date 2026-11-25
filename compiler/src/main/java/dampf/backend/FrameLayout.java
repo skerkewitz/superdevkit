@@ -121,6 +121,10 @@ final class FrameLayout {
         // a pointer plus an index only where the sum is not computed: a computed sum is read as
         // [sum],y, since its index may have been handed on in A into it and never stored
         if (base instanceof Instr.PtrAdd q && (indexable(q) || offset == 0 && pointerIndexable(q) && folded.contains(q))) {
+            OffsetIndex s = offsetIndex(q);
+            if (s != null) {
+                return new Address(q.op(0), offset + s.offset(), s.index());
+            }
             return new Address(q.op(0), offset, q.op(1));
         }
         ConstAddress c = constAddress(base);
@@ -133,6 +137,41 @@ final class FrameLayout {
             return new Address(new Value.Const(MType.I32, c.address()), offset, c.index());
         }
         return new Address(base, offset, null);
+    }
+
+    /**
+     * The index of a global indexed by a value plus a constant, {@code a[i + 1]}: the constant goes
+     * into the operand ({@code sta a+1,x}) and X holds i, so the sum is never computed. X adds as
+     * an unsigned 16-bit number in both forms, so they reach the same byte exactly when i + k
+     * cannot pass $FFFF: the unsigned range of i shows it. Only a positive k: a negative one would
+     * put the operand before the symbol. Only where the sum is folded (never computed): a sum that
+     * is computed may have taken i handed on in A, and i's place was never written.
+     */
+    record OffsetIndex(Value index, int offset) {}
+
+    OffsetIndex offsetIndex(Instr.PtrAdd q) {
+        return q.op(1) instanceof Instr.Bin b && folded.contains(b) ? offsetSum(q) : null;
+    }
+
+    /** offsetIndex's form, whether or not the sum is folded. */
+    private OffsetIndex offsetSum(Instr.PtrAdd q) {
+        if (!(q.op(0) instanceof Value.GlobalAddr) || !(q.op(1) instanceof Instr.Bin b) || b.op != Instr.BinOp.ADD
+                || b.type() != MType.I16 || (b.op(0) instanceof Value.Const) == (b.op(1) instanceof Value.Const)) {
+            return null;
+        }
+        long k = MType.I16.signed(((Value.Const) (b.op(0) instanceof Value.Const ? b.op(0) : b.op(1))).bits());
+        Value i = b.op(0) instanceof Value.Const ? b.op(1) : b.op(0);
+        if (k <= 0 || i.type() != MType.I16) {
+            return null;
+        }
+        Ranges.Range r = ranges.atUnsigned(i, b.block());
+        return r != null && r.hi() + k <= 0xFFFF ? new OffsetIndex(i, (int) k) : null;
+    }
+
+    /** What X holds for an indexed access through q: the index, or the value under its constant. */
+    Value indexOf(Instr.PtrAdd q) {
+        OffsetIndex s = offsetIndex(q);
+        return s != null ? s.index() : q.op(1);
     }
 
     /**
@@ -300,6 +339,25 @@ final class FrameLayout {
         onlyAddresses.forEach((q, ok) -> {
             if (ok) {
                 folded.add(q);
+            }
+        });
+        // an index plus a constant used only by such folded sums (a[i + 1], a[i + 2]): the
+        // accesses take the constant into the operand and X holds i, the sum is never computed
+        Map<Instr, Boolean> offsetSums = new HashMap<>();
+        for (Block b : f.blocks()) {
+            for (Instr i : b.instrs()) {
+                for (int k = 0; k < i.operands().size(); k++) {
+                    if (i.op(k) instanceof Instr.Bin d && d.op == Instr.BinOp.ADD) {
+                        boolean ok = k == 1 && i instanceof Instr.PtrAdd q && folded.contains(q) && indexable(q)
+                                && offsetSum(q) != null;
+                        offsetSums.merge(d, ok, Boolean::logicalAnd);
+                    }
+                }
+            }
+        }
+        offsetSums.forEach((d, ok) -> {
+            if (ok) {
+                folded.add(d);
             }
         });
         // a constant plus an index made into a pointer (REG8(0x210B + i)), used only as an

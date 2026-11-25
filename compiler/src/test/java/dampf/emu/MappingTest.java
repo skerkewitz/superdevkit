@@ -51,6 +51,20 @@ class MappingTest {
         assertEquals(0, none.read(0x700000));
     }
 
+    /** A LoROM of dampf's whose data has $21 at $FFD5: its header at $7FC0 is valid, so it stays LoROM. */
+    @Test
+    void aLoRomWithHiRomsModeByteInItsDataStaysLoRom() {
+        byte[] r = rom(0x20000);
+        r[0x7FD5] = 0x30;
+        r[0x7FDC] = 0x01;
+        r[0x7FDD] = 0x5C;                                    // the complement ...
+        r[0x7FDE] = (byte) 0xFE;
+        r[0x7FDF] = (byte) 0xA3;                             // ... and the checksum agree
+        r[0xFFD5] = 0x21;                                    // a byte of the game's data
+        assertFalse(Snes.isHiRom(r));
+        assertEquals(r[0x0000] & 0xFF, new Snes(r).read(0x008000));
+    }
+
     @Test
     void hiRomMapsWholeBanks() {
         byte[] r = rom(0x20000);

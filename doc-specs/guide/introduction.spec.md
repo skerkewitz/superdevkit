@@ -54,11 +54,10 @@ Rachael. Link [The superdevkit command](/reference/superdevkit) and [The web](/g
   stands*, with what the kit's library has besides (sound effects and save RAM on every target,
   music on the desktop and the web only).
 - Whether dampf fits the reader's own game: its logic must also build with gcc on the PC, and
-  it reaches the console only through the kit's console API (`lib/include/sdevkit/snes.h`,
-  PVSnesLib's calls renamed), which `lib/snes` implements on the SNES as the
+  it reaches the console only through the kit's console API (`lib/include/sdevkit/snes.h`: the
+  hardware at once, with optional layers above it), which `lib/snes` implements on the SNES as the
   [platform layer](/glossary#platform-layer) and Rachael on the desktop and the web. A game
-  written against PVSnesLib converts its names with `tools/sdevkit_rename.py`; one that calls
-  another library needs a platform layer of its own. Say both plainly, in *What dampf assumes*
+  written against PVSnesLib or another library moves its calls to the console API by hand. Say both plainly, in *What dampf assumes*
   or *Where it stands*, and link [The console API](/reference/console-api).
 - Give the unit with the first figure (frames per tick), before or in the table.
 - Calypsi and 816-tcc get that one sentence and nothing more: no figure of theirs (frames per

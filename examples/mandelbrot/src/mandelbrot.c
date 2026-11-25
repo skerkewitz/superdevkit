@@ -258,6 +258,15 @@ static void set_matrix(void)
     md = c;
 }
 
+/* Mode 7's matrix into its registers: in game_vblank, or with the screen off. */
+static void write_matrix(void)
+{
+    sdevkit_reg_write_twice(SDEVKIT_PPU_M7A, (uint16_t)ma);
+    sdevkit_reg_write_twice(SDEVKIT_PPU_M7B, (uint16_t)mb);
+    sdevkit_reg_write_twice(SDEVKIT_PPU_M7C, (uint16_t)mc);
+    sdevkit_reg_write_twice(SDEVKIT_PPU_M7D, (uint16_t)md);
+}
+
 void game_init(uint16_t seed)
 {
     static const uint8_t ZERO[64];
@@ -265,29 +274,31 @@ void game_init(uint16_t seed)
     uint8_t r, c;
 
     (void)seed;
-    sdevkit_set_mode(SDEVKIT_BG_MODE7, 0);
+    sdevkit_reg_write(SDEVKIT_PPU_BGMODE, SDEVKIT_BG_MODE7);   /* the screen is off: everything at once */
+    sdevkit_reg_write(SDEVKIT_PPU_TM, SDEVKIT_BG1_ENABLE);
     for (r = 0; r < 128; r++) {                     /* the map: the picture's tiles, blank around */
         for (c = 0; c < 128; c++) {
             row[c] = (uint8_t)(r < H / 8 && c < W / 8 ? r * 16 + c : BLANK_TILE);
         }
-        sdevkit_mode7_load_map(row, (uint16_t)(r * 128), sizeof row);
+        sdevkit_mode7_map_copy((uint16_t)(r * 128), row, sizeof row);
     }
     for (r = 0; r <= TILES; r++) {
-        sdevkit_mode7_load_tiles(ZERO, (uint16_t)(r * 64), sizeof ZERO);
+        sdevkit_mode7_tiles_copy((uint16_t)(r * 64), ZERO, sizeof ZERO);
     }
     make_palette();
     cycle_palette();
-    sdevkit_dma_copy_cgram(palette, 1, sizeof palette);
+    sdevkit_cgram_copy(1, palette, sizeof palette);
     palette_dirty = 0;
-    sdevkit_set_palette_color(0, SDEVKIT_RGB5(0, 0, 3));
-    sdevkit_oam_init();                             /* no sprites */
-    sdevkit_mode7_set_select(SDEVKIT_M7_WRAP);
-    sdevkit_mode7_set_center(W / 2, H / 2);
-    sdevkit_bg_set_scroll(0, (uint16_t)((W / 2 - 128) & 0x1FFF), (uint16_t)((H / 2 - 112) & 0x1FFF));
+    sdevkit_cgram_set(0, SDEVKIT_RGB5(0, 0, 3));
+    sdevkit_reg_write(SDEVKIT_PPU_M7SEL, SDEVKIT_M7_WRAP);      /* no sprites: the kit's reset hid them */
+    sdevkit_reg_write_twice(SDEVKIT_PPU_M7X, W / 2);
+    sdevkit_reg_write_twice(SDEVKIT_PPU_M7Y, H / 2);
+    sdevkit_reg_write_twice(SDEVKIT_PPU_BG1HOFS, (uint16_t)((W / 2 - 128) & 0x1FFF));
+    sdevkit_reg_write_twice(SDEVKIT_PPU_BG1VOFS, (uint16_t)((H / 2 - 112) & 0x1FFF));
     view_start(0);
     set_matrix();
-    sdevkit_mode7_set_matrix(ma, mb, mc, md);
-    sdevkit_set_brightness(15);
+    write_matrix();
+    sdevkit_reg_write(SDEVKIT_PPU_INIDISP, 15);
 }
 
 void game_tick(const uint16_t pad[SDEVKIT_PADS])
@@ -328,12 +339,12 @@ void game_tick(const uint16_t pad[SDEVKIT_PADS])
 void game_vblank(void)
 {
     if (upload_ready) {
-        sdevkit_mode7_load_tiles(upload, (uint16_t)(upload_tile * 64), sizeof upload);
+        sdevkit_mode7_tiles_copy((uint16_t)(upload_tile * 64), upload, sizeof upload);
         upload_ready = 0;
     }
     if (palette_dirty) {
-        sdevkit_dma_copy_cgram(palette, 1, sizeof palette);
+        sdevkit_cgram_copy(1, palette, sizeof palette);
         palette_dirty = 0;
     }
-    sdevkit_mode7_set_matrix(ma, mb, mc, md);
+    write_matrix();
 }

@@ -42,8 +42,9 @@ final class EmulatorRunner {
         Map<String, Long> values = new LinkedHashMap<>();
         for (Observed v : globals) {
             Long base = addresses.get(v.label());
-            if (base == null) {
-                throw new IOException("no address for " + v.label());
+            if (base == null) {   // left out: no reachable code touches it
+                values.put(v.path(), v.initial());
+                continue;
             }
             int addr = (int) (base + v.offset()); // a bank $7E address without the bank
             long raw = 0;
