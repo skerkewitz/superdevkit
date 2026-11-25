@@ -9,9 +9,9 @@ import java.util.Map;
  * takes whole pages right below the stack ({@link SnesTarget#STACK}), the NMI's highest, then the
  * IRQ's: its direct page first, whose first 32 bytes are the context's copy of the runtime's
  * scratch registers (dampf_regs, dampf_ptr), then its frames, laid out from the page's byte
- * {@link SnesTarget#FRAME_START} as the main code's are from $0020. A context whose frames take at most 224 bytes takes one page. The main code's
- * frames end below the lowest context's page. Both code generators use it; the naive one has no
- * frames there, so each context takes one page.
+ * {@link SnesTarget#FRAME_START} as the main code's are from $0020. A context whose frames take
+ * at most 224 bytes takes one page. The main code's frames end below the lowest context's page.
+ * Both code generators use it; the naive one has no frames there, so each context takes one page.
  */
 public final class ContextAreas {
     private ContextAreas() {}
