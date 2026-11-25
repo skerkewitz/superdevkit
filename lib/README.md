@@ -93,6 +93,10 @@ long Voight-Kampff test gives her away; the name is [ADR-6F60Z3ZB](../docs/adr/6
 - The library's own names are `static`, or `sdevkit__` (two underscores) when files share them,
   declared outside `include/`. No name of the kit starts with `game_`.
 - The library is ordinary code for dampf: the subset, `<stdint.h>` and `<dampf.h>`.
+- The public headers are the API's documentation: a game is written from them alone, so they
+  explain the hardware at the names that reach it (the picture, the frame, every register and its
+  bits, the formats of tiles, maps, colours and sprites, timing), in Doxygen comments, one for
+  every function, type, variable, field and macro (`LibDocTest`).
 
 `LibApiTest` checks that every function of `sdevkit/snes.h` and of the layers' headers is defined
 in `snes/` and in `rachael/` (or in `layers/`, which both include), and has its row here. `LibNamesTest` checks the names: every name of the public headers has the
