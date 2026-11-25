@@ -149,9 +149,9 @@ final class Selection {
             case Value.Undef u -> imm(0);
             case Value.GlobalAddr g -> rom.contains(g.symbol())
                     ? (w == 0 ? new LOperand.Imm(".loword(" + g.symbol() + ")") : new LOperand.Imm("^" + g.symbol()))
-                    : (w == 0 ? new LOperand.Imm(".loword(" + g.symbol() + ")") : imm(0x7E));
+                    : (w == 0 ? new LOperand.Imm(".loword(" + g.symbol() + ")") : imm(SnesTarget.VARIABLE_BANK));
             case Value.SlotAddr s -> w == 0 ? new LOperand.Imm(".loword(" + absFrame + "+" + place.get(s.slot()) + ")",
-                    new LOperand.Owner(s.slot(), false, 0)) : imm(0x7E);
+                    new LOperand.Owner(s.slot(), false, 0)) : imm(SnesTarget.FRAME_BANK);
             case Value.Param p -> w >= words(p.type()) ? imm(0) : placeOf(p, w);
             case Instr i when FrameLayout.transparent(i) -> w >= words(i.type()) ? imm(0) : operand(i.op(0), w);
             case Instr i -> w >= words(i.type()) ? imm(0) : placeOf(i, w);

@@ -3,6 +3,7 @@ package dampf.asm;
 import dampf.frontend.CompileError;
 import dampf.frontend.SourcePos;
 import dampf.target.Cycles65816;
+import dampf.target.SnesTarget;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -30,7 +31,7 @@ import java.util.regex.Pattern;
  * <li>calls ({@code JSR}, {@code JSL}), jumps out of the function's segment, indirect jumps, and
  *     any return but {@code RTL};</li>
  * <li>an {@code RTL} with another CPU state than at the entry: A, X and Y 16 bit, DBR and D as
- *     they were (DBR $7E, D 0), the interrupt flag as it was, decimal mode off, nothing left on
+ *     they were (DBR {@link SnesTarget#DATA_BANK}, D 0), the interrupt flag as it was, decimal mode off, nothing left on
  *     the stack;</li>
  * <li>a place of the frames other than its own: its parameters ({@code _<f>__<p>}) and its locals
  *     ({@code _<f>__locals+n}), each within its bytes; the runtime's scratch registers
@@ -400,7 +401,8 @@ public final class AsmFunction {
                     + "; dampf's code expects A, X and Y 16 bit (REP #$30)");
         }
         if (s.dbr() != ORIGINAL) {
-            throw error(line, "returns with another data bank; DBR must be $7E again (PHB ... PLB)");
+            throw error(line, "returns with another data bank; DBR must be $" + String.format("%02X", SnesTarget.DATA_BANK)
+                    + " again (PHB ... PLB)");
         }
         if (s.d() != ORIGINAL) {
             throw error(line, "returns with another direct page; D must be 0 again (PHD ... PLD)");

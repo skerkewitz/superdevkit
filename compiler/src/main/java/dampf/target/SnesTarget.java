@@ -13,6 +13,22 @@ public final class SnesTarget {
     private SnesTarget() {}
 
     /**
+     * The data bank: the runtime sets DBR to it at start-up, and it never changes (ADR-6F0R69B6).
+     * WRAM's first bank; a 16-bit absolute address reaches it.
+     */
+    public static final int DATA_BANK = 0x7E;
+    /**
+     * The bank of the variables (globals, static locals, the naive generator's frames): the bank
+     * byte of a pointer to one. The code generators ask here wherever they write it.
+     */
+    public static final int VARIABLE_BANK = DATA_BANK;
+    /**
+     * The bank byte of a pointer to a frame place: low RAM ($0000-$1FFF) is the same memory in
+     * bank 0 and at the start of WRAM's first bank, and a pointer to it carries this one.
+     */
+    public static final int FRAME_BANK = 0x7E;
+
+    /**
      * Where the frames start: after the runtime's scratch registers ({@code dampf_regs},
      * {@code dampf_ptr}, $0000-$001F) in the main code's direct page, and at the same byte of
      * each interrupt context's page.
