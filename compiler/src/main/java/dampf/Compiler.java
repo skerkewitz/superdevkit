@@ -335,7 +335,7 @@ public final class Compiler {
             List<Integer> cPlaces = new java.util.ArrayList<>();
             int offset = 0;
             for (int k = 0; k < f.params().size(); k++) {
-                asmPlaces.add(0x20 + offset);
+                asmPlaces.add(dampf.target.SnesTarget.FRAME_START + offset);
                 offset += dampf.asm.AsmFunction.paramBytes(f.params().get(k).type().size());
                 cPlaces.add(gen.paramAddress(c, k));
             }

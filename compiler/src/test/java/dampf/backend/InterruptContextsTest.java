@@ -15,6 +15,8 @@ import dampf.emu.Snes;
 import dampf.frontend.CompileError;
 import dampf.mir.MFunction;
 import dampf.mir.MModule;
+import dampf.target.ContextAreas;
+import dampf.target.SnesTarget;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
@@ -160,19 +162,19 @@ class InterruptContextsTest {
         assertEquals(Map.of(Interrupt.NMI, 0x1D00, Interrupt.IRQ, 0x1B00), gen.directPage,
                 "the NMI's page under the stack, the IRQ's two pages (its frames take more than 224 bytes) under it");
         assertTrue(gen.contextFrames.get(Interrupt.IRQ) > 0xE0);
-        Map<Interrupt, Integer> top = Map.of(Interrupt.NMI, ContextAreas.STACK, Interrupt.IRQ, 0x1D00);
+        Map<Interrupt, Integer> top = Map.of(Interrupt.NMI, SnesTarget.STACK, Interrupt.IRQ, 0x1D00);
         int mainEnd = 0;
         for (MFunction f : gen.module.functions()) {
             Interrupt c = gen.context(f);
             int base = gen.placedBase.get(f);
             int end = base + gen.placedSize.get(f);
             if (c == null) {
-                mainEnd = Math.max(mainEnd, Selection.FRAME_START + end);
+                mainEnd = Math.max(mainEnd, SnesTarget.FRAME_START + end);
                 continue;
             }
             int page = gen.directPage.get(c);
-            assertTrue(page + Selection.FRAME_START + end <= top.get(c), f.name() + " ends in the next area");
-            assertTrue(page + Selection.FRAME_START + base >= page + 0x20, f.name() + " overlaps the scratch registers");
+            assertTrue(page + SnesTarget.FRAME_START + end <= top.get(c), f.name() + " ends in the next area");
+            assertTrue(page + SnesTarget.FRAME_START + base >= page + 0x20, f.name() + " overlaps the scratch registers");
         }
         assertTrue(mainEnd <= 0x1B00, "the main code's frames end at " + Integer.toHexString(mainEnd));
         // the areas follow from the pages: the scratch registers in each page's first 32 bytes
@@ -186,7 +188,7 @@ class InterruptContextsTest {
         assertEquals(Map.of(Interrupt.IRQ, 0x1C00), ContextAreas.pages(Map.of(Interrupt.IRQ, 0xE1)));
         assertEquals(Map.of(Interrupt.NMI, 0x1C00, Interrupt.IRQ, 0x1B00),
                 ContextAreas.pages(Map.of(Interrupt.NMI, 0x100, Interrupt.IRQ, 0)));
-        assertEquals(ContextAreas.STACK, ContextAreas.mainEnd(Map.of()));
+        assertEquals(SnesTarget.STACK, ContextAreas.mainEnd(Map.of()));
     }
 
     /** The assembly of every function, by name (from {@code .proc} to {@code .endproc}). */

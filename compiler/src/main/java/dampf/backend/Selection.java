@@ -11,6 +11,7 @@ import dampf.mir.MType;
 import dampf.mir.Printer;
 import dampf.mir.Ranges;
 import dampf.mir.Value;
+import dampf.target.SnesTarget;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -47,8 +48,6 @@ final class Selection {
     static final LOperand.Mem VIA_P = new LOperand.Mem(LOperand.Width.NONE, "dampf_ptr", 0, LOperand.Index.Y, true);
     static final LOperand.Mem VIA_Q = new LOperand.Mem(LOperand.Width.NONE, "dampf_ptr", 4, LOperand.Index.Y, true);
     static final String FRAME = "dampf_frame";
-    /** Where the frames start: the low RAM after the runtime's direct page registers (docs/memory-map.md). */
-    static final int FRAME_START = 0x20;
     final Set<String> rom = new HashSet<>();
 
     /** Position of every value, frame slot and φ "incoming" place in dampf_frame. */
@@ -108,8 +107,8 @@ final class Selection {
             gen.frameTotal = Math.max(gen.frameTotal, b + l.size);
         }
         gen.argumentsInPlace();
-        if (gen.frameTotal > MirCodeGen.MAX_FRAME) {
-            throw new IllegalStateException("the frames need " + gen.frameTotal + " bytes, more than " + MirCodeGen.MAX_FRAME);
+        if (gen.frameTotal > SnesTarget.MAX_FRAME) {
+            throw new IllegalStateException("the frames need " + gen.frameTotal + " bytes, more than " + SnesTarget.MAX_FRAME);
         }
     }
 
@@ -125,7 +124,7 @@ final class Selection {
         // a word that lies in the direct page is reached with direct page addressing, relative to
         // the context's direct page (D = 0 in the main code); the others absolutely, in the
         // context's area (ca65 takes dampf_frame for a zero page symbol, so they need "a:")
-        boolean dp = FRAME_START + offset + 1 < 0x100;
+        boolean dp = SnesTarget.inDirectPage(offset, 2);
         return new LOperand.Mem(dp ? LOperand.Width.DP : LOperand.Width.ABS, dp ? FRAME : absFrame, offset,
                 LOperand.Index.NONE, false);
     }

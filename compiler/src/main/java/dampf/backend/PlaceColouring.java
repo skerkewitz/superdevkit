@@ -8,6 +8,7 @@ import dampf.lir.LItem;
 import dampf.lir.LMark;
 import dampf.lir.LOperand;
 import dampf.lir.PlaceCheck;
+import dampf.target.SnesTarget;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -283,7 +284,7 @@ final class PlaceColouring {
 
     /** A pointer's three bytes at this address are in the direct page ([dp],y). */
     static boolean inDirectPage(int at) {
-        return Selection.FRAME_START + at + 3 < 0x100;
+        return SnesTarget.inDirectPage(at, 4);
     }
 
     /** A placed group that g at o would overlap (one it may share exactly with, only if not exactly), or null. */

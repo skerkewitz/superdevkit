@@ -10,6 +10,8 @@ import dampf.ast.Type;
 import dampf.ast.Variable;
 import dampf.frontend.CompileError;
 import dampf.frontend.SourcePos;
+import dampf.target.ContextAreas;
+import dampf.target.SnesTarget;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -139,9 +141,6 @@ public final class NaiveCodeGen {
     private String mul16() {
         return contexts.containsKey(current) ? "dampf_mul16_soft" : "dampf_mul16";
     }
-
-    /** Where the frame of a function written in assembly starts: dampf_frame, as in the code from MIR. */
-    private static final int ASM_FRAME = 0x20;
 
     /** At most this many segments per assembly module: ca65 allows about 256 per object file. */
     private static final int SEGMENTS_PER_MODULE = 200;
@@ -366,10 +365,10 @@ public final class NaiveCodeGen {
                 asm.note("frame of " + f.name() + "(), hand-written assembly");
                 int at = 0;
                 for (Variable v : f.params()) {
-                    asm.raw(pad(v.label(), 28) + "= $" + hex(ASM_FRAME + at, 4) + "   ; parameter " + v.type() + " " + v.name());
+                    asm.raw(pad(v.label(), 28) + "= $" + hex(SnesTarget.FRAME_START + at, 4) + "   ; parameter " + v.type() + " " + v.name());
                     at += dampf.asm.AsmFunction.paramBytes(v.type().size());
                 }
-                asm.raw(pad(f.label() + dampf.asm.AsmFunction.LOCALS, 28) + "= $" + hex(ASM_FRAME + at, 4) + "   ; its locals");
+                asm.raw(pad(f.label() + dampf.asm.AsmFunction.LOCALS, 28) + "= $" + hex(SnesTarget.FRAME_START + at, 4) + "   ; its locals");
                 continue;
             }
             int temps = tempCount.getOrDefault(f, 0);

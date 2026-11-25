@@ -19,6 +19,8 @@ import dampf.mir.MType;
 import dampf.mir.Printer;
 import dampf.mir.Ranges;
 import dampf.mir.Value;
+import dampf.target.ContextAreas;
+import dampf.target.SnesTarget;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -70,9 +72,6 @@ import java.util.TreeMap;
 public final class MirCodeGen {
     /** What selection shares, and the selection of each kind of instruction. */
     private final Selection sel = new Selection(this);
-
-    /** The frames must fit the low RAM from FRAME_START up to the stack at $1E00. */
-    static final int MAX_FRAME = 0x1E00 - 0x20;
 
     final MModule module;
     final String entry;
@@ -200,8 +199,8 @@ public final class MirCodeGen {
         for (MFunction f : module.functions()) {
             colourPlaces(f, codes, done, new HashSet<>());
         }
-        if (handlers.isEmpty() && frameTotal > MAX_FRAME) {
-            throw new IllegalStateException("the frames need " + frameTotal + " bytes, more than " + MAX_FRAME);
+        if (handlers.isEmpty() && frameTotal > SnesTarget.MAX_FRAME) {
+            throw new IllegalStateException("the frames need " + frameTotal + " bytes, more than " + SnesTarget.MAX_FRAME);
         }
         if (!handlers.isEmpty()) {
             placeContexts();
@@ -224,7 +223,7 @@ public final class MirCodeGen {
             lf.rebuild(lf.items().stream().filter(it -> !(it instanceof dampf.lir.LMark)).toList());
             boolean resultInA = f.result() != MType.VOID;
             limit.apply("RedundantLoads", f.name(), () -> new RedundantLoads(resultInA).run(lf));
-            limit.apply("Peephole", f.name(), () -> new Peephole(Selection.FRAME_START, frame).run(lf));
+            limit.apply("Peephole", f.name(), () -> new Peephole(frame).run(lf));
             limit.apply("ByteStretches", f.name(), () -> ByteStretches.run(lf));
             limit.apply("ByteLoops", f.name(), () -> dampf.lir.ByteLoops.run(lf, resultInA));
             limit.apply("KnownCarry", f.name(), () -> KnownCarry.run(lf));
@@ -306,7 +305,7 @@ public final class MirCodeGen {
         for (int r = 0; r <= 14; r += 2) {
             w.raw("R" + r + (r < 10 ? "  " : " ") + "= dampf_regs+" + r);
         }
-        w.raw(Selection.FRAME + " = $" + Selection.hex(Selection.FRAME_START, 4));
+        w.raw(Selection.FRAME + " = $" + Selection.hex(SnesTarget.FRAME_START, 4));
         for (AsmWriter c : checkCode) {
             w.append(c);
             w.blank();
@@ -317,7 +316,7 @@ public final class MirCodeGen {
     /** The CPU address of a parameter's place (for the check against the C body), after {@link #generate}. */
     public int paramAddress(String function, int index) {
         MFunction f = module.function(function);
-        return Selection.FRAME_START + placeAt.get(new PlaceColouring.Place(f.params().get(index), false));
+        return SnesTarget.FRAME_START + placeAt.get(new PlaceColouring.Place(f.params().get(index), false));
     }
 
     /**
@@ -378,7 +377,7 @@ public final class MirCodeGen {
             }
         }
         directPage.putAll(ContextAreas.pages(contextFrames));
-        int room = ContextAreas.mainEnd(directPage) - Selection.FRAME_START;
+        int room = ContextAreas.mainEnd(directPage) - SnesTarget.FRAME_START;
         if (mainEnd > room) {
             throw new IllegalStateException("the frames of the main code need " + mainEnd + " bytes, more than " + room
                     + " (the interrupt contexts take " + ContextAreas.describe(directPage) + ")");
@@ -576,9 +575,10 @@ public final class MirCodeGen {
         for (int r = 0; r <= 14; r += 2) {
             w.raw("R" + r + (r < 10 ? "  " : " ") + "= dampf_regs+" + r);
         }
-        w.raw(Selection.FRAME + " = $" + Selection.hex(Selection.FRAME_START, 4) + "            ; the frames (compiled stack), $0020-$1DFF; below $0100 in the direct page");
+        w.raw(Selection.FRAME + " = $" + Selection.hex(SnesTarget.FRAME_START, 4) + "            ; the frames (compiled stack), $"
+                + Selection.hex(SnesTarget.FRAME_START, 4) + "-$" + Selection.hex(SnesTarget.STACK - 1, 4) + "; below $0100 in the direct page");
         for (Map.Entry<Interrupt, Integer> e : directPage.entrySet()) {
-            w.raw(Selection.FRAME + "_" + e.getKey().key + " = $" + Selection.hex(e.getValue() + Selection.FRAME_START, 4)
+            w.raw(Selection.FRAME + "_" + e.getKey().key + " = $" + Selection.hex(e.getValue() + SnesTarget.FRAME_START, 4)
                     + "        ; the " + e.getKey() + " context's frames, absolute; its direct page is $" + Selection.hex(e.getValue(), 4));
         }
     }
