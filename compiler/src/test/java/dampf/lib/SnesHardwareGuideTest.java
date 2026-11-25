@@ -16,8 +16,8 @@ import org.junit.jupiter.api.Test;
 /**
  * The table of features in lib/SNES_HARDWARE.md says what the kit has: a feature built on the SNES
  * and on Rachael names how a game reaches it, each a name of the public headers (a function, which
- * lib/snes and lib/rachael must both define, a macro, a variable), or a field of the shadow state
- * ({@code sdevkit_ppu.mosaic}) that sdevkit/snes.h declares. So a row cannot say "built" for
+ * lib/snes and lib/rachael must both define, a macro, a variable), or a field of the register
+ * shadow ({@code sdevkit_ppu.mosaic}) that sdevkit/shadow.h declares. So a row cannot say "built" for
  * something a platform lacks or the API does not have.
  */
 class SnesHardwareGuideTest {
@@ -32,7 +32,11 @@ class SnesHardwareGuideTest {
         assertTrue(from >= 0, GUIDE + " has no section \"What the kit has\"");
         Set<String> api = LibApiTest.consoleApi();
         Set<String> names = LibNamesTest.publicNames();
-        String header = Files.readString(Path.of("lib/include/sdevkit/snes.h"));
+        StringBuilder headers = new StringBuilder();
+        for (String h : List.of("snes.h", "shadow.h", "sprites.h", "queue.h", "input.h", "easy.h")) {
+            headers.append(Files.readString(Path.of("lib/include/sdevkit").resolve(h)));
+        }
+        String header = headers.toString();
         Set<String> snes = LibApiTest.defined(Path.of("lib/snes")), rachael = LibApiTest.defined(Path.of("lib/rachael"));
         List<String> wrong = new ArrayList<>();
         int built = 0;

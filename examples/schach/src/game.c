@@ -10,6 +10,9 @@
  * tiles: the panel at the right, the moves below. The cursor and the piece in the hand are
  * sprites.
  *
+ * It uses the optional layers of sdevkit/easy.h: the registers in sdevkit_ppu, the sprite list,
+ * the map copies queued in the tick; game_vblank is one call.
+ *
  * VRAM (16-bit words): the board's tiles at 0x0000, the font at 0x1000, the board's map at
  * 0x2000, the text's map at 0x2400, the sprites at 0x4000. CGRAM: palettes 0 to 3 the board,
  * 4 and 5 the text (white, yellow), sprite palette 0 the pieces and the cursor.
@@ -26,7 +29,7 @@
 #include "book.h"
 #include "schach.h"
 #include "sdevkit/loop.h"
-#include "sdevkit/snes.h"
+#include "sdevkit/easy.h"
 #include "board_gfx.h"
 #include "sprites_gfx.h"
 #include "font_gfx.h"
@@ -587,22 +590,22 @@ void game_init(uint16_t init_seed)
     sdevkit_ppu.vofs[0] = (uint16_t)(16 - BOARD_PX - 1 + 0x400);
     sdevkit_ppu.vofs[1] = 0x3FF;
     sdevkit_ppu.obsel = SDEVKIT_OBSEL(VRAM_SPRITES, SDEVKIT_OBJ_SIZE16_L32);
-    sdevkit_vram_now(VRAM_BOARD, board_gfx_tiles, BOARD_GFX_TILES_SIZE);
+    sdevkit_vram_copy(VRAM_BOARD, board_gfx_tiles, BOARD_GFX_TILES_SIZE);
     for (i = 0; i < 4; i++) {            /* palettes 0 to 3: the board's; 1 to 3 get other square colours */
-        sdevkit_cgram_now((uint8_t)(i * 16), board_gfx_pal, BOARD_GFX_PAL_SIZE);
+        sdevkit_cgram_copy((uint8_t)(i * 16), board_gfx_pal, BOARD_GFX_PAL_SIZE);
     }
-    sdevkit_color_now(PAL_LAST * 16 + 1, 0x43BE);    /* the last move: yellow */
-    sdevkit_color_now(PAL_LAST * 16 + 2, 0x26D9);
-    sdevkit_color_now(PAL_TARGET * 16 + 1, 0x4B76);  /* where the piece in the hand can go: green */
-    sdevkit_color_now(PAL_TARGET * 16 + 2, 0x328F);
-    sdevkit_color_now(PAL_CHECK * 16 + 1, 0x3A1E);   /* the king in check: red */
-    sdevkit_color_now(PAL_CHECK * 16 + 2, 0x2559);
-    sdevkit_vram_now(VRAM_FONT, font_gfx_tiles, FONT_GFX_TILES_SIZE);
-    sdevkit_cgram_now(PAL_TEXT * 16, font_gfx_pal, FONT_GFX_PAL_SIZE);
-    sdevkit_cgram_now(PAL_YELLOW * 16, font_gfx_pal, FONT_GFX_PAL_SIZE);
-    sdevkit_color_now(PAL_YELLOW * 16 + 1, 0x235F);
-    sdevkit_vram_now(VRAM_SPRITES, sprites_gfx_tiles, SPRITES_GFX_TILES_SIZE);
-    sdevkit_cgram_now(128, sprites_gfx_pal, SPRITES_GFX_PAL_SIZE);
+    sdevkit_cgram_set(PAL_LAST * 16 + 1, 0x43BE);    /* the last move: yellow */
+    sdevkit_cgram_set(PAL_LAST * 16 + 2, 0x26D9);
+    sdevkit_cgram_set(PAL_TARGET * 16 + 1, 0x4B76);  /* where the piece in the hand can go: green */
+    sdevkit_cgram_set(PAL_TARGET * 16 + 2, 0x328F);
+    sdevkit_cgram_set(PAL_CHECK * 16 + 1, 0x3A1E);   /* the king in check: red */
+    sdevkit_cgram_set(PAL_CHECK * 16 + 2, 0x2559);
+    sdevkit_vram_copy(VRAM_FONT, font_gfx_tiles, FONT_GFX_TILES_SIZE);
+    sdevkit_cgram_copy(PAL_TEXT * 16, font_gfx_pal, FONT_GFX_PAL_SIZE);
+    sdevkit_cgram_copy(PAL_YELLOW * 16, font_gfx_pal, FONT_GFX_PAL_SIZE);
+    sdevkit_cgram_set(PAL_YELLOW * 16 + 1, 0x235F);
+    sdevkit_vram_copy(VRAM_SPRITES, sprites_gfx_tiles, SPRITES_GFX_TILES_SIZE);
+    sdevkit_cgram_copy(128, sprites_gfx_pal, SPRITES_GFX_PAL_SIZE);
     for (j = 0; j < 16 * 32; j++) {      /* around the board: an empty element, the backdrop */
         board_map[j] = element_tile(31);
     }
@@ -613,8 +616,8 @@ void game_init(uint16_t init_seed)
     panel_yellow(1, "Schach");
     title();
     /* the screen is still off: copy the whole maps at once */
-    sdevkit_vram_now(VRAM_BOARD_MAP, board_map, sizeof board_map);
-    sdevkit_vram_now(VRAM_TEXT_MAP, text_map, sizeof text_map);
+    sdevkit_vram_copy(VRAM_BOARD_MAP, board_map, sizeof board_map);
+    sdevkit_vram_copy(VRAM_TEXT_MAP, text_map, sizeof text_map);
     board_dirty = 0;
     text_from = 0xFF;
     text_to = 0;
@@ -638,11 +641,13 @@ static void queue_maps(void)
     }
 }
 
-void game_tick(void)
+void game_tick(const uint16_t pads[SDEVKIT_PADS])
 {
-    uint16_t pad = sdevkit_input.pad[0];
-    uint16_t pressed = sdevkit_input.pressed[0];
+    uint16_t pad, pressed;
 
+    sdevkit_input_update(pads);
+    pad = sdevkit_input.pad[0];
+    pressed = sdevkit_input.pressed[0];
     timer++;
     switch (state) {
     case ST_TITLE:
@@ -684,5 +689,11 @@ void game_tick(void)
     sdevkit_dbg_hash(&hash_hi, sizeof hash_hi);
     sdevkit_dbg_hash(&state, sizeof state);
     sdevkit_dbg_hash(&plies, sizeof plies);
+    sdevkit_dbg_hash(sdevkit_oam, 8);    /* the cursor and the piece in the hand */
+}
+
+void game_vblank(void)
+{
+    sdevkit_commit();
 }
 

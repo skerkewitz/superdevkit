@@ -39,11 +39,12 @@ works for less time.
 Things worth looking at for a first SNES game:
 
 - **The frame rhythm.** `game_tick` runs while the picture is drawn and only prepares: it moves
-  everything, writes the sprite table (`sdevkit_oam`, each sprite in a slot of its own that keeps
-  it until it changes) and changes the background map in RAM. Then it queues what changed for the
-  vertical blank, the only time the PPU accepts new data: the map (2 KB) when it changed, and the
-  wall colours when a level is cleared (`sdevkit_queue_vram`, `sdevkit_queue_cgram`). The kit
-  copies the sprite table and the queue itself.
+  everything, writes its sprite table (each sprite in a slot of its own that keeps it until it
+  changes) and changes the background map in RAM. Then it queues what changed for the vertical
+  blank, the only time the PPU accepts new data: the map (2 KB) when it changed, and the wall
+  colours when a level is cleared (`sdevkit_queue_vram`, `sdevkit_queue_cgram`). `game_vblank`
+  copies the six slots into OAM (`sdevkit_oam_copy`, 26 bytes) and runs the optional layers'
+  commit (`sdevkit_commit`), which makes the queued copies and writes the registers.
 - **Cells and tiles.** The maze has cells of 16 x 16 pixels, so the 16 x 16 sprites fit its
   corridors; on the screen each cell is 2 x 2 background tiles of 8 x 8. A wall tile is picked by
   which of its neighbours are walls, from 16 drawn variants, so nobody draws the maze twice.

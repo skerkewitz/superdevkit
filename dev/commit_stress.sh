@@ -1,8 +1,9 @@
 #!/bin/sh
 # The queue's budget against the console's time (lib/README.md, "The commit's time"): builds
-# dev/commit_stress, whose every tick asks for the commit's worst case (every group marked, the
-# HDMA channels 1 to 7, the queue filled to its budget, with as many copies as it takes and with
-# one copy of all its bytes in turn), and plays 600 ticks in Mesen headless. Prints the bytes that
+# dev/commit_stress, whose every tick asks for the worst case of the optional layers' commit
+# (sdevkit_commit: every group marked, the HDMA channels 1 to 7, the queue filled to its budget,
+# with as many copies as it takes and with one copy of all its bytes in turn, the sprite list full
+# and empty in turn), and plays 600 ticks in Mesen headless. Prints the bytes that
 # reached VRAM, CGRAM or OAM outside the vertical blank (must be 0) and the latest scanline a
 # DMA starts on and the commit ends on (the vertical blank is lines 225 to 261).
 #   dev/commit_stress.sh

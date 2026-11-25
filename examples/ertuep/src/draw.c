@@ -1,9 +1,9 @@
 /*
- * The sprites: every object of the tables written into the kit's copy of the sprite table
- * (sdevkit_oam), which the kit copies into the PPU in the vertical blank.
+ * The sprites: every object of the tables written into the game's own sprite table, which
+ * game_vblank copies into OAM (sprites_copy): only the entries in use, the ones of this frame and
+ * the ones to hide from the frame before, not the whole table.
  *
- * The entries are written here directly, four bytes and two bits each, not with
- * sdevkit_oam_set: that call costs 315 to 427 cycles (lib/README.md), and a busy frame has eighty
+ * The entries are written here directly, four bytes and two bits each: a busy frame has eighty
  * sprites. The 32 bytes of the high table (x bit 8, size) are cleared each frame and the bits of
  * every sprite set.
  *
@@ -33,8 +33,10 @@
 #define REEL_Y      26
 #define REEL_STEP   14
 
+static uint8_t oam[SDEVKIT_OAM_BYTES];     /* the sprite table, in the hardware's format */
 static uint8_t n_spr;                      /* sprites written this frame */
 static uint8_t last_n;                     /* and the frame before: the rest is hidden */
+static uint8_t copy_n;                     /* the entries sprites_copy copies: the larger of the two */
 
 static const uint8_t HI_X[4] = { 0x01, 0x04, 0x10, 0x40 };
 static const uint8_t HI_LARGE[4] = { 0x02, 0x08, 0x20, 0x80 };
@@ -52,7 +54,7 @@ static void spr(int16_t x, int16_t y, uint16_t tile, uint8_t attr, uint8_t large
     if (n >= 128 || (uint16_t)(x + 15) >= SCREEN_W + 15 || (uint16_t)(y + 15) >= SCREEN_H + 15) {
         return;
     }
-    o = &sdevkit_oam[(uint16_t)n * 4];
+    o = &oam[(uint16_t)n * 4];
     o[0] = (uint8_t)x;
     o[1] = (uint8_t)(y - 1);
     o[2] = (uint8_t)tile;
@@ -62,7 +64,7 @@ static void spr(int16_t x, int16_t y, uint16_t tile, uint8_t attr, uint8_t large
         bits |= HI_X[n & 3];
     }
     if (bits) {
-        sdevkit_oam[512 + (n >> 2)] |= bits;
+        oam[512 + (n >> 2)] |= bits;
     }
     n_spr = (uint8_t)(n + 1);
 }
@@ -129,7 +131,7 @@ static void begin(void)
 
     n_spr = 0;
     for (i = 0; i < 32; i++) {                      /* memset is a byte loop of its own, with a call */
-        sdevkit_oam[512 + i] = 0;
+        oam[512 + i] = 0;
     }
 }
 
@@ -138,9 +140,20 @@ static void finish(void)
     uint8_t n;
 
     for (n = n_spr; n < last_n; n++) {
-        sdevkit_oam[(uint16_t)n * 4 + 1] = SDEVKIT_OAM_HIDE_Y;
+        oam[(uint16_t)n * 4 + 1] = SDEVKIT_OAM_HIDE_Y;
     }
+    copy_n = n_spr > last_n ? n_spr : last_n;
     last_n = n_spr;
+    sdevkit_dbg_hash(oam, sizeof oam);         /* the checks: the sprites */
+}
+
+/* In game_vblank: the entries finish counted, and the high table. */
+void sprites_copy(void)
+{
+    if (copy_n != 0) {
+        sdevkit_oam_copy(0, oam, (uint16_t)((uint16_t)copy_n * 4));
+    }
+    sdevkit_oam_copy(512, oam + 512, 32);
 }
 
 void draw_sprite(int16_t x, int16_t y, uint16_t tile, uint8_t pal, uint8_t large)

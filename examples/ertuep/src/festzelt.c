@@ -177,27 +177,21 @@ static uint8_t which;                      /* 0: the tent is loaded, 1: the caro
 
 static void split_on(void)
 {
-    sdevkit_hdma[4].table = SPLIT_MODE;
-    sdevkit_hdma[4].dmap = SDEVKIT_HDMA_ONE;
-    sdevkit_hdma[4].bbad = SDEVKIT_PPU_BGMODE;
-    sdevkit_hdma[5].table = SPLIT_TM;
-    sdevkit_hdma[5].dmap = SDEVKIT_HDMA_ONE;
-    sdevkit_hdma[5].bbad = SDEVKIT_PPU_TM;
-    sdevkit_marks |= SDEVKIT_MARK_HDMA;
-    sdevkit_ppu.hdmaen = SDEVKIT_HDMA_CHANNEL4 | SDEVKIT_HDMA_CHANNEL5;
+    sdevkit_hdma_set(4, SDEVKIT_PPU_BGMODE, SDEVKIT_HDMA_ONE, SPLIT_MODE);
+    sdevkit_hdma_set(5, SDEVKIT_PPU_TM, SDEVKIT_HDMA_ONE, SPLIT_TM);
+    sdevkit_hdma_enable(SDEVKIT_HDMA_CHANNEL4 | SDEVKIT_HDMA_CHANNEL5);
 }
 
 /* With the screen off: the tent's picture, the stage's sprites, the split. */
 void festzelt_load(void)
 {
-    sdevkit_mode7_tiles_now(0, festzelt_tiles, FESTZELT_TILES_SIZE);
-    sdevkit_mode7_map_now(0, festzelt_map, FESTZELT_MAP_SIZE);
-    sdevkit_cgram_now(FESTZELT_PAL_FIRST, festzelt_pal, FESTZELT_PAL_SIZE);
-    sdevkit_vram_now(VRAM_SHEET_C, sprites_c_tiles, SPRITES_C_TILES_SIZE);
-    sdevkit_cgram_now(192, sprites_c_pal, SPRITES_C_PAL_SIZE);
-    sdevkit_ppu.m7sel = SDEVKIT_M7_WRAP;
-    sdevkit_marks |= SDEVKIT_MARK_MODE7;
-    sdevkit_color_now(0, SDEVKIT_RGB8(24, 16, 10));
+    sdevkit_mode7_tiles_copy(0, festzelt_tiles, FESTZELT_TILES_SIZE);
+    sdevkit_mode7_map_copy(0, festzelt_map, FESTZELT_MAP_SIZE);
+    sdevkit_cgram_copy(FESTZELT_PAL_FIRST, festzelt_pal, FESTZELT_PAL_SIZE);
+    sdevkit_vram_copy(VRAM_SHEET_C, sprites_c_tiles, SPRITES_C_TILES_SIZE);
+    sdevkit_cgram_copy(192, sprites_c_pal, SPRITES_C_PAL_SIZE);
+    sdevkit_reg_write(SDEVKIT_PPU_M7SEL, SDEVKIT_M7_WRAP);
+    sdevkit_cgram_set(0, SDEVKIT_RGB8(24, 16, 10));
     split_on();
     festzelt_on = 1;
     which = 0;
@@ -243,30 +237,26 @@ uint16_t festzelt_hofs(void)
     return (uint16_t)((view_x - CENTER_X) & 0x1FFF);
 }
 
-/* After the tick: the matrix when the view changed, the centre and the scroll, every frame. */
-void festzelt_show(void)
+void festzelt_vblank(void)
 {
     if (view_ready) {
-        sdevkit_ppu.m7a = m7a;
-        sdevkit_ppu.m7b = m7b;
-        sdevkit_ppu.m7c = m7c;
-        sdevkit_ppu.m7d = m7d;
+        sdevkit_reg_write_twice(SDEVKIT_PPU_M7A, (uint16_t)m7a);
+        sdevkit_reg_write_twice(SDEVKIT_PPU_M7B, (uint16_t)m7b);
+        sdevkit_reg_write_twice(SDEVKIT_PPU_M7C, (uint16_t)m7c);
+        sdevkit_reg_write_twice(SDEVKIT_PPU_M7D, (uint16_t)m7d);
         view_ready = 0;
     }
-    sdevkit_ppu.m7x = (int16_t)view_x;
-    sdevkit_ppu.m7y = (int16_t)view_y;
-    sdevkit_marks |= SDEVKIT_MARK_MODE7;
-    sdevkit_ppu.hofs[0] = festzelt_hofs();
-    sdevkit_ppu.vofs[0] = (uint16_t)((view_y - CENTER_Y) & 0x1FFF);
-    sdevkit_marks |= SDEVKIT_MARK_SCROLL;
+    sdevkit_reg_write_twice(SDEVKIT_PPU_M7X, (uint16_t)view_x);
+    sdevkit_reg_write_twice(SDEVKIT_PPU_M7Y, (uint16_t)view_y);
+    sdevkit_reg_write_twice(SDEVKIT_PPU_BG1HOFS, festzelt_hofs());
+    sdevkit_reg_write_twice(SDEVKIT_PPU_BG1VOFS, (uint16_t)((view_y - CENTER_Y) & 0x1FFF));
 }
 
 /* Back to mode 1, with the screen off: sheet B's lower half (game.c restores its tiles), no
  * split. The VRAM below 0x4000 is the stage's again once load_stage_gfx has copied its tiles. */
 void festzelt_unload(void)
 {
-    sdevkit_ppu.hdmaen = 0;
-    sdevkit_marks |= SDEVKIT_MARK_HDMA;
+    sdevkit_hdma_enable(0);
     festzelt_on = 0;
 }
 
@@ -292,10 +282,10 @@ void carousel_start(void)
 {
     uint8_t i;
 
-    sdevkit_mode7_tiles_now(0, karussell_tiles, KARUSSELL_TILES_SIZE);
-    sdevkit_mode7_map_now(0, karussell_map, KARUSSELL_MAP_SIZE);
-    sdevkit_cgram_now(KARUSSELL_PAL_FIRST, karussell_pal, KARUSSELL_PAL_SIZE);
-    sdevkit_color_now(0, SDEVKIT_RGB8(6, 6, 16));
+    sdevkit_mode7_tiles_copy(0, karussell_tiles, KARUSSELL_TILES_SIZE);
+    sdevkit_mode7_map_copy(0, karussell_map, KARUSSELL_MAP_SIZE);
+    sdevkit_cgram_copy(KARUSSELL_PAL_FIRST, karussell_pal, KARUSSELL_PAL_SIZE);
+    sdevkit_cgram_set(0, SDEVKIT_RGB8(6, 6, 16));
     which = 1;
     view_x = HUB_X;
     view_y = HUB_Y;

@@ -13,8 +13,9 @@ involved. When the runtime is up, the script writes `check.txt` into the page's 
 web's `main` takes like the desktop's (`lib/desktop/main.c`). Then it copies what `main` wrote
 (`hashes.txt`, `sound.txt`, the screenshots, the recording) into `out`. What `main` printed goes
 to stdout and stderr, and the exit status is `main`'s: 1 when a byte was lost, a register write
-was undrawn, a DSP write unheard, a group of registers changed without its mark or a recording's
-checksum differs, 2 when the page did not start or the file is wrong.
+was undrawn, a register written while the picture was drawn, a group of the register shadow
+changed without its mark, a DSP write unheard or a recording's checksum differs, 2 when the page
+did not start or the file is wrong.
 
 The check runs no window and no frame clock: it is the game, Rachael and the DSP compiled by emcc
 to WebAssembly, against the same code from gcc on the desktop and from dampf on the SNES.

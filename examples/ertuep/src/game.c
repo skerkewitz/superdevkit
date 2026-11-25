@@ -35,8 +35,6 @@
 #include "stage_mett.h"
 #include "wall_brew.h"
 
-#define BG1_TILES_16  (1 << 4)
-#define BG2_TILES_16  (1 << 5)
 #define VRAM_BG3_TILES 0x5000
 #define VRAM_BG3_MAP   0x5800
 #define VRAM_SPRITES   0x6000
@@ -56,7 +54,7 @@ uint8_t demo;
 
 static uint8_t state;
 static uint16_t wait;
-static uint8_t brightness;
+static uint8_t brightness, shown_brightness;
 static uint8_t after_fade;                 /* AF_*: what comes when the screen is black */
 static uint8_t after_fade_in;              /* the state when the picture is back */
 static uint16_t next_life_at;
@@ -245,6 +243,15 @@ static void fade_to(uint8_t then)
 
 /* With the screen off: the tiles and colours of the stage's layers 1 and 2 (also after a boss,
  * whose picture took the place of a wall). */
+/* Mode 1 with BG1 and BG2 in 16 x 16 tiles, the status line (BG3) in front of everything: the
+ * three layers and the sprites on the main screen. With the screen off. */
+static void mode1(void)
+{
+    sdevkit_reg_write(SDEVKIT_PPU_BGMODE, SDEVKIT_BG_MODE1 | SDEVKIT_BG1_TILES_16 | SDEVKIT_BG2_TILES_16
+                                          | SDEVKIT_BG3_MODE1_PRIORITY_HIGH);
+    sdevkit_reg_write(SDEVKIT_PPU_TM, SDEVKIT_BG1_ENABLE | SDEVKIT_BG2_ENABLE | SDEVKIT_BG3_ENABLE | SDEVKIT_OBJ_ENABLE);
+}
+
 static void load_stage_gfx(void)
 {
     if (stage_no == 2) {
@@ -255,35 +262,33 @@ static void load_stage_gfx(void)
     }
     if (festzelt_on) {                              /* back from mode 7 */
         festzelt_unload();
-        sdevkit_ppu.bgmode = SDEVKIT_BG_MODE1 | BG1_TILES_16 | BG2_TILES_16 | SDEVKIT_BG3_MODE1_PRIORITY_HIGH;
-        sdevkit_marks |= SDEVKIT_MARK_SETUP;
-        sdevkit_vram_now(VRAM_SPRITES + 0x1800, sprites_b_tiles + 4096, 4096);
+        mode1();
+        sdevkit_vram_copy(VRAM_SPRITES + 0x1800, sprites_b_tiles + 4096, 4096);
     }
     hdma_channels = stage_no == 1 ? SDEVKIT_HDMA_CHANNEL3 : 0;
     if (stage_no == 0) {
-        sdevkit_vram_now(0x0000, stage_bar_tiles, STAGE_BAR_TILES_SIZE);
-        sdevkit_cgram_now(16, stage_bar_pal, STAGE_BAR_PAL_SIZE);
-        sdevkit_vram_now(0x0800, stage_cellar_tiles, STAGE_CELLAR_TILES_SIZE);
-        sdevkit_cgram_now(32, stage_cellar_pal, STAGE_CELLAR_PAL_SIZE);
-        sdevkit_vram_now(0x1000, stage_kitchen_tiles, STAGE_KITCHEN_TILES_SIZE);
-        sdevkit_cgram_now(48, stage_kitchen_pal, STAGE_KITCHEN_PAL_SIZE);
-        sdevkit_vram_now(0x2000, wall_bar_tiles, WALL_BAR_TILES_SIZE);
-        sdevkit_cgram_now(64, wall_bar_pal, WALL_BAR_PAL_SIZE);
-        sdevkit_vram_now(0x2800, wall_cellar_tiles, WALL_CELLAR_TILES_SIZE);
-        sdevkit_cgram_now(80, wall_cellar_pal, WALL_CELLAR_PAL_SIZE);
-        sdevkit_vram_now(0x3000, wall_kitchen_tiles, WALL_KITCHEN_TILES_SIZE);
-        sdevkit_cgram_now(96, wall_kitchen_pal, WALL_KITCHEN_PAL_SIZE);
-        sdevkit_ppu.hdmaen = 0;
-        sdevkit_marks |= SDEVKIT_MARK_HDMA;
+        sdevkit_vram_copy(0x0000, stage_bar_tiles, STAGE_BAR_TILES_SIZE);
+        sdevkit_cgram_copy(16, stage_bar_pal, STAGE_BAR_PAL_SIZE);
+        sdevkit_vram_copy(0x0800, stage_cellar_tiles, STAGE_CELLAR_TILES_SIZE);
+        sdevkit_cgram_copy(32, stage_cellar_pal, STAGE_CELLAR_PAL_SIZE);
+        sdevkit_vram_copy(0x1000, stage_kitchen_tiles, STAGE_KITCHEN_TILES_SIZE);
+        sdevkit_cgram_copy(48, stage_kitchen_pal, STAGE_KITCHEN_PAL_SIZE);
+        sdevkit_vram_copy(0x2000, wall_bar_tiles, WALL_BAR_TILES_SIZE);
+        sdevkit_cgram_copy(64, wall_bar_pal, WALL_BAR_PAL_SIZE);
+        sdevkit_vram_copy(0x2800, wall_cellar_tiles, WALL_CELLAR_TILES_SIZE);
+        sdevkit_cgram_copy(80, wall_cellar_pal, WALL_CELLAR_PAL_SIZE);
+        sdevkit_vram_copy(0x3000, wall_kitchen_tiles, WALL_KITCHEN_TILES_SIZE);
+        sdevkit_cgram_copy(96, wall_kitchen_pal, WALL_KITCHEN_PAL_SIZE);
+        sdevkit_hdma_enable(0);
     } else {
-        sdevkit_vram_now(0x0000, stage_brew_tiles, STAGE_BREW_TILES_SIZE);
-        sdevkit_cgram_now(16, stage_brew_pal, STAGE_BREW_PAL_SIZE);
-        sdevkit_vram_now(0x0800, stage_mett_tiles, STAGE_METT_TILES_SIZE);
-        sdevkit_cgram_now(32, stage_mett_pal, STAGE_METT_PAL_SIZE);
-        sdevkit_vram_now(0x2000, wall_brew_tiles, WALL_BREW_TILES_SIZE);
-        sdevkit_cgram_now(64, wall_brew_pal, WALL_BREW_PAL_SIZE);
+        sdevkit_vram_copy(0x0000, stage_brew_tiles, STAGE_BREW_TILES_SIZE);
+        sdevkit_cgram_copy(16, stage_brew_pal, STAGE_BREW_PAL_SIZE);
+        sdevkit_vram_copy(0x0800, stage_mett_tiles, STAGE_METT_TILES_SIZE);
+        sdevkit_cgram_copy(32, stage_mett_pal, STAGE_METT_PAL_SIZE);
+        sdevkit_vram_copy(0x2000, wall_brew_tiles, WALL_BREW_TILES_SIZE);
+        sdevkit_cgram_copy(64, wall_brew_pal, WALL_BREW_PAL_SIZE);
     }
-    sdevkit_color_now(0, SDEVKIT_RGB8(26, 14, 8));
+    sdevkit_cgram_set(0, SDEVKIT_RGB8(26, 14, 8));
     boss_state = BS_NONE;
 }
 
@@ -366,31 +371,27 @@ static void effects(void)
     }
 }
 
-/* After the tick: the sway's table just written becomes channel 3's (the commit switches over in
- * the vertical blank), and the Mett's next frame is queued. */
-static void effects_show(void)
+static void effects_vblank(void)
 {
     if (sway_ready) {
         sway_half ^= 1;
-        sdevkit_hdma[3].table = sway_table[sway_half];
-        sdevkit_hdma[3].dmap = SDEVKIT_HDMA_TWICE;
-        sdevkit_hdma[3].bbad = SDEVKIT_PPU_BG1HOFS;
-        sdevkit_marks |= SDEVKIT_MARK_HDMA;
-        sdevkit_ppu.hdmaen = hdma_channels;
+        sdevkit_hdma_set(3, SDEVKIT_PPU_BG1HOFS, SDEVKIT_HDMA_TWICE, sway_table[sway_half]);
+        sdevkit_hdma_enable(hdma_channels);
         sway_ready = 0;
     }
     if (mett_dirty) {                               /* frame k of the Mett over cells 1 to 3 */
         const uint8_t *src = stage_mett_tiles + (uint16_t)(mett_frame * 32 + 2) * 32;
-        if (sdevkit_queue_vram(0x0800 + 2 * 16, src, 6 * 32) && sdevkit_queue_vram(0x0800 + 18 * 16, src + 16 * 32, 6 * 32)) {
-            mett_dirty = 0;
-        }
+        sdevkit_vram_copy(0x0800 + 2 * 16, src, 6 * 32);
+        sdevkit_vram_copy(0x0800 + 18 * 16, src + 16 * 32, 6 * 32);
+        mett_dirty = 0;
     }
 }
 
 /* With the screen off: the stage from a checkpoint, the player, the status line. */
 static void respawn(uint16_t at)
 {
-    sdevkit_screen_off_now();
+    sdevkit_reg_write(SDEVKIT_PPU_INIDISP, SDEVKIT_FORCED_BLANK);   /* off at once, to load */
+    shown_brightness = 0;
     objects_clear();
     stage_start(at);
     scroll_step = 8;
@@ -401,7 +402,7 @@ static void respawn(uint16_t at)
     message_time = 0;
     hud_play();
     hud_blank_below();
-    sdevkit_vram_now(VRAM_BG3_MAP, hud_map, sizeof hud_map);
+    sdevkit_vram_copy(VRAM_BG3_MAP, hud_map, sizeof hud_map);
     hud_dirty = 0;
     sprites_hide_all();
     state = ST_FADE_IN;
@@ -420,7 +421,8 @@ static void title(void)
 {
     uint8_t i;
 
-    sdevkit_screen_off_now();
+    sdevkit_reg_write(SDEVKIT_PPU_INIDISP, SDEVKIT_FORCED_BLANK);   /* off at once, to load */
+    shown_brightness = 0;
     objects_clear();
     scroll_step = 8;
     stage_select(0);
@@ -435,7 +437,7 @@ static void title(void)
     title_stage();
     hud_text(4, 21, "B: SCHIESSEN  A: KASTEN");
     hud_text(6, 25, "MADE WITH SUPERDEVKIT");
-    sdevkit_vram_now(VRAM_BG3_MAP, hud_map, sizeof hud_map);
+    sdevkit_vram_copy(VRAM_BG3_MAP, hud_map, sizeof hud_map);
     hud_dirty = 0;
     draw_title_logo();
     state = ST_FADE_IN;
@@ -447,7 +449,8 @@ static void title(void)
 /* The end of the game: back in the pub, which has closed; the deposit collected. */
 static void ending(void)
 {
-    sdevkit_screen_off_now();
+    sdevkit_reg_write(SDEVKIT_PPU_INIDISP, SDEVKIT_FORCED_BLANK);   /* off at once, to load */
+    shown_brightness = 0;
     objects_clear();
     scroll_step = 4;
     stage_select(0);
@@ -463,7 +466,7 @@ static void ending(void)
     hud_pfand_at(14, 13);
     hud_text(6, 17, "DANKE FUERS SPIELEN!");
     hud_text(13, 21, "PROST!");
-    sdevkit_vram_now(VRAM_BG3_MAP, hud_map, sizeof hud_map);
+    sdevkit_vram_copy(VRAM_BG3_MAP, hud_map, sizeof hud_map);
     hud_dirty = 0;
     sprites_hide_all();
     state = ST_FADE_IN;
@@ -590,25 +593,25 @@ void game_init(uint16_t seed)
     uint8_t i;
 
     (void)seed;
-    sdevkit_ppu.bgmode = SDEVKIT_BG_MODE1 | BG1_TILES_16 | BG2_TILES_16 | SDEVKIT_BG3_MODE1_PRIORITY_HIGH;
-    sdevkit_ppu.tm = SDEVKIT_BG1_ENABLE | SDEVKIT_BG2_ENABLE | SDEVKIT_BG3_ENABLE | SDEVKIT_OBJ_ENABLE;
-    sdevkit_ppu.bgnba[0] = SDEVKIT_BGNBA(0x0000, 0x2000);
-    sdevkit_ppu.bgnba[1] = SDEVKIT_BGNBA(VRAM_BG3_TILES, 0);
-    sdevkit_ppu.bgsc[0] = SDEVKIT_BGSC(0x4000, SDEVKIT_SC_64x32);
-    sdevkit_ppu.bgsc[1] = SDEVKIT_BGSC(0x4800, SDEVKIT_SC_64x32);
-    sdevkit_ppu.bgsc[2] = SDEVKIT_BGSC(VRAM_BG3_MAP, SDEVKIT_SC_32x32);
-    sdevkit_ppu.vofs[2] = 0x3FF;
-    sdevkit_ppu.obsel = SDEVKIT_OBSEL(VRAM_SPRITES, SDEVKIT_OBJ_SIZE8_L16);
-    sdevkit_vram_now(VRAM_BG3_TILES, hud_tiles, HUD_TILES_SIZE);
-    sdevkit_cgram_now(0, hud_pal, HUD_PAL_SIZE);
-    sdevkit_vram_now(VRAM_SPRITES, sprites_a_tiles, SPRITES_A_TILES_SIZE);
-    sdevkit_cgram_now(128, sprites_a_pal, SPRITES_A_PAL_SIZE);
-    sdevkit_vram_now(VRAM_SPRITES + 0x1000, sprites_b_tiles, SPRITES_B_TILES_SIZE);
-    sdevkit_cgram_now(144, sprites_b_pal, SPRITES_B_PAL_SIZE);
-    sdevkit_cgram_now(160, sprites_a_pal, SPRITES_A_PAL_SIZE);  /* the stutter's six-pack ... */
-    sdevkit_color_now(160 + 10, SDEVKIT_RGB8(44, 150, 150));    /* ... one colour off */
+    /* the screen is off: the registers and the graphics at once */
+    mode1();
+    sdevkit_reg_write(SDEVKIT_PPU_BG12NBA, SDEVKIT_BGNBA(0x0000, 0x2000));
+    sdevkit_reg_write(SDEVKIT_PPU_BG34NBA, SDEVKIT_BGNBA(VRAM_BG3_TILES, 0x0000));
+    sdevkit_reg_write(SDEVKIT_PPU_BG1SC, SDEVKIT_BGSC(0x4000, SDEVKIT_SC_64x32));
+    sdevkit_reg_write(SDEVKIT_PPU_BG2SC, SDEVKIT_BGSC(0x4800, SDEVKIT_SC_64x32));
+    sdevkit_reg_write(SDEVKIT_PPU_BG3SC, SDEVKIT_BGSC(VRAM_BG3_MAP, SDEVKIT_SC_32x32));
+    sdevkit_reg_write_twice(SDEVKIT_PPU_BG3VOFS, 0x3FF);      /* the status line from the screen's top */
+    sdevkit_reg_write(SDEVKIT_PPU_OBSEL, SDEVKIT_OBSEL(VRAM_SPRITES, SDEVKIT_OBJ_SIZE8_L16));
+    sdevkit_vram_copy(VRAM_BG3_TILES, hud_tiles, HUD_TILES_SIZE);
+    sdevkit_cgram_copy(0, hud_pal, HUD_PAL_SIZE);
+    sdevkit_vram_copy(VRAM_SPRITES, sprites_a_tiles, SPRITES_A_TILES_SIZE);
+    sdevkit_cgram_copy(128, sprites_a_pal, SPRITES_A_PAL_SIZE);
+    sdevkit_vram_copy(VRAM_SPRITES + 0x1000, sprites_b_tiles, SPRITES_B_TILES_SIZE);
+    sdevkit_cgram_copy(144, sprites_b_pal, SPRITES_B_PAL_SIZE);
+    sdevkit_cgram_copy(160, sprites_a_pal, SPRITES_A_PAL_SIZE);   /* the stutter's six-pack ... */
+    sdevkit_cgram_set(160 + 10, SDEVKIT_RGB8(44, 150, 150));  /* ... one colour off */
     for (i = 1; i < 16; i++) {
-        sdevkit_color_now((uint8_t)(176 + i), i == 1 ? SDEVKIT_RGB8(160, 160, 176) : SDEVKIT_RGB8(255, 255, 255));
+        sdevkit_cgram_set((uint16_t)(176 + i), i == 1 ? SDEVKIT_RGB8(160, 160, 176) : SDEVKIT_RGB8(255, 255, 255));
     }
     for (i = 0; CHARSET[i] != 0; i++) {
         char_tile[(uint8_t)((uint8_t)CHARSET[i] - ' ')] = i;
@@ -617,9 +620,9 @@ void game_init(uint16_t seed)
     title();
 }
 
-void game_tick(void)
+void game_tick(const uint16_t pad[SDEVKIT_PADS])
 {
-    uint16_t raw = sdevkit_input.pad[0];
+    uint16_t raw = pad[0];
     uint16_t eff, pressed, released;
 
     frame_count++;
@@ -719,7 +722,7 @@ void game_tick(void)
             ending();
         } else if (after_fade == AF_BOSS) {         /* the lights go out: the boss comes */
             boss_start();
-            sdevkit_color_now(0, SDEVKIT_RGB8(8, 6, 10));
+            sdevkit_cgram_set(0, SDEVKIT_RGB8(8, 6, 10));
             state = ST_FADE_IN;
             after_fade_in = ST_PLAY;
         } else {
@@ -755,11 +758,19 @@ void game_tick(void)
     if (stage_no == 2) {
         festzelt_hash();
     }
-    /* the next picture: the scroll and the columns, the effects, the status line, the brightness */
-    stage_show();
-    effects_show();
-    if (hud_dirty && sdevkit_queue_vram(VRAM_BG3_MAP, hud_map, 128)) {
+}
+
+void game_vblank(void)
+{
+    sprites_copy();
+    stage_vblank();
+    effects_vblank();
+    if (hud_dirty) {
+        sdevkit_vram_copy(VRAM_BG3_MAP, hud_map, 128);
         hud_dirty = 0;
     }
-    sdevkit_ppu.inidisp = brightness ? brightness : SDEVKIT_FORCED_BLANK;
+    if (brightness != shown_brightness) {
+        sdevkit_reg_write(SDEVKIT_PPU_INIDISP, brightness != 0 ? brightness : SDEVKIT_FORCED_BLANK);
+        shown_brightness = brightness;
+    }
 }

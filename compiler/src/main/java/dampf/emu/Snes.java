@@ -7,12 +7,15 @@ import java.nio.file.Path;
 /**
  * Just enough of a Super Nintendo to run dampf's programs: the 65816 ({@link Cpu65816}), a LoROM
  * cartridge, 128 KB of WRAM with its mirrors, and the master-cycle timing of the bus. No picture,
- * no sound output, no DMA.
+ * no sound output; of DMA only the time it takes.
  *
  * <p>Timing, in master cycles (21.477 MHz on NTSC): an access costs 8 for WRAM, SlowROM and most of
  * the address space, 6 for I/O registers at $2000-$3FFF and $4200-$5FFF (and FastROM once
  * MEMSEL is set), 12 for the old joypad registers at $4000-$41FF; an internal CPU cycle costs 6.
- * DRAM refresh halts the CPU for 40 master cycles per scanline of 1364.
+ * DRAM refresh halts the CPU for 40 master cycles per scanline of 1364. A general DMA ({@code
+ * MDMAEN}, $420B) halts it for 8 master cycles a byte, 8 a channel and 8 more (fullsnes, "SNES DMA
+ * Transfer"), by the byte counts written to {@code DASn}; what it copies is not modelled. HDMA is
+ * not modelled.
  *
  * <p>Of the picture only its timing: 262 lines a frame (NTSC), the vertical blank from line 225
  * ({@code HVBJOY} bit 7), the automatic joypad read in its first three lines (bit 0, when
@@ -85,6 +88,8 @@ public final class Snes implements Bus {
     private static final int NMI_VECTOR = 0xFFEA;
     private static final int IRQ_VECTOR = 0xFFEE;
     private final int[] pads = new int[2];
+    /** The DMA channels' byte counts, DASn ($43n5/$43n6): 0 is 64 KB. */
+    private final int[] das = new int[8];
 
     // the CPU's multiplier and divider ($4202-$4206 -> $4214-$4217). The multiplier adds one bit of
     // its second factor per CPU cycle, lowest first, so a read before the 8th cycle gets a partial
@@ -135,10 +140,27 @@ public final class Snes implements Bus {
     /**
      * HiROM (64 KB banks: banks $C0-$FF and $40-$7D all ROM, the upper halves of $00-$3F and
      * $80-$BF too) if the cartridge header at $FFC0 says so (map mode $21 or $31), as for the
-     * Calypsi benchmark ROM; else LoROM, as dampf builds.
+     * Calypsi benchmark ROM; else LoROM, as dampf builds. A header counts when its checksum and
+     * complement agree: in a LoROM of more than 64 KB, $FFD5 is any byte of the game's (a
+     * program of dampf's was taken for HiROM when its data put $21 there). When neither header
+     * or both agree, the map modes decide, LoROM's first.
      */
     static boolean isHiRom(byte[] rom) {
-        return rom.length > 0xFFD5 && ((rom[0xFFD5] & 0xEF) == 0x21);
+        boolean lo = header(rom, 0x7FC0, 0x20), hi = header(rom, 0xFFC0, 0x21);
+        if (lo != hi) {
+            return hi;
+        }
+        return rom.length > 0xFFD5 && (rom[0xFFD5] & 0xEF) == 0x21 && (rom[0x7FD5] & 0xEF) != 0x20;
+    }
+
+    /** A header at {@code at} with this map mode (FastROM's bit aside), its checksum and complement agreeing. */
+    private static boolean header(byte[] rom, int at, int mode) {
+        if (rom.length < at + 0x40) {
+            return false;
+        }
+        int complement = (rom[at + 0x1C] & 0xFF) | (rom[at + 0x1D] & 0xFF) << 8;
+        int checksum = (rom[at + 0x1E] & 0xFF) | (rom[at + 0x1F] & 0xFF) << 8;
+        return (rom[at + 0x15] & 0xEF) == mode && (complement ^ checksum) == 0xFFFF;
     }
 
     private final boolean hiRom;
@@ -453,7 +475,17 @@ public final class Snes implements Bus {
             ports.write(offset, value, master);
             return;
         }
+        if (offset >= 0x4300 && offset < 0x4380) {
+            int ch = (offset >> 4) & 7;
+            switch (offset & 0xF) {
+                case 5 -> das[ch] = (das[ch] & 0xFF00) | value;
+                case 6 -> das[ch] = (das[ch] & 0x00FF) | value << 8;
+                default -> { }
+            }
+            return;
+        }
         switch (offset) {
+            case 0x420B -> dma(value);
             case 0x420D -> fastRom = (value & 1) != 0;
             case 0x4200 -> {
                 autoJoypad = (value & 1) != 0;
@@ -498,6 +530,25 @@ public final class Snes implements Bus {
                 }
             }
             default -> { } // PPU and other registers: not modelled
+        }
+    }
+
+    /** The time of a general DMA on the channels set in {@code channels}; their counts end at 0. */
+    private void dma(int channels) {
+        if (channels == 0) {
+            return;
+        }
+        long cycles = 8;
+        for (int ch = 0; ch < 8; ch++) {
+            if ((channels >> ch & 1) != 0) {
+                cycles += 8 + 8L * (das[ch] == 0 ? 0x10000 : das[ch]);
+                das[ch] = 0;
+            }
+        }
+        while (cycles > 0) {
+            int c = (int) Math.min(cycles, 64);
+            tick(c);
+            cycles -= c;
         }
     }
 

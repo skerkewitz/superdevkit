@@ -315,17 +315,24 @@ void cats_move(void)
 #define PAL_HOT    6
 #define PAL_WHITE  3
 
-/* The sprite table is written directly (sdevkit_oam): the sprites keep their slots from tick to
- * tick, and a state shows what it set last. The SNES draws a sprite one line lower than its y. */
+/* CatchMe's sprite table: six slots (the mouse, the four cats, the bonus), from 0 hidden, and the
+ * high table's two bytes for them. The sprites keep their slots from tick to tick, and a state
+ * shows what it set last. The SNES draws a sprite one line lower than its y. */
+#define SLOTS 6
+static uint8_t sprite_table[SDEVKIT_OAM_BYTES] = {
+    0, SDEVKIT_OAM_HIDE_Y, 0, 0, 0, SDEVKIT_OAM_HIDE_Y, 0, 0, 0, SDEVKIT_OAM_HIDE_Y, 0, 0,
+    0, SDEVKIT_OAM_HIDE_Y, 0, 0, 0, SDEVKIT_OAM_HIDE_Y, 0, 0, 0, SDEVKIT_OAM_HIDE_Y, 0, 0,
+};
+
 void sprite_set(uint16_t id, int16_t x, int16_t y, uint16_t tile, uint8_t palette)
 {
-    uint8_t *high = &sdevkit_oam[512 + (id >> 4)];
+    uint8_t *high = &sprite_table[512 + (id >> 4)];
     uint8_t bits = (uint8_t)(3 << ((id >> 1) & 6));         /* bit 8 of x and the size: small */
 
-    sdevkit_oam[id] = (uint8_t)x;
-    sdevkit_oam[id + 1] = (uint8_t)(y - 1);
-    sdevkit_oam[id + 2] = (uint8_t)tile;
-    sdevkit_oam[id + 3] = (uint8_t)(SDEVKIT_OAM_ATTR(palette, 3, 0, 0) | ((tile >> 8) & 1));
+    sprite_table[id] = (uint8_t)x;
+    sprite_table[id + 1] = (uint8_t)(y - 1);
+    sprite_table[id + 2] = (uint8_t)tile;
+    sprite_table[id + 3] = (uint8_t)(SDEVKIT_OAM_ATTR(palette, 3, 0, 0) | ((tile >> 8) & 1));
     *high = (uint8_t)(*high & ~bits);
     if (x & 0x100) {
         *high = (uint8_t)(*high | (bits & 0x55));
@@ -334,7 +341,15 @@ void sprite_set(uint16_t id, int16_t x, int16_t y, uint16_t tile, uint8_t palett
 
 void sprite_hide(uint16_t id)
 {
-    sdevkit_oam[id + 1] = SDEVKIT_OAM_HIDE_Y;
+    sprite_table[id + 1] = SDEVKIT_OAM_HIDE_Y;
+}
+
+/* In game_vblank: the six slots and their two bytes of the high table, 26 bytes, not 544. */
+void sprites_copy(void)
+{
+    sdevkit_oam_copy(0, sprite_table, SLOTS * 4);
+    sdevkit_oam_copy(512, sprite_table + 512, (SLOTS + 3) / 4);
+    sdevkit_dbg_hash(sprite_table, SLOTS * 4);  /* the checks: the sprites (with the next tick's state) */
 }
 
 static void put(uint16_t id, const Actor *a, uint16_t tile, uint8_t palette)

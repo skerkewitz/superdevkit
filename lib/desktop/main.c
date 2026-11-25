@@ -3,9 +3,9 @@
  * raylib, the keyboard and a gamepad as the SNES joypad, and the frame rhythm of sdevkit/loop.h
  * on Rachael (lib/rachael):
  *
- *   game_tick()         the picture is being drawn: the game writes the shadow state
- *   sdevkit__vblank()   the vertical blank begins with the commit: the sprite table, the
- *                       registers, the queued copies (sdevkit/snes.h)
+ *   game_tick(pads)     the picture is being drawn: VRAM, CGRAM and OAM take nothing now
+ *   sdevkit__vblank()   the vertical blank begins
+ *   game_vblank()       the game's writes to the hardware
  *   sdevkit__sfx_frame() the sound effects the tick asked for start (lib/sound/sfx_voices.h)
  *   sdevkit__render()   the picture of the frame, which ends the vertical blank
  *
@@ -18,9 +18,10 @@
  * Before game_init, as on the SNES, the splash screen (lib/splash/splash.h): its frames are drawn
  * and shown like the game's, then the console is reset again.
  *
- * Rachael counts every byte that would not arrive on the console (written now while the screen is
- * on), so the desktop finds what the SNES would lose, and every commit of a group of registers the
- * tick changed without its mark (sdevkit_marks), which the SNES would not commit.
+ * Rachael counts every byte that would not arrive on the console (written outside the
+ * vertical blank, or more than one vertical blank can copy), so the desktop finds what the SNES
+ * would lose, and every register written while the picture is drawn, which the SNES would show
+ * from the line being drawn on (sdevkit/snes.h).
  *
  * Save RAM (sdevkit_sram, built with -DSDEVKIT_SRAM_SIZE): in the window it is the file <game>.srm
  * next to the program, read before the game starts, written when it changed (looked at every
@@ -61,11 +62,11 @@
  * every frame is one tick, and the splash comes before them, without input), writes the screenshots it
  * asks for as PNG into the folder of --out (default .), the checksum of every tick
  * (sdevkit_dbg_hash: "tick hash" in hex, one a line) into hashes.txt there, and prints "frames N ticks N lost L
- * undrawn U unheard H sprites S unmarked M refused R"; the exit status is 1 when a byte was lost, a register
- * write was one Rachael does not draw (sdevkit__undrawn), a DSP write one she does not play
- * (sdevkit__sound.unheard), a group was changed without its mark (sdevkit__rachael.unmarked), or the
- * file is a recording and a tick's checksum is not the recorded one. R counts the copies the queue
- * refused (sdevkit_queue_dma returned 0); a game may handle that, so it does not fail the check. sound.txt there has
+ * undrawn U unheard H sprites S drawing D unmarked M refused R"; the exit status is 1 when a byte
+ * was lost, a register write was one Rachael does not draw (sdevkit__undrawn), a register was
+ * written while the picture was drawn, a group of sdevkit/shadow.h changed without its mark, a DSP
+ * write was one she does not play (sdevkit__sound.unheard),
+ * or the file is a recording and a tick's checksum is not the recorded one. sound.txt there has
  * the sound as dampf's emulator also writes it (dampf.emu.ExampleCheck): every DSP write, "init"
  * (in game_init) or the tick after which it was made, the register and the value in hex; after
  * game_init's writes the line "aram H": the FNV-1a of the bytes written into the audio RAM from $0200 on (each its address, low and high byte, then the value, in the order written). S counts the lines over the sprite limits (32 sprites,
@@ -610,18 +611,16 @@ static int load_input(const char *path, Input *in, long default_ticks)
     return 1;
 }
 
-/* One frame of the console; returns the bytes lost in it: those the game wrote now while the
- * screen was on. */
+/* One frame of the console; returns the bytes lost in it: those written during the picture
+ * (in game_tick, which the vertical blank would otherwise forget) and those over the vertical
+ * blank's budget (in game_vblank). */
 static unsigned frame_step(const uint16_t pad[SDEVKIT_PADS])
 {
     sdevkit__frame_stats s;
     unsigned lost;
 
     sdevkit__dbg_nboxes = 0;
-    sdevkit__set_input(pad[0], pad[1]);
-    sdevkit__rachael.in_tick = 1;
-    game_tick();
-    sdevkit__rachael.in_tick = 0;
+    game_tick(pad);
     {
         uint32_t h = sdevkit__tick_hash();
         if (hashes != NULL) {
@@ -635,6 +634,7 @@ static unsigned frame_step(const uint16_t pad[SDEVKIT_PADS])
     }
     lost = sdevkit__stats().dma_lost;
     sdevkit__vblank();
+    game_vblank();
     sound_tick = tick_count - 1;
     sdevkit__sfx_frame();
     sound_step();
@@ -700,14 +700,6 @@ static uint16_t sdevkit__splash_frame(uint8_t brightness)
     return 0;
 }
 
-/* The splash's sprites (lib/splash/splash.h): into the sprite table's copy, which Rachael's vertical
- * blank shows; the reset after the splash clears it again. */
-static void sdevkit__splash_sprites(const uint8_t *low, uint16_t bytes, const uint8_t *high)
-{
-    memcpy(sdevkit_oam, low, bytes);
-    memcpy(sdevkit_oam + 512, high, 32);
-}
-
 #include "../splash/splash.h"
 
 /* Power on with this save RAM (null: as it is): the splash, the console reset again, then the
@@ -736,10 +728,10 @@ static void start(const uint8_t *sram)
         add_set(start_sets, &start_nsets, cli_sets[i].name, strlen(cli_sets[i].name), cli_sets[i].value);
     }
     game_init(start_seed);
-    sdevkit_marks = SDEVKIT_MARK_ALL;       /* everything game_init set, as lib/snes/main.c */
     for (i = 0; i < start_nsets; i++) {
         apply_set(&start_sets[i]);
     }
+    (void)sdevkit__tick_hash();          /* as on the SNES, the first tick's checksum starts after game_init */
 }
 
 /* --- the save RAM file ------------------------------------------------------------------------ */
@@ -885,15 +877,19 @@ static void report_undrawn(FILE *out)
     }
 }
 
-/* Groups of registers the tick changed without its mark (sdevkit_marks): the SNES would not commit them. */
-static void report_unmarked(FILE *out)
+/* Registers written while the picture was drawn, and groups of the register shadow changed
+ * without their mark: the SNES would show something else. */
+static void report_timing(FILE *out)
 {
-    static const char *const names[] = { "", "SDEVKIT_MARK_SETUP", "SDEVKIT_MARK_WINDOW", "", "SDEVKIT_MARK_MODE7",
-                                          "", "", "", "SDEVKIT_MARK_HDMA" };
+    if (sdevkit__rachael.drawing > 0) {
+        fprintf(out, "%s: %u register writes while the picture is drawn, the first $21%02X = $%02X "
+                     "(the SNES would change the picture from the line being drawn on: write it in game_vblank)\n",
+                GAME_NAME, sdevkit__rachael.drawing, sdevkit__rachael.drawing_reg, sdevkit__rachael.drawing_value);
+    }
     if (sdevkit__rachael.unmarked > 0) {
-        fprintf(out, "%s: %u commits of registers changed without their mark, the first %s "
-                     "(the SNES would not commit them)\n",
-                GAME_NAME, sdevkit__rachael.unmarked, names[sdevkit__rachael.unmarked_group & 15]);
+        fprintf(out, "%s: %u changes of sdevkit_ppu without their mark, the first in group $%02X "
+                     "(sdevkit/shadow.h: the SNES does not commit them)\n",
+                GAME_NAME, sdevkit__rachael.unmarked, sdevkit__rachael.unmarked_group);
     }
 }
 
@@ -1227,7 +1223,7 @@ static int window(int scale, int no_crt, const char *replay_file, int mute, long
         fprintf(stderr, "%s: %u bytes would not have reached the PPU on the SNES\n", GAME_NAME, lost);
     }
     report_undrawn(stderr);
-    report_unmarked(stderr);
+    report_timing(stderr);
     report_unheard(stderr);
     return 0;
 }
@@ -1374,13 +1370,13 @@ static int check(const char *path, const char *out, const char *record, const ch
         }
     }
     report_undrawn(stdout);
-    report_unmarked(stdout);
+    report_timing(stdout);
     report_unheard(stdout);
-    printf("frames %ld ticks %ld lost %u undrawn %u unheard %u sprites %u unmarked %u refused %u\n", in.ticks, in.ticks,
-           lost, sdevkit__rachael.undrawn, sdevkit__sound.unheard, sprite_lines, sdevkit__rachael.unmarked,
-           sdevkit__rachael.refused);
-    return lost > 0 || sdevkit__rachael.undrawn > 0 || sdevkit__sound.unheard > 0 || sdevkit__rachael.unmarked > 0
-                   || differs >= 0 ? 1 : 0;
+    printf("frames %ld ticks %ld lost %u undrawn %u unheard %u sprites %u drawing %u unmarked %u refused %u\n",
+           in.ticks, in.ticks, lost, sdevkit__rachael.undrawn, sdevkit__sound.unheard, sprite_lines,
+           sdevkit__rachael.drawing, sdevkit__rachael.unmarked, sdevkit__queue_refused());
+    return lost > 0 || sdevkit__rachael.undrawn > 0 || sdevkit__rachael.drawing > 0 || sdevkit__rachael.unmarked > 0
+           || sdevkit__sound.unheard > 0 || differs >= 0 ? 1 : 0;
 }
 
 /* The options, the same on the web, where the page passes none (Module.callMain takes them, after

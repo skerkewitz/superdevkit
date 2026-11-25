@@ -125,14 +125,15 @@ as half the cores, `JOBS=n` to change it).
 **The examples** (`ExamplesTest`, ADR-6F60Z67N) build each example in `examples/` for the SNES
 and play the input of its `check.txt` in dampf's emulator, through the kit's own main loop; where
 raylib was fetched, the same input is played on the desktop (Rachael). After every tick both
-compute a checksum of the game's state: the bytes the game names with `sdevkit_dbg_hash`, then
-the sprite table. The lists must be the same, so dampf's code and gcc's, `lib/snes` and Rachael
+compute a checksum of the game's state: the bytes the game names with `sdevkit_dbg_hash` from the
+end of one `game_tick` to the end of the next (the kit names nothing itself, so each example names
+its sprite table and what its next picture depends on). The lists must be the same, so dampf's code and gcc's, `lib/snes` and Rachael
 computed the same game, tick for tick; the test names the first tick that differs. On the SNES
 the call only writes the address and size of the memory to a port (`$21FC`), and the checker
 reads it, so the check costs the game about 80 cycles a call. The emulator's run also writes the
 frames per tick (`build/emu-check/frames.txt`: on average and over the slowest 60 ticks;
-`ticks.txt`: the cycles of every tick), close to Mesen's but not equal, since a DMA takes no CPU
-time there. A line `budget T1 T2` in `check.txt` makes it a measured budget: the test fails when
+`ticks.txt`: the cycles of every tick), close to Mesen's but not equal: a general DMA takes its
+8 master cycles a byte there, HDMA nothing. A line `budget T1 T2` in `check.txt` makes it a measured budget: the test fails when
 a tick from T1 to T2 - 1 took more than a frame (Er-Tüp's covers its busiest waves). Where the
 time goes, the emulator says too: `dampf.emu.ExampleProfile` plays the same input and charges the
 cycles of a range of ticks to the functions of the ROM, and with the ROM's `.dbg` beside it to
@@ -161,7 +162,9 @@ same buttons and the SNES's checksum for every tick in it.
 **The examples' benchmark** (`dev/bench_examples.sh`) plays every example's `check.txt` and
 measures the work of each tick: its master cycles without the main loop's waiting, so an example
 that does the same work every tick (Mandelbrot) shows a faster compiler as less work, not as
-fewer frames. Its table has one line an example (on average, in the busiest 60 ticks, the share
+fewer frames. The work includes the DMAs the game starts, at 8 master cycles a byte (since
+2026-11-25; before, a DMA took no time in the emulator, and the kit's copy of the whole sprite
+table in every vertical blank went uncounted). Its table has one line an example (on average, in the busiest 60 ticks, the share
 of dampf's runtime), and with `BASELINE=` the ratio to an earlier table and their geometric
 mean: an optimization or a tuned parameter is judged on all examples, not on one program. On
 2026-11-20, before the runtime used the CPU's multiplier, the naive code generator did three
@@ -195,7 +198,7 @@ over when it left ([ADR-6F60Z819](adr/6F60Z819-the-examples-replace-blubber-blas
 
 ## Supporting pieces
 
-- **dampf's emulator** (`dampf.emu`: 65816 CPU, LoROM, WRAM, the SPC700's boot protocol and the kit's sound driver, no graphics, DMA or sound output) runs the
+- **dampf's emulator** (`dampf.emu`: 65816 CPU, LoROM, WRAM, the SPC700's boot protocol and the kit's sound driver, the time a DMA takes but not what it copies, no graphics or sound output) runs the
   execution and random-program tests and the examples inside the JVM, and counts master cycles with the memory speeds of the SNES (WRAM and SlowROM 8, I/O 6,
   internal cycles 6, DRAM refresh 40 per scanline). Of the picture it has the timing the kit's
   main loop polls: the line counter, the vertical blank flag, the automatic joypad read and the

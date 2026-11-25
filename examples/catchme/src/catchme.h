@@ -9,7 +9,7 @@
 #include <stdint.h>
 #include <string.h>
 #include "sdevkit/loop.h"
-#include "sdevkit/snes.h"
+#include "sdevkit/easy.h"
 
 /* --- the maze (maze.c) ----------------------------------------------------------------------- */
 #define MAZE_W 16              /* cells of 16 x 16 pixels */
@@ -61,6 +61,7 @@ void actors_hide(void);
  * screen; it stays until it is set or hidden again. */
 void sprite_set(uint16_t id, int16_t x, int16_t y, uint16_t tile, uint8_t palette);
 void sprite_hide(uint16_t id);
+void sprites_copy(void);                     /* in game_vblank: the sprites' slots into OAM */
 
 /* --- the game (game.c) ----------------------------------------------------------------------- */
 void eat(uint8_t x, uint8_t y);        /* the mouse reached the middle of a cell */

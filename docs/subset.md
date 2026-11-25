@@ -94,7 +94,7 @@ API in `src/snes/snes.h`: `bgInitTileSet`, `bgSetDisable`, `bgSetGfxPtr`, `bgSet
 SNES; for dampf they are a platform layer in C (`lib/snes/snes.c`), which
 reaches the hardware through volatile pointers (*Hardware access* below) and needs no intrinsics.
 
-The platform calls into the game through `game_init`, `game_tick` and the getters
+The platform calls into the game through `game_init`, `game_tick`, `game_vblank` and the getters
 in `game.h`. These are the roots of the call graph.
 
 ## The subset

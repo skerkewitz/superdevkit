@@ -19,13 +19,13 @@ six map pixels a screen pixel, so the map's edge comes into view.
 Everything is in `src/mode7.c` and computed there, no image files: four tiles of 8 x 8 pixels
 with a byte a pixel, the map of 128 x 128 tiles, the sprite, and a table of sines for the matrix.
 
-- **The console API's mode 7** (`sdevkit/snes.h`, `sdevkit_ppu.m7a` to `m7y`, `sdevkit_mode7_map_now`): the map goes into the low
+- **The console API's mode 7** (`sdevkit/snes.h`, `SDEVKIT_PPU_M7A` to `M7Y`, `sdevkit_mode7_map_copy`): the map goes into the low
   byte of the first 0x4000 VRAM words, the tiles into the high byte; a matrix in 8.8 fixed point,
   a centre, and BG1's scroll say which map pixel each screen pixel shows.
-- **Registers in the vertical blank.** The tick writes the matrix and the select into the shadow
-  state and marks them (`SDEVKIT_MARK_MODE7`); the kit writes them into the PPU in the vertical
-  blank. On the SNES a register written during the picture takes effect from that line on, which
-  Rachael, who applies it to the whole frame, would not show.
+- **Registers in the vertical blank.** The tick computes the matrix, and `game_vblank` writes it
+  and the select into mode 7's registers with the core's `sdevkit_reg_write_twice`, one store a
+  byte. On the SNES a register written during the picture takes effect from that line on; the
+  desktop's check counts such a write and fails on it.
 - **The sprite** sits at VRAM word 0x4000, above what mode 7 fills, with priority 2: in mode 7,
   sprites of priority 1 to 3 are in front of the layer, 0 behind it.
 

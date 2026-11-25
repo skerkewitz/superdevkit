@@ -74,12 +74,16 @@ moves to the history with that release):
 - **A constant on an index into the operand**: `a[i + 1]` of a global is `sta a+1,x`, the sum
   never computed (2026-11-25); the examples' work 0.7 % lower, every one's code smaller
   ([log](optimizations-log.md#a-constant-on-an-index-into-the-operand-2026-11-25-on-the-examples)).
-- **The console API as shadow state**: the hardware's registers, HDMA channels and sprite table in
-  memory, committed by the kit in the vertical blank; an upload queue with a budget the same on
-  both platforms; writes now only with the screen off; no `game_vblank`
-  ([ADR-6FMHDB6H](adr/6FMHDB6H-the-console-api-is-the-hardware-s-state-in-memory.md), 2026-11-25,
-  from the [brainstorm](brainstorm/console-api-shadow-state_2026-11-24.md)). The examples draw
-  the same pictures, pixel for pixel.
+- **The console API's core and its optional layers**: the core is the hardware at once (every
+  PPU register by `sdevkit_reg_write`, DMA, VRAM, CGRAM and OAM copies, HDMA), and the kit writes
+  nothing in the vertical blank itself; above it optional layers in portable C (the registers in
+  memory with marks, a sprite list, an upload queue with a budget the same on both platforms, the
+  buttons pressed), one commit for all of them in `game_vblank`; the desktop counts a register
+  written while the picture is drawn
+  ([ADR-6FNPPCSX](adr/6FNPPCSX-the-console-api-is-the-hardware-at-once-with.md), 2026-11-25,
+  after the [brainstorm](brainstorm/console-api-shadow-state_2026-11-24.md)'s shadow state was
+  built and turned out to cost a game that knew the vertical blank's rules). The examples draw the
+  same pictures, pixel for pixel, the core's faster than before (with DMA's time counted).
 
 Left:
 
@@ -94,9 +98,9 @@ Left:
   calls the IRQ at its line; then the NMI runs the frame's work. The contexts are built (above).
   Left, in this order: the data the tick publishes, with a barrier the optimizer respects before
   the swap; Rachael calling the IRQ at its line, and an API to set the line, which make the IRQ
-  usable by games; then the NMI running the frame's work. Since the console API is shadow state
-  (ADR-6FMHDB6H) a game has no `game_vblank`: the NMI runs only the kit's commit, so the step
-  that would have made `game_vblank` join the NMI context is not needed.
+  usable by games; then the NMI running `game_vblank` and the frame's work, where `game_vblank`
+  joins the NMI context and may call nothing the tick calls unless a function can be compiled
+  once per context (idea 2 of the summary).
 - **Intrinsics** for the hardware multipliers, the divider and DMA ([subset.md](subset.md),
   *Intrinsics*).
 - **Subset decision 3**, 16-bit pointers into RAM ([subset.md](subset.md)), built once it is
@@ -126,7 +130,7 @@ Timing ([timing.md](timing.md#not-built-yet)):
   [timing.md](timing.md#open-questions) left open until the bounds turned out too pessimistic;
 - level 3: DRAM refresh, HDMA and interrupts at frame level. Open is how the budget learns
   which HDMA channels a game has on, since a game turns them on at run time
-  (`sdevkit_ppu.hdmaen`).
+  (`sdevkit_hdma_enable`).
 
 Better C debugging in Mesen: Mesen shows the C source and the names of global variables from
 the `.dbg` file, and that is all. Of a C symbol (`csym`) it reads only the name and the assembly

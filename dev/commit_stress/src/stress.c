@@ -1,9 +1,10 @@
-/* The commit's worst case in every frame, for Mesen: all groups marked, HDMA channels 1 to 7 set,
- * and the queue filled to its budget, in turn with as many copies as it takes (the setup's worst)
- * and with one copy of all its bytes. */
+/* The optional layers' commit (sdevkit/easy.h) at its worst in every frame, for Mesen: all groups
+ * marked, HDMA channels 1 to 7 set, the queue filled to its budget, in turn with as many copies as
+ * it takes (the setup's worst) and with one copy of all its bytes, and the sprite list in turn
+ * full (128 sprites) and empty (all 128 to hide). */
 #include <stdint.h>
 #include "sdevkit/loop.h"
-#include "sdevkit/snes.h"
+#include "sdevkit/easy.h"
 
 static uint8_t data[SDEVKIT_QUEUE_BYTES];
 static const uint8_t TABLE[] = { 0x7F, 0, 0, 0x7F, 0, 0, 0 };
@@ -25,9 +26,10 @@ void game_init(uint16_t seed)
     sdevkit_ppu.inidisp = 15;
 }
 
-void game_tick(void)
+void game_tick(const uint16_t pad[SDEVKIT_PADS])
 {
     uint8_t k;
+    (void)pad;
     tick++;
     sdevkit_marks = SDEVKIT_MARK_ALL;
     sdevkit_ppu.hofs[0] = tick;
@@ -45,5 +47,15 @@ void game_tick(void)
     } else if (!sdevkit_queue_vram(0x6000, data, sdevkit_queue_room())) {
         refused++;
     }
+    if (tick & 2) {                    /* the list full, then (two ticks on) empty: 128 to hide */
+        for (k = 0; k < 128; k++) {
+            sdevkit_sprite((int16_t)(k & 0x7F), (int16_t)(k & 0x3F), 0, 0, 1);
+        }
+    }
     sdevkit_dbg_hash(&tick, sizeof tick);
+}
+
+void game_vblank(void)
+{
+    sdevkit_commit();
 }

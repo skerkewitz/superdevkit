@@ -4,6 +4,11 @@
  *   game_init     once, with the screen off: graphics and palettes into VRAM and CGRAM at once
  *   game_tick     once per frame: the game logic, the sprite table, the map, and the copies of
  *                 what changed (the map, the walls' colours) queued for the vertical blank
+ *   game_vblank   the sprites' slots into OAM, and the optional layers' commit (sdevkit/easy.h)
+ *
+ * It mixes the layers and the core: the registers, the copies and the buttons pressed go through
+ * the layers, the six sprites keep fixed slots in a table of CatchMe's own (actors.c), and
+ * game_vblank copies just those slots.
  *
  * VRAM: the background tiles from word 0x0000, the background map at 0x1000 (32 x 32 entries),
  * the sprite tiles at 0x4000. CGRAM: background palette 0 (colours 0..15), sprite palettes 0..6
@@ -298,29 +303,31 @@ void game_init(uint16_t seed)
     sdevkit_ppu.bgsc[0] = SDEVKIT_BGSC(VRAM_BG_MAP, SDEVKIT_SC_32x32);
     sdevkit_ppu.vofs[0] = 0x3FF;                 /* the first line of the map on the first line of the screen */
     sdevkit_ppu.obsel = SDEVKIT_OBSEL(VRAM_SPRITES, SDEVKIT_OBJ_SIZE16_L32);
-    sdevkit_vram_now(VRAM_BG_TILES, maze_gfx_tiles, MAZE_GFX_TILES_SIZE);
-    sdevkit_cgram_now(0, maze_gfx_pal, MAZE_GFX_PAL_SIZE);
-    sdevkit_vram_now(VRAM_SPRITES, sprites_gfx_tiles, SPRITES_GFX_TILES_SIZE);
-    sdevkit_cgram_now(128, sprites_gfx_pal, SPRITES_GFX_PAL_SIZE);
-    sdevkit_cgram_now(128 + 16 * 1, pal_ginger_pal, PAL_GINGER_PAL_SIZE);
-    sdevkit_cgram_now(128 + 16 * 2, pal_black_pal, PAL_BLACK_PAL_SIZE);
-    sdevkit_cgram_now(128 + 16 * 3, pal_white_pal, PAL_WHITE_PAL_SIZE);
-    sdevkit_cgram_now(128 + 16 * 4, pal_brown_pal, PAL_BROWN_PAL_SIZE);
-    sdevkit_cgram_now(128 + 16 * 5, pal_scared_pal, PAL_SCARED_PAL_SIZE);
-    sdevkit_cgram_now(128 + 16 * 6, pal_hot_pal, PAL_HOT_PAL_SIZE);
+    sdevkit_vram_copy(VRAM_BG_TILES, maze_gfx_tiles, MAZE_GFX_TILES_SIZE);   /* the screen is off */
+    sdevkit_cgram_copy(0, maze_gfx_pal, MAZE_GFX_PAL_SIZE);
+    sdevkit_vram_copy(VRAM_SPRITES, sprites_gfx_tiles, SPRITES_GFX_TILES_SIZE);
+    sdevkit_cgram_copy(128, sprites_gfx_pal, SPRITES_GFX_PAL_SIZE);
+    sdevkit_cgram_copy(128 + 16 * 1, pal_ginger_pal, PAL_GINGER_PAL_SIZE);
+    sdevkit_cgram_copy(128 + 16 * 2, pal_black_pal, PAL_BLACK_PAL_SIZE);
+    sdevkit_cgram_copy(128 + 16 * 3, pal_white_pal, PAL_WHITE_PAL_SIZE);
+    sdevkit_cgram_copy(128 + 16 * 4, pal_brown_pal, PAL_BROWN_PAL_SIZE);
+    sdevkit_cgram_copy(128 + 16 * 5, pal_scared_pal, PAL_SCARED_PAL_SIZE);
+    sdevkit_cgram_copy(128 + 16 * 6, pal_hot_pal, PAL_HOT_PAL_SIZE);
     best_load();
     debug_register();
     level = 1;
     title();
-    sdevkit_vram_now(VRAM_BG_MAP, bg_map, MAP_BYTES);   /* the screen is still off */
+    sdevkit_vram_copy(VRAM_BG_MAP, bg_map, MAP_BYTES);   /* the screen is still off */
     bg_map_dirty = 0;
     sdevkit_ppu.inidisp = 15;
 }
 
-void game_tick(void)
+void game_tick(const uint16_t pad[SDEVKIT_PADS])
 {
-    uint16_t pressed = sdevkit_input.pressed[0];
+    uint16_t pressed;
 
+    sdevkit_input_update(pad);
+    pressed = sdevkit_input.pressed[0];
     sdevkit_dbg_hash(sdevkit_sram(), SAVE_BYTES);   /* the checks compare the save RAM too */
     frame++;
     switch (state) {
@@ -407,4 +414,10 @@ void game_tick(void)
     if (blink_dirty && maze_blink(blink)) {
         blink_dirty = 0;
     }
+}
+
+void game_vblank(void)
+{
+    sprites_copy();
+    sdevkit_commit();
 }

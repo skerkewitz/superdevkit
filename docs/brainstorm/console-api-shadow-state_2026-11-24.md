@@ -345,6 +345,12 @@ examples need them.
 Taken as recommended (2026-11-25), to be built on the branch `new_snes_api`, ending in a
 comparison of the old API and the new one with measurements.
 
+Revised the same day, after the comparison (ADR-6FNPPCSX): built, the shadow state cost every game
+a fixed amount of work a tick, and a game that already did its writes in `game_vblank` and kept its
+own sprite table, as Blubber Blasen does, gained nothing from it. The user chose a core that is the
+hardware at once, for the experienced programmer and with nothing forced, and the shadow state,
+the sprite list, the queue and the buttons pressed as optional layers above it.
+
 ## Open questions
 
 - Once the NMI overlaps the next tick, the shadow and the RAM sources of queued uploads need a

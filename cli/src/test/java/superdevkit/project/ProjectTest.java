@@ -191,7 +191,8 @@ class ProjectTest {
                 uint8_t made(void);
                 uint8_t v;
                 void game_init(uint16_t seed) { (void)seed; }
-                void game_tick(void) { v = made(); }
+                void game_tick(const uint16_t pad[SDEVKIT_PADS]) { (void)pad; v = made(); }
+                void game_vblank(void) { }
                 """);
         Files.writeString(tmp.resolve("make.sh"), script);
         project("""
@@ -315,7 +316,8 @@ class ProjectTest {
                 #error the defines of [snes] did not arrive
                 #endif
                 void game_init(uint16_t seed) { (void)seed; }
-                void game_tick(void) { }
+                void game_tick(const uint16_t pad[SDEVKIT_PADS]) { (void)pad; }
+                void game_vblank(void) { }
                 """);
         project("""
                 name = "g"
@@ -343,8 +345,7 @@ class ProjectTest {
 
     @Test
     void theDefinesOfSnesDoNotReachTheKitsLibrary() throws Exception {
-        // SDEVKIT__QUEUE_SOURCES is a macro the kit's library reads (lib/shadow/shadow.h: the queue
-        // keeps its sources, which lib/snes does not need), so the ROM changes when it gets it
+        // SETUP_LINES is a macro lib/snes/snes.c takes if it is defined (the margin of sdevkit_dma_fits)
         Files.createDirectories(tmp.resolve("src"));
         Files.writeString(tmp.resolve("src/g.c"), """
                 #include "sdevkit/loop.h"
@@ -352,7 +353,8 @@ class ProjectTest {
                 #error the defines of [snes] did not arrive
                 #endif
                 void game_init(uint16_t seed) { (void)seed; }
-                void game_tick(void) { }
+                void game_tick(const uint16_t pad[SDEVKIT_PADS]) { (void)pad; }
+                void game_vblank(void) { }
                 """);
         String toml = """
                 name = "g"
@@ -366,26 +368,26 @@ class ProjectTest {
         project(toml.formatted(kitPath, "\"ON_SNES\""));
         assertTrue(run("build", "snes", tmp.toString()).startsWith("0\n"));
         byte[] without = Files.readAllBytes(rom);
-        Project p = project(toml.formatted(kitPath, "\"ON_SNES\", \"SDEVKIT__QUEUE_SOURCES\""));
+        Project p = project(toml.formatted(kitPath, "\"ON_SNES\", \"SETUP_LINES=0\""));
         String plan = run("build", "snes", tmp.toString(), "--plan");
-        assertTrue(plan.contains(" -D ON_SNES -D SDEVKIT__QUEUE_SOURCES --entry main") && plan.contains(" src --lib "), plan);
+        assertTrue(plan.contains(" -D ON_SNES -D SETUP_LINES=0 --entry main") && plan.contains(" src --lib "), plan);
         String built = run("build", "snes", tmp.toString());
         assertTrue(built.startsWith("0\n"), built);
-        assertArrayEquals(without, Files.readAllBytes(rom), "SDEVKIT__QUEUE_SOURCES of [snes] must not reach lib/snes");
+        assertArrayEquals(without, Files.readAllBytes(rom), "SETUP_LINES of [snes] must not reach lib/snes");
 
         // the same define does change the library when it reaches it, as it did before --lib
         Kit kit = Kit.of(p);
         Path leak = tmp.resolve("leak/g.sfc");
         dampf.Compiler.compile(Build.dampfOptions(p, kit, leak).withLibrary(List.of()));
-        assertTrue(!java.util.Arrays.equals(without, Files.readAllBytes(leak)), "SDEVKIT__QUEUE_SOURCES should change lib/snes");
+        assertTrue(!java.util.Arrays.equals(without, Files.readAllBytes(leak)), "SETUP_LINES=0 should change lib/snes");
 
         String args = Files.readString(tmp.resolve("build/snes/g.args"));
         String snesC = kit.lib().resolve("snes/snes.c").toAbsolutePath().normalize().toString();
-        assertTrue(args.contains("-D SDEVKIT__QUEUE_SOURCES\n") && args.contains("\n--lib " + snesC + "\n")
+        assertTrue(args.contains("-D SETUP_LINES=0\n") && args.contains("\n--lib " + snesC + "\n")
                 && args.contains("\n" + tmp.resolve("src/g.c").toAbsolutePath().normalize() + "\n"), args);
         // compile_commands.json: the game's file with the define, nothing of lib/snes
         String commands = Files.readString(tmp.resolve("build/compile_commands.json"));
-        assertTrue(commands.contains("g.c\", \"arguments\"") && commands.contains("\"-DSDEVKIT__QUEUE_SOURCES\""), commands);
+        assertTrue(commands.contains("g.c\", \"arguments\"") && commands.contains("\"-DSETUP_LINES=0\""), commands);
         assertTrue(!commands.contains("snes.c"), commands);
     }
 
@@ -473,7 +475,7 @@ class ProjectTest {
     private void symbolCheck(List<String> cc) throws Exception {
         assumeTrue(runs(cc), "no " + String.join(" ", cc));
         Path good = tmp.resolve("good.c"), bad = tmp.resolve("bad.c");
-        Files.writeString(good, "#include \"sdevkit/snes.h\"\nunsigned char shared;\nvoid f(void) { sdevkit_ppu.inidisp = 15; sdevkit_screen_off_now(); shared++; }\n");
+        Files.writeString(good, "#include \"sdevkit/snes.h\"\nunsigned char shared;\nvoid f(void) { sdevkit_reg_write(SDEVKIT_PPU_INIDISP, 15); shared++; }\n");
         Files.writeString(bad, "int puts(const char *s);\nextern unsigned char shared;\nvoid g(void) { puts(\"hi\"); shared++; }\n");
         for (Path c : List.of(good, bad)) {
             List<String> cmd = new java.util.ArrayList<>(cc);

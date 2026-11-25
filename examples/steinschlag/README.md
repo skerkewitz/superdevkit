@@ -35,8 +35,8 @@ Things worth looking at:
 
 - **16 x 16 background tiles.** One bit of `BGMODE` (`BG1_TILES_16`) makes layer 1 read 16 x 16
   tiles, so one map entry is one cell. A map of 64 x 32 entries is then 1024 x 512 pixels, the
-  whole cave fits, and scrolling in x and y is only the scroll registers (`sdevkit_ppu.hofs[0]`,
-  `vofs[0]`), no copying of columns.
+  whole cave fits, and scrolling in x and y is only the scroll registers (`sdevkit_reg_write_twice` of
+  `SDEVKIT_PPU_BG1HOFS` and `BG1VOFS` in `game_vblank`), no copying of columns.
 - **Two layers.** The status line is layer 2, in 8 x 8 tiles with the priority bit, so it stays
   in front of the scrolling cave; the miner's sprite has priority 2, below it.
 - **Animation by tiles.** Every gem on the map names the same tile; every eight frames the next

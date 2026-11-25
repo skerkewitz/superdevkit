@@ -35,9 +35,6 @@ class SplashTest {
                     last_brightness = brightness;
                     return frames == press_at ? SDEVKIT_KEY_A : 0;
                 }
-                static void sdevkit__splash_sprites(const uint8_t *low, uint16_t bytes, const uint8_t *high)
-                {
-                }
                 #include "splash.h"
                 int main(void)
                 {
@@ -57,7 +54,7 @@ class SplashTest {
         Files.writeString(c, program);
         Processes.check(Path.of("."), Duration.ofMinutes(1), List.of("cc", "-std=c99", "-Wall", "-Wextra",
                 "-Wno-unused-parameter", "-I", "lib/include", "-I", "lib/rachael", "-I", "lib/splash", c.toString(), "lib/rachael/ppu.c",
-                "lib/rachael/render.c", "lib/rachael/dsp.c", "-o", exe.toString()));
+                "lib/rachael/render.c", "lib/rachael/dsp.c", "lib/rachael/layers.c", "-o", exe.toString()));
         String out = Processes.check(tmp, Duration.ofMinutes(1), List.of(exe.toString()));
         // press frame : frames the splash lasted : brightness of its last frame
         assertEquals("0:242:0 1:31:15 5:31:15 31:31:15 32:32:15 100:100:15 211:211:15 212:242:0", out.strip());

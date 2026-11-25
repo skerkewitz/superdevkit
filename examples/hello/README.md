@@ -26,13 +26,16 @@ Open `build/snes/hello.sfc` in Mesen with `build/snes/hello.dbg` next to it, and
 
 What it shows:
 
+- hello uses the kit's optional layers (`sdevkit/easy.h`), so it knows no rule of the vertical
+  blank: its `game_vblank` is one call, `sdevkit_commit`, which writes the registers, the sprites
+  and the copies the tick asked for. A game that wants every cycle writes the hardware itself
+  there (Mode 7 and Er-Tüp do).
 - `game_init` runs with the screen off, so it can copy as much as it likes into VRAM and
-  CGRAM at once (`sdevkit_vram_now`); it sets the PPU's registers in `sdevkit_ppu`, and at the
+  CGRAM at once (`sdevkit_vram_copy`); it sets the PPU's registers in `sdevkit_ppu`, and at the
   end `sdevkit_ppu.inidisp = 15` switches the screen on with the first picture.
 - `game_tick` changes the background map in RAM (`map`), never VRAM: the PPU only takes new
-  data in the vertical blank, so the tick queues the map (`sdevkit_queue_vram`) and the kit
+  data in the vertical blank, so the tick queues the map (`sdevkit_queue_vram`) and the commit
   copies it there.
-- The ball is drawn with `sdevkit_sprite` in every tick; the kit copies the sprite table in the
-  vertical blank itself.
+- The ball is drawn with `sdevkit_sprite` in every tick; the commit copies it into OAM.
 - Sprites are placed one line higher than where they should appear, and the background is
   scrolled up by one line: the SNES shows both one line lower otherwise.

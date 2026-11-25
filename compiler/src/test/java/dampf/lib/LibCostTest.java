@@ -17,13 +17,15 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * What each function of the console API costs on the SNES: a program that calls every function of
- * sdevkit/snes.h once (with zeros) is built by dampf with lib/snes, and the best and worst case of
+ * sdevkit/snes.h and of the optional layers once (with zeros) is built by dampf with lib/snes, and
+ * the best and worst case of
  * each function in CPU cycles, from the timing report, are the last column of the table in
  * lib/README.md. With LIB_COSTS=update in the environment the column is written, else a
  * difference fails, so the numbers there are dampf's of today.
  */
 class LibCostTest {
-    private static final Path HEADER = Path.of("lib/include/sdevkit/snes.h");
+    private static final List<Path> HEADERS = List.of("snes.h", "shadow.h", "sprites.h", "queue.h", "input.h", "easy.h")
+            .stream().map(h -> Path.of("lib/include/sdevkit").resolve(h)).toList();
     private static final Path README = Path.of("lib/README.md");
     private static final Pattern PROTOTYPE = Pattern.compile("\\b(\\w+)\\s*\\(([^(){};]*)\\)\\s*;");
     private static final Pattern ROW = Pattern.compile("^(\\| `(\\w+)` \\| [^|]+ \\| [^|]+ \\|)(.*)$", Pattern.MULTILINE);
@@ -33,9 +35,12 @@ class LibCostTest {
 
     @Test
     void theTableGivesWhatEachFunctionCostsOnTheSnes() throws Exception {
-        String header = Files.readString(HEADER).replaceAll("(?s)/\\*.*?\\*/", " ").replaceAll("(?m)^\\s*#.*$", " ");
-        StringBuilder probe = new StringBuilder("#include \"sdevkit/snes.h\"\n\nvoid test_main(void)\n{\n");
-        Matcher m = PROTOTYPE.matcher(header);
+        StringBuilder headers = new StringBuilder();
+        for (Path h : HEADERS) {
+            headers.append(Files.readString(h).replaceAll("(?s)/\\*.*?\\*/", " ").replaceAll("(?m)^\\s*#.*$", " "));
+        }
+        StringBuilder probe = new StringBuilder("#include \"sdevkit/easy.h\"\n\nvoid test_main(void)\n{\n");
+        Matcher m = PROTOTYPE.matcher(headers);
         List<String> api = new ArrayList<>();
         while (m.find()) {
             String params = m.group(2).trim();
@@ -71,7 +76,7 @@ class LibCostTest {
             rows++;
         }
         out.append(readme.substring(last));
-        assertEquals(api.size(), rows, "a row of the table in " + README + " for each function of " + HEADER);
+        assertEquals(api.size(), rows, "a row of the table in " + README + " for each function of " + HEADERS);
         String expected = out.toString().replace("| Function | SNES | desktop |\n| --- | --- | --- |",
                 "| Function | SNES | desktop | CPU cycles on the SNES |\n| --- | --- | --- | ---: |");
         if ("update".equals(System.getenv("LIB_COSTS"))) {

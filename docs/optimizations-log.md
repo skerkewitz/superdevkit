@@ -1956,3 +1956,56 @@ wrong lines as waiting.
 Open: the queue in hand-written assembly (`DAMPF_ASM`: its RAM effects are checked against the C
 body) would roughly halve a copy's cost in the tick and in the vertical blank, and with it raise
 the queue's budget.
+
+## The console API's core and its optional layers, measured with DMA's time (2026-11-25, on the examples)
+
+The shadow state above cost every game a fixed amount of work a tick and gave a game that knew the
+vertical blank's rules nothing (Er-Tüp 1.038). The API was rebuilt as a core that is the hardware
+at once, with the shadow state, a sprite list, the queue and the buttons pressed as optional
+layers above it (ADR-6FNPPCSX). Mode 7, Mandelbrot, Steinschlag and Er-Tüp use the core, Hello,
+CatchMe and Schach the layers (CatchMe with a sprite table of its own).
+
+**DMA's time.** dampf's emulator gave a DMA no time, so the old main loop's copy of the whole sprite
+table (544 bytes, 4,368 master cycles) in every vertical blank was missing from the old numbers,
+and a game that copies less could not show it. A general DMA now halts the CPU for 8 master
+cycles a byte, 8 a channel and 8 more (`dampf.emu.Snes`). The old API was measured again with it,
+on the ROMs of the commit before the shadow state (Mode 7 11,649 → 16,126).
+
+| Example | Work, old API | new | Ratio | Busiest, old | new | Code bytes, old | new |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| CatchMe | 51,239 | 46,174 | 0.901 | 146,798 | 143,023 | 24,457 | 25,272 |
+| Ertüp | 136,759 | 134,081 | 0.980 | 264,360 | 261,957 | 85,503 | 85,988 |
+| Hello | 80,195 | 80,274 | 1.001 | 81,214 | 81,273 | 11,246 | 11,434 |
+| Mandelbrot | 80,995 | 75,223 | 0.929 | 94,112 | 88,334 | 14,425 | 14,506 |
+| Mode 7 | 16,126 | 10,692 | 0.663 | 16,161 | 10,717 | 11,923 | 12,260 |
+| Schach | 375,206 | 372,746 | 0.993 | 527,899 | 525,310 | 43,496 | 43,778 |
+| Steinschlag | 79,961 | 75,135 | 0.940 | 140,820 | 136,020 | 27,260 | 27,720 |
+
+The geometric mean of the work is 0.908. The examples on the core gain what the old main loop
+did for them whether they needed it or not (the full sprite copy, its hash) and copy only what is
+in use; those on the layers are about where they were. The code grows by 80 to 820 bytes: the
+layers are linked into every ROM, used or not (dampf keeps functions nobody calls), and each
+example now names its sprite state for the checks itself. A register write is one store
+(`sdevkit_reg_write` with a constant register, inlined), a copy 100 to 120 cycles.
+
+**Two byte loads for a value written in halves.** `sdevkit_reg_write_twice(reg, v)` loaded `v` once
+and kept it in X while the accumulator switched to 8 bits for the low byte and back for the high
+one (34 cycles). `ByteLoads` now turns a 16-bit load whose uses are its low byte and its high byte
+into two byte loads, and `Schedule` moves a load past a volatile store to a register of the PPU,
+the sound or the CPU, which cannot change memory (not `$2180`, `$420B`, `$420C`): each byte is
+loaded next to its store, in one run of 8-bit code. The layers' register commit went from 2,267 to
+2,062 cycles at worst, its scroll part from 34 to 18 cycles a register. On the examples the work is
+0.6 % lower on the geometric mean (Mode 7 3.4 %, Mandelbrot 0.4 %, the others below 0.1 %).
+
+**The queue's budget.** The layers' commit has a worse worst case than the shadow state's: the
+sprite list (up to four DMAs, 560 cycles) and the HDMA channels through the core. The queue takes
+3,072 bytes a frame now, from the commit's measured worst case (lib/README.md); `dev/commit_stress.sh`
+with every group, seven HDMA channels, the queue full and the sprite list full and empty in turn:
+no byte lost in Mesen, the commit's last write on line 259 of 261. With 3,840 it ended on line 264
+and lost bytes. The sprite list hides the entries of the tick before by a DMA from a table of
+hidden entries and clears their high-table bytes by a DMA from zeros, so no loop runs in the
+vertical blank.
+
+Found on the way: dampf's emulator took a LoROM for HiROM when the byte at file offset `$FFD5`
+was `$21`, and Schach's data put one there once its code moved by twenty bytes; the ROM then
+started at `$0000`. It now trusts the header whose checksum and complement agree (`MappingTest`).

@@ -16,13 +16,17 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
- * The console API of the dev kit (ADR-6F3CJX8T and ADR-6F3CK2AR): every function
- * {@code lib/include/sdevkit/snes.h} declares exists in {@code lib/snes} and in {@code lib/rachael}
- * (the desktop), built or as a stub, and has its row in the table of {@code lib/README.md}.
+ * The console API of the dev kit (ADR-6F3CJX8T, ADR-6FNPPCSX): every function its core
+ * ({@code lib/include/sdevkit/snes.h}) and its optional layers ({@code shadow.h}, {@code sprites.h},
+ * {@code queue.h}, {@code input.h}, {@code easy.h}) declare exists in {@code lib/snes} and in
+ * {@code lib/rachael} (the desktop), built or as a stub, there or in the layers' shared code
+ * ({@code lib/layers}), and has its row in the table of {@code lib/README.md}.
  */
 class LibApiTest {
 
-    private static final Path HEADER = Path.of("lib/include/sdevkit/snes.h");
+    private static final List<Path> HEADERS = List.of("snes.h", "shadow.h", "sprites.h", "queue.h", "input.h", "easy.h")
+            .stream().map(h -> Path.of("lib/include/sdevkit").resolve(h)).toList();
+    private static final Path LAYERS = Path.of("lib/layers");
     private static final Path SNES = Path.of("lib/snes");
     private static final Path RACHAEL = Path.of("lib/rachael");
     private static final Path README = Path.of("lib/README.md");
@@ -38,16 +42,19 @@ class LibApiTest {
 
     static Set<String> consoleApi() throws IOException {
         Set<String> names = new TreeSet<>();
-        Matcher m = DECLARATION.matcher(code(Files.readString(HEADER)));
-        while (m.find()) {
-            names.add(m.group(1));
+        for (Path h : HEADERS) {
+            Matcher m = DECLARATION.matcher(code(Files.readString(h)));
+            while (m.find()) {
+                names.add(m.group(1));
+            }
         }
         return names;
     }
 
     @Test
     void theHeaderDeclaresTheConsoleApi() throws IOException {
-        assertTrue(consoleApi().containsAll(List.of("sdevkit_sprite", "sdevkit_queue_dma", "sdevkit_dma_now", "sdevkit_commit_now", "sdevkit_dbg_vram")), consoleApi().toString());
+        assertTrue(consoleApi().containsAll(List.of("sdevkit_reg_write", "sdevkit_dma", "sdevkit_oam_copy", "sdevkit_sprite",
+                "sdevkit_queue_dma", "sdevkit_commit", "sdevkit_dbg_vram")), consoleApi().toString());
     }
 
     @Test
@@ -60,11 +67,17 @@ class LibApiTest {
         assertDefinesAll(RACHAEL);
     }
 
-    /** The functions the .c files of a platform's folder define. */
+    /** The functions the .c files of a platform's folder define, and the layers' shared code. */
     static Set<String> defined(Path platform) throws IOException {
+        Set<String> defined = new TreeSet<>(definedIn(LAYERS, ".h"));
+        defined.addAll(definedIn(platform, ".c"));
+        return defined;
+    }
+
+    private static Set<String> definedIn(Path folder, String suffix) throws IOException {
         Set<String> defined = new TreeSet<>();
-        try (Stream<Path> files = Files.list(platform)) {
-            for (Path f : files.filter(p -> p.toString().endsWith(".c")).toList()) {
+        try (Stream<Path> files = Files.list(folder)) {
+            for (Path f : files.filter(p -> p.toString().endsWith(suffix)).toList()) {
                 Matcher m = DEFINITION.matcher(code(Files.readString(f)));
                 while (m.find()) {
                     defined.add(m.group(1));
@@ -88,6 +101,6 @@ class LibApiTest {
         while (m.find()) {
             rows.add(m.group(1));
         }
-        assertEquals(consoleApi(), rows, "the rows of the table in lib/README.md and the console API of sdevkit/snes.h");
+        assertEquals(consoleApi(), rows, "the rows of the table in lib/README.md and the console API of sdevkit/*.h");
     }
 }
