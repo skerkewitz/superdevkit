@@ -54,6 +54,15 @@ into their predecessors (`Returns`), computes pointer sums again where their val
 (`PointerRemat`) and takes out the checks of the hints (`Hints`). How values
 get places, registers and frames is in [optimizations.md](optimizations.md).
 
+Interrupt handlers in C (`DAMPF_INTERRUPT`, ADR-6FM9TXV4) are built in the compiler, not yet for
+games. Each handler is the root of a context (`CallGraph.contexts`, which rejects a function
+reached from two of them). Both code generators give a context its own direct page below the stack
+(`ContextAreas`), with its copy of the runtime's scratch registers; the code generator from MIR
+lays out the context's frames from that page with the main code's rule and writes their absolute
+places with the context's symbol (`dampf_frame_irq`), and both multiply in software there. The
+runtime gets an entry stub per handler, assembled only into a program that has one
+([memory-map.md](memory-map.md#interrupt-contexts), [timing.md](timing.md)).
+
 ## Pipeline
 
 ```
@@ -142,7 +151,8 @@ Nothing is built for a second target, but the split keeps one possible.
 
 As built, the split is only partly there. The SNES side is `dampf.snes.RomBuilder` (memory map,
 banks, header) and the runtime `compiler/src/main/resources/dampf/snes/runtime.s` (start-up, arithmetic
-routines, header, vectors); the 65816 cycle table is `dampf.target.Cycles65816`. The code
+routines, header, vectors, and the entry stubs of interrupt handlers in C); the 65816 cycle table is
+`dampf.target.Cycles65816`. The code
 generators still contain SNES facts themselves (DBR `$7E`, the RAM and frame addresses, long
 addresses for I/O registers). Of the list above only the memory map is built: the cost model
 counts CPU cycles, multiplication and division are software routines in the runtime, and there

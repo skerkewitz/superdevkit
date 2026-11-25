@@ -7,7 +7,7 @@ import java.nio.file.Path;
 /**
  * Just enough of a Super Nintendo to run dampf's programs: the 65816 ({@link Cpu65816}), a LoROM
  * cartridge, 128 KB of WRAM with its mirrors, and the master-cycle timing of the bus. No picture,
- * no sound output, no DMA, no interrupts.
+ * no sound output, no DMA.
  *
  * <p>Timing, in master cycles (21.477 MHz on NTSC): an access costs 8 for WRAM, SlowROM and most of
  * the address space, 6 for I/O registers at $2000-$3FFF and $4200-$5FFF (and FastROM once
@@ -19,6 +19,17 @@ import java.nio.file.Path;
  * {@code NMITIMEN} bit 0 is set), the line counter latched by {@code SLHV} and read at
  * {@code OPVCT}, and the joypads at {@code $4218}-{@code $421B} from {@link #setPads}. Enough for
  * the kit's main loop (lib/snes/main.c), which waits for the vertical blank by polling.
+ *
+ * <p>Interrupts, as {@code NMITIMEN} ($4200) enables them: the NMI at the start of the vertical
+ * blank (line 225; {@code RDNMI} $4210 bit 7 is set then, cleared by reading it or at line 0, and
+ * enabling the NMI while it is set gives one at once), and the timer IRQ ({@code TIMEUP} $4211 bit 7,
+ * held until it is read or the timer is switched off): at the start of line {@code VTIME}
+ * ($4209/$420A) with the vertical timer (or at once, when a write makes the line VTIME's in the
+ * middle of it), at dot {@code HTIME} ($4207/$4208) of every line with
+ * the horizontal one, at that dot of line {@code VTIME} with both. A dot is 4 master cycles from
+ * the start of the line, the DRAM refresh counted at the line's end, so a horizontal position is
+ * only about right (on the console the refresh lies near dot 134). The CPU takes an interrupt
+ * between two instructions ({@link Cpu65816#interrupt}), the IRQ only while its I flag is clear.
  *
  * <p>The sound side is {@link Apu}: the ports $2140-$2143 (mirrored up to $217F), the audio RAM,
  * the SPC700's boot code and the kit's driver.
@@ -58,6 +69,21 @@ public final class Snes implements Bus {
     private int latchedLine;
     private boolean opvctHigh;
     private boolean autoJoypad;
+
+    // the interrupts: NMITIMEN's NMI bit and timer mode (0 off, 1 H, 2 V, 3 HV), the timers'
+    // positions, RDNMI's and TIMEUP's flags, and an NMI the CPU has still to take
+    private boolean nmiEnabled;
+    private int timerMode;
+    private int htime = 0x1FF;
+    private int vtime = 0x1FF;
+    private boolean nmiFlag;
+    private boolean irqFlag;
+    /** The vertical timer's condition, V = VTIME: the IRQ comes when it becomes true. */
+    private boolean vMatch;
+    private boolean nmiPending;
+    /** The native-mode vectors of the NMI and the IRQ. */
+    private static final int NMI_VECTOR = 0xFFEA;
+    private static final int IRQ_VECTOR = 0xFFEE;
     private final int[] pads = new int[2];
 
     // the CPU's multiplier and divider ($4202-$4206 -> $4214-$4217). The multiplier adds one bit of
@@ -210,6 +236,12 @@ public final class Snes implements Bus {
     public boolean run(long limit, StepListener steps) {
         cpu.reset();
         while (!done && master < limit) {
+            if (nmiPending) {
+                nmiPending = false;
+                cpu.interrupt(cpu.e ? 0xFFFA : NMI_VECTOR);
+            } else if (irqFlag && !cpu.i) {
+                cpu.interrupt(cpu.e ? 0xFFFE : IRQ_VECTOR);
+            }
             if (steps != null) {
                 steps.before(cpu.pbr << 16 | cpu.pc);
             }
@@ -239,16 +271,40 @@ public final class Snes implements Bus {
     // ------------------------------------------------------------------ the bus
 
     private void tick(int cycles) {
+        long before = lineClock;
         master += cycles;
         lineClock += cycles;
+        int dot = 4 * htime;
+        if ((timerMode & 1) != 0 && before < dot && lineClock >= dot && (timerMode == 1 || scanline == vtime)) {
+            irqFlag = true;
+        }
         if (lineClock >= LINE - REFRESH) {
             master += REFRESH;
             lineClock -= LINE - REFRESH;
             scanline = scanline + 1 == LINES ? 0 : scanline + 1;
             if (scanline == VBLANK_FIRST_LINE) {
                 vblanks++;
+                nmiFlag = true;
+                nmiPending |= nmiEnabled;
+            } else if (scanline == 0) {
+                nmiFlag = false;
             }
+            if ((timerMode & 1) != 0 && dot <= lineClock && (timerMode == 1 || scanline == vtime)) {
+                irqFlag = true;
+            }
+            verticalTimer();
         }
+    }
+
+    /**
+     * The vertical timer alone: its condition V = VTIME holds for the whole line, and the IRQ comes
+     * when it becomes true, at the start of the line or at a write of VTIME or NMITIMEN that makes
+     * it true in the middle of one (as in Mesen).
+     */
+    private void verticalTimer() {
+        boolean match = timerMode == 2 && scanline == vtime;
+        irqFlag |= match && !vMatch;
+        vMatch = match;
     }
 
     /** Master cycles of one access, by address (fullsnes, "SNES Memory Map"). */
@@ -334,6 +390,16 @@ public final class Snes implements Bus {
                 opvctHigh = false;          // STAT78: the byte order starts again
                 yield 0;
             }
+            case 0x4210 -> {
+                int v = (nmiFlag ? 0x80 : 0) | 0x02;   // RDNMI: the flag, and the CPU's version 2
+                nmiFlag = false;
+                yield v;
+            }
+            case 0x4211 -> {
+                int v = irqFlag ? 0x80 : 0;             // TIMEUP: reading it ends the IRQ
+                irqFlag = false;
+                yield v;
+            }
             case 0x4212 -> (scanline >= VBLANK_FIRST_LINE ? 0x80 : 0)
                     | (autoJoypad && scanline >= VBLANK_FIRST_LINE && scanline < VBLANK_FIRST_LINE + 3 ? 1 : 0);
             case 0x4218 -> pads[0] & 0xFF;
@@ -389,7 +455,27 @@ public final class Snes implements Bus {
         }
         switch (offset) {
             case 0x420D -> fastRom = (value & 1) != 0;
-            case 0x4200 -> autoJoypad = (value & 1) != 0;
+            case 0x4200 -> {
+                autoJoypad = (value & 1) != 0;
+                boolean was = nmiEnabled;
+                nmiEnabled = (value & 0x80) != 0;
+                nmiPending |= nmiEnabled && !was && nmiFlag;
+                timerMode = (value >> 4) & 3;
+                if (timerMode == 0) {
+                    irqFlag = false;
+                }
+                verticalTimer();
+            }
+            case 0x4207 -> htime = (htime & 0x100) | value;
+            case 0x4208 -> htime = (htime & 0xFF) | (value & 1) << 8;
+            case 0x4209 -> {
+                vtime = (vtime & 0x100) | value;
+                verticalTimer();
+            }
+            case 0x420A -> {
+                vtime = (vtime & 0xFF) | (value & 1) << 8;
+                verticalTimer();
+            }
             case 0x4202 -> mulA = value;
             case 0x4203 -> {
                 product = 0;

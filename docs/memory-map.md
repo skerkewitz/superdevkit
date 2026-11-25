@@ -20,15 +20,35 @@ The first 8 KB of bank `$7E` are the same memory as `$0000-$1FFF` in bank 0. The
 | --- | --- |
 | `$0000-$001F` | direct page: the runtime's scratch registers (`dampf_regs`, `dampf_ptr`) |
 | `$0020-$1DFF` | the frames (`dampf_frame`, a compiled stack; the part below `$0100` is in the direct page). The naive generator uses only the start, for the frame of a function written in assembly ([hints.md](hints.md), `DAMPF_ASM`). |
+| below `$1E00` | only with interrupt handlers in C: each interrupt context's direct page and frames, whole pages ([below](#interrupt-contexts)) |
 | `$1E00-$1FFF` | stack |
 | `$2000-$FFFE` | variables: globals, static locals, and the naive generator's frames |
 
-The frames must fit into `$0020-$1DFF`, or the build fails. A function's frame starts after the
+The frames must fit into `$0020-$1DFF`, or the build fails (less with interrupt handlers, see
+[Interrupt contexts](#interrupt-contexts)). A function's frame starts after the
 frames of the functions it calls, so the leaves of the call graph lie in the direct page
 ([optimizations.md](optimizations.md), optimization A). The linker does not know this area: the
 generated code sets `dampf_frame = $0020` itself.
 
 Bank `$7F` (another 64 KB) is not used yet.
+
+## Interrupt contexts
+
+A program with interrupt handlers in C (`DAMPF_INTERRUPT`, [subset.md](subset.md), ADR-6FM9TXV4)
+gives each handler's context a direct page of its own, made of whole pages right below the
+stack: the NMI's highest, then the IRQ's. The first 32 bytes of the page are the context's copy of
+`dampf_regs` and `dampf_ptr`, which the runtime and the generated code reach in the direct page
+wherever it is. The context's frames follow from the page's byte `$20`, laid out as the main
+code's are from `$0020`, so its leaves lie in the direct page. The generated code writes a frame
+place there as `z:dampf_frame+n`, relative to D, and any other one, and the address of a local,
+with the context's own symbol (`dampf_frame_irq = $1C20`). A context whose frames take at most 224
+bytes takes one page. The code generator exports each page (`dampf_irq_dp`), and the runtime's
+entry stub sets D to it.
+
+The main code's frames must end below the lowest page: with two small handlers the NMI's page is
+`$1D00`, the IRQ's `$1C00`, and the main code has `$0020-$1BFF` (7,136 bytes instead of 7,648);
+with one, `$0020-$1CFF`. The naive code generator keeps the frames of C functions static from
+`$2000`, so its contexts take one page each. A program without handlers keeps the whole area.
 
 The linker sees RAM addresses without the bank (`$2000`, not `$7E2000`), so 16-bit address fixups
 fit. Code that needs a full 24-bit RAM address (a pointer) adds the bank itself.

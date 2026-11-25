@@ -1,5 +1,6 @@
 package dampf.backend;
 
+import dampf.ast.Interrupt;
 import dampf.frontend.CompileError;
 import dampf.frontend.SourcePos;
 import dampf.lir.BranchRelax;
@@ -118,6 +119,43 @@ public final class MirCodeGen {
     /** At most this many segments per assembly module: ca65 allows about 256 per object file. */
     private static final int SEGMENTS_PER_MODULE = 200;
 
+    /**
+     * The interrupt context of each function, by label (DAMPF_INTERRUPT, ADR-6FM9TXV4): those an
+     * interrupt handler reaches; the main code's are not in it.
+     */
+    private Map<String, Interrupt> contextOf = Map.of();
+    /** The handler of each interrupt, by label. */
+    private Map<Interrupt, String> handlers = Map.of();
+    /** Each interrupt context's direct page and the bytes of its frames, after generate(). */
+    public final Map<Interrupt, Integer> directPage = new java.util.EnumMap<>(Interrupt.class);
+    final Map<Interrupt, Integer> contextFrames = new java.util.EnumMap<>(Interrupt.class);
+
+    /**
+     * The program's interrupt handlers and the contexts of the functions they reach
+     * ({@link dampf.check.CallGraph#contexts}), before {@link #generate}.
+     */
+    public MirCodeGen interrupts(Map<String, Interrupt> contexts, Map<Interrupt, String> handlerLabels) {
+        this.contextOf = Map.copyOf(contexts);
+        this.handlers = Map.copyOf(handlerLabels);
+        return this;
+    }
+
+    /** f's interrupt context, null for the main code. */
+    Interrupt context(MFunction f) {
+        return contextOf.get(f.name());
+    }
+
+    /**
+     * The symbol of the absolute addresses of f's frame places: {@code dampf_frame} for the main
+     * code, {@code dampf_frame_irq} for the IRQ context's. Its direct-page operands are written
+     * with {@code dampf_frame} in every context: they are relative to the direct page register,
+     * which the entry stub sets to the context's page.
+     */
+    String frameSymbol(MFunction f) {
+        Interrupt c = context(f);
+        return c == null ? Selection.FRAME : Selection.FRAME + "_" + c.key;
+    }
+
     public List<String> generate() throws CompileError {
         MFunction entryFunction = module.function(entry);
         if (entryFunction == null || !entryFunction.params().isEmpty()) {
@@ -130,6 +168,13 @@ public final class MirCodeGen {
             }
         }
         sel.layout();
+        for (MFunction f : module.functions()) {
+            for (MFunction c : callees.getOrDefault(f.name(), List.of())) {
+                if (context(f) != null && context(c) != context(f)) {
+                    throw new IllegalStateException(f.name() + " (" + context(f) + ") calls " + c.name() + " of another context");
+                }
+            }
+        }
         Map<MFunction, AsmWriter> codes = new HashMap<>();
         Map<MFunction, List<Block>> orders = new HashMap<>();
         Map<MFunction, Ranges> ranges = new HashMap<>();
@@ -155,8 +200,11 @@ public final class MirCodeGen {
         for (MFunction f : module.functions()) {
             colourPlaces(f, codes, done, new HashSet<>());
         }
-        if (frameTotal > MAX_FRAME) {
+        if (handlers.isEmpty() && frameTotal > MAX_FRAME) {
             throw new IllegalStateException("the frames need " + frameTotal + " bytes, more than " + MAX_FRAME);
+        }
+        if (!handlers.isEmpty()) {
+            placeContexts();
         }
         for (MFunction f : module.functions()) {
             if (f.isAsm()) {
@@ -164,6 +212,8 @@ public final class MirCodeGen {
             }
             AsmWriter code = codes.get(f);
             List<Block> order = orders.get(f);
+            sel.absFrame = frameSymbol(f);
+            String frame = sel.absFrame;
             // loads of what a register holds on every way in, then stores no path reads; then the
             // code is shorter, so more branches may reach
             // (each counts in the pass limit; BranchRelax does not, it is part of making the code)
@@ -174,7 +224,7 @@ public final class MirCodeGen {
             lf.rebuild(lf.items().stream().filter(it -> !(it instanceof dampf.lir.LMark)).toList());
             boolean resultInA = f.result() != MType.VOID;
             limit.apply("RedundantLoads", f.name(), () -> new RedundantLoads(resultInA).run(lf));
-            limit.apply("Peephole", f.name(), () -> new Peephole(Selection.FRAME_START).run(lf));
+            limit.apply("Peephole", f.name(), () -> new Peephole(Selection.FRAME_START, frame).run(lf));
             limit.apply("ByteStretches", f.name(), () -> ByteStretches.run(lf));
             limit.apply("ByteLoops", f.name(), () -> dampf.lir.ByteLoops.run(lf, resultInA));
             limit.apply("KnownCarry", f.name(), () -> KnownCarry.run(lf));
@@ -208,6 +258,7 @@ public final class MirCodeGen {
             if (m == 0) {
                 w.append(ram);
                 w.blank();   // (as when the text was copied in)
+                handlerExports(w);
             }
             for (int i = m * SEGMENTS_PER_MODULE; i < Math.min(banked.size(), (m + 1) * SEGMENTS_PER_MODULE); i++) {
                 if (i == entryBlock) {
@@ -306,6 +357,44 @@ public final class MirCodeGen {
     public void asm(String label, List<String> paramSymbols, long best, long worst) {
         asmSymbols.put(label, List.copyOf(paramSymbols));
         bounds.put(label, new Timing.Bound(best, worst));
+    }
+
+    /**
+     * Each interrupt context's direct page, below the stack ({@link ContextAreas}), and the check
+     * that the main code's frames end below the lowest of them.
+     */
+    void placeContexts() {
+        int mainEnd = 0;
+        for (Interrupt c : handlers.keySet()) {
+            contextFrames.put(c, 0);
+        }
+        for (MFunction f : module.functions()) {
+            int end = placedBase.get(f) + placedSize.get(f);
+            Interrupt c = context(f);
+            if (c == null) {
+                mainEnd = Math.max(mainEnd, end);
+            } else {
+                contextFrames.merge(c, end, Math::max);
+            }
+        }
+        directPage.putAll(ContextAreas.pages(contextFrames));
+        int room = ContextAreas.mainEnd(directPage) - Selection.FRAME_START;
+        if (mainEnd > room) {
+            throw new IllegalStateException("the frames of the main code need " + mainEnd + " bytes, more than " + room
+                    + " (the interrupt contexts take " + ContextAreas.describe(directPage) + ")");
+        }
+    }
+
+    /** The symbols the runtime's interrupt entry stubs import: each handler and its direct page. */
+    void handlerExports(AsmWriter w) {
+        for (Map.Entry<Interrupt, String> h : new java.util.TreeMap<>(handlers).entrySet()) {
+            String k = h.getKey().key;
+            w.raw("        .export dampf_" + k + "_handler, dampf_" + k + "_dp");
+            w.raw("dampf_" + k + "_handler = " + h.getValue() + "             ; the runtime's " + h.getKey() + " entry calls this");
+            w.raw("dampf_" + k + "_dp = $" + Selection.hex(directPage.get(h.getKey()), 4)
+                    + "                   ; with the direct page here");
+            w.blank();
+        }
     }
 
     /**
@@ -446,7 +535,7 @@ public final class MirCodeGen {
         List<dampf.lir.LItem> items = new ArrayList<>();
         for (Value.Param p : f.params()) {
             items.add(dampf.lir.LDirective.note("parameter " + p.type() + " " + p + " at "
-                    + Selection.at(placeAt.get(new PlaceColouring.Place(p, false))).text()));
+                    + sel.at(placeAt.get(new PlaceColouring.Place(p, false))).text()));
         }
         items.addAll(lf.items());
         lf.rebuild(items);
@@ -462,6 +551,9 @@ public final class MirCodeGen {
         w.raw("        .i16");
         w.raw("        .importzp dampf_regs, dampf_ptr");
         w.raw("        .import dampf_mul16, dampf_mul32, dampf_udiv16, dampf_udiv32, dampf_sdiv32");
+        if (!handlers.isEmpty()) {
+            w.raw("        .import dampf_mul16_soft, dampf_mul32_soft");
+        }
         if (modules > 1 || !asmSymbols.isEmpty()) {
             // (the assembly of DAMPF_ASM imports the globals and its parameters' places)
             List<String> all = new ArrayList<>();
@@ -485,6 +577,10 @@ public final class MirCodeGen {
             w.raw("R" + r + (r < 10 ? "  " : " ") + "= dampf_regs+" + r);
         }
         w.raw(Selection.FRAME + " = $" + Selection.hex(Selection.FRAME_START, 4) + "            ; the frames (compiled stack), $0020-$1DFF; below $0100 in the direct page");
+        for (Map.Entry<Interrupt, Integer> e : directPage.entrySet()) {
+            w.raw(Selection.FRAME + "_" + e.getKey().key + " = $" + Selection.hex(e.getValue() + Selection.FRAME_START, 4)
+                    + "        ; the " + e.getKey() + " context's frames, absolute; its direct page is $" + Selection.hex(e.getValue(), 4));
+        }
     }
 
     String fileDirective(String file, Path path) {
@@ -523,6 +619,25 @@ public final class MirCodeGen {
             out.put(f.name(), new long[] {b.best() < Timing.UNBOUNDED ? b.best() : -1, b.bounded() ? b.worst() : -1});
         }
         Timing.RUNTIME.forEach((name, b) -> out.put(name, new long[] {b.best(), b.worst()}));
+        if (!handlers.isEmpty()) {
+            Timing.RUNTIME_SOFT.forEach((name, b) -> out.put(name, new long[] {b.best(), b.worst()}));
+            contextTiming().forEach((name, b) -> out.put(name, new long[] {b.best() < Timing.UNBOUNDED ? b.best() : -1,
+                    b.bounded() ? b.worst() : -1}));
+        }
+        return out;
+    }
+
+    /**
+     * Each interrupt, by the label of its entry stub ({@code dampf_irq}): from the interrupt being
+     * taken to the end of its RTI, the stub's cycles and its handler's bounds. An NMI that comes
+     * while the IRQ handler runs adds its own.
+     */
+    public Map<String, Timing.Bound> contextTiming() {
+        Map<String, Timing.Bound> out = new TreeMap<>();
+        handlers.forEach((c, label) -> {
+            long stub = Timing.INTERRUPT_ENTRY.get(c) + Timing.INTERRUPT_EXIT;
+            out.put("dampf_" + c.key, new Timing.Bound(stub, stub).plus(bound(label, new HashSet<>())));
+        });
         return out;
     }
 
@@ -565,6 +680,9 @@ public final class MirCodeGen {
             return known;
         }
         Timing.Bound runtime = Timing.RUNTIME.get(name);
+        if (runtime == null) {
+            runtime = Timing.RUNTIME_SOFT.get(name);
+        }
         if (runtime != null) {
             return runtime;
         }
@@ -739,6 +857,8 @@ public final class MirCodeGen {
         sel.out.raw("; ---- " + f.name() + "    (" + f.pos() + ")");
         sel.out.raw("        .segment \"" + NaiveCodeGen.codeSegment(f.name()) + "\"");
         sel.out.raw(".proc " + f.name());
+        sel.absFrame = frameSymbol(f);
+        sel.interrupt = context(f) != null;
         sel.layout = layouts.get(f);
         sel.ranges = sel.layout.ranges;
         sel.plan.findMasks(f);
@@ -971,13 +1091,13 @@ public final class MirCodeGen {
                 if (m.indirect()) {
                     return new LOperand.Mem(LOperand.Width.NONE, Selection.FRAME, at, m.index(), true, m.owner());
                 }
-                return Selection.at(at).indexed(m.index()).owned(m.owner());
+                return sel.at(at).indexed(m.index()).owned(m.owner());
             }
             case LOperand.Imm i when i.expr().contains(Selection.FRAME) -> {
                 if (i.owner() == null) {
                     throw new IllegalStateException("a frame address without an owner: " + i.text());
                 }
-                return new LOperand.Imm(".loword(" + Selection.FRAME + "+" + (placeAt.get(PlaceColouring.Place.of(i.owner())) + i.owner().word()) + ")",
+                return new LOperand.Imm(".loword(" + sel.absFrame + "+" + (placeAt.get(PlaceColouring.Place.of(i.owner())) + i.owner().word()) + ")",
                         i.owner());
             }
             default -> {

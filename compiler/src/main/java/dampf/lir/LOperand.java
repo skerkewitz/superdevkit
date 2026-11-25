@@ -133,7 +133,7 @@ public sealed interface LOperand {
 
         @Override
         public String text() {
-            String place = base + (offset != 0 || base.equals(FRAME) ? "+" + offset : "");
+            String place = base + (offset != 0 || frame() ? "+" + offset : "");
             return indirect ? "[" + place + "]" + index.suffix : width.prefix + place + index.suffix;
         }
 
@@ -147,9 +147,12 @@ public sealed interface LOperand {
             return new Mem(width, base, offset, by, indirect, owner);
         }
 
-        /** A place of the frame, read or written directly or through an index or as a pointer. */
+        /**
+         * A place of the frame, read or written directly or through an index or as a pointer: the
+         * base {@link #FRAME}, or an interrupt context's absolute one ({@code dampf_frame_irq}).
+         */
         public boolean frame() {
-            return base.equals(FRAME);
+            return base.equals(FRAME) || base.startsWith(FRAME + "_");
         }
 
         /** The frame place this operand is, read or written directly (not indexed, not a pointer); -1 otherwise. */

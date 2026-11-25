@@ -152,13 +152,13 @@ final class ArithSelection {
                     sel.ins("lda", sel.operand(y, 0));
                     sel.ins("sta", Selection.reg("R0"));
                     sel.ins("lda", sel.operand(x, 0));
-                    sel.ins("jsl", "dampf_mul16");
+                    sel.ins("jsl", sel.interrupt ? "dampf_mul16_soft" : "dampf_mul16");
                     sel.maskResult(b);
                     sel.result(b, 0);
                 } else {
                     to32(x, Selection.reg("R0"), Selection.reg("R2"));
                     to32(y, Selection.reg("R4"), Selection.reg("R6"));
-                    sel.ins("jsl", "dampf_mul32");
+                    sel.ins("jsl", sel.interrupt ? "dampf_mul32_soft" : "dampf_mul32");
                     from32(b, Selection.reg("R8"), Selection.reg("R10"));
                 }
             }
@@ -213,10 +213,11 @@ final class ArithSelection {
     /**
      * Whether x * y is the 16-bit product of two bytes, which the CPU's multiplier computes without
      * a call: an i8 (its result depends on the low bytes alone), or an i16 whose two factors are
-     * below 256 by their ranges. Both factors must be places: the code loads them in 8 bits.
+     * below 256 by their ranges. Both factors must be places: the code loads them in 8 bits. Not in
+     * interrupt code, which never touches the multiplier (ADR-6FM9TXV4).
      */
     boolean byteFactors(Instr.Bin b) {
-        if (b.op != Instr.BinOp.MUL || b.op(0) instanceof Value.Const || b.op(1) instanceof Value.Const
+        if (sel.interrupt || b.op != Instr.BinOp.MUL || b.op(0) instanceof Value.Const || b.op(1) instanceof Value.Const
                 || !inPlace(b.op(0)) || !inPlace(b.op(1))) {
             return false;
         }

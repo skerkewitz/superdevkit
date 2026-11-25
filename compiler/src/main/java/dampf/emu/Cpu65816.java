@@ -8,8 +8,12 @@ package dampf.emu;
  * <p>Emulation mode is only modelled as far as starting a program needs it (the CPU starts in
  * emulation mode; dampf's runtime switches to native mode with its third instruction): M and X are
  * forced to 8 bit and the stack stays in page 1. Its special cases (6502 page wrapping, the B flag,
- * emulation-mode interrupt vectors) are not modelled and not validated. Interrupts are not
- * modelled: dampf's programs run with them off.
+ * emulation-mode interrupt vectors) are not modelled and not validated.
+ *
+ * <p>Interrupts: {@link #interrupt} takes one in native mode (the bus decides when, see {@link
+ * Snes}); it counts how deep the CPU is in interrupt code, and {@link #cyclesAbove} the cycles
+ * spent deeper than each level, so a measurement of code that was interrupted can leave the
+ * interrupts out. WAI does not wait.
  */
 public final class Cpu65816 {
     public int a;
@@ -36,6 +40,18 @@ public final class Cpu65816 {
     public long cycles;
     /** Of those, memory accesses (the rest are internal cycles). */
     public long accesses;
+    /**
+     * How many interrupts the CPU is in: raised when it takes one, lowered by the RTI that leaves
+     * it (an RTI outside an interrupt leaves it at 0).
+     */
+    public int depth;
+    /** cyclesAbove[d]: the CPU cycles spent at a depth greater than d, from the interrupt's first cycle to its RTI's last. */
+    public final long[] cyclesAbove = new long[8];
+    /** The cycle an interrupt began at, and where it returns to (bank and address), for the last one taken. */
+    public long interruptStart;
+    public int interruptReturn;
+    /** How many interrupts were taken since power-on. */
+    public long interrupts;
 
     private final Bus bus;
 
@@ -61,6 +77,7 @@ public final class Cpu65816 {
         x &= 0xFF;
         y &= 0xFF;
         stopped = false;
+        depth = 0;
         pc = bus.read(0xFFFC) | bus.read(0xFFFD) << 8;
     }
 
@@ -96,20 +113,53 @@ public final class Cpu65816 {
     // ------------------------------------------------------------------ bus cycles
 
     private int rd(int address) {
-        cycles++;
+        cycle();
         accesses++;
         return bus.read(address & 0xFFFFFF) & 0xFF;
     }
 
     private void wr(int address, int value) {
-        cycles++;
+        cycle();
         accesses++;
         bus.write(address & 0xFFFFFF, value & 0xFF);
     }
 
     private void io() {
-        cycles++;
+        cycle();
         bus.idle();
+    }
+
+    private void cycle() {
+        cycles++;
+        for (int k = 0; k < depth; k++) {
+            cyclesAbove[k]++;
+        }
+    }
+
+    /**
+     * Takes an interrupt in native mode, as the W65C816S does between two instructions: two
+     * internal cycles (the first reads at PC), PBR, PC and P pushed, I set, D cleared, then the
+     * 16-bit vector at {@code vector} in bank 0: 8 cycles. (Emulation mode would push no PBR; dampf's
+     * programs run in native mode.)
+     */
+    public void interrupt(int vector) {
+        interruptStart = cycles;
+        interruptReturn = pbr << 16 | pc;
+        interrupts++;
+        depth = Math.min(depth + 1, cyclesAbove.length);
+        stopped = false;
+        rd(pbr << 16 | pc);
+        io();
+        if (!e) {
+            push(pbr);
+        }
+        push16(pc);
+        push(p());
+        i = true;
+        dec = false;
+        pbr = 0;
+        int lo = rd(vector);
+        pc = lo | rd(vector + 1) << 8;
     }
 
     private int fetch() {
@@ -735,6 +785,9 @@ public final class Cpu65816 {
                 pc = pull16();
                 if (!e) {
                     pbr = pull();
+                }
+                if (depth > 0) {
+                    depth--;
                 }
             }
             case 0x00, 0x02 -> {

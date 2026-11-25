@@ -138,6 +138,11 @@ exec_induction_tests_moved.layout.timing 31c9da984ec844e47672bdab
 exec_induction_tests_moved.mir.s0 e2a7250fe54c256140d4b2a6
 exec_induction_tests_moved.mir.timing 921acf30b1773893c5f01a5a
 exec_induction_tests_moved.naive.s0 765ec13f8ad980ace112ccc9
+exec_interrupts.layout.s0 b6ac29c18589e4af234cb4cb
+exec_interrupts.layout.timing 84e7d1c64cd5589bf4901055
+exec_interrupts.mir.s0 ce11006886d14cc656d8ec45
+exec_interrupts.mir.timing 7e6158d232f976d8062451e2
+exec_interrupts.naive.s0 54844abaa55ac88b143b65ac
 exec_locals.layout.s0 4a2b3ef4f0b46d9c9032ee27
 exec_locals.layout.timing 461cd516b0a1036b8ae1f504
 exec_locals.mir.s0 4a2b3ef4f0b46d9c9032ee27
