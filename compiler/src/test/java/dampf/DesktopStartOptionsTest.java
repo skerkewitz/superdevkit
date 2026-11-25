@@ -43,20 +43,16 @@ class DesktopStartOptionsTest {
                 sdevkit_dbg_value("position", &state[1]);
             }
 
-            void game_tick(const uint16_t pad[SDEVKIT_PADS])
+            void game_tick(void)
             {
                 /* the bot: the game makes its own pad */
-                uint16_t held = autoplay ? (uint16_t)(state[1] & 1 ? SDEVKIT_KEY_LEFT : SDEVKIT_KEY_RIGHT) : pad[0];
+                uint16_t held = autoplay ? (uint16_t)(state[1] & 1 ? SDEVKIT_KEY_LEFT : SDEVKIT_KEY_RIGHT) : sdevkit_input.pad[0];
                 if (held & SDEVKIT_KEY_RIGHT) {
                     state[1] = (uint16_t)(state[1] + 3);
                 }
                 state[1] = (uint16_t)(state[1] + (uint16_t)speed);
                 state[2] = god;
                 sdevkit_dbg_hash(state, sizeof state);
-            }
-
-            void game_vblank(void)
-            {
             }
             """;
 

@@ -26,7 +26,7 @@ class LibNamesTest {
 
     private static final Path PUBLIC = Path.of("lib/include/sdevkit");
     /** The callbacks a game defines: its names, not the kit's. */
-    private static final Set<String> GAME_CALLBACKS = Set.of("game_init", "game_tick", "game_vblank");
+    private static final Set<String> GAME_CALLBACKS = Set.of("game_init", "game_tick");
 
     private static final Pattern DEFINE = Pattern.compile("(?m)^\\s*#\\s*define\\s+(\\w+)");
     /** A function declaration at file scope: the name before the parameter list. */
@@ -70,8 +70,8 @@ class LibNamesTest {
     @Test
     void everyNameOfThePublicHeadersHasThePrefix() throws IOException {
         Set<String> names = publicNames();
-        assertTrue(names.containsAll(List.of("sdevkit_oam_set", "sdevkit_oam_memory", "SDEVKIT_KEY_A", "SDEVKIT_RGB5", "game_tick",
-                "sdevkit_sfx_bank")),
+        assertTrue(names.containsAll(List.of("sdevkit_sprite", "sdevkit_oam", "sdevkit_ppu", "sdevkit_ppu_regs", "sdevkit_input",
+                "SDEVKIT_KEY_A", "SDEVKIT_RGB5", "game_tick", "sdevkit_sfx_bank")),
                 "the header scan missed names: " + names);
         List<String> wrong = names.stream()
                 .filter(n -> !n.startsWith("sdevkit_") && !n.startsWith("SDEVKIT_") && !GAME_CALLBACKS.contains(n)).toList();
@@ -93,8 +93,10 @@ class LibNamesTest {
         }
         for (Path c : sources) {
             Path o = tmp.resolve(c.getParent().getFileName() + "_" + c.getFileName() + ".o");
+            // dampf's <dampf.h> after the system's headers: lib/snes may use its hints
             Processes.check(Path.of("."), Duration.ofMinutes(1), List.of("clang", "-std=c99", "-c", "-w", "-I", "lib/include",
-                    "-I", c.getParent().toString(), "-I", "build/raylib/linux/include", "-I", "lib/rachael", c.toString(), "-o", o.toString()));
+                    "-I", c.getParent().toString(), "-I", "build/raylib/linux/include", "-I", "lib/rachael",
+                    "-idirafter", "compiler/src/main/resources/dampf/include", c.toString(), "-o", o.toString()));
             String nm = Processes.check(Path.of("."), Duration.ofMinutes(1), List.of("nm", "--defined-only", "-g", o.toString()));
             for (String line : nm.split("\\R")) {
                 String[] parts = line.trim().split("\\s+");

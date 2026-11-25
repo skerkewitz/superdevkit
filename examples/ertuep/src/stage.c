@@ -8,8 +8,8 @@
  * below, so a block of any height looks right without a tile per position in the text.
  *
  * Layer 1 (BG1) shows the stage in 16 x 16 tiles: its map of 64 x 32 entries is 1024 pixels wide,
- * and the column about to come into view is built in RAM and copied down the map in the next
- * vertical blank (sdevkit_dma_copy_vram_column), one column every 32 frames at the usual speed.
+ * and the column about to come into view is built in RAM and queued down the map for the next
+ * vertical blank (sdevkit_queue_vram_column), one column every 32 frames at the usual speed.
  * Layer 2 (BG2) is the wall behind, scrolled at half the speed: a picture of 16 x 14 cells per
  * room (walls.c, drawn by dev/art/ertuep.py) that repeats every 256 pixels.
  *
@@ -249,10 +249,10 @@ void stage_start(uint16_t at)
     next_wall = (uint16_t)(at >> 5);
     for (i = 0; i < 18 && stage_no < 2; i++) {
         build_column(next_col);
-        sdevkit_dma_copy_vram_column((const uint8_t *)col_buf, col_vram, sizeof col_buf);
+        sdevkit_vram_column_now(col_vram, col_buf, sizeof col_buf);
         next_col++;
         build_wall(next_wall);
-        sdevkit_dma_copy_vram_column((const uint8_t *)wall_buf, wall_vram, sizeof wall_buf);
+        sdevkit_vram_column_now(wall_vram, wall_buf, sizeof wall_buf);
         next_wall++;
     }
     col_vram = 0;
@@ -261,8 +261,8 @@ void stage_start(uint16_t at)
     waves_from(at);
 }
 
-/* One frame of the camera. The column that will come into view next is built now and copied in
- * the vertical blank; at most one of each layer a frame. */
+/* One frame of the camera. The column that will come into view next is built now and queued for
+ * the vertical blank (stage_show); at most one of each layer a frame. */
 void stage_scroll(void)
 {
     uint16_t s = (uint16_t)(cam_sub + scroll_step);
@@ -293,25 +293,28 @@ void stage_scroll(void)
     }
 }
 
-void stage_vblank(void)
+/* After the tick: the columns built, queued (a column that does not fit stays and is queued again;
+ * stage_scroll builds no other meanwhile), and the scroll of both layers. */
+void stage_show(void)
 {
     if (stage_no == 2) {
-        festzelt_vblank();
+        festzelt_show();
         return;
     }
-    if (col_vram != 0) {
-        sdevkit_dma_copy_vram_column((const uint8_t *)col_buf, col_vram, sizeof col_buf);
+    if (col_vram != 0 && sdevkit_queue_vram_column(col_vram, col_buf, sizeof col_buf)) {
         col_vram = 0;
     }
-    if (wall_vram != 0) {
-        sdevkit_dma_copy_vram_column((const uint8_t *)wall_buf, wall_vram, sizeof wall_buf);
+    if (wall_vram != 0 && sdevkit_queue_vram_column(wall_vram, wall_buf, sizeof wall_buf)) {
         wall_vram = 0;
     }
-    sdevkit_bg_set_scroll(0, (uint16_t)(shown_cam & 0x3FF), 0x3FF);
+    sdevkit_ppu.hofs[0] = (uint16_t)(shown_cam & 0x3FF);
+    sdevkit_ppu.vofs[0] = 0x3FF;
+    sdevkit_marks |= SDEVKIT_MARK_SCROLL;
     if (walls_off) {
-        boss_vblank();
+        boss_show();
     } else {
-        sdevkit_bg_set_scroll(1, (uint16_t)((shown_cam >> 1) & 0x3FF), 0x3FF);
+        sdevkit_ppu.hofs[1] = (uint16_t)((shown_cam >> 1) & 0x3FF);
+        sdevkit_ppu.vofs[1] = 0x3FF;
     }
 }
 

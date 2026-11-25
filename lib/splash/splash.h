@@ -15,7 +15,9 @@
  * The console must be as at power-on (the video reset) before, and the main loop resets it again
  * after and puts the game's sprite table back, so game_init finds what it found before the splash
  * existed. The splash uses the console API, mode 1 with one layer, and the sprites: the text, the
- * sticker and the locomotive are BG1 tiles, the stars sprites. The logo is lib/splash/splash_logo.h,
+ * sticker and the locomotive are BG1 tiles, the stars sprites. Its registers go into the hardware
+ * at once (sdevkit__commit_registers, the commit's without the sprite table and INIDISP): the
+ * screen stays off until its first frame. The logo is lib/splash/splash_logo.h,
  * made by dev/art/splash.py.
  */
 #ifndef SDEVKIT__SPLASH_H
@@ -29,6 +31,7 @@
 
 static uint16_t sdevkit__splash_frame(uint8_t brightness);
 static void sdevkit__splash_sprites(const uint8_t *low, uint16_t bytes, const uint8_t *high);
+void sdevkit__commit_registers(uint8_t marks);   /* lib/snes/snes.c, lib/rachael/ppu.c */
 
 static void sdevkit__splash(void)
 {
@@ -36,19 +39,18 @@ static void sdevkit__splash(void)
     uint8_t skip = 0;
 
     /* the screen is off: BG1 with tiles, map and palettes, the stars as sprites */
-    sdevkit_set_mode(SDEVKIT_BG_MODE1, 0);
-    sdevkit_bg_set_disable(1);
-    sdevkit_bg_set_disable(2);
-    sdevkit_bg_set_gfx_ptr(0, 0x0000);
-    sdevkit_bg_set_map_ptr(0, SDEVKIT__SPLASH_MAP, SDEVKIT_SC_32x32);
-    sdevkit_dma_copy_vram(sdevkit__splash_tiles, 0x0000, sizeof sdevkit__splash_tiles);
-    sdevkit_dma_copy_vram((const uint8_t *)sdevkit__splash_map, SDEVKIT__SPLASH_MAP + SDEVKIT__SPLASH_ROW * 32,
-                          sizeof sdevkit__splash_map);
-    sdevkit_dma_copy_cgram((const uint8_t *)sdevkit__splash_palette, 0, sizeof sdevkit__splash_palette);
-    sdevkit_bg_set_scroll(0, 0, 0x3FF);   /* map line y on screen line y */
-    sdevkit_oam_init_gfx_attr(SDEVKIT__SPLASH_OBJ, SDEVKIT_OBJ_SIZE8_L16);
-    sdevkit_dma_copy_vram(sdevkit__splash_obj_tiles, SDEVKIT__SPLASH_OBJ, sizeof sdevkit__splash_obj_tiles);
-    sdevkit_dma_copy_cgram((const uint8_t *)sdevkit__splash_obj_palette, 128, sizeof sdevkit__splash_obj_palette);
+    sdevkit_ppu.bgmode = SDEVKIT_BG_MODE1;
+    sdevkit_ppu.tm = SDEVKIT_BG1_ENABLE | SDEVKIT_OBJ_ENABLE;
+    sdevkit_ppu.bgnba[0] = SDEVKIT_BGNBA(0x0000, 0);
+    sdevkit_ppu.bgsc[0] = SDEVKIT_BGSC(SDEVKIT__SPLASH_MAP, SDEVKIT_SC_32x32);
+    sdevkit_ppu.vofs[0] = 0x3FF;          /* map line y on screen line y */
+    sdevkit_ppu.obsel = SDEVKIT_OBSEL(SDEVKIT__SPLASH_OBJ, SDEVKIT_OBJ_SIZE8_L16);
+    sdevkit__commit_registers(SDEVKIT_MARK_ALL);
+    sdevkit_vram_now(0x0000, sdevkit__splash_tiles, sizeof sdevkit__splash_tiles);
+    sdevkit_vram_now(SDEVKIT__SPLASH_MAP + SDEVKIT__SPLASH_ROW * 32, sdevkit__splash_map, sizeof sdevkit__splash_map);
+    sdevkit_cgram_now(0, sdevkit__splash_palette, sizeof sdevkit__splash_palette);
+    sdevkit_vram_now(SDEVKIT__SPLASH_OBJ, sdevkit__splash_obj_tiles, sizeof sdevkit__splash_obj_tiles);
+    sdevkit_cgram_now(128, sdevkit__splash_obj_palette, sizeof sdevkit__splash_obj_palette);
     sdevkit__splash_sprites(sdevkit__splash_oam, sizeof sdevkit__splash_oam, sdevkit__splash_oam_high);
 
     /* fade in; a button pressed meanwhile ends the splash once it has faded in */

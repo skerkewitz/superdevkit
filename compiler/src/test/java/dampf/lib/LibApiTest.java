@@ -47,7 +47,7 @@ class LibApiTest {
 
     @Test
     void theHeaderDeclaresTheConsoleApi() throws IOException {
-        assertTrue(consoleApi().containsAll(List.of("sdevkit_set_mode", "sdevkit_dma_copy_vram", "sdevkit_oam_set", "sdevkit_dma_fits", "sdevkit_dbg_vram")), consoleApi().toString());
+        assertTrue(consoleApi().containsAll(List.of("sdevkit_sprite", "sdevkit_queue_dma", "sdevkit_dma_now", "sdevkit_commit_now", "sdevkit_dbg_vram")), consoleApi().toString());
     }
 
     @Test

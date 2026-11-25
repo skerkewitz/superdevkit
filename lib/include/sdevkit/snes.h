@@ -2,53 +2,137 @@
 #define SDEVKIT_SNES_H
 
 /*
- * The console API of superdevkit (ADR-6F3CJX8T and ADR-6F3CK2AR): how a game draws on the SNES. Every
+ * The console API of superdevkit (ADR-6F3CJX8T, ADR-6F3CK2AR): how a game draws on the SNES. Every
  * name a game can use starts with sdevkit_ or SDEVKIT_; nothing else of the kit is meant for it.
+ * lib/snes implements it on the console, compiled by dampf with the game; lib/rachael (Rachael,
+ * the SNES rebuilt in portable C) on the desktop and the web. lib/README.md lists what each
+ * function costs.
  *
- * lib/snes implements it on the console, compiled by dampf with the game; lib/rachael
- * (Rachael, the SNES rebuilt in portable C) implements it on the desktop. Every function exists on every platform; lib/README.md
- * lists per function whether it is built or a stub.
+ * Shadow state (docs/brainstorm/console-api-shadow-state_2026-11-24.md). A game changes the
+ * picture by writing memory, not by calling functions:
  *
- * Three groups of functions:
- *   - PVSnesLib's functions, renamed: the same parameters and meaning as in PVSnesLib (the headers
- *     in pvsneslib/include/snes), sdevkit_ + the name in snake_case (setMode is
- *     sdevkit_set_mode). One deliberate difference: sources are const uint8_t * (ROM data);
- *     PVSnesLib takes u8 *.
- *   - Extensions that PVSnesLib has no function for. On the SNES each is a few register writes.
- *   - sdevkit_dbg_*: for the debug checks on the desktop and the SNES. They exist on every
- *     platform and never change what the game computes.
+ *   sdevkit_ppu      the PPU's registers, named after them: BG1HOFS is sdevkit_ppu.hofs[0]
+ *   sdevkit_hdma[n]  HDMA channels 1 to 7
+ *   sdevkit_oam      the sprite table, in the hardware's format
+ *
+ * game_tick writes them; after the tick the kit writes them into the hardware in the vertical
+ * blank (the commit), on Rachael at the same point. So a write is never too early or too late,
+ * and the checks compare all of it between the SNES and the PC after every tick.
+ *
+ * The commit writes INIDISP (the brightness) every frame and the other registers only when the
+ * tick marks their group in sdevkit_marks, since the vertical blank is short and most registers
+ * change seldom:
+ *
+ *   every frame          inidisp
+ *   SDEVKIT_MARK_SCROLL  hofs, vofs
+ *   SDEVKIT_MARK_COLOR   coldata, cgwsel, cgadsub
+ *   SDEVKIT_MARK_MODE7   m7a to m7y, m7sel
+ *   SDEVKIT_MARK_SETUP   bgmode, obsel, mosaic, bgsc, bgnba, setini, tm, ts
+ *   SDEVKIT_MARK_WINDOW  w12sel, w34sel, wobjsel, wh, wbglog, wobjlog, tmw, tsw
+ *   SDEVKIT_MARK_HDMA    the channels of sdevkit_hdma, hdmaen
+ *
+ * The kit marks every group itself once after game_init. A change to a group without its mark
+ * is not committed; Rachael finds it at the commit and the desktop check fails ("unmarked"), so a
+ * forgotten mark shows on the desktop, not only on the console.
+ *
+ * Two kinds of write:
+ *   - the shadow (above) and the upload queue (sdevkit_queue_*): in game_tick, committed in the
+ *     next vertical blank;
+ *   - now (sdevkit_*_now): at once, only while the screen is off (in game_init, or after
+ *     sdevkit_screen_off_now). The SNES drops what VRAM and CGRAM get while the picture is drawn;
+ *     Rachael counts such bytes as lost and the desktop check fails.
  *
  * Addresses are SNES addresses: VRAM addresses count 16-bit words (0x0000..0x7FFF), CGRAM
- * addresses count colours (0..255), OAM ids are byte offsets (sprite n = n * 4), as in
- * PVSnesLib.
- *
- * The frame rhythm (what the library's main loop calls) is in sdevkit/loop.h. Code written for
- * the old names converts with tools/sdevkit_rename.py.
+ * addresses count colours (0..255). Sizes count bytes. The frame rhythm (game_init, game_tick and
+ * the joypads) is in sdevkit/loop.h.
  */
 
 #include <stdint.h>
 
-/* --- Colours (video.h) -------------------------------------------------------- */
+/* --- Colours ------------------------------------------------------------------------------ */
 #define SDEVKIT_RGB5(r, g, b) ((uint16_t)((r) | ((g) << 5) | ((b) << 10)))
 #define SDEVKIT_RGB8(r, g, b) ((uint16_t)(((r) >> 3) | (((g) >> 3) << 5) | (((b) >> 3) << 10)))
 
-/* --- Modes and layers (background.h) -------------------------------------------- */
+/* --- The PPU's registers ------------------------------------------------------------------ */
+/* Laid out without padding (16-bit fields first), the same on the SNES and the PC: the checks
+ * hash it byte for byte. */
+typedef struct {
+    /* SDEVKIT_MARK_SCROLL */
+    uint16_t hofs[4];          /* BG1HOFS..BG4HOFS: 10 bits; BG1 in mode 7: 13 bits with sign */
+    uint16_t vofs[4];          /* BG1VOFS..BG4VOFS */
+    /* SDEVKIT_MARK_COLOR (with cgwsel, cgadsub below) */
+    uint16_t coldata;          /* COLDATA: the fixed colour of colour math, BGR 5:5:5 */
+    /* SDEVKIT_MARK_MODE7 */
+    int16_t  m7a, m7b, m7c, m7d;   /* M7A..M7D: the matrix, 8.8 fixed point (0x0100 is 1.0) */
+    int16_t  m7x, m7y;         /* M7X, M7Y: the centre, 13 bits with sign */
+    uint8_t  m7sel;            /* M7SEL: SDEVKIT_M7_* */
+    /* SDEVKIT_MARK_COLOR */
+    uint8_t  cgwsel, cgadsub;  /* CGWSEL, CGADSUB: colour math, SDEVKIT_CM_* */
+    /* SDEVKIT_MARK_SETUP */
+    uint8_t  bgmode;           /* BGMODE: SDEVKIT_BG_MODE1 or _MODE7, SDEVKIT_BG1_TILES_16, ... */
+    uint8_t  obsel;            /* OBSEL: SDEVKIT_OBSEL(sprite tiles, sizes) */
+    uint8_t  mosaic;           /* MOSAIC */
+    uint8_t  bgsc[4];          /* BG1SC..BG4SC: SDEVKIT_BGSC(map, size) */
+    uint8_t  bgnba[2];         /* BG12NBA, BG34NBA: SDEVKIT_BGNBA(tiles of the first, of the second) */
+    uint8_t  setini;           /* SETINI */
+    uint8_t  tm, ts;           /* TM, TS: layers on the main and the sub screen, SDEVKIT_BG1_ENABLE... */
+    /* SDEVKIT_MARK_WINDOW */
+    uint8_t  w12sel, w34sel, wobjsel;
+    uint8_t  wh[4];            /* WH0..WH3: window 1 left and right, window 2 left and right */
+    uint8_t  wbglog, wobjlog;
+    uint8_t  tmw, tsw;
+    /* SDEVKIT_MARK_HDMA (with the channels of sdevkit_hdma) */
+    uint8_t  hdmaen;           /* HDMAEN ($420C): the HDMA channels that run, SDEVKIT_HDMA_CHANNELn */
+    /* committed every frame */
+    uint8_t  inidisp;          /* INIDISP: brightness 0..15, or SDEVKIT_FORCED_BLANK */
+} sdevkit_ppu_regs;
+
+extern sdevkit_ppu_regs sdevkit_ppu;
+
+extern uint8_t sdevkit_marks;  /* the groups this tick changed; the commit clears it */
+#define SDEVKIT_MARK_SETUP  0x01
+#define SDEVKIT_MARK_WINDOW 0x02
+#define SDEVKIT_MARK_MODE7  0x04
+#define SDEVKIT_MARK_HDMA   0x08
+#define SDEVKIT_MARK_SCROLL 0x10
+#define SDEVKIT_MARK_COLOR  0x20
+#define SDEVKIT_MARK_ALL    0x3F
+
+/* INIDISP */
+#define SDEVKIT_FORCED_BLANK 0x80  /* the screen off: black, and VRAM and CGRAM take writes */
+
+/* BGMODE */
 #define SDEVKIT_BG_MODE1                1
-#define SDEVKIT_BG_MODE7                7    /* one layer (BG1), rotated and scaled: sdevkit_mode7_* */
+#define SDEVKIT_BG_MODE7                7    /* one layer (BG1), rotated and scaled: sdevkit_ppu.m7* */
 #define SDEVKIT_BG3_MODE1_PRIORITY_HIGH (1 << 3)   /* BG3 tiles with priority 1 above everything */
+#define SDEVKIT_BG1_TILES_16 (1 << 4)        /* BG1 with tiles of 16 x 16 pixels */
+#define SDEVKIT_BG2_TILES_16 (1 << 5)
+#define SDEVKIT_BG3_TILES_16 (1 << 6)
+#define SDEVKIT_BG4_TILES_16 (1 << 7)
+
+/* TM, TS (and TMW, TSW): the layers */
 #define SDEVKIT_BG1_ENABLE (1 << 0)
 #define SDEVKIT_BG2_ENABLE (1 << 1)
 #define SDEVKIT_BG3_ENABLE (1 << 2)
 #define SDEVKIT_BG4_ENABLE (1 << 3)
 #define SDEVKIT_OBJ_ENABLE (1 << 4)
 
+/* BGnSC: a map at a VRAM word address (a multiple of 0x400) and its size */
 #define SDEVKIT_SC_32x32 0
 #define SDEVKIT_SC_64x32 1
 #define SDEVKIT_SC_32x64 2
 #define SDEVKIT_SC_64x64 3
-
-#define SDEVKIT_BG_4COLORS  4
-#define SDEVKIT_BG_16COLORS 16
+#define SDEVKIT_BGSC(address, size) ((uint8_t)((((address) >> 8) & 0xFC) | (size)))
+/* BG12NBA, BG34NBA: the tiles of two layers, each at a VRAM word address (a multiple of 0x1000) */
+#define SDEVKIT_BGNBA(first, second) ((uint8_t)((((first) >> 12) & 0x0F) | ((((second) >> 12) & 0x0F) << 4)))
+/* OBSEL: the sprite tiles at a VRAM word address (a multiple of 0x2000) and the two sizes */
+#define SDEVKIT_OBJ_SIZE8_L16  (0 << 5)
+#define SDEVKIT_OBJ_SIZE8_L32  (1 << 5)
+#define SDEVKIT_OBJ_SIZE8_L64  (2 << 5)
+#define SDEVKIT_OBJ_SIZE16_L32 (3 << 5)
+#define SDEVKIT_OBJ_SIZE16_L64 (4 << 5)
+#define SDEVKIT_OBJ_SIZE32_L64 (5 << 5)
+#define SDEVKIT_OBSEL(address, sizes) ((uint8_t)((sizes) | (((address) >> 13) & 7)))
 
 /* Background map entries */
 #define SDEVKIT_BG_TIL_NUM(n)  ((uint16_t)(n))          /* 0..1023 */
@@ -57,26 +141,7 @@
 #define SDEVKIT_BG_TIL_FLIPX   ((uint16_t)(1 << 14))
 #define SDEVKIT_BG_TIL_FLIPY   ((uint16_t)(1 << 15))
 
-/* --- Sprites (sprite.h) ---------------------------------------------------------- */
-#define SDEVKIT_OBJ_SIZE8_L16  (0 << 5)
-#define SDEVKIT_OBJ_SIZE8_L32  (1 << 5)
-#define SDEVKIT_OBJ_SIZE8_L64  (2 << 5)
-#define SDEVKIT_OBJ_SIZE16_L32 (3 << 5)
-#define SDEVKIT_OBJ_SIZE16_L64 (4 << 5)
-#define SDEVKIT_OBJ_SIZE32_L64 (5 << 5)
-#define SDEVKIT_OBJ_SMALL 0
-#define SDEVKIT_OBJ_LARGE 1
-#define SDEVKIT_OBJ_SHOW  0
-#define SDEVKIT_OBJ_HIDE  1
-#define SDEVKIT_ATTR2_DISABLED 0xE8                /* y of a hidden sprite */
-
-/* The OAM shadow: sdevkit_oam_set() and friends write here; the vertical blank
- * copies it into the PPU's OAM (Rachael's vertical blank on the PC). 128 entries of
- * 4 bytes, then 32 bytes with 2 bits per sprite (x bit 8, size). */
-extern uint8_t sdevkit_oam_memory[128 * 4 + 8 * 4];
-
-/* --- Colour math (video.h) -------------------------------------------------------- */
-/* CGWSEL (sdevkit_set_color_effect's first value) */
+/* Colour math: CGWSEL */
 #define SDEVKIT_CM_SUBBGOBJ_ENABLE  (1 << 1)       /* add/subtract the sub screen, not the fixed colour */
 #define SDEVKIT_CM_ALWAYS_ENABLE    (0 << 4)       /* colour math: everywhere ... */
 #define SDEVKIT_CM_MATWIN_ENABLE    (1 << 4)       /* ... only inside the colour window */
@@ -86,7 +151,7 @@ extern uint8_t sdevkit_oam_memory[128 * 4 + 8 * 4];
 #define SDEVKIT_CM_SCBLK_MATWIN_ENABLE   (1 << 6)  /* ... outside the colour window */
 #define SDEVKIT_CM_SCBLK_NOMATWIN_ENABLE (2 << 6)  /* ... inside the colour window */
 #define SDEVKIT_CM_SCBLK_NEVER_ENABLE    (3 << 6)  /* ... always */
-/* CGADSUB (sdevkit_set_color_effect's second value) */
+/* CGADSUB */
 #define SDEVKIT_CM_SUB_MAINSUB (1 << 7)            /* subtract instead of add */
 #define SDEVKIT_CM_DIV2_DIVIDE (1 << 6)            /* halve the result */
 #define SDEVKIT_CM_MSCR_BACK   (1 << 5)            /* colour math on the backdrop ... */
@@ -95,13 +160,44 @@ extern uint8_t sdevkit_oam_memory[128 * 4 + 8 * 4];
 #define SDEVKIT_CM_MSCR_BG3    (1 << 2)
 #define SDEVKIT_CM_MSCR_BG2    (1 << 1)
 #define SDEVKIT_CM_MSCR_BG1    (1 << 0)
-/* COLDATA channels (sdevkit_set_color_intensity) */
-#define SDEVKIT_CM_APPLY_BLUE  (1 << 7)
-#define SDEVKIT_CM_APPLY_GREEN (1 << 6)
-#define SDEVKIT_CM_APPLY_RED   (1 << 5)
 
-/* --- HDMA (dma.h) ---------------------------------------------------------------- */
-#define SDEVKIT_HDMA_CHANNEL0 (1 << 0)
+/* Mode 7. With bgmode SDEVKIT_BG_MODE7 the screen has one background, BG1: a map of 128 x 128
+ * tiles (1024 x 1024 pixels, one byte a tile) and 256 tiles of 8 x 8 pixels with a byte a pixel
+ * (an index into all 256 colours of CGRAM, 0 transparent), rotated, scaled and sheared by a
+ * matrix. Both fill the first 32 KB of VRAM, the map the low byte of each word and the tiles the
+ * high byte; nothing else of a game may be there. Sprites stay as in mode 1: those of priority 1
+ * to 3 in front of the layer, priority 0 behind it. A screen pixel (x, y) shows the map pixel
+ *     (a b; c d) * (x + hscroll - cx, y + vscroll - cy) + (cx, cy)
+ * with a, b, c, d in 8.8 fixed point and the centre (cx, cy) = (m7x, m7y) and the scroll
+ * (hofs[0], vofs[0]) in pixels, 13 bits with sign. */
+#define SDEVKIT_M7_WRAP        0x00   /* m7sel: outside the map, it repeats */
+#define SDEVKIT_M7_TRANSPARENT 0x80   /* ... outside the map, nothing (the backdrop) */
+#define SDEVKIT_M7_TILE0       0xC0   /* ... outside the map, tile 0 everywhere */
+#define SDEVKIT_M7_FLIPX       0x01   /* the whole screen mirrored */
+#define SDEVKIT_M7_FLIPY       0x02
+
+/* --- HDMA ------------------------------------------------------------------------------------ */
+/* A channel writes data from its table into a PPU register at the start of every line, from the
+ * frame after the commit on, while its bit is set in sdevkit_ppu.hdmaen (both marked
+ * SDEVKIT_MARK_HDMA). Channel 0 is the kit's
+ * (general DMA); a game has 1 to 7. The table is read while the frame is drawn, so it must stay
+ * valid: a static or ROM array; two tables and switching between them (a new table pointer,
+ * marked) changes it without tearing. Table format as on the SNES: a line count byte, then the
+ * data; count 1..127 = data once, then hold for that many lines; 129..255 = new data on each of
+ * (count - 128) lines; 0 ends the table. Rachael draws the direct modes below; another mode, or
+ * indirect HDMA (dmap bit 6), is counted as a write she does not draw. */
+typedef struct {
+    const uint8_t *table;      /* A1T, A1B: the table */
+    uint8_t        dmap;       /* DMAP: SDEVKIT_HDMA_ONE, _TWO_REGS or _TWICE */
+    uint8_t        bbad;       /* BBAD: the register, the low byte of $21xx (SDEVKIT_PPU_*) */
+    uint8_t        dasb;       /* DASB: the bank of the data of indirect HDMA */
+} sdevkit_hdma_channel;
+
+extern sdevkit_hdma_channel sdevkit_hdma[8];
+
+#define SDEVKIT_HDMA_ONE      0    /* one byte to the register */
+#define SDEVKIT_HDMA_TWO_REGS 1    /* two bytes, to the register and the next */
+#define SDEVKIT_HDMA_TWICE    2    /* two bytes to the register (a scroll register: a wave down the screen) */
 #define SDEVKIT_HDMA_CHANNEL1 (1 << 1)
 #define SDEVKIT_HDMA_CHANNEL2 (1 << 2)
 #define SDEVKIT_HDMA_CHANNEL3 (1 << 3)
@@ -110,20 +206,18 @@ extern uint8_t sdevkit_oam_memory[128 * 4 + 8 * 4];
 #define SDEVKIT_HDMA_CHANNEL6 (1 << 6)
 #define SDEVKIT_HDMA_CHANNEL7 (1 << 7)
 
-/* --- PPU registers (low byte of $21xx), for sdevkit_reg_write and HDMA ------------------ */
+/* The PPU's registers by the low byte of their $21xx address, for HDMA (bbad) */
 #define SDEVKIT_PPU_INIDISP 0x00
 #define SDEVKIT_PPU_OBSEL   0x01
 #define SDEVKIT_PPU_BGMODE  0x05
+#define SDEVKIT_PPU_MOSAIC  0x06
 #define SDEVKIT_PPU_BG1SC   0x07
-#define SDEVKIT_PPU_BG2SC   0x08
-#define SDEVKIT_PPU_BG3SC   0x09
-#define SDEVKIT_PPU_BG4SC   0x0A
 #define SDEVKIT_PPU_BG12NBA 0x0B
 #define SDEVKIT_PPU_BG34NBA 0x0C
-#define SDEVKIT_PPU_BG1HOFS 0x0D   /* BGnHOFS = 0x0D + 2(n-1), BGnVOFS = 0x0E + 2(n-1); written twice, low then high */
+#define SDEVKIT_PPU_BG1HOFS 0x0D   /* BGnHOFS = 0x0D + 2(n-1), BGnVOFS = 0x0E + 2(n-1) */
 #define SDEVKIT_PPU_BG1VOFS 0x0E
-#define SDEVKIT_PPU_M7SEL   0x1A   /* mode 7: written by sdevkit_mode7_set_select */
-#define SDEVKIT_PPU_M7A     0x1B   /* M7A..M7D, M7X, M7Y = 0x1B..0x20: written twice, low then high */
+#define SDEVKIT_PPU_M7SEL   0x1A
+#define SDEVKIT_PPU_M7A     0x1B   /* M7A..M7D, M7X, M7Y = 0x1B..0x20 */
 #define SDEVKIT_PPU_M7B     0x1C
 #define SDEVKIT_PPU_M7C     0x1D
 #define SDEVKIT_PPU_M7D     0x1E
@@ -132,10 +226,10 @@ extern uint8_t sdevkit_oam_memory[128 * 4 + 8 * 4];
 #define SDEVKIT_PPU_W12SEL  0x23
 #define SDEVKIT_PPU_W34SEL  0x24
 #define SDEVKIT_PPU_WOBJSEL 0x25
-#define SDEVKIT_PPU_WH0     0x26   /* window 1 left */
-#define SDEVKIT_PPU_WH1     0x27   /* window 1 right */
-#define SDEVKIT_PPU_WH2     0x28   /* window 2 left */
-#define SDEVKIT_PPU_WH3     0x29   /* window 2 right */
+#define SDEVKIT_PPU_WH0     0x26
+#define SDEVKIT_PPU_WH1     0x27
+#define SDEVKIT_PPU_WH2     0x28
+#define SDEVKIT_PPU_WH3     0x29
 #define SDEVKIT_PPU_WBGLOG  0x2A
 #define SDEVKIT_PPU_WOBJLOG 0x2B
 #define SDEVKIT_PPU_TM      0x2C
@@ -145,94 +239,75 @@ extern uint8_t sdevkit_oam_memory[128 * 4 + 8 * 4];
 #define SDEVKIT_PPU_CGWSEL  0x30
 #define SDEVKIT_PPU_CGADSUB 0x31
 #define SDEVKIT_PPU_COLDATA 0x32
+#define SDEVKIT_PPU_SETINI  0x33
 
-/* --- PVSnesLib's functions, renamed (ADR-6F3CK2AR) ------------------------------------ */
-/* video.h */
-void sdevkit_set_mode(uint8_t mode, uint8_t size);            /* BGMODE; shows BG1..BG3 and sprites on the main screen */
-void sdevkit_set_brightness(uint8_t level);              /* 0: screen off (forced blank), 1..15: on, that bright */
-void sdevkit_set_screen_on(void);                    /* PVSnesLib waits for a vertical blank here: never call it in one */
-void sdevkit_set_screen_off(void);                   /* forced blank: black */
-void sdevkit_set_color_effect(uint8_t colorMathA, uint8_t colorMathB);    /* CGWSEL, CGADSUB */
-void sdevkit_set_color_intensity(uint8_t colorApply, uint8_t intensity);  /* COLDATA: the fixed colour */
-void sdevkit_set_palette_color(uint16_t paletteEntry, uint16_t paletteColor);
-/* dma.h */
-void sdevkit_dma_copy_vram(const uint8_t *source, uint16_t address, uint16_t size);    /* size in bytes */
-void sdevkit_dma_copy_cgram(const uint8_t *source, uint16_t address, uint16_t size);   /* size in bytes */
-void sdevkit_dma_clear_vram(void);
-/* background.h */
-void sdevkit_bg_set_gfx_ptr(uint8_t bgNumber, uint16_t address);             /* bgNumber 0..3; 4K-word steps */
-void sdevkit_bg_set_map_ptr(uint8_t bgNumber, uint16_t address, uint8_t mapSize); /* 1K-word steps; SDEVKIT_SC_* */
-void sdevkit_bg_set_scroll(uint8_t bgNumber, uint16_t x, uint16_t y);
-void sdevkit_bg_set_enable(uint8_t bgNumber);
-void sdevkit_bg_set_disable(uint8_t bgNumber);
-void sdevkit_bg_set_enable_sub(uint8_t bgNumber);
-void sdevkit_bg_set_disable_sub(uint8_t bgNumber);
-void sdevkit_bg_init_tile_set(uint8_t bgNumber, const uint8_t *tileSource, const uint8_t *tilePalette, uint8_t paletteEntry, uint16_t tileSize,
-                   uint16_t paletteSize, uint16_t colorMode, uint16_t address);
-void sdevkit_bg_init_map_set(uint8_t bgNumber, const uint8_t *mapSource, uint16_t mapSize, uint8_t sizeMode, uint16_t address);
-/* sprite.h */
-void sdevkit_oam_init(void);
-void sdevkit_oam_init_gfx_set(const uint8_t *tileSource, uint16_t tileSize, const uint8_t *tilePalette, uint16_t paletteSize, uint8_t tilePaletteNumber,
-                   uint16_t address, uint8_t oamsize);
-void sdevkit_oam_init_gfx_attr(uint16_t address, uint8_t oamsize);
-void sdevkit_oam_set(uint16_t id, uint16_t xspr, uint16_t yspr, uint8_t priority, uint8_t hflip, uint8_t vflip, uint16_t gfxoffset, uint8_t paletteoffset);
-void sdevkit_oam_set_xy(uint16_t id, uint16_t xspr, uint16_t yspr);
-void sdevkit_oam_set_ex(uint16_t id, uint8_t size, uint8_t hide);
-void sdevkit_oam_set_visible(uint16_t id, uint8_t hide);
-void sdevkit_oam_clear(uint16_t first, uint8_t numEntries);   /* hides numEntries sprites from id first; 0 = all */
+/* --- Sprites ---------------------------------------------------------------------------------- */
+/* The sprite table in the hardware's format, committed every frame: 128 entries of 4 bytes (x,
+ * y, tile, attributes), then 32 bytes with 2 bits a sprite (bit 8 of x, large). The SNES draws a
+ * sprite one line lower than its y. */
+extern uint8_t sdevkit_oam[128 * 4 + 8 * 4];
 
-/* --- Extensions (no PVSnesLib function; a few register writes on the SNES) ----------- */
-/* Writes a PPU register (low byte of its $21xx address, SDEVKIT_PPU_*). PVSnesLib
- * programs write the REG_* variables for this. */
-void sdevkit_reg_write(uint8_t reg, uint8_t value);
-/* HDMA in direct mode: from the next frame on, the channel writes table
- * data into reg at the start of every line; twoRegs is the transfer mode:
- * SDEVKIT_HDMA_ONE one byte to reg, SDEVKIT_HDMA_TWO_REGS two bytes to reg and
- * reg + 1, SDEVKIT_HDMA_TWICE two bytes to reg (the scroll registers, which are
- * written twice: a wave down the screen with BG1HOFS).
- * Table format as on the SNES: a line count byte, then the data; count
- * 1..127 = data once, then hold for that many lines; 129..255 = new data on
- * each of (count - 128) lines; 0 ends the table. The table is read when the
- * frame is drawn, so it must stay valid (a static or ROM array). channel is a number, 1 to 7:
- * general DMA uses channel 0. sdevkit_hdma_enable takes a mask of SDEVKIT_HDMA_CHANNELn. */
-#define SDEVKIT_HDMA_ONE      0
-#define SDEVKIT_HDMA_TWO_REGS 1
-#define SDEVKIT_HDMA_TWICE    2
-void sdevkit_hdma_set(uint8_t channel, uint8_t reg, uint8_t twoRegs, const uint8_t *table);
-void sdevkit_hdma_enable(uint8_t channels);          /* HDMAEN: which channels run */
-/* 1 if a copy of this many bytes to VRAM or CGRAM still ends inside the
- * current vertical blank. On the SNES it reads the line counter, so the code
- * around the copies counts too; with the screen off the caller does not ask.
- * What does not fit waits for the next vertical blank instead of being lost. */
-uint8_t   sdevkit_dma_fits(uint16_t bytes);
-/* Like sdevkit_dma_copy_vram, but the VRAM address steps by 32 words after each word: the words
- * go down a column of a 32 x 32 map, which is how a game that scrolls sideways writes the column
- * coming into view. size in bytes; a column of a 32 x 32 map is at most 64. */
-void sdevkit_dma_copy_vram_column(const uint8_t *source, uint16_t address, uint16_t size);
+#define SDEVKIT_OAM_HIDE_Y 0xE8    /* the y of a hidden sprite: below the picture */
+/* Byte 3 of an entry: palette 0..7, priority 0..3, the flips; or it with bit 8 of the tile. */
+#define SDEVKIT_OAM_ATTR(palette, priority, hflip, vflip) \
+    ((uint8_t)(((vflip) ? 0x80 : 0) | ((hflip) ? 0x40 : 0) | (((priority) & 3) << 4) | (((palette) & 7) << 1)))
 
-/* --- Mode 7 (sdevkit_mode7_*) ------------------------------------------------------------ */
-/* With sdevkit_set_mode(SDEVKIT_BG_MODE7, 0) the screen has one background, BG1: a map of
- * 128 x 128 tiles (1024 x 1024 pixels, one byte a tile) and 256 tiles of 8 x 8 pixels with a
- * byte a pixel (an index into all 256 colours of CGRAM, 0 transparent), rotated, scaled and
- * sheared by a matrix. Both fill the first 32 KB of VRAM, the map the low byte of each word and
- * the tiles the high byte; nothing else of a game may be there. Sprites stay as in mode 1: those
- * of priority 1 to 3 in front of the layer, priority 0 behind it.
- * A screen pixel (x, y) shows the map pixel
- *     (a b; c d) * (x + hscroll - cx, y + vscroll - cy) + (cx, cy)
- * with a, b, c, d in 8.8 fixed point (0x0100 is 1.0) and the centre (cx, cy) and the scroll
- * (sdevkit_bg_set_scroll(0, ...)) in pixels, 13 bits with sign. */
-#define SDEVKIT_M7_WRAP        0x00   /* sdevkit_mode7_set_select: outside the map, it repeats */
-#define SDEVKIT_M7_TRANSPARENT 0x80   /* ... outside the map, nothing (the backdrop) */
-#define SDEVKIT_M7_TILE0       0xC0   /* ... outside the map, tile 0 everywhere */
-#define SDEVKIT_M7_FLIPX       0x01   /* the whole screen mirrored */
-#define SDEVKIT_M7_FLIPY       0x02
-/* Map bytes from map entry address on (entry = row * 128 + column), tile bytes from byte address
- * of the tiles (tile * 64 + row * 8 + column). DMA: in a vertical blank or with the screen off. */
-void sdevkit_mode7_load_map(const uint8_t *map, uint16_t address, uint16_t size);
-void sdevkit_mode7_load_tiles(const uint8_t *tiles, uint16_t address, uint16_t size);
-void sdevkit_mode7_set_matrix(int16_t a, int16_t b, int16_t c, int16_t d);
-void sdevkit_mode7_set_center(int16_t x, int16_t y);
-void sdevkit_mode7_set_select(uint8_t select);       /* SDEVKIT_M7_*: outside the map, flips */
+/* The sprite list: a game that draws its sprites anew each tick appends them in the order of
+ * their importance (the first in front, and the last to go when a line has more than 32). The
+ * upper left corner goes where a background scrolled by (0, 0) shows its pixel (x, y), so a sprite
+ * at its world position minus the scroll lines up with the background it moves on (the SNES draws
+ * a sprite one line lower than its entry says, and the kit writes y - 1 into the table). large:
+ * the large size of OBSEL. One out of the picture is left out (for sprites up to 64 pixels).
+ * After the tick the kit hides the entries the list filled the tick before and not in this one.
+ * A game that never calls it writes the table itself and the kit leaves the table alone. */
+void sdevkit_sprite(int16_t x, int16_t y, uint16_t tile, uint8_t attr, uint8_t large);
+
+/* --- Uploads in game_tick: the queue ------------------------------------------------------------ */
+/* A copy into VRAM or CGRAM in the next vertical blank: from the source (which must still hold
+ * the data then, at the end of the tick), to the destination, so many bytes. It returns 1 when the
+ * copy fits into that vertical blank and 0 (nothing queued) when it does not: then the game tries
+ * again in the next tick. What fits is counted in bytes, the same on the SNES and the PC: the
+ * vertical blank takes SDEVKIT_QUEUE_BYTES a frame, and every copy counts SDEVKIT_QUEUE_COST more
+ * for its setup; at most SDEVKIT_QUEUE_ENTRIES copies. sdevkit_queue_room says how many bytes one
+ * more copy may have. */
+#define SDEVKIT_QUEUE_BYTES   3840
+#define SDEVKIT_QUEUE_COST    136
+#define SDEVKIT_QUEUE_ENTRIES 24
+
+/* The raw form: port (the low byte of $21xx it writes: 0x18 or 0x19 VRAM, 0x22 CGRAM), DMAP,
+ * VMAIN (how the VRAM address steps), and the destination (a VRAM word address or a CGRAM
+ * colour). The functions below fill it, with half the parameters to pass. */
+uint8_t  sdevkit_queue_dma(uint8_t port, uint8_t dmap, uint8_t vmain, uint16_t dest, const void *src, uint16_t bytes);
+uint8_t  sdevkit_queue_color(uint8_t index, uint16_t bgr);   /* one colour; the entry keeps the value */
+uint16_t sdevkit_queue_room(void);
+
+/* words to VRAM from word address a */
+uint8_t  sdevkit_queue_vram(uint16_t a, const void *src, uint16_t bytes);
+/* words down a column of a 32 x 32 map: the address steps by 32 words; at most 64 bytes */
+uint8_t  sdevkit_queue_vram_column(uint16_t a, const void *src, uint16_t bytes);
+/* colours from colour index i */
+uint8_t  sdevkit_queue_cgram(uint8_t i, const void *src, uint16_t bytes);
+/* mode 7: map bytes from entry e (row * 128 + column), tile bytes from byte b of the tiles
+ * (tile * 64 + row * 8 + column) */
+uint8_t  sdevkit_queue_mode7_map(uint16_t e, const void *src, uint16_t bytes);
+uint8_t  sdevkit_queue_mode7_tiles(uint16_t b, const void *src, uint16_t bytes);
+
+/* --- Writes now, with the screen off ------------------------------------------------------------ */
+/* The same copies at once. Only while the screen is off: in game_init, which the kit starts with
+ * the screen off, or after sdevkit_screen_off_now; the shadow's inidisp switches it on again at
+ * the next commit. */
+void sdevkit_dma_now(uint8_t port, uint8_t dmap, uint8_t vmain, uint16_t dest, const void *src, uint16_t bytes);
+void sdevkit_color_now(uint8_t index, uint16_t bgr);
+#define sdevkit_vram_now(a, src, bytes)          sdevkit_dma_now(0x18, 0x01, 0x80, (a), (src), (bytes))
+#define sdevkit_vram_column_now(a, src, bytes)   sdevkit_dma_now(0x18, 0x01, 0x81, (a), (src), (bytes))
+#define sdevkit_cgram_now(i, src, bytes)         sdevkit_dma_now(0x22, 0x00, 0x00, (i), (src), (bytes))
+#define sdevkit_mode7_map_now(e, src, bytes)     sdevkit_dma_now(0x18, 0x00, 0x00, (e), (src), (bytes))
+#define sdevkit_mode7_tiles_now(b, src, bytes)   sdevkit_dma_now(0x19, 0x00, 0x80, (b), (src), (bytes))
+/* The screen off at once (and inidisp with it), in game_tick: for a new level's graphics. */
+void sdevkit_screen_off_now(void);
+/* In game_init only: the commit of the shadow and the queue in the next vertical blank, as after a
+ * tick; it returns then. For a picture on the screen before a long job such as sdevkit_sfx_init. */
+void sdevkit_commit_now(void);
 
 /* --- Sound effects (sdevkit_sfx_*, docs/sound.md) ----------------------------------------- */
 /* A game's effects come from its assets/sfx/sfx.json: superdevkit sfx converts it into a header
@@ -254,7 +329,8 @@ typedef struct {
 /* Loads the bank's samples into the audio RAM and starts the sound: once, in game_init. On the SNES
  * it waits for the sound CPU's boot code and sends every byte through it, about 350 bytes a frame,
  * and the CPU does nothing else meanwhile; a game that switches the screen on first shows its
- * picture during the upload (docs/sound.md). A null bank does nothing. */
+ * picture during the upload (docs/sound.md: inidisp set, then sdevkit_commit_now). A null bank does
+ * nothing. */
 void sdevkit_sfx_init(const sdevkit_sfx_bank *bank);
 /* Plays an effect: it starts after this tick, when a voice is free or the voice of an effect with
  * a lower priority (or the older one of the same) gives way; otherwise it is dropped. An effect

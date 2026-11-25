@@ -12,12 +12,6 @@
 #define SDEVKIT__W 256
 #define SDEVKIT__H 224
 
-/* What one vertical blank can copy into VRAM and CGRAM: NTSC lines 225..261
- * are 37 x 1364 master cycles, DMA takes 8 per byte, less the 544 bytes of
- * the OAM copy. Writes beyond it, or outside the vertical blank, are lost
- * unless the screen is switched off (forced blank). */
-#define SDEVKIT__VBLANK_DMA_BYTES 5700
-
 typedef struct {
     uint16_t dma_bytes;          /* bytes copied by DMA in the last vertical blank */
     uint16_t dma_lost;           /* bytes written to VRAM / CGRAM that did not arrive (outside the vertical blank or over budget) */
@@ -28,19 +22,22 @@ typedef struct {
 } sdevkit__frame_stats;
 
 void                 sdevkit__reset(void);              /* power on: memories cleared, screen off */
-/* The frame rhythm of the console: sdevkit__vblank() starts the vertical blank
- * (OAM shadow to OAM, DMA budget restarts), sdevkit__render() draws the picture,
- * which ends it. VRAM and CGRAM accept writes only in between, within
- * SDEVKIT__VBLANK_DMA_BYTES, or while the screen is off. */
+/* The frame rhythm of the console: sdevkit__vblank() starts the vertical blank with the commit of
+ * the shadow state (sdevkit/snes.h: the sprite table, the registers, the queue), sdevkit__render()
+ * draws the picture, which ends it. The game's writes now (sdevkit_*_now) reach VRAM and CGRAM only
+ * while the screen is off. */
 void                 sdevkit__vblank(void);
+void                 sdevkit__commit_registers(uint8_t marks);   /* the commit's registers alone (the splash) */
+void                 sdevkit__set_input(uint16_t pad1, uint16_t pad2);   /* sdevkit_input for the next tick */
 void                 sdevkit__render(uint16_t *out);    /* SDEVKIT__W * SDEVKIT__H colours, BGR 5:5:5 */
 void                 sdevkit__display(void);            /* the picture is drawn, without making it (tests): VRAM closes */
 sdevkit__frame_stats sdevkit__stats(void);              /* of the last sdevkit__render (DMA: of the last frame) */
 const uint16_t      *sdevkit__cgram(void);              /* 256 colours */
 const uint8_t       *sdevkit__oam(void);                /* 544 bytes, as copied at the last vertical blank */
 uint8_t              sdevkit__reg(uint8_t reg);         /* last value written to a PPU register */
-/* The checksum of the tick that just ended (the main loop calls it after game_tick): the bytes the
- * game named with sdevkit_dbg_hash, then the sprite table; the next tick starts afresh. */
+/* The checksum of the tick that just ended (the main loop calls it after game_tick): it closes the
+ * sprite list, then hashes the bytes the game named with sdevkit_dbg_hash and the shadow state
+ * (lib/shadow/shadow.h); the next tick starts afresh. */
 #define SDEVKIT__HASH_START 2166136261u
 uint32_t             sdevkit__tick_hash(void);
 
@@ -53,7 +50,7 @@ typedef struct {
 typedef struct {
     uint16_t       vram[SDEVKIT__VRAM_WORDS];
     uint16_t       cgram[256];
-    uint8_t        oam[128 * 4 + 8 * 4];   /* copied from sdevkit_oam_memory at the vertical blank */
+    uint8_t        oam[128 * 4 + 8 * 4];   /* copied from sdevkit_oam at the vertical blank */
     uint8_t        regs[0x40];             /* last value written, by SDEVKIT_PPU_* */
     uint16_t       hofs[4], vofs[4];       /* background scroll, 10 bits */
     uint8_t        scroll_latch;
@@ -63,9 +60,13 @@ typedef struct {
     uint8_t        fixed_r, fixed_g, fixed_b;   /* COLDATA, 5 bits each */
     sdevkit__hdma_channel  hdma[8];
     uint8_t        hdma_enabled;
-    uint16_t       dma_count;              /* bytes since the last vertical blank */
+    uint16_t       dma_count;              /* bytes the queue copied in the last vertical blank */
     uint16_t       dma_lost;               /* bytes that did not arrive since then */
     uint8_t        in_vblank;              /* between sdevkit__vblank() and sdevkit__render() */
+    uint8_t        in_tick;                /* the frontend runs game_tick (sdevkit_commit_now does nothing then) */
+    uint16_t       unmarked;               /* commits of a group the tick changed without its mark, since power on */
+    uint8_t        unmarked_group;         /* the first of them: SDEVKIT_MARK_* */
+    uint16_t       refused;                /* copies the queue refused, since power on */
     uint16_t       undrawn;                /* register writes Rachael does not draw, since power on */
     uint8_t        undrawn_reg, undrawn_value;   /* the first of them */
     sdevkit__frame_stats stats;
@@ -94,13 +95,14 @@ void sdevkit__sound_reset(void);                       /* power on: silent, the 
 void sdevkit__dsp_write(uint8_t reg, uint8_t value);   /* what the SPC700's driver does on the SNES */
 /* The DSP's next samples at 32 kHz, left and right after each other: frames * 2 values. */
 void sdevkit__dsp_render(int16_t *stereo, unsigned frames);
-/* After each game_vblank (the frontend, as lib/snes/main.c): the effects the tick asked for start. */
+/* After each commit (the frontend, as lib/snes/main.c): the effects the tick asked for start. */
 void sdevkit__sfx_frame(void);
 
 /* A register write whose effect Rachael does not draw, so the SNES would show something else:
  * a mode other than 1 and 7, mosaic, SETINI (interlace, high resolution, overscan, EXTBG),
- * direct colour (CGWSEL bit 0), and the ports of VRAM, CGRAM and OAM, which would go around her
- * memories (the API's DMA functions do not).
+ * direct colour (CGWSEL bit 0), the ports of VRAM, CGRAM and OAM, which would go around her
+ * memories, a copy she does not model (VMAIN's remapping, another DMA mode or port) and an HDMA
+ * channel that is not in direct mode.
  * Counted in sdevkit__rachael.undrawn; the frontends report it as they report lost bytes. */
 uint8_t sdevkit__undrawn(uint8_t reg, uint8_t value);
 

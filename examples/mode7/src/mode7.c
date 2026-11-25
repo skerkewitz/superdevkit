@@ -6,8 +6,8 @@
  * that the SNES and the desktop draw mode 7 the same, pixel for pixel (dev/compare_example.sh).
  *
  * Everything is computed here, no image files: four tiles of 8 x 8 pixels with a byte a pixel, the
- * map of 128 x 128 tiles, and the sprite. Mode 7's registers are written in game_vblank: on the
- * SNES a write during the picture takes effect from that line on.
+ * map of 128 x 128 tiles, and the sprite. The tick writes mode 7's registers into the shadow
+ * (sdevkit_ppu.m7a, ...) and marks them; the kit writes them into the PPU in the vertical blank.
  */
 #include <stdint.h>
 #include "sdevkit/loop.h"
@@ -41,8 +41,6 @@ static uint8_t map[128 * 128];
 static uint8_t sprite[4 * 32];         /* one 16 x 16 sprite: four 8 x 8 tiles of 4 bits a pixel */
 
 static uint8_t angle, zoom_phase, outside, flip;
-static uint16_t last_pad;
-static int16_t ma, mb, mc, md;
 
 static const uint8_t OUTSIDE[3] = { SDEVKIT_M7_WRAP, SDEVKIT_M7_TRANSPARENT, SDEVKIT_M7_TILE0 };
 
@@ -117,39 +115,44 @@ void game_init(uint16_t seed)
     make_tiles();
     make_map();
     make_sprite();
-    sdevkit_set_mode(SDEVKIT_BG_MODE7, 0);
-    sdevkit_mode7_load_tiles(tiles, 0, sizeof tiles);
-    sdevkit_mode7_load_map(map, 0, sizeof map);
-    sdevkit_set_palette_color(0, SDEVKIT_RGB5(2, 3, 8));      /* the backdrop */
-    sdevkit_set_palette_color(1, SDEVKIT_RGB5(6, 9, 14));
-    sdevkit_set_palette_color(2, SDEVKIT_RGB5(20, 24, 28));
-    sdevkit_set_palette_color(3, SDEVKIT_RGB5(31, 4, 4));
-    sdevkit_set_palette_color(4, SDEVKIT_RGB5(18, 2, 2));
-    sdevkit_set_palette_color(5, SDEVKIT_RGB5(31, 28, 4));
-    sdevkit_set_palette_color(6, SDEVKIT_RGB5(10, 12, 4));
-    sdevkit_set_palette_color(128 + 1, SDEVKIT_RGB5(31, 31, 31));   /* sprite palette 0 */
-    sdevkit_set_palette_color(128 + 2, SDEVKIT_RGB5(4, 20, 31));
-    sdevkit_oam_init_gfx_attr(VRAM_SPRITES, SDEVKIT_OBJ_SIZE8_L16);
-    sdevkit_dma_copy_vram(sprite, VRAM_SPRITES, 32);           /* tiles 0 and 1 */
-    sdevkit_dma_copy_vram(sprite + 64, VRAM_SPRITES + 16 * 16, 32);   /* tiles 16 and 17, the lower half */
-    sdevkit_dma_copy_vram(sprite + 32, VRAM_SPRITES + 16, 32);
-    sdevkit_dma_copy_vram(sprite + 96, VRAM_SPRITES + 17 * 16, 32);
-    sdevkit_oam_init();
-    sdevkit_oam_set(0, 120, 103, 2, 0, 0, 0, 0);
-    sdevkit_oam_set_ex(0, SDEVKIT_OBJ_LARGE, SDEVKIT_OBJ_SHOW);
-    sdevkit_mode7_set_center(CENTER, CENTER);
-    sdevkit_mode7_set_select(SDEVKIT_M7_WRAP);
-    sdevkit_mode7_set_matrix(0x100, 0, 0, 0x100);
-    sdevkit_bg_set_scroll(0, CENTER - 128, CENTER - 112);
-    sdevkit_set_brightness(15);
+    sdevkit_ppu.bgmode = SDEVKIT_BG_MODE7;
+    sdevkit_ppu.tm = SDEVKIT_BG1_ENABLE | SDEVKIT_OBJ_ENABLE;
+    sdevkit_mode7_tiles_now(0, tiles, sizeof tiles);
+    sdevkit_mode7_map_now(0, map, sizeof map);
+    sdevkit_color_now(0, SDEVKIT_RGB5(2, 3, 8));               /* the backdrop */
+    sdevkit_color_now(1, SDEVKIT_RGB5(6, 9, 14));
+    sdevkit_color_now(2, SDEVKIT_RGB5(20, 24, 28));
+    sdevkit_color_now(3, SDEVKIT_RGB5(31, 4, 4));
+    sdevkit_color_now(4, SDEVKIT_RGB5(18, 2, 2));
+    sdevkit_color_now(5, SDEVKIT_RGB5(31, 28, 4));
+    sdevkit_color_now(6, SDEVKIT_RGB5(10, 12, 4));
+    sdevkit_color_now(128 + 1, SDEVKIT_RGB5(31, 31, 31));      /* sprite palette 0 */
+    sdevkit_color_now(128 + 2, SDEVKIT_RGB5(4, 20, 31));
+    sdevkit_ppu.obsel = SDEVKIT_OBSEL(VRAM_SPRITES, SDEVKIT_OBJ_SIZE8_L16);
+    sdevkit_vram_now(VRAM_SPRITES, sprite, 32);                /* tiles 0 and 1 */
+    sdevkit_vram_now(VRAM_SPRITES + 16 * 16, sprite + 64, 32);   /* tiles 16 and 17, the lower half */
+    sdevkit_vram_now(VRAM_SPRITES + 16, sprite + 32, 32);
+    sdevkit_vram_now(VRAM_SPRITES + 17 * 16, sprite + 96, 32);
+    /* the sprite in front of the layer (priority 2), large (16 x 16), written once into the table:
+     * it never moves, and the kit leaves a table alone that the sprite list does not fill */
+    sdevkit_oam[0] = 120;
+    sdevkit_oam[1] = 103;                                      /* drawn one line lower: row 104 */
+    sdevkit_oam[2] = 0;
+    sdevkit_oam[3] = SDEVKIT_OAM_ATTR(0, 2, 0, 0);
+    sdevkit_oam[512] = 0x02;                                   /* sprite 0 large */
+    sdevkit_ppu.m7x = CENTER;
+    sdevkit_ppu.m7y = CENTER;
+    sdevkit_ppu.m7sel = SDEVKIT_M7_WRAP;
+    sdevkit_ppu.hofs[0] = CENTER - 128;
+    sdevkit_ppu.vofs[0] = CENTER - 112;
+    sdevkit_ppu.inidisp = 15;
 }
 
-void game_tick(const uint16_t pad[SDEVKIT_PADS])
+void game_tick(void)
 {
-    uint16_t pressed = (uint16_t)(pad[0] & ~last_pad);
+    uint16_t pressed = sdevkit_input.pressed[0];
     int16_t s, c, zoom;
 
-    last_pad = pad[0];
     if (pressed & SDEVKIT_KEY_A) {
         outside = (uint8_t)(outside == 2 ? 0 : outside + 1);
     }
@@ -162,14 +165,10 @@ void game_tick(const uint16_t pad[SDEVKIT_PADS])
     zoom = (int16_t)(0x380 + ((SIN[zoom_phase] * 5) >> 1));
     s = SIN[angle];
     c = SIN[(uint8_t)(angle + 64)];
-    ma = (int16_t)(((int32_t)c * zoom) >> 8);
-    mb = (int16_t)(((int32_t)s * zoom) >> 8);
-    mc = (int16_t)-mb;
-    md = ma;
-}
-
-void game_vblank(void)
-{
-    sdevkit_mode7_set_matrix(ma, mb, mc, md);
-    sdevkit_mode7_set_select((uint8_t)(OUTSIDE[outside] | (flip ? SDEVKIT_M7_FLIPX : 0)));
+    sdevkit_ppu.m7a = (int16_t)(((int32_t)c * zoom) >> 8);
+    sdevkit_ppu.m7b = (int16_t)(((int32_t)s * zoom) >> 8);
+    sdevkit_ppu.m7c = (int16_t)-sdevkit_ppu.m7b;
+    sdevkit_ppu.m7d = sdevkit_ppu.m7a;
+    sdevkit_ppu.m7sel = (uint8_t)(OUTSIDE[outside] | (flip ? SDEVKIT_M7_FLIPX : 0));
+    sdevkit_marks |= SDEVKIT_MARK_MODE7;
 }

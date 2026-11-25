@@ -1,12 +1,15 @@
 /*
  * hello: the smallest game of superdevkit. Text on the screen, and a ball that the joypad moves.
  *
- * Every superdevkit game defines three functions, which the library's main loop calls
+ * Every superdevkit game defines two functions, which the library's main loop calls
  * (sdevkit/loop.h):
  *
- *   game_init     once, with the screen off: graphics into VRAM, palettes into CGRAM
- *   game_tick     once per frame, while the picture is drawn: move things, prepare the picture
- *   game_vblank   in the vertical blank, the only time the PPU takes new data: copy it there
+ *   game_init     once, with the screen off: graphics into VRAM and CGRAM at once (sdevkit_*_now),
+ *                 the PPU's registers in sdevkit_ppu
+ *   game_tick     once per frame, while the picture is drawn: move things, write the next picture
+ *                 (sdevkit_ppu, the sprites, the copies to queue)
+ *
+ * After each tick the kit copies all of it into the PPU in the vertical blank (sdevkit/snes.h).
  *
  * Step through it in Mesen: build/snes/hello.dbg next to the ROM shows this file while you step.
  */
@@ -23,7 +26,7 @@
 
 static const char FONT[] = " 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ!-:.";
 
-static uint16_t map[32 * 32];  /* the background map in RAM; copied in the vertical blank */
+static uint16_t map[32 * 32];  /* the background map in RAM; queued for the vertical blank */
 static uint8_t map_changed;
 static int16_t ball_x = 120;
 static int16_t ball_y = 104;
@@ -74,41 +77,34 @@ static void move_ball(uint16_t pad)
 void game_init(uint16_t seed)
 {
     (void)seed;
-    sdevkit_set_mode(SDEVKIT_BG_MODE1, 0);                    /* mode 1: two layers of 16 colours, one of 4 */
-    sdevkit_bg_set_disable(1);                         /* only the first layer is used */
-    sdevkit_bg_set_disable(2);
-    sdevkit_bg_init_tile_set(0, font_gfx_tiles, font_gfx_pal, 0, FONT_GFX_TILES_SIZE,
-                             FONT_GFX_PAL_SIZE, SDEVKIT_BG_16COLORS, VRAM_FONT);
-    sdevkit_bg_set_map_ptr(0, VRAM_MAP, SDEVKIT_SC_32x32);
-    sdevkit_bg_set_scroll(0, 0, 0x3FF);                /* the map's first line on the screen's first line */
-    sdevkit_oam_init_gfx_set(ball_gfx_tiles, BALL_GFX_TILES_SIZE, ball_gfx_pal, BALL_GFX_PAL_SIZE,
-                             0, VRAM_SPRITES, SDEVKIT_OBJ_SIZE16_L32);
-    sdevkit_oam_init();
+    sdevkit_ppu.bgmode = SDEVKIT_BG_MODE1;                     /* mode 1: two layers of 16 colours, one of 4 */
+    sdevkit_ppu.tm = SDEVKIT_BG1_ENABLE | SDEVKIT_OBJ_ENABLE;  /* the first layer and the sprites */
+    sdevkit_ppu.bgnba[0] = SDEVKIT_BGNBA(VRAM_FONT, 0);
+    sdevkit_ppu.bgsc[0] = SDEVKIT_BGSC(VRAM_MAP, SDEVKIT_SC_32x32);
+    sdevkit_ppu.vofs[0] = 0x3FF;                               /* the map's first line on the screen's first line */
+    sdevkit_ppu.obsel = SDEVKIT_OBSEL(VRAM_SPRITES, SDEVKIT_OBJ_SIZE16_L32);
+    sdevkit_vram_now(VRAM_FONT, font_gfx_tiles, FONT_GFX_TILES_SIZE);   /* the screen is off: copy at once */
+    sdevkit_cgram_now(0, font_gfx_pal, FONT_GFX_PAL_SIZE);
+    sdevkit_vram_now(VRAM_SPRITES, ball_gfx_tiles, BALL_GFX_TILES_SIZE);
+    sdevkit_cgram_now(128, ball_gfx_pal, BALL_GFX_PAL_SIZE);   /* sprite palette 0 */
     print(10, 6, "HELLO SNES!");
     print(5, 9, "MOVE THE BALL WITH THE");
     print(5, 10, "JOYPAD.");
     print(10, 24, "X:");
     print(17, 24, "Y:");
-    sdevkit_dma_copy_vram((const uint8_t *)map, VRAM_MAP, sizeof map);   /* the screen is off: copy at once */
+    sdevkit_vram_now(VRAM_MAP, map, sizeof map);
     map_changed = 0;
-    sdevkit_set_brightness(15);                       /* the screen on, at full brightness */
+    sdevkit_ppu.inidisp = 15;                                  /* the screen on, at full brightness */
 }
 
-void game_tick(const uint16_t pad[SDEVKIT_PADS])
+void game_tick(void)
 {
-    move_ball(pad[0]);
+    move_ball(sdevkit_input.pad[0]);
     print_number(12, 24, (uint16_t)ball_x);
     print_number(19, 24, (uint16_t)ball_y);
-    /* sprite 0: x, y (one line higher, as the SNES draws sprites one line lower), priority 3,
-     * no flips, tile 0, palette 0; small (16 x 16), shown */
-    sdevkit_oam_set(0, (uint16_t)ball_x, (uint16_t)(ball_y - 1), 3, 0, 0, 0, 0);
-    sdevkit_oam_set_ex(0, SDEVKIT_OBJ_SMALL, SDEVKIT_OBJ_SHOW);
-}
-
-void game_vblank(void)
-{
-    if (map_changed) {
-        sdevkit_dma_copy_vram((const uint8_t *)map, VRAM_MAP, sizeof map);
+    if (map_changed && sdevkit_queue_vram(VRAM_MAP, map, sizeof map)) {
         map_changed = 0;
     }
+    /* the ball: at (ball_x, ball_y), tile 0, palette 0, priority 3, no flips; small (16 x 16) */
+    sdevkit_sprite(ball_x, ball_y, 0, SDEVKIT_OAM_ATTR(0, 3, 0, 0), 0);
 }

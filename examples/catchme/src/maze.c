@@ -6,9 +6,8 @@
  * are walls too (the tile sheet has one for each of the 16 cases), so the walls get their bevels
  * and round corners by themselves.
  *
- * The background map lives in RAM (bg_map, 32 x 32 entries) and is copied to VRAM in the vertical
- * blank whenever something changed (game_vblank in game.c): 2 KB, well within what one vertical
- * blank can copy.
+ * The background map lives in RAM (bg_map, 32 x 32 entries) and is queued for VRAM whenever
+ * something changed (game_tick in game.c): 2 KB, well within what one vertical blank can copy.
  */
 #include "catchme.h"
 
@@ -156,14 +155,14 @@ static const uint16_t WALL_COLOURS[5] = {
     SDEVKIT_RGB8(112, 120, 236), SDEVKIT_RGB8(184, 196, 255),
 };
 
-void maze_blink(uint8_t on)
-{
-    uint8_t i;
+static const uint16_t WALL_WHITE[5] = {
+    SDEVKIT_RGB8(250, 250, 250), SDEVKIT_RGB8(250, 250, 250), SDEVKIT_RGB8(250, 250, 250),
+    SDEVKIT_RGB8(250, 250, 250), SDEVKIT_RGB8(250, 250, 250),
+};
 
-    for (i = 0; i < 5; i++) {
-        sdevkit_set_palette_color((uint16_t)(1 + i),
-                                  on ? SDEVKIT_RGB8(250, 250, 250) : WALL_COLOURS[i]);
-    }
+uint8_t maze_blink(uint8_t on)
+{
+    return sdevkit_queue_cgram(1, on ? WALL_WHITE : WALL_COLOURS, sizeof WALL_COLOURS);
 }
 
 static uint16_t glyph(char c, uint8_t yellow)

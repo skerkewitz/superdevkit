@@ -315,11 +315,31 @@ void cats_move(void)
 #define PAL_HOT    6
 #define PAL_WHITE  3
 
+/* The sprite table is written directly (sdevkit_oam): the sprites keep their slots from tick to
+ * tick, and a state shows what it set last. The SNES draws a sprite one line lower than its y. */
+void sprite_set(uint16_t id, int16_t x, int16_t y, uint16_t tile, uint8_t palette)
+{
+    uint8_t *high = &sdevkit_oam[512 + (id >> 4)];
+    uint8_t bits = (uint8_t)(3 << ((id >> 1) & 6));         /* bit 8 of x and the size: small */
+
+    sdevkit_oam[id] = (uint8_t)x;
+    sdevkit_oam[id + 1] = (uint8_t)(y - 1);
+    sdevkit_oam[id + 2] = (uint8_t)tile;
+    sdevkit_oam[id + 3] = (uint8_t)(SDEVKIT_OAM_ATTR(palette, 3, 0, 0) | ((tile >> 8) & 1));
+    *high = (uint8_t)(*high & ~bits);
+    if (x & 0x100) {
+        *high = (uint8_t)(*high | (bits & 0x55));
+    }
+}
+
+void sprite_hide(uint16_t id)
+{
+    sdevkit_oam[id + 1] = SDEVKIT_OAM_HIDE_Y;
+}
+
 static void put(uint16_t id, const Actor *a, uint16_t tile, uint8_t palette)
 {
-    sdevkit_oam_set(id, (uint16_t)(a->x & 0x1FF), (uint16_t)(a->y + MAZE_TOP - 1), 3, 0, 0, tile,
-                    palette);
-    sdevkit_oam_set_ex(id, SDEVKIT_OBJ_SMALL, SDEVKIT_OBJ_SHOW);
+    sprite_set(id, a->x, (int16_t)(a->y + MAZE_TOP), tile, palette);
 }
 
 void actors_draw(uint8_t frame)
@@ -348,6 +368,6 @@ void actors_hide(void)
     uint8_t i;
 
     for (i = 0; i <= CATS; i++) {
-        sdevkit_oam_set_visible((uint16_t)(i * 4), SDEVKIT_OBJ_HIDE);
+        sprite_hide((uint16_t)(i * 4));
     }
 }

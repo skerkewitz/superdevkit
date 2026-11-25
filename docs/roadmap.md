@@ -60,6 +60,15 @@ moves to the history with that release):
   On the examples the work per tick is the same; the worst cases went down. Open: weighing the
   cases by a profile (`--block-counts`), since a table treats every case as equally likely and
   Steinschlag, whose first case is the common one, got 0.4 % slower.
+- **A constant on an index into the operand**: `a[i + 1]` of a global is `sta a+1,x`, the sum
+  never computed (2026-11-25); the examples' work 0.7 % lower, every one's code smaller
+  ([log](optimizations-log.md#a-constant-on-an-index-into-the-operand-2026-11-25-on-the-examples)).
+- **The console API as shadow state**: the hardware's registers, HDMA channels and sprite table in
+  memory, committed by the kit in the vertical blank; an upload queue with a budget the same on
+  both platforms; writes now only with the screen off; no `game_vblank`
+  ([ADR-6FMHDB6H](adr/6FMHDB6H-the-console-api-is-the-hardware-s-state-in-memory.md), 2026-11-25,
+  from the [brainstorm](brainstorm/console-api-shadow-state_2026-11-24.md)). The examples draw
+  the same pictures, pixel for pixel.
 
 Left:
 
@@ -72,7 +81,8 @@ Left:
   NMI, the game an IRQ in C; interrupt contexts with frames and a direct page of their own; no
   hardware multiply in interrupt code; interrupts read only data the tick published; Rachael
   calls the IRQ at its line; then the NMI runs the frame's work. Being built, the contexts
-  first.
+  first. Since the console API is shadow state (ADR-6FMHDB6H) a game has no code in the vertical
+  blank: the NMI runs only the kit's commit and needs no C context of the game's.
 - **Intrinsics** for the hardware multipliers, the divider and DMA ([subset.md](subset.md),
   *Intrinsics*).
 - **Subset decision 3**, 16-bit pointers into RAM ([subset.md](subset.md)), built once it is
@@ -111,7 +121,7 @@ Timing ([timing.md](timing.md#not-built-yet)):
   [timing.md](timing.md#open-questions) left open until the bounds turned out too pessimistic;
 - level 3: DRAM refresh, HDMA and interrupts at frame level. Open is how the budget learns
   which HDMA channels a game has on, since a game turns them on at run time
-  (`sdevkit_hdma_enable`).
+  (`sdevkit_ppu.hdmaen`).
 
 Better C debugging in Mesen: Mesen shows the C source and the names of global variables from
 the `.dbg` file, and that is all. Of a C symbol (`csym`) it reads only the name and the assembly

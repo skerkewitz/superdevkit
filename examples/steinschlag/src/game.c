@@ -24,7 +24,6 @@
 #include "miner_gfx.h"
 #include "font_gfx.h"
 
-#define BG1_TILES_16   (1 << 4)        /* BGMODE: layer 1 has 16 x 16 tiles */
 #define VRAM_CAVE_A    0x0000
 #define VRAM_CAVE_B    0x0200
 #define VRAM_CAVE_C    0x0400
@@ -60,7 +59,7 @@ static const uint16_t KIND_TILE[12] = {
 };
 
 static uint16_t cave_map[2][CAVE_H * 32];   /* the cave's map in RAM, left and right half */
-static uint8_t dirty_from = 0xFF, dirty_to;  /* the rows of it to copy in the next vertical blank */
+static uint8_t dirty_from = 0xFF, dirty_to;  /* the rows of it to queue for the next vertical blank */
 static uint16_t hud_map[2 * 32];
 static uint8_t hud_dirty;
 
@@ -78,7 +77,6 @@ static int16_t px, py;                       /* the miner's sprite in the cave, 
 static int8_t step_x, step_y;                /* pixels per frame on the way to the next cell */
 static uint8_t facing_left, walking;
 static uint8_t anim, anim_dirty;
-static uint16_t last_pad;
 
 /* --- the map --------------------------------------------------------------------------------- */
 void cell_changed(uint8_t x, uint8_t y)
@@ -235,13 +233,10 @@ static void draw_miner(void)
     int16_t sx = (int16_t)(px - cam_x);
     int16_t sy = (int16_t)(py - cam_y + VIEW_TOP - 1);
 
-    if (miner_dead) {
-        sdevkit_oam_set_visible(0, SDEVKIT_OBJ_HIDE);
+    if (miner_dead || cave_won) {
         return;
     }
-    sdevkit_oam_set(0, (uint16_t)(sx & 0x1FF), (uint16_t)sy, 2, walking ? facing_left : 0, 0, tile,
-                    0);
-    sdevkit_oam_set_ex(0, SDEVKIT_OBJ_SMALL, SDEVKIT_OBJ_SHOW);
+    sdevkit_sprite(sx, (int16_t)(sy + 1), tile, SDEVKIT_OAM_ATTR(0, 2, walking ? facing_left : 0, 0), 0);
 }
 
 /* The joypad at the start of a tick: a direction moves the miner (or digs and takes, with B or Y
@@ -307,7 +302,6 @@ static void title(void)
     hud_clear();
     hud_text(10, 0, "STEINSCHLAG");
     hud_text(10, 1, "PRESS START");
-    sdevkit_oam_set_visible(0, SDEVKIT_OBJ_HIDE);
     timer = 0;
     cam_x = 0;
     cam_y = 0;
@@ -342,7 +336,6 @@ static void play(uint16_t pad)
         wait = 150;
     } else if (cave_won) {
         state = ST_WON;
-        sdevkit_oam_set_visible(0, SDEVKIT_OBJ_HIDE);
     }
     frame = (uint8_t)((frame + 1) & (TICK_FRAMES - 1));
 }
@@ -350,39 +343,67 @@ static void play(uint16_t pad)
 void game_init(uint16_t seed)
 {
     (void)seed;
-    sdevkit_set_mode(SDEVKIT_BG_MODE1, BG1_TILES_16);
-    sdevkit_bg_set_disable(2);
-    sdevkit_bg_init_tile_set(0, cave_a_gfx_tiles, cave_a_gfx_pal, 0, CAVE_A_GFX_TILES_SIZE,
-                             CAVE_A_GFX_PAL_SIZE, SDEVKIT_BG_16COLORS, VRAM_CAVE_A);
-    sdevkit_dma_copy_vram(cave_b_gfx_tiles, VRAM_CAVE_B, CAVE_B_GFX_TILES_SIZE);
-    sdevkit_dma_copy_cgram(cave_b_gfx_pal, 16, CAVE_B_GFX_PAL_SIZE);
-    sdevkit_dma_copy_vram(cave_c_gfx_tiles, VRAM_CAVE_C, CAVE_C_GFX_TILES_SIZE);
-    sdevkit_dma_copy_cgram(cave_c_gfx_pal, 32, CAVE_C_GFX_PAL_SIZE);
-    sdevkit_bg_set_map_ptr(0, VRAM_CAVE_MAP, SDEVKIT_SC_64x32);
-    sdevkit_bg_init_tile_set(1, font_gfx_tiles, font_gfx_pal, 3, FONT_GFX_TILES_SIZE,
-                             FONT_GFX_PAL_SIZE, SDEVKIT_BG_16COLORS, VRAM_FONT);
-    sdevkit_bg_set_map_ptr(1, VRAM_HUD_MAP, SDEVKIT_SC_32x32);
-    sdevkit_bg_set_scroll(1, 0, 0x3FF);
-    sdevkit_oam_init_gfx_set(miner_gfx_tiles, MINER_GFX_TILES_SIZE, miner_gfx_pal,
-                             MINER_GFX_PAL_SIZE, 0, VRAM_SPRITES, SDEVKIT_OBJ_SIZE16_L32);
-    sdevkit_oam_init();
+    sdevkit_ppu.bgmode = SDEVKIT_BG_MODE1 | SDEVKIT_BG1_TILES_16;
+    sdevkit_ppu.tm = SDEVKIT_BG1_ENABLE | SDEVKIT_BG2_ENABLE | SDEVKIT_OBJ_ENABLE;
+    sdevkit_ppu.bgnba[0] = SDEVKIT_BGNBA(VRAM_CAVE_A, VRAM_FONT);
+    sdevkit_ppu.bgsc[0] = SDEVKIT_BGSC(VRAM_CAVE_MAP, SDEVKIT_SC_64x32);
+    sdevkit_ppu.bgsc[1] = SDEVKIT_BGSC(VRAM_HUD_MAP, SDEVKIT_SC_32x32);
+    sdevkit_ppu.vofs[1] = 0x3FF;
+    sdevkit_ppu.obsel = SDEVKIT_OBSEL(VRAM_SPRITES, SDEVKIT_OBJ_SIZE16_L32);
+    /* the screen is off: the graphics at once */
+    sdevkit_vram_now(VRAM_CAVE_A, cave_a_gfx_tiles, CAVE_A_GFX_TILES_SIZE);
+    sdevkit_cgram_now(0, cave_a_gfx_pal, CAVE_A_GFX_PAL_SIZE);
+    sdevkit_vram_now(VRAM_CAVE_B, cave_b_gfx_tiles, CAVE_B_GFX_TILES_SIZE);
+    sdevkit_cgram_now(16, cave_b_gfx_pal, CAVE_B_GFX_PAL_SIZE);
+    sdevkit_vram_now(VRAM_CAVE_C, cave_c_gfx_tiles, CAVE_C_GFX_TILES_SIZE);
+    sdevkit_cgram_now(32, cave_c_gfx_pal, CAVE_C_GFX_PAL_SIZE);
+    sdevkit_vram_now(VRAM_FONT, font_gfx_tiles, FONT_GFX_TILES_SIZE);
+    sdevkit_cgram_now(3 * 16, font_gfx_pal, FONT_GFX_PAL_SIZE);
+    sdevkit_vram_now(VRAM_SPRITES, miner_gfx_tiles, MINER_GFX_TILES_SIZE);
+    sdevkit_cgram_now(128, miner_gfx_pal, MINER_GFX_PAL_SIZE);
     sdevkit_sfx_init(&sfx_bank);
     title();
-    /* the screen is still off: copy the whole maps at once */
-    sdevkit_dma_copy_vram((const uint8_t *)cave_map[0], VRAM_CAVE_MAP, sizeof cave_map[0]);
-    sdevkit_dma_copy_vram((const uint8_t *)cave_map[1], VRAM_CAVE_MAP + 0x400, sizeof cave_map[1]);
-    sdevkit_dma_copy_vram((const uint8_t *)hud_map, VRAM_HUD_MAP, sizeof hud_map);
+    sdevkit_vram_now(VRAM_CAVE_MAP, cave_map[0], sizeof cave_map[0]);
+    sdevkit_vram_now(VRAM_CAVE_MAP + 0x400, cave_map[1], sizeof cave_map[1]);
+    sdevkit_vram_now(VRAM_HUD_MAP, hud_map, sizeof hud_map);
     dirty_from = 0xFF;
     dirty_to = 0;
     hud_dirty = 0;
-    sdevkit_set_brightness(15);
+    sdevkit_ppu.inidisp = 15;
 }
 
-void game_tick(const uint16_t pad[SDEVKIT_PADS])
+/* The changes of the tick, queued for the vertical blank: the rows of the map that changed (both
+ * halves), the status line, the animation frames. A copy that does not fit stays due and is
+ * queued again in the next tick. */
+static void queue_changes(void)
 {
-    uint16_t pressed = (uint16_t)(pad[0] & ~last_pad);
+    if (dirty_from != 0xFF) {
+        uint16_t first = (uint16_t)dirty_from * 32;
+        uint16_t bytes = (uint16_t)((dirty_to - dirty_from + 1) * 64);
+        if (sdevkit_queue_vram((uint16_t)(VRAM_CAVE_MAP + first), &cave_map[0][first], bytes)
+            && sdevkit_queue_vram((uint16_t)(VRAM_CAVE_MAP + 0x400 + first), &cave_map[1][first], bytes)) {
+            dirty_from = 0xFF;
+            dirty_to = 0;
+        }
+    }
+    if (hud_dirty && sdevkit_queue_vram(VRAM_HUD_MAP, hud_map, sizeof hud_map)) {
+        hud_dirty = 0;
+    }
+    if (anim_dirty                           /* the next frame over the tiles the map names */
+        && sdevkit_queue_vram(VRAM_CAVE_B, cave_b_gfx_tiles + anim * 64, 64)
+        && sdevkit_queue_vram(VRAM_CAVE_B + 256, cave_b_gfx_tiles + 512 + anim * 64, 64)
+        && sdevkit_queue_vram(VRAM_CAVE_B + 8 * 16, cave_b_gfx_tiles + (4 + (anim & 1)) * 64, 64)
+        && sdevkit_queue_vram(VRAM_CAVE_B + 256 + 8 * 16, cave_b_gfx_tiles + 512 + (4 + (anim & 1)) * 64, 64)
+        && sdevkit_queue_vram(VRAM_CAVE_C, cave_c_gfx_tiles + (anim & 1) * 64, 64)
+        && sdevkit_queue_vram(VRAM_CAVE_C + 256, cave_c_gfx_tiles + 512 + (anim & 1) * 64, 64)) {
+        anim_dirty = 0;
+    }
+}
 
-    last_pad = pad[0];
+void game_tick(void)
+{
+    uint16_t pressed = sdevkit_input.pressed[0];
+
     timer++;
     if ((timer & 7) == 0) {
         anim = (uint8_t)((anim + 1) & 3);
@@ -403,7 +424,7 @@ void game_tick(const uint16_t pad[SDEVKIT_PADS])
         }
         break;
     case ST_PLAY:
-        play(pad[0]);
+        play(sdevkit_input.pad[0]);
         break;
     case ST_DEAD:                            /* the blast plays out, then the cave starts again */
         if (frame == 0) {
@@ -439,38 +460,13 @@ void game_tick(const uint16_t pad[SDEVKIT_PADS])
         }
         break;
     }
+    queue_changes();
+    sdevkit_ppu.hofs[0] = (uint16_t)cam_x;
+    sdevkit_ppu.vofs[0] = (uint16_t)((cam_y - VIEW_TOP - 1) & 0x3FF);
+    sdevkit_marks |= SDEVKIT_MARK_SCROLL;
     /* the state for the checks, which compare the SNES and the PC after every tick
      * (sdevkit_dbg_hash): the cave and the score */
     sdevkit_dbg_hash(cave, sizeof cave);
     sdevkit_dbg_hash(&score, sizeof score);
     sdevkit_dbg_hash(&time_left, sizeof time_left);
-}
-
-void game_vblank(void)
-{
-    if (dirty_from != 0xFF) {
-        uint16_t first = (uint16_t)dirty_from * 32;
-        uint16_t bytes = (uint16_t)((dirty_to - dirty_from + 1) * 64);
-        sdevkit_dma_copy_vram((const uint8_t *)&cave_map[0][first],
-                              (uint16_t)(VRAM_CAVE_MAP + first), bytes);
-        sdevkit_dma_copy_vram((const uint8_t *)&cave_map[1][first],
-                              (uint16_t)(VRAM_CAVE_MAP + 0x400 + first), bytes);
-        dirty_from = 0xFF;
-        dirty_to = 0;
-    }
-    if (hud_dirty) {
-        sdevkit_dma_copy_vram((const uint8_t *)hud_map, VRAM_HUD_MAP, sizeof hud_map);
-        hud_dirty = 0;
-    }
-    if (anim_dirty) {                        /* the next frame over the tiles the map names */
-        sdevkit_dma_copy_vram(cave_b_gfx_tiles + anim * 64, VRAM_CAVE_B, 64);
-        sdevkit_dma_copy_vram(cave_b_gfx_tiles + 512 + anim * 64, VRAM_CAVE_B + 256, 64);
-        sdevkit_dma_copy_vram(cave_b_gfx_tiles + (4 + (anim & 1)) * 64, VRAM_CAVE_B + 8 * 16, 64);
-        sdevkit_dma_copy_vram(cave_b_gfx_tiles + 512 + (4 + (anim & 1)) * 64,
-                              VRAM_CAVE_B + 256 + 8 * 16, 64);
-        sdevkit_dma_copy_vram(cave_c_gfx_tiles + (anim & 1) * 64, VRAM_CAVE_C, 64);
-        sdevkit_dma_copy_vram(cave_c_gfx_tiles + 512 + (anim & 1) * 64, VRAM_CAVE_C + 256, 64);
-        anim_dirty = 0;
-    }
-    sdevkit_bg_set_scroll(0, (uint16_t)cam_x, (uint16_t)((cam_y - VIEW_TOP - 1) & 0x3FF));
 }

@@ -108,7 +108,7 @@ public class ExamplesTest {
 
     /**
      * The check of a frontend (the desktop's program, or the web's in headless Chromium) in
-     * {@code out} against the SNES's: nothing lost, undrawn or unheard, the same checksum after
+     * {@code out} against the SNES's: nothing lost, undrawn, unheard or unmarked, the same checksum after
      * every tick, the same sound, and a recording with the same buttons and the SNES's checksums.
      */
     private static void sameAsTheSnes(String name, String where, Path out, String result, ExampleCheck.Input input,
@@ -117,6 +117,7 @@ public class ExamplesTest {
         assertTrue(result.contains(" lost 0"), where + ": " + result);
         assertTrue(result.contains(" undrawn 0"), where + ": " + result);
         assertTrue(result.contains(" unheard 0"), where + ": " + result);
+        assertTrue(result.contains(" unmarked 0"), where + ": " + result);
         List<String> pc = Files.readAllLines(out.resolve("hashes.txt"));
         List<String> sn = snes.lines();
         for (int i = 0; i < Math.min(pc.size(), sn.size()); i++) {

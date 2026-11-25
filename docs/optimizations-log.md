@@ -1912,3 +1912,47 @@ The geometric mean of the work is 0.7 % lower; every example's code is smaller. 
 is in the console API's own sprite functions (`sdevkit_oam_set` 293–405 → 217–329 cycles,
 `lib/README.md`), which CatchMe calls for every actor. Er-Tüp writes its sprites through a pointer
 (`o[1]`), which this does not touch.
+
+## The console API as shadow state, measured against the old one (2026-11-25, on the examples)
+
+The console API changed from PVSnesLib's calls to shadow state (ADR-6FMHDB6H). Both measured
+with the same dampf (the constant-offset fold above included), the old API at the commit before
+the change. Work per tick in master cycles (`dev/bench_examples.sh`), and code bytes:
+
+| Example | Work, old API | new API | Ratio | Code bytes, old | new |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| CatchMe | 45,114 | 44,127 | 0.978 | 24,457 | 26,324 |
+| Ertüp | 131,906 | 136,926 | 1.038 | 85,503 | 86,636 |
+| Hello | 58,870 | 63,814 | 1.084 | 11,246 | 13,215 |
+| Mandelbrot | 76,463 | 78,988 | 1.033 | 14,425 | 15,812 |
+| Mode 7 | 11,649 | 14,203 | 1.219 | 11,923 | 13,671 |
+| Schach | 370,306 | 372,543 | 1.006 | 43,496 | 45,416 |
+| Steinschlag | 74,629 | 80,421 | 1.078 | 27,260 | 28,999 |
+
+The geometric mean of the work is 1.060: the examples, which draw one to six sprites and upload
+little, pay for what the kit now does every tick whether a game needs it or not. Per tick, against
+the old main loop: the checks hash the registers and, when there are copies, the queue (five port
+writes each, about 550 master cycles); the joypads' newly pressed buttons are worked out; the
+commit's calls. A queued copy costs about 200 cycles in the tick and 150 in the vertical blank,
+where the old `sdevkit_dma_copy_vram` cost 116: dampf passes `queue_add`'s six parameters twice.
+Per sprite the list is cheaper than the old calls (`sdevkit_sprite` at most 118 cycles, against
+217 to 329 for `sdevkit_oam_set` and 71 to 183 for `sdevkit_oam_set_ex`), and a register is a
+store instead of a call (a scroll 78 cycles before, a mark and two stores now). A typical frame of
+a game with more on the screen (64 sprites that move, two layers that scroll, a colour that
+changes, a row of a map uploaded, the brightness) costs 119,184 master cycles a tick against
+160,347 with the old calls, 26 % less. The code grows by 1,100 to 2,000 bytes: the commit links
+its code for every group, used or not.
+
+Four steps on the way, each measured on the examples: the checks first hashed 11 regions a tick
+(the seven HDMA channels each), 6,700 master cycles; the sprite list cleared the whole high table
+for its first sprite, 2,700; the commit wrote 30 registers every frame (283 cycles) until only
+INIDISP stayed unmarked (Mode 7 from 2.18 times the old work to 1.22, the geometric mean from 1.25
+to 1.06); and the list's high-table bytes are cleared after the commit, not in `sdevkit_sprite`,
+whose worst case had grown with that loop (Schach's `draw_sprites` 2,431 cycles at worst, now 614;
+the typical frame 136,142 with a read-modify-write per sprite instead). A bench fix came with it:
+`ExampleBench` took a declaration of `sdevkit__wait_vblank` for its definition and counted the
+wrong lines as waiting.
+
+Open: the queue in hand-written assembly (`DAMPF_ASM`: its RAM effects are checked against the C
+body) would roughly halve a copy's cost in the tick and in the vertical blank, and with it raise
+the queue's budget.

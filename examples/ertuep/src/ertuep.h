@@ -75,7 +75,7 @@ extern uint8_t stage_no;                   /* 0: die Kneipe, 1: das Sudhaus, 2: 
 void stage_select(uint8_t n);
 void stage_start(uint16_t at);             /* the camera at pixel at, the maps drawn whole (screen off) */
 void stage_scroll(void);                   /* one frame of camera; columns coming into view prepared */
-void stage_vblank(void);                   /* their upload, the scroll registers */
+void stage_show(void);                     /* after the tick: their copies queued, the scroll */
 uint8_t solid_at(int16_t sx, int16_t sy);  /* is the stage solid at this screen pixel? */
 uint8_t room_at(uint16_t col);
 void waves_spawn(void);                    /* the waves whose column came into view */
@@ -90,7 +90,7 @@ extern uint8_t oompah;                     /* frames of the tuba's blast */
 void festzelt_load(void);                  /* with the screen off */
 void festzelt_unload(void);
 void festzelt_view(void);                  /* the picture of this frame */
-void festzelt_vblank(void);
+void festzelt_show(void);                  /* after the tick: the matrix, the centre, the scroll */
 uint16_t festzelt_hofs(void);              /* mode 7's horizontal scroll: the base of the sway */
 uint8_t festzelt_drunk(void);              /* 0..3, by the bottles in the crate */
 void festzelt_hash(void);
@@ -143,7 +143,7 @@ extern uint8_t boss_state;
 void boss_start(void);                     /* with the screen off */
 void boss_update(void);
 void boss_collide(void);
-void boss_vblank(void);
+void boss_show(void);                      /* after the tick: a row of its picture queued, its scroll */
 int16_t boss_aim_y(void);                  /* the intake's height for the demo's pilot, or -1 */
 
 /* --- the sprites (draw.c) -------------------------------------------------------------------- */

@@ -8,10 +8,11 @@ name it can use starts with `sdevkit_` or `SDEVKIT_`
 
 | Folder | What |
 | --- | --- |
-| `include/sdevkit/snes.h` | The console API: PVSnesLib's functions renamed (`setMode` is `sdevkit_set_mode`), the extensions PVSnesLib has no function for (`sdevkit_reg_write`, `sdevkit_hdma_set`, `sdevkit_dma_fits`), their constants (`SDEVKIT_*`), the sprite table `sdevkit_oam_memory`, mode 7 (`sdevkit_mode7_*`), sound effects (`sdevkit_sfx_*`), music (`sdevkit_music_*`), save RAM (`sdevkit_sram`), and the debug calls (`sdevkit_dbg_*`). |
-| `include/sdevkit/loop.h` | The frame rhythm: the library's main loop calls `game_init`, then per frame `game_tick` and `game_vblank`, which every game defines; the pad bits `SDEVKIT_KEY_*`. |
-| `snes/` | The SNES: the API in C with registers as `volatile` pointers (`snes.c`, `hw.h`) and the main loop (`main.c`), compiled by dampf with the game. See its [README](snes/README.md). |
-| `rachael/` | The desktop and the web: [Rachael](#rachael), the SNES rebuilt in portable C (`ppu.c`, `render.c`). `rachael.h` is its interface to the frontends (`sdevkit__vblank`, `sdevkit__render`, ...), not for games. Taken over from Blubber Blasen's `src/snes`; new against the game's copy: 16 x 16 background tiles, and row y of the picture is scanline y + 1 as on the SNES. |
+| `include/sdevkit/snes.h` | The console API (ADR-6FMHDB6H): the shadow state, the hardware's registers in memory as the hardware has them (`sdevkit_ppu`, the HDMA channels `sdevkit_hdma`, the sprite table `sdevkit_oam`, the marks `sdevkit_marks`), which the kit commits in the vertical blank; the upload queue (`sdevkit_queue_*`); the writes now, with the screen off (`sdevkit_*_now`); the sprite list (`sdevkit_sprite`) and the macros that build register values (`SDEVKIT_BGSC`, `SDEVKIT_OBSEL`, `SDEVKIT_OAM_ATTR`, ...); sound effects (`sdevkit_sfx_*`), music (`sdevkit_music_*`), save RAM (`sdevkit_sram`), and the debug calls (`sdevkit_dbg_*`). |
+| `include/sdevkit/loop.h` | The frame rhythm: the library's main loop calls `game_init`, then `game_tick` once per frame, which every game defines; the joypads in `sdevkit_input` and their bits `SDEVKIT_KEY_*`. |
+| `shadow/` | The shadow state's logic, the same on both platforms (`shadow.h`, included by `snes/snes.c` and `rachael/ppu.c`): the state itself, the queue and what fits into a vertical blank, the sprite list, the joypads, and the order in which the checks hash it after a tick. Each platform adds the commit. |
+| `snes/` | The SNES: the commit and the writes now in C with registers as `volatile` pointers (`snes.c`, `hw.h`) and the main loop (`main.c`), compiled by dampf with the game. See its [README](snes/README.md). |
+| `rachael/` | The desktop and the web: [Rachael](#rachael), the SNES rebuilt in portable C (`ppu.c`, `render.c`). `rachael.h` is its interface to the frontends (`sdevkit__vblank`, the commit; `sdevkit__render`, ...), not for games. Taken over from Blubber Blasen's `src/snes`; new against the game's copy: 16 x 16 background tiles, and row y of the picture is scanline y + 1 as on the SNES. |
 | `sound/` | The sound effects' logic, the same on both (`sfx_voices.h`, included by `snes/sfx.c` and `rachael/sfx.c`; [docs/sound.md](../docs/sound.md)): the upload of the driver, the sample directory and the samples, the voices counted down in frames, the priorities, one key on per frame. The SNES sends the bytes through the ports to the SPC700, Rachael puts them into her audio RAM and her DSP (`rachael/dsp.c`). |
 | `desktop/` | The desktop's frontend (`main.c`, Linux and Windows): a window with raylib and the retro TV filter (`crt.c`, [RETRO-EFFECT.md](desktop/RETRO-EFFECT.md); Tab, `--no-crt`), `--mute` for a window without sound, `--seed N` for `game_init` and `--set name=value` for what the game registered with the debug view, before the first tick (a recording keeps both, and dampf's emulator refuses such a recording, since the SNES has neither), the keyboard and a gamepad as the joypad, the frame rhythm of `loop.h`; `--check check.txt` plays without a window and writes screenshots, the checksums and the sound (`sound.txt`: every DSP write; `--wav file`: the DSP's output). The window plays the sound through raylib's audio stream. Every session in the window is recorded (the joypad and the checksum of every tick): F11 flags the moment and saves it as `<game>_rec_<n>.txt`, in the format of `check.txt`; `--replay file` plays it in the window, pausing at its marks and at the first tick whose checksum differs, with F5 (pause), F6 (a tick) and F7 (fast); `--jump T` plays fast to tick T and pauses, and Shift+F6 goes a tick back (the program starts again and replays up to the tick before, so not on the web); `dev/replay.sh <rom> <recording>` plays it on the SNES side, in dampf's emulator. F1 opens the debug view beside the picture (`view.c`, ADR-6F3CK03Z): the run (pause, a tick, slow motion with F8, fast), what the game registered with `sdevkit_dbg_toggle`, `_range`, `_color` and `_action` to change while it runs, its boxes (`sdevkit_dbg_box`) over the picture, CGRAM, VRAM's tiles and the sprites; a change made there is noted in the recording, whose replay plays another game from there. `--view-shot file.png` draws the view after a check, in a hidden window. Save RAM (`sdevkit_sram`) is `<game>.srm` next to the program. Built by `superdevkit build linux` and `win64` (MSVC), and for the web by `superdevkit build web` (emcc) with `web/`. |
 | `web/` | What the web adds to the desktop's frontend ([ADR-6FCVAA30](../docs/adr/6FCVAA30-the-web-runs-the-desktop-s-frontend-which-waits.md)): the page (`shell.html`: the canvas fills the browser's window, a click starts the game, since the browser plays sound and gives the page the keyboard only after one, and the keys of the game and the debug view stay with it), and `web.c`: `desktop/main.c`'s loops wait there for the browser's frames (Asyncify), a clock of 60 ticks a second says how many ticks each frame runs; the save RAM is `/save/<game>.srm` in IndexedDB; F11's recording and F12's screenshot become downloads. The debug view (F1) and its run keys (F5 to F8) are only in `superdevkit build web --debug`, which also defines `SDEVKIT_WEB_DEBUG` for the game ([ADR-6FD7KEJV](../docs/adr/6FD7KEJV-on-the-web-the-debug-view-is-only-in-a-build-with.md)); a page built without it is ready to put online. `main` takes the desktop's options on the web too (not `--view-shot`): the page passes none, and the examples' test hands it a `--check` ([tools/web_check](../tools/web_check/README.md)). `superdevkit build web` writes `build/web/index.html` (with `index.js`, `index.wasm`, and `index.data` with the music), `superdevkit run web` serves it on this machine and opens the browser. |
@@ -100,48 +101,24 @@ prefix, and every external name in `lib/` is `sdevkit_*`, `sdevkit__*` or `main`
 Desktop means `rachael/` with `desktop/` (Linux, Windows, and with `web/` the browser). The last column is what a call costs on the
 SNES: best to worst case in CPU cycles, calls included, from the timing report of a program that
 calls every function (`LibCostTest` writes it with `LIB_COSTS=update`, and fails when it is not
-today's). A DMA function also uses as many bytes of the vertical blank's 5,700 as it copies; those
-5,700 are what is left after the main loop's copy of the sprite table (544 bytes each frame).
+today's). Most of the API is no call at all: a write into the shadow state is a store, and the
+kit's commit (next section) pays for the vertical blank.
 
 | Function | SNES | desktop | CPU cycles on the SNES |
 | --- | --- | --- | ---: |
-| `sdevkit_set_mode` | built | built | 45 |
-| `sdevkit_set_brightness` | built | built | 20 |
-| `sdevkit_set_screen_on` | built | built | 52 to unbounded |
-| `sdevkit_set_screen_off` | built | built | 20 |
-| `sdevkit_set_color_effect` | built | built | 36 |
-| `sdevkit_set_color_intensity` | built | built | 28 |
-| `sdevkit_set_palette_color` | built | built | 47 |
-| `sdevkit_dma_copy_vram` | built | built | 116 |
-| `sdevkit_dma_copy_vram_column` | built | built | 116 |
-| `sdevkit_dma_copy_cgram` | built | built | 100 |
-| `sdevkit_dma_clear_vram` | built | built | 111 |
-| `sdevkit_bg_set_gfx_ptr` | built | built | 75 |
-| `sdevkit_bg_set_map_ptr` | built | built | 35 |
-| `sdevkit_bg_set_scroll` | built | built | 78 |
-| `sdevkit_bg_set_enable` | built | built | 57 to 169 |
-| `sdevkit_bg_set_disable` | built | built | 60 to 172 |
-| `sdevkit_bg_set_enable_sub` | built | built | 57 to 169 |
-| `sdevkit_bg_set_disable_sub` | built | built | 60 to 172 |
-| `sdevkit_bg_init_tile_set` | built | built | 301 |
-| `sdevkit_bg_init_map_set` | built | built | 145 |
-| `sdevkit_oam_init` | built | built | 17 to 98,449 |
-| `sdevkit_oam_init_gfx_set` | built | built | 250 |
-| `sdevkit_oam_init_gfx_attr` | built | built | 41 |
-| `sdevkit_oam_set` | built | built | 217 to 329 |
-| `sdevkit_oam_set_xy` | built | built | 98 to 210 |
-| `sdevkit_oam_set_ex` | built | built | 71 to 183 |
-| `sdevkit_oam_set_visible` | built | built | 6 |
-| `sdevkit_oam_clear` | built | built | 18 to 98,450 |
-| `sdevkit_reg_write` | built | built | 25 |
-| `sdevkit_hdma_set` | built | built | 87 |
-| `sdevkit_hdma_enable` | built | built | 21 |
-| `sdevkit_dma_fits` | built | built | 81 to 86 |
-| `sdevkit_mode7_load_map` | built | built | 116 |
-| `sdevkit_mode7_load_tiles` | built | built | 116 |
-| `sdevkit_mode7_set_matrix` | built | built | 117 |
-| `sdevkit_mode7_set_center` | built | built | 65 |
-| `sdevkit_mode7_set_select` | built | built | 21 |
+| `sdevkit_sprite` | built | built | 22 to 106 |
+| `sdevkit_queue_dma` | built | built | 45 |
+| `sdevkit_queue_vram` | built | built | 45 |
+| `sdevkit_queue_vram_column` | built | built | 45 |
+| `sdevkit_queue_cgram` | built | built | 45 |
+| `sdevkit_queue_mode7_map` | built | built | 45 |
+| `sdevkit_queue_mode7_tiles` | built | built | 45 |
+| `sdevkit_queue_color` | built | built | 45 to 216 |
+| `sdevkit_queue_room` | built | built | 42 to 53 |
+| `sdevkit_dma_now` | built | built | 6 |
+| `sdevkit_color_now` | built | built | 47 |
+| `sdevkit_screen_off_now` | built | built | 39 |
+| `sdevkit_commit_now` | built | built | 16 to unbounded |
 | `sdevkit_sfx_init` | built | built | 51 to unbounded |
 | `sdevkit_sfx_play` | built | built | 39 to 158 |
 | `sdevkit_music_play` | empty, not built yet: dampf removes the calls (`DebugCallsTest`) | built (the track's file, over and over, in the window) | 6 |
@@ -158,3 +135,34 @@ today's). A DMA function also uses as many bytes of the vertical blank's 5,700 a
 | `sdevkit_dbg_box` | empty: dampf removes the calls, and the loops left empty | built (over the picture in the debug view) | 6 |
 | `sdevkit_dbg_fill` | empty: dampf removes the calls, and the loops left empty | built (a filled box in the debug view) | 6 |
 | `sdevkit_dbg_arrow` | empty: dampf removes the calls, and the loops left empty | built (an arrow in the debug view) | 6 |
+
+## The commit's time
+
+After every tick the kit commits the shadow state in the vertical blank (`snes/snes.c`,
+`sdevkit__commit`): a screen to be switched off goes off first, then the sprite table (a DMA of
+544 bytes), the registers of the groups marked, the queue, and INIDISP last. In CPU cycles on the
+SNES, from the timing report (2026-11-25):
+
+| Part | Cycles |
+| --- | ---: |
+| the whole commit, nothing marked, nothing queued | 261 |
+| `SDEVKIT_MARK_SCROLL` / `_COLOR` | 164 / 105 |
+| `SDEVKIT_MARK_SETUP` / `_WINDOW` / `_MODE7` | 128 / 119 / 137 |
+| `SDEVKIT_MARK_HDMA`, the channels switched on | 52 to 927 (seven) |
+| a copy of the queue, its setup | up to 151 |
+| the commit's worst case without the queue (every group, seven channels) | 1,769 |
+
+What the queue may take follows from that worst case. The vertical blank is 37 lines of 1,364
+master cycles, less 40 a line for the DRAM's refresh: 48,988. The commit's worst case without the
+queue takes 12,383 of them at 7 master cycles a CPU cycle (code from FastROM at 6, data from WRAM
+at 8), the sprite table's DMA 4,352 (8 a byte): 32,253 are left, 4,031 bytes of DMA. A copy's setup
+of 151 cycles is 1,057 master cycles, as long as 132 bytes. Hence `SDEVKIT_QUEUE_BYTES` 3,840 and
+`SDEVKIT_QUEUE_COST` 136 (`sdevkit/snes.h`), with 191 bytes to spare, the same on the SNES and on
+Rachael, so both take and refuse the same copies.
+
+`dev/commit_stress.sh` checks it on the console's time: a program whose every tick asks for the
+worst case (every group, the seven channels, the queue filled to its budget with 24 copies, then
+with one of 3,704 bytes, in turn) plays 600 ticks in Mesen. On 2026-11-25 no byte reached VRAM
+outside the vertical blank, the last DMA started on line 254, and the commit's last write (INIDISP)
+was on line 260 of the vertical blank's 225 to 261. Run it again when the commit's code or dampf's
+code for it changes.

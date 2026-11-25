@@ -10,8 +10,8 @@
  *
  * The picture is 128 x 120 pixels in mode 7: one byte a pixel, tiles 0 to 239 (16 x 15), tile 240
  * empty for everything around it; the matrix shows it at twice the size. It is computed tile by
- * tile, in reading order, and a finished tile (64 bytes) is copied to VRAM in the next vertical
- * blank. A tick runs at most ITERATIONS iterations, so each fits into a frame however deep the
+ * tile, in reading order, and a finished tile (64 bytes) is queued for VRAM, to be copied in the
+ * next vertical blank. A tick runs at most ITERATIONS iterations, so each fits into a frame however deep the
  * view; a faster compiler shows as fewer cycles per tick (dev/bench_examples.sh), the picture as
  * a whole takes the same number of ticks.
  *
@@ -85,9 +85,7 @@ static uint8_t iter;                       /* 0: not tested yet (in_bulbs), then
 static uint8_t tile_buf[64];               /* the tile being computed */
 static uint8_t upload[64];                 /* a finished tile, for the vertical blank */
 static uint8_t upload_tile, upload_ready;
-static uint16_t last_pad;
 static uint8_t angle;
-static int16_t ma, mb, mc, md;
 
 /* The first pixel of the tile: c at its upper left corner, z = c (the first iteration). */
 static void tile_start(void)
@@ -252,10 +250,11 @@ static void set_matrix(void)
 {
     int16_t s = SIN[angle], c = SIN[(uint8_t)(angle + 64)];
 
-    ma = c;                                         /* 127 is 0.5 map pixels a screen pixel */
-    mb = (int16_t)-s;
-    mc = s;
-    md = c;
+    sdevkit_ppu.m7a = c;                            /* 127 is 0.5 map pixels a screen pixel */
+    sdevkit_ppu.m7b = (int16_t)-s;
+    sdevkit_ppu.m7c = s;
+    sdevkit_ppu.m7d = c;
+    sdevkit_marks |= SDEVKIT_MARK_MODE7;
 }
 
 void game_init(uint16_t seed)
@@ -265,36 +264,36 @@ void game_init(uint16_t seed)
     uint8_t r, c;
 
     (void)seed;
-    sdevkit_set_mode(SDEVKIT_BG_MODE7, 0);
+    sdevkit_ppu.bgmode = SDEVKIT_BG_MODE7;
+    sdevkit_ppu.tm = SDEVKIT_BG1_ENABLE;            /* no sprites */
     for (r = 0; r < 128; r++) {                     /* the map: the picture's tiles, blank around */
         for (c = 0; c < 128; c++) {
             row[c] = (uint8_t)(r < H / 8 && c < W / 8 ? r * 16 + c : BLANK_TILE);
         }
-        sdevkit_mode7_load_map(row, (uint16_t)(r * 128), sizeof row);
+        sdevkit_mode7_map_now((uint16_t)(r * 128), row, sizeof row);
     }
     for (r = 0; r <= TILES; r++) {
-        sdevkit_mode7_load_tiles(ZERO, (uint16_t)(r * 64), sizeof ZERO);
+        sdevkit_mode7_tiles_now((uint16_t)(r * 64), ZERO, sizeof ZERO);
     }
     make_palette();
     cycle_palette();
-    sdevkit_dma_copy_cgram(palette, 1, sizeof palette);
+    sdevkit_cgram_now(1, palette, sizeof palette);
     palette_dirty = 0;
-    sdevkit_set_palette_color(0, SDEVKIT_RGB5(0, 0, 3));
-    sdevkit_oam_init();                             /* no sprites */
-    sdevkit_mode7_set_select(SDEVKIT_M7_WRAP);
-    sdevkit_mode7_set_center(W / 2, H / 2);
-    sdevkit_bg_set_scroll(0, (uint16_t)((W / 2 - 128) & 0x1FFF), (uint16_t)((H / 2 - 112) & 0x1FFF));
+    sdevkit_color_now(0, SDEVKIT_RGB5(0, 0, 3));
+    sdevkit_ppu.m7sel = SDEVKIT_M7_WRAP;
+    sdevkit_ppu.m7x = W / 2;
+    sdevkit_ppu.m7y = H / 2;
+    sdevkit_ppu.hofs[0] = (uint16_t)((W / 2 - 128) & 0x1FFF);
+    sdevkit_ppu.vofs[0] = (uint16_t)((H / 2 - 112) & 0x1FFF);
     view_start(0);
     set_matrix();
-    sdevkit_mode7_set_matrix(ma, mb, mc, md);
-    sdevkit_set_brightness(15);
+    sdevkit_ppu.inidisp = 15;
 }
 
-void game_tick(const uint16_t pad[SDEVKIT_PADS])
+void game_tick(void)
 {
-    uint16_t pressed = (uint16_t)(pad[0] & ~last_pad);
+    uint16_t pressed = sdevkit_input.pressed[0];
 
-    last_pad = pad[0];
     if (pressed & SDEVKIT_KEY_A) {
         view_start((uint8_t)(view + 1 == VIEWS ? 0 : view + 1));
     } else if (pressed & SDEVKIT_KEY_B) {
@@ -314,6 +313,12 @@ void game_tick(const uint16_t pad[SDEVKIT_PADS])
         }
     }
     set_matrix();
+    if (upload_ready && sdevkit_queue_mode7_tiles((uint16_t)(upload_tile * 64), upload, sizeof upload)) {
+        upload_ready = 0;
+    }
+    if (palette_dirty && sdevkit_queue_cgram(1, palette, sizeof palette)) {
+        palette_dirty = 0;
+    }
     /* the state for the checks: the computation and the tile it works on */
     sdevkit_dbg_hash(tile_buf, sizeof tile_buf);
     sdevkit_dbg_hash(&zx, sizeof zx);
@@ -325,15 +330,3 @@ void game_tick(const uint16_t pad[SDEVKIT_PADS])
     sdevkit_dbg_hash(&angle, sizeof angle);
 }
 
-void game_vblank(void)
-{
-    if (upload_ready) {
-        sdevkit_mode7_load_tiles(upload, (uint16_t)(upload_tile * 64), sizeof upload);
-        upload_ready = 0;
-    }
-    if (palette_dirty) {
-        sdevkit_dma_copy_cgram(palette, 1, sizeof palette);
-        palette_dirty = 0;
-    }
-    sdevkit_mode7_set_matrix(ma, mb, mc, md);
-}

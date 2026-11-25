@@ -56,7 +56,7 @@ uint8_t demo;
 
 static uint8_t state;
 static uint16_t wait;
-static uint8_t brightness, shown_brightness;
+static uint8_t brightness;
 static uint8_t after_fade;                 /* AF_*: what comes when the screen is black */
 static uint8_t after_fade_in;              /* the state when the picture is back */
 static uint16_t next_life_at;
@@ -255,33 +255,35 @@ static void load_stage_gfx(void)
     }
     if (festzelt_on) {                              /* back from mode 7 */
         festzelt_unload();
-        sdevkit_set_mode(SDEVKIT_BG_MODE1, BG1_TILES_16 | BG2_TILES_16 | SDEVKIT_BG3_MODE1_PRIORITY_HIGH);
-        sdevkit_dma_copy_vram(sprites_b_tiles + 4096, VRAM_SPRITES + 0x1800, 4096);
+        sdevkit_ppu.bgmode = SDEVKIT_BG_MODE1 | BG1_TILES_16 | BG2_TILES_16 | SDEVKIT_BG3_MODE1_PRIORITY_HIGH;
+        sdevkit_marks |= SDEVKIT_MARK_SETUP;
+        sdevkit_vram_now(VRAM_SPRITES + 0x1800, sprites_b_tiles + 4096, 4096);
     }
     hdma_channels = stage_no == 1 ? SDEVKIT_HDMA_CHANNEL3 : 0;
     if (stage_no == 0) {
-        sdevkit_dma_copy_vram(stage_bar_tiles, 0x0000, STAGE_BAR_TILES_SIZE);
-        sdevkit_dma_copy_cgram(stage_bar_pal, 16, STAGE_BAR_PAL_SIZE);
-        sdevkit_dma_copy_vram(stage_cellar_tiles, 0x0800, STAGE_CELLAR_TILES_SIZE);
-        sdevkit_dma_copy_cgram(stage_cellar_pal, 32, STAGE_CELLAR_PAL_SIZE);
-        sdevkit_dma_copy_vram(stage_kitchen_tiles, 0x1000, STAGE_KITCHEN_TILES_SIZE);
-        sdevkit_dma_copy_cgram(stage_kitchen_pal, 48, STAGE_KITCHEN_PAL_SIZE);
-        sdevkit_dma_copy_vram(wall_bar_tiles, 0x2000, WALL_BAR_TILES_SIZE);
-        sdevkit_dma_copy_cgram(wall_bar_pal, 64, WALL_BAR_PAL_SIZE);
-        sdevkit_dma_copy_vram(wall_cellar_tiles, 0x2800, WALL_CELLAR_TILES_SIZE);
-        sdevkit_dma_copy_cgram(wall_cellar_pal, 80, WALL_CELLAR_PAL_SIZE);
-        sdevkit_dma_copy_vram(wall_kitchen_tiles, 0x3000, WALL_KITCHEN_TILES_SIZE);
-        sdevkit_dma_copy_cgram(wall_kitchen_pal, 96, WALL_KITCHEN_PAL_SIZE);
-        sdevkit_hdma_enable(0);
+        sdevkit_vram_now(0x0000, stage_bar_tiles, STAGE_BAR_TILES_SIZE);
+        sdevkit_cgram_now(16, stage_bar_pal, STAGE_BAR_PAL_SIZE);
+        sdevkit_vram_now(0x0800, stage_cellar_tiles, STAGE_CELLAR_TILES_SIZE);
+        sdevkit_cgram_now(32, stage_cellar_pal, STAGE_CELLAR_PAL_SIZE);
+        sdevkit_vram_now(0x1000, stage_kitchen_tiles, STAGE_KITCHEN_TILES_SIZE);
+        sdevkit_cgram_now(48, stage_kitchen_pal, STAGE_KITCHEN_PAL_SIZE);
+        sdevkit_vram_now(0x2000, wall_bar_tiles, WALL_BAR_TILES_SIZE);
+        sdevkit_cgram_now(64, wall_bar_pal, WALL_BAR_PAL_SIZE);
+        sdevkit_vram_now(0x2800, wall_cellar_tiles, WALL_CELLAR_TILES_SIZE);
+        sdevkit_cgram_now(80, wall_cellar_pal, WALL_CELLAR_PAL_SIZE);
+        sdevkit_vram_now(0x3000, wall_kitchen_tiles, WALL_KITCHEN_TILES_SIZE);
+        sdevkit_cgram_now(96, wall_kitchen_pal, WALL_KITCHEN_PAL_SIZE);
+        sdevkit_ppu.hdmaen = 0;
+        sdevkit_marks |= SDEVKIT_MARK_HDMA;
     } else {
-        sdevkit_dma_copy_vram(stage_brew_tiles, 0x0000, STAGE_BREW_TILES_SIZE);
-        sdevkit_dma_copy_cgram(stage_brew_pal, 16, STAGE_BREW_PAL_SIZE);
-        sdevkit_dma_copy_vram(stage_mett_tiles, 0x0800, STAGE_METT_TILES_SIZE);
-        sdevkit_dma_copy_cgram(stage_mett_pal, 32, STAGE_METT_PAL_SIZE);
-        sdevkit_dma_copy_vram(wall_brew_tiles, 0x2000, WALL_BREW_TILES_SIZE);
-        sdevkit_dma_copy_cgram(wall_brew_pal, 64, WALL_BREW_PAL_SIZE);
+        sdevkit_vram_now(0x0000, stage_brew_tiles, STAGE_BREW_TILES_SIZE);
+        sdevkit_cgram_now(16, stage_brew_pal, STAGE_BREW_PAL_SIZE);
+        sdevkit_vram_now(0x0800, stage_mett_tiles, STAGE_METT_TILES_SIZE);
+        sdevkit_cgram_now(32, stage_mett_pal, STAGE_METT_PAL_SIZE);
+        sdevkit_vram_now(0x2000, wall_brew_tiles, WALL_BREW_TILES_SIZE);
+        sdevkit_cgram_now(64, wall_brew_pal, WALL_BREW_PAL_SIZE);
     }
-    sdevkit_set_palette_color(0, SDEVKIT_RGB8(26, 14, 8));
+    sdevkit_color_now(0, SDEVKIT_RGB8(26, 14, 8));
     boss_state = BS_NONE;
 }
 
@@ -364,27 +366,31 @@ static void effects(void)
     }
 }
 
-static void effects_vblank(void)
+/* After the tick: the sway's table just written becomes channel 3's (the commit switches over in
+ * the vertical blank), and the Mett's next frame is queued. */
+static void effects_show(void)
 {
     if (sway_ready) {
         sway_half ^= 1;
-        sdevkit_hdma_set(3, SDEVKIT_PPU_BG1HOFS, SDEVKIT_HDMA_TWICE, sway_table[sway_half]);
-        sdevkit_hdma_enable(hdma_channels);
+        sdevkit_hdma[3].table = sway_table[sway_half];
+        sdevkit_hdma[3].dmap = SDEVKIT_HDMA_TWICE;
+        sdevkit_hdma[3].bbad = SDEVKIT_PPU_BG1HOFS;
+        sdevkit_marks |= SDEVKIT_MARK_HDMA;
+        sdevkit_ppu.hdmaen = hdma_channels;
         sway_ready = 0;
     }
     if (mett_dirty) {                               /* frame k of the Mett over cells 1 to 3 */
         const uint8_t *src = stage_mett_tiles + (uint16_t)(mett_frame * 32 + 2) * 32;
-        sdevkit_dma_copy_vram(src, 0x0800 + 2 * 16, 6 * 32);
-        sdevkit_dma_copy_vram(src + 16 * 32, 0x0800 + 18 * 16, 6 * 32);
-        mett_dirty = 0;
+        if (sdevkit_queue_vram(0x0800 + 2 * 16, src, 6 * 32) && sdevkit_queue_vram(0x0800 + 18 * 16, src + 16 * 32, 6 * 32)) {
+            mett_dirty = 0;
+        }
     }
 }
 
 /* With the screen off: the stage from a checkpoint, the player, the status line. */
 static void respawn(uint16_t at)
 {
-    sdevkit_set_brightness(0);
-    shown_brightness = 0;
+    sdevkit_screen_off_now();
     objects_clear();
     stage_start(at);
     scroll_step = 8;
@@ -395,7 +401,7 @@ static void respawn(uint16_t at)
     message_time = 0;
     hud_play();
     hud_blank_below();
-    sdevkit_dma_copy_vram((const uint8_t *)hud_map, VRAM_BG3_MAP, sizeof hud_map);
+    sdevkit_vram_now(VRAM_BG3_MAP, hud_map, sizeof hud_map);
     hud_dirty = 0;
     sprites_hide_all();
     state = ST_FADE_IN;
@@ -414,8 +420,7 @@ static void title(void)
 {
     uint8_t i;
 
-    sdevkit_set_brightness(0);
-    shown_brightness = 0;
+    sdevkit_screen_off_now();
     objects_clear();
     scroll_step = 8;
     stage_select(0);
@@ -430,7 +435,7 @@ static void title(void)
     title_stage();
     hud_text(4, 21, "B: SCHIESSEN  A: KASTEN");
     hud_text(6, 25, "MADE WITH SUPERDEVKIT");
-    sdevkit_dma_copy_vram((const uint8_t *)hud_map, VRAM_BG3_MAP, sizeof hud_map);
+    sdevkit_vram_now(VRAM_BG3_MAP, hud_map, sizeof hud_map);
     hud_dirty = 0;
     draw_title_logo();
     state = ST_FADE_IN;
@@ -442,8 +447,7 @@ static void title(void)
 /* The end of the game: back in the pub, which has closed; the deposit collected. */
 static void ending(void)
 {
-    sdevkit_set_brightness(0);
-    shown_brightness = 0;
+    sdevkit_screen_off_now();
     objects_clear();
     scroll_step = 4;
     stage_select(0);
@@ -459,7 +463,7 @@ static void ending(void)
     hud_pfand_at(14, 13);
     hud_text(6, 17, "DANKE FUERS SPIELEN!");
     hud_text(13, 21, "PROST!");
-    sdevkit_dma_copy_vram((const uint8_t *)hud_map, VRAM_BG3_MAP, sizeof hud_map);
+    sdevkit_vram_now(VRAM_BG3_MAP, hud_map, sizeof hud_map);
     hud_dirty = 0;
     sprites_hide_all();
     state = ST_FADE_IN;
@@ -586,24 +590,26 @@ void game_init(uint16_t seed)
     uint8_t i;
 
     (void)seed;
-    sdevkit_set_mode(SDEVKIT_BG_MODE1, BG1_TILES_16 | BG2_TILES_16 | SDEVKIT_BG3_MODE1_PRIORITY_HIGH);
-    sdevkit_bg_set_gfx_ptr(0, 0x0000);
-    sdevkit_bg_set_gfx_ptr(1, 0x2000);
-    sdevkit_bg_set_map_ptr(0, 0x4000, SDEVKIT_SC_64x32);
-    sdevkit_bg_set_map_ptr(1, 0x4800, SDEVKIT_SC_64x32);
-    sdevkit_bg_init_tile_set(2, hud_tiles, hud_pal, 0, HUD_TILES_SIZE, HUD_PAL_SIZE, SDEVKIT_BG_4COLORS, VRAM_BG3_TILES);
-    sdevkit_bg_set_map_ptr(2, VRAM_BG3_MAP, SDEVKIT_SC_32x32);
-    sdevkit_bg_set_scroll(2, 0, 0x3FF);
-    sdevkit_oam_init_gfx_set(sprites_a_tiles, SPRITES_A_TILES_SIZE, sprites_a_pal, SPRITES_A_PAL_SIZE, 0, VRAM_SPRITES,
-                             SDEVKIT_OBJ_SIZE8_L16);
-    sdevkit_dma_copy_vram(sprites_b_tiles, VRAM_SPRITES + 0x1000, SPRITES_B_TILES_SIZE);
-    sdevkit_dma_copy_cgram(sprites_b_pal, 144, SPRITES_B_PAL_SIZE);
-    sdevkit_dma_copy_cgram(sprites_a_pal, 160, SPRITES_A_PAL_SIZE);   /* the stutter's six-pack ... */
-    sdevkit_set_palette_color(160 + 10, SDEVKIT_RGB8(44, 150, 150));  /* ... one colour off */
+    sdevkit_ppu.bgmode = SDEVKIT_BG_MODE1 | BG1_TILES_16 | BG2_TILES_16 | SDEVKIT_BG3_MODE1_PRIORITY_HIGH;
+    sdevkit_ppu.tm = SDEVKIT_BG1_ENABLE | SDEVKIT_BG2_ENABLE | SDEVKIT_BG3_ENABLE | SDEVKIT_OBJ_ENABLE;
+    sdevkit_ppu.bgnba[0] = SDEVKIT_BGNBA(0x0000, 0x2000);
+    sdevkit_ppu.bgnba[1] = SDEVKIT_BGNBA(VRAM_BG3_TILES, 0);
+    sdevkit_ppu.bgsc[0] = SDEVKIT_BGSC(0x4000, SDEVKIT_SC_64x32);
+    sdevkit_ppu.bgsc[1] = SDEVKIT_BGSC(0x4800, SDEVKIT_SC_64x32);
+    sdevkit_ppu.bgsc[2] = SDEVKIT_BGSC(VRAM_BG3_MAP, SDEVKIT_SC_32x32);
+    sdevkit_ppu.vofs[2] = 0x3FF;
+    sdevkit_ppu.obsel = SDEVKIT_OBSEL(VRAM_SPRITES, SDEVKIT_OBJ_SIZE8_L16);
+    sdevkit_vram_now(VRAM_BG3_TILES, hud_tiles, HUD_TILES_SIZE);
+    sdevkit_cgram_now(0, hud_pal, HUD_PAL_SIZE);
+    sdevkit_vram_now(VRAM_SPRITES, sprites_a_tiles, SPRITES_A_TILES_SIZE);
+    sdevkit_cgram_now(128, sprites_a_pal, SPRITES_A_PAL_SIZE);
+    sdevkit_vram_now(VRAM_SPRITES + 0x1000, sprites_b_tiles, SPRITES_B_TILES_SIZE);
+    sdevkit_cgram_now(144, sprites_b_pal, SPRITES_B_PAL_SIZE);
+    sdevkit_cgram_now(160, sprites_a_pal, SPRITES_A_PAL_SIZE);  /* the stutter's six-pack ... */
+    sdevkit_color_now(160 + 10, SDEVKIT_RGB8(44, 150, 150));    /* ... one colour off */
     for (i = 1; i < 16; i++) {
-        sdevkit_set_palette_color((uint16_t)(176 + i), i == 1 ? SDEVKIT_RGB8(160, 160, 176) : SDEVKIT_RGB8(255, 255, 255));
+        sdevkit_color_now((uint8_t)(176 + i), i == 1 ? SDEVKIT_RGB8(160, 160, 176) : SDEVKIT_RGB8(255, 255, 255));
     }
-    sdevkit_oam_init();
     for (i = 0; CHARSET[i] != 0; i++) {
         char_tile[(uint8_t)((uint8_t)CHARSET[i] - ' ')] = i;
     }
@@ -611,9 +617,9 @@ void game_init(uint16_t seed)
     title();
 }
 
-void game_tick(const uint16_t pad[SDEVKIT_PADS])
+void game_tick(void)
 {
-    uint16_t raw = pad[0];
+    uint16_t raw = sdevkit_input.pad[0];
     uint16_t eff, pressed, released;
 
     frame_count++;
@@ -713,7 +719,7 @@ void game_tick(const uint16_t pad[SDEVKIT_PADS])
             ending();
         } else if (after_fade == AF_BOSS) {         /* the lights go out: the boss comes */
             boss_start();
-            sdevkit_set_palette_color(0, SDEVKIT_RGB8(8, 6, 10));
+            sdevkit_color_now(0, SDEVKIT_RGB8(8, 6, 10));
             state = ST_FADE_IN;
             after_fade_in = ST_PLAY;
         } else {
@@ -749,18 +755,11 @@ void game_tick(const uint16_t pad[SDEVKIT_PADS])
     if (stage_no == 2) {
         festzelt_hash();
     }
-}
-
-void game_vblank(void)
-{
-    stage_vblank();
-    effects_vblank();
-    if (hud_dirty) {
-        sdevkit_dma_copy_vram((const uint8_t *)hud_map, VRAM_BG3_MAP, 128);
+    /* the next picture: the scroll and the columns, the effects, the status line, the brightness */
+    stage_show();
+    effects_show();
+    if (hud_dirty && sdevkit_queue_vram(VRAM_BG3_MAP, hud_map, 128)) {
         hud_dirty = 0;
     }
-    if (brightness != shown_brightness) {
-        sdevkit_set_brightness(brightness);
-        shown_brightness = brightness;
-    }
+    sdevkit_ppu.inidisp = brightness ? brightness : SDEVKIT_FORCED_BLANK;
 }

@@ -21,13 +21,13 @@ enum { CELL_EMPTY, CELL_WALL, CELL_CRUMB, CELL_CHILI, CELL_DOOR, CELL_HOUSE };
 
 extern uint8_t maze[MAZE_H][MAZE_W];
 extern uint8_t maze_crumbs;            /* crumbs and chilis left */
-extern uint16_t bg_map[32 * 32];       /* the background map, copied to VRAM when it changed */
+extern uint16_t bg_map[32 * 32];       /* the background map, queued for VRAM when it changed */
 extern uint8_t bg_map_dirty;
 
 void maze_reset(void);
 void maze_draw(void);
 void maze_clear_cell(uint8_t x, uint8_t y);
-void maze_blink(uint8_t on);           /* the walls in white, when a level is cleared */
+uint8_t maze_blink(uint8_t on);        /* the walls in white, when a level is cleared; 0: try again */
 uint8_t maze_cell(int8_t x, int8_t y); /* CELL_* of a cell; off the sides of the tunnel row: empty */
 void text(uint8_t x, uint8_t y, const char *s, uint8_t yellow);
 void number(uint8_t x, uint8_t y, uint32_t value, uint8_t digits);
@@ -57,6 +57,10 @@ void cats_move(void);
 uint8_t aligned(const Actor *a);
 void actors_draw(uint8_t frame);
 void actors_hide(void);
+/* A sprite of the table at slot id (a byte offset, 4 a sprite), small, at (x, y) on the maze's
+ * screen; it stays until it is set or hidden again. */
+void sprite_set(uint16_t id, int16_t x, int16_t y, uint16_t tile, uint8_t palette);
+void sprite_hide(uint16_t id);
 
 /* --- the game (game.c) ----------------------------------------------------------------------- */
 void eat(uint8_t x, uint8_t y);        /* the mouse reached the middle of a cell */

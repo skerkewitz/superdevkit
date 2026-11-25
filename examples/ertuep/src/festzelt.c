@@ -177,21 +177,27 @@ static uint8_t which;                      /* 0: the tent is loaded, 1: the caro
 
 static void split_on(void)
 {
-    sdevkit_hdma_set(4, SDEVKIT_PPU_BGMODE, SDEVKIT_HDMA_ONE, SPLIT_MODE);
-    sdevkit_hdma_set(5, SDEVKIT_PPU_TM, SDEVKIT_HDMA_ONE, SPLIT_TM);
-    sdevkit_hdma_enable(SDEVKIT_HDMA_CHANNEL4 | SDEVKIT_HDMA_CHANNEL5);
+    sdevkit_hdma[4].table = SPLIT_MODE;
+    sdevkit_hdma[4].dmap = SDEVKIT_HDMA_ONE;
+    sdevkit_hdma[4].bbad = SDEVKIT_PPU_BGMODE;
+    sdevkit_hdma[5].table = SPLIT_TM;
+    sdevkit_hdma[5].dmap = SDEVKIT_HDMA_ONE;
+    sdevkit_hdma[5].bbad = SDEVKIT_PPU_TM;
+    sdevkit_marks |= SDEVKIT_MARK_HDMA;
+    sdevkit_ppu.hdmaen = SDEVKIT_HDMA_CHANNEL4 | SDEVKIT_HDMA_CHANNEL5;
 }
 
 /* With the screen off: the tent's picture, the stage's sprites, the split. */
 void festzelt_load(void)
 {
-    sdevkit_mode7_load_tiles(festzelt_tiles, 0, FESTZELT_TILES_SIZE);
-    sdevkit_mode7_load_map(festzelt_map, 0, FESTZELT_MAP_SIZE);
-    sdevkit_dma_copy_cgram(festzelt_pal, FESTZELT_PAL_FIRST, FESTZELT_PAL_SIZE);
-    sdevkit_dma_copy_vram(sprites_c_tiles, VRAM_SHEET_C, SPRITES_C_TILES_SIZE);
-    sdevkit_dma_copy_cgram(sprites_c_pal, 192, SPRITES_C_PAL_SIZE);
-    sdevkit_mode7_set_select(SDEVKIT_M7_WRAP);
-    sdevkit_set_palette_color(0, SDEVKIT_RGB8(24, 16, 10));
+    sdevkit_mode7_tiles_now(0, festzelt_tiles, FESTZELT_TILES_SIZE);
+    sdevkit_mode7_map_now(0, festzelt_map, FESTZELT_MAP_SIZE);
+    sdevkit_cgram_now(FESTZELT_PAL_FIRST, festzelt_pal, FESTZELT_PAL_SIZE);
+    sdevkit_vram_now(VRAM_SHEET_C, sprites_c_tiles, SPRITES_C_TILES_SIZE);
+    sdevkit_cgram_now(192, sprites_c_pal, SPRITES_C_PAL_SIZE);
+    sdevkit_ppu.m7sel = SDEVKIT_M7_WRAP;
+    sdevkit_marks |= SDEVKIT_MARK_MODE7;
+    sdevkit_color_now(0, SDEVKIT_RGB8(24, 16, 10));
     split_on();
     festzelt_on = 1;
     which = 0;
@@ -237,21 +243,30 @@ uint16_t festzelt_hofs(void)
     return (uint16_t)((view_x - CENTER_X) & 0x1FFF);
 }
 
-void festzelt_vblank(void)
+/* After the tick: the matrix when the view changed, the centre and the scroll, every frame. */
+void festzelt_show(void)
 {
     if (view_ready) {
-        sdevkit_mode7_set_matrix(m7a, m7b, m7c, m7d);
+        sdevkit_ppu.m7a = m7a;
+        sdevkit_ppu.m7b = m7b;
+        sdevkit_ppu.m7c = m7c;
+        sdevkit_ppu.m7d = m7d;
         view_ready = 0;
     }
-    sdevkit_mode7_set_center(view_x, view_y);
-    sdevkit_bg_set_scroll(0, festzelt_hofs(), (uint16_t)((view_y - CENTER_Y) & 0x1FFF));
+    sdevkit_ppu.m7x = (int16_t)view_x;
+    sdevkit_ppu.m7y = (int16_t)view_y;
+    sdevkit_marks |= SDEVKIT_MARK_MODE7;
+    sdevkit_ppu.hofs[0] = festzelt_hofs();
+    sdevkit_ppu.vofs[0] = (uint16_t)((view_y - CENTER_Y) & 0x1FFF);
+    sdevkit_marks |= SDEVKIT_MARK_SCROLL;
 }
 
 /* Back to mode 1, with the screen off: sheet B's lower half (game.c restores its tiles), no
  * split. The VRAM below 0x4000 is the stage's again once load_stage_gfx has copied its tiles. */
 void festzelt_unload(void)
 {
-    sdevkit_hdma_enable(0);
+    sdevkit_ppu.hdmaen = 0;
+    sdevkit_marks |= SDEVKIT_MARK_HDMA;
     festzelt_on = 0;
 }
 
@@ -277,10 +292,10 @@ void carousel_start(void)
 {
     uint8_t i;
 
-    sdevkit_mode7_load_tiles(karussell_tiles, 0, KARUSSELL_TILES_SIZE);
-    sdevkit_mode7_load_map(karussell_map, 0, KARUSSELL_MAP_SIZE);
-    sdevkit_dma_copy_cgram(karussell_pal, KARUSSELL_PAL_FIRST, KARUSSELL_PAL_SIZE);
-    sdevkit_set_palette_color(0, SDEVKIT_RGB8(6, 6, 16));
+    sdevkit_mode7_tiles_now(0, karussell_tiles, KARUSSELL_TILES_SIZE);
+    sdevkit_mode7_map_now(0, karussell_map, KARUSSELL_MAP_SIZE);
+    sdevkit_cgram_now(KARUSSELL_PAL_FIRST, karussell_pal, KARUSSELL_PAL_SIZE);
+    sdevkit_color_now(0, SDEVKIT_RGB8(6, 6, 16));
     which = 1;
     view_x = HUB_X;
     view_y = HUB_Y;

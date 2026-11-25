@@ -1,6 +1,6 @@
 /*
  * The sprites: every object of the tables written into the kit's copy of the sprite table
- * (sdevkit_oam_memory), which the main loop copies into the PPU in the vertical blank.
+ * (sdevkit_oam), which the kit copies into the PPU in the vertical blank.
  *
  * The entries are written here directly, four bytes and two bits each, not with
  * sdevkit_oam_set: that call costs 315 to 427 cycles (lib/README.md), and a busy frame has eighty
@@ -52,7 +52,7 @@ static void spr(int16_t x, int16_t y, uint16_t tile, uint8_t attr, uint8_t large
     if (n >= 128 || (uint16_t)(x + 15) >= SCREEN_W + 15 || (uint16_t)(y + 15) >= SCREEN_H + 15) {
         return;
     }
-    o = &sdevkit_oam_memory[(uint16_t)n * 4];
+    o = &sdevkit_oam[(uint16_t)n * 4];
     o[0] = (uint8_t)x;
     o[1] = (uint8_t)(y - 1);
     o[2] = (uint8_t)tile;
@@ -62,7 +62,7 @@ static void spr(int16_t x, int16_t y, uint16_t tile, uint8_t attr, uint8_t large
         bits |= HI_X[n & 3];
     }
     if (bits) {
-        sdevkit_oam_memory[512 + (n >> 2)] |= bits;
+        sdevkit_oam[512 + (n >> 2)] |= bits;
     }
     n_spr = (uint8_t)(n + 1);
 }
@@ -129,7 +129,7 @@ static void begin(void)
 
     n_spr = 0;
     for (i = 0; i < 32; i++) {                      /* memset is a byte loop of its own, with a call */
-        sdevkit_oam_memory[512 + i] = 0;
+        sdevkit_oam[512 + i] = 0;
     }
 }
 
@@ -138,7 +138,7 @@ static void finish(void)
     uint8_t n;
 
     for (n = n_spr; n < last_n; n++) {
-        sdevkit_oam_memory[(uint16_t)n * 4 + 1] = SDEVKIT_ATTR2_DISABLED;
+        sdevkit_oam[(uint16_t)n * 4 + 1] = SDEVKIT_OAM_HIDE_Y;
     }
     last_n = n_spr;
 }

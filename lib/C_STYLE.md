@@ -124,7 +124,7 @@ Write whichever reads better; these cost the same:
 `<dampf.h>` has three (the book's page "Hints" and [docs/hints.md](../docs/hints.md) have the details):
 
 - **`DAMPF_BUDGET(n)`** in front of every function called each frame whose time matters, at
-  least `game_tick` and `game_vblank` with their callees: a worst case above `n` CPU cycles is a
+  least `game_tick` with its callees: a worst case above `n` CPU cycles is a
   build error, above 90 % a warning, so a slower change is found when it is made.
 - **`DAMPF_RANGE(v, lo, hi)`** only where a measurement shows it changes the code. Today that is
   a loop the timing report calls unbounded (a hint on its counter gives it a bound) and a value

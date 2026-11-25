@@ -2,15 +2,14 @@
  * The main loop of superdevkit's library on the SNES: the frame rhythm of sdevkit/loop.h.
  *
  * One tick per frame: read the joypads, run the tick, then in the vertical blank that follows
- * copy the OAM shadow and let the game upload what the tick prepared (game_vblank).
- * A tick that takes longer than a frame makes the game run slower, never wrong.
+ * commit the shadow state (sdevkit__commit: the sprite table, the registers, the queue). A tick
+ * that takes longer than a frame makes the game run slower, never wrong.
  *
  * There is no interrupt handler: the loop waits for the vertical blank itself. dampf keeps
  * function frames at fixed places, so C code called from an NMI that arrives in the middle of a
- * tick would overwrite the frames of the code it interrupted. Calling game_vblank from the loop
- * gives the same timing without that.
+ * tick would overwrite the frames of the code it interrupted.
  *
- * After game_vblank the sound effects the tick asked for start (sfx.c). Save RAM is snes.c's.
+ * After the commit the sound effects the tick asked for start (sfx.c). Save RAM is snes.c's.
  */
 #include "sdevkit/loop.h"
 #include "sdevkit/snes.h"
@@ -20,8 +19,14 @@ void sdevkit__reset_video(void);
 void sdevkit__reset_ppu(void);
 void sdevkit__oam_upload(void);
 void sdevkit__wait_vblank(void);
+void sdevkit__read_input(void);
 void sdevkit__read_pads(uint16_t *pad1, uint16_t *pad2);
+void sdevkit__end_tick(void);
+void sdevkit__begin_tick(void);
+void sdevkit__commit(void);
+void sdevkit__commit_registers(uint8_t marks);
 void sdevkit__sfx_frame(void);
+extern uint8_t sdevkit__ticking;
 
 /* Before game_init: the console in a known state, the screen off. */
 void sdevkit__start(void)
@@ -32,16 +37,17 @@ void sdevkit__start(void)
     NMITIMEN = 0x01;    /* automatic joypad read, no interrupts */
 }
 
-/* After each game_tick: the tick's checksum closed (the sprite table named last, then the mark
- * the checks count ticks by), the next vertical blank, the OAM shadow, the game's uploads, then
- * the sound effects of the tick (after the uploads, so they take none of the vertical blank). */
+/* After each game_tick: the sprite list closed and the tick's checksum (what the game named, then
+ * the shadow state, sdevkit__end_tick), the mark the checks count ticks by, the next vertical
+ * blank, the commit, then the sound effects of the tick (after the commit, so they take none of
+ * the vertical blank). */
 void sdevkit__frame(void)
 {
-    sdevkit_dbg_hash(sdevkit_oam_memory, sizeof sdevkit_oam_memory);
+    sdevkit__end_tick();
     DBG_TICK = 0;
     sdevkit__wait_vblank();
-    sdevkit__oam_upload();
-    game_vblank();
+    sdevkit__commit();
+    sdevkit__begin_tick();
     sdevkit__sfx_frame();
 }
 
@@ -57,7 +63,7 @@ static uint16_t sdevkit__splash_frame(uint8_t brightness)
     return pad1;
 }
 
-/* The splash's sprites (lib/splash/splash.h), with the screen off: written to OAM by the CPU, not
+/* The splash's sprites (lib/splash/splash.h): written to OAM by the CPU, with the screen off, not
  * by DMA, which the checks count ticks by. Also puts the game's sprite table back after the splash. */
 static void sdevkit__splash_sprites(const uint8_t *low, uint16_t bytes, const uint8_t *high)
 {
@@ -77,17 +83,18 @@ static void sdevkit__splash_sprites(const uint8_t *low, uint16_t bytes, const ui
 
 int main(void)
 {
-    uint16_t pad[SDEVKIT_PADS];
-
     sdevkit__start();
     sdevkit__splash();
-    sdevkit__reset_ppu();               /* as before the splash, the screen off */
-    sdevkit__splash_sprites(sdevkit_oam_memory, 512, sdevkit_oam_memory + 512);   /* the game's sprite table */
+    sdevkit__reset_ppu();               /* as before the splash, the screen off, the shadow state too */
+    sdevkit__splash_sprites(sdevkit_oam, 512, sdevkit_oam + 512);   /* the game's sprite table */
     game_init(0);
+    sdevkit_marks = SDEVKIT_MARK_ALL;   /* everything game_init set */
     DBG_TICK = 1;                       /* the checks: the splash is over, the first tick comes */
     for (;;) {
-        sdevkit__read_pads(&pad[0], &pad[1]);
-        game_tick(pad);
+        sdevkit__read_input();
+        sdevkit__ticking = 1;
+        game_tick();
+        sdevkit__ticking = 0;
         sdevkit__frame();
     }
 }

@@ -132,7 +132,7 @@ void game_init(uint16_t seed)
 A project names its file in `superdevkit.toml` (`[sound] sfx = "assets/sfx/sfx.json"`), and
 `superdevkit build` converts it into `build/gen/sfx.c` and `sfx.h` before it compiles (Schach and
 Steinschlag do). An effect asked for in a tick starts after the tick, when the main
-loop has run `game_vblank`: a free voice takes it; if all of the file's voices are busy, it
+loop has committed the shadow state in the vertical blank: a free voice takes it; if all of the file's voices are busy, it
 replaces the voice of the lowest priority not above its own, the older of equal ones; if every
 playing effect has a higher priority, it is dropped. A voice is free when the effect's length in
 frames has counted down. All effects of a tick start with one key on. More than 8 requests in a
@@ -168,7 +168,8 @@ instead of a black screen:
 void game_init(uint16_t seed)
 {
     draw_title();                      /* everything for the PPU first */
-    sdevkit_set_brightness(15);
+    sdevkit_ppu.inidisp = 15;
+    sdevkit_commit_now();              /* the screen on now, not after the first tick */
     sdevkit_sfx_init(&sfx_bank);       /* the title stays on screen meanwhile */
 }
 ```
