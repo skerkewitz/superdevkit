@@ -50,6 +50,20 @@ public final class Lower {
     private final Deque<Targets> targets = new ArrayDeque<>();
 
     public static MModule lower(Program program) {
+        return lower(program, Map.of(), false);
+    }
+
+    /** The label of the C body of an assembly function when it is lowered for the check against it. */
+    public static final String CHECK_PREFIX = "_dampf_check";
+
+    /**
+     * With assembly functions (DAMPF_ASM, docs/hints.md): {@code asm} maps their labels to the
+     * bytes of locals their code uses. Each becomes a function without code of its own ({@link
+     * MFunction#isAsm}): its parameters, a slot for its locals and a return. With {@code check}
+     * its C body is lowered too, as a function of its own named {@link #CHECK_PREFIX} + label that
+     * nothing calls (the copy dampf runs against the assembly); these come last.
+     */
+    public static MModule lower(Program program, Map<String, Integer> asm, boolean check) {
         Lower l = new Lower();
         for (Variable v : program.globals()) {
             List<MModule.Datum> init = new ArrayList<>();
@@ -62,10 +76,20 @@ public final class Lower {
             }
             l.module.globals().add(new MModule.Global(v.label(), v.type().size(), init, v.inRom()));
         }
+        List<Function> checked = new ArrayList<>();
         for (Function f : program.functions()) {
-            if (f.isDefined()) {
-                l.function(f);
+            if (f.isDefined() && asm.containsKey(f.label())) {
+                l.asmFunction(f, asm.get(f.label()));
+                if (check) {
+                    checked.add(f);
+                }
+            } else if (f.isDefined()) {
+                l.function(f, f.label());
             }
+        }
+        for (Function f : checked) {
+            l.function(f, CHECK_PREFIX + f.label());
+            l.mf.setCheckOf(f.label());
         }
         Verifier.verify(l.module);
         return l.module;
@@ -73,8 +97,23 @@ public final class Lower {
 
     // ------------------------------------------------------------------ functions
 
-    private void function(Function f) {
-        mf = new MFunction(f.label(), mtype(f.returnType()), f.definitionPos());
+    /** An assembly function: parameters, a slot for its locals, a return (of 0); no code is generated for it. */
+    private void asmFunction(Function f, int locals) {
+        MFunction a = new MFunction(f.label(), mtype(f.returnType()), f.definitionPos());
+        a.setAsm(true);
+        module.functions().add(a);
+        for (Variable p : f.params()) {
+            a.params().add(new Value.Param(p.name(), mtype(p.type())));
+        }
+        if (locals > 0) {
+            a.slots().add(new Value.Slot(f.label() + "__locals", locals));
+        }
+        Block entry = a.newBlock("entry");
+        entry.add(new Instr.Ret(a.result() == MType.VOID ? null : new Value.Const(a.result(), 0), f.definitionPos()));
+    }
+
+    private void function(Function f, String label) {
+        mf = new MFunction(label, mtype(f.returnType()), f.definitionPos());
         module.functions().add(mf);
         slotOf.clear();
         ssa.clear();

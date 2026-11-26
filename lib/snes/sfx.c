@@ -94,7 +94,7 @@ void sdevkit_sfx_play(uint8_t id)
     sfx_voices_play(id);
 }
 
-/* The main loop's part (main.c), after game_vblank. */
+/* The main loop's part (main.c), after the commit. */
 void sdevkit__sfx_frame(void)
 {
     sfx_voices_frame();

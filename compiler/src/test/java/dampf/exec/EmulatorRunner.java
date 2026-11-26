@@ -42,8 +42,9 @@ final class EmulatorRunner {
         Map<String, Long> values = new LinkedHashMap<>();
         for (Observed v : globals) {
             Long base = addresses.get(v.label());
-            if (base == null) {
-                throw new IOException("no address for " + v.label());
+            if (base == null) {   // left out: no reachable code touches it
+                values.put(v.path(), v.initial());
+                continue;
             }
             int addr = (int) (base + v.offset()); // a bank $7E address without the bank
             long raw = 0;
@@ -58,7 +59,7 @@ final class EmulatorRunner {
     /**
      * The CPU cycles the entry function takes, from its first instruction until control is back
      * in the runtime (at dampf_done, right after the JSL that called it): what the static timing
-     * bounds.
+     * bounds. The cycles of interrupts that came meanwhile are left out.
      */
     long cyclesOf(RomBuilder.Rom rom, String function) throws IOException {
         Map<String, Long> addresses = labels(rom.labels());
@@ -67,10 +68,11 @@ final class EmulatorRunner {
         Snes snes = Snes.load(rom.rom());
         long[] at = {-1, -1};
         snes.run(limitMasterCycles, address -> {
+            long own = snes.cpu().cycles - snes.cpu().cyclesAbove[0];
             if (address == start && at[0] < 0) {
-                at[0] = snes.cpu().cycles;
+                at[0] = own;
             } else if (address == stop && at[0] >= 0 && at[1] < 0) {
-                at[1] = snes.cpu().cycles;
+                at[1] = own;
             }
         });
         if (at[0] < 0 || at[1] < 0) {
@@ -85,7 +87,10 @@ final class EmulatorRunner {
     /**
      * Runs the ROM and measures every call of every function (and runtime routine) with static
      * bounds: from its first instruction to the instruction after the JSL that called it. Each
-     * must lie within the bounds (best, worst; worst -1: unbounded).
+     * must lie within the bounds (best, worst; worst -1: unbounded). The cycles of interrupts that
+     * came during a call are not the call's. An interrupt whose entry stub has bounds
+     * ({@code dampf_irq}, {@code dampf_nmi}) is measured too, from its first cycle to the end of
+     * its RTI, without an interrupt that came during it.
      */
     CallCheck checkCalls(RomBuilder.Rom rom, Map<String, long[]> timing) throws IOException {
         Map<Long, String> starts = new HashMap<>();
@@ -96,25 +101,36 @@ final class EmulatorRunner {
         }
         byte[] image = Files.readAllBytes(rom.rom());
         Snes snes = Snes.load(rom.rom());
-        record Call(String function, long start, long returnTo) {}
+        record Call(String function, long start, long returnTo, int depth, long above) {}
         java.util.Deque<Call> stack = new java.util.ArrayDeque<>();
         long[] previous = {-1};
         long[] calls = {0};
+        long[] interrupts = {0};
         List<String> wrong = new java.util.ArrayList<>();
+        dampf.emu.Cpu65816 cpu = snes.cpu();
         snes.run(limitMasterCycles, address -> {
-            long cycles = snes.cpu().cycles;
-            while (!stack.isEmpty() && stack.peek().returnTo() == address) {
+            long cycles = cpu.cycles;
+            while (!stack.isEmpty() && stack.peek().returnTo() == address && stack.peek().depth() >= cpu.depth) {
                 Call c = stack.pop();
-                long took = cycles - c.start();
+                long took = cycles - c.start() - (cpu.cyclesAbove[c.depth()] - c.above());
                 long[] b = timing.get(c.function());
                 if ((took < b[0] || b[1] >= 0 && took > b[1]) && wrong.size() < 10) {
                     wrong.add(c.function() + " took " + took + " CPU cycles, bounds " + b[0] + ".." + (b[1] < 0 ? "unbounded" : b[1]));
                 }
                 calls[0]++;
             }
-            String f = starts.get((long) address);
-            if (f != null && previous[0] >= 0 && byteAt(image, previous[0]) == 0x22) {   // after a JSL
-                stack.push(new Call(f, cycles, previous[0] + 4));
+            if (cpu.interrupts != interrupts[0]) {
+                // an interrupt was taken right before this instruction, the first of its stub
+                interrupts[0] = cpu.interrupts;
+                String stub = starts.get((long) address | 0x800000);   // its label is in bank $80, the vector leads to $00
+                if (stub != null) {
+                    stack.push(new Call(stub, cpu.interruptStart, cpu.interruptReturn, cpu.depth, cpu.cyclesAbove[cpu.depth]));
+                }
+            } else {
+                String f = starts.get((long) address);
+                if (f != null && previous[0] >= 0 && byteAt(image, previous[0]) == 0x22) {   // after a JSL
+                    stack.push(new Call(f, cycles, previous[0] + 4, cpu.depth, cpu.cyclesAbove[cpu.depth]));
+                }
             }
             previous[0] = address;
         });

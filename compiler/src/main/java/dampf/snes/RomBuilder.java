@@ -1,5 +1,6 @@
 package dampf.snes;
 
+import dampf.target.SnesTarget;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -43,6 +44,16 @@ public final class RomBuilder {
 
     private RomBuilder() {}
 
+    /** The symbols the runtime is assembled with (ca65's -D): FastROM, and an entry stub per interrupt handler. */
+    static Map<String, Long> runtimeDefines(boolean fastRom, java.util.Set<dampf.ast.Interrupt> interrupts) {
+        Map<String, Long> d = new LinkedHashMap<>();
+        d.put("DAMPF_FASTROM", fastRom ? 1L : 0L);
+        for (dampf.ast.Interrupt i : dampf.ast.Interrupt.values()) {
+            d.put("DAMPF_" + i.name(), interrupts.contains(i) ? 1L : 0L);
+        }
+        return d;
+    }
+
     /**
      * @param modules  the generated assembly, one or more modules
      * @param outDir   where all files go
@@ -58,13 +69,26 @@ public final class RomBuilder {
      * cartridge needs false.
      */
     public static Rom build(List<String> modules, Path outDir, String baseName, boolean fastRom) throws IOException {
+        return build(modules, outDir, baseName, fastRom, java.util.Set.of());
+    }
+
+    /**
+     * {@code interrupts}: the interrupts the program has a handler in C for (DAMPF_INTERRUPT): the
+     * runtime gets their entry stubs, its vectors point at them, and it gets the multiplications
+     * in software (ADR-6FM9TXV4). Without any, the runtime is what it always was.
+     */
+    public static Rom build(List<String> modules, Path outDir, String baseName, boolean fastRom,
+                            java.util.Set<dampf.ast.Interrupt> interrupts) throws IOException {
         Files.createDirectories(outDir);
         Path runtime = copyResource("runtime.s", outDir.resolve("dampf_runtime.s"));
 
         // All tools run in outDir with plain file names, so the debug file holds relative paths.
         List<String> objects = new ArrayList<>();
         String runtimeObj = "dampf_runtime.o";
-        run(outDir, "ca65", "-g", "-D", "DAMPF_FASTROM=" + (fastRom ? 1 : 0), "-o", runtimeObj, runtime.getFileName().toString());
+        List<String> ca65 = new ArrayList<>(List.of("ca65", "-g"));
+        runtimeDefines(fastRom, interrupts).forEach((k, v) -> ca65.addAll(List.of("-D", k + "=" + v)));
+        ca65.addAll(List.of("-o", runtimeObj, runtime.getFileName().toString()));
+        run(outDir, ca65.toArray(String[]::new));
         objects.add(runtimeObj);
         List<String> banked = new ArrayList<>();
         for (int i = 0; i < modules.size(); i++) {
@@ -102,6 +126,12 @@ public final class RomBuilder {
      * module (as the build with ca65 does) and the label file.
      */
     public static Rom buildNative(List<String> modules, Path outDir, String baseName, boolean fastRom) throws IOException {
+        return buildNative(modules, outDir, baseName, fastRom, java.util.Set.of());
+    }
+
+    /** {@code interrupts}: as for {@link #build(List, Path, String, boolean, java.util.Set)}. */
+    public static Rom buildNative(List<String> modules, Path outDir, String baseName, boolean fastRom,
+                                  java.util.Set<dampf.ast.Interrupt> interrupts) throws IOException {
         Files.createDirectories(outDir);
         String runtime;
         try (InputStream in = RomBuilder.class.getResourceAsStream(RES + "runtime.s")) {
@@ -114,7 +144,7 @@ public final class RomBuilder {
         Map<String, long[]> asmFiles = new LinkedHashMap<>();
         Files.writeString(outDir.resolve("dampf_runtime.s"), runtime, StandardCharsets.UTF_8);
         asmFiles.put("dampf_runtime.s", fileInfo(outDir.resolve("dampf_runtime.s")));
-        objects.add(dampf.asm.Assembler.assemble("dampf_runtime.s", runtime, Map.of("DAMPF_FASTROM", fastRom ? 1L : 0L)));
+        objects.add(dampf.asm.Assembler.assemble("dampf_runtime.s", runtime, runtimeDefines(fastRom, interrupts)));
         List<String> banked = new ArrayList<>();
         for (int i = 0; i < modules.size(); i++) {
             String name = modules.size() == 1 ? baseName : baseName + "_" + (i + 1);
@@ -146,6 +176,37 @@ public final class RomBuilder {
         return rom;
     }
 
+    /**
+     * Assembles and links in memory, with dampf's own assembler and linker, and writes no file:
+     * the image and the addresses of the global symbols (for a ROM only dampf runs, such as the
+     * check of the assembly functions against their C bodies).
+     */
+    public static dampf.asm.Linker.Image linkInMemory(List<String> modules, boolean fastRom) throws IOException {
+        return linkInMemory(modules, fastRom, java.util.Set.of());
+    }
+
+    /** {@code interrupts}: as for {@link #build(List, Path, String, boolean, java.util.Set)}. */
+    public static dampf.asm.Linker.Image linkInMemory(List<String> modules, boolean fastRom,
+                                                      java.util.Set<dampf.ast.Interrupt> interrupts) throws IOException {
+        String runtime;
+        try (InputStream in = RomBuilder.class.getResourceAsStream(RES + "runtime.s")) {
+            if (in == null) {
+                throw new IOException("missing resource " + RES + "runtime.s");
+            }
+            runtime = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        }
+        List<dampf.asm.ObjectFile> objects = new ArrayList<>();
+        objects.add(dampf.asm.Assembler.assemble("dampf_runtime.s", runtime, runtimeDefines(fastRom, interrupts)));
+        List<String> banked = new ArrayList<>();
+        for (int i = 0; i < modules.size(); i++) {
+            objects.add(dampf.asm.Assembler.assemble("module_" + (i + 1) + ".s", modules.get(i), Map.of()));
+            banked.addAll(bankedSegments(modules.get(i)));
+        }
+        Map<String, Integer> sizes = new LinkedHashMap<>(dampf.asm.Linker.sizes(objects));
+        sizes.putIfAbsent("DATA", 0);
+        return dampf.asm.Linker.link(objects, pack(banked, sizes));
+    }
+
     /** Size and modification time (seconds) of a file, for the debug file. */
     private static long[] fileInfo(Path file) throws IOException {
         return new long[] {Files.size(file), Files.getLastModifiedTime(file).toMillis() / 1000};
@@ -166,9 +227,11 @@ public final class RomBuilder {
     private static String ramPart() {
         return """
                     DP:    start = $0000, size = $0100, type = rw;   # direct page (D = 0)
-                    #      $0020-$1DFF the frames of the code from MIR (dampf_frame); $1E00-$1FFF stack
-                    RAM:   start = $2000, size = $DFFF, type = rw;   # bank $7E (DBR = $7E), see docs/memory-map.md; $FFFF stays free (one past the end)
-                """;
+                    #      $%04X-$%04X the frames of the code from MIR (dampf_frame); $%04X-$%04X stack
+                    RAM:   start = $%04X, size = $%04X, type = rw;   # bank $%02X (DBR = $%02X), see docs/memory-map.md; $FFFF stays free (one past the end)
+                """.formatted(SnesTarget.FRAME_START, SnesTarget.STACK - 1, SnesTarget.STACK, SnesTarget.LOW_RAM_END - 1,
+                SnesTarget.VARIABLES_START, SnesTarget.VARIABLES_END - SnesTarget.VARIABLES_START, SnesTarget.VARIABLE_BANK,
+                SnesTarget.DATA_BANK);
     }
 
     private static String measureConfig(List<String> banked) {

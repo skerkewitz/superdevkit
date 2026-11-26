@@ -288,6 +288,9 @@ public final class Cycles65816 {
         if (o.startsWith("[")) {
             return o.endsWith(",y") ? "[dp],y" : "[dp]";
         }
+        if ((mnemonic.equals("jmp") || mnemonic.equals("jsr")) && o.startsWith("(")) {
+            return o.endsWith(",x)") ? "(abs,x)" : "(abs)";   // a jump table: JMP (table,X)
+        }
         boolean dp = o.startsWith("z:");
         if (o.endsWith(",x")) {
             return dp ? "dp,x" : "abs,x";
@@ -299,6 +302,14 @@ public final class Cycles65816 {
             return "";
         }
         return dp ? "dp" : "abs";
+    }
+
+    /**
+     * Whether an indexed read that crosses a page costs one cycle more with 8-bit index registers
+     * ({@link #cycles} does not count it then; with 16-bit index registers it is always paid).
+     */
+    public static boolean pageCrossing(int opcode) {
+        return (FLAGS[opcode] & IDX) != 0;
     }
 
     public static boolean isConditionalBranch(int opcode) {

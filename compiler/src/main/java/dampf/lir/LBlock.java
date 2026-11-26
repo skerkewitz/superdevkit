@@ -57,6 +57,32 @@ public final class LBlock {
         return false;
     }
 
+    /** A block of data without code (a jump table of a {@code switch}): control never enters it. */
+    public boolean isData() {
+        if (hasCode()) {
+            return false;
+        }
+        for (LItem i : items) {
+            if (i instanceof LDirective d && d.data()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** The bytes the block takes in the ROM: its instructions and its data. */
+    public int bytes() {
+        int n = 0;
+        for (LItem i : items) {
+            if (i instanceof LInstr in) {
+                n += in.length();
+            } else if (i instanceof LDirective d) {
+                n += d.dataBytes();
+            }
+        }
+        return n;
+    }
+
     /** The last instruction, or null. */
     public LInstr last() {
         for (int k = items.size() - 1; k >= 0; k--) {

@@ -155,6 +155,7 @@ void draw_sprite(int16_t x, int16_t y, uint16_t tile, uint8_t pal, uint8_t large
 #define SPRITE_B(k) ((uint16_t)(256 + ((k) >> 3) * 32 + ((k) & 7) * 2))
 void boss_draw(void);                      /* the boss's sprites, if it has any */
 void sprites_hide_all(void);
+void sprites_copy(void);                   /* in game_vblank: the sprite table into OAM */
 
 /* --- the course of the game, the status line (game.c) ---------------------------------------- */
 extern uint16_t pfand;                     /* deposit collected, in cents */

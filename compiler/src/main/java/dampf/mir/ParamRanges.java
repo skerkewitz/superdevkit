@@ -52,8 +52,8 @@ public final class ParamRanges {
         for (int n = post.size() - 1; n >= 0; n--) {
             MFunction f = post.get(n);
             List<Instr.Call> calls = sites.getOrDefault(f, List.of());
-            if (calls.isEmpty()) {
-                continue;
+            if (calls.isEmpty() || f.isAsm()) {
+                continue;   // (hand-written assembly takes every value of its parameters' types)
             }
             for (int k = 0; k < f.params().size(); k++) {
                 Value.Param p = f.params().get(k);

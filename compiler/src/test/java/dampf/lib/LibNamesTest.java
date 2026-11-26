@@ -26,9 +26,11 @@ class LibNamesTest {
 
     private static final Path PUBLIC = Path.of("lib/include/sdevkit");
     /** The callbacks a game defines: its names, not the kit's. */
-    private static final Set<String> GAME_CALLBACKS = Set.of("game_init", "game_tick", "game_vblank");
+    private static final Set<String> GAME_CALLBACKS = Set.of("game_init", "game_tick", "game_vblank", "game_irq");
 
     private static final Pattern DEFINE = Pattern.compile("(?m)^\\s*#\\s*define\\s+(\\w+)");
+    /** A preprocessor line with the lines a backslash continues it on. */
+    private static final String DIRECTIVE = "(?m)^\\s*#(?:[^\\n]*\\\\\\n)*[^\\n]*$";
     /** A function declaration at file scope: the name before the parameter list. */
     private static final Pattern FUNCTION = Pattern.compile("\\b(\\w+)\\s*\\([^(){};]*\\)\\s*;");
     private static final Pattern EXTERN = Pattern.compile("\\bextern\\b[^;(]*?\\b(\\w+)\\s*(?:\\[[^\\]]*\\])*\\s*;");
@@ -53,15 +55,18 @@ class LibNamesTest {
         Set<String> names = new TreeSet<>();
         for (Path h : files(PUBLIC, ".h")) {
             String c = withoutComments(Files.readString(h));
-            for (Pattern p : List.of(DEFINE, EXTERN, TYPEDEF)) {
-                Matcher m = p.matcher(c);
+            Matcher d = DEFINE.matcher(c);
+            while (d.find()) {
+                names.add(d.group(1));
+            }
+            // a macro's body declares nothing at file scope: its names are its parameters'
+            // (sdevkit/publish.h's macros define the game's variables)
+            String code = c.replaceAll(DIRECTIVE, " ");
+            for (Pattern p : List.of(EXTERN, TYPEDEF, FUNCTION)) {
+                Matcher m = p.matcher(code);
                 while (m.find()) {
                     names.add(m.group(1));
                 }
-            }
-            Matcher m = FUNCTION.matcher(c.replaceAll("(?m)^\\s*#.*$", " "));
-            while (m.find()) {
-                names.add(m.group(1));
             }
         }
         return names;
@@ -70,8 +75,8 @@ class LibNamesTest {
     @Test
     void everyNameOfThePublicHeadersHasThePrefix() throws IOException {
         Set<String> names = publicNames();
-        assertTrue(names.containsAll(List.of("sdevkit_oam_set", "sdevkit_oam_memory", "SDEVKIT_KEY_A", "SDEVKIT_RGB5", "game_tick",
-                "sdevkit_sfx_bank")),
+        assertTrue(names.containsAll(List.of("sdevkit_sprite", "sdevkit_oam", "sdevkit_ppu", "sdevkit_ppu_regs", "sdevkit_input",
+                "SDEVKIT_KEY_A", "SDEVKIT_RGB5", "game_tick", "sdevkit_sfx_bank")),
                 "the header scan missed names: " + names);
         List<String> wrong = names.stream()
                 .filter(n -> !n.startsWith("sdevkit_") && !n.startsWith("SDEVKIT_") && !GAME_CALLBACKS.contains(n)).toList();
@@ -93,8 +98,10 @@ class LibNamesTest {
         }
         for (Path c : sources) {
             Path o = tmp.resolve(c.getParent().getFileName() + "_" + c.getFileName() + ".o");
+            // dampf's <dampf.h> after the system's headers: lib/snes may use its hints
             Processes.check(Path.of("."), Duration.ofMinutes(1), List.of("clang", "-std=c99", "-c", "-w", "-I", "lib/include",
-                    "-I", c.getParent().toString(), "-I", "build/raylib/linux/include", "-I", "lib/rachael", c.toString(), "-o", o.toString()));
+                    "-I", c.getParent().toString(), "-I", "build/raylib/linux/include", "-I", "lib/rachael",
+                    "-idirafter", "compiler/src/main/resources/dampf/include", c.toString(), "-o", o.toString()));
             String nm = Processes.check(Path.of("."), Duration.ofMinutes(1), List.of("nm", "--defined-only", "-g", o.toString()));
             for (String line : nm.split("\\R")) {
                 String[] parts = line.trim().split("\\s+");

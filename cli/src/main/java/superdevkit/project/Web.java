@@ -96,6 +96,7 @@ final class Web {
         link.addAll(Desktop.cFiles(kit.lib().resolve("desktop")));
         link.addAll(Desktop.cFiles(kit.lib().resolve("web")));
         link.add(musicFiles.toString());
+        link.add(obj.resolve(Desktop.INTERRUPTS_FILE).toString());
         link.add(ray.resolve("lib/libraylib.a").toString());
         link.addAll(List.of(
                 "-sUSE_GLFW=3",                 // raylib's web build draws through Emscripten's GLFW

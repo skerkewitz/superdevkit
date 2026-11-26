@@ -150,3 +150,64 @@ new. What the game would change: nothing it must. A value kept as two halves onl
 can be one `uint32_t` again. A test of such a value with `!= 0` or `==` is split too: a loop that
 tests 32-bit rows against a mask costs 40 % less. Additions, ordered comparisons and
 multiplications of 32-bit values still cost more than twice their 16-bit form.
+
+## 8. The console API: the PVSnesLib calls are gone, the kit copies no sprite table (2026-11-25)
+
+The kit's console API is now a core that is the hardware at once, with optional layers above it
+(the kit's ADR-6FNPPCSX, `lib/include/sdevkit/snes.h` and the headers beside it). The frame rhythm
+stays as the game has it: `game_init`, `game_tick(pad)` while the picture is drawn, `game_vblank`
+in the vertical blank. What changes:
+
+- **The kit no longer copies the sprite table.** The main loop used to copy all 544 bytes of
+  `sdevkit_oam_memory` into OAM before `game_vblank`, every frame. That table is gone: the game
+  keeps its own (in the hardware's format, every y set to `SDEVKIT_OAM_HIDE_Y` at the start) and
+  copies it in `game_vblank` with `sdevkit_oam_copy(byte, src, bytes)`. Copying only the entries
+  in use and the high table's bytes for them (`4 * n` bytes from 0, then from 512) saves the rest
+  of the 4,352 master cycles the full copy took in each vertical blank.
+- **The PVSnesLib setup calls are gone**; every register is written by `sdevkit_reg_write(reg,
+  value)` (one store on the SNES) or, for the registers that take two bytes, by
+  `sdevkit_reg_write_twice(reg, value)`, with macros for the values.
+- **The copies take the destination first**, like `memcpy`.
+- **The desktop check also fails on a register written while the picture is drawn** (`drawing N`
+  in its summary line; the SNES would change the picture from that line on). Switching the screen
+  off may come at any time; everything else belongs in `game_vblank` or `game_init`. A game that
+  fades or scrolls in `game_tick` now sees it on the desktop.
+
+What replaces what, for the calls the game uses:
+
+| Before | Now |
+| --- | --- |
+| `sdevkit_oam_memory` (copied by the kit) | a table of the game's own, copied in `game_vblank` with `sdevkit_oam_copy(0, table, 4 * n)` and `sdevkit_oam_copy(512, table + 512, (n + 3) / 4)`, or all of it with `sdevkit_oam_copy(0, table, SDEVKIT_OAM_BYTES)` |
+| `SDEVKIT_ATTR2_DISABLED` | `SDEVKIT_OAM_HIDE_Y` |
+| `sdevkit_oam_init` | nothing: the kit's start-up hides every sprite in OAM; the game's own table starts hidden as the game fills it |
+| `sdevkit_oam_init_gfx_attr(address, sizes)` | `sdevkit_reg_write(SDEVKIT_PPU_OBSEL, SDEVKIT_OBSEL(address, sizes))` |
+| `sdevkit_dma_copy_vram(src, address, bytes)`, `_copy_cgram`, `_copy_vram_column` | `sdevkit_vram_copy(address, src, bytes)`, `sdevkit_cgram_copy(colour, src, bytes)`, `sdevkit_vram_column_copy(address, src, bytes)` |
+| `sdevkit_set_palette_color(i, c)` | `sdevkit_cgram_set(i, c)` |
+| `sdevkit_set_mode(mode, flags)` | `sdevkit_reg_write(SDEVKIT_PPU_BGMODE, mode \| flags)` and `sdevkit_reg_write(SDEVKIT_PPU_TM, ...)`: `set_mode` also switched on BG1 to BG3 and the sprites |
+| `sdevkit_bg_set_disable(n)` (and `_enable`, `_sub`) | `SDEVKIT_PPU_TM` (`_TS`) written with all the layers the game wants (`SDEVKIT_BG1_ENABLE \| ...`): the kit keeps no copy of the register any more |
+| `sdevkit_bg_set_map_ptr(n, address, size)` | `sdevkit_reg_write(SDEVKIT_PPU_BG1SC + n, SDEVKIT_BGSC(address, size))` |
+| `sdevkit_bg_set_gfx_ptr(n, address)`, `sdevkit_bg_init_tile_set(...)` | `SDEVKIT_PPU_BG12NBA` (`BG34NBA`) written with both layers' tiles, `SDEVKIT_BGNBA(first, second)`; the tile set's copies with `sdevkit_vram_copy` and `sdevkit_cgram_copy` |
+| `sdevkit_bg_set_scroll(n, x, y)` | `sdevkit_reg_write_twice(SDEVKIT_PPU_BG1HOFS + 2 * n, x)` and `(SDEVKIT_PPU_BG1VOFS + 2 * n, y)` |
+| `sdevkit_set_color_effect(a, b)`, `sdevkit_set_color_intensity(apply, i)` | `SDEVKIT_PPU_CGWSEL`, `SDEVKIT_PPU_CGADSUB`; `sdevkit_reg_write(SDEVKIT_PPU_COLDATA, apply \| i)` |
+| `sdevkit_set_brightness(b)`, `sdevkit_set_screen_off`, `sdevkit_set_screen_on` | `sdevkit_reg_write(SDEVKIT_PPU_INIDISP, b)` (`SDEVKIT_FORCED_BLANK` for off); `set_screen_on` waited for a vertical blank, so write it in `game_vblank` |
+| `sdevkit_reg_write`, `sdevkit_hdma_set`, `sdevkit_hdma_enable`, `sdevkit_dma_fits`, sound, music, save RAM, the debug calls | unchanged |
+
+The kit's internal names the game's desktop code reads (`sdevkit__vblank`, `sdevkit__render`,
+`sdevkit__reg`, `sdevkit__oam`, `sdevkit__cgram`, `sdevkit__stats`) stay; `sdevkit__oam()` is
+OAM as the game's copies wrote it, and `SDEVKIT__VBLANK_DMA_BYTES` is 6,244 now that the sprite
+table counts against it like any copy.
+
+Optional, if the game wants them: the layers (`sdevkit/easy.h`): a register shadow written in the
+tick, a sprite list, a queue of copies with a budget the SNES and the desktop decide the same, the
+buttons pressed. They are not needed for anything above.
+
+What else the game gets without changing anything: dampf now writes `sdevkit_reg_write_twice(reg,
+v)` and `REG = v; REG = v >> 8` of a variable as two byte loads next to their stores. Measured on
+the kit's examples in dampf's emulator, which now counts a DMA's time, every example on the core
+does less work a tick than on the old API (Er-Tüp, which kept its own sprite list as the game
+does, 0.98).
+
+What the game would change: the calls along the table, and its own sprite table with its copy in
+`game_vblank`. Er-Tüp's diff on the kit's branch `new_snes_api` (`examples/ertuep`) shows each kind
+of change on a game built the way the game is. Checking that the game builds and plays the same is
+the game project's job.

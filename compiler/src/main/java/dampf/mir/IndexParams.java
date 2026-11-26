@@ -40,8 +40,8 @@ public final class IndexParams {
         boolean changed = false;
         for (MFunction f : m.functions()) {
             List<Instr.Call> sites = calls.getOrDefault(f.name(), List.of());
-            if (sites.isEmpty()) {
-                continue;
+            if (sites.isEmpty() || f.isAsm()) {
+                continue;   // (hand-written assembly: its convention is fixed)
             }
             Map<Value.Param, Plan> plans = new java.util.LinkedHashMap<>();   // in the order of the parameters: the output must not depend on hash codes
             for (Value.Param p : f.params()) {

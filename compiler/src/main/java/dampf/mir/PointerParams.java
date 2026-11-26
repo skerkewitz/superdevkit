@@ -33,8 +33,8 @@ public final class PointerParams {
         }
         for (MFunction f : m.functions()) {
             List<Instr.Call> sites = calls.getOrDefault(f.name(), List.of());
-            if (sites.isEmpty()) {
-                continue;   // the entry function, or never called
+            if (sites.isEmpty() || f.isAsm()) {
+                continue;   // the entry function, never called, or hand-written assembly (its convention is fixed)
             }
             for (int k = 0; k < f.params().size(); k++) {
                 Value.Param old = f.params().get(k);

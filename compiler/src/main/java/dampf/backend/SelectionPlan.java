@@ -9,6 +9,7 @@ import dampf.mir.MFunction;
 import dampf.mir.MType;
 import dampf.mir.Ranges;
 import dampf.mir.Value;
+import dampf.target.SnesTarget;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -165,7 +166,7 @@ final class SelectionPlan {
         while (p instanceof Instr i && FrameLayout.transparent(i)) {
             p = i.op(0);
         }
-        return (p instanceof Value.Param || p instanceof Instr) && sel.place.containsKey(p) && Selection.FRAME_START + sel.place.get(p) + 3 < 0x100;
+        return (p instanceof Value.Param || p instanceof Instr) && sel.place.containsKey(p) && SnesTarget.inDirectPage(sel.place.get(p), 4);
     }
 
     /**
@@ -481,8 +482,11 @@ final class SelectionPlan {
                     case Instr.Cmp c when sel.fused.contains(c) && Selection.throughCopies(c.op(0)) == x && placeBound(c.op(1), x, loop)
                             && (c.pred == Instr.Pred.EQ || c.pred == Instr.Pred.NE || c.pred == Instr.Pred.ULT || c.pred == Instr.Pred.UGE) ->
                             bounds.add(c.op(1));
-                    case Instr.PtrAdd q when sel.folded.contains(q) && sel.layout.indexable(q) && Selection.throughCopies(q.op(1)) == x
-                            && q.op(0) != x -> {
+                    // x plus a constant that only indexes (a[i + 1]): the accesses add it in the operand
+                    case Instr.Bin b when sel.folded.contains(b) && b.op == Instr.BinOp.ADD ->
+                            work.addAll(users.getOrDefault(b, List.of()));
+                    case Instr.PtrAdd q when sel.folded.contains(q) && sel.layout.indexable(q)
+                            && Selection.throughCopies(sel.layout.indexOf(q)) == x && q.op(0) != x -> {
                         // the address is formed where it is used, with X: the φ's after the step
                         // would take the next element (an offset added to it, then a store
                         // after the step), and the stepped value's must stay in the round

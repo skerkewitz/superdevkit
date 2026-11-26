@@ -440,6 +440,14 @@ void sdevkit__render(uint16_t *out)
         uint16_t *row = &out[y * W];
 
         hdma_line();
+        if (sdevkit__rachael.irq_on && sdevkit__rachael.irq_row == y && sdevkit__irq_handler != NULL) {
+            /* the game's IRQ in the horizontal blank before this row, after its HDMA, as on the
+             * SNES (sdevkit/irq.h); a row it sets below this one comes in this picture */
+            sdevkit__rachael.in_irq = 1;
+            sdevkit__rachael.irq_waited = 0;
+            sdevkit__irq_handler();
+            sdevkit__rachael.in_irq = 0;
+        }
         inidisp = sdevkit__rachael.regs[SDEVKIT_PPU_INIDISP];
         if (inidisp & 0x80) {
             memset(row, 0, W * sizeof row[0]);

@@ -38,7 +38,7 @@ document of its subject.
 | ADR-6F0R6G1M | [gcc with UBSan is the oracle, and the tests compare every global](adr/6F0R6G1M-gcc-with-ubsan-is-the-oracle-and-the-tests-compare.md) | Accepted; amended by ADR-6FD2DGP0 | 2026-11-17 |
 | ADR-6F0R6H68 | [dampf has its own emulator, validated against SingleStepTests and Mesen](adr/6F0R6H68-dampf-has-its-own-emulator-validated-against.md) | Accepted | 2026-11-17 |
 | ADR-6F0R6JD6 | [Every function gets a best and a worst case, and `DAMPF_BUDGET` fails the build](adr/6F0R6JD6-every-function-gets-a-best-and-a-worst-case-and.md) | Accepted | 2026-11-17 |
-| ADR-6F0R6NS5 | [The platform layer is C with `volatile` pointers, and the main loop waits for the vertical blank](adr/6F0R6NS5-the-platform-layer-is-c-with-volatile-pointers-and.md) | Accepted | 2026-11-17 |
+| ADR-6F0R6NS5 | [The platform layer is C with `volatile` pointers, and the main loop waits for the vertical blank](adr/6F0R6NS5-the-platform-layer-is-c-with-volatile-pointers-and.md) | Accepted; amended by ADR-6FNPPCSX, ADR-6FM9TXV4, ADR-6FS0T4WB | 2026-11-17 |
 | ADR-6F0R6P51 | [The compiler and the game work in parallel towards the frame budget](adr/6F0R6P51-the-compiler-and-the-game-work-in-parallel-towards.md) | Accepted; amended by ADR-6F60Z819 | 2026-11-17 |
 | ADR-6F0R6Q5P | [Value ranges are inferred first, and subrange types wait for a profile](adr/6F0R6Q5P-value-ranges-are-inferred-first-and-subrange-types.md) | Accepted | 2026-11-17 |
 | ADR-6F0R6SCV | [dampf is under the Apache License 2.0 with LLVM Exceptions](adr/6F0R6SCV-dampf-is-under-the-apache-license-20-with-llvm.md) | Accepted | 2026-11-17 |
@@ -49,12 +49,12 @@ document of its subject.
 | ADR-6F3CJT1P | [Milestone N is version 0.N.0, and the first public version is an alpha](adr/6F3CJT1P-milestone-n-is-version-0n0-and-the-first-public.md) | Accepted; amended by ADR-6F3CJX8T, ADR-6F60ZDMF | 2026-11-18 |
 | ADR-6F3CJVHC | [`goto` and labels stay rejected, and a forward and outward form is the most dampf will allow](adr/6F3CJVHC-goto-and-labels-stay-rejected-and-a-forward-and.md) | Accepted | 2026-11-18 |
 | ADR-6F3CJW9N | [Options can be kept in an argument file, given by `--config` or `@file`](adr/6F3CJW9N-options-can-be-kept-in-an-argument-file-given-by.md) | Accepted | 2026-11-18 |
-| ADR-6F3CJX8T | [superdevkit is the project, and dampf is its compiler](adr/6F3CJX8T-superdevkit-is-the-project-and-dampf-is-its.md) | Accepted; amended by ADR-6F3CK03Z, ADR-6F3CK2AR, ADR-6F60Z819, ADR-6F60Z9QJ | 2026-11-18 |
+| ADR-6F3CJX8T | [superdevkit is the project, and dampf is its compiler](adr/6F3CJX8T-superdevkit-is-the-project-and-dampf-is-its.md) | Accepted; amended by ADR-6F3CK03Z, ADR-6F3CK2AR, ADR-6F60Z819, ADR-6F60Z9QJ, ADR-6FNPPCSX | 2026-11-18 |
 | ADR-6F3CJYGP | [One book for superdevkit, with dampf as a part of its own](adr/6F3CJYGP-one-book-for-superdevkit-with-dampf-as-a-part-of.md) | Accepted; amended by ADR-6F60ZB4N | 2026-11-18 |
 | ADR-6F3CJZBY | [The superdevkit command builds a project from its TOML file and calls the compilers itself](adr/6F3CJZBY-the-superdevkit-command-builds-a-project-from-its.md) | Accepted; amended by ADR-6F60Z709, ADR-6F60Z9QJ | 2026-11-18 |
 | ADR-6F3CK03Z | [Desktop and web are for prototyping, with sound, save RAM and a debug view the game registers into](adr/6F3CK03Z-desktop-and-web-are-for-prototyping-with-sound.md) | Accepted; amended by ADR-6F3CK2AR, ADR-6F60ZC7C | 2026-11-18 |
 | ADR-6F3CK1V6 | [MesenCE is the emulator for the console checks and the debugger](adr/6F3CK1V6-mesence-is-the-emulator-for-the-console-checks.md) | Accepted | 2026-11-18 |
-| ADR-6F3CK2AR | [Every name of the console API starts with `sdevkit_`, and a game reaches nothing else](adr/6F3CK2AR-every-name-of-the-console-api-starts-with.md) | Accepted | 2026-11-18 |
+| ADR-6F3CK2AR | [Every name of the console API starts with `sdevkit_`, and a game reaches nothing else](adr/6F3CK2AR-every-name-of-the-console-api-starts-with.md) | Accepted; amended by ADR-6FNPPCSX | 2026-11-18 |
 | ADR-6F60Z3ZB | [The pseudo SNES is called Rachael](adr/6F60Z3ZB-the-pseudo-snes-is-called-rachael.md) | Accepted | 2026-11-19 |
 | ADR-6F60Z4AZ | [One ROM for NTSC and PAL, with NTSC's limits, and PAL a sixth slower for now](adr/6F60Z4AZ-one-rom-for-ntsc-and-pal-with-ntsc-s-limits-and.md) | Accepted | 2026-11-19 |
 | ADR-6F60Z5JJ | [Every game starts with the kit's splash screen, and a button shortens it](adr/6F60Z5JJ-every-game-starts-with-the-kit-s-splash-screen.md) | Accepted; amended by ADR-6F60ZA6T | 2026-11-19 |
@@ -86,6 +86,23 @@ document of its subject.
 | ADR-6FHEEVST | [Release zips are checked on their own system and published from a draft](adr/6FHEEVST-release-zips-are-checked-on-their-own-system-and.md) | Accepted; amended by ADR-6FHSWZ2F | 2026-11-23 |
 | ADR-6FHKAC1X | [The website of a release is on GitHub Pages, with the book and the example games](adr/6FHKAC1X-the-website-of-a-release-is-on-github-pages-with.md) | Accepted | 2026-11-23 |
 | ADR-6FHSWZ2F | [The notes of a release are a file in the repository, and its draft is not edited](adr/6FHSWZ2F-the-notes-of-a-release-are-a-file-in-the.md) | Accepted | 2026-11-23 |
+| ADR-6FK7WP0H | [The roadmap holds what is to come, and a concluded milestone moves to the history](adr/6FK7WP0H-the-roadmap-holds-what-is-to-come-and-a-concluded.md) | Accepted | 2026-11-24 |
+| ADR-6FKTVDE8 | [A hardware feature is usable only when the SNES and Rachael both draw it](adr/6FKTVDE8-a-hardware-feature-is-usable-only-when-the-snes.md) | Accepted | 2026-11-24 |
+| ADR-6FKYXP8C | [dampf compiles a library's files without the program's defines](adr/6FKYXP8C-dampf-compiles-a-library-s-files-without-the.md) | Accepted | 2026-11-24 |
+| ADR-6FKZFDJ3 | [Enum objects take only values of their enum and the smallest width that holds them](adr/6FKZFDJ3-enum-objects-take-only-values-of-their-enum-and.md) | Accepted | 2026-11-24 |
+| ADR-6FM063YZ | [Plain `char` is text: a `char` value is only copied, tested and compared with `==` and `!=`](adr/6FM063YZ-plain-char-is-text-a-char-value-is-only-copied.md) | Accepted | 2026-11-24 |
+| ADR-6FM7MWGX | [A switch becomes a jump table where that costs fewer cycles than its compares](adr/6FM7MWGX-a-switch-becomes-a-jump-table-where-that-costs.md) | Accepted | 2026-11-24 |
+| ADR-6FM9TXV4 | [Interrupt handlers run in contexts of their own](adr/6FM9TXV4-interrupt-handlers-run-in-contexts-of-their-own.md) | Accepted; amended by ADR-6FQ4NSHE, ADR-6FRX1GYC, ADR-6FS0T4WB | 2026-11-24 |
+| ADR-6FMATG2V | [Hand-written assembly replaces a C function through DAMPF_ASM and is checked against its body](adr/6FMATG2V-hand-written-assembly-replaces-a-c-function.md) | Accepted | 2026-11-24 |
+| ADR-6FMHDB6H | [The console API is the hardware's state in memory, which the kit commits in the vertical blank](adr/6FMHDB6H-the-console-api-is-the-hardware-s-state-in-memory.md) | Superseded; superseded by ADR-6FNPPCSX | 2026-11-25 |
+| ADR-6FNPPCSX | [The console API is the hardware at once, with optional layers above it](adr/6FNPPCSX-the-console-api-is-the-hardware-at-once-with.md) | Accepted | 2026-11-25 |
+| ADR-6FNWEJAA | [dampf leaves out the functions a program cannot reach](adr/6FNWEJAA-dampf-leaves-out-the-functions-a-program-cannot.md) | Accepted | 2026-11-25 |
+| ADR-6FPTPCDM | [The SNES facts the compiler asks about live in dampf.target, which knows none of its types](adr/6FPTPCDM-the-snes-facts-the-compiler-asks-about-live-in.md) | Accepted | 2026-11-25 |
+| ADR-6FPV1EQV | [Interrupt code reads a copy of the tick's data that the kit makes after each tick](adr/6FPV1EQV-interrupt-code-reads-a-copy-of-the-tick-s-data.md) | Accepted; amended by ADR-6FRDS030, ADR-6FRX1GYC, ADR-6FS0T4WB | 2026-11-25 |
+| ADR-6FQ4NSHE | [A function reached from several contexts is compiled once per context](adr/6FQ4NSHE-a-function-reached-from-several-contexts-is.md) | Accepted | 2026-11-25 |
+| ADR-6FRDS030 | [Interrupt code reads the copy of the tick whose vertical blank came last](adr/6FRDS030-interrupt-code-reads-the-copy-of-the-tick-whose.md) | Accepted; amended by ADR-6FS0T4WB | 2026-11-26 |
+| ADR-6FRX1GYC | [The game's IRQ runs at a picture row and writes after waiting for the horizontal blank](adr/6FRX1GYC-the-game-s-irq-runs-at-a-picture-row-and-writes.md) | Accepted | 2026-11-26 |
+| ADR-6FS0T4WB | [The kit's NMI runs the vertical blank of a game that publishes](adr/6FS0T4WB-the-kit-s-nmi-runs-the-vertical-blank-of-a-game.md) | Accepted | 2026-11-26 |
 
 ## Former numbers
 

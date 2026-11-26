@@ -23,7 +23,8 @@ calls a function); a line with a branch gets no sum.
   (accumulator width followed through the code; index registers 16 bit). Inside a block there
   are only forward branches over a few instructions and the code generator's small loops (shifts,
   copies), which it marks with their bound. A conditional branch costs 2 when not taken, 3 when
-  taken.
+  taken. The jump table of a `switch` (`JMP (table,X)`) is a way out to every entry of
+  the table, each at the same cost.
 - **Across blocks** (level 2): the loops of the function, innermost first, each collapsed into
   one node: worst case = (rounds - 1) × the longest way round + the longest way out, best case =
   the shortest way out (no round). The rest is free of cycles: shortest and longest path to the
@@ -58,6 +59,24 @@ calls a function); a line with a branch gets no sum.
   parameter the join of its arguments' ranges at every call (`ParamRanges`).
 - **Calls**: callee bounds first (no recursion); the runtime's multiplication and division have
   fixed bounds counted from `runtime.s`.
+- **Interrupts**: a program with interrupt handlers in C (`DAMPF_INTERRUPT`, ADR-6FM9TXV4) gets a
+  line per interrupt in the report, `dampf_irq` and `dampf_nmi`: from the interrupt being taken to
+  the end of its `RTI`, the runtime's entry stub and the handler. The stub takes 66 cycles to the
+  handler's first instruction (71 for the NMI, which reads RDNMI in 8 bits) and 31 from its
+  return, so an IRQ costs at least 97 cycles beyond its handler. Not counted: the end of the
+  instruction the interrupt came in, and an NMI that comes while the IRQ handler runs. Interrupt
+  code multiplies in software, `dampf_mul16_soft` 22–532 cycles (one round per bit of the second
+  factor) and `dampf_mul32_soft` 1,168–1,968, where the main code takes 108 and 398–400 on the
+  CPU's multiplier.
+- **Functions written in assembly** (`DAMPF_ASM`, [hints.md](hints.md)): `dampf.asm.AsmFunction`
+  follows the machine code from the function's label with the same cycle table, the register
+  widths through `SEP`, `REP`, `PHP` and `PLP`; a conditional branch costs 2 or 3 as above, and
+  with 8-bit index registers an indexed read may cross a page, which the worst case counts. Every
+  backward branch carries its bound as a comment, `; dampf: at most N` (the loop from its target
+  runs at most N rounds per entry); the loops are collapsed innermost first with the formula
+  above. The report marks such a function `(assembly, file.s)`. The check against the C body
+  measures every call it makes and stops the build if one lies outside these bounds, so a bound
+  comment set too low is found.
 
 ### Budgets
 
@@ -84,7 +103,9 @@ about 8 per CPU cycle.
 
 Every execution test and random program measures `test_main` and every call of every function
 and runtime routine on the way (from its first instruction to the instruction after the `JSL`)
-and checks best ≤ measured ≤ worst (`Timing.check`); `ExamplesTimingTest` does the same for every
+and checks best ≤ measured ≤ worst (`Timing.check`), leaving out the cycles of interrupts that came
+meanwhile, and measures each interrupt against its own bounds (`exec/interrupts.c`);
+`ExamplesTimingTest` does the same for every
 call of every example in its first 3,000 frames (and did for the 180,000 calls of Blubber
 Blasen's benchmark while the game's code was here). A runtime bound set too low on purpose
 (the `dampf_mul16` of that time, a loop in software, worst 300 instead of 367) failed 94 tests at
@@ -104,8 +125,7 @@ really run forever in C; they need a hint. Examples: `abs16` 13–21 cycles, `fl
 
 - Master cycles: memory speeds are not counted (the benchmark measures them in the emulator).
 - Level 3: DRAM refresh, HDMA and interrupts at frame level.
-- The naive code generator (`--backend naive`, or `--replace`) writes no report and checks no
-  budget.
+- The naive code generator (`--backend naive`) writes no report and checks no budget.
 - `DAMPF_TRIPS(n)` for loops without a counter.
 - The costliest path per C line, in the report and in the budget error message.
 - Best and worst case in the assembly comments of lines with a branch.
@@ -159,7 +179,7 @@ per frame:
 - HDMA: a small fixed cost per scanline for each active channel. Blubber Blasen uses HDMA for its
   colour windows.
 - Interrupts: NMI (start of vertical blank) and IRQ arrive at known times, and their handlers'
-  costs are known.
+  costs are known (each interrupt's bounds are in the report already, see "As built").
 
 A function's own bound excludes interrupt time; frame-level budgets add the handlers' costs.
 
@@ -185,6 +205,8 @@ down; with it, the build refuses the change that causes it.
 
 ## Open questions
 
-- How to express impossible path combinations, should the worst-case bounds turn out too
-  pessimistic in practice.
-- How much HDMA the game uses in the end, since it changes the frame-level budget.
+- How to express impossible path combinations. The bounds did turn out too pessimistic for pair
+  loops (Er-Tüp's `collide`); a hint for how often a path runs per call, or a bound per call
+  chain, is a step of M11 ([roadmap.md](roadmap.md#m11-timing-and-debugging-0110)).
+- How the frame-level budget learns which HDMA channels a game has on, since a game turns them
+  on at run time.

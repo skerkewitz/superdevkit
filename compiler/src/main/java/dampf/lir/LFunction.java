@@ -110,6 +110,24 @@ public final class LFunction implements LItem {
         return null;
     }
 
+    /**
+     * The labels the entries of a jump table of this function go to, in the order of the table
+     * (one per entry, so a label may come more than once); empty if there is no such table.
+     */
+    public List<String> tableTargets(String table) {
+        LBlock b = table == null ? null : block(table);
+        if (b == null) {
+            return List.of();
+        }
+        List<String> out = new ArrayList<>();
+        for (LItem i : b.items()) {
+            if (i instanceof LDirective d) {
+                out.addAll(d.tableEntries());
+            }
+        }
+        return out;
+    }
+
     /** All instructions in layout order. */
     public List<LInstr> instrs() {
         List<LInstr> out = new ArrayList<>();
@@ -133,10 +151,19 @@ public final class LFunction implements LItem {
             LBlock next = k + 1 < blocks.size() ? blocks.get(k + 1) : null;
             LInstr last = b.last();
             List<LBlock> s = new ArrayList<>();
-            LBlock fall = last == null || last.fallsThrough() ? next : null;
+            LBlock fall = (last == null || last.fallsThrough()) && !b.isData() ? next : null;
             LBlock t = last != null && last.target() != null ? target(k, last.target(), named) : null;
             if (t != null) {
                 s.add(t);
+            }
+            if (last != null && last.isTableJump()) {
+                // every entry of its table (a label outside the function: none in dampf's code)
+                for (String entry : tableTargets(last.tableLabel())) {
+                    LBlock e = named.get(entry);
+                    if (e != null && !s.contains(e)) {
+                        s.add(e);
+                    }
+                }
             }
             if (fall != null && !s.contains(fall)) {
                 s.add(fall);

@@ -8,12 +8,17 @@ name it can use starts with `sdevkit_` or `SDEVKIT_`
 
 | Folder | What |
 | --- | --- |
-| `include/sdevkit/snes.h` | The console API: PVSnesLib's functions renamed (`setMode` is `sdevkit_set_mode`), the extensions PVSnesLib has no function for (`sdevkit_reg_write`, `sdevkit_hdma_set`, `sdevkit_dma_fits`), their constants (`SDEVKIT_*`), the sprite table `sdevkit_oam_memory`, mode 7 (`sdevkit_mode7_*`), sound effects (`sdevkit_sfx_*`), music (`sdevkit_music_*`), save RAM (`sdevkit_sram`), and the debug calls (`sdevkit_dbg_*`). |
-| `include/sdevkit/loop.h` | The frame rhythm: the library's main loop calls `game_init`, then per frame `game_tick` and `game_vblank`, which every game defines; the pad bits `SDEVKIT_KEY_*`. |
-| `snes/` | The SNES: the API in C with registers as `volatile` pointers (`snes.c`, `hw.h`) and the main loop (`main.c`), compiled by dampf with the game. See its [README](snes/README.md). |
-| `rachael/` | The desktop and the web: [Rachael](#rachael), the SNES rebuilt in portable C (`ppu.c`, `render.c`). `rachael.h` is its interface to the frontends (`sdevkit__vblank`, `sdevkit__render`, ...), not for games. Taken over from Blubber Blasen's `src/snes`; new against the game's copy: 16 x 16 background tiles, and row y of the picture is scanline y + 1 as on the SNES. |
+| `include/sdevkit/snes.h` | The console API's core ([ADR-6FNPPCSX](../docs/adr/6FNPPCSX-the-console-api-is-the-hardware-at-once-with.md)): the hardware at once. Every PPU register (`sdevkit_reg_write`, `sdevkit_reg_write_twice`, `SDEVKIT_PPU_*`, and macros that build values: `SDEVKIT_BGSC`, `SDEVKIT_OBSEL`, `SDEVKIT_OAM_ATTR`, ...), copies by DMA into VRAM, CGRAM and OAM (`sdevkit_dma`, `sdevkit_vram_copy`, `sdevkit_oam_copy`, ...), HDMA (`sdevkit_hdma_*`), sound effects (`sdevkit_sfx_*`), music (`sdevkit_music_*`), save RAM (`sdevkit_sram`), and the debug calls (`sdevkit_dbg_*`). |
+| `include/sdevkit/loop.h` | The frame rhythm: the library's main loop calls `game_init`, then per frame `game_tick(pad)` while the picture is drawn and `game_vblank` in the vertical blank, which every game defines; the joypads' bits `SDEVKIT_KEY_*`. The kit writes nothing in the vertical blank itself. |
+| `include/sdevkit/shadow.h`, `sprites.h`, `queue.h`, `input.h`, `easy.h` | The optional layers above the core, each opt-in: the registers and HDMA channels in memory with their marks (`sdevkit_ppu`, `sdevkit_hdma`, `sdevkit_marks`, `sdevkit_shadow_commit`), a sprite list (`sdevkit_sprite`, `sdevkit_sprites_commit`), an upload queue with a budget the SNES and the PC decide the same (`sdevkit_queue_*`), the buttons pressed since the last tick (`sdevkit_input_update`), and all of them with one commit (`easy.h`, `sdevkit_commit`). |
+| `include/sdevkit/irq.h` | The game's IRQ ([ADR-6FRX1GYC](../docs/adr/6FRX1GYC-the-game-s-irq-runs-at-a-picture-row-and-writes.md)), optional: `game_irq`, which the game defines with `DAMPF_INTERRUPT(irq)`, runs in the scanline before the row `sdevkit_irq_line` sets, while the picture is drawn, on the SNES and on Rachael; it reads its data, calls `sdevkit_irq_wait_hblank` and then writes registers, which show from that row on. Rachael counts a write before the wait as written while the picture is drawn. The time it has, measured in Mesen, is in the header. `sdevkit_irq_off`. |
+| `include/sdevkit/publish.h` | The data the tick publishes for interrupt code, and the kit's NMI ([ADR-6FPV1EQV](../docs/adr/6FPV1EQV-interrupt-code-reads-a-copy-of-the-tick-s-data.md), [ADR-6FRDS030](../docs/adr/6FRDS030-interrupt-code-reads-the-copy-of-the-tick-whose.md), [ADR-6FS0T4WB](../docs/adr/6FS0T4WB-the-kit-s-nmi-runs-the-vertical-blank-of-a-game.md)), optional. `SDEVKIT_PUBLISH(type, name, tick, vblank)` defines the game's struct, its two published copies, `game_tick`, which runs the game's tick and then copies the struct into the copy interrupt code does not read, the kit's NMI handler, which makes that copy the current one and then runs the game's vertical blank in every vertical blank, also while a tick overruns, and `game_vblank`, which on the SNES switches the NMI on and waits for it, and on the PC does its work itself; `SDEVKIT_PUBLISHED(name)` gives interrupt code (the game's IRQ and its vertical blank) the data of the tick whose vertical blank came last, complete. The vertical blank is interrupt code then: published data only, and running it again writes the same, which the desktop's check tests. Macros, and `sdevkit_publish_nmi_on` for the macro; the same C on every platform ([below](#the-published-datas-cost)). |
+| `doxygen/` | The HTML reference of the public headers: `doxygen lib/doxygen/Doxyfile` from the repository's top folder writes `build/doxygen/html/index.html` (the `Doxyfile` and the main page, `mainpage.md`). |
+| `layers/` | The optional layers' logic, the same on both platforms (`layers.h`, included by `snes/layers.c` and `rachael/layers.c`), written against the core; each platform adds the queue's commit, and Rachael the check of the marks. |
+| `snes/` | The SNES: the core in C with registers as `volatile` pointers (`snes.c`, `hw.h`), the layers (`layers.c`) and the main loop (`main.c`), compiled by dampf with the game. See its [README](snes/README.md). |
+| `rachael/` | The desktop and the web: [Rachael](#rachael), the SNES rebuilt in portable C (`ppu.c`: memories, ports, registers and the core; `render.c`; `layers.c`). `rachael.h` is its interface to the frontends (`sdevkit__vblank`, `sdevkit__render`, ...), not for games. Taken over from Blubber Blasen's `src/snes`; new against the game's copy: 16 x 16 background tiles, the ports of VRAM, CGRAM and OAM, and row y of the picture is scanline y + 1 as on the SNES. |
 | `sound/` | The sound effects' logic, the same on both (`sfx_voices.h`, included by `snes/sfx.c` and `rachael/sfx.c`; [docs/sound.md](../docs/sound.md)): the upload of the driver, the sample directory and the samples, the voices counted down in frames, the priorities, one key on per frame. The SNES sends the bytes through the ports to the SPC700, Rachael puts them into her audio RAM and her DSP (`rachael/dsp.c`). |
-| `desktop/` | The desktop's frontend (`main.c`, Linux and Windows): a window with raylib and the retro TV filter (`crt.c`, [RETRO-EFFECT.md](desktop/RETRO-EFFECT.md); Tab, `--no-crt`), `--mute` for a window without sound, `--seed N` for `game_init` and `--set name=value` for what the game registered with the debug view, before the first tick (a recording keeps both, and dampf's emulator refuses such a recording, since the SNES has neither), the keyboard and a gamepad as the joypad, the frame rhythm of `loop.h`; `--check check.txt` plays without a window and writes screenshots, the checksums and the sound (`sound.txt`: every DSP write; `--wav file`: the DSP's output). The window plays the sound through raylib's audio stream. Every session in the window is recorded (the joypad and the checksum of every tick): F11 flags the moment and saves it as `<game>_rec_<n>.txt`, in the format of `check.txt`; `--replay file` plays it in the window, pausing at its marks and at the first tick whose checksum differs, with F5 (pause), F6 (a tick) and F7 (fast); `--jump T` plays fast to tick T and pauses, and Shift+F6 goes a tick back (the program starts again and replays up to the tick before, so not on the web); `dev/replay.sh <rom> <recording>` plays it on the SNES side, in dampf's emulator. F1 opens the debug view beside the picture (`view.c`, ADR-6F3CK03Z): the run (pause, a tick, slow motion with F8, fast), what the game registered with `sdevkit_dbg_toggle`, `_range`, `_color` and `_action` to change while it runs, its boxes (`sdevkit_dbg_box`) over the picture, CGRAM, VRAM's tiles and the sprites; a change made there is noted in the recording, whose replay plays another game from there. `--view-shot file.png` draws the view after a check, in a hidden window. Save RAM (`sdevkit_sram`) is `<game>.srm` next to the program. Built by `superdevkit build linux` and `win64` (MSVC), and for the web by `superdevkit build web` (emcc) with `web/`. |
+| `desktop/` | The desktop's frontend (`main.c`, Linux and Windows): a window with raylib and the retro TV filter (`crt.c`, [RETRO-EFFECT.md](desktop/RETRO-EFFECT.md); Tab, `--no-crt`), `--mute` for a window without sound, `--seed N` for `game_init` and `--set name=value` for what the game registered with the debug view, before the first tick (a recording keeps both, and dampf's emulator refuses such a recording, since the SNES has neither), the keyboard and a gamepad as the joypad, the frame rhythm of `loop.h`; `--check check.txt` plays without a window and writes screenshots, the checksums and the sound (`sound.txt`: every DSP write; `--wav file`: the DSP's output); for a game that publishes it runs the vertical blank a second time after each tick and counts what that changes (`repeated`, `sdevkit/publish.h`). The window plays the sound through raylib's audio stream. Every session in the window is recorded (the joypad and the checksum of every tick): F11 flags the moment and saves it as `<game>_rec_<n>.txt`, in the format of `check.txt`; `--replay file` plays it in the window, pausing at its marks and at the first tick whose checksum differs, with F5 (pause), F6 (a tick) and F7 (fast); `--jump T` plays fast to tick T and pauses, and Shift+F6 goes a tick back (the program starts again and replays up to the tick before, so not on the web); `dev/replay.sh <rom> <recording>` plays it on the SNES side, in dampf's emulator. F1 opens the debug view beside the picture (`view.c`, ADR-6F3CK03Z): the run (pause, a tick, slow motion with F8, fast), what the game registered with `sdevkit_dbg_toggle`, `_range`, `_color` and `_action` to change while it runs, its boxes (`sdevkit_dbg_box`) over the picture, CGRAM, VRAM's tiles and the sprites; a change made there is noted in the recording, whose replay plays another game from there. `--view-shot file.png` draws the view after a check, in a hidden window. Save RAM (`sdevkit_sram`) is `<game>.srm` next to the program. Built by `superdevkit build linux` and `win64` (MSVC), and for the web by `superdevkit build web` (emcc) with `web/`. |
 | `web/` | What the web adds to the desktop's frontend ([ADR-6FCVAA30](../docs/adr/6FCVAA30-the-web-runs-the-desktop-s-frontend-which-waits.md)): the page (`shell.html`: the canvas fills the browser's window, a click starts the game, since the browser plays sound and gives the page the keyboard only after one, and the keys of the game and the debug view stay with it), and `web.c`: `desktop/main.c`'s loops wait there for the browser's frames (Asyncify), a clock of 60 ticks a second says how many ticks each frame runs; the save RAM is `/save/<game>.srm` in IndexedDB; F11's recording and F12's screenshot become downloads. The debug view (F1) and its run keys (F5 to F8) are only in `superdevkit build web --debug`, which also defines `SDEVKIT_WEB_DEBUG` for the game ([ADR-6FD7KEJV](../docs/adr/6FD7KEJV-on-the-web-the-debug-view-is-only-in-a-build-with.md)); a page built without it is ready to put online. `main` takes the desktop's options on the web too (not `--view-shot`): the page passes none, and the examples' test hands it a `--check` ([tools/web_check](../tools/web_check/README.md)). `superdevkit build web` writes `build/web/index.html` (with `index.js`, `index.wasm`, and `index.data` with the music), `superdevkit run web` serves it on this machine and opens the browser. |
 | `splash/` | The splash screen every game starts with (ADR-6F60Z5JJ and ADR-6F60ZA6T): its course (`splash.h`, included by both main loops) and the logo (`splash_logo.h`: BG1 tiles and the stars as sprites, made by `dev/art/splash.py` from the parts that `dev/art/splash_parts.py` cuts from `dev/art/splash/logo_source.png`). |
 | `C_STYLE.md` | How to write a game's C for dampf: rejected, allowed, slow, fast, no difference; its speed rules are measurements (`StyleGuideTest`). |
@@ -36,11 +41,12 @@ and calls the same console API as on the SNES, so the same source runs on the de
 browser, and gives the same picture as the SNES, pixel for pixel
 (`dev/compare_example.sh` checks it). Rachael also counts every byte the SNES would lose (written
 outside the vertical blank, or more than a vertical blank can copy), so what fits on the desktop
-fits on the console. She also counts every register write she does not draw (a mode other than
-1 and 7, mosaic, `SETINI`, direct colour, the ports of VRAM, CGRAM and OAM, which would go around
-her memories;
-`sdevkit__undrawn`): the SNES would show something else there, and the desktop check fails on it
-as on a lost byte.
+fits on the console, and every register or HDMA channel written while the picture is drawn, which
+the SNES would show from the line being drawn on (switching the screen off is allowed). She also
+counts every register write she does not draw (a mode other than 1 and 7, mosaic, `SETINI`,
+direct colour, `VMAIN`'s address remapping, a DMA from the PPU, indirect HDMA;
+`sdevkit__undrawn`): the SNES would show something else there, and the desktop check fails on
+each of them as on a lost byte.
 
 If you know Wine, Rachael is to the SNES what Winelib is to Windows. Wine runs Windows programs on
 Linux without emulating a PC: it implements the Windows API on Linux ("Wine Is Not an Emulator").
@@ -90,9 +96,14 @@ long Voight-Kampff test gives her away; the name is [ADR-6F60Z3ZB](../docs/adr/6
 - The library's own names are `static`, or `sdevkit__` (two underscores) when files share them,
   declared outside `include/`. No name of the kit starts with `game_`.
 - The library is ordinary code for dampf: the subset, `<stdint.h>` and `<dampf.h>`.
+- The public headers are the API's documentation: a game is written from them alone, so they
+  explain the hardware at the names that reach it (the picture, the frame, every register and its
+  bits, the formats of tiles, maps, colours and sprites, timing), in Doxygen comments, one for
+  every function, type, variable, field and macro (`LibDocTest`; where Doxygen is installed, it also
+  builds the HTML from them without a warning).
 
-`LibApiTest` checks that every function of `sdevkit/snes.h` is defined in `snes/` and in
-`rachael/`, and has its row here. `LibNamesTest` checks the names: every name of the public headers has the
+`LibApiTest` checks that every function of `sdevkit/snes.h` and of the layers' headers is defined
+in `snes/` and in `rachael/` (or in `layers/`, which both include), and has its row here. `LibNamesTest` checks the names: every name of the public headers has the
 prefix, and every external name in `lib/` is `sdevkit_*`, `sdevkit__*` or `main`.
 
 ## Built and stub, per function and platform
@@ -100,48 +111,42 @@ prefix, and every external name in `lib/` is `sdevkit_*`, `sdevkit__*` or `main`
 Desktop means `rachael/` with `desktop/` (Linux, Windows, and with `web/` the browser). The last column is what a call costs on the
 SNES: best to worst case in CPU cycles, calls included, from the timing report of a program that
 calls every function (`LibCostTest` writes it with `LIB_COSTS=update`, and fails when it is not
-today's). A DMA function also uses as many bytes of the vertical blank's 5,700 as it copies; those
-5,700 are what is left after the main loop's copy of the sprite table (544 bytes each frame).
+today's). A call with constants is often less: dampf inlines the small ones, and a register
+write with a constant register is one store. The layers' commits are in the next section.
 
 | Function | SNES | desktop | CPU cycles on the SNES |
 | --- | --- | --- | ---: |
-| `sdevkit_set_mode` | built | built | 45 |
-| `sdevkit_set_brightness` | built | built | 20 |
-| `sdevkit_set_screen_on` | built | built | 52 to unbounded |
-| `sdevkit_set_screen_off` | built | built | 20 |
-| `sdevkit_set_color_effect` | built | built | 36 |
-| `sdevkit_set_color_intensity` | built | built | 28 |
-| `sdevkit_set_palette_color` | built | built | 47 |
-| `sdevkit_dma_copy_vram` | built | built | 116 |
-| `sdevkit_dma_copy_vram_column` | built | built | 116 |
-| `sdevkit_dma_copy_cgram` | built | built | 100 |
-| `sdevkit_dma_clear_vram` | built | built | 111 |
-| `sdevkit_bg_set_gfx_ptr` | built | built | 75 |
-| `sdevkit_bg_set_map_ptr` | built | built | 35 |
-| `sdevkit_bg_set_scroll` | built | built | 78 |
-| `sdevkit_bg_set_enable` | built | built | 57 to 169 |
-| `sdevkit_bg_set_disable` | built | built | 60 to 172 |
-| `sdevkit_bg_set_enable_sub` | built | built | 57 to 169 |
-| `sdevkit_bg_set_disable_sub` | built | built | 60 to 172 |
-| `sdevkit_bg_init_tile_set` | built | built | 301 |
-| `sdevkit_bg_init_map_set` | built | built | 145 |
-| `sdevkit_oam_init` | built | built | 23 to 102,679 |
-| `sdevkit_oam_init_gfx_set` | built | built | 250 |
-| `sdevkit_oam_init_gfx_attr` | built | built | 41 |
-| `sdevkit_oam_set` | built | built | 293 to 405 |
-| `sdevkit_oam_set_xy` | built | built | 131 to 243 |
-| `sdevkit_oam_set_ex` | built | built | 76 to 188 |
-| `sdevkit_oam_set_visible` | built | built | 6 |
-| `sdevkit_oam_clear` | built | built | 19 to 102,675 |
 | `sdevkit_reg_write` | built | built | 25 |
-| `sdevkit_hdma_set` | built | built | 87 |
+| `sdevkit_reg_write_twice` | built | built | 43 |
+| `sdevkit_dma` | built | built (VRAM, CGRAM, OAM and the registers by their ports; from the PPU to memory is counted as undrawn) | 94 |
+| `sdevkit_vram_copy` | built | built | 116 |
+| `sdevkit_vram_column_copy` | built | built | 116 |
+| `sdevkit_vram_fill` | built | built | 120 |
+| `sdevkit_cgram_copy` | built | built | 100 |
+| `sdevkit_cgram_set` | built | built | 47 |
+| `sdevkit_oam_copy` | built | built | 104 |
+| `sdevkit_mode7_map_copy` | built | built | 116 |
+| `sdevkit_mode7_tiles_copy` | built | built | 116 |
+| `sdevkit_dma_fits` | built (from the line the picture is at) | built (from the bytes copied in this vertical blank) | 81 to 86 |
+| `sdevkit_hdma_set` | built | built (the direct modes; another is counted as undrawn) | 84 |
 | `sdevkit_hdma_enable` | built | built | 21 |
-| `sdevkit_dma_fits` | built | built | 81 to 86 |
-| `sdevkit_mode7_load_map` | built | built | 116 |
-| `sdevkit_mode7_load_tiles` | built | built | 116 |
-| `sdevkit_mode7_set_matrix` | built | built | 117 |
-| `sdevkit_mode7_set_center` | built | built | 65 |
-| `sdevkit_mode7_set_select` | built | built | 21 |
+| `sdevkit_irq_line` | built (the CPU's timer: VTIME, HTIME, NMITIMEN) | built (Rachael calls `game_irq` before the row) | 57 |
+| `sdevkit_irq_off` | built | built | 35 |
+| `sdevkit_irq_wait_hblank` | built (polls HVBJOY's horizontal blank) | built (notes that the handler waited: its register writes are free from then on) | 17 to unbounded |
+| `sdevkit_shadow_commit` | built | built (and counts a group changed without its mark) | 135 to 2,143 |
+| `sdevkit_sprite` | built | built | 21 to 133 |
+| `sdevkit_sprites_commit` | built | built | 60 to 560 |
+| `sdevkit_queue_dma` | built | built | 59 to 198 |
+| `sdevkit_queue_vram` | built | built | 29 |
+| `sdevkit_queue_vram_column` | built | built | 29 |
+| `sdevkit_queue_cgram` | built | built | 29 |
+| `sdevkit_queue_color` | built | built | 79 to 246 |
+| `sdevkit_queue_mode7_map` | built | built | 29 |
+| `sdevkit_queue_mode7_tiles` | built | built | 29 |
+| `sdevkit_queue_room` | built | built | 42 to 53 |
+| `sdevkit_queue_commit` | built | built | 48 to 3,672 |
+| `sdevkit_input_update` | built | built | 86 |
+| `sdevkit_commit` | built | built | 249 to 6,381 |
 | `sdevkit_sfx_init` | built | built | 51 to unbounded |
 | `sdevkit_sfx_play` | built | built | 39 to 158 |
 | `sdevkit_music_play` | empty, not built yet: dampf removes the calls (`DebugCallsTest`) | built (the track's file, over and over, in the window) | 6 |
@@ -158,3 +163,59 @@ today's). A DMA function also uses as many bytes of the vertical blank's 5,700 a
 | `sdevkit_dbg_box` | empty: dampf removes the calls, and the loops left empty | built (over the picture in the debug view) | 6 |
 | `sdevkit_dbg_fill` | empty: dampf removes the calls, and the loops left empty | built (a filled box in the debug view) | 6 |
 | `sdevkit_dbg_arrow` | empty: dampf removes the calls, and the loops left empty | built (an arrow in the debug view) | 6 |
+
+## The commit's time
+
+The kit writes nothing in the vertical blank; a game's `game_vblank` has all of it. The optional
+layers' commit (`sdevkit_commit`, `layers/layers.h`) is the one piece of the kit that runs there
+when a game calls it: a screen to be switched off goes off first, then the sprite list (up to four
+DMAs, 544 bytes at most), the registers of the groups marked, the queue, and INIDISP last. In CPU
+cycles on the SNES, from the timing report of `dev/commit_stress` (2026-11-25):
+
+| Part | Cycles |
+| --- | ---: |
+| `sdevkit_commit`, nothing marked, no sprite, nothing queued | 238 |
+| `sdevkit_shadow_commit`, every group and seven HDMA channels | 2,143 |
+| `sdevkit_sprites_commit`, at most | 560 |
+| `sdevkit_queue_commit`, a copy's setup | 153 |
+| `sdevkit_commit`'s worst case without the queue | 2,695 |
+
+What the queue may take follows from that worst case. The vertical blank is 37 lines of 1,364
+master cycles, less 40 a line for the DRAM's refresh: 48,988. The commit's worst case without the
+queue takes 18,865 of them at 7 master cycles a CPU cycle (code from FastROM at 6, data from WRAM
+at 8), the sprites' DMA 4,352 (8 a byte): 25,771 are left, 3,221 bytes of DMA. A copy's setup of
+153 cycles is 1,071 master cycles, as long as 134 bytes. Hence `SDEVKIT_QUEUE_BYTES` 3,072 and
+`SDEVKIT_QUEUE_COST` 136 (`sdevkit/queue.h`), with 149 bytes to spare, the same on the SNES and on
+Rachael, so both take and refuse the same copies. The numbers hold when the commit starts
+`game_vblank`; a game that does its own copies before it has less.
+
+`dev/commit_stress.sh` checks it on the console's time: a program whose every tick asks for the
+worst case (every group, the seven channels, the queue filled to its budget with 24 copies, then
+with one copy of all its bytes, in turn; the sprite list full, then empty, in turn) plays 600 ticks
+in Mesen. On 2026-11-25 no byte reached VRAM or OAM outside the vertical blank, the last DMA
+started on line 256, and the commit's last write (INIDISP) was on line 259 of the vertical blank's
+225 to 261. Run it again when the layers' code or dampf's code for it changes.
+
+## The published data's cost
+
+A game that publishes data for interrupt code (`sdevkit/publish.h`) pays for it after every tick:
+the copy of its struct into the copy interrupt code does not read, a loop of 21 cycles per two
+bytes through dampf's struct copy, and the write of the byte that marks it ready. In CPU cycles on
+the SNES, from the timing report of a tick that changes one word, against the same game without
+the header (2026-11-26):
+
+| Struct | Cycles after the tick |
+| --- | ---: |
+| 32 bytes | 411 |
+| 128 bytes | 1,419 |
+| 512 bytes | 5,451 |
+
+About 75 cycles and 10.5 a byte; a frame has about 50,000. And in every vertical blank the kit's
+NMI, which runs the game's vertical blank: 118 to 140 cycles beyond it, the entry stub's 102, the
+check of the ready byte and the switch, 16 cycles when there is nothing to switch and 38 when there
+is, and the call (2026-11-26). The RAM is two copies of the struct and three bytes, and a page for
+the NMI's direct page and frames, which the main code's frames lose
+([memory-map.md](../docs/memory-map.md#interrupt-contexts)). Interrupt code finds the current copy
+with a load and a branch (about 15 cycles in `SDEVKIT_PUBLISHED`) and then reads it indexed (`lda
+copy+n,x`, a cycle more per access than a global). A game that does not include the header pays
+nothing.

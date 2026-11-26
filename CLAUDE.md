@@ -5,8 +5,8 @@ C-subset compiler for the 65816 / SNES, written in Java. Two Gradle subprojects:
 whole kit, which run in the repository's top folder) and `cli/` (the `superdevkit` command, M7);
 `./gradlew installDist` writes the distribution to `build/install/superdevkit` (ADR-6F60Z9QJ), a
 superdevkit home that a game outside the repository uses (the book's Getting started).
-Read README.md first (what and why), then docs/roadmap.md (milestones and their state) and
-docs/architecture.md; the other docs are linked from the README.
+Read README.md first (what and why), then docs/roadmap.md (what comes next; what is done is in
+docs/history.md) and docs/architecture.md; the other docs are linked from the README.
 
 - Every change goes through a pull request (ADR-6FB9QJ3R): its own branch from `origin/develop`
   in its own worktree in `superdevkit-wt/` next to the main checkout, a pull request into
@@ -88,8 +88,8 @@ The steps are the `sker-pr` skill. For this project:
 - Release preparation: the version by the rule in the roadmap ("Versions", ADR-6F60ZDMF): the
   last number rises, the middle one when a milestone is concluded. `./gradlew checkBook`, then
   `/docs-gen stale` for the pages it lists, until `checkBook` passes (ADR-6F60ZB4N); the version
-  in `build.gradle.kts` and in the status line of `README.md`; a concluded milestone marked in
-  `docs/roadmap.md`; the release notes in `docs/releases/<version>.md` (ADR-6FHSWZ2F);
+  in `build.gradle.kts` and in the status line of `README.md`; a concluded milestone moved from
+  `docs/roadmap.md` to `docs/history.md` (ADR-6FK7WP0H); the release notes in `docs/releases/<version>.md` (ADR-6FHSWZ2F);
   `./gradlew build`. The release pull request says what a user of the kit notices: new features,
   changes to the command line, the subset, the files dampf writes.
 - After the tag: the tag starts `.github/workflows/release.yml`, which builds and checks the

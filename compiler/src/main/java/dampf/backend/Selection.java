@@ -11,6 +11,7 @@ import dampf.mir.MType;
 import dampf.mir.Printer;
 import dampf.mir.Ranges;
 import dampf.mir.Value;
+import dampf.target.SnesTarget;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -24,7 +25,8 @@ import java.util.Set;
  * What instruction selection from MIR shares: the places of the values, the code being written
  * and what the registers hold while it is written, and the helpers that write instructions,
  * operands and results. The selection of each kind of instruction lives in its own class
- * ({@link ArithSelection}, {@link BranchSelection}, {@link MemorySelection}, {@link CallSelection});
+ * ({@link ArithSelection}, {@link BranchSelection}, {@link MemorySelection}, {@link CallSelection},
+ * {@link SwitchSelection});
  * {@link SelectionPlan} decides beforehand, from the MIR, how values are kept. See {@link MirCodeGen}.
  */
 final class Selection {
@@ -35,6 +37,7 @@ final class Selection {
     final BranchSelection branch = new BranchSelection(this);
     final MemorySelection memory = new MemorySelection(this);
     final CallSelection calls = new CallSelection(this);
+    final SwitchSelection switches = new SwitchSelection(this);
 
     Selection(MirCodeGen gen) {
         this.gen = gen;
@@ -45,8 +48,6 @@ final class Selection {
     static final LOperand.Mem VIA_P = new LOperand.Mem(LOperand.Width.NONE, "dampf_ptr", 0, LOperand.Index.Y, true);
     static final LOperand.Mem VIA_Q = new LOperand.Mem(LOperand.Width.NONE, "dampf_ptr", 4, LOperand.Index.Y, true);
     static final String FRAME = "dampf_frame";
-    /** Where the frames start: the low RAM after the runtime's direct page registers (docs/memory-map.md). */
-    static final int FRAME_START = 0x20;
     final Set<String> rom = new HashSet<>();
 
     /** Position of every value, frame slot and φ "incoming" place in dampf_frame. */
@@ -106,15 +107,25 @@ final class Selection {
             gen.frameTotal = Math.max(gen.frameTotal, b + l.size);
         }
         gen.argumentsInPlace();
-        if (gen.frameTotal > MirCodeGen.MAX_FRAME) {
-            throw new IllegalStateException("the frames need " + gen.frameTotal + " bytes, more than " + MirCodeGen.MAX_FRAME);
+        if (gen.frameTotal > SnesTarget.MAX_FRAME) {
+            throw new IllegalStateException("the frames need " + gen.frameTotal + " bytes, more than " + SnesTarget.MAX_FRAME);
         }
     }
 
-    static LOperand.Mem at(int offset) {
-        // a word that lies in the direct page is reached with direct page addressing (D = 0)
-        // (ca65 takes dampf_frame for a zero page symbol, so the others need "a:")
-        return new LOperand.Mem(FRAME_START + offset + 1 < 0x100 ? LOperand.Width.DP : LOperand.Width.ABS, FRAME, offset,
+    /**
+     * The symbol of the current function's absolute frame addresses ({@link MirCodeGen#frameSymbol}):
+     * {@code dampf_frame} in the main code, {@code dampf_frame_irq} in the IRQ context.
+     */
+    String absFrame = FRAME;
+    /** The current function runs in an interrupt context: no hardware multiplier (ADR-6FM9TXV4). */
+    boolean interrupt;
+
+    LOperand.Mem at(int offset) {
+        // a word that lies in the direct page is reached with direct page addressing, relative to
+        // the context's direct page (D = 0 in the main code); the others absolutely, in the
+        // context's area (ca65 takes dampf_frame for a zero page symbol, so they need "a:")
+        boolean dp = SnesTarget.inDirectPage(offset, 2);
+        return new LOperand.Mem(dp ? LOperand.Width.DP : LOperand.Width.ABS, dp ? FRAME : absFrame, offset,
                 LOperand.Index.NONE, false);
     }
 
@@ -138,9 +149,9 @@ final class Selection {
             case Value.Undef u -> imm(0);
             case Value.GlobalAddr g -> rom.contains(g.symbol())
                     ? (w == 0 ? new LOperand.Imm(".loword(" + g.symbol() + ")") : new LOperand.Imm("^" + g.symbol()))
-                    : (w == 0 ? new LOperand.Imm(".loword(" + g.symbol() + ")") : imm(0x7E));
-            case Value.SlotAddr s -> w == 0 ? new LOperand.Imm(".loword(" + FRAME + "+" + place.get(s.slot()) + ")",
-                    new LOperand.Owner(s.slot(), false, 0)) : imm(0x7E);
+                    : (w == 0 ? new LOperand.Imm(".loword(" + g.symbol() + ")") : imm(SnesTarget.VARIABLE_BANK));
+            case Value.SlotAddr s -> w == 0 ? new LOperand.Imm(".loword(" + absFrame + "+" + place.get(s.slot()) + ")",
+                    new LOperand.Owner(s.slot(), false, 0)) : imm(SnesTarget.FRAME_BANK);
             case Value.Param p -> w >= words(p.type()) ? imm(0) : placeOf(p, w);
             case Instr i when FrameLayout.transparent(i) -> w >= words(i.type()) ? imm(0) : operand(i.op(0), w);
             case Instr i -> w >= words(i.type()) ? imm(0) : placeOf(i, w);
@@ -194,15 +205,24 @@ final class Selection {
     /** A memory operand for byte {@code k} of the object at a fixed address, or null if the address is not fixed. */
     LOperand.Mem fixed(Value address, int k) {
         return switch (address) {
-            case Value.GlobalAddr g -> new LOperand.Mem(rom.contains(g.symbol()) ? LOperand.Width.LONG : LOperand.Width.NONE,
+            case Value.GlobalAddr g -> new LOperand.Mem(width(rom.contains(g.symbol()) ? SnesTarget.romData() : SnesTarget.variable()),
                     g.symbol(), k, LOperand.Index.NONE, false);
             case Value.SlotAddr s -> at(place.get(s.slot()) + k).owned(new LOperand.Owner(s.slot(), false, k));
-            // a number made into a pointer (a hardware register): long addressing, since the data
-            // bank is $7E and an absolute $210B would reach WRAM
-            case Value.Const c -> new LOperand.Mem(LOperand.Width.LONG, String.format("$%06X", (c.bits() + k) & 0xFFFFFF), 0,
-                    LOperand.Index.NONE, false);
+            // a number made into a pointer (a hardware register): as the target reaches numbers
+            case Value.Const c -> number(c.bits() + k);
             default -> null;
         };
+    }
+
+    /** The operand width for memory the target reaches so: long, or left to the assembler (absolute). */
+    static LOperand.Width width(SnesTarget.Reach reach) {
+        return reach == SnesTarget.Reach.LONG ? LOperand.Width.LONG : LOperand.Width.NONE;
+    }
+
+    /** The operand for an address given as a number (a hardware register), {@link SnesTarget#number}. */
+    static LOperand.Mem number(long address) {
+        return new LOperand.Mem(width(SnesTarget.number()), String.format("$%06X", address & 0xFFFFFF), 0,
+                LOperand.Index.NONE, false);
     }
 
     /** Copies a pointer into the direct page for [dp],y. */

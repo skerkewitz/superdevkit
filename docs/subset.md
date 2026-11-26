@@ -106,7 +106,8 @@ only, see below), `void`, pointers, arrays (also multi-dimensional), pointers to
 well; the one exception is `int main(void)`, which the PC build needs (on the SNES the return value
 is ignored). There are no 64-bit types (`<stdint.h>` has no `uint64_t`). Also rejected today:
 `restrict`, `register`, enums with a fixed underlying type, flexible array members, anonymous
-struct members, typedefs of function types, and attributes other than `DAMPF_BUDGET`. Plain
+struct members, typedefs of function types, and attributes other than those of `DAMPF_BUDGET`,
+`DAMPF_ASM` ([hints.md](hints.md)) and `DAMPF_INTERRUPT`. Plain
 integer types are rejected because their size differs between compilers: `int` is 32 bit on the
 PC and 16 bit with the other 65816 compilers (816-tcc, Calypsi). dampf itself gives `int` its PC
 meaning in the integer promotions, but game code says what width it means.
@@ -118,6 +119,29 @@ shift. A constant that is a 64-bit `long` on the PC (such as `3000000000` writte
 is rejected. dampf gets the same results on the 65816 and narrows operations only where it can
 prove the result is identical. dampf ships its own `<stdint.h>` with the same underlying types as the
 PC (`int32_t` is `int`), so the types mean the same thing on both sides.
+
+**Warnings.** Where gcc warns without any warning option, dampf is to warn too, in gcc's form,
+and the build goes on; `dampf build` and `dampf check` print the warnings. So far there is one,
+gcc's `-Woverflow` on a constant converted to an integer type that cannot hold it, in an
+initializer, an assignment, an argument or a return value. `uint8_t wait[] = { 420 };` stores
+164 on both sides, and dampf says
+
+```
+cat.c:2:20: warning: unsigned conversion from 'int32_t' to 'uint8_t' changes value from '420' to '164' [-Woverflow]
+```
+
+The rule is gcc's: a constant gets the warning only when the type cannot hold it as a signed or
+as an unsigned number of its width. `uint8_t x = -1` and `int8_t y = 255` (or `0x80`) are
+silent, `uint8_t x = 256`, `uint8_t x = -129` and `uint16_t z = 65536` are not. A constant is
+what dampf folds: literals, enumerators, macros, and arithmetic, casts and `?:` on them; a
+`const` variable is not one. A cast to the target type says the truncation is meant and silences
+the warning. gcc is also silent in code that is never evaluated (the operand of `sizeof`, the
+right side of `0 &&`, the branch of `?:` that a constant condition does not take) and when the
+constant overflowed while it was folded (`2147483647 + 1`), and so is dampf.
+`ConversionWarningTest` compiles a file of cases with dampf and gcc and compares where each
+warns. gcc folds a little more than dampf (`n * 0 + 300`, `n ? 300 : 300`), so there gcc warns
+and dampf does not. gcc's warning about the overflow itself (`integer overflow in expression`)
+is not built yet, and neither are gcc's other default warnings.
 
 **Functions.** No recursion (the checker names the cycle), no variadic functions, no `inline`
 requirement (inlining is the compiler's decision; `inline` is accepted and ignored), structs only
@@ -132,7 +156,9 @@ by design, but not built until something needs them.
 known at compile time.
 
 **Statements.** Everything in C99 except `goto`, labels, `setjmp`/`longjmp` and variable-length
-arrays (`goto` is decision 4 below, decided). Inline assembly is rejected too.
+arrays (`goto` is decision 4 below, decided). Inline assembly is rejected too; a whole function
+can be written in assembly in a file of its own, with its C body kept as the specification that
+dampf checks it against (`DAMPF_ASM`, [hints.md](hints.md)).
 
 **Expressions.** Everything in C99 except compound literals and the comma operator outside the
 first and third part of a `for`. A compound assignment whose left side has side effects
@@ -152,6 +178,34 @@ truncates that number. On the PC the number is something else, so only distances
 object agree between both sides (`exec/pointer_to_int.c`). The SNES platform layer in
 `lib/snes` is written this way. The checker does not tell platform code from game code: a
 cast from an integer to a pointer is accepted anywhere.
+
+**Interrupt handlers.** A game has an IRQ, `game_irq` (`sdevkit/irq.h`, ADR-6FRX1GYC), which
+runs at a row of the picture on the SNES and on Rachael. The NMI is the kit's: a game that
+publishes its data (`sdevkit/publish.h`) gets it, and it runs the game's vertical blank
+(ADR-6FS0T4WB).
+`DAMPF_INTERRUPT(nmi)` or `DAMPF_INTERRUPT(irq)` from `<dampf.h>`, in front of a function
+definition, makes the function the handler of that interrupt. It must be `void name(void)`, there
+is at most one per interrupt, the hardware calls it through the runtime's entry stub and C code
+never does. The handler and every function it calls form a context of their own, with their own
+frames, direct page and scratch registers, and they multiply without the CPU's multiplier
+(ADR-6FM9TXV4, [memory-map.md](memory-map.md#interrupt-contexts)). A function called from two
+contexts (the main code and a handler, or both handlers) is compiled once for each, every copy
+with frames in its own context; a `static` local of it, the globals and string literals stay one
+object for all copies (ADR-6FQ4NSHE). The copy is named after its context: `clamp@irq` in
+messages, `__irq_clamp` in the timing report and in Mesen. A function written in assembly (`DAMPF_ASM`,
+`--replace`) cannot be reached from a handler yet ([hints.md](hints.md)). On the PC the macro is empty and the handler is an
+ordinary function, which the program may call itself in code dampf does not compile
+(`#ifndef __DAMPF__`: `exec/interrupts.c` does, to compute the handlers' results there). A call of
+a handler that dampf sees is an error, also in the branch of `DAMPF_HAS_INTERRUPTS` not taken, so
+that branch calls what the handler calls. A handler reads the game's data through the copy the tick publishes
+(`sdevkit/publish.h`, ADR-6FPV1EQV, ADR-6FRDS030): one struct, copied after every tick into a copy
+no handler reads and switched to in the vertical blank, which a handler always finds complete, and
+writes no game state. `DAMPF_HAS_INTERRUPTS` from `<dampf.h>` is 1 with dampf and 0 on the PC,
+where nothing calls a handler: code that leaves a job to a handler on the SNES and does it itself
+on the PC asks it, and dampf drops the branch not taken (`sdevkit/publish.h`'s `game_vblank`,
+ADR-6FS0T4WB). dampf keeps every store in the program's order and
+removes none, and never reuses or hoists a volatile load; the kit's publishing relies on that
+(`exec/published.c`).
 
 **Library.** `<stdint.h>`, `<dampf.h>` (the hints) and `<string.h>` with `memset` and `memcpy`,
 which take a byte value and a 16-bit size, since there is no plain `int` and no object is larger
@@ -178,18 +232,20 @@ example).
 bounds, placement). In the dampf build they expand to built-ins, in the PC build to checked
 assertions or nothing. See [hints.md](hints.md).
 
-**Intrinsics.** For the SNES hardware: hardware multiply and divide, DMA, waiting for vertical
-blank, placing constant data in ROM banks. In the PC build they are plain functions. Not built
-yet.
+**Intrinsics.** None. The hardware's arithmetic is used by dampf itself (the CPU's multiplier
+for every product of two variables; the divider is planned, chosen by value range, in M12 of the
+[roadmap](roadmap.md)); DMA and the wait for the vertical blank are calls of the console API;
+dampf places constant data in its ROM banks itself.
 
 ## Decisions
 
-Decisions 1 to 3 are open; each has a recommendation, which dampf implements until it is
-decided. Decisions 4 and 5 are decided. What dampf does today:
+Decision 3 is open; it has a recommendation, which dampf implements until it is
+decided. Decisions 1, 2, 4 and 5 are decided. What dampf does today:
 
-- decision 1: plain `char` is a signed 8-bit type; the restriction to text is not enforced yet;
-- decision 2: both code generators store enum objects in 4 bytes, like the PC, and the checker
-  accepts any integer stored into an enum object; narrowing them is an optimization, not built;
+- decision 1: plain `char` is a signed 8-bit type for text: a `char` value is only copied,
+  tested for zero and compared with `==` and `!=` ([ADR-6FM063YZ](adr/6FM063YZ-plain-char-is-text-a-char-value-is-only-copied.md));
+- decision 2: an enum object takes only enumerators and values of its enum, and both code
+  generators store it in the smallest width that holds its enumerators ([ADR-6FKZFDJ3](adr/6FKZFDJ3-enum-objects-take-only-values-of-their-enum-and.md));
 - decision 3: pointers are 4 bytes in memory (address, bank, a zero byte) with both code
   generators; the code generator from MIR turns a pointer into one object into a 16-bit offset
   within a function and through parameters ([optimizations.md](optimizations.md#pointer-compression)); 16-bit
@@ -197,17 +253,31 @@ decided. Decisions 4 and 5 are decided. What dampf does today:
 - decision 4: `goto` and labels are rejected ([ADR-6F3CJVHC](adr/6F3CJVHC-goto-and-labels-stay-rejected-and-a-forward-and.md));
 - decision 5: a `sizeof` that differs from the PC is rejected, except the element count.
 
-1. **Plain `char` for text.** The game uses `char` only for strings and name buffers. Plain
-   `char` is signed with gcc and clang on x86-64 and with MSVC, unsigned on ARM. Recommendation:
-   allow `char` and give it the x86-64 meaning (signed 8 bit), and have the checker reject
-   arithmetic on `char` beyond comparisons and copying, so the signedness can never change a
-   result. The alternative is a `typedef uint8_t text_t` in the game, which touches 27 places.
+1. **Plain `char` for text** (decided 2026-11-24). The game uses `char` only for strings and
+   name buffers. Plain `char` is signed with gcc and clang on x86-64 and with MSVC, unsigned on
+   ARM. `char` keeps the x86-64 meaning (signed 8 bit), and the front end lets a `char` value be
+   used only where its signedness cannot change the result. Allowed: copying it (assignment,
+   parameters, results, arrays, string literals), storing any number into a `char`, converting
+   it to another 8-bit type (`uint8_t u = c`, `(int8_t)c`), testing it for zero (`if (c)`,
+   `while (*s)`, `!c`), `==` and `!=` against another `char` or a constant from 0 to 127, and a
+   `switch` whose case values are all from 0 to 127. Rejected: arithmetic, shifts and bit
+   operations, `<`, `<=`, `>`, `>=`, `++`, `--` and compound assignment on a `char`, a `char`
+   as an index or a pointer offset, a conversion or cast to a wider type (`int16_t x = c`), and
+   a `?:` with a `char` branch. Digit arithmetic is rejected too: `c - '0'` is written
+   `(uint8_t)c - '0'`. The message says the same: "plain char is text, ... use uint8_t or int8_t
+   for a number, or cast the char: (uint8_t)c". ADR
+   [ADR-6FM063YZ](adr/6FM063YZ-plain-char-is-text-a-char-value-is-only-copied.md), with the options weighed.
 
-2. **Size of enum-typed objects.** On the PC an `enum` object is 4 bytes. dampf wants 1 byte for
-   `g_state`. Recommendation: the checker allows only enumerators of the same enum (or values of
-   that enum type) to be stored into an enum-typed object; then storing it in the smallest width
-   that holds all enumerators gives the same behaviour. The game already keeps to it: `g_state`
-   is assigned in three places, always a `GameState` value.
+2. **Size of enum-typed objects** (decided 2026-11-24). On the PC an `enum` object is 4 bytes;
+   dampf wanted 1 byte for `g_state`. The checker allows only enumerators of the same enum and
+   values of that enum type to be stored into an enum object, and a cast to an enum only from
+   such a value or from a constant that is one of its enumerators; `++`, `--` and compound
+   assignments on an enum object are rejected. dampf stores the object in the smallest width
+   that holds all enumerators: unsigned 8 or 16 bit, or signed when an enumerator is negative,
+   32 bit only beyond that. Its value is still promoted to `unsigned int` or `int` as on the PC.
+   So `sizeof` of an enum object now differs from the PC and is rejected (decision 5), except
+   the element count. The game keeps to the rule: `g_state` is assigned in three places, always
+   a `GameState` value. The rule with the options weighed: [ADR-6FKZFDJ3](adr/6FKZFDJ3-enum-objects-take-only-values-of-their-enum-and.md).
 
 3. **Pointer width.** The `LevelDef` pointer fields and the `const char *` string tables point
    into ROM, and the ROM data is larger than one bank (the PVSnesLib build has 310 KB of ROM).
@@ -236,7 +306,8 @@ Very little:
 2. `BB_FAST` in `internal.h` expands to `__attribute__((tiny))` for Calypsi and to nothing
    otherwise. It needs a `__DAMPF__` branch that expands to `DAMPF_DP` ([hints.md](hints.md))
    once that hint is built.
-3. If decision 1 goes the other way: replace `char` in the 27 text declarations.
+3. Where the game computes with a `char` (a tile number from a letter, the value of a digit),
+   cast it to `uint8_t` first (decision 1). dampf names each place.
 
 Generated data (`build/generated/level_data.c`, `gfx_data.c`) is plain `const` C arrays and fits
 the subset. For the PVSnesLib and Calypsi builds, `map2c --snes` and `gfx2c --snes` write the

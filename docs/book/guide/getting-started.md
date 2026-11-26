@@ -40,17 +40,17 @@ Download the zip for your system from the
 folder, `superdevkit-<version>`, and that folder is the superdevkit home.
 
 This page writes `<home>` for that folder. Put `<home>/bin` on your `PATH`. On Linux, for a home
-in `~/superdevkit-0.9.2`, add this line to `~/.bashrc` (or your shell's start-up file):
+in `~/superdevkit-0.10.0`, add this line to `~/.bashrc` (or your shell's start-up file):
 
 ```sh
-export PATH="$HOME/superdevkit-0.9.2/bin:$PATH"
+export PATH="$HOME/superdevkit-0.10.0/bin:$PATH"
 ```
 
 On Windows, for a home in your user folder, run this line once in PowerShell. It adds the folder
 to your user's `PATH`, which every new window then has:
 
 ```powershell
-[Environment]::SetEnvironmentVariable("Path", "$HOME\superdevkit-0.9.2\bin;" + [Environment]::GetEnvironmentVariable("Path", "User"), "User")
+[Environment]::SetEnvironmentVariable("Path", "$HOME\superdevkit-0.10.0\bin;" + [Environment]::GetEnvironmentVariable("Path", "User"), "User")
 ```
 
 The page writes `superdevkit` and `dampf` without their folder from here on. Check that a new
@@ -61,7 +61,7 @@ superdevkit --version
 ```
 
 ```
-superdevkit 0.9.2
+superdevkit 0.10.0
 ```
 
 From a checkout of the repository, with JDK 25 or newer, `./gradlew installDist` writes a home
@@ -79,15 +79,16 @@ The tests run with `./gradlew build`, which you need only when you work on the k
 | `java/` | the jars of the two programs and of what they depend on |
 | `raylib/` | raylib for this system and for the web, ready-built |
 | `include/` | dampf's own headers: `<stdint.h>`, `<string.h>` and `<dampf.h>` |
-| `lib/` | the kit's library: the headers of the [console API](/glossary#console-api) (`include/`), the SNES side (`snes/`), the desktop and web side (`rachael/`, `desktop/`, `web/`), the sound effects (`sound/`), the splash screen; `C_STYLE.md` and `SNES_HARDWARE.md` |
-| `tools/` | tools for game developers: `brr_lab.html`, the editor of a game's sound effects, `sdevkit_rename.py` and `web_check` |
+| `lib/` | the kit's library: the headers of the [console API](/glossary#console-api) (`include/`), the SNES side (`snes/`), the desktop and web side (`rachael/`, `desktop/`, `web/`), the optional layers' logic (`layers/`), the sound effects (`sound/`), the splash screen, the setup of the headers' HTML reference (`doxygen/`); `C_STYLE.md` and `SNES_HARDWARE.md` |
+| `tools/` | tools for game developers: `brr_lab.html`, the editor of a game's sound effects, and `web_check` |
 | `examples/` | the kit's examples to read and copy, each with a `README.md` and a `superdevkit.toml` |
 | `dev/` | `replay.sh`, which plays a desktop recording on the SNES side |
 | `docs/` | this book, as Markdown files that link to each other |
 
 The two include folders are easy to mix up: `<home>/include` holds dampf's own headers, which
-take the place of the PC's, and `<home>/lib/include` the console API a game calls,
-`sdevkit/snes.h` and `sdevkit/loop.h`.
+take the place of the PC's, and `<home>/lib/include` the console API a game calls:
+`sdevkit/snes.h`, `sdevkit/loop.h` and the optional layers above them, such as
+`sdevkit/easy.h`.
 
 The `README.md` at the top of the home points to this page, and the file `VERSION` holds the
 kit's version. A home written by `./gradlew installDist` has no `jre/`, `raylib/` or `VERSION`:
@@ -122,7 +123,7 @@ such as `superdevkit init mygame --from catchme`. The folder is a copy of the ex
 # hello's project file (superdevkit.toml, ADR-6F3CJZBY): superdevkit build snes makes the ROM,
 # superdevkit run plays it on the desktop.
 name = "mygame"
-superdevkit = "0.9"                # the kit's version this game is built with
+superdevkit = "0.10"                # the kit's version this game is built with
 sources = ["src"]
 
 [graphics]
@@ -131,10 +132,10 @@ tiles = ["assets/font_gfx.png", "assets/ball_gfx.png"]
 
 In the project file, `name` names the ROM and the programs, `sources` the game's C files and
 folders, and `[graphics]` the PNG files the build converts into C. The line
-`superdevkit = "0.9"` says which kit builds the game: the `superdevkit` command takes its own
+`superdevkit = "0.10"` says which kit builds the game: the `superdevkit` command takes its own
 home, and refuses a game that asks for another version. In the home, the examples have
 `kit = "../.."` there instead, the kit two folders up; a plain copy of `<home>/examples/hello`
-works as well once that line is replaced by `superdevkit = "0.9"`.
+works as well once that line is replaced by `superdevkit = "0.10"`.
 
 Build the ROM, in the game's folder:
 
@@ -158,23 +159,27 @@ main loop in `lib/snes/main.c`. It calls three functions that every superdevkit 
 ```c
 void game_init(uint16_t seed)                    /* once, with the screen off */
 {
-    /* ... graphics into VRAM, palettes into CGRAM, the text, the screen on */
+    /* ... registers in sdevkit_ppu, graphics into VRAM and CGRAM, the text, the screen on */
 }
 
 void game_tick(const uint16_t pad[SDEVKIT_PADS]) /* once per frame */
 {
-    /* ... move the ball by pad[0], write its position, place the sprite */
+    /* ... move the ball by pad[0], write its position, queue the map, place the sprite */
 }
 
 void game_vblank(void)                           /* in the vertical blank */
 {
-    /* ... copy the changed background map into VRAM */
+    sdevkit_commit();
 }
 ```
 
 A [tick](/glossary#tick), one call of `game_tick`, runs while the picture is drawn, and
 `game_vblank` runs in the [vertical blank](/glossary#vertical-blank), the only time the SNES
-takes new data for the picture. [The console API](/reference/console-api) describes these
+takes new data for the picture. The example uses the kit's optional layers (`sdevkit/easy.h`), so
+it needs no rule of the vertical blank: the tick prepares the next picture in RAM (the
+[PPU](/glossary#ppu)'s registers in `sdevkit_ppu`, the sprite, the copy of the changed map it
+queues), and `sdevkit_commit` writes all of it into the PPU. A game that wants every cycle writes
+the hardware itself in `game_vblank`. [The console API](/reference/console-api) describes these
 functions and the calls the game makes in them.
 
 ## What you get
@@ -282,7 +287,7 @@ the same for the SNES and every other target. A header such as `<stdio.h>`, adde
 `src/hello.c` after `<stdint.h>`, stops the build:
 
 ```
-error: dampf: ~/mygame/src/hello.c:14:10: error: stdio.h: No such file or directory
+error: dampf: ~/mygame/src/hello.c:20:10: error: stdio.h: No such file or directory
 ```
 
 The desktop build compiles the game without the PC's headers too, so `cc` reports the same.
@@ -298,7 +303,7 @@ static float ball_speed = 2.0f;
 Now `superdevkit build snes` stops with the first error:
 
 ```
-error: dampf: ~/mygame/src/hello.c:30:1: error: 'float' is not supported: dampf has no floating point
+error: dampf: ~/mygame/src/hello.c:36:1: error: 'float' is not supported: dampf has no floating point
 ```
 
 To see every error of every file at once, run `dampf check`, which runs only the
@@ -309,14 +314,16 @@ dampf check @build/snes/mygame.args
 ```
 
 ```
-FAILS   ~/mygame/src/hello.c:30:1: error: 'float' is not supported: dampf has no floating point
+FAILS   ~/mygame/src/hello.c:36:1: error: 'float' is not supported: dampf has no floating point
 ok      ~/mygame/build/gen/ball_gfx.c
 ok      ~/mygame/build/gen/font_gfx.c
+ok      <home>/lib/snes/irq.c
+ok      <home>/lib/snes/layers.c
 ok      <home>/lib/snes/main.c
 ok      <home>/lib/snes/sfx.c
 ok      <home>/lib/snes/snes.c
-5 of 6 file(s) pass the front end
-FAILS   <home>/lib/snes/main.c:44:5: error: function 'game_vblank' is called but never defined   (the 5 file(s) together)
+7 of 8 file(s) pass the front end
+FAILS   <home>/lib/snes/main.c:42:5: error: function 'game_vblank' is called but never defined   (the 7 file(s) together)
 ```
 
 It checks every file alone, then the files that passed together, as one program. The last line

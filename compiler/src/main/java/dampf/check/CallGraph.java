@@ -3,6 +3,7 @@ package dampf.check;
 import dampf.ast.Children;
 import dampf.ast.Expr;
 import dampf.ast.Function;
+import dampf.ast.Interrupt;
 import dampf.ast.Program;
 import dampf.ast.Stmt;
 import dampf.frontend.CompileError;
@@ -77,6 +78,86 @@ public final class CallGraph {
         path.removeLast();
         state.put(f, 2);
         return null;
+    }
+
+    /**
+     * The program's interrupt handlers (DAMPF_INTERRUPT), by interrupt, after the checks that
+     * make the contexts well formed: the entry function is no handler, each interrupt has at most
+     * one, and no C code calls one (ADR-6FM9TXV4). Each handler is the root of a context; a
+     * function that several contexts reach gets a copy per context ({@link ContextCopies}).
+     */
+    public Map<Interrupt, Function> handlers(Function entry) throws CompileError {
+        if (entry.interrupt() != null) {
+            throw new CompileError(entry.definitionPos(), "the entry function '" + entry.name()
+                    + "' cannot be an interrupt handler (DAMPF_INTERRUPT)");
+        }
+        Map<Interrupt, Function> handlers = new java.util.EnumMap<>(Interrupt.class);
+        for (Function f : calls.keySet()) {
+            if (f.interrupt() == null) {
+                continue;
+            }
+            Function first = handlers.putIfAbsent(f.interrupt(), f);
+            if (first != null) {
+                throw new CompileError(f.definitionPos(), "'" + f.name() + "' is a second " + f.interrupt().name()
+                        + " handler; the first is '" + first.name() + "' at " + first.definitionPos());
+            }
+        }
+        for (Function f : calls.keySet()) {
+            for (Edge e : callsFrom(f)) {
+                if (e.callee().interrupt() != null) {
+                    throw new CompileError(e.pos(), "'" + e.callee().name() + "' is " + e.callee().interrupt().handler()
+                            + " (DAMPF_INTERRUPT): the hardware calls it, C code cannot");
+                }
+            }
+        }
+        return handlers;
+    }
+
+    /** Every function root reaches, root included, in the order they are first reached. */
+    public java.util.Set<Function> reached(Function root) {
+        return java.util.Collections.unmodifiableSet(reach(root).keySet());
+    }
+
+    /** The way from root to f, a function root reaches: the names joined by arrows. */
+    public String pathTo(Function root, Function f) {
+        return names(path(f, reach(root)));
+    }
+
+    /** Every function root reaches, root included, with the edge it was first reached by (null for root). */
+    private Map<Function, Edge> reach(Function root) {
+        Map<Function, Edge> seen = new LinkedHashMap<>();
+        seen.put(root, null);
+        java.util.ArrayDeque<Function> work = new java.util.ArrayDeque<>(List.of(root));
+        Map<Function, Function> parent = new HashMap<>();
+        while (!work.isEmpty()) {
+            Function f = work.poll();
+            for (Edge e : callsFrom(f)) {
+                if (!seen.containsKey(e.callee())) {
+                    seen.put(e.callee(), e);
+                    parent.put(e.callee(), f);
+                    work.add(e.callee());
+                }
+            }
+        }
+        parents.put(root, parent);
+        return seen;
+    }
+
+    private final Map<Function, Map<Function, Function>> parents = new HashMap<>();
+
+    /** The way from the root of {@code reached} to f. */
+    private List<Function> path(Function f, Map<Function, Edge> reached) {
+        Function root = reached.entrySet().stream().filter(e -> e.getValue() == null).findFirst().orElseThrow().getKey();
+        Map<Function, Function> parent = parents.get(root);
+        List<Function> p = new ArrayList<>();
+        for (Function x = f; x != null; x = parent.get(x)) {
+            p.addFirst(x);
+        }
+        return p;
+    }
+
+    private static String names(List<Function> path) {
+        return String.join(" → ", path.stream().map(Function::name).toList());
     }
 
     private static void collect(Stmt s, List<Edge> out) {

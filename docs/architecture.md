@@ -2,7 +2,7 @@
 
 How dampf is built: the pipeline from C source to ROM, the intermediate representations, the
 split between the 65816 core and the SNES target, and what the generated assembly looks like.
-Milestone state is in [roadmap.md](roadmap.md).
+What comes next is in [roadmap.md](roadmap.md), what is done in [history.md](history.md).
 
 ## Where the code stands
 
@@ -23,11 +23,21 @@ loops over bytes in 8 bits from entry to exit (`ByteLoops`), drop a
 reads (`DeadStores`), choose the branch forms (`BranchRelax`) and number the local labels
 (`LocalLabels`); `Timing` gives the best and worst case on the LIR. The way there is in
 [archive/transition-to-lir.md](archive/transition-to-lir.md). The naive code generator works on the AST and stays the reference for optimized
-builds (`--backend naive`; `--replace` works only with it; see [testing.md](testing.md)).
+builds (`--backend naive`; see [testing.md](testing.md)).
+
+A function can be written by hand in assembly (`DAMPF_ASM`, or `--replace` on the command line;
+[hints.md](hints.md)). `dampf.asm.AsmFunction` reads its file with dampf's assembler, follows the
+machine code from its label (control flow, register widths, the stack) and gives its cycles and
+the bytes of its locals; `dampf.AsmFunctions` finds and analyses the program's assembly functions.
+In MIR such a function is a stand-in (`MFunction.isAsm`) that the passes do not look into, and
+`MirCodeGen` reserves its frame from `dampf_frame` and exports its parameters' places instead of
+writing code; the naive generator puts the frame at the same place. The C body is lowered as well,
+under another label, and `dampf.emu.AsmCheck` runs it against the assembly in a second ROM that
+`RomBuilder.linkInMemory` links without writing files.
 
 The MIR passes (`dampf.mir.Optimizer`): simplification (`Simplify`), tests against neighbouring
 constants as one range check (`RangeChecks`), a bit chosen by a bit
-(`BitSelect`), 8.8 values read as bytes (`ByteLoads`), width narrowing (`Narrow`, and
+(`BitSelect`), 8.8 values and values written in halves read as bytes (`ByteLoads`), width narrowing (`Narrow`, and
 `RangeNarrow` with the value ranges of `Ranges`), loop-invariant code (`Licm`), induction
 variables (`Induction`), pointer compression (`PointerOffsets`), multiplication and division by
 constants (`StrengthReduce`), common subexpressions and redundant loads (`Gvn`), dead code
@@ -38,11 +48,32 @@ index parameters as their product (`IndexParams`), and the passes once more; the
 only combined bit by bit as two 16-bit values (`SplitWords`) and a 32-bit comparison with a sum
 of 16-bit values as a 16-bit one (`CompareSum`), each followed by the passes on what it changed;
 last, comparisons next to the branches that use them (`SinkCompares`) and the order of the
-instructions for the code generator (`Schedule`). The
+instructions for the code generator (`Schedule`). Before all of them, the functions that neither
+the entry, the interrupt handlers nor the assembly functions reach are dropped, with the globals
+only they used (`Reachable`, ADR-6FNWEJAA): a library's functions a program does not call take no
+ROM and their variables no RAM; a function that is called keeps its body even where it is inlined,
+so the timing report keeps it. The
 code generator itself first gives loop exits their own blocks (`ExitEdges`), copies return blocks
 into their predecessors (`Returns`), computes pointer sums again where their value is needed
 (`PointerRemat`) and takes out the checks of the hints (`Hints`). How values
 get places, registers and frames is in [optimizations.md](optimizations.md).
+
+Interrupt handlers in C (`DAMPF_INTERRUPT`, ADR-6FM9TXV4) are built in the compiler; games have
+the IRQ through the kit (`sdevkit/irq.h`, ADR-6FRX1GYC), and a game that publishes its data the
+kit's NMI, which runs its vertical blank (`sdevkit/publish.h`, ADR-6FS0T4WB). Each handler is the root of a context, and a function reached from several contexts is
+copied in the AST once per context before code is generated (`dampf.check.ContextCopies`,
+ADR-6FQ4NSHE; the main code keeps the originals, so a program whose contexts share nothing is not
+changed). Both code generators give a context its own direct page below the stack
+(`dampf.target.ContextAreas`), with its copy of the runtime's scratch registers; the code
+generator from MIR lays out the context's frames from that page with the main code's rule and writes their absolute
+places with the context's symbol (`dampf_frame_irq`), and both multiply in software there. The
+runtime gets an entry stub per handler, assembled only into a program that has one
+([memory-map.md](memory-map.md#interrupt-contexts), [timing.md](timing.md)). Handlers read the
+game's data through the copy the tick publishes, which the kit's header `sdevkit/publish.h` makes
+after every tick into the copy no handler reads, and switches to in the kit's NMI with a volatile
+byte (ADR-6FPV1EQV, ADR-6FRDS030, ADR-6FS0T4WB); no compiler pass knows about it. The one thing
+dampf adds for it is `DAMPF_HAS_INTERRUPTS` in `<dampf.h>`, a constant that tells the header's
+`game_vblank` whether the NMI does the job.
 
 ## Pipeline
 
@@ -125,18 +156,25 @@ selection. SNES specifics live in one target module:
   current layout is in [memory-map.md](memory-map.md); dampf builds LoROM only);
 - the cost of each memory access in cycles (FastROM, WRAM and I/O registers differ); the
   optimizer and the timing analysis need these ([timing.md](timing.md));
-- the multiply and divide registers;
-- intrinsics for DMA, vertical blank and ROM banks.
+- the multiply and divide registers.
 
 Nothing is built for a second target, but the split keeps one possible.
 
-As built, the split is only partly there. The SNES side is `dampf.snes.RomBuilder` (memory map,
-banks, header) and the runtime `compiler/src/main/resources/dampf/snes/runtime.s` (start-up, arithmetic
-routines, header, vectors); the 65816 cycle table is `dampf.target.Cycles65816`. The code
-generators still contain SNES facts themselves (DBR `$7E`, the RAM and frame addresses, long
-addresses for I/O registers). Of the list above only the memory map is built: the cost model
-counts CPU cycles, multiplication and division are software routines in the runtime, and there
-are no intrinsics.
+As built, the target is the package `dampf.target` (ADR-6FPTPCDM): `SnesTarget` holds the banks of
+RAM (the data bank, the variables' bank, the bank of a pointer to a frame place) and how a fixed
+address is reached (variables through the data bank; ROM data and I/O registers long), where the
+frames, the direct page, the stack and the variables lie, the I/O registers that are no memory,
+and the multiplier's registers; `ContextAreas` places the interrupt contexts' pages below the
+stack; `Cycles65816` is the cycle table. Both code generators, the optimizer, the linker and the
+checks of assembly functions ask it for these instead of knowing them. It answers in numbers
+and booleans and knows none of the compiler's types. Outside it, on the SNES side, are
+`dampf.snes.RomBuilder` and `dampf.asm.Linker` (the ROM's layout: banks, header, vectors) and the
+runtime `compiler/src/main/resources/dampf/snes/runtime.s` (start-up, arithmetic routines,
+header, vectors, and the entry stubs of interrupt handlers in C), whose data bank, stack and
+multiplier registers `SnesTargetTest` checks against `SnesTarget`. Of the list above, the cost
+model counts CPU cycles only; the multiplier is used for a product of two bytes and in the
+runtime's multiplication, division is a software routine (the hardware divider is planned in
+M12 of the [roadmap](roadmap.md)), and there are no intrinsics.
 
 ## Assembly output and debugging
 
@@ -144,7 +182,7 @@ dampf writes ca65 assembly and assembles and links it itself (`dampf.asm`, M6). 
 its own assembler and linker gain nothing over ca65 and ld65: with whole-program compilation the
 compiler already knows every instruction size (so it decides branch distances itself) and
 controls placement through segments. They exist so that using dampf needs no cc65
-([roadmap.md](roadmap.md)); ca65 and ld65 stay the oracle in the tests, which build every program
+([history.md](history.md#m6)); ca65 and ld65 stay the oracle in the tests, which build every program
 both ways and compare the ROMs and the debug files. dampf writes the `.dbg` debug file in ld65's
 format, which Mesen reads. With source line directives (`.dbg line`) in the assembly, Mesen shows and
 steps through the C source. This was the biggest pain in the earlier attempt, so it was verified

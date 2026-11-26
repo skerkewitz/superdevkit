@@ -7,9 +7,10 @@ exits with status 2:
 ```
 usage: dampf --version
        dampf parse|build|check @file ...   (or --config file: options from an argument file; a folder means its .c files)
-       dampf parse [-I dir] [-D name[=value]] file.c ...
-       dampf build [-I dir] [-D name[=value]] [--entry name] [--backend mir|naive] [--replace fn=file.s] [--block-counts file] [--slowrom] [--sram bytes] [--assembler dampf|ca65] [--opt-limit n] -o out.sfc file.c ...
-       dampf check [-I dir] [-D name[=value]] file.c ...
+       dampf parse [-I dir] [-D name[=value]] file.c ... [--lib file.c ...]
+       dampf build [-I dir] [-D name[=value]] [--entry name] [--backend mir|naive] [--replace fn=file.s] [--block-counts file] [--slowrom] [--sram bytes] [--assembler dampf|ca65] [--opt-limit n] -o out.sfc file.c ... [--lib file.c ...]
+       dampf check [-I dir] [-D name[=value]] file.c ... [--lib file.c ...]
+       (--lib: a library's file or folder, compiled without the -D defines)
        dampf profile rom.sfc profile.txt [top] [--skip file.c ...] [--instructions] [--blocks file]
 ```
 
@@ -25,7 +26,7 @@ Use `dampf --version`, or `dampf version`, to see which dampf you have. It print
 the standard output and exits with status 0:
 
 ```
-dampf 0.9.2
+dampf 0.10.0
 ```
 
 The commands `build`, `check` and `parse` print everything on the standard error stream;
@@ -87,7 +88,8 @@ without a value the macro is `1`. It may be given more than once and also writte
 `-DFACTOR=4`. dampf itself always defines `__DAMPF__` as `1`, so a header can tell the dampf
 build from the [PC build](/glossary#pc-build). It also defines C99's `__STDC__` (`1`),
 `__STDC_VERSION__` (`199901L`) and `__STDC_HOSTED__` (`1`), but none of the host compiler's
-macros, such as `__GNUC__`.
+macros, such as `__GNUC__`. The defines do not reach the files of a library given with
+[`--lib`](#lib).
 
 ### --entry {#entry}
 
@@ -106,9 +108,8 @@ The position is always the first line of the first C file.
 Use `--backend mir` or `--backend naive` to choose the code generator: `mir` is the
 [code generator from MIR](/glossary#code-generator-from-mir), `naive` the
 [naive code generator](/glossary#naive-code-generator). Without `--backend`, dampf uses `mir`,
-unless `--replace` is given: then the default is `naive`, because only the naive code generator
-can link replaced functions. For any other value, dampf prints this line, then its usage, and
-exits with status 2:
+with and without `--replace`, since both code generators link replaced functions. For any other
+value, dampf prints this line, then its usage, and exits with status 2:
 
 ```
 unknown backend 'fast' (mir or naive)
@@ -119,9 +120,10 @@ unknown backend 'fast' (mir or naive)
 Use `--replace fn=file.s` to link the function `fn` from hand-written
 [ca65](/glossary#ca65-and-ld65) assembly in `file.s` instead of compiling it from C. The option
 may be given more than once, once per function. It is meant for reference versions of single
-functions, written by hand to compare with dampf's code. The replacement keeps dampf's calling
-convention: parameters in the function's static frame (`_<name>__<param>`), the result in A
-(and X for 32 bits), `JSL`/`RTL`, A, X and Y 16 bits wide, [DBR](/glossary#dbr) at `$7E`.
+functions, written by hand to compare with dampf's code. It does from the command line what the
+[hint](/glossary#hint) `DAMPF_ASM` does in the source, and wins over a `DAMPF_ASM` of the same
+function; the calling convention the assembly keeps and what such a function may take and
+return are on [Hints](/reference/hints). Both code generators link it.
 
 The function must be defined in the C files, or the build stops:
 
@@ -129,12 +131,16 @@ The function must be defined in the C files, or the build stops:
 add.c:1:1: error: --replace missing: there is no function 'missing' to replace
 ```
 
-`--replace` works only with the naive code generator. Given together with `--backend mir`, the
-build stops with this message, at the position of the entry function:
+So it does, at the function's definition, if the file does not exist:
 
 ```
-add.c:5:6: error: --replace works with the naive code generator only
+add.c:5:10: error: the assembly of 'add', nofile.s, does not exist
 ```
+
+With the code generator from MIR, dampf also runs the assembly against the function's C body in
+its own emulator, and stops the build with an error at the function where the two compute
+different results. The [timing report](/glossary#timing-report) lists the function with
+`(assembly, add.s)`.
 
 ### --slowrom {#slowrom}
 
@@ -157,6 +163,22 @@ dampf: --sram takes the bytes of save RAM, 0 to 32768: 40000
 
 A game built with the `superdevkit` command gets the option from `sram` in its
 [project file](/reference/superdevkit#sram).
+
+### --lib {#lib}
+
+Use `--lib file-or-folder` to name the sources of a library, such as the kit's `lib/snes`. dampf
+compiles them into the program like the other files, but the `-D` defines do not reach them: a
+game's defines are for its own files, as on the desktop and the web, where the C compiler
+compiles each file on its own, and a define of the game must not change the library when it
+happens to use one of its names. `-I` and `--sram`, with its `SDEVKIT_SRAM_SIZE`, reach the
+library as before. A folder stands for the `.c` files directly in it, as among the sources;
+give the option once for each file or folder. `build`, `check` and `parse` take it, and
+`superdevkit build snes` passes `lib/snes` with it. A file or folder that does not exist stops
+dampf before it compiles anything, with status 2:
+
+```
+dampf: --lib: no such file or folder: nolib
+```
 
 ### --block-counts {#block-counts}
 
@@ -237,7 +259,7 @@ sources, its graphics converted to C and the kit's library:
 --entry main
 src/
 build/gen/
-../../lib/snes/
+--lib ../../lib/snes/
 ```
 
 The folder `build/gen` holds the graphics converted to C, so `superdevkit build snes` or
@@ -250,8 +272,8 @@ dampf build @examples/ertuep/ertuep.args -o build/ertuep.sfc
 Each line holds one option with its value, or one source file or folder. A `#` at the start of
 a word starts a comment that runs to the end of the line, blank lines are ignored, and a value
 with blanks in it can be put in double quotes. Relative paths in the file, those of `-I`, `-o`,
-`--block-counts`, the file of `--replace` and the source files, count from the file's folder,
-not from where dampf runs, so the file works from any folder.
+`--block-counts`, `--lib`, the file of `--replace` and the source files, count from the file's
+folder, not from where dampf runs, so the file works from any folder.
 
 The file's arguments go in front of those of the command line, so the command line adds to
 them: more `-I`, `-D` or source files, or an option the file does not have. For `-o` and
@@ -326,7 +348,8 @@ It runs only the front end (preprocessor, parser and the checks of the subset) a
 every file on its own, so one construct outside the [subset](/glossary#subset) does not hide the
 problems of other files. For each file it prints one line: `ok` and the file name, or `FAILS`
 and the first problem of that file, with the file's other problems indented on the lines below
-it, one at most per top-level declaration. A last line counts the files that pass:
+it, one at most per top-level declaration. A file's [warnings](#warnings) are indented below its
+`ok` line and do not make it fail. A last line counts the files that pass:
 
 ```
 FAILS   score.c:12:5: error: 'float' is not supported: dampf has no floating point
@@ -342,15 +365,25 @@ FAILS   scores.c:7:5: error: 'float' is not supported: dampf has no floating poi
 0 of 1 file(s) pass the front end
 ```
 
+For the file `lives.c` in [Warnings](#warnings):
+
+```
+ok      lives.c
+        lives.c:3:17: warning: unsigned conversion from 'int32_t' to 'uint8_t' changes value from '300' to '44' [-Woverflow]
+1 of 1 file(s) pass the front end
+the 1 file(s) together: ok
+```
+
 A file that the preprocessor rejects (a missing header, for example) fails like any other, with
 the preprocessor's [message](#messages) at its position, and `check` goes on with the next
 file.
 
 Some problems only show in the whole program: recursion, a function that is called but defined
-in none of the files, and a function defined in two files. So `check` then takes the files that
-passed together and prints one more line: `the N file(s) together: ok`, or a `FAILS` line with
-the first such problem, ending in `(the N file(s) together)`. If no file passed, this line is
-missing. For this file:
+in none of the files, a function defined in two files, and, when the files define the entry
+function, a broken rule of [interrupt handlers](/reference/c-subset#interrupt-handlers), such as
+C code that calls a handler. So `check` then takes the files that passed together and prints one
+more line: `the N file(s) together: ok`, or a `FAILS` line with the first such problem, ending
+in `(the N file(s) together)`. If no file passed, this line is missing. For this file:
 
 ```c [rec.c]
 #include <stdint.h>
@@ -369,16 +402,16 @@ ok      rec.c
 FAILS   rec.c:5:16: error: recursion is not supported: count → count   (the 1 file(s) together)
 ```
 
-The exit status is 0 if every file passes and the files pass together, and 1 otherwise. `check`
-does not look for the entry function; `build` does. `check` takes `-I`, `-D`, folders and an
-[argument file](#argument-file) as [build](#build) does.
+The exit status is 0 if every file passes and the files pass together, and 1 otherwise; warnings
+do not change it. `check` does not need the entry function; `build` does. `check` takes `-I`,
+`-D`, `--lib`, folders and an [argument file](#argument-file) as [build](#build) does.
 
 ## parse
 
 Use `parse` to preprocess and parse files without building the program. It takes `-I`, `-D`,
-folders and an [argument file](#argument-file) as [build](#build) does. For each file it prints
-the messages of the parser, such as syntax errors, and then one line with the number of files
-and errors:
+`--lib`, folders and an [argument file](#argument-file) as [build](#build) does. For each file it
+prints the messages of the parser, such as syntax errors, and then one line with the number of
+files and errors:
 
 ```
 2 file(s), 0 error(s)
@@ -577,6 +610,34 @@ macro it does not have is an error that says so:
 line.c:1:2: error: #line is not supported by dampf's preprocessor
 ```
 
+### Warnings {#warnings}
+
+A warning does not stop the build and changes no exit status. dampf warns where gcc warns
+without any warning option, in gcc's form; there is one such warning, for a constant that does
+not fit the type it is converted to ([The C subset](/reference/c-subset#warnings) has the rule).
+For this file:
+
+```c [lives.c]
+#include <stdint.h>
+
+uint8_t lives = 300;
+
+void main(void)
+{
+    lives--;
+}
+```
+
+`dampf build -o build/lives.sfc lives.c` prints the warning before the `wrote` line:
+
+```
+lives.c:3:17: warning: unsigned conversion from 'int32_t' to 'uint8_t' changes value from '300' to '44' [-Woverflow]
+wrote /…/build/lives.sfc and /…/build/lives.dbg
+```
+
+`check` prints the same warning below the file's `ok` line. The other warning is the one for a
+function close to its [cycle budget](#budgets).
+
 ## Exit status
 
 | Command | 0 | 1 | 2 |
@@ -591,7 +652,8 @@ line.c:1:2: error: #line is not supported by dampf's preprocessor
 
 A usage error is a missing command or one dampf does not know, an option without its value at
 the end of the command line, a mistake in an [argument file](#argument-file), a source file or
-folder that does not exist, and for `build` also a missing `-o`, no C file, an unknown
-`--backend` or `--assembler` value or a wrong `--sram` or `--opt-limit` value. A missing header
-is an error in the program. Any other unexpected failure, such as a missing `.s`
-file for `--replace` or a missing profile file, ends dampf with a Java exception and status 1.
+folder that does not exist (also one given with `--lib`), and for `build` also a missing `-o`,
+no C file, an unknown `--backend` or `--assembler` value or a wrong `--sram` or `--opt-limit`
+value. A missing header or a missing `.s` file for `--replace` is an error in the program. Any
+other unexpected failure, such as a missing profile file, ends dampf with a Java exception and
+status 1.

@@ -22,9 +22,11 @@ The runtime's start-up code runs from the reset vector. In order, it:
 4. sets the data bank register ([DBR](/glossary#dbr)) to `$7E`;
 5. fills the uninitialized variables (the `BSS` segment) with zeros and copies the initial
    values of the other variables (the `DATA` segment) from ROM to RAM;
-6. calls the [entry function](/glossary#entry-function) with `JSL`.
+6. in a program with an IRQ handler written in C, clears the interrupt-disable flag (`CLI`);
+7. calls the [entry function](/glossary#entry-function) with `JSL`.
 
-The entry function therefore finds the processor in native mode with interrupts disabled, the
+The entry function therefore finds the processor in native mode with the interrupt-disable flag
+set (clear in a program with an IRQ handler in C), no interrupt switched on in `$4200`, the
 accumulator and index registers 16 bits wide (both the
 [`M` and `X` flags](/glossary#m-and-x-flags) clear), `D = 0`, `DBR = $7E`, the stack at
 `$1FFF`, the screen in forced blank and every global variable at its initial value. It is
@@ -37,13 +39,19 @@ B bus; the write tells a test script that the program has finished. The loop is 
 itself rather than `STP`, which would stop the CPU and leave a debugger nothing to step or
 continue.
 
-The NMI and IRQ vectors point to a bare `RTI`: the runtime does no interrupt handling of its
-own. Neither does the kit's library on the SNES, the
+The SNES has two interrupts a game uses: the NMI, which comes at the start of every
+[vertical blank](/glossary#vertical-blank), and the IRQ, which the CPU's timer raises at a
+picture row the program sets. Their vectors point to a bare `RTI`, unless the program has a
+handler for the interrupt written in C: then the vector leads to the runtime's entry stub for
+it, see [Interrupt handlers](#interrupt-handlers). The runtime switches no interrupt on.
+
+That is left to the kit's library on the SNES, the
 [platform layer](/glossary#platform-layer) in `lib/snes`, whose `main.c` sets up the console,
-shows the splash screen and runs the main loop after the runtime's start-up. Its main loop
-waits for the [vertical blank](/glossary#vertical-blank) itself, because C code called from an
-interrupt in the middle of a [tick](/glossary#tick) would overwrite the frames of the code it
-interrupted: dampf keeps them at fixed places.
+shows the splash screen and runs the main loop after the runtime's start-up. Its main loop waits
+for the vertical blank itself and calls `game_vblank`. Its `irq.c` switches on the game's IRQ,
+and, in a game that publishes its data for interrupt code, the kit's NMI, which then runs the
+game's vertical-blank code. How a game writes its IRQ and publishes its data is on
+[The console API](/reference/console-api).
 
 The runtime leaves the sound chip alone. In a game built with the kit, the library uploads the
 sound driver when the game calls `sdevkit_sfx_init` in its `game_init`: it waits for the boot
@@ -58,13 +66,16 @@ and division (`dampf_mul16`, `dampf_mul32`, `dampf_udiv16`, `dampf_udiv32`, `dam
 The two multiplications build their product from byte products on the CPU's 8 x 8 multiplier
 (factors at `$4202` and `$4203`, product at `$4216`); the three divisions are
 shift-and-subtract loops. All of them are called with `JSL`, return with `RTL` and expect 16-bit
-registers and `D = 0`. They work in `dampf_regs`, an 18-byte scratch area in the direct page; an
-interrupt handler of your own that calls C code must save it.
+registers and `D = 0`, or the direct page of an interrupt context. They work in `dampf_regs`, an
+18-byte scratch area in the direct page, of which every interrupt context has a copy of its own.
+A program with interrupt handlers also gets two multiplications without the multiplier,
+`dampf_mul16_soft` and `dampf_mul32_soft`, for the code of its handlers.
 
 The [code generator from MIR](/glossary#code-generator-from-mir) multiplies two values that fit
 a byte on the multiplier without a call. Assembly of your own that uses the multiplier or the
 CPU's divider must therefore not run a multiplication between its write and its read:
-`dampf_mul32` also writes `$4204`, the divider's dividend.
+`dampf_mul32` also writes `$4204`, the divider's dividend. The code of interrupt handlers never
+uses the multiplier, so an interrupt cannot spoil a product of the code it interrupts.
 
 ## RAM
 
@@ -80,11 +91,19 @@ and the stack live there, because the 65816 always addresses both through bank 0
 |---|---|
 | `$0000`–`$001F` | the runtime's scratch registers in the direct page (`dampf_regs`, `dampf_ptr`) |
 | `$0020`–`$1DFF` | the frames of functions compiled by the [code generator from MIR](/glossary#code-generator-from-mir) (`dampf_frame`) |
+| below `$1E00` | only with interrupt handlers in C: each interrupt context's direct page and frames, in whole pages |
 | `$1E00`–`$1FFF` | the stack |
 | `$2000`–`$FFFE` | variables: globals, static locals, and the frames of the [naive code generator](/glossary#naive-code-generator) |
 
 The byte at `$7E:FFFF` stays free, for the reason given under [Pointers](#pointers). Bank `$7F`,
 another 64 KB of RAM, is not used.
+
+The pages of the interrupt contexts take the top of the frames' region, so the main code's
+frames end below them; [Interrupt handlers](#interrupt-handlers) gives the addresses. The data a
+game publishes for its interrupt code (`sdevkit/publish.h`) is an ordinary global among the
+variables from `$2000`: an array of two copies of the game's struct, beside the struct itself,
+and three bytes, `sdevkit_publish_side` (16 bits), which says which copy interrupt code reads,
+and `sdevkit_publish_ready`. A game that does not publish has none of it.
 
 The linker sees RAM addresses without the bank: a variable is at `$2000`, not `$7E2000`, so
 16-bit address fixups fit. Code that needs the full 24-bit address of a variable, to build a
@@ -94,7 +113,8 @@ pointer to it, adds the bank itself.
 
 The direct page is a 256-byte window of bank 0 that the 65816 reaches with one-byte addresses,
 which are shorter and faster than full addresses (see [direct page](/glossary#direct-page)).
-dampf keeps `D = 0`, so the window is `$0000`–`$00FF`.
+The main code runs with `D = 0`, so its window is `$0000`–`$00FF`; an interrupt handler in C
+runs with a direct page of its own, see [Interrupt handlers](#interrupt-handlers).
 
 The runtime takes the start of it: `dampf_regs` (18 bytes) for the arithmetic routines, and
 `dampf_ptr`, room for two 24-bit pointers of 4 bytes each. The 65816 can only follow a 24-bit
@@ -106,12 +126,14 @@ From `$0020` on come the frames of functions: the memory a function's parameters
 intermediate values occupy. The code generator from MIR gives every value a fixed place in its
 function's frame, 2 bytes for a value of up to 16 bits and 4 bytes for a 32-bit value or a
 pointer; values whose lifetimes do not overlap share a place. The frames form one region from
-`$0020` to `$1DFF`, and the part below `$0100` is in the direct page, where every access to a
-value is cheaper. The build fails when the frames do not fit into this region. How dampf
-decides which frames get that part is on [Optimizations](/inside/optimizations).
+`$0020` to `$1DFF`, less in a program with interrupt handlers, and the part below `$0100` is in
+the direct page, where every access to a value is cheaper. The build fails when the frames do
+not fit into this region. How dampf decides which frames get that part is on
+[Optimizations](/inside/optimizations).
 
-The naive code generator does not use this region; its frames are static variables above
-`$2000`.
+The naive code generator keeps the frames of C functions as static variables from `$2000`. Of
+this region it uses only the start, for the frame of a function written in assembly
+(`DAMPF_ASM`, a [hint](/glossary#hint)).
 
 ## Pointers
 
@@ -155,9 +177,10 @@ the header declares FastROM (map mode `$30`). Flash cartridges and emulators run
 SlowROM cartridge, build with [`--slowrom`](/reference/command-line#slowrom), which keeps
 2.68 MHz and map mode `$20`.
 
-**Bank `$80`** holds the parts with fixed places: the start-up code, the runtime's arithmetic
-routines, the initial values of variables (copied to RAM at start-up), the header at
-`$80:FFC0` and the vectors at `$80:FFE0`. The rest of the bank is filled like the others.
+**Bank `$80`** holds the parts with fixed places: the start-up code with the entry stubs of
+interrupt handlers, the runtime's arithmetic routines, the initial values of variables (copied
+to RAM at start-up), the header at `$80:FFC0` and the vectors at `$80:FFE0`. The rest of the
+bank is filled like the others.
 
 **Every function and every constant object** gets a segment of its own: `C_` and the function's
 name for code, `R_` and the object's name for constant data. No segment is split over banks, so
@@ -273,5 +296,98 @@ implements the game's console API, and the game logic does not touch the registe
 dampf's own code also uses the CPU's multiplier, see
 [Start-up and the entry function](#start-up-and-the-entry-function).
 
-The hardware intrinsics that will give C code access to the hardware are not built yet (see
-[intrinsic](/glossary#intrinsic) and [Limits](/reference/limits)).
+dampf has no [intrinsics](/glossary#intrinsic): `volatile` pointers reach every register, so
+the platform layer needs none, and dampf uses the CPU's multiplier itself.
+
+## Interrupt handlers
+
+dampf gives every value of a function a fixed place and lets functions that are never active at
+the same time share places, and the runtime's scratch registers lie at `$0000`. Code that an
+interrupt runs is active at the same time as anything else, so a handler compiled like the main
+code would overwrite the values of the code it interrupts. dampf therefore makes each handler
+the root of an interrupt context: the handler and every function it reaches, with a direct page
+and frames of their own. The main code is the context of the entry function.
+
+A function becomes a handler with `DAMPF_INTERRUPT(nmi)` or `DAMPF_INTERRUPT(irq)` from
+`<dampf.h>` in front of its definition. This program has a handler for each interrupt:
+
+```c
+#include <stdint.h>
+#include <dampf.h>
+
+uint16_t line_count;
+uint16_t frame_count;
+uint16_t scale = 3;
+
+DAMPF_INTERRUPT(irq) void count_line(void)
+{
+    line_count = line_count * scale;
+}
+
+DAMPF_INTERRUPT(nmi) void count_frame(void)
+{
+    frame_count++;
+}
+
+void main(void)
+{
+    line_count = 1;
+}
+```
+
+The runtime has an entry stub for each handler, assembled only into a program that has that
+handler, and the interrupt's vector points to it. The vector leads into bank `$00`; the stub's
+first instruction jumps on into bank `$80`, as the start-up does. The CPU has pushed
+`P`, the program counter and the program bank; the stub then saves A, X and Y in 16 bits, `DBR`
+and `D`, sets `DBR` to `$7E` and `D` to the context's page, and acknowledges the interrupt: the
+NMI's stub reads `$4210` (`RDNMI`) in 8 bits, the IRQ's reads `$4211` (`TIMEUP`), without which
+the IRQ would come again at once. It calls the handler with `JSL`, restores everything and
+returns with `RTI`.
+
+The stub takes 66 CPU cycles from the interrupt to the handler's first instruction (71 for the
+NMI) and 31 from the handler's return to the end of `RTI`, so an interrupt costs 97 cycles (IRQ)
+or 102 (NMI) on top of its handler, plus the rest of the instruction it interrupted. The
+[timing report](/glossary#timing-report) gives each interrupt a line of its own with the stub's
+cycles and the handler's: for the program above, `dampf_irq` takes 156 to 666 cycles and
+`dampf_nmi` 123.
+
+Each context's direct page is made of whole pages right below the stack: the NMI's highest, then
+the IRQ's. The first 32 bytes of the page are the context's own copy of `dampf_regs` and
+`dampf_ptr`, and its frames follow from byte `$20`, laid out as the main code's are from
+`$0020`, so the functions that call no other lie in the direct page. A context whose frames
+take at most 224 bytes takes one page. The generated code reaches a frame place in the direct
+page relative to `D`, as `z:dampf_frame+n` in every context, and any other place, and the
+address of a local, through the context's own symbol. For the program above:
+
+```asm
+dampf_frame_nmi = $1D20        ; the NMI context's frames, absolute; its direct page is $1D00
+dampf_frame_irq = $1C20        ; the IRQ context's frames, absolute; its direct page is $1C00
+; ...
+dampf_nmi_dp = $1D00                   ; with the direct page here
+; ...
+dampf_irq_dp = $1C00                   ; with the direct page here
+```
+
+The [naive code generator](/glossary#naive-code-generator) keeps the frames of C functions
+static from `$2000`, so its contexts take one page each.
+
+A function that the main code and a handler both call, or both handlers, is compiled once per
+context, with its frames in that context's area. The copy's label is two underscores, the
+context and the original's label, such as `__irq_clamp` for `_clamp`, and its code segment
+`C__irq_clamp`; a `static` local of the function stays one variable for all copies. A
+context's frames grow by the frames of its copies, and with them its pages. A function written
+in assembly (`DAMPF_ASM` or `--replace`) that a handler reaches is a compile error, because its
+convention assumes `D = 0` and the main code's frames.
+
+The main code's frames end below the lowest page. With two small handlers they have
+`$0020`–`$1BFF` (7,136 bytes), with one `$0020`–`$1CFF` (7,392 bytes), instead of
+`$0020`–`$1DFF` (7,648 bytes). A game that publishes its data for interrupt code has the kit's
+NMI, so its main code's frames end below `$1D00`, and below `$1C00` if it has an IRQ as well. A
+program without handlers keeps the whole region, and its runtime has no entry stubs.
+
+Code of an interrupt context never uses the CPU's multiplier: an interrupt between the main
+code's write of the factors and its read of the product would spoil the product, and the factors
+cannot be read back to save them. The runtime's `dampf_mul16_soft` and `dampf_mul32_soft`, which
+shift and add, take the place of `dampf_mul16`, `dampf_mul32` and the multiplication of two
+bytes without a call. They give the same results, but take longer: `dampf_mul16_soft` 22 to 532
+cycles against 108 for `dampf_mul16`.

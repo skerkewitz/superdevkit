@@ -27,6 +27,33 @@
  */
 #define DAMPF_BUDGET(cycles) __attribute__((dampf_budget(cycles)))
 
+/*
+ * DAMPF_INTERRUPT(nmi) or DAMPF_INTERRUPT(irq), in front of a function definition: the function is
+ * the handler of that interrupt, 'void name(void)', called by the hardware through the runtime's
+ * entry stub and by no C code. It and every function it calls run in a context of their own, with
+ * their own frames, direct page and scratch registers and no hardware multiplier; a function
+ * called from two contexts is compiled once for each (docs/subset.md, "Interrupt handlers"). A game
+ * uses it for its IRQ, game_irq (sdevkit/irq.h); the NMI is the kit's (sdevkit/publish.h).
+ */
+#define DAMPF_INTERRUPT(kind) __attribute__((dampf_interrupt(kind)))
+
+/*
+ * DAMPF_HAS_INTERRUPTS: 1 where interrupt handlers run, 0 on the PC, where a handler is an
+ * ordinary function nothing calls. A constant, for code that does one thing when a handler does
+ * the work and another when nothing would (sdevkit/publish.h's game_vblank): dampf drops the
+ * branch not taken, and the code generator from MIR leaves out a function only it called.
+ */
+#define DAMPF_HAS_INTERRUPTS 1
+
+/*
+ * DAMPF_ASM("file.s"), after the parameter list of a function definition:
+ *     uint16_t random16(uint16_t s) DAMPF_ASM("asm/random16.s") { ... }
+ * dampf links the hand-written assembly in the file (relative to this C file) instead of
+ * compiling the body; the body stays what the PC compiles and what dampf checks the assembly
+ * against. The convention and the checks: docs/hints.md, "DAMPF_ASM".
+ */
+#define DAMPF_ASM(file) __attribute__((dampf_asm(file)))
+
 #else
 
 /* one unsigned comparison: no "always true" warning for an unsigned v and lo 0 (-Wextra) */
@@ -48,6 +75,11 @@
 #endif
 /* checked by dampf at build time; the emulator tests measure it */
 #define DAMPF_BUDGET(cycles)
+/* on the PC an ordinary function, which nothing calls unless the program does */
+#define DAMPF_INTERRUPT(kind)
+#define DAMPF_HAS_INTERRUPTS 0
+/* the PC compiles the C body; dampf checks the assembly against it */
+#define DAMPF_ASM(file)
 
 #endif
 

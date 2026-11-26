@@ -75,6 +75,18 @@ public final class LVerifier {
                     && (last.isConditionalBranch() || last.mnemonic().equals("bra") || last.mnemonic().equals("brl"))) {
                 errors.add("'" + last + "' goes to a label that is not in the function" + in);
             }
+            if (last != null && last.isTableJump()) {
+                LBlock table = f.block(last.tableLabel());
+                if (table == null || !table.isData()) {
+                    errors.add("'" + last + "' reads a table that is not in the function" + in);
+                } else {
+                    for (String entry : f.tableTargets(last.tableLabel())) {
+                        if (!labels.contains(entry)) {
+                            errors.add("the table " + last.tableLabel() + " goes to " + entry + ", not a label of the function" + in);
+                        }
+                    }
+                }
+            }
             if (k == f.blocks().size() - 1 && b.hasCode() && (last == null || last.fallsThrough())) {
                 errors.add("the code runs off the end" + in);
             }

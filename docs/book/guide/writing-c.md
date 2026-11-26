@@ -29,7 +29,31 @@ PC (`int32_t` is `int`, `int16_t` is `short`), so each type means the same thing
 It also defines the limits (`INT8_MIN` to `UINT32_MAX`) and the `INT8_C` to `UINT32_C` macros.
 
 Plain `char` is allowed, for text such as string tables and name buffers. dampf gives it the
-meaning it has with gcc on x86-64, a signed 8-bit type.
+meaning it has with gcc on x86-64, a signed 8-bit type. That meaning differs between PCs:
+`char` is signed on an x86-64 PC and unsigned on an ARM one, so `c - '0'` or `c < 'a'` can give
+two results for the same byte. dampf therefore lets you only copy a `char`, test it for zero and
+compare it with `==` and `!=` against another `char` or a constant from 0 to 127, which give the
+same result either way; arithmetic, `<` and `>`, shifts and a `char` as an index are rejected.
+To compute with a character, cast it to `uint8_t` first:
+
+```c
+uint8_t digit_value(char c)
+{
+    return (uint8_t)c - '0';
+}
+```
+
+Written as `return c - '0';` in line 5 of `digits.c`, the function stops with:
+
+```
+digits.c:5:14: error: plain char is text, and whether it is signed differs between PCs, so a char may only be copied and compared with == or != against a char or a constant from 0 to 127: use uint8_t or int8_t for a number, or cast the char: (uint8_t)c
+```
+
+An enum object holds only values of its enum: an enumerator, or a value of the same enum type.
+Any other store, such as `mode = 2` or `mode++`, is rejected. In return dampf stores the object
+in the smallest width that holds all its enumerators, usually a byte, where gcc on the PC takes
+4 bytes; read, the value is promoted as on the PC, so every result stays the same. A number that
+is not one of the enumerators belongs in a `uint8_t`.
 
 ## Same arithmetic as gcc on the PC
 
@@ -111,7 +135,8 @@ Write a function without parameters as `void game_init(void)`. An empty list,
 
 A `sizeof` whose value differs from gcc's on the PC is rejected as well, because the program
 would compute other values than its PC build. That is a `sizeof` of a pointer (4 bytes in dampf,
-8 on x86-64) or of a struct that gcc pads (dampf does not pad struct fields). The message gives
+8 on x86-64), of an enum object, or of a struct that gcc pads (dampf does not pad struct fields)
+or that holds an enum. The message gives
 both values. The element count `sizeof a / sizeof a[0]` is allowed for any array, because its
 value is the same on both sides. To copy a struct that gcc pads, use a struct assignment
 instead of `memcpy`, since its `sizeof` is rejected.
@@ -122,9 +147,14 @@ construct with the message dampf gives for it and what to write instead.
 
 [Hints](/glossary#hint), macros such as `DAMPF_RANGE` that tell dampf something it cannot
 infer, come from dampf's header `<dampf.h>`; in the PC build they become checked assertions
-or nothing. [Hints](/reference/hints) describes them. Intrinsics, functions for
-SNES hardware such as the hardware multiplier and divider or DMA, are not built yet; see
-[Limits](/reference/limits).
+or nothing. [Hints](/reference/hints) describes them. There are no
+[intrinsics](/glossary#intrinsic), functions for SNES hardware: dampf uses the hardware
+multiplier itself, and a game reaches DMA and the rest of the hardware through the
+[console API](/glossary#console-api).
+
+A game's IRQ is written in C too, as `DAMPF_INTERRUPT(irq) void game_irq(void)`; an interrupt
+handler has rules of its own, which [The C subset](/reference/c-subset#interrupt-handlers)
+describes.
 
 ## One program, not separate files
 
@@ -189,10 +219,11 @@ macros that another compiler needs, such as an `__attribute__` for Calypsi: give
 
 In a game built with the kit, name a feature instead of testing the compiler. The tables
 `[snes]`, `[desktop]` and `[web]` of the [project file](/glossary#project-file) each take a list
-`defines`, which reaches the game's own files on that target. On the SNES it also reaches the
-kit's `lib/snes`, because dampf compiles game and library as one program, so a define must not
-use a name the library uses. With `defines = ["DEV_TOOLS"]` under `[desktop]`, code inside
-`#ifdef DEV_TOOLS` is built for `linux` and `win64` only. See
+`defines`, which reaches the game's own files on that target, and the kit's headers they
+include, but not the kit's library: on the SNES too, where dampf compiles game and `lib/snes` as
+one program, the library is compiled without the game's defines. With
+`defines = ["DEV_TOOLS"]` under `[desktop]`, code inside `#ifdef DEV_TOOLS` is built for `linux`
+and `win64` only. See
 [The superdevkit command](/reference/superdevkit#the-project-file).
 
 ## Checking your code
@@ -237,7 +268,8 @@ each file is checked on its own, one unsupported construct in one file does not 
 problems of the others. `dampf build` reports the errors of all files in the same way.
 
 The last line covers what only the whole program shows: recursion, a function that is called
-but defined in none of the files, and a definition in two files. These checks take only the
+but defined in none of the files, a definition in two files, and the rules of interrupt
+handlers. These checks take only the
 files without errors, and `dampf build` runs them only once no other error is left. Here a
 function in `rec.c` calls itself:
 

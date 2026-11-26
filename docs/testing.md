@@ -43,9 +43,12 @@ scalar elements (`a[2]`, `s.x`), must have the same values on both sides. Pointe
 | The BRR Lab | Every use of `tools/brr_lab.html`, and its bytes against `superdevkit sfx` ([tools/lab_test](../tools/lab_test/README.md)) | Headless Chromium (Playwright), when installed | 10 seconds |
 | Timing on the examples | Every call of every example against its static bounds | dampf's emulator | 20 seconds |
 
-**Unit tests** cover the front end (`PreprocessorTest`, `ParserTest`, `AstBuilderTest`), MIR
+**Unit tests** cover the front end (`PreprocessorTest`, `ParserTest`, `AstBuilderTest`;
+`ConversionWarningTest` compiles a file of constants that do not fit their type with dampf and
+gcc and compares where each warns, and `ExamplesTest` fails if an example gets that warning), MIR
 passes written as MIR text (`NarrowTest`, `GvnTest`, `InlineTest`, `LicmTest`, `RangesTest`,
-...), timing and budgets (`TimingTest`, `BudgetTest`) and the cycle table (`Cycles65816Test`).
+...), timing and budgets (`TimingTest`, `BudgetTest`), the cycle table (`Cycles65816Test`) and the
+target's facts against the runtime's own copies of them (`SnesTargetTest`).
 `MirTextTest` prints the MIR of every execution program and of every example, parses it back
 and checks that it verifies and prints to the same text. `StrengthReduceTest` compares every
 reduced multiplication and division with the original in the interpreter (all 8-bit inputs,
@@ -123,14 +126,15 @@ as half the cores, `JOBS=n` to change it).
 **The examples** (`ExamplesTest`, ADR-6F60Z67N) build each example in `examples/` for the SNES
 and play the input of its `check.txt` in dampf's emulator, through the kit's own main loop; where
 raylib was fetched, the same input is played on the desktop (Rachael). After every tick both
-compute a checksum of the game's state: the bytes the game names with `sdevkit_dbg_hash`, then
-the sprite table. The lists must be the same, so dampf's code and gcc's, `lib/snes` and Rachael
+compute a checksum of the game's state: the bytes the game names with `sdevkit_dbg_hash` from the
+end of one `game_tick` to the end of the next (the kit names nothing itself, so each example names
+its sprite table and what its next picture depends on). The lists must be the same, so dampf's code and gcc's, `lib/snes` and Rachael
 computed the same game, tick for tick; the test names the first tick that differs. On the SNES
 the call only writes the address and size of the memory to a port (`$21FC`), and the checker
 reads it, so the check costs the game about 80 cycles a call. The emulator's run also writes the
 frames per tick (`build/emu-check/frames.txt`: on average and over the slowest 60 ticks;
-`ticks.txt`: the cycles of every tick), close to Mesen's but not equal, since a DMA takes no CPU
-time there. A line `budget T1 T2` in `check.txt` makes it a measured budget: the test fails when
+`ticks.txt`: the cycles of every tick), close to Mesen's but not equal: a general DMA takes its
+8 master cycles a byte there, HDMA nothing. A line `budget T1 T2` in `check.txt` makes it a measured budget: the test fails when
 a tick from T1 to T2 - 1 took more than a frame (Er-Tüp's covers its busiest waves). Where the
 time goes, the emulator says too: `dampf.emu.ExampleProfile` plays the same input and charges the
 cycles of a range of ticks to the functions of the ROM, and with the ROM's `.dbg` beside it to
@@ -144,6 +148,25 @@ check played in headless Chromium: the web's `main` takes `--check` like the des
 compares them with the SNES's as it compares the desktop's, so emcc's WebAssembly (32-bit
 pointers and `long`) computed the same game as gcc and dampf. The check has no window: the
 browser's frames and the clock that steps the game by them (ADR-6FCVAA30) are not part of it.
+
+`PublishedDataTest` plays `dev/publish_check`, a program of the kit's tests rather than an
+example, the same way on all three: the data the tick publishes for interrupt code
+(`sdevkit/publish.h`, ADR-6FPV1EQV), which on the SNES the kit's NMI (in the game's vertical
+blank, ADR-6FS0T4WB) and an IRQ on every line of the vertical blank and the tick in turn read and
+check. Its checksums name what the interrupts found, so they are the same
+on the desktop and the web, which have no interrupts, only when the SNES's never found torn data.
+
+`IrqCheckTest` plays `dev/irq_check` the same way: the game's IRQ (`sdevkit/irq.h`,
+ADR-6FRX1GYC) splits the screen twice with values the tick publishes, with short ticks, long ones
+and ones longer than two frames, during which the kit's NMI runs the game's vertical blank again
+(ADR-6FS0T4WB). Where Mesen is (`dampf.mesen`), it also plays the ROM there (`dev/check_example.sh` with
+`NOBUILD=1`) and compares the pictures with the desktop's pixel for pixel, and the web's with the
+desktop's: a register the handler writes too late shows a torn row on the SNES only. And it
+builds the same game without `sdevkit_irq_wait_hblank`, whose desktop check must fail on the
+writes before the wait, and one whose vertical blank writes a count of its own runs, whose desktop
+check must fail on what the second run of the vertical blank changes (`repeated`). Mesen's shots
+show the first frame after each tick's vertical blank, not a frame the NMI repeated during an
+overrun; `exec/published.c` checks that the NMI runs the vertical blank in the middle of ticks. `dev/compare_example.sh dev/irq_check` does the Mesen part by hand.
 
 **Recordings.** Every session in the desktop's window is recorded, the joypad and the checksum of
 every tick; F11 saves it in the format of `check.txt` (with `mark` and `hash` lines, which the
@@ -159,7 +182,9 @@ same buttons and the SNES's checksum for every tick in it.
 **The examples' benchmark** (`dev/bench_examples.sh`) plays every example's `check.txt` and
 measures the work of each tick: its master cycles without the main loop's waiting, so an example
 that does the same work every tick (Mandelbrot) shows a faster compiler as less work, not as
-fewer frames. Its table has one line an example (on average, in the busiest 60 ticks, the share
+fewer frames. The work includes the DMAs the game starts, at 8 master cycles a byte (since
+2026-11-25; before, a DMA took no time in the emulator, and the kit's copy of the whole sprite
+table in every vertical blank went uncounted). Its table has one line an example (on average, in the busiest 60 ticks, the share
 of dampf's runtime), and with `BASELINE=` the ratio to an earlier table and their geometric
 mean: an optimization or a tuned parameter is judged on all examples, not on one program. On
 2026-11-20, before the runtime used the CPU's multiplier, the naive code generator did three
@@ -174,8 +199,17 @@ measures every call of every function, from its first instruction to the instruc
 JSL that called it: each must lie within the function's static bounds ([timing.md](timing.md)).
 
 **The reference functions** (`ReferenceFunctionsTest`): an example with hand-written functions in
-`reference/` is built with them in place of the compiled ones, plays its `check.txt`, and every
-tick's checksum must be the normal build's.
+`reference/` is built with the code generator from MIR and them in place of the compiled ones
+(`--replace`), which runs each against its C body (the check of `DAMPF_ASM`, [hints.md](hints.md));
+then it plays its `check.txt`, and every tick's checksum must be the normal build's. The test
+prints each function's cycles per call, by hand and by dampf.
+
+**Functions written in assembly** (`DAMPF_ASM`): the execution test `asm_functions.c` (with
+`asm/asm_functions.s`) calls them with 8-, 16- and 32-bit and pointer parameters, from a loop, in
+both code generators, and its timing check measures their calls against their bounds;
+`AsmFunctionTest` checks the analysis (cycles, locals, and each thing it rejects) and
+`AsmDeclarationTest` the declaration, the timing report and the check against the C body
+(a wrong result, a wrong write to memory, a bound comment set too low).
 
 Until 2026-11-19 a copy of Blubber Blasen's code was a layer of its own: its benchmark of 3,610
 ticks against a PC build, its recorded games played on both sides and through the platform layer
@@ -184,18 +218,22 @@ over when it left ([ADR-6F60Z819](adr/6F60Z819-the-examples-replace-blubber-blas
 
 ## Supporting pieces
 
-- **dampf's emulator** (`dampf.emu`: 65816 CPU, LoROM, WRAM, the SPC700's boot protocol and the kit's sound driver, no graphics, DMA or sound output) runs the
+- **dampf's emulator** (`dampf.emu`: 65816 CPU, LoROM, WRAM, the SPC700's boot protocol and the kit's sound driver, the time a DMA takes but not what it copies, no graphics or sound output) runs the
   execution and random-program tests and the examples inside the JVM, and counts master cycles with the memory speeds of the SNES (WRAM and SlowROM 8, I/O 6,
   internal cycles 6, DRAM refresh 40 per scanline). Of the picture it has the timing the kit's
   main loop polls: the line counter, the vertical blank flag, the automatic joypad read and the
-  joypads. It is validated
+  joypads. It has the interrupts too: the NMI at the vertical blank and the H/V timer IRQ
+  (`NMITIMEN`, `HTIME`, `VTIME`, `RDNMI`, `TIMEUP`; `InterruptTest`), with the cycles spent inside
+  interrupts counted apart, so the timing checks can leave them out. It is validated
   - against the SingleStepTests 65816 suite (github.com/SingleStepTests/65816,
     `CpuSingleStepTest`, `-PcpuTests`): native mode, all 256 opcodes, about 300 random tests
     each (76,059 in all); registers, flags, memory, CPU cycles and the number of memory accesses
     match. Emulation mode is only modelled as far as the start-up needs it;
   - against Mesen on Blubber Blasen's benchmark, while it was here: the same checksums on all
     3,610 ticks, and the same master cycles per tick within a few cycles out of millions
-    (`dampf bench`); and on every example's check, the same checksums every tick.
+    (`dampf bench`); and on every example's check, the same checksums every tick; and on
+    `exec/interrupts.c`, whose handlers check the line they run on, the same lines in both (Mesen
+    showed that a write of `VTIME` that makes the current line its own fires the IRQ at once).
 - **GitHub Actions** (`.github/workflows/build.yml`) runs `./gradlew build` for every pull
   request (ADR-6FB9QJ3R), with JDK 25 on Ubuntu, the
   runner's cc (the desktop library's tests), clang, python3 and node, and Ubuntu's cc65 (ca65 and ld65 for `BackendOutputTest`). Mesen, raylib, Emscripten and Playwright are not there: the execution
@@ -210,8 +248,8 @@ over when it left ([ADR-6F60Z819](adr/6F60Z819-the-examples-replace-blubber-blas
   atomically (`superdevkit.AtomicWrite`), so a class compiling from it never reads a file half
   written.
 - **Mesen** (MesenCE in `.mesen/`, from `dev/fetch_mesen.sh`, or `-Pmesen=<path>`) runs the execution
-  tests, and the examples in `dev/compare_example.sh`; the random programs run in dampf's emulator
-  only.
+  tests, the examples in `dev/compare_example.sh` and `dev/irq_check` in `IrqCheckTest`; the random
+  programs run in dampf's emulator only.
 - **Cycle table:** `CycleTableAgainstEmulatorTest` checks the cost model
   (`dampf.target.Cycles65816`) against the emulator for every opcode in dampf's processor state;
   `Cycles65816Test` spot-checks it against the W65C816S data sheet.
@@ -255,7 +293,7 @@ over when it left ([ADR-6F60Z819](adr/6F60Z819-the-examples-replace-blubber-blas
   build) and CPD for copied code.
 - **Reference assembly benchmarks:** hand-written versions of the examples' functions as the
   yardstick ([optimizations.md](optimizations.md), [reference/README.md](../reference/README.md)):
-  Er-Tüp's `random16` and `sine`, linked with `--replace`.
+  Er-Tüp's `random16` and `sine`, linked with `--replace` into the build from MIR.
 - **Performance tracking** per commit is planned; today the numbers are written down by hand in
   [optimizations.md](optimizations.md).
 

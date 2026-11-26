@@ -14,21 +14,24 @@ Linux and Windows and as a page in the browser. The kit holds:
 - the **`superdevkit` command**, which builds a game for every target and converts its pictures
   (`superdevkit png`) and sound effects (`superdevkit sfx`);
 - the **tools** ([tools](tools/README.md)): the editor of a game's sound effects (BRR Lab,
-  [docs/sound.md](docs/sound.md)) and the rename script;
+  [docs/sound.md](docs/sound.md));
 - **examples** ([examples](examples/)): games and programs, from `hello` to the shooter
   Er-Tüp, which are also the kit's test cases and its benchmark; from version 0.9.1, all seven
   can be [played in the browser](https://skerkewitz.github.io/superdevkit/example/);
 - the **book** ([online](https://skerkewitz.github.io/superdevkit/book/) from version 0.9.1,
   [docs/book](docs/book)): the user guide and the reference.
 
-Status: version 0.9.2. Milestones
-M0 to M9 are done: M6 is dampf's own assembler and
+Status: version 0.10.0. Milestones
+M0 to M10 are done: M6 is dampf's own assembler and
 linker; with M5 Blubber Blasen (the kit's first user, a game in its own repository) builds its
 ROM with the kit and plays its recordings with the PC's checksums; with M7 a game builds and runs
 on the SNES, Linux and Windows with the `superdevkit` command, with sound effects, save RAM, music
 on the desktop and a debug view; with M8 it runs in the browser too (`superdevkit build web`);
-with M9 dampf's optimizer chooses registers by cost and keeps byte loops in 8-bit mode. The
-milestones and versions are in [docs/roadmap.md](docs/roadmap.md), why the kit is the project and
+with M9 dampf's optimizer chooses registers by cost and keeps byte loops in 8-bit mode; with M10
+a game has an IRQ in C and the kit's NMI, hand-written assembly beside the optimized code, and a
+console API that is the hardware at once, with optional layers above it. The
+milestones to come are in [docs/roadmap.md](docs/roadmap.md), the concluded ones in
+[docs/history.md](docs/history.md), why the kit is the project and
 dampf its compiler in [ADR-6F3CJX8T](docs/adr/6F3CJX8T-superdevkit-is-the-project-and-dampf-is-its.md).
 
 `./gradlew installDist` writes a superdevkit home to `build/install/superdevkit`: the compiler,
@@ -119,7 +122,8 @@ working documents it is written from.
 - [docs/memory-map.md](docs/memory-map.md): where code, data, variables and pointers live.
 - [docs/testing.md](docs/testing.md): the test layers and how they work.
 - [docs/brainstorm](docs/brainstorm): summaries of brainstorming sessions, the options weighed before a decision.
-- [docs/roadmap.md](docs/roadmap.md): milestones and their state, risks, open questions, the relation to Blubber Blasen.
+- [docs/roadmap.md](docs/roadmap.md): what comes next: the open milestones, the work without a milestone, ideas.
+- [docs/history.md](docs/history.md): what is done: the concluded milestones, the changes to the plan, the answered questions, the relation to Blubber Blasen.
 - [docs/releases](docs/releases): the notes of each release from 0.9.2, as GitHub shows them.
 - [dev/README.md](dev/README.md): the scripts in `dev/`, for developing the kit against the examples.
 
@@ -128,11 +132,12 @@ working documents it is written from.
 To use the kit from a [release zip](https://github.com/skerkewitz/superdevkit/releases) (from
 version 0.9.1, for Linux and Windows on x64): nothing for the SNES, since the zip brings its own
 Java and raylib. The desktop needs a C compiler (on Windows, Visual Studio with "Desktop
-development with C++"), the web Emscripten's `emcc`, and the rename script in `tools/` Python 3.
+development with C++"), the web Emscripten's `emcc`.
 From the repository, also JDK 25 or newer. To develop the kit, also clang, ca65 and ld65 from cc65 2.19
 (`BackendOutputTest` builds the execution tests, 20 random programs and the examples with them
 as well and compares the ROMs) and Python 3; clang is the tests' reference on the PC and is used
-by `dev/subset_scan.py`. Mesen (MesenCE) is optional (the tests then also run there),
+by `dev/subset_scan.py`. Doxygen is optional (`doxygen lib/doxygen/Doxyfile` makes the console
+API's HTML reference, and `LibDocTest` then checks it has no warning). Mesen (MesenCE) is optional (the tests then also run there),
 Node.js only for the book and the browser tests (the BRR Lab's,
 [tools/lab_test](tools/lab_test/README.md), and the examples' on the web,
 [tools/web_check](tools/web_check/README.md), with Playwright; the web's also with Emscripten). Gradle comes with the wrapper. The book's
@@ -193,9 +198,8 @@ before = ["./make_levels.sh"]
 ```
 
 The tables `[snes]`, `[desktop]` (`linux` and `win64`) and `[web]` can name `defines` for the game's
-own files on that target, such as `defines = ["DEV_TOOLS", "LEVELS=3"]`. On the SNES they also
-reach `lib/snes`, because dampf compiles the game and the library as one program, so a define must
-not use a name the library uses.
+own files on that target, such as `defines = ["DEV_TOOLS", "LEVELS=3"]`. They do not reach the
+kit's library: on the SNES the build hands `lib/snes` to dampf with `--lib`.
 
 A game with a build system of its own gets the kit's generated files with `superdevkit gen`: the
 conversions into `build/gen`, and with music the tracks and their list in `build/gen/music`.
@@ -220,10 +224,14 @@ writes a map file). The runtime calls the entry function after start-up (`void n
 timing report (`.timing.txt`). `--backend naive` picks the naive code generator, `--slowrom`
 builds for a SlowROM cartridge (FastROM is the default), `--sram BYTES` gives the cartridge
 battery-backed save RAM (the header says so; `SDEVKIT_SRAM_SIZE` is defined), `--replace fn=file.s` links a
-hand-written function ([reference](reference/README.md)) and `--block-counts` lays out the
-blocks by a profile. `parse` only preprocesses and parses. `check` runs the front end on every
+hand-written function in place of the compiled one, as `DAMPF_ASM` does in the source
+([docs/hints.md](docs/hints.md), [reference](reference/README.md)), and `--block-counts` lays out the
+blocks by a profile. `--lib FILE-OR-FOLDER` names a library's sources: they are compiled into the
+program like the others, but the `-D` defines do not reach them (`-I` and `--sram` do;
+[ADR-6FKYXP8C](docs/adr/6FKYXP8C-dampf-compiles-a-library-s-files-without-the.md)). `parse` only preprocesses and parses. `check` runs the front end on every
 file alone, then on all of them together (recursion, functions defined nowhere or twice). Every
-error of a run is reported, one per top-level declaration at most. `@file` (or `--config file`)
+error of a run is reported, one per top-level declaration at most. `build` and `check` also print
+warnings where gcc warns by default, without stopping ([docs/subset.md](docs/subset.md), "Warnings"). `@file` (or `--config file`)
 reads options from an argument file: one per line, paths relative to the file, and a folder
 stands for the `.c` files in it ([ADR-6F3CJW9N](docs/adr/6F3CJW9N-options-can-be-kept-in-an-argument-file-given-by.md)).
 `dampf mir`, `dampf profile` and `dampf bench` are tools for working on dampf with a benchmark
@@ -252,7 +260,7 @@ compiler/      dampf, the compiler, with its emulator and the tests of the whole
 cli/           the superdevkit command: init, build, run, and the converters png and sfx (Gradle subproject)
 lib/           the dev kit's library: the console API (include/), the SNES (snes/), Rachael, the
                desktop; see its README.md
-tools/         tools for game developers: brr_lab.html, sdevkit_rename.py (the converters are in cli/)
+tools/         tools for game developers: brr_lab.html, web_check (the converters are in cli/)
 examples/      the dev kit's examples: test cases and the benchmark (each has its README.md)
 reference/     hand-written assembly of the examples' functions, the yardstick for dampf's code
 dev/           scripts for developing the kit: benchmark, checks in Mesen, art
@@ -284,7 +292,6 @@ main/resources/dampf/include/  dampf's own <stdint.h>, <string.h> and <dampf.h>
 main/resources/dampf/snes/     SNES runtime (start-up, header, vectors)
 test/java/dampf/               unit, execution, random, example and emulator tests; book source checks
 test/resources/exec/           execution test programs
-test/python/                   the tests of tools/ (ToolsTest runs them)
 ```
 
 ## Trademarks

@@ -3,6 +3,7 @@ title: Command line
 sources:
   - compiler/src/main/java/dampf/ConfigFile.java
   - docs/adr/6F3CJW9N-options-can-be-kept-in-an-argument-file-given-by.md
+  - docs/adr/6FKYXP8C-dampf-compiles-a-library-s-files-without-the.md
   - compiler/src/main/java/dampf/Main.java
   - compiler/src/main/java/dampf/Compiler.java
   - compiler/src/main/java/dampf/tools/*.java
@@ -11,6 +12,8 @@ sources:
   - compiler/src/main/java/dampf/frontend/pp/Preprocess.java
   - compiler/src/main/java/dampf/util/PassLimit.java
   - README.md
+  - compiler/src/main/java/dampf/AsmFunctions.java
+  - compiler/src/main/java/dampf/check/CallGraph.java
 audience: Users looking up a command or an option
 ---
 
@@ -27,17 +30,20 @@ sentence that sends the reader who builds a whole game to
 
 1. **build** – compile to a ROM. Each option: `-I`, `-D` (both also written joined, `-Idir`;
    what dampf's own preprocessor does with them), `--entry`, `--backend`, `--replace`, `--sram`,
-   `--opt-limit`, `-o`. Defaults, which are required, what is printed on success. The rule for
+   `--lib` (a library's sources, which the `-D` defines do not reach; the `superdevkit` build
+   passes `lib/snes` with it), `--opt-limit`, `-o`. Defaults, which are required, what is printed on success. The rule for
    the default of `--backend` with and without `--replace`.
 2. **check** – the front end only, every file on its own, every problem of each file (the first after FAILS, the others below it); the lines
-   it prints and its exit status.
+   it prints (a file's warnings below its "ok") and its exit status.
 3. **parse** – preprocess and parse; what it prints.
 4. **profile** – its arguments, what the profile file is and where it comes from, what the
    optional `top` does.
 5. **mir** – print the MIR or run it in the MIR interpreter: `-O`, `--check-ranges`, `--bench`.
 6. **bench** – run the benchmark ROM in dampf's emulator, `--profile`.
 7. **Messages** – the format of a message (file, line, column, severity, text) as printed, with
-   one real example; the preprocessor's messages.
+   one real example; the preprocessor's messages. Warnings do not stop the build and change
+   no exit status: the ones gcc gives by default (a constant that does not fit its type, link
+   [The C subset](/reference/c-subset#warnings)) and the budget's.
 8. **Exit status** – 0, 1 and 2, and when each happens, for each command.
 
 ## Pay attention to

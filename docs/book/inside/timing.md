@@ -31,8 +31,8 @@ dampf counts CPU cycles, and they are not all equally long: in master cycles, th
 SNES, a CPU cycle takes 6 for FastROM and internal operations and 8 for SlowROM and work RAM.
 One NTSC frame is 357,368 master cycles, roughly 45,000 to 55,000 CPU cycles depending on how
 much code runs from FastROM and how often work RAM is accessed. Counting in master cycles, and
-the time that DMA, HDMA and interrupts take from the CPU, are not built, nor a hint for the trip
-count of a loop without a counter (`DAMPF_TRIPS`); see [Limits](/reference/limits).
+the time that DMA, HDMA and interrupts take from the CPU over a frame, are not built, nor a hint
+for the trip count of a loop without a counter (`DAMPF_TRIPS`); see [Limits](/reference/limits).
 
 ## Bounds for a function
 
@@ -44,7 +44,8 @@ code, apart from forward branches over a few instructions and the small loops th
 generator writes for shifts and copies, which it marks with their number of rounds. dampf walks
 the block instruction by instruction and gives every way out of it, to another block or to the
 return, an interval of cycles. A conditional branch costs 2 cycles when it is not taken and 3
-when it is.
+when it is. The jump table of a `switch`, a `jmp` indexed by `X` through a table of addresses,
+is a way out to every entry of the table, each at the same cost.
 
 **Across blocks.** dampf takes the loops of the function, the innermost first, and collapses
 each into one node. If the loop's head runs at most *n* times, the worst case through the loop
@@ -223,7 +224,10 @@ underscore in front. The five `dampf_` lines are the runtime's routines, listed 
 program calls them or not. A function without a worst case says `unbounded` and comes first;
 after its name stands the reason, the first loop without a bound in it (`loop at` with the C
 file and line) or else the first call of a function without a bound (`calls` with its label).
-`never` as the best case marks a function that never returns.
+`never` as the best case marks a function that never returns. A function written in assembly
+([`DAMPF_ASM`](/reference/hints#dampf-asm)) says `(assembly, file.s)` with the name of its
+file; dampf takes its bounds from the machine code, with the bound that a comment gives each
+backward branch.
 
 `_main` names the loop on line 27 although that line is in `wait_ready`: dampf inlined
 `wait_ready`, `sum_scores`, `abs16` and `halt` into `main`, so the loop is part of `main`'s
@@ -253,6 +257,66 @@ starts a C line gets the sum of its instructions when the line is straight code:
 A sum with `+ calls` counts the `jsl` itself, not the function it calls; the report has that
 function's bounds. A line with a branch, a jump or a label inside gets no sum, because its cost
 depends on the path; the header of the `for` line in `sum_scores` above is one.
+
+### Interrupt handlers
+
+No C code calls an interrupt handler, a function marked `DAMPF_INTERRUPT(irq)` or
+`DAMPF_INTERRUPT(nmi)` ([The C subset](/reference/c-subset#interrupt-handlers)), so no caller's
+bounds contain it, and a function's own bounds leave out the interrupts that come while it
+runs. The report gives each interrupt a line of its own instead, under the label of the
+runtime's entry stub that the hardware enters: `dampf_irq` or `dampf_nmi`. Take a handler that
+shares a function with the main code:
+
+```c [irq.c]
+#include <stdint.h>
+#include <dampf.h>
+
+uint16_t player_x, irq_count;
+
+uint16_t clamp(uint16_t v, uint16_t hi)
+{
+    return v > hi ? hi : v;
+}
+
+DAMPF_INTERRUPT(irq) void count_irq(void)
+{
+    irq_count = clamp((uint16_t)(irq_count + 1), 1000);
+}
+
+int main(void)
+{
+    player_x = clamp(player_x, 240);
+    return 0;
+}
+```
+
+Built with `dampf build -o build/irq.sfc irq.c`, its report `build/irq.timing.txt`, cut to the
+lines that the handler adds, reads:
+
+```
+        1168         1968  dampf_mul32_soft
+          22          532  dampf_mul16_soft
+         131          132  dampf_irq   (the IRQ from the interrupt to the end of its RTI: entry stub and _count_irq)
+          34           35  _count_irq
+          16           21  __irq_clamp
+```
+
+The line of `dampf_irq` counts from the moment the CPU takes the interrupt to the end of its
+`RTI`: the 8 cycles in which the CPU pushes the program bank, the program counter and the status
+register and reads the vector, the entry stub up to the handler's first instruction, the handler
+with its calls, and the way back through the stub. The stub of an IRQ costs 66 cycles before
+the handler and 31 after it, so 131 is 97 plus the best case of `_count_irq`, 34. The stub of an
+NMI costs 5 cycles more, because it reads `RDNMI` in 8-bit mode. Two things are not in the line:
+the rest of the instruction the CPU was running when the interrupt came, which it finishes
+first, and an NMI that comes while the IRQ handler runs.
+
+A handler and every function it calls run in a context of their own, with their own frames and
+direct page and without the CPU's multiplier. A function that both the main code and a handler
+call is therefore compiled once for each, and the report lists both: `_clamp` for the main code
+and `__irq_clamp` for the IRQ, its label with two underscores and the context in front. Code in
+a handler multiplies in software, so a program with a handler gets the runtime's
+`dampf_mul16_soft` and `dampf_mul32_soft`: 22 to 532 cycles for a 16-bit multiplication, one
+round per bit of the second factor, where the main code takes 108 on the multiplier.
 
 ## Budgets
 
@@ -318,10 +382,12 @@ The tests hold every bound against a measurement in dampf's own emulator
 ([Testing](/inside/testing)). Every execution test and every random program built with the code
 generator from MIR measures `test_main` and every call of every function and runtime routine on
 the way, from the function's first instruction to the instruction after the `JSL` that called
-it, and checks that best ≤ measured ≤ worst. `ExamplesTimingTest` does the same for every
-example: each runs its first 3,000 frames without input in the emulator, and each of its calls
-must lie within the bounds of its function. (While Blubber Blasen's code was in the repository,
-the same test ran on the game's benchmark, about 180,000 calls.)
+it, and checks that best ≤ measured ≤ worst. The cycles of interrupts that came during a call
+are not the call's; each interrupt is measured against its own line, from its first cycle to
+the end of its `RTI` (the execution test `interrupts.c`). `ExamplesTimingTest` does the same
+for every example: each runs its first 3,000 frames without input in the emulator, and each of
+its calls must lie within the bounds of its function. (While Blubber Blasen's code was in the
+repository, the same test ran on the game's benchmark, about 180,000 calls.)
 
 The check catches a wrong bound at once. In an earlier version of `dampf_mul16`, with a worst
 case of 367 cycles, a bound set too low on purpose, 300, failed 94 tests; the largest measured

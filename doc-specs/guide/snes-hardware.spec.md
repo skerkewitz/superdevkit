@@ -4,9 +4,12 @@ sources:
   - lib/SNES_HARDWARE.md
   - lib/README.md
   - lib/include/sdevkit/snes.h
+  - lib/include/sdevkit/irq.h
+  - lib/include/sdevkit/publish.h
   - lib/rachael/rachael.h
   - lib/rachael/ppu.c
   - lib/rachael/dsp.c
+  - docs/sound.md
   - lib/splash/splash.h
   - lib/desktop/main.c
   - lib/desktop/view.c
@@ -36,9 +39,16 @@ it, and the three kinds of rule (enforced, measured, documented).
 2. **Video memory** – the rules, each with its kind.
 3. **Sprites** – the rules, each with its kind.
 4. **CPU and memory** – the rules, each with its kind.
-5. **The console is not the emulator** – start values (also after the splash screen, and of
+5. **Sound: what the SNES can play** – for a reader who knows sound from the PC and not the
+   SNES: the sound unit and the ports, BRR (blocks, what a sample costs at which rate, pitch and
+   how far one sample stretches, loops, the Gaussian dullness), the eight voices and what each
+   can do, echo and its price, what the DSP cannot do, the audio RAM and loading samples between
+   levels, what the sound player does and why games ran it on the SPC700, and what the kit uses
+   of it today. Keep the numbers (the table of rates, the pitch range, the echo's size): a
+   reader chooses a game's sample rates with them.
+6. **The console is not the emulator** – start values (also after the splash screen, and of
    save RAM) and PAL.
-6. **Not usable yet** – one short paragraph, and what to do instead today.
+7. **Not usable yet** – one short paragraph, and what to do instead today.
 
 ## Pay attention to
 

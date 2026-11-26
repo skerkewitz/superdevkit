@@ -35,8 +35,10 @@ raylib 5.5 from GitHub into that folder, and every build after it reuses it.
 
 The build has the three steps of the desktop: each of the game's files compiled alone, without
 the host's headers; the symbol check, which accepts only calls into the
-[console API](/glossary#console-api); and the link, with Rachael, the desktop's frontend
-(`lib/desktop`), what the web adds to it (`lib/web`) and raylib.
+[console API](/glossary#console-api) and writes `build/web/obj/game_interrupts.c`, which names
+the game's `game_irq` and the handler `SDEVKIT_PUBLISH` defines when the game has them; and the
+link, with Rachael, the desktop's frontend (`lib/desktop`), what the web adds to it (`lib/web`)
+and raylib.
 [The desktop](/guide/the-desktop) explains why the first two steps are there. Use `--plan` to
 see the steps without running them; for a game made with `superdevkit init mygame` in a
 release, with the compiler's options cut short:
@@ -51,7 +53,7 @@ superdevkit build web: mygame (kit <home>)
   emcc   emcc -std=c99 -O2 ... -c build/gen/ball_gfx.c -o build/web/obj/gen_ball_gfx.o
   emcc   emcc -std=c99 -O2 ... -c build/gen/font_gfx.c -o build/web/obj/gen_font_gfx.o
   music  0 tracks into build/web/music, their list build/web/obj/music_files.c
-  check  the game's objects call nothing but lib/include/sdevkit (ADR-6F3CK2AR)
+  check  the game's objects call nothing but lib/include/sdevkit (ADR-6F3CK2AR); whether they define game_irq and sdevkit_publish_nmi (game_interrupts.c)
   emcc   emcc -std=c99 -O2 ... -o build/web/index.html
   write  build/compile_commands.json
 everything the build needs is there

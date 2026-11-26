@@ -1,5 +1,6 @@
 package dampf.mir;
 
+import dampf.target.SnesTarget;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,7 +19,9 @@ import java.util.Map;
  *
  * <p>Arithmetic, comparisons, casts and ptradds can move anywhere after their operands. A load
  * does not move past a copy, a call, a volatile access or a store that may change what it reads
- * (a store to another global, or to other bytes of the same one, cannot). Instructions with an effect never move.
+ * (a store to another global, or to other bytes of the same one, cannot; nor can a volatile store
+ * to a register of the PPU, the sound or the CPU change a global: a value written to a register in
+ * two halves is then two byte loads, each next to its store). Instructions with an effect never move.
  */
 public final class Schedule {
     private Schedule() {}
@@ -141,12 +144,26 @@ public final class Schedule {
             if (i instanceof Instr.Store st && !st.isVolatile && disjoint(load, st)) {
                 continue;
             }
+            if (i instanceof Instr.Store st && st.isVolatile && fixed(load.op(0)) != null && isRegister(st.op(0))) {
+                continue;
+            }
             if (i instanceof Instr.Store || i instanceof Instr.Copy || i instanceof Instr.Call
                     || i instanceof Instr.Load l && l.isVolatile) {
                 return false;
             }
         }
         return true;
+    }
+
+    /**
+     * A pointer made from a constant that is a register of the PPU, the sound or the CPU: no
+     * memory, and a write to it starts no DMA ({@link SnesTarget#isPlainRegister}).
+     */
+    static boolean isRegister(Value address) {
+        if (!(address instanceof Instr.Cast c) || c.kind != Instr.CastKind.INTTOPTR || !(c.op(0) instanceof Value.Const k)) {
+            return false;
+        }
+        return SnesTarget.isPlainRegister(k.bits());
     }
 
     /** A global and a constant offset into it: an address known without running the code. */

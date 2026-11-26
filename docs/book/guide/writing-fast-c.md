@@ -16,7 +16,7 @@ different matter, covered in [Writing C for dampf](/guide/writing-c) and
 All figures below are the worst case of a function in CPU cycles, from its entry to its
 return with calls included, as the timing report gives it for the
 [code generator from MIR](/glossary#code-generator-from-mir). They were measured on
-2026-11-23.
+2026-11-24.
 
 ## Slow
 
@@ -234,6 +234,69 @@ void move_array_per_field(void)
 }
 ```
 
+**`fast-switch-table`: dispatch on many values with a `switch`, not an `if`/`else if`
+chain.** Where the cases lie close together, dampf makes the switch a jump table, one indirect
+jump through a table of the cases' addresses, so every case costs the same. A chain tests one
+value after the other, and the last case and the values that match none pay for all the tests
+before them. Over 12 cases the switch takes 33 cycles at worst, the chain 90. dampf makes the
+table from 6 cases that start at 0, from 4 where the value cannot leave the cases' range
+(`k & 7`), and from 7 where the cases start far from 0 or are negative. With fewer cases, with
+cases far apart, and in a loop whose counter dampf keeps in the X register, it compares the
+cases one after the other in the order written, so put the common case first. A first
+`case 0` is tested before the table too, so the empty slots of an array of objects stay cheap.
+
+```c [compiler/src/test/resources/style/fast-switch-table.c]
+void dispatch_switch(uint8_t k)
+{
+    switch (k) {
+    case 0: r = 3; break;
+    case 1: r = 5; break;
+    case 2: r = 7; break;
+    case 3: r = 11; break;
+    case 4: r = 13; break;
+    case 5: r = 17; break;
+    case 6: r = 19; break;
+    case 7: r = 23; break;
+    case 8: r = 29; break;
+    case 9: r = 31; break;
+    case 10: r = 37; break;
+    case 11: r = 41; break;
+    default: r = 1; break;
+    }
+}
+
+void dispatch_if_chain(uint8_t k)
+{
+    if (k == 0) {
+        r = 3;
+    } else if (k == 1) {
+        r = 5;
+    } else if (k == 2) {
+        r = 7;
+    } else if (k == 3) {
+        r = 11;
+    } else if (k == 4) {
+        r = 13;
+    } else if (k == 5) {
+        r = 17;
+    } else if (k == 6) {
+        r = 19;
+    } else if (k == 7) {
+        r = 23;
+    } else if (k == 8) {
+        r = 29;
+    } else if (k == 9) {
+        r = 31;
+    } else if (k == 10) {
+        r = 37;
+    } else if (k == 11) {
+        r = 41;
+    } else {
+        r = 1;
+    }
+}
+```
+
 A multiplication or an unsigned division by a constant is cheap as well, as
 `slow-multiply-variable` and `slow-divide-variable` show: write it as such, in the clear form.
 
@@ -254,6 +317,9 @@ Write whichever reads better; these pairs cost the same, within 5 %:
   cycles, as long as the offsets fit the list's type.
 - **`same-named-temporary`**: a named temporary or the expression written inline, 45 and 45
   cycles. A value used once stays in the accumulator either way.
+- **`same-enum-object`**: a state kept in a variable of an enum type or in a `uint8_t` with the
+  enumerators as constants, 2,774 and 2,774 cycles. An enum whose enumerators fit a byte takes
+  one.
 - **`same-32-bit-bits`**: a value only combined bit by bit (a hash, a mask tested with `!= 0` or
   `==`) as one `uint32_t` or as two `uint16_t` halves, 36 and 36 cycles. dampf splits it into
   the halves itself.

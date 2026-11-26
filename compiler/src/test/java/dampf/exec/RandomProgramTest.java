@@ -76,7 +76,7 @@ class RandomProgramTest {
             Files.writeString(src, program);
             Compiler.Result r = Compiler.compile(new Compiler.Options(List.of(src), List.of(), List.of(), "test_main",
                     work.resolve("random.sfc")));
-            List<Observed> globals = Observed.of(r.program().globals());
+            List<Observed> globals = Observed.of(r.program());
             Map<String, Long> pc = PcReference.wrap(PcReference.run(src, "test_main", globals, work), globals);
             assertEquals(pc, MirRunner.run(r.program(), "test_main", globals), () -> again + " differs (PC vs MIR); the program:\n" + program);
             assertEquals(pc, MirRunner.run(r.program(), "test_main", globals, true), () -> again + " differs (PC vs optimized MIR); the program:\n" + program);

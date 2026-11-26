@@ -29,7 +29,10 @@ everything outside it is rejected with a message, and that the subset is what a 
 
 1. **Integer types say their width** – `<stdint.h>` types only, plain `int`, `short`, `long`,
    `unsigned` rejected, and why (sizes differ between compilers). dampf ships its own
-   `<stdint.h>`.
+   `<stdint.h>`. Plain `char` is for text: it is copied and compared with `==` and `!=`, never
+   computed with, because it is signed on one PC and unsigned on another; for a number, cast
+   it to `uint8_t` first (`(uint8_t)c - '0'`). An enum object holds only values of its enum,
+   and dampf stores it in the smallest width that holds them, usually a byte.
 2. **Same arithmetic as gcc on the PC** – integer promotions to a 32-bit `int`, wrapping,
    truncation, division towards zero, arithmetic `>>`. One short example where the promotion
    matters (from `compiler/src/test/resources/exec/calls.c`, `inc8` or `neg8`), with the result. Why: the PC build
@@ -55,12 +58,15 @@ everything outside it is rejected with a message, and that the subset is what a 
 
 - Check every example with `dampf check` and with `gcc -std=c99 -Wall -Wextra` before it goes
   on the page.
-- The decisions of `docs/subset.md` that are still open (plain `char`): say what dampf
-  does today, not what may be decided.
+- The decisions of `docs/subset.md` that are still open: say what dampf does today, not what
+  may be decided.
 - The messages the page quotes are dampf's as it prints them today; `lib/C_STYLE.md`, which
   ships with the kit, lists each rejected construct with its message and may be named once.
 - Hints: one sentence that `<dampf.h>` provides them, link [Hints](/reference/hints).
-  Intrinsics are not built: link [Limits](/reference/limits).
+  There are no intrinsics: the hardware is reached through the console API.
+- Interrupt handlers: one sentence that a game's IRQ is written in C (`game_irq`, with
+  `DAMPF_INTERRUPT(irq)`) and has rules of its own, linking
+  [The C subset](/reference/c-subset#interrupt-handlers).
 
 ## Out of scope
 

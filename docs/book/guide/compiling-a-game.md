@@ -3,7 +3,7 @@
 
 A game is not one file but many, with headers in several directories, graphics converted into C
 and a library it calls: Er-Tüp, the side-scrolling shooter in `<home>/examples/ertuep` and the
-largest example of the [dev kit](/glossary#dev-kit), compiles 29 `.c` files into its ROM. This
+largest example of the [dev kit](/glossary#dev-kit), compiles 31 `.c` files into its ROM. This
 page compiles Er-Tüp with dampf, finds what does not fit the [subset](/glossary#subset), and
 measures where the cycles go. When you compile your own game, pass its paths instead.
 
@@ -35,11 +35,13 @@ after start-up; without it, that is `main`.
 A game written against the console API has no `main` of its own: the entry function is the
 main loop of the platform layer, in `<home>/lib/snes/main.c`, which calls the game's functions.
 Its call therefore names the home's headers with `-I <home>/lib/include` and compiles the `.c`
-files of `<home>/lib/snes` with the game's. For a game of your own with its `.c` files and
-headers in `src`, run in the game's folder, the shortest call is:
+files of `<home>/lib/snes` with the game's. Name that folder with `--lib`, which marks the files
+as a library's: dampf compiles them into the program like the others, but the `-D` defines,
+which are meant for the game's own files, do not reach them. For a game of your own with its
+`.c` files and headers in `src`, run in the game's folder, the shortest call is:
 
 ```sh
-dampf build -I <home>/lib/include -I src -o build/mygame.sfc src/*.c <home>/lib/snes/*.c
+dampf build -I <home>/lib/include -I src -o build/mygame.sfc src/*.c --lib <home>/lib/snes
 ```
 
 It prints one line, with the full paths of the ROM and of the debug file for
@@ -70,7 +72,7 @@ superdevkit build snes: ertuep (kit <home>)
   png    tiles assets/stage_bar.png stage_bar build/gen
   ...
   png    mode7 assets/karussell.png karussell build/gen 33
-  dampf  build -I <home>/lib/include -I src -I build/gen --entry main -o build/snes/ertuep.sfc src build/gen/ <home>/lib/snes/
+  dampf  build -I <home>/lib/include -I src -I build/gen --entry main -o build/snes/ertuep.sfc src build/gen/ --lib <home>/lib/snes/
   write  build/compile_commands.json
 everything the build needs is there
 ```
@@ -91,7 +93,7 @@ graphics, the same compile on one command line is:
 dampf build \
     -I <home>/lib/include -I src -I build/gen \
     --entry main -o build/ertuep/ertuep.sfc \
-    src/*.c build/gen/*.c <home>/lib/snes/*.c
+    src/*.c build/gen/*.c --lib <home>/lib/snes
 ```
 
 It prints its line as well (path cut):
@@ -104,7 +106,8 @@ A call this long belongs in a file. dampf reads its arguments from an
 [argument file](/glossary#args-file) as well, and every `superdevkit build snes` writes one for
 the game: `build/snes/<name>.args`, which names what the build compiled. It names every file on
 its own line, with absolute paths, with a `-D` for each macro the project file defines for the
-SNES, and with `--sram` when the project file asks for save RAM.
+SNES, with `--sram` when the project file asks for save RAM, and with `--lib` in front of each
+file of `lib/snes`.
 Er-Tüp's, with the game's paths cut to `.../ertuep/`, the home's written as `<home>` and most of
 its files left out:
 
@@ -118,9 +121,11 @@ its files left out:
 .../ertuep/src/boss.c
 ...
 .../ertuep/build/gen/wall_kitchen.c
-<home>/lib/snes/main.c
-<home>/lib/snes/sfx.c
-<home>/lib/snes/snes.c
+--lib <home>/lib/snes/irq.c
+--lib <home>/lib/snes/layers.c
+--lib <home>/lib/snes/main.c
+--lib <home>/lib/snes/sfx.c
+--lib <home>/lib/snes/snes.c
 ```
 
 The command line adds to the file, so the file leaves out the output and each call names its
@@ -184,8 +189,8 @@ ok      .../ertuep/src/bossmap.c
 ...
 ok      <home>/lib/snes/sfx.c
 ok      <home>/lib/snes/snes.c
-29 of 29 file(s) pass the front end
-the 29 file(s) together: ok
+31 of 31 file(s) pass the front end
+the 31 file(s) together: ok
 ```
 
 A file that does not fit is marked `FAILS`, with the position and the message, and `check`
@@ -246,6 +251,27 @@ src/countdown.c:5:25: error: recursion is not supported: countdown → countdown
 Only the files that pass alone go into this second round, so fix those first: a function
 defined in a failing file can show up here as called but never defined.
 
+Where gcc warns by default, `check` prints a warning too, indented under the file's `ok` line,
+and the file still passes; `build` prints the same warnings before its `wrote` line. A constant
+that does not fit the type it is converted to is one:
+
+```c [src/lives.c]
+#include <stdint.h>
+
+uint8_t lives = 300;
+```
+
+```sh
+dampf check -I src src/lives.c
+```
+
+```
+ok      src/lives.c
+        src/lives.c:3:17: warning: unsigned conversion from 'int32_t' to 'uint8_t' changes value from '300' to '44' [-Woverflow]
+1 of 1 file(s) pass the front end
+the 1 file(s) together: ok
+```
+
 ## Where the time goes
 
 Once the game builds, the next question is which functions take the cycles. The examples answer
@@ -275,20 +301,20 @@ starts like this (each table cut, the path of the home's file cut to `.../lib/`)
 
 ```
 ticks 5700 to 5732: 1.000 frames per tick
-  64.6 %      231004  main
+  64.4 %      230195  sdevkit__frame
    5.7 %       20488  kettle_update
-   4.8 %       17100  collide
-   3.1 %       11021  effects
-   3.0 %       10644  play
-   2.3 %        8315  draw_player
+   4.8 %       17120  collide
+   3.0 %       10769  effects
+   3.0 %       10619  play
+   2.3 %        8184  draw_player
    2.2 %        7777  player_update
 ...
 C lines:
-  63.7 %      227464  .../lib/snes/snes.c:420
-   2.5 %        8848  src/boss.c:332
-   1.2 %        4300  src/stage.c:338
-   1.1 %        3801  src/game.c:324
-   0.7 %        2534  src/draw.c:283
+  63.2 %      225907  .../lib/snes/snes.c:203
+   2.4 %        8751  src/boss.c:333
+   1.2 %        4291  src/stage.c:340
+   1.0 %        3547  src/game.c:331
+   0.7 %        2545  src/draw.c:296
 ...
 ```
 
@@ -296,47 +322,72 @@ The first line repeats the two numbers of the call, so its `5732` is the tick af
 measured, and gives the [frames](/glossary#frame) the ticks took on average. A tick ends by
 waiting for the next vertical blank, so a tick whose work fits in a frame takes exactly one.
 Each row then gives the share of the measured ticks and the master clocks per tick, the most
-expensive first. Here the time in `main` is almost all line 420 of `<home>/lib/snes/snes.c`, the
-loop that waits for the vertical blank: nearly two thirds of each frame are left. Of the game's
-own work, the kettle's `kettle_update` takes the most, and line 332 of `src/boss.c`, with lines
-330 to 335 further down the list, is the loop that moves the kettle's tentacles.
+expensive first. Here the time in `sdevkit__frame`, the platform layer's step after each tick,
+is almost all line 203 of `<home>/lib/snes/snes.c`, the loop that waits for the vertical blank:
+nearly two thirds of each frame are left. Of the game's own work, the kettle's `kettle_update`
+takes the most, and line 333 of `src/boss.c`, with lines 331 to 336 further down the list, is
+the loop that moves the kettle's tentacles.
 
 ## Replacing a function with assembly
 
-To find out how far dampf's code is from what a person writes by hand, you can link a
-hand-written version of one function in place of the one dampf compiles, and run the same
-input with it. The folder `reference/` of superdevkit's repository holds such versions for
-functions of the examples, such as Er-Tüp's random generator `random16` in
-`reference/ertuep_random16.s`; the home has no `reference/`, so this needs a checkout of the
-repository. Use [`--replace`](/reference/command-line#replace) with the C name of the function
-and the assembly file, added to the argument file of the build. In the copy of Er-Tüp, with
-`<repo>` for the folder of the checkout:
+When the profile points at a function where dampf's code is far from what a person would write
+by hand, you can write that function in 65816 assembly and keep its C body. Put the
+[hint](/glossary#hint) `DAMPF_ASM` from `<dampf.h>` after the parameter list of the function's
+definition, with the assembly file, whose path is taken from the C file's folder. For Er-Tüp's
+random generator `random16`, with the file in `src/asm`:
+
+```c [src/objects.c]
+uint16_t random16(void) DAMPF_ASM("asm/random16.s")
+{
+    uint16_t x = rnd;
+    ...
+}
+```
+
+dampf links the assembly in place of the code it would compile from the body, while the PC
+build compiles the body as before, so the same source still builds with gcc. The assembly has
+to keep dampf's convention for such functions, which says where the parameters and the result
+are and how the function is called and returns; [Hints](/reference/hints) lists it.
+
+In every build with the [code generator from MIR](/glossary#code-generator-from-mir), the
+default, dampf times the file and checks it against the C body. The function's line in the
+[timing report](/glossary#timing-report) says `assembly` and names the file:
+
+```
+          68           68  _random16   (assembly, .../ertuep/src/asm/random16.s)
+```
+
+The check runs the assembly and the C body on 256 inputs in dampf's emulator, and a difference
+for any input stops the build, also for an input the game never passes. A version of
+`random16` with one shift missing fails like this (paths cut):
+
+```
+.../ertuep/src/objects.c:22:10: error: the assembly does not compute what the C body of 'random16' computes: for rnd = $142A, the C body returns 11050 ($2B2A), the assembly 10795 ($2A2B) (.../ertuep/src/asm/random16.s, DAMPF_ASM)
+```
+
+The [naive code generator](/glossary#naive-code-generator) (`--backend naive`) links the file as
+well, but writes no timing report and runs no check.
+
+To try a hand-written version without touching the source, use
+[`--replace`](/reference/command-line#replace) with the C name of the function and the
+assembly file. It does what `DAMPF_ASM` does, with the same convention and checks, and overrides
+a `DAMPF_ASM` the function has; the function must exist in the C source. The folder
+`reference/` of superdevkit's repository holds such versions of functions of the examples, as
+the yardstick for dampf's code, such as Er-Tüp's `random16` in `reference/ertuep_random16.s`;
+the home has no `reference/`, so this needs a checkout of the repository. In the copy of Er-Tüp,
+with `<repo>` for the folder of the checkout, the option is added to the argument file of the
+build:
 
 ```sh
-dampf build @build/snes/ertuep.args --backend naive \
+dampf build @build/snes/ertuep.args \
     --replace random16=<repo>/reference/ertuep_random16.s -o build/ref.sfc
 ```
 
-The function must exist in the C source, and the hand-written code has to keep dampf's calling
-convention, which says where the parameters and the result are and how the function is called
-and returns. `reference/README.md` in the repository lists it, and how the examples' tests check
-that each reference computes what the C does.
-
-That convention is the one of the [naive code generator](/glossary#naive-code-generator), so
-`--replace` switches to it unless `--backend` names a code generator. Asking for the
-[code generator from MIR](/glossary#code-generator-from-mir) together with `--replace` fails
-with this message, at the entry function:
-
-```
-<home>/lib/snes/main.c:78:5: error: --replace works with the naive code generator only
-```
-
-The comparison is therefore between the naive code generator's version and the hand-written
-one: the code generator from MIR inlines `random16` into its callers, while the naive one calls
-it. Budgets and the timing file come from the code generator from MIR: the naive one computes
-no best or worst case, so a build with `--replace` writes no `.timing.txt` and checks no
-`DAMPF_BUDGET`. Without the timing report, `ExampleProfile` counts every C label as a function;
-run it on the build with the reference and on a naive build without it, with the same input,
-which makes the same calls, so the ratio of the totals is the ratio per call.
+For `random16` the two versions are equally fast: 68 CPU cycles a call each, on the inputs of
+the check, as measured on 2026-11-24. In the game the code generator from MIR inlines `random16`
+into its callers; with both of Er-Tüp's reference functions linked, its benchmark does 131,922
+master clocks of work a tick against 131,906 for dampf alone, so dampf's inlined code is a
+little faster than calls of the hand-written functions. `reference/README.md` in the
+repository lists the functions and how the examples' tests check each of them.
 
 How the examples check dampf against the PC is on [Testing](/inside/testing).

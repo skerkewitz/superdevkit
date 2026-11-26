@@ -38,10 +38,10 @@ class ConfigFileTest {
     void relativePathsAreResolvedAgainstTheFilesFolder() throws IOException {
         Path f = Path.of("build/tmp/configfiletest/sub/game.args");
         Files.createDirectories(f.getParent());
-        Files.writeString(f, "-I ../src\n--replace f=../asm/f.s\n--block-counts counts.txt\nmain.c\n/abs/x.c\n");
+        Files.writeString(f, "-I ../src\n--replace f=../asm/f.s\n--block-counts counts.txt\nmain.c\n/abs/x.c\n--lib ../lib/\n");
         assertEquals(List.of("-I", "build/tmp/configfiletest/src", "--replace", "f=build/tmp/configfiletest/asm/f.s",
                 "--block-counts", "build/tmp/configfiletest/sub/counts.txt", "build/tmp/configfiletest/sub/main.c",
-                "/abs/x.c"), ConfigFile.read(f));
+                "/abs/x.c", "--lib", "build/tmp/configfiletest/lib"), ConfigFile.read(f));
     }
 
     @Test

@@ -89,14 +89,15 @@ Things worth looking at:
   above and below when its column is built. Changing the stage is editing a picture in the source.
 - **Streaming columns.** The map of layer 1 is 64 columns wide (1024 pixels) and the stage 224;
   the column about to come into view is built in RAM and copied down the map in the next vertical
-  blank with `sdevkit_dma_copy_vram_column`, which the kit got for this game. The wall behind (layer
+  blank with `sdevkit_vram_column_copy`, which the kit got for this game. The wall behind (layer
   2) scrolls at half the speed and streams its own columns.
 - **Object tables.** Every shot, enemy, bullet, item and particle is a 14-byte `Obj` in a table,
   reached through a pointer, moved in 12.4 fixed point; each kind of enemy is a state machine. The
   struct has no padding on the PC either, so the checks hash the tables after every tick
   (`sdevkit_dbg_hash`) and compare the SNES with the desktop.
-- **The sprite table written directly**, without `sdevkit_oam_set` (315 cycles and more a call):
-  four bytes and two bits a sprite.
+- **The sprite table written directly**, a table of the game's own: four bytes and two bits a
+  sprite, and in `game_vblank` only the entries in use go into OAM (`sdevkit_oam_copy`), not
+  all 544 bytes.
 - **One `random16()` a statement.** C leaves the order in which a call's arguments are evaluated
   open; two calls of the random generator in one call's arguments may run in another order with
   dampf than with gcc, and the SNES and the PC would play different games. The checks find it.

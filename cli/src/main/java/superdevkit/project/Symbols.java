@@ -48,7 +48,7 @@ public final class Symbols {
         }
         for (Path h : headers) {
             String c = Files.readString(h).replaceAll("(?s)/\\*.*?\\*/", " ").replaceAll("//[^\\n]*", " ")
-                    .replaceAll("(?m)^\\s*#.*$", " ");
+                    .replaceAll("(?m)^\\s*#(?:[^\\n]*\\\\\\n)*[^\\n]*$", " ");   // with a macro's body
             for (Pattern p : List.of(DECLARATION, EXTERN)) {
                 Matcher m = p.matcher(c);
                 while (m.find()) {
@@ -79,6 +79,16 @@ public final class Symbols {
             }
         }
         return bad;
+    }
+
+    /** Whether one of the objects defines the global symbol {@code name} (the game's game_irq, say). */
+    public static boolean defines(List<Path> objects, String name) throws IOException {
+        for (Path o : objects) {
+            if (read(o).defined.contains(name)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** The global symbols an object defines and the ones it leaves undefined. */

@@ -54,8 +54,10 @@ header and the vectors stay in bank `$80`. Where code and data end up
 in memory is on [Runtime and memory](/reference/runtime-and-memory).
 
 When there is more than one assembly module, they are numbered: `calls_1.s`, `calls_2.s` and so
-on, each with its `.o` when ca65 assembles them. With `--replace`, for example, each
-hand-written `.s` file is added as a module of its own.
+on, each with its `.o` when ca65 assembles them. A function written in assembly, with
+[`DAMPF_ASM`](/reference/hints#dampf-asm) in the source or with `--replace`, adds its
+hand-written `.s` file as a module of its own, once per file even when the file holds several
+functions.
 
 ## Reading the assembly
 
@@ -230,6 +232,33 @@ function `halt` whose body is the endless loop `for (;;) {}` on line 11 of the s
 ```
        never    unbounded  _halt   (loop at wait.c:11)
 ```
+
+A function written in assembly gets its numbers from dampf's analysis of its machine code, and
+the file it comes from after its name. In the execution test `asm_functions.c`:
+
+```
+          22           22  _bump   (assembly, compiler/src/test/resources/exec/asm/asm_functions.s)
+```
+
+A program with [interrupt handlers](/reference/c-subset#interrupt-handlers) gets a line per
+interrupt, `dampf_irq` or `dampf_nmi`, which counts from the interrupt to the end of its return
+(`rti`): the runtime's entry stub and the handler with its calls. A function that a handler
+reaches is compiled once more for that interrupt, and the copy has a line of its own, named
+after the interrupt. In the execution test `context_copies.c` the IRQ and NMI handlers both call
+`work`; this part of its timing report shows the two interrupts, the handlers and the two
+copies of `work`:
+
+```
+         125         6201  dampf_nmi   (the NMI from the interrupt to the end of its RTI: entry stub and _on_nmi)
+         120         6196  dampf_irq   (the IRQ from the interrupt to the end of its RTI: entry stub and _on_irq)
+          23         6099  _on_irq
+          23         6099  _on_nmi
+        2805         6039  __irq_work
+        2805         6039  __nmi_work
+```
+
+The copies multiply in software, so such a program also lists the runtime's `dampf_mul16_soft`
+and `dampf_mul32_soft`.
 
 How dampf computes these numbers is on [Exact timing](/inside/timing).
 

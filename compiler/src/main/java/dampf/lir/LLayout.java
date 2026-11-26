@@ -18,6 +18,8 @@ public final class LLayout {
                     at.put(l.name(), position);
                 } else if (i instanceof LInstr in) {
                     position += in.length();
+                } else if (i instanceof LDirective d) {
+                    position += d.dataBytes();   // a jump table
                 }
             }
         }
@@ -30,9 +32,7 @@ public final class LLayout {
         int position = 0;
         for (LBlock b : f.blocks()) {
             at.put(b, position);
-            for (LInstr in : b.instrs()) {
-                position += in.length();
-            }
+            position += b.bytes();
         }
         return at;
     }

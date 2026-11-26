@@ -23,6 +23,10 @@ sources:
   - examples/steinschlag/src/steinschlag.h
   - examples/steinschlag/src/game.c
   - lib/include/sdevkit/snes.h
+  - lib/include/sdevkit/loop.h
+  - lib/include/sdevkit/easy.h
+  - lib/include/sdevkit/shadow.h
+  - lib/include/sdevkit/queue.h
   - lib/snes/snes.c
   - lib/SNES_HARDWARE.md
 audience: Game programmers who have pictures and sounds made on the PC and want them in a game
@@ -102,4 +106,3 @@ game uploads the arrays with the console API.
   [The superdevkit command](/reference/superdevkit).
 - The steps of the sound conversion (resampling, treble, BRR encoding), the SPC700 driver and
   the upload protocol, and every member of `sfx.json` with its range: `docs/sound.md` has them.
-- `tools/sdevkit_rename.py`: [The console API](/reference/console-api#the-old-names).

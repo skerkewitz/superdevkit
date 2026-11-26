@@ -3,7 +3,7 @@
 -- inside a vertical blank or with the screen off (the PPU drops it otherwise). Takes screenshots.
 --
 -- It counts in ticks, not frames: a tick is one game_tick, which the library's main loop ends
--- with a copy of the sprite table; a tick that takes longer than a frame makes the console fall
+-- with a write of 0 to $21FD; a tick that takes longer than a frame makes the console fall
 -- behind the frames, and counting ticks keeps the run the same as on the desktop, where every
 -- frame is one tick. example_input.txt (copied from examples/<name>/check.txt), one line each:
 --   ticks N                     stop after N ticks
@@ -15,7 +15,7 @@
 --                               brightness ($2100, the screen on) once a frame in the vertical
 --                               blank, where everything before it only switches the screen off,
 --                               so frame N is the Nth write with bit 7 clear; its picture is
---                               taken two frame ends on, as a tick's
+--                               taken two frame ends on
 --   sram H                      the cartridge's save RAM at power-on: its bytes in hex from the
 --                               first on, the rest zero (written before the game starts)
 -- Writes example_check.txt: lost bytes per frame, then "frames F ticks T lost L"; and
@@ -62,6 +62,9 @@ local ok, err = pcall(function()
   local out = io.open("example_check.txt", "w")
   local hashes = io.open("example_hashes.txt", "w")
   local hash, hashBytes, hashTicks = 2166136261, {}, 0
+  -- the ticks ended, and whether one has ended since the joypad was last read
+  local frame, lost, ticks, shot_due, shot_wait, ended = 0, 0, 0, nil, 0, false
+  local brightness_writes, splash_due, splash_wait = 0, nil, 0
   local sound, started, dspAddr, upload = io.open("example_sound.txt", "w"), false, 0, 2166136261
   emu.addMemoryCallback(function(addr, value)
     local h = upload
@@ -102,18 +105,14 @@ local ok, err = pcall(function()
       hashTicks = hashTicks + 1
     end
     hash = 2166136261
-  end, emu.callbackType.write, 0x21FD, 0x21FD)
-  -- the library copies the sprite table once at power-on, before the first tick: not a tick
-  local frame, lost, ticks, shot_due, shot_wait = 0, 0, -1, nil, 0
-  local brightness_writes, splash_due, splash_wait = 0, nil, 0
-  emu.addMemoryCallback(function(addr, value)
-    for ch = 0, 7 do
-      if (value >> ch) & 1 == 1 and emu.read(0x4301 + ch * 16, emu.memType.snesMemory) == 0x04 then
-        ticks = ticks + 1
-        if shots[ticks] then shot_due = ticks; shot_wait = 2 end   -- its picture: two frame ends on
-      end
+    if value == 0 then                    -- a tick has ended
+      ticks = ticks + 1
+      ended = true
+      -- its picture: game_vblank writes it at the next frame end, the frame after draws it, and
+      -- the screenshot comes one frame end later still
+      if shots[ticks] then shot_due = ticks; shot_wait = 3 end
     end
-  end, emu.callbackType.write, 0x420B, 0x420B)
+  end, emu.callbackType.write, 0x21FD, 0x21FD)
   -- The vertical blank runs from the end of a frame (scanline 225) to the start of the next one;
   -- the screen is off while bit 7 of INIDISP ($2100) is set. Kept as two flags: emu.getState()
   -- for every byte written made the check about fifty times slower.
@@ -135,11 +134,12 @@ local ok, err = pcall(function()
     lostNow[what] = (lostNow[what] or 0) + 1
   end, emu.callbackType.write, 0x2104, 0x2122)
   emu.addEventCallback(function()
-    -- the joypad is read at the start of the vertical blank, before the copy that ends the
-    -- running tick: what is set now is what the next tick reads
+    -- the joypad is read at the start of the vertical blank; the next tick reads it after its
+    -- game_vblank: the tick after the ones ended, or after the one still running
     local input = {}
-    for b in pairs(presses[ticks + 1] or {}) do input[b] = true end
+    for b in pairs(presses[ended and ticks or ticks + 1] or {}) do input[b] = true end
     emu.setInput(input, 0)
+    ended = false
   end, emu.eventType.inputPolled)
   emu.addEventCallback(function()
     vblank = true

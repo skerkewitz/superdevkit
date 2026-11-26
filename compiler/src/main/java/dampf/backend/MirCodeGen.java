@@ -1,5 +1,6 @@
 package dampf.backend;
 
+import dampf.ast.Interrupt;
 import dampf.frontend.CompileError;
 import dampf.frontend.SourcePos;
 import dampf.lir.BranchRelax;
@@ -18,6 +19,8 @@ import dampf.mir.MType;
 import dampf.mir.Printer;
 import dampf.mir.Ranges;
 import dampf.mir.Value;
+import dampf.target.ContextAreas;
+import dampf.target.SnesTarget;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -37,7 +40,8 @@ import java.util.TreeMap;
  * be obviously correct, not fast: it is the back end the MIR passes are measured with, and it
  * gets better as they do.
  *
- * <p><b>Machine state</b> as in the naive generator: A/X/Y 16 bit, DBR $7E, JSL/RTL, a result in
+ * <p><b>Machine state</b> as in the naive generator: A/X/Y 16 bit, DBR the target's data bank
+ * ({@link SnesTarget#DATA_BANK}), JSL/RTL, a result in
  * A (and X for the high word of an i32 or a pointer).
  *
  * <p><b>Values.</b> Every MIR value (parameter, instruction result) has a fixed place in RAM: 2
@@ -69,9 +73,6 @@ import java.util.TreeMap;
 public final class MirCodeGen {
     /** What selection shares, and the selection of each kind of instruction. */
     private final Selection sel = new Selection(this);
-
-    /** The frames must fit the low RAM from FRAME_START up to the stack at $1E00. */
-    static final int MAX_FRAME = 0x1E00 - 0x20;
 
     final MModule module;
     final String entry;
@@ -118,6 +119,43 @@ public final class MirCodeGen {
     /** At most this many segments per assembly module: ca65 allows about 256 per object file. */
     private static final int SEGMENTS_PER_MODULE = 200;
 
+    /**
+     * The interrupt context of each function, by label (DAMPF_INTERRUPT, ADR-6FM9TXV4): those an
+     * interrupt handler reaches; the main code's are not in it.
+     */
+    private Map<String, Interrupt> contextOf = Map.of();
+    /** The handler of each interrupt, by label. */
+    private Map<Interrupt, String> handlers = Map.of();
+    /** Each interrupt context's direct page and the bytes of its frames, after generate(). */
+    public final Map<Interrupt, Integer> directPage = new java.util.EnumMap<>(Interrupt.class);
+    final Map<Interrupt, Integer> contextFrames = new java.util.EnumMap<>(Interrupt.class);
+
+    /**
+     * The program's interrupt handlers and the contexts of the functions they reach
+     * ({@link dampf.check.CallGraph#contexts}), before {@link #generate}.
+     */
+    public MirCodeGen interrupts(Map<String, Interrupt> contexts, Map<Interrupt, String> handlerLabels) {
+        this.contextOf = Map.copyOf(contexts);
+        this.handlers = Map.copyOf(handlerLabels);
+        return this;
+    }
+
+    /** f's interrupt context, null for the main code. */
+    Interrupt context(MFunction f) {
+        return contextOf.get(f.name());
+    }
+
+    /**
+     * The symbol of the absolute addresses of f's frame places: {@code dampf_frame} for the main
+     * code, {@code dampf_frame_irq} for the IRQ context's. Its direct-page operands are written
+     * with {@code dampf_frame} in every context: they are relative to the direct page register,
+     * which the entry stub sets to the context's page.
+     */
+    String frameSymbol(MFunction f) {
+        Interrupt c = context(f);
+        return c == null ? Selection.FRAME : Selection.FRAME + "_" + c.key;
+    }
+
     public List<String> generate() throws CompileError {
         MFunction entryFunction = module.function(entry);
         if (entryFunction == null || !entryFunction.params().isEmpty()) {
@@ -130,10 +168,20 @@ public final class MirCodeGen {
             }
         }
         sel.layout();
+        for (MFunction f : module.functions()) {
+            for (MFunction c : callees.getOrDefault(f.name(), List.of())) {
+                if (context(f) != null && context(c) != context(f)) {
+                    throw new IllegalStateException(f.name() + " (" + context(f) + ") calls " + c.name() + " of another context");
+                }
+            }
+        }
         Map<MFunction, AsmWriter> codes = new HashMap<>();
         Map<MFunction, List<Block>> orders = new HashMap<>();
         Map<MFunction, Ranges> ranges = new HashMap<>();
         for (MFunction f : module.functions()) {
+            if (f.isAsm()) {
+                continue;   // hand-written: no code
+            }
             // selection writes the function once, assuming nothing about the registers where a
             // block starts and every jump and branch in its long form
             AsmWriter code = new AsmWriter();
@@ -152,12 +200,20 @@ public final class MirCodeGen {
         for (MFunction f : module.functions()) {
             colourPlaces(f, codes, done, new HashSet<>());
         }
-        if (frameTotal > MAX_FRAME) {
-            throw new IllegalStateException("the frames need " + frameTotal + " bytes, more than " + MAX_FRAME);
+        if (handlers.isEmpty() && frameTotal > SnesTarget.MAX_FRAME) {
+            throw new IllegalStateException("the frames need " + frameTotal + " bytes, more than " + SnesTarget.MAX_FRAME);
+        }
+        if (!handlers.isEmpty()) {
+            placeContexts();
         }
         for (MFunction f : module.functions()) {
+            if (f.isAsm()) {
+                continue;
+            }
             AsmWriter code = codes.get(f);
             List<Block> order = orders.get(f);
+            sel.absFrame = frameSymbol(f);
+            String frame = sel.absFrame;
             // loads of what a register holds on every way in, then stores no path reads; then the
             // code is shorter, so more branches may reach
             // (each counts in the pass limit; BranchRelax does not, it is part of making the code)
@@ -168,7 +224,7 @@ public final class MirCodeGen {
             lf.rebuild(lf.items().stream().filter(it -> !(it instanceof dampf.lir.LMark)).toList());
             boolean resultInA = f.result() != MType.VOID;
             limit.apply("RedundantLoads", f.name(), () -> new RedundantLoads(resultInA).run(lf));
-            limit.apply("Peephole", f.name(), () -> new Peephole(Selection.FRAME_START).run(lf));
+            limit.apply("Peephole", f.name(), () -> new Peephole(frame).run(lf));
             limit.apply("ByteStretches", f.name(), () -> ByteStretches.run(lf));
             limit.apply("ByteLoops", f.name(), () -> dampf.lir.ByteLoops.run(lf, resultInA));
             limit.apply("KnownCarry", f.name(), () -> KnownCarry.run(lf));
@@ -181,12 +237,17 @@ public final class MirCodeGen {
             if (code.unknownInstructions() > 0) {
                 throw new IllegalStateException("the cycle table does not know an instruction in " + f.name());
             }
+            if (f.checkOf() != null) {
+                checkCode.add(code);   // the C body an assembly function is checked against: not in the ROM
+                continue;
+            }
             if (f == entryFunction) {
                 entryBlock = banked.size();
             }
             banked.add(code);
         }
         AsmWriter ram = new AsmWriter();
+        asmFrames(ram);
         globals(ram);
 
         List<String> modules = new ArrayList<>();
@@ -197,6 +258,7 @@ public final class MirCodeGen {
             if (m == 0) {
                 w.append(ram);
                 w.blank();   // (as when the text was copied in)
+                handlerExports(w);
             }
             for (int i = m * SEGMENTS_PER_MODULE; i < Math.min(banked.size(), (m + 1) * SEGMENTS_PER_MODULE); i++) {
                 if (i == entryBlock) {
@@ -211,6 +273,128 @@ public final class MirCodeGen {
             modules.add(w.toString());
         }
         return modules;
+    }
+
+    /** The code of the C bodies that assembly functions are checked against ({@link #checkModule}). */
+    final List<AsmWriter> checkCode = new ArrayList<>();
+
+    /**
+     * One more module with the C bodies of the assembly functions (each under {@link
+     * dampf.mir.Lower#CHECK_PREFIX} + its label), after {@link #generate}: linked with the program's
+     * modules into the ROM in which dampf runs each assembly function against its C body
+     * (DAMPF_ASM). Null without assembly functions.
+     */
+    public String checkModule() {
+        if (checkCode.isEmpty()) {
+            return null;
+        }
+        AsmWriter w = new AsmWriter();
+        w.raw("; Generated by dampf from MIR: the C bodies of the assembly functions, for the check against them.");
+        w.blank();
+        w.raw("        .p816");
+        w.raw("        .smart  off");
+        w.raw("        .a16");
+        w.raw("        .i16");
+        w.raw("        .importzp dampf_regs, dampf_ptr");
+        w.raw("        .import dampf_mul16, dampf_mul32, dampf_udiv16, dampf_udiv32, dampf_sdiv32");
+        List<String> all = new ArrayList<>();
+        module.functions().forEach(f -> all.add(f.name()));
+        module.globals().forEach(g -> all.add(g.symbol()));
+        for (int i = 0; i < all.size(); i += 8) {
+            w.raw("        .global " + String.join(", ", all.subList(i, Math.min(all.size(), i + 8))));
+        }
+        for (int r = 0; r <= 14; r += 2) {
+            w.raw("R" + r + (r < 10 ? "  " : " ") + "= dampf_regs+" + r);
+        }
+        w.raw(Selection.FRAME + " = $" + Selection.hex(SnesTarget.FRAME_START, 4));
+        for (AsmWriter c : checkCode) {
+            w.append(c);
+            w.blank();
+        }
+        return w.toString();
+    }
+
+    /** The CPU address of a parameter's place (for the check against the C body), after {@link #generate}. */
+    public int paramAddress(String function, int index) {
+        MFunction f = module.function(function);
+        return SnesTarget.FRAME_START + placeAt.get(new PlaceColouring.Place(f.params().get(index), false));
+    }
+
+    /**
+     * The frames of the assembly functions (DAMPF_ASM): equates for their parameters and locals,
+     * which the assembly imports. An assembly function is a leaf, so its frame starts at
+     * dampf_frame; the convention lays the parameters out in their order, 2 bytes for 8 and 16
+     * bits, 4 for 32 bits and pointers ({@link dampf.asm.AsmFunction#paramBytes}).
+     */
+    void asmFrames(AsmWriter w) {
+        for (MFunction f : module.functions()) {
+            if (!f.isAsm()) {
+                continue;
+            }
+            w.blank();
+            w.note(f.name() + ": hand-written assembly (DAMPF_ASM); its frame");
+            int expected = 0;
+            for (int k = 0; k < f.params().size(); k++) {
+                Value.Param p = f.params().get(k);
+                int at = placeAt.get(new PlaceColouring.Place(p, false));
+                if (at != expected) {
+                    throw new IllegalStateException("the parameter " + p + " of " + f.name() + " is at " + at + ", not " + expected);
+                }
+                w.raw(asmSymbols.get(f.name()).get(k) + " = " + Selection.FRAME + "+" + at + "           ; parameter " + p.type() + " " + p);
+                expected += dampf.asm.AsmFunction.paramBytes(p.type().size);
+            }
+            w.raw(f.name() + dampf.asm.AsmFunction.LOCALS + " = " + Selection.FRAME + "+" + expected + "           ; its locals");
+        }
+    }
+
+    /** The symbols of each assembly function's parameters (by its label), in order. */
+    final Map<String, List<String>> asmSymbols = new HashMap<>();
+
+    /**
+     * Declares an assembly function's parameter symbols and its bounds in CPU cycles, from {@link
+     * dampf.asm.AsmFunction}; before {@link #generate}.
+     */
+    public void asm(String label, List<String> paramSymbols, long best, long worst) {
+        asmSymbols.put(label, List.copyOf(paramSymbols));
+        bounds.put(label, new Timing.Bound(best, worst));
+    }
+
+    /**
+     * Each interrupt context's direct page, below the stack ({@link ContextAreas}), and the check
+     * that the main code's frames end below the lowest of them.
+     */
+    void placeContexts() {
+        int mainEnd = 0;
+        for (Interrupt c : handlers.keySet()) {
+            contextFrames.put(c, 0);
+        }
+        for (MFunction f : module.functions()) {
+            int end = placedBase.get(f) + placedSize.get(f);
+            Interrupt c = context(f);
+            if (c == null) {
+                mainEnd = Math.max(mainEnd, end);
+            } else {
+                contextFrames.merge(c, end, Math::max);
+            }
+        }
+        directPage.putAll(ContextAreas.pages(contextFrames));
+        int room = ContextAreas.mainEnd(directPage) - SnesTarget.FRAME_START;
+        if (mainEnd > room) {
+            throw new IllegalStateException("the frames of the main code need " + mainEnd + " bytes, more than " + room
+                    + " (the interrupt contexts take " + ContextAreas.describe(directPage) + ")");
+        }
+    }
+
+    /** The symbols the runtime's interrupt entry stubs import: each handler and its direct page. */
+    void handlerExports(AsmWriter w) {
+        for (Map.Entry<Interrupt, String> h : new java.util.TreeMap<>(handlers).entrySet()) {
+            String k = h.getKey().key;
+            w.raw("        .export dampf_" + k + "_handler, dampf_" + k + "_dp");
+            w.raw("dampf_" + k + "_handler = " + h.getValue() + "             ; the runtime's " + h.getKey() + " entry calls this");
+            w.raw("dampf_" + k + "_dp = $" + Selection.hex(directPage.get(h.getKey()), 4)
+                    + "                   ; with the direct page here");
+            w.blank();
+        }
     }
 
     /**
@@ -265,6 +449,20 @@ public final class MirCodeGen {
         path.remove(f);
         FrameLayout l = layouts.get(f);
         int newBase = b;
+        if (f.isAsm()) {
+            // hand-written: its parameters and locals at their convention's offsets, from dampf_frame
+            for (Value.Param p : f.params()) {
+                placeAt.put(new PlaceColouring.Place(p, false), newBase + l.offset.get(p));
+            }
+            for (Value.Slot s : f.slots()) {
+                placeAt.put(new PlaceColouring.Place(s, false), newBase + l.offset.get(s));
+            }
+            placedBase.put(f, newBase);
+            placedSize.put(f, l.slotsEnd);
+            frameTotal = Math.max(frameTotal, newBase + l.slotsEnd);
+            done.add(f);
+            return;
+        }
         java.util.Set<Object> own = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
         own.addAll(f.params());
         for (Block blk : f.blocks()) {
@@ -337,7 +535,7 @@ public final class MirCodeGen {
         List<dampf.lir.LItem> items = new ArrayList<>();
         for (Value.Param p : f.params()) {
             items.add(dampf.lir.LDirective.note("parameter " + p.type() + " " + p + " at "
-                    + Selection.at(placeAt.get(new PlaceColouring.Place(p, false))).text()));
+                    + sel.at(placeAt.get(new PlaceColouring.Place(p, false))).text()));
         }
         items.addAll(lf.items());
         lf.rebuild(items);
@@ -345,7 +543,8 @@ public final class MirCodeGen {
 
     void prelude(AsmWriter w, int module, int modules) {
         w.raw("; Generated by dampf from MIR" + (modules > 1 ? " (module " + (module + 1) + " of " + modules + ")" : "") + ".");
-        w.raw("; A/X/Y are 16 bit (A goes to 8 bit where SEP #$20 says so), DBR = $7E; every value has a fixed place in dampf_frame.");
+        w.raw("; A/X/Y are 16 bit (A goes to 8 bit where SEP #$20 says so), DBR = $" + Selection.hex(SnesTarget.DATA_BANK, 2)
+                + "; every value has a fixed place in dampf_frame.");
         w.blank();
         w.raw("        .p816");
         w.raw("        .smart  off");
@@ -353,10 +552,20 @@ public final class MirCodeGen {
         w.raw("        .i16");
         w.raw("        .importzp dampf_regs, dampf_ptr");
         w.raw("        .import dampf_mul16, dampf_mul32, dampf_udiv16, dampf_udiv32, dampf_sdiv32");
-        if (modules > 1) {
+        if (!handlers.isEmpty()) {
+            w.raw("        .import dampf_mul16_soft, dampf_mul32_soft");
+        }
+        if (modules > 1 || !asmSymbols.isEmpty()) {
+            // (the assembly of DAMPF_ASM imports the globals and its parameters' places)
             List<String> all = new ArrayList<>();
-            this.module.functions().forEach(f -> all.add(f.name()));
+            this.module.functions().stream().filter(f -> f.checkOf() == null).forEach(f -> all.add(f.name()));
             this.module.globals().forEach(g -> all.add(g.symbol()));
+            for (MFunction f : this.module.functions()) {
+                if (f.isAsm()) {
+                    all.addAll(asmSymbols.get(f.name()));
+                    all.add(f.name() + dampf.asm.AsmFunction.LOCALS);
+                }
+            }
             for (int i = 0; i < all.size(); i += 8) {
                 w.raw("        .global " + String.join(", ", all.subList(i, Math.min(all.size(), i + 8))));
             }
@@ -368,7 +577,12 @@ public final class MirCodeGen {
         for (int r = 0; r <= 14; r += 2) {
             w.raw("R" + r + (r < 10 ? "  " : " ") + "= dampf_regs+" + r);
         }
-        w.raw(Selection.FRAME + " = $" + Selection.hex(Selection.FRAME_START, 4) + "            ; the frames (compiled stack), $0020-$1DFF; below $0100 in the direct page");
+        w.raw(Selection.FRAME + " = $" + Selection.hex(SnesTarget.FRAME_START, 4) + "            ; the frames (compiled stack), $"
+                + Selection.hex(SnesTarget.FRAME_START, 4) + "-$" + Selection.hex(SnesTarget.STACK - 1, 4) + "; below $0100 in the direct page");
+        for (Map.Entry<Interrupt, Integer> e : directPage.entrySet()) {
+            w.raw(Selection.FRAME + "_" + e.getKey().key + " = $" + Selection.hex(e.getValue() + SnesTarget.FRAME_START, 4)
+                    + "        ; the " + e.getKey() + " context's frames, absolute; its direct page is $" + Selection.hex(e.getValue(), 4));
+        }
     }
 
     String fileDirective(String file, Path path) {
@@ -400,10 +614,32 @@ public final class MirCodeGen {
     public Map<String, long[]> timing() {
         Map<String, long[]> out = new TreeMap<>();
         for (MFunction f : module.functions()) {
+            if (f.checkOf() != null) {
+                continue;   // not in the ROM
+            }
             Timing.Bound b = bound(f.name(), new HashSet<>());
             out.put(f.name(), new long[] {b.best() < Timing.UNBOUNDED ? b.best() : -1, b.bounded() ? b.worst() : -1});
         }
         Timing.RUNTIME.forEach((name, b) -> out.put(name, new long[] {b.best(), b.worst()}));
+        if (!handlers.isEmpty()) {
+            Timing.RUNTIME_SOFT.forEach((name, b) -> out.put(name, new long[] {b.best(), b.worst()}));
+            contextTiming().forEach((name, b) -> out.put(name, new long[] {b.best() < Timing.UNBOUNDED ? b.best() : -1,
+                    b.bounded() ? b.worst() : -1}));
+        }
+        return out;
+    }
+
+    /**
+     * Each interrupt, by the label of its entry stub ({@code dampf_irq}): from the interrupt being
+     * taken to the end of its RTI, the stub's cycles and its handler's bounds. An NMI that comes
+     * while the IRQ handler runs adds its own.
+     */
+    public Map<String, Timing.Bound> contextTiming() {
+        Map<String, Timing.Bound> out = new TreeMap<>();
+        handlers.forEach((c, label) -> {
+            long stub = Timing.INTERRUPT_ENTRY.get(c) + Timing.INTERRUPT_EXIT;
+            out.put("dampf_" + c.key, new Timing.Bound(stub, stub).plus(bound(label, new HashSet<>())));
+        });
         return out;
     }
 
@@ -414,7 +650,7 @@ public final class MirCodeGen {
     public Map<String, String> unboundedWhy() {
         Map<String, String> out = new TreeMap<>();
         for (MFunction f : module.functions()) {
-            if (bound(f.name(), new HashSet<>()).bounded()) {
+            if (f.isAsm() || f.checkOf() != null || bound(f.name(), new HashSet<>()).bounded()) {
                 continue;
             }
             Ranges r = written.get(f).ranges();
@@ -446,6 +682,9 @@ public final class MirCodeGen {
             return known;
         }
         Timing.Bound runtime = Timing.RUNTIME.get(name);
+        if (runtime == null) {
+            runtime = Timing.RUNTIME_SOFT.get(name);
+        }
         if (runtime != null) {
             return runtime;
         }
@@ -583,7 +822,8 @@ public final class MirCodeGen {
                     w.raw("        .byte   ^(" + target + "), 0");
                 } else {
                     w.raw("        .word   " + target);
-                    w.raw("        .byte   $7E, 0                  ; bank $7E: RAM");
+                    w.raw("        .byte   $" + Selection.hex(SnesTarget.VARIABLE_BANK, 2) + ", 0                  ; bank $"
+                            + Selection.hex(SnesTarget.VARIABLE_BANK, 2) + ": RAM");
                 }
                 o += 3;
                 continue;
@@ -620,6 +860,8 @@ public final class MirCodeGen {
         sel.out.raw("; ---- " + f.name() + "    (" + f.pos() + ")");
         sel.out.raw("        .segment \"" + NaiveCodeGen.codeSegment(f.name()) + "\"");
         sel.out.raw(".proc " + f.name());
+        sel.absFrame = frameSymbol(f);
+        sel.interrupt = context(f) != null;
         sel.layout = layouts.get(f);
         sel.ranges = sel.layout.ranges;
         sel.plan.findMasks(f);
@@ -635,6 +877,7 @@ public final class MirCodeGen {
         sel.forward.removeAll(sel.xSteps.keySet());
         sel.forward.removeAll(sel.xBounds);
         List<Block> blocks = layoutOrder(f, blockCounts == null ? null : blockName -> blockCounts.apply(f.name(), blockName));
+        List<SwitchSelection.Written> tables = new ArrayList<>();
         for (int k = 0; k < blocks.size(); k++) {
             Block b = blocks.get(k);
             Block next = k + 1 < blocks.size() ? blocks.get(k + 1) : null;
@@ -662,13 +905,36 @@ public final class MirCodeGen {
                 if (sel.folded.contains(i)) {
                     continue;   // the loads and stores add the offset themselves; a copying cast reads its source
                 }
+                SwitchSelection.Table table = i instanceof Instr.Switch s ? sel.switches.plan(s, b) : null;
+                if (table != null) {
+                    // the φ copies, but X for a successor's loop counter on the way there
+                    Map<Block, Value> xInit = sel.switches.xInits(b, i);
+                    phiCopies(b, i, false);
+                    tables.add(sel.switches.table((Instr.Switch) i, b, table, xInit));
+                    continue;
+                }
                 if (i.isTerminator()) {
-                    phiCopies(b, i);
+                    phiCopies(b, i, true);
                 }
                 instr(i, next);
             }
         }
         sel.flushHeld();
+        for (SwitchSelection.Written t : tables) {
+            // the jump tables of its switches, in the function's segment: JMP (abs,X) reads them
+            // from the bank of the code (C lines: the switch's)
+            if (t.pos() != null) {
+                sourceLine(t.pos());
+            }
+            sel.out.label(t.label());
+            for (int k = 0; k < t.entries().size(); k += 4) {
+                List<String> words = new ArrayList<>();
+                for (String e : t.entries().subList(k, Math.min(t.entries().size(), k + 4))) {
+                    words.add(".loword(" + e + ")");
+                }
+                sel.out.raw("        .word   " + String.join(", ", words));
+            }
+        }
         sel.out.raw(".endproc");
         return blocks;
     }
@@ -828,13 +1094,13 @@ public final class MirCodeGen {
                 if (m.indirect()) {
                     return new LOperand.Mem(LOperand.Width.NONE, Selection.FRAME, at, m.index(), true, m.owner());
                 }
-                return Selection.at(at).indexed(m.index()).owned(m.owner());
+                return sel.at(at).indexed(m.index()).owned(m.owner());
             }
             case LOperand.Imm i when i.expr().contains(Selection.FRAME) -> {
                 if (i.owner() == null) {
                     throw new IllegalStateException("a frame address without an owner: " + i.text());
                 }
-                return new LOperand.Imm(".loword(" + Selection.FRAME + "+" + (placeAt.get(PlaceColouring.Place.of(i.owner())) + i.owner().word()) + ")",
+                return new LOperand.Imm(".loword(" + sel.absFrame + "+" + (placeAt.get(PlaceColouring.Place.of(i.owner())) + i.owner().word()) + ")",
                         i.owner());
             }
             default -> {
@@ -900,8 +1166,11 @@ public final class MirCodeGen {
         return line >= 1 && line <= lines.size() ? lines.get(line - 1).strip() : "";
     }
 
-    /** Before a block's jump: every φ of every successor gets this block's operand. */
-    void phiCopies(Block b, Instr terminator) {
+    /**
+     * Before a block's jump: every φ of every successor gets this block's operand; {@code loadX}:
+     * also X for a successor's φ that lives in X (else the jump does that on its way there).
+     */
+    void phiCopies(Block b, Instr terminator, boolean loadX) {
         Value xInit = null;
         for (Block s : new LinkedHashSet<>(terminator.successors())) {
             for (Instr i : s.instrs()) {
@@ -932,7 +1201,7 @@ public final class MirCodeGen {
                 }
             }
         }
-        if (xInit != null) {
+        if (xInit != null && loadX) {
             sel.ins("ldx", sel.operand(xInit, 0));   // (not where X belongs to another loop: the guard checks)
         }
     }
@@ -998,24 +1267,7 @@ public final class MirCodeGen {
                     sel.branch.jumpOn("bne", null, false, br.ifTrue, br.ifFalse, next);
                 }
             }
-            case Instr.Switch s -> {
-                MType t = s.op(0).type();
-                for (int k = 0; k < s.cases.size(); k++) {
-                    long c = t.wrap(s.cases.get(k));
-                    String nextCase = sel.label();
-                    for (int w = 0; w < Selection.words(t); w++) {
-                        sel.ins("lda", sel.operand(s.op(0), w));
-                        sel.ins("cmp", Selection.imm(c >> (16 * w)));
-                        // in the long form; BranchRelax makes it BEQ to the case where that reaches
-                        sel.ins("bne", nextCase, Selection.words(t) == 1);
-                    }
-                    sel.ins("jmp", s.targets.get(k).name(), true);
-                    sel.place(nextCase);
-                }
-                if (s.otherwise != next) {
-                    sel.ins("jmp", s.otherwise.name(), true);
-                }
-            }
+            case Instr.Switch s -> sel.switches.chain(s, next);
             case Instr.Unreachable u -> throw new IllegalStateException("the checks of hints are taken out before code generation");
             case Instr.Ret r -> {
                 if (!r.operands().isEmpty()) {

@@ -16,7 +16,7 @@ What is structurally wrong with dampf's optimizer and back end, measured on 2026
 code, a person or an AI, can do the work: every flaw has its evidence, the place in the code, the
 change and the test that shows the change worked.
 
-The plan is the order of M9 since 2026-11-20 ([roadmap.md](../roadmap.md#m9-the-optimizer-090)):
+The plan is the order of M9 since 2026-11-20 ([history.md](../history.md#m9)):
 the roadmap's rows 2, 3 and 9 and "the gaps the C style guide measures" are the steps B, B5, R3
 and C/L here. A step that takes a decision (they are marked) writes its ADR record when it is
 taken.

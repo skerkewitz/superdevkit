@@ -14,8 +14,8 @@
 ;       return x;
 ;   }
 ;
-; dampf's calling convention (naive code generator): the result in A, JSL/RTL, A/X/Y 16 bit,
-; DBR = $7E, D = 0; dampf_ptr is scratch.
+; dampf's convention for functions written in assembly (docs/hints.md, DAMPF_ASM): the result
+; in A, JSL/RTL, A/X/Y 16 bit, DBR = $7E, D = 0; the scratch registers (dampf_ptr) may change.
 
         .p816
         .smart  off

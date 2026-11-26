@@ -13,27 +13,33 @@ also describes plans. What is not built yet, listed for users, is on
 
 ## Where dampf stands
 
-The kit is at version 0.9.2, and the milestones M0 to M9 are concluded (M9 as 0.9.0). A game is
-written once against the kit's console API, and the `superdevkit` command builds it for the SNES
-with dampf, as a program for Linux and Windows, and since 0.8.0 as a page in the browser, with
-the same picture on each, sound effects, save RAM, music on the desktop and the web, and a debug
-view. dampf compiles all of Blubber Blasen, which builds its SNES ROM with the kit and plays its
-recordings with the [PC build](/glossary#pc-build)'s checksum on every tick; dampf preprocesses,
-assembles and links itself, so it needs nothing but Java. With 0.9.0 its optimizer chooses
-registers by cost and keeps byte loops in [8-bit mode](/glossary#_8-bit-and-16-bit-mode).
+The kit is at version 0.10.0, and the milestones M0 to M10 are concluded (M10 as 0.10.0 on
+2026-11-26). A game is written once against the kit's [console API](/glossary#console-api), and
+the `superdevkit` command builds it for the SNES with dampf, as a program for Linux and Windows,
+and since 0.8.0 as a page in the browser, with the same picture on each, sound effects, save
+RAM, music on the desktop and the web, and a debug view. dampf compiles all of Blubber Blasen,
+which builds its SNES ROM with the kit and plays its recordings with the
+[PC build](/glossary#pc-build)'s checksum on every tick; dampf preprocesses, assembles and links
+itself, so it needs nothing but Java. With 0.9.0 its optimizer chooses registers by cost and
+keeps byte loops in [8-bit mode](/glossary#_8-bit-and-16-bit-mode). With 0.10.0 a game handles
+interrupts in C: an IRQ handler of its own, which runs at a picture row the game sets, and the
+kit's NMI handler, which runs the game's [vertical blank](/glossary#vertical-blank) for a game
+that publishes the data of its tick. A game can also replace a function by hand-written assembly
+beside the optimized code, and the console API is the hardware at once, with optional layers
+above it.
 
 The compiler is not at its goal yet: during play the game took 0.79 frames per
 [tick](/glossary#tick) on 2026-11-18 against a goal of 0.6. The speedups still open are part of
-fine tuning (M12), while the game reduces its own work. Next are M10, language, platform and
-usability, which is in progress, and M11, timing and debugging.
+fine tuning (M12), while the game reduces its own work. Next is M11, timing and debugging, then
+M12.
 
 ## Versions
 
 The version is the dev kit's. It is set in one place, `build.gradle.kts`, and `dampf --version`
-and `superdevkit --version` print it. Milestone N is released as version 0.N.0. Between two
-milestones the last number rises for every change worth naming, features included, so a feature
-of a later milestone that is built early does not wait for its version. M6 was done ahead of M5
-and is part of 0.4.0, and M5, concluded when 0.5 was already in use, took the free 0.6.0.
+prints it. Milestone N is released as version 0.N.0. Between two milestones the last number
+rises for every change worth naming, features included, so a feature of a later milestone that
+is built early does not wait for its version. M6 was done ahead of M5 and is part of 0.4.0, and
+M5, concluded when 0.5 was already in use, took the free 0.6.0.
 
 Every version before 1.0 is a pre-release: the [subset](/glossary#subset), the command line and
 the files dampf writes may change from one version to the next. Publishing is a step of its
@@ -60,77 +66,63 @@ released stay.
 | M7 | Windows and Linux: [Rachael](/glossary#rachael) and the desktop frontend in the dev kit, the `superdevkit` command with `init`, `build` and `run`; the examples and Blubber Blasen run on the desktop from the dev kit | 0.7.0 | Done 2026-11-19 |
 | M8 | The web: the same games in the browser; Blubber Blasen's web build from the dev kit | 0.8.0 | Done 2026-11-22 |
 | M9 | The optimizer: what was left of M3; tests and a canonical form first, then register allocation | 0.9.0 | Done 2026-11-23 |
-| M10 | Language, platform and usability: C in interrupts, [intrinsics](/glossary#intrinsic), the open subset decisions, the game's development tools in the kit's window and dampf's own preprocessor (both built) | 0.10.0 | In progress |
-| M11 | Timing and debugging: [master clocks](/glossary#master-clock), bounds for more loops, locals and types in Mesen | 0.11.0 | Planned |
+| M10 | Language, platform and usability: C in interrupts, hand-written assembly, the subset decisions on `char` and enums | 0.10.0 | Done 2026-11-26 |
+| M11 | Timing and debugging: [master clocks](/glossary#master-clock), bounds for more loops, locals and types in Mesen | 0.11.0 | Next |
 | M12 | Fine tuning: what was left of M4 and M9, until the frame budget is met | 0.12.0 | Planned |
 
 M3 and M4 were concluded at version 0.4.0 although only part of their goals was reached: dampf
 is faster than Calypsi, but the frame budget is not met yet. Too much had stayed open in them
 while too little was planned after them, so what was left moved to M9 and M12. M9's own list of
 speedups had no finish line, so it was closed on 2026-11-23 with what was built, for a first
-public version: the speedups left moved to M12, and two subset decisions to M10. The order after
-M5 follows the likely gain and what each milestone needs from the one before; it was kept when
-M5 was concluded.
+public version: the speedups left moved to M12, and two subset decisions to M10. M10 dropped its
+[intrinsics](/glossary#intrinsic): dampf uses the hardware multiplier for every product, a
+division by a constant is a multiplication, and [DMA](/glossary#dma) and the wait for the
+vertical blank are calls of the console API; the hardware divider went to M12. The third subset
+decision, 16-bit pointers into RAM, moved to M12 as well, and `restrict` was measured at about
+zero on the examples and rejected. The order after M5 follows the likely gain and what each
+milestone needs from the one before; it was kept when M5 was concluded.
 
 The examples build and run on Linux, Windows and in the browser from the kit. Blubber Blasen's
 switch to the kit's desktop and web builds was handed over to the game, which does it itself.
 M8 was narrowed to the web, because the game's own desktop frontend had to stay until the kit's
-window had the game's development tools. Those moved to M10 and are built, so the frontend can
-go too.
+window had the game's development tools. Those moved to M10 and are in the kit's window since
+0.9, so the frontend can go too once the game has switched.
 
-### M10: language, platform and usability
+### M11: timing and debugging
 
-Built: dampf's own C preprocessor (2026-11-22), so that using dampf needs nothing but Java;
-until then it needed gcc, on Windows MinGW or MSYS only for `gcc -E`. It is a subset of C99's
-preprocessor, as the language is a subset of C: what the kit's code and the game use, with macro
-expansion exactly as the standard says. It rejects with an error what nothing uses, such as
-`__VA_OPT__`, `#line`, `#include_next` and gcc's extensions.
+M11 makes dampf's timing more exact and its programs easier to follow in Mesen. The
+[timing report](/glossary#timing-report), the assembly comments and the budgets are to count in
+master clocks instead of CPU cycles. The report and budget errors are to name the costliest path
+per C line, and the comment of a line with a branch its best and its worst case. dampf is to
+find bounds for more loops: 37 of the game's functions have no worst case today, and a
+[hint](/glossary#hint) for loops without a counter, `DAMPF_TRIPS`, is postponed. The emulator
+tests are to check the measured cycles of every function with a budget.
 
-Built as well (2026-11-22) are the development tools Blubber Blasen asked for in the kit's
-window, so that the game can drop its own desktop frontend: start options (a seed, and setting
-a registered toggle or range by name before the first tick), a bot as a toggle the game
-registers, mute in the window, text and values in the debug view, jumping to a tick and stepping
-back in a replay (not on the web), defines per [target](/glossary#target) in the
-[project file](/glossary#project-file), and filled boxes and arrows in the view. A project can
-also name commands that run before its build, such as its own converters, and `superdevkit gen`
-runs only the conversions, for a game with a build system of its own.
+Worst cases of pair loops are far too high: a path that is rare in every pair, such as a hit
+that kills, is counted in every pair, so the `collide` function of the example Er-Tüp is 5.4
+million cycles at worst and a few thousand in play. Its frame is guarded by a budget measured in
+its check instead; a hint for how often a path runs per call, or a bound per call chain, would
+make budgets usable there, and both are to be looked into.
 
-The rest of M10 starts with C in interrupt handlers. dampf keeps the frames of functions at
-fixed places, so C called from an NMI or IRQ would overwrite the frames of the code it
-interrupted, and the [platform layer](/glossary#platform-layer) waits for the
-[vertical blank](/glossary#vertical-blank) instead. Nearly every SNES game has an NMI handler,
-and raster effects need an IRQ handler, so the functions an interrupt reaches are to get a frame
-area of their own; how a handler is declared and what it saves is open. M10 also brings
-intrinsics for the hardware multipliers, the divider and [DMA](/glossary#dma), the open
-decisions on the subset (plain `char` for text only, enum objects in one byte, 16-bit pointers
-into RAM), each built once it is taken, function pointers in constant tables, hand-written
-assembly with the code generator from MIR (`--replace` works only with the
-[naive code generator](/glossary#naive-code-generator) today), `restrict` or a no-alias
-[hint](/glossary#hint) of dampf's own, and less memory for a compile, which took 1.8 GB for
-Blubber Blasen. dampf is to warn where gcc warns by default, first on a constant that does not
-fit the type it initializes or is assigned to (`uint8_t w[] = { 420 }`): dampf truncates it as
-gcc does, but silently, and that hid a bug in CatchMe, a cat's wait of 420 that became 164,
-which only the desktop build's `-Woverflow` showed.
+A game's IRQ handler has about 25 CPU cycles after its wait for the horizontal blank
+(`sdevkit_irq_wait_hblank`) for its register writes, less the [HDMA](/glossary#hdma) of the
+line. Today only the check in Mesen sees a write that comes too late, as a torn row; in M11 the
+timing report is to count the cycles from the wait to the handler's last register write, and
+the build is to fail when they exceed that time. Frame-level timing adds DRAM refresh, HDMA and
+interrupts. Already built, in 0.9, is measuring a game with nothing but a
+[superdevkit home](/glossary#superdevkit-home): the work of every tick and the ROM's sound.
 
-### After M10
-
-**M11, timing and debugging**, counts the [timing report](/glossary#timing-report), the
-assembly comments and the budgets in master clocks instead of CPU cycles, names the costliest
-path per C line in the report and in budget errors, and finds bounds for more loops: 37 of the
-game's functions have no worst case today. Worst cases of pair loops are far too high: a path
-that is rare in every pair, such as a hit that kills, is counted in every pair, so the `collide`
-function of the example Er-Tüp is 5.4 million cycles at worst and a few thousand in play. Its
-frame is guarded by a budget measured in its check instead; a hint for how often a path runs,
-or a bound per call chain, would make budgets usable there. Frame-level timing adds DRAM
-refresh, [HDMA](/glossary#hdma) and interrupts. Already built is measuring a game with nothing
-but a [superdevkit home](/glossary#superdevkit-home): the work of every tick and the ROM's sound.
 Mesen shows the C source and the names of global variables from dampf's debug file, and nothing
 more; dampf's users would gain from variables shown with their C type, struct fields, and the
 locals of a function in their [direct page](/glossary#direct-page) places. dampf first fills
 what the debug file's format already has room for, then a small patch teaches Mesen to read it,
 offered to MesenCE, where Mesen is maintained now. The patch waited until the dev kit was
-public, as it now is, because a patch from a compiler with users is easier to argue for. A
-debugger of dampf's own is not planned.
+public, as it now is, because a patch from a compiler with users is easier to argue for. With
+it, the code generator from MIR is to write the processor state line in the assembly as the
+[naive code generator](/glossary#naive-code-generator) does. A debugger of dampf's own is not
+planned.
+
+### After M11
 
 **M12, fine tuning**, takes up what was left of M4 and M9 until the frame budget is met. The
 gains named here are estimates from the shares of the cycles in a profile, made in the plan of
@@ -143,32 +135,53 @@ in X, Y or a direct page place, also for a single loop. Also to come are 8-bit m
 across blocks (the [`M` flag](/glossary#m-and-x-flags)), 8-bit index registers with arrays
 aligned to pages, a calling convention that passes the first argument in A and uses `JMP` for
 tail calls, value ranges from array bounds beyond an index into the array, and faster 32-bit
-arithmetic and ordered comparisons, which still go through memory slots of the frame. From M4
-come the block layout by a profile by default (it is built, but only on request, because it
-needs a profile of the program), superoptimization of short hot sequences, `<<8` as a byte
-store, `switch` as a jump table, `MVN` for copies, and unrolling by a hint. Inlining is to be
-guided by the profile, and a tuning option is to try the parameters chosen today on one game,
-such as the inlining limit and the block order, on the user's own code and keep the fastest
-build, each candidate checked against the PC's results. The hints that transform code come in
-M12, as do variables in bank `$7F`, and subrange types declared in the source, but those only
-once a profile shows a hot value whose range dampf cannot infer. Splitting arrays of structs
-into one array per field waits until a measured loop gains markedly from it, since measurements
-so far went both ways; it would come as a hint, `DAMPF_SPLIT`, because the layout in memory then
+arithmetic and ordered comparisons, which still go through memory slots of the frame. A register
+write gets faster code, since the game's IRQ handler has only about 25 cycles for its writes:
+`xba` in `sdevkit_reg_write_twice` instead of a second load saves 7 cycles, and no `cmp #$0000`
+right after a load, which sets the flags already, 3 more. The CPU's hardware divider (16 by 8
+bits) is to be chosen automatically for a division by a variable whose divisor dampf's value
+ranges prove to fit a byte, once a measured program divides by variables on a hot path; it
+replaces the intrinsics M10 had planned. From M4 come the block layout by a profile by default
+(it is built, but only on request, because it needs a profile of the program), superoptimization
+of short hot sequences, `<<8` as a byte store, `MVN` for copies, and unrolling by a hint.
+Inlining is to be guided by the profile, and a tuning option is to try the parameters chosen
+today on one game, such as the inlining limit and the block order, on the user's own code and
+keep the fastest build, each candidate checked against the PC's results. The hints that
+transform code come in M12, as do variables in [bank](/glossary#bank) `$7F`, and subrange types
+declared in the source, but those only once a profile shows a hot value whose range dampf cannot
+infer. The last open subset decision, 16-bit pointers into RAM, is in M12 too: a pointer stored
+in a struct field, a global or an array takes 4 bytes today, and one that provably points only
+into bank `$7E` could take 2, with cheaper loads. A program cannot see the size, so it is an
+optimization, decided and built when a measured program shows the gain; once variables can live
+in bank `$7F`, a 2-byte pointer also needs a proof of its bank. Splitting arrays of structs into
+one array per field waits until a measured loop gains markedly from it, since measurements so
+far went both ways; it would come as a hint, `DAMPF_SPLIT`, because the layout in memory then
 differs from the PC's. The rest of the way to the goal has to come from the game doing less
 work, as the checkpoint after M2 concluded.
 
 ### Not scheduled for the dev kit
 
 Some steps of the dev kit have no milestone yet. The ROM has not run on a real SNES or a flash
-cartridge, on NTSC and PAL, and the DMA margin of the platform layer is to be measured there:
-both wait until there is hardware. Music on the SNES is a stub (sound effects and save RAM are
-built there). Also without a milestone: macOS, where raylib runs but which nobody can test
-now; `superdevkit bundle`, one folder with every target, ready to publish; the desktop running
-the ROM in an emulator; and Mesen as the desktop target.
+cartridge, on NTSC and PAL, and the DMA margin of the [platform layer](/glossary#platform-layer)
+is to be measured there: both wait until there is hardware. Music on the SNES is a stub (sound
+effects and save RAM are built there). Also without a milestone: macOS, where raylib runs but
+which nobody can test now; `superdevkit bundle`, one folder with every
+[target](/glossary#target), ready to publish; the desktop running the ROM in an emulator; and
+Mesen as the desktop target. Function pointers in constant tables, which the subset allows, were
+built and not merged on 2026-11-24, since no example and no game uses them and a `switch` on an
+enum does the same; they wait until a game asks for them.
 
-Some ideas have no milestone either and become a step of one only when they are decided: dampf
-in Compiler Explorer (godbolt), next to gcc; `dampf explore`, a local page with the cycles per
-source line, the MIR after each pass and both code generators side by side; and
+Other work is open without a milestone. dampf's own speed and memory are tuned once it is more
+or less feature complete; a compile of Blubber Blasen took 1.8 GB. A game on the kit's optional
+layers keeps `game_vblank` in its loop, since the layers' state is the tick's; the layers could
+publish their own state as a game publishes its data, so that their commit runs in the NMI
+handler too.
+
+Some ideas have no milestone either and become a step of one only when they are decided:
+dropping the body of a function inlined at every call while keeping its entry in the timing
+report, which would make the examples' code another 25 to 35 % smaller; dampf in Compiler
+Explorer (godbolt), next to gcc; `dampf explore`, a local page with the cycles per source line,
+the MIR after each [pass](/glossary#pass) and both code generators side by side; and
 `superdevkit studio`, the kit's editors (the sound effects' first, later graphics, tilemaps,
 sprites and a level editor) served by the command in a browser window and working on the files
 of the game's folder; and a spec of a game that an AI builds the game from. Eight further kinds
@@ -189,7 +202,8 @@ arrays and bytes (Steinschlag), fixed point, particles, a pair loop and state ma
 and the small ones. Until then every speed decision was measured on one game: the optimizations
 of 2026-11-18 made play of Blubber Blasen 13 % faster, but the execution tests only 0.9 %, and
 part of the gain comes from parameters chosen on this one game, such as the inlining limit and
-the block order. Those parameters are still to be checked on the whole set. The repository was
+the block order. The inlining limits have been checked on the whole set since 2026-11-21, the
+block order not yet. The repository was
 renamed to superdevkit, with dampf as its compiler, on 2026-11-19. With dampf's own preprocessor
 and the converters for pictures and sounds in Java, building for the SNES needs nothing but Java
 and the kit.
@@ -230,55 +244,17 @@ the game's code and measuring again with the benchmark, the replays and the prof
 the game builds with the dev kit from its own repository, and dampf is measured on its examples.
 Whether the budget is met therefore depends on work outside dampf.
 
-## Risks and open questions
+## Open questions
 
-The main risks and how they are met:
-
-- **Miscompilation.** The layers of tests, the naive code generator as an independent
-  reference, and the examples' checks as the oracle, a checksum every tick against the PC,
-  catch wrong code.
-- **The optimizer is tested by whole programs.** The execution tests and the 50 random programs
-  of each build barely reached the optimizer's patterns, so in practice the optimizer was tested
-  by whole programs: Blubber Blasen's benchmark and one replay until 2026-11-19, since then the
-  examples' checks. Random programs with the loops and pointer walks the optimizer works on came
-  with M9; more examples would still help.
-- **Tuned on one game.** The inlining limit, the block order and the idioms the optimizer looks
-  for came from Blubber Blasen. The examples' benchmark, a set of programs in different styles,
-  is meant to correct that; the parameters are still to be checked on it.
-- **Never run on a console.** Everything is checked in dampf's emulator and in Mesen;
-  [FastROM](/glossary#fastrom-and-slowrom), the DMA margin and timing at the edges have not run
-  on hardware yet, and that is not scheduled until there is hardware.
-- **Different behaviour on PC and SNES.** The subset allows fixed-width types only, dampf
-  follows C's promotion rules exactly, and the tests compare every program with the PC build.
-- **The frame budget depends on the game.** The checkpoint after M2 concluded that the compiler
-  alone cannot reach it; with the CPU partner the worst tick takes 3 frames.
-- **Little human knowledge of the code.** About 23,000 lines were written in two days, mostly
-  by AI agents. A bug like the miscompilation found on 2026-11-19 needs someone who knows how
-  the code generator works, and today that knowledge is mostly in the documents and the
-  decision records.
-- **Scope creep.** The compiler could become the project and stall the game; the book and M6
-  came before M5. The two run in parallel, and every milestone is measured against the game.
-- **Gains smaller than hoped.** Each optimization is measured, and the order of the remaining
-  ones follows the profile.
-- **A wrong hint silently produces wrong code.** Every hint that states a fact is checked as an
-  assertion in the PC build, with the examples' checks running against it.
-
-Open questions a user may run into:
-
-- **A feature Rachael only reports.** Rachael counts every register write she does not draw,
-  and the desktop check fails on it. Whether a feature she does not draw but reports may be
-  used anyway is open: it keeps the desktop honest, but the desktop then cannot check that
-  game's picture. Until it is decided, a feature is usable only when both the SNES library and
-  Rachael draw it.
-- **What 1.0 needs.** The frame budget met, the subset decisions taken, C in interrupts, or a
-  set of users: which of them is open.
-- **Locals in Mesen.** How Mesen shows locals that live in fixed direct page places, several
-  values sharing a place (M11).
-- **`restrict`.** Whether a no-alias hint of dampf's own is clearer than `restrict`, and how
-  `restrict` is checked on the PC.
-- **Timing.** How to express path combinations that cannot happen, should the worst-case
-  bounds turn out too pessimistic, and how much HDMA the game uses (DMA transfers the SNES
-  makes line by line while it draws), which changes the budget of a frame.
+- **What 1.0 needs.** The frame budget met, the last subset decision taken (16-bit pointers into
+  RAM, in M12), or a set of users: which of them is open.
+- **Locals in Mesen.** How Mesen shows a direct page place that several values share at
+  different times (M11).
+- **Paths that cannot happen together.** Whether a hint for how often a path runs per call, or a
+  bound per call chain, makes the worst cases of pair loops tight enough for a budget (M11).
+- **HDMA in the frame budget.** How the budget of a frame learns which HDMA channels a game has
+  on, since a game turns them on while it runs, with `sdevkit_hdma_enable` (M11).
 - **Reference functions.** Which functions become the hand-written yardsticks for dampf's code.
-  So far they are Er-Tüp's `random16` and `sine`; candidates are the pair loop, Mandelbrot's
-  iteration and Steinschlag's cave.
+  So far they are Er-Tüp's `random16` and `sine`, measured against the optimized code since
+  M10: `random16` takes 68 cycles by hand and by dampf, `sine` 21 by hand and 24 by dampf.
+  Candidates are the pair loop, Mandelbrot's iteration and Steinschlag's cave.

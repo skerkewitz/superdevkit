@@ -52,7 +52,7 @@ after the optimizations on the branch `optimise`
 | Title, story, round intro | 0.37, 0.16, 1.41 |
 | The whole benchmark | 0.81 |
 | dampf's naive code generator | play 4.37 (worst 7.26), with the CPU partner 5.58 (worst 10.53), also FastROM; 5.5 times as slow in play |
-| Against Calypsi | 2.14 times as fast: in the play ticks where both play the same scene (102 ticks, up to 812), FastROM for both, Calypsi 1.42 frames per tick, dampf 0.66 (Calypsi drifts from the PC from tick 596 on, see [roadmap.md](roadmap.md#open-questions)) |
+| Against Calypsi | 2.14 times as fast: in the play ticks where both play the same scene (102 ticks, up to 812), FastROM for both, Calypsi 1.42 frames per tick, dampf 0.66 (Calypsi drifts from the PC from tick 596 on, see [history.md](history.md#answered-questions)) |
 | Against hand-written `level_solid_px` | 1.14 times the cycles: 827 against 724 master clocks per call, both FastROM |
 | In Mesen (playable ROM) | 1.16 frames per tick during a minute of play (3,600 frames, 3,098 ticks), no byte lost in the vertical blank. This includes waiting for the vertical blank and the platform layer, so it is not comparable with the benchmark |
 
@@ -78,7 +78,7 @@ entry.
 | I | Multiply and divide | Partly. Constants as shifts and adds (in MIR for i32, in A for 8 and 16 bits), powers of two with C's signed rounding; two variables on the CPU's 8 x 8 multiplier (2026-11-22; two bytes without a call). Open: the PPU's multiplier, the hardware divider | 2.29 → 2.07 ([multiplication in A](optimizations-log.md#arrays-indexed-with-x-multiplication-in-a-2026-11-17)) |
 | J | Banks and placement | Partly. All code and constant data in banks $80 and up at FastROM speed (`--slowrom` switches it off), registers at constant addresses as long addresses | 1.31 → 1.10 ([FastROM](optimizations-log.md#fastrom-2026-11-17)) |
 | K | Peephole | Partly. A remembers every place it equals, `INC`/`DEC` in place, `STZ`, no `CMP #0` where N and Z already describe A, `TAX` for a reload of a stored value, shifts as a mask, the high byte as a byte load (`Peephole`), no `CLC` where the carry is known clear (`KnownCarry`) | 391,423 → 386,306 ([no `CMP #0`](optimizations-log.md#no-cmp-0-where-the-flags-are-set-2026-11-17)) |
-| L | `switch` as a jump table (`JMP (abs,X)`) | Not built | |
+| L | `switch` as a jump table (`JMP (abs,X)`) | Built (M10). A `switch` on an 8- or 16-bit value whose table costs fewer cycles than its compares on average over the cases, with at most four entries per case (ADR-6FM7MWGX): from 4 cases without a range check, 6 from 0, 7 far from 0 or negative; a first case 0 tested before the table. Open: a switch in a loop whose counter lives in X, 32-bit values, cases weighed by a profile | Ertüp's busiest tick 262,654 → 260,166 master clocks ([jump tables](optimizations-log.md#switch-as-a-jump-table-2026-11-24-on-the-examples)) |
 | M | Copy and fill with `MVN`/`MVP` or DMA | Not built | |
 | N | Values in X and Y | Partly. Loop counters in X (also next to an index in Y, and with their stepped value read after the step: a `do` loop's test, `i - 1` going down; compared with a constant or a 16-bit value in its place), a second index in Y, loop-invariant indexes in Y, the index through a pointer in Y (rows of 2D arrays included), what A, X and Y hold known across blocks | 329,834 → 326,596 ([index in Y](optimizations-log.md#a-pointer-plus-an-index-the-index-in-y-2026-11-17)) |
 
@@ -96,12 +96,13 @@ a parameter the join of its arguments at all call sites, for optimization only. 
 adds a range at one point ([hints.md](hints.md)). The ranges are used by `RangeNarrow` (16 bits
 instead of 32, comparisons the range decides, unsigned operations and comparisons for values that
 are never negative), by indexed addressing (an index that is never negative), by induction
-variables and by the loop bounds of the timing analysis. The tests check every value the MIR
+variables, by the loop bounds of the timing analysis and by the jump tables of `switch` (no range
+check where the value stays within the table). The tests check every value the MIR
 interpreter computes against its range (`dampf mir -O --check-ranges`).
 
 An index into an array needs no range for its access (ADR-6F8NBESR), but the value ranges do not
 learn from that access. Not built: ranges from array accesses, return values and enums;
-page-aligned arrays, `switch` jump tables and `DAMPF_TABLE`; declared subrange types. The design is in
+page-aligned arrays and `DAMPF_TABLE`; declared subrange types. The design is in
 [subrange-types.md](subrange-types.md).
 
 ### Pointer compression
@@ -121,6 +122,10 @@ allowed (the platform layer uses them); this form does not need the rule against
 
 ## Tried and rejected
 
+- `restrict`, or a no-alias hint (2026-11-25): with every pointer treated as `restrict`, the most
+  any such hint could promise, the examples' work per tick changed by 0.01 % at most, Steinschlag
+  got slower; pointer compression and inlining already know where the pointers point
+  ([log](optimizations-log.md#every-pointer-as-restrict-the-ceiling-2026-11-25-on-the-examples)).
 - Counting down to zero: exact, faster on the title, slower in play and over the whole benchmark,
   because copying the bound in at every loop entry costs more than the comparisons it saves in
   the game's short loops ([log](optimizations-log.md#counting-down-tried-2026-11-17)).
@@ -157,6 +162,8 @@ allowed (the platform layer uses them); this form does not need the rule against
   `ASL`, `TAX`, `JMP (table,X)`) costs about 24 cycles, as much as the chain of compares over three
   to four cases, needs X, and gives the timing analysis an indirect jump. The game's switches are
   short; after the branch relaxation a matching case costs a taken `BEQ`.
+  Built in M10 after all (row L), for the switches where it costs fewer cycles than the compares:
+  with the value's range the check often goes, and the dispatch is 10 to 20 cycles.
 - Dropping `findForwards` (the code generator's plan for values handed on in A) or `Schedule` (a
   value moved next to its only user) and leaving their work to `RedundantLoads` and `DeadStores`
   on the LIR (2026-11-22): without `findForwards` the examples were 1.6 % slower, without
@@ -229,16 +236,19 @@ Hot functions are written by hand in 65816 assembly as reference versions, the y
 the programs' code ([reference/README.md](../reference/README.md)). The first was Blubber Blasen's
 `level_solid_px`; its first version was wrong, and the benchmark's checksums caught it:
 hand-written code needs the same oracle as compiled code. Since the game's code left, they are
-functions of the examples, checked by the examples' checksums (`ReferenceFunctionsTest`): Er-Tüp's
-`random16` and `sine`, 2.3 and 1.4 times faster than the naive code generator's (the one from MIR
-inlines both). Candidates for more: Er-Tüp's pair loop, Mandelbrot's iteration with its products,
-Steinschlag's cave scan.
+functions of the examples, checked against their C bodies and by the examples' checksums
+(`ReferenceFunctionsTest`): Er-Tüp's `random16` and `sine`, which were 2.3 and 1.4 times faster
+than the naive code generator's. Against the code from MIR, as functions of their own, `random16`
+takes 68 cycles both ways and `sine` 24 against 21 (in the game the code from MIR inlines both).
+Candidates for more: Er-Tüp's pair loop, Mandelbrot's iteration with its products, Steinschlag's
+cave scan.
 
 Each reference and dampf's version of the same function run in the cycle-counting emulator on the
-same inputs, which gives a ratio per function, tracked over the milestones. Where the reference is
-faster, the reason becomes a hint or an optimization rule. If dampf stays too far behind on one
-function, the reference can be linked in its place, with a declared calling convention and direct
-page use so the timing analysis still knows what it does; only when measurement demands it.
+same inputs (the check of `DAMPF_ASM`, which links a reference in place of the compiled function),
+which gives a ratio per function, tracked over the milestones. Where the reference is faster, the
+reason becomes a hint or an optimization rule. If dampf stays too far behind on one function, a
+game links the hand-written version in its place with `DAMPF_ASM`, whose convention and analysis
+keep the timing exact ([hints.md](hints.md)); only when measurement demands it.
 Hand-written assembly for the whole game was tried years ago and failed.
 
 ## Knowing the machine

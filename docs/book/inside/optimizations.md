@@ -77,6 +77,15 @@ the pointer parameters and the parameter ranges once more. Then `SplitWords` and
 per function, comparisons are copied next to the branches that use them, and the instructions
 are scheduled. Every pass is exact: it changes how a value is computed, never the value.
 
+Before the optimizer, `Reachable` drops the functions that neither the
+[entry function](/glossary#entry-function), the interrupt handlers nor the functions written in
+assembly reach, with the globals only they used: a library's functions that a program does not
+call take no ROM and their variables no RAM. It runs before the passes, so a function that is
+called keeps its body even where every call is inlined, and the
+[timing report](/glossary#timing-report) keeps its entry. A function written in assembly
+(`DAMPF_ASM`) is a stand-in in MIR that the passes do not look into: it is never inlined, its
+parameters keep their convention, and a call of it counts as writing any memory.
+
 Several passes need to know how a loop counts. One analysis answers that for all of them,
 `CountedLoops`: for every loop it finds the counters (a φ of the loop head stepped by one
 constant on every way back), the tests that end the loop, and from these how often the head
@@ -105,7 +114,7 @@ optimization with a letter. The letters map to this page as follows:
 | I | Multiply and divide | `StrengthReduce`, multiplication in A, two variables on the CPU's multiplier; the divider and Mode 7's multiplier not built |
 | J | Banks and placement | FastROM for all code and constant data, registers at constant addresses |
 | K | Peephole | A remembers every place it equals, `INC`/`DEC`, `STZ`, no `CMP #0` where the flags are set, `Peephole`, `KnownCarry` |
-| L | `switch` as jump table | not built |
+| L | `switch` as jump table | `SwitchSelection`, where the table costs fewer cycles than the compares |
 | M | Copy and fill with `MVN`/`MVP` or DMA | not built |
 | N | Values in X/Y | loop counters in X, a second index in Y, loop-invariant indexes in Y, an index through a pointer in Y, what A, X and Y hold across blocks, `RegisterChoice` |
 
@@ -271,7 +280,7 @@ Play went from 1.41 to 1.39 frames per tick.
 ### ByteLoads
 
 Blubber Blasen keeps positions as 8.8 fixed-point values and takes their integer part with
-`>> 8` everywhere. A 16-bit load whose only use shifts it right by 8 or more becomes a byte load
+`>> 8` everywhere. A 16-bit load whose uses all shift it right by 8 or more becomes a byte load
 of its high byte, the address plus one, widened again; on the 65816 that saves the `XBA` and the
 mask the shift costs. Volatile loads stay as they are, because a hardware register may care how
 it is read.
@@ -296,6 +305,41 @@ After the passes:
 ```
 
 Play went from 1.49 to 1.48 frames per tick.
+
+A load whose other uses take its low byte becomes two byte loads, one for each half. That is the
+shape of a value written to a hardware register in two halves, low byte first, as
+`sdevkit_reg_write_twice` of the [console API](/glossary#console-api) does: the 16-bit load was
+kept in X while the accumulator switched to 8 bits for the low byte and back for the high one.
+
+```c
+#include <stdint.h>
+
+#define BG1HOFS ((volatile uint8_t *)0x210D)
+
+uint16_t scroll_x;
+
+void write_scroll(void) {
+    uint16_t v = scroll_x;
+    *BG1HOFS = (uint8_t)v;
+    *BG1HOFS = v >> 8;
+}
+```
+
+After the passes, each byte is loaded right before its store, which [Schedule](#schedule) allows
+because a store to a register of the [PPU](/glossary#ppu) is no store to memory:
+
+```
+b0_entry:
+    %0 = inttoptr i32 8461 to ptr               ; halves.c:9
+    %1 = load i8 @_scroll_x                     ; halves.c:8
+    store volatile i8 %0, %1                    ; halves.c:9
+    %2 = ptradd @_scroll_x, i16 1               ; halves.c:8
+    %3 = load i8 %2                             ; halves.c:8
+    store volatile i8 %0, %3                    ; halves.c:10
+```
+
+The console API's register commit went from 2,267 to 2,062 CPU cycles at its worst, and the
+examples' work fell by 0.6 % on the geometric mean (Mode 7 3.4 %).
 
 ### Narrow
 
@@ -592,6 +636,14 @@ global or slot, as C's pointers do. A call
 kills nothing if the called function writes no memory, which dampf knows because it sees the
 [whole program](/glossary#whole-program). Volatile accesses are never reused. Its gain is part of
 the 6.12 to 5.17 under [Simplify](#simplify).
+
+A store through a pointer whose target dampf does not know may overlap anything: after it, `Gvn`
+forgets every value it had loaded, and [Licm](#licm) keeps loads in the loop. A `restrict`
+qualifier or a no-alias [hint](/glossary#hint) could promise more. To see what that could gain at
+most, every pointer was treated as `restrict` on 2026-11-25: no example's work fell by more than
+0.01 %, and Steinschlag's rose by 0.05 %. Pointer compression and inlining already show where
+nearly every pointer points, and the stores left through unknown pointers are not in hot code,
+so `restrict` stays rejected and the no-alias hint is not built.
 
 ### DeadCode
 
@@ -890,8 +942,10 @@ Then the code generator can hand the value over in A without storing it. A value
 read, a loop's step, goes to the end of its block, so a counter read before it stays the counter
 for the whole block. A load does not move past a copy, a call, a volatile access or a store that
 may change what it reads; a store to another global, or to other bytes of the same one, cannot.
-Instructions with an effect never move. Together with more hand-overs in A in the code
-generator, play went from 1.67 to 1.61 frames per tick.
+Nor can a volatile store to a register of the PPU, the sound or the CPU, which is no memory and
+starts no [DMA](/glossary#dma), so a load of a global moves past it (the example under
+[ByteLoads](#byteloads)). Instructions with an effect never move. Together with more hand-overs
+in A in the code generator, play went from 1.67 to 1.61 frames per tick.
 
 A store through a pointer plus a variable, whose value is a load, gets that load right before
 it, after the address. The sum of the address needs A, and without this rule address and value
@@ -942,8 +996,13 @@ what it brought during play:
 
 - **Frames in the direct page.** dampf has no recursion, so the frames form a compiled stack: a
   function's frame starts after the frames of all the functions it calls. The leaves of the call
-  graph, small and called most often, start at `$0020`, in the direct page (D stays 0). Play went
-  from 3.85 to 2.90 frames per tick.
+  graph, small and called most often, start at `$0020`, in the direct page (D stays 0 in the
+  main code). Play went from 3.85 to 2.90 frames per tick. An interrupt handler written in C
+  (`DAMPF_INTERRUPT`) is the root of a context of its own, whose frames are laid out by the same
+  rule from a direct page of its own below the stack; the runtime's entry stub points D at that
+  page, so a handler's leaves lie in the direct page too and never overwrite the main code's
+  places. A function that several contexts reach is compiled once per context. A program
+  without handlers compiles as before.
 - **Shared places.** Values whose lifetimes do not overlap share a place in the frame. Since
   2026-11-20 the places get their addresses on the code selection wrote (`PlaceColouring`):
   liveness of their bytes over the LIR, an interference graph, and greedy colouring by byte
@@ -1024,7 +1083,13 @@ what it brought during play:
   tick more. A pass on LIR, `IndexInY`, turned `LDX p` and `LDA table,X` into `LDA table,Y` where
   Y held `p` on every way in, which brought 365 master clocks per tick. It went on 2026-11-23,
   when the register choice below left it almost nothing: without it Schach does 21 master clocks
-  more per tick, and the other examples the same.
+  more per tick, and the other examples the same. A global indexed by a 16-bit value plus a
+  positive constant, `a[i + 1]`, takes the constant into the operand, `sta a+1,x`, with `i` in
+  the register, so the sum is never computed. X adds as an unsigned number in both forms, so they
+  reach the same byte only where `i + 1` cannot pass `$FFFF`, which the unsigned range of `i`
+  shows; and only where nothing else reads the sum. A loop counter that indexes only through
+  such sums stays in X. That took 0.7 % off the geometric mean of the examples' work (Catch Me
+  4.6 %, mostly in the console API's sprite functions, which it calls for every actor).
 - **Loop counters in X.** A counter of a loop (from `CountedLoops`) can live in X for the whole
   loop when it is compared with a constant, or with a 16-bit value from outside the loop that has
   a place (`CPX` on it), indexes the loop's array accesses and is stepped by a constant once a
@@ -1071,7 +1136,10 @@ what it brought during play:
   against 140 for two `uint16_t`, which call the runtime. The runtime uses the same multiplier:
   `dampf_mul16` adds up three byte products (108 cycles instead of 287 to 367) and `dampf_mul32`
   ten (398 to 400 instead of 1,168 to 1,968). This took 66.8 % off Mandelbrot, 53.3 % off Mode 7
-  and 23.7 % off the geometric mean of the examples.
+  and 23.7 % off the geometric mean of the examples. Interrupt code never touches the multiplier,
+  since an interrupted multiplication could not be restored: its factors cannot be read back.
+  There every multiplication of two variables calls `dampf_mul16_soft` or `dampf_mul32_soft`,
+  which shift and add; a 16-bit one takes 22 to 532 cycles instead of 108.
 - **Shifts.** Every shift by a constant below the width is written out; only shifts by a
   variable loop. A 16-bit shift by 8 or more starts with `XBA`, which swaps the bytes of A, then
   masks and shifts the rest. A 32-bit shift by 16 or more moves one word to the other, shifts it
@@ -1099,9 +1167,64 @@ what it brought during play:
   passes, whose shorter code lets more branches reach. A jump that reaches its block is `BRA`,
   as fast as `JMP` and one byte shorter, so more branches reach. Play 1.48 to 1.47 frames per
   tick. A branch over a jump becomes one inverted branch to the jump's target anywhere in a
-  block, not only at its end, and a `switch` writes its jumps the same way: a matching case is a
-  taken `BEQ` (3 cycles) instead of a `BNE` not taken and a `JMP` (5). Play 322,222 to 321,043
-  master clocks per tick.
+  block, not only at its end, and a `switch` that stays a chain of compares writes its jumps the
+  same way: a matching case is a taken `BEQ` (3 cycles) instead of a `BNE` not taken and a `JMP`
+  (5). Play 322,222 to 321,043 master clocks per tick.
+- **Jump tables for `switch`.** A chain of compares costs 5 cycles for every case before the one
+  taken, so the last cases of a state machine pay for all the others. `SwitchSelection` makes a
+  `switch` on an 8- or 16-bit value a jump table where the table's dispatch costs fewer cycles
+  than the chain does on average over the cases, and the table has at most four entries per
+  case; values that are no case go to `default`. The dispatch is `ASL A`, `TAX` and
+  `JMP (table,X)`, 10 cycles. A range check in front costs 5 cycles per end and is left out
+  where the value's range lies within the table, and a first case 0 is tested before the table
+  with a `BEQ`, which costs the other ways 2 cycles. The table lies in the function's own segment
+  after its code, where `JMP (abs,X)` reads it from the bank of the code.
+
+  ```c
+  #include <stdint.h>
+
+  uint8_t state;
+  uint16_t score;
+
+  void step_state(void) {
+      switch (state) {
+      case 0: score += 1; break;
+      case 1: score += 3; break;
+      case 2: score += 7; break;
+      case 3: score += 9; break;
+      case 4: score += 12; break;
+      case 5: score += 20; break;
+      case 6: score += 30; break;
+      }
+  }
+  ```
+
+  The dispatch and the table, without the comment and debug lines:
+
+  ```asm
+  b0_entry:
+          lda     _state              ;                                                           5
+          and     #$00FF              ;                                                           3
+          beq     b2_case             ;                                                         2/3
+          cmp     #$0007              ;                                                           3
+          bcs     b1_endswitch        ;                                                         2/3
+          asl     a                   ;                                                           2
+          tax                         ;                                                           2
+          jmp     (.loword(b0_entry_table),x) ;                                                   6
+  ; ...
+  b0_entry_table:
+          .word   .loword(b2_case), .loword(b3_case), .loword(b4_case), .loword(b5_case)
+          .word   .loword(b6_case), .loword(b7_case), .loword(b8_case)
+  ```
+
+  Measured in dampf's emulator against the chain, with every case equally often, the table wins
+  from 4 cases when the value needs no check (`switch (k & 7)`), from 6 cases from 0 up to an
+  unknown end, and from 7 cases far from 0 or with negative values. A switch in a loop whose
+  counter lives in X stays a chain, since the dispatch needs X, and so does a switch on a 32-bit
+  value. Of the 48 switches the examples have after inlining, 8 became tables. Er-Tüp's busiest
+  tick went from 262,654 to 260,166 master clocks; Steinschlag got 0.4 % slower, because the
+  first case of its cave scan, a boulder, is by far the most common, and the chain reached it
+  with one compare.
 - **`INC` and `DEC`.** A step `x + 1` or `x - 1` whose result goes back to the place of `x`,
   such as a loop counter, is `INC` or `DEC` on the place: 7 cycles instead of 13 for `CLC`,
   `LDA`, `ADC`, `STA`. It needs `x` really stored there, not only handed on in A. Play 1.47
@@ -1206,8 +1329,9 @@ Several parts of dampf use the ranges:
   compares without wrapping.
 - **The code generator** indexes with X when the index is never negative (or the access itself
   shows that it lies inside its array), leaves out byte
-  masks where a sum stays below 256, and keeps an 8-bit loop counter in X only when it cannot
-  wrap.
+  masks where a sum stays below 256, keeps an 8-bit loop counter in X only when it cannot
+  wrap, puts a constant added to an index into the operand only where the sum cannot pass
+  `$FFFF`, and leaves out the range check of a jump table where the value stays within the table.
 - **The timing analysis** takes loop bounds from them ([Exact timing](/inside/timing)).
 
 A wrong range would give wrong code without any sign. The tests therefore check the analysis
@@ -1397,12 +1521,16 @@ its figures do not include them.
 | multiplication on the CPU's multiplier | 2026-11-22 | −23.7 % | Mandelbrot −66.8 % |
 | a comparison with a sum in 16 bits (`CompareSum`) | 2026-11-22 | −0.1 % | Steinschlag −0.9 % |
 | the register choice keeps its weights | 2026-11-23 | −0.1 % | Hello −0.5 % |
+| a constant on an index into the operand | 2026-11-25 | −0.7 % | Catch Me −4.6 % |
+| two byte loads for a value written in halves | 2026-11-25 | −0.6 % | Mode 7 −3.4 % |
 
 The other steps of these days left the geometric mean where it was: `DeadLoops` (Catch Me
 −0.8 %), `IndexParams`, `Collapse`, the canonical form, the ranges in two readings and from
 `CountedLoops`, colouring the places on the code, `SplitWords` (Catch Me −0.2 %), the loaded
 value right before a store through a pointer, the signed division of a value known not to be
-negative, and taking `IndexInY` out. Several of them were made for loops the examples do not
+negative, taking `IndexInY` out, the jump tables of `switch` (Steinschlag +0.4 %, Er-Tüp's
+busiest tick −0.9 %) and leaving out the functions a program cannot reach, which made the
+examples' code 4 % to 48 % smaller. Several of them were made for loops the examples do not
 have, and were measured on the pair loops and on small test functions instead.
 
 ## How far it can go
@@ -1422,9 +1550,16 @@ With FastROM, measured on 2026-11-18 after the steps under
 hand-written code 724: 1.14 times.
 
 Since the game's code left the repository, the reference functions are functions of the
-examples, and the examples' checksums check them: Er-Tüp's `random16` and `sine`. The
-hand-written versions are 2.3 and 1.4 times faster than the naive code generator's; the code
-generator from MIR inlines both into their callers.
+examples: Er-Tüp's `random16` and `sine`, in `reference/`. dampf links each in place of the
+compiled function, as `DAMPF_ASM` does, times it, and runs it against the C body on 256 inputs
+in its emulator; the examples' checksums check it as well. Against the code from MIR, with both
+compiled as functions of their own, `random16` takes 68 CPU cycles a call both ways, and `sine`
+24 against 21, 1.14 times the hand-written code (2026-11-24): dampf's `sine` masks the byte it
+read, since its 8-bit results have a clean high byte, while the hand-written one leaves the byte
+above it as the convention allows. Within Er-Tüp the code from MIR inlines both: with the two
+references linked, Er-Tüp does 131,922 master clocks of work a tick against 131,906 for dampf
+alone. Against the naive code generator the hand-written versions were 2.3 and 1.4 times as
+fast.
 
 A gap remains because a skilled assembly programmer knows things about the program that are not
 in the C code:
@@ -1440,7 +1575,9 @@ in the C code:
 
 dampf only applies the tricks it has been taught; the hand-written reference functions are how
 it is taught new ones. Where the reference is faster, the reason becomes a new optimization
-rule.
+rule. If dampf stays too far behind on one function, a game can link the hand-written version in
+its place with `DAMPF_ASM`, whose convention and analysis keep the timing exact; only when
+measurement demands it.
 
 ## Why it works this way
 

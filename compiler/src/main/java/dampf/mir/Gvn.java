@@ -61,6 +61,9 @@ public final class Gvn {
             return known;
         }
         memo.put(f, true); // assumed while it is being looked at (there is no recursion anyway)
+        if (f.isAsm()) {
+            return true;   // hand-written assembly may write anything
+        }
         boolean w = false;
         for (Block b : f.blocks()) {
             for (Instr i : b.instrs()) {

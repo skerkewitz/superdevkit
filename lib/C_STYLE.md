@@ -32,7 +32,9 @@ expensive, or one with a `DAMPF_BUDGET`. Elsewhere it costs readability for noth
 | `f()`, K&R parameters | `missing parameter type` (write `f(void)`), `not supported yet: old-style (K&R) parameter declarations` |
 | variable-length arrays | `an array size must be a positive integer constant` |
 | compound literals, designated initializers | `not supported yet: compound literals`, `not supported yet: designated initializers` |
+| another value in an enum object (`mode = 1`, `mode++`, `(Mode)u`) | `an object of type Mode takes only its enumerators and values of Mode, not the constant 1 (...)`: store an enumerator, or keep the value in a `uint8_t` |
 | `_Bool` | `not supported yet: _Bool` (use `uint8_t`) |
+| arithmetic, `<`, `>`, shifts, an index on a plain `char` | `plain char is text, and whether it is signed differs between PCs, so a char may only be copied and compared with == or != against a char or a constant from 0 to 127: use uint8_t or int8_t for a number, or cast the char: (uint8_t)c` (write `(uint8_t)c - '0'`; `c == 'a'`, `while (*s)` and `switch (c)` are fine) |
 | a `volatile` variable | `not supported yet: volatile variables (only pointers to volatile memory)` |
 | inline assembly | `not supported yet: this statement` |
 
@@ -43,8 +45,9 @@ the console only through `sdevkit/snes.h` and `sdevkit/loop.h`.
 
 All of these pass `dampf check` and cost nothing extra: declarations anywhere, also in the `for`
 (`for (uint8_t i = 0; ...)`); struct assignment (`b = a;`, the way to copy a struct); `static`
-locals; `const` tables, also multi-dimensional (they stay in ROM); `switch`; `?:`; enums as
-constants; `memset` and `memcpy`; the hints `DAMPF_RANGE` and `DAMPF_BUDGET` (part 6);
+locals; `const` tables, also multi-dimensional (they stay in ROM); `switch`; `?:`; enums, as
+constants and as the type of an object that holds only their enumerators (1 byte for most,
+[docs/memory-map.md](../docs/memory-map.md#enum-objects)); `memset` and `memcpy`; the hints `DAMPF_RANGE`, `DAMPF_BUDGET` and `DAMPF_ASM` (part 6);
 pointers to arrays (`const uint8_t (*rows)[16]`).
 
 One rule of C that the checks find the hard way: **the order in which a call's arguments are
@@ -87,6 +90,13 @@ call its own statement.
   the runtime, unless dampf can prove that both are below 256.
 - **`fast-array-per-field`** In hot code, one array per field (`px[i]`, `py[i]`) is a little
   cheaper than an array of structs (`objs[i].x`). The gain is small: keep the struct elsewhere.
+- **`fast-switch-table`** Dispatch on many values with a `switch`, not an `if`/`else if` chain:
+  where the cases lie close together, dampf makes the switch a jump table, and every case costs the
+  same (the worst of 12 cases 33 cycles, the chain 90). That takes 6 cases from 0, 4 where the
+  value cannot leave the cases' range (`k & 7`), 7 where they start far from 0 or are negative
+  (ADR-6FM7MWGX). Fewer cases, cases far apart and a switch in a loop whose counter dampf keeps in
+  X are compared one after the other in the order written: put the common case first. A first
+  `case 0` is tested before the table too, so the empty slots of an object array stay cheap.
 - A multiplication or an unsigned division by a constant is cheap (`slow-multiply-variable`,
   `slow-divide-variable`): write it as such, in the clear form.
 
@@ -104,12 +114,14 @@ Write whichever reads better; these cost the same:
   byte offsets (`(Ball *)((uint8_t *)balls + list[k])`), as long as the offsets fit its type;
 - **`same-named-temporary`** a named temporary or the expression written inline: a value used
   once stays in the accumulator either way;
+- **`same-enum-object`** a state kept in an enum object or in a `uint8_t` with the enumerators as
+  constants: an enum whose enumerators fit a byte takes one;
 - **`same-32-bit-bits`** a value only combined bit by bit (a hash, a mask tested with `!= 0` or
   `==`) as one `uint32_t` or as two `uint16_t` halves: dampf splits it into the halves itself.
 
 ## 6. The hints
 
-`<dampf.h>` has two (the book's page "Hints" has the details):
+`<dampf.h>` has three (the book's page "Hints" and [docs/hints.md](../docs/hints.md) have the details):
 
 - **`DAMPF_BUDGET(n)`** in front of every function called each frame whose time matters, at
   least `game_tick` and `game_vblank` with their callees: a worst case above `n` CPU cycles is a
@@ -120,6 +132,11 @@ Write whichever reads better; these cost the same:
   `uint16_t` below 256. An index into an array needs none since 2026-11-20 (an access outside the array is undefined in C, and
   dampf relies on that, ADR-6F8NBESR). A hint states a fact: a wrong one makes wrong code on the SNES and stops the
   program on the PC.
+- **`DAMPF_ASM("file.s")`** after a function's parameter list, for a hot leaf function written by
+  hand in assembly, where a measurement shows dampf's code is far from it. Keep the C body: the PC
+  compiles it, and every build runs the assembly against it. dampf's code is often as good: Er-Tüp's
+  `random16` takes 68 cycles by hand and by dampf, and dampf inlines it, which a hand-written
+  function prevents ([reference/README.md](../reference/README.md)).
 
 ## Measurements
 
@@ -127,14 +144,16 @@ The worst case of each function in CPU cycles, from the timing report; "is" is t
 test checks ("same": within 5 %).
 
 <!-- measurements: written by StyleGuideTest -->
-Measured 2026-11-23 (worst case of the timing report, code generator from MIR).
+Measured 2026-11-24 (worst case of the timing report, code generator from MIR).
 
 | Rule | This | CPU cycles | is | than this | CPU cycles |
 | --- | --- | ---: | --- | --- | ---: |
 | `fast-array-per-field` | `move_array_per_field` | 1,361 | faster | `move_array_of_structs` | 1,521 |
 | `fast-multiply-bytes` | `multiply_bytes` | 62 | faster | `multiply_words` | 140 |
+| `fast-switch-table` | `dispatch_switch` | 33 | faster | `dispatch_if_chain` | 90 |
 | `same-32-bit-bits` | `xor_32` | 36 | same | `xor_16_halves` | 36 |
 | `same-declaration-place` | `declared_at_top` | 5,025 | same | `declared_where_used` | 5,025 |
+| `same-enum-object` | `step_enum` | 2,774 | same | `step_uint8` | 2,774 |
 | `same-increment-form` | `count_postfix` | 5,025 | same | `count_prefix` | 5,025 |
 | `same-index-form` | `read_indexed` | 5,025 | same | `read_pointer_arithmetic` | 5,025 |
 | `same-list-of-offsets` | `pairs_by_offsets` | 15,385 | same | `pairs_by_counter` | 15,493 |

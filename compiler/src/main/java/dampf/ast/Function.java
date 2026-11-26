@@ -16,6 +16,7 @@ public final class Function {
     private Stmt.Block body;
     private SourcePos definitionPos;
     private Long budget;
+    private Interrupt interrupt;
 
     public Function(String name, String label, Type returnType, List<Type> paramTypes, SourcePos pos) {
         this.name = name;
@@ -72,6 +73,29 @@ public final class Function {
         this.budget = cycles;
     }
 
+    /** The interrupt this function handles (DAMPF_INTERRUPT), or null for an ordinary function. */
+    public Interrupt interrupt() {
+        return interrupt;
+    }
+
+    public void setInterrupt(Interrupt kind) {
+        this.interrupt = kind;
+    }
+
+    private String asmFile;
+
+    /**
+     * The file of hand-written assembly from DAMPF_ASM, as written in the source (relative to the
+     * C file the definition is in), or null.
+     */
+    public String asmFile() {
+        return asmFile;
+    }
+
+    public void setAsmFile(String file) {
+        this.asmFile = file;
+    }
+
     public boolean isDefined() {
         return body != null;
     }
@@ -80,6 +104,17 @@ public final class Function {
         this.params.addAll(params);
         this.body = body;
         this.definitionPos = definitionPos;
+    }
+
+    /**
+     * Replaces the body by one that differs only in the functions it calls: in an interrupt
+     * context, a function calls that context's copies ({@code dampf.check.ContextCopies}).
+     */
+    public void replaceBody(Stmt.Block body) {
+        if (this.body == null) {
+            throw new IllegalStateException(name + " has no body to replace");
+        }
+        this.body = body;
     }
 
     @Override

@@ -49,6 +49,71 @@ class LirTest {
     }
 
     @Test
+    void aJumpTableGoesToEveryEntry() {
+        LUnit u = LParser.parse(text(
+                ".proc f",
+                "b0:",
+                ins("asl", "a"),
+                ins("tax", null),
+                ins("jmp", "(.loword(b0_table-2),x)"),
+                "b1:",
+                ins("rtl", null),
+                "b2:",
+                ins("lda", "#$0001"),
+                ins("rtl", null),
+                "b0_table:",
+                "        .word   .loword(b2), .loword(b1), .loword(b2)",
+                ".endproc"));
+        LFunction f = u.functions().getFirst();
+        LBlock b0 = f.blocks().get(0);
+        LBlock table = f.blocks().get(3);
+        LInstr jump = b0.last();
+        assertTrue(jump.isTableJump());
+        assertEquals("b0_table", jump.tableLabel());
+        assertEquals("jmp (abs,x)", dampf.target.Cycles65816.name(jump.opcode()));
+        assertEquals(6, jump.cycles());
+        assertEquals(List.of("b2", "b1", "b2"), f.tableTargets("b0_table"));
+        assertEquals(List.of(f.blocks().get(2), f.blocks().get(1)), b0.successors());
+        assertNull(b0.target());
+        assertNull(b0.fallThrough());
+        assertTrue(table.isData());
+        assertEquals(List.of(), table.successors());
+        assertEquals(6, table.bytes());
+        assertEquals(List.of(), LVerifier.verify(u));
+        assertEquals(1 + 1 + 3 + 1 + 3 + 1, LLayout.labelOffsets(f).get("b0_table"));
+        // a table entry is a use of its label: the branch relaxation keeps it
+        LUnit v = LParser.parse(text(
+                ".proc g",
+                "b0:",
+                LPrinter.instr(new LInstr("bne", "@s", null, true, true, true)),
+                LPrinter.instr(new LInstr("jmp", "b1", null, true, true, true)),
+                "@s:",
+                ins("tax", null),
+                ins("jmp", "(.loword(b0_table),x)"),
+                "b1:",
+                ins("rtl", null),
+                "b0_table:",
+                "        .word   .loword(@s), .loword(b1)",
+                ".endproc"));
+        BranchRelax.run(v.functions().getFirst());
+        assertTrue(LPrinter.print(v).contains("@s:"), LPrinter.print(v));
+        assertEquals(List.of(), LVerifier.verify(v));
+    }
+
+    @Test
+    void theVerifierFindsAJumpThroughATableThatIsNotThere() {
+        List<String> e = LVerifier.verify(LParser.parse(text(
+                ".proc f",
+                ins("jmp", "(.loword(nowhere),x)"),
+                "t:",
+                "        .word   .loword(gone)",
+                ins("tax", null),
+                ins("jmp", "(.loword(t),x)"),
+                ".endproc")));
+        assertTrue(e.stream().anyMatch(s -> s.contains("reads a table that is not in the function")), e.toString());
+    }
+
+    @Test
     void unnamedLabels() {
         LUnit u = LParser.parse(text(
                 ".proc f",
@@ -182,7 +247,7 @@ class LirTest {
                 ins("rtl", null),
                 ".endproc"));
         LFunction f = u.functions().getFirst();
-        new Peephole(0x20).run(f);
+        new Peephole().run(f);
         List<String> code = f.instrs().stream().map(LInstr::toString).toList();
         assertEquals(List.of("sta z:dampf_frame+4", "tax", "sta z:dampf_frame+6", "tay", "sep #$20",
                 "sta z:dampf_frame+8", "ldx z:dampf_frame+8", "rep #$20", "rtl"), code);
@@ -196,7 +261,7 @@ class LirTest {
         all[lines.length + 2] = ".endproc";
         LUnit u = LParser.parse(text(all));
         LFunction f = u.functions().getFirst();
-        new Peephole(0x20).run(f);
+        new Peephole().run(f);
         assertEquals(List.of(), LVerifier.verify(u));
         return f.instrs().stream().map(LInstr::toString).toList();
     }

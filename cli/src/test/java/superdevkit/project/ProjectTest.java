@@ -340,6 +340,58 @@ class ProjectTest {
         assertTrue(linux.lines().noneMatch(l -> l.contains("lib/rachael") && l.contains("ON_DESKTOP")), "only the game's files: " + linux);
         String web = run("build", "web", tmp.toString(), "--plan");
         assertTrue(web.lines().anyMatch(l -> l.contains("-c src/g.c") && l.contains(" -DON_WEB=1 ")), web);
+        assertTrue(web.lines().noneMatch(l -> l.contains("lib/rachael") && l.contains("ON_WEB")), "only the game's files: " + web);
+    }
+
+    @Test
+    void theDefinesOfSnesDoNotReachTheKitsLibrary() throws Exception {
+        // SETUP_LINES is a macro lib/snes/snes.c takes if it is defined (the margin of sdevkit_dma_fits,
+        // which the game calls: dampf leaves out a function nothing calls)
+        Files.createDirectories(tmp.resolve("src"));
+        Files.writeString(tmp.resolve("src/g.c"), """
+                #include "sdevkit/loop.h"
+                #include "sdevkit/snes.h"
+                #ifndef ON_SNES
+                #error the defines of [snes] did not arrive
+                #endif
+                uint8_t fits;
+                void game_init(uint16_t seed) { (void)seed; }
+                void game_tick(const uint16_t pad[SDEVKIT_PADS]) { (void)pad; }
+                void game_vblank(void) { fits = sdevkit_dma_fits(100); }
+                """);
+        String toml = """
+                name = "g"
+                kit = "%s"
+                sources = ["src"]
+                [snes]
+                defines = [%s]
+                """;
+        String kitPath = Path.of("").toAbsolutePath().toString().replace("\\", "/");
+        Path rom = tmp.resolve("build/snes/g.sfc");
+        project(toml.formatted(kitPath, "\"ON_SNES\""));
+        assertTrue(run("build", "snes", tmp.toString()).startsWith("0\n"));
+        byte[] without = Files.readAllBytes(rom);
+        Project p = project(toml.formatted(kitPath, "\"ON_SNES\", \"SETUP_LINES=0\""));
+        String plan = run("build", "snes", tmp.toString(), "--plan");
+        assertTrue(plan.contains(" -D ON_SNES -D SETUP_LINES=0 --entry main") && plan.contains(" src --lib "), plan);
+        String built = run("build", "snes", tmp.toString());
+        assertTrue(built.startsWith("0\n"), built);
+        assertArrayEquals(without, Files.readAllBytes(rom), "SETUP_LINES of [snes] must not reach lib/snes");
+
+        // the same define does change the library when it reaches it, as it did before --lib
+        Kit kit = Kit.of(p);
+        Path leak = tmp.resolve("leak/g.sfc");
+        dampf.Compiler.compile(Build.dampfOptions(p, kit, leak).withLibrary(List.of()));
+        assertTrue(!java.util.Arrays.equals(without, Files.readAllBytes(leak)), "SETUP_LINES=0 should change lib/snes");
+
+        String args = Files.readString(tmp.resolve("build/snes/g.args"));
+        String snesC = kit.lib().resolve("snes/snes.c").toAbsolutePath().normalize().toString();
+        assertTrue(args.contains("-D SETUP_LINES=0\n") && args.contains("\n--lib " + snesC + "\n")
+                && args.contains("\n" + tmp.resolve("src/g.c").toAbsolutePath().normalize() + "\n"), args);
+        // compile_commands.json: the game's file with the define, nothing of lib/snes
+        String commands = Files.readString(tmp.resolve("build/compile_commands.json"));
+        assertTrue(commands.contains("g.c\", \"arguments\"") && commands.contains("\"-DSETUP_LINES=0\""), commands);
+        assertTrue(!commands.contains("snes.c"), commands);
     }
 
     @Test
@@ -405,6 +457,18 @@ class ProjectTest {
         symbolCheck(List.of("cc"));
     }
 
+    /**
+     * What the symbol check allows is what the public headers declare: a variable declared extern
+     * (sdevkit_publish_side), not the parameters of a macro's body (sdevkit/publish.h's
+     * SDEVKIT_PUBLISH declares `tick` and `name` there).
+     */
+    @Test
+    void theSymbolCheckTakesTheHeadersDeclarationsNotAMacrosBody() throws Exception {
+        java.util.Set<String> api = Symbols.api(Path.of("lib/include/sdevkit"));
+        assertTrue(api.containsAll(List.of("sdevkit_reg_write", "sdevkit_publish_side", "sdevkit_publish_ready", "game_tick")), api.toString());
+        assertTrue(!api.contains("tick") && !api.contains("name") && !api.contains("type"), api.toString());
+    }
+
     /** The same for WebAssembly objects, of emcc (the target web); skipped without Emscripten. */
     @Test
     void theSymbolCheckReadsWebAssemblyObjects() throws Exception {
@@ -426,7 +490,7 @@ class ProjectTest {
     private void symbolCheck(List<String> cc) throws Exception {
         assumeTrue(runs(cc), "no " + String.join(" ", cc));
         Path good = tmp.resolve("good.c"), bad = tmp.resolve("bad.c");
-        Files.writeString(good, "#include \"sdevkit/snes.h\"\nunsigned char shared;\nvoid f(void) { sdevkit_set_brightness(15); shared++; }\n");
+        Files.writeString(good, "#include \"sdevkit/snes.h\"\nunsigned char shared;\nvoid f(void) { sdevkit_reg_write(SDEVKIT_PPU_INIDISP, 15); shared++; }\n");
         Files.writeString(bad, "int puts(const char *s);\nextern unsigned char shared;\nvoid g(void) { puts(\"hi\"); shared++; }\n");
         for (Path c : List.of(good, bad)) {
             List<String> cmd = new java.util.ArrayList<>(cc);

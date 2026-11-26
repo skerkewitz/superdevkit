@@ -1,10 +1,10 @@
 <!-- GENERATED from doc-specs/reference/limits.spec.md by /docs-gen. Do not edit; change the spec or its sources. -->
 # Limits
 
-superdevkit, and dampf with it, is at version 0.9.2: milestones M0 to M9 are concluded. dampf is
-the compiler of superdevkit, a [development kit](/glossary#dev-kit) for SNES games. The
-milestones named on this page are the open ones: M10 for language, platform and usability (in
-progress), M11 for timing and debugging, and M12 for fine tuning.
+superdevkit, and dampf with it, is at version 0.10.0: milestones M0 to M10 are concluded. dampf
+is the compiler of superdevkit, a [development kit](/glossary#dev-kit) for SNES games. The
+milestones named on this page are the open ones: M11 for timing and debugging, and M12 for fine
+tuning.
 Some items below belong to no milestone at all. They are on the [Roadmap](/inside/roadmap),
 which also has their state and their order; nothing here goes beyond it. Every version before
 1.0 is a pre-release, so [the subset](/glossary#subset), the command line and the files dampf
@@ -12,20 +12,14 @@ writes may change from one version to the next.
 
 ## Not built yet
 
-**Music and interrupt handlers on the SNES.** Every example of the kit builds into a ROM you can
-play. The kit's library on the SNES, `lib/snes`, is written in C and implements the console API
-of `sdevkit/snes.h` ([Console API](/reference/console-api)) and the main loop. Sound effects and
+**Music on the SNES.** Every example of the kit builds into a ROM you can play. The kit's
+library on the SNES, `lib/snes`, is written in C and implements the console API of
+`sdevkit/snes.h` ([Console API](/reference/console-api)) and the main loop. Sound effects and
 save RAM are built on every [target](/glossary#target) ([Graphics and
 sound](/guide/graphics-and-sound)); music is not built on the SNES. There `sdevkit_music_play`
 and `sdevkit_music_stop` do nothing, and dampf removes the calls, while the desktop and the web
 play the track from its file. Music on the SNES needs a driver of its own on the SPC700, which
-plays a sequence of notes beside the effects; it is not scheduled. The library also has no
-interrupt handler. Its loop waits for the [vertical blank](/glossary#vertical-blank) and does
-the work there, because C code called from an interrupt in the middle of a
-[tick](/glossary#tick) would overwrite the [frames](/glossary#frame) of the functions it
-interrupted: dampf keeps them at fixed places. C in interrupt handlers is planned for M10, where
-the functions an interrupt reaches can get a frame area of their own; how a handler is declared
-and what it saves is still open.
+plays a sequence of notes beside the effects; it is not scheduled.
 
 **More of the sound effects.** The effects have no ADSR envelopes and no echo, and
 `sdevkit_sfx_play` takes no volume or pan per call: an effect plays at the volume its sample has
@@ -42,17 +36,50 @@ nothing else. The desktop and web builds check that the game's objects call only
 functions, because [Rachael](/glossary#rachael), the SNES rebuilt in C that those builds run on,
 cannot see a write that goes around her. Of the hardware, a game can use only what both
 `lib/snes` and Rachael draw. Rachael draws modes 1 and 7; a register write she does not draw (a
-mode other than 1 and 7, mosaic, `SETINI`, direct colour, the ports of [VRAM](/glossary#vram),
-[CGRAM](/glossary#cgram) and [OAM](/glossary#oam), which would go around her memories) is counted,
-and the desktop's check fails on it, since the SNES would show something else there. Whether a
-feature that Rachael only reports may be used anyway is an open question of the roadmap.
+mode other than 1 and 7, mosaic, `SETINI`, direct colour, `VMAIN`'s address remapping, a
+[DMA](/glossary#dma) from the PPU, indirect [HDMA](/glossary#hdma)) is counted,
+and the desktop's check fails on it, since the SNES would show something else there. That is
+decided: a feature that Rachael only reports is not usable, and a feature a game needs is built
+on both sides in the same change.
+
+**Interrupt code.** A game can have an IRQ in C (an interrupt request, raised here by the CPU's
+timer before a row of the picture): `game_irq` from `sdevkit/irq.h`. A game that publishes its
+data with `sdevkit/publish.h`, a copy made after every tick that interrupt code reads, gets the
+kit's NMI (the interrupt at the start of each [vertical blank](/glossary#vertical-blank)), which
+runs the game's vertical blank code ([Console API](/reference/console-api), [The C
+subset](/reference/c-subset)). Four things are not built:
+
+- **A function written in assembly** (`DAMPF_ASM` or `--replace`) cannot be reached from an
+  interrupt handler: dampf stops with an error that names the function and the handler. Its
+  convention assumes the main code's [direct page](/glossary#direct-page) and the places of its
+  locals, while an interrupt has its own, and nothing stops its code from using the CPU's
+  multiplier, which interrupt code must not touch.
+  No milestone changes this; meanwhile interrupt code calls only C.
+- **An IRQ in the middle of a row.** `sdevkit_irq_line` takes a row and no horizontal position,
+  because Rachael draws the picture row by row and has no time inside a row. A handler writes
+  after `sdevkit_irq_wait_hblank`, and its writes show from the row it was set for. No milestone
+  adds a horizontal position.
+- **dampf's check of the IRQ's window.** After the wait a handler has about 25 CPU cycles for
+  its register writes, about 19 with one HDMA channel of one byte on the line; a scroll register
+  takes 17. A handler that takes longer writes late and may tear the row, and Rachael has no
+  time to see it, so today only a run in [Mesen](/glossary#mesen) shows it. M11 is to find the
+  cycles from the wait to the handler's last register write and fail the build when they exceed
+  that budget, and M12 is to give more room with faster code for a register write (7 cycles
+  less in `sdevkit_reg_write_twice`). Meanwhile, what does not fit after the wait goes into HDMA
+  or into a second IRQ row.
+- **The optional layers in the kit's NMI.** A game on the optional layers (`sdevkit_commit`, the
+  queue, the shadow registers, the sprite list) keeps its `game_vblank` in the main loop, since
+  their state is the tick's, so nothing writes its picture while a [tick](/glossary#tick)
+  overruns. The layers could publish their own state as a game publishes its struct; this has no
+  milestone.
 
 **Hints.** A [hint](/glossary#hint) is a macro that tells dampf something it cannot infer, such
 as `DAMPF_RANGE(i, 0, 15)` for "`i` is always between 0 and 15". In the [PC
 build](/glossary#pc-build) a hint that states a fact becomes a checked assertion, so a wrong
-hint is caught on the PC before it does damage on the SNES. Two hints from `<dampf.h>` are
-built, `DAMPF_RANGE` and `DAMPF_BUDGET` (a cycle budget for a function, see [Exact
-timing](/inside/timing)); both are described in [Hints](/reference/hints). The names of the
+hint is caught on the PC before it does damage on the SNES. Three hints from `<dampf.h>` are
+built, `DAMPF_RANGE`, `DAMPF_BUDGET` (a cycle budget for a function, see [Exact
+timing](/inside/timing)) and `DAMPF_ASM` (hand-written assembly in place of a function's body);
+all three are described in [Hints](/reference/hints). The names of the
 others are decided, but none of them is built, so you cannot use them yet. `DAMPF_TRIPS(16)`,
 for a loop that runs at most 16 times, is postponed to M11: on the PC it would have to count the
 rounds per entry into the loop, and a macro cannot see that entry without changing the loop.
@@ -64,27 +91,34 @@ so a range hint is needed only where it cannot. Declared subrange types (`DAMPF_
 `DAMPF_AS`) are listed in M12 as well, but they are built only when a profile shows a hot value
 whose range dampf cannot infer.
 
-**`restrict`.** dampf rejects `restrict` ("not supported yet"), so you cannot tell it that two
-pointers never overlap. How `restrict` would be checked on the PC, and whether a hint of
-dampf's own is clearer, is an open question of the roadmap; the work belongs to M10.
+**`restrict`.** dampf rejects `restrict`, so you cannot tell it that two pointers never
+overlap, and no milestone adds it: with every pointer treated as `restrict`, the most such a hint
+could promise, the work per tick of the kit's examples changed by 0.01 % at most, since
+[pointer compression](/glossary#pointer-compression) and inlining already tell dampf where the
+pointers point.
 
-**Intrinsics.** An [intrinsic](/glossary#intrinsic) gives C code access to the SNES hardware:
-the hardware multiplier and divider, [DMA](/glossary#dma), waiting for vertical blank, placing
-constant data in ROM banks. In the PC build each is a plain function. None is built; the roadmap
-places the intrinsics for the hardware multipliers, the divider and DMA in M10. dampf itself
-already multiplies two variables on the CPU's 8 x 8 multiplier, without a call when both are
-bytes. The kit's library on the SNES needed no intrinsic: it reaches the I/O registers through
-pointers to `volatile` memory, and casts a pointer to an integer to get the SNES address a DMA
-channel copies from ([The C subset](/reference/c-subset)).
+**Intrinsics and the divider.** An [intrinsic](/glossary#intrinsic) would give C code access to
+the SNES hardware. dampf has none, and none are planned: it multiplies two variables on the CPU's
+8 x 8 multiplier itself, without a call when both are bytes, a division by a constant becomes a
+multiplication, DMA and the wait for the vertical blank are calls of the console API, and dampf
+places constant data in its ROM banks itself. The kit's library on the SNES reaches the I/O
+registers through pointers to `volatile` memory, and casts a pointer to an integer to get the
+SNES address a DMA channel copies from ([The C subset](/reference/c-subset)). The CPU's hardware
+divider is not used yet. M12 is to use it, chosen by dampf, for a division by a variable whose
+divisor its value ranges prove to fit a byte, once a measured program divides by variables
+on a hot path.
 
 **Timing in master clocks and outside the CPU.** dampf computes a best and a worst case for
 every function, writes them to the [timing report](/glossary#timing-report) and checks
 `DAMPF_BUDGET` at build time ([Exact timing](/inside/timing)), but it counts in CPU cycles only.
 [Master clocks](/glossary#master-clock), the unit that includes the speed of each memory region
 ([FastROM, SlowROM](/glossary#fastrom-and-slowrom), WRAM, I/O), are not counted yet. Nor does
-dampf account for the time lost outside the CPU: DRAM refresh, [HDMA](/glossary#hdma) and
-interrupts. Budgets for a whole frame, which would add the cost of interrupt handlers, are not
-built, nor a check of the measured cycles of budgeted functions in the emulator. The comments of
+dampf account for the time lost outside the CPU: DRAM refresh, HDMA and interrupts. The report
+gives each interrupt a line of its own, its entry stub and handler, but a function's bounds leave
+out the interrupts that come while it runs, and budgets for a whole frame, which would add the
+cost of the handlers, are not built; how such a budget learns which HDMA channels a game has on
+is open, since a game turns them on at run time. Nor is a check of the measured cycles of
+budgeted functions in the emulator built. The comments of
 the generated assembly carry the CPU cycles of each instruction, and each straight-line C line
 their sum; a line with branches does not show its best and worst case yet, and neither the
 report nor a budget error shows the costliest path line by line. A loop whose bound dampf cannot
@@ -97,7 +131,8 @@ million CPU cycles at worst and a few thousand in play, so a `DAMPF_BUDGET` is o
 Er-Tüp guards that frame with a budget measured in its check instead. All of this is M11: master
 clocks in the report, the comments and the budgets, the costliest path per C line, bounds for
 more loops, a hint for how often a path runs or a bound per call chain for pair loops, the
-measured cycles checked, and DRAM refresh, HDMA and interrupts at frame level. For measured
+measured cycles checked, the IRQ's window checked (see above), and DRAM refresh, HDMA and
+interrupts at frame level. For measured
 cycles per function, use `dampf profile` ([Command line](/reference/command-line)).
 
 **The preprocessor's subset.** dampf preprocesses the C source with a preprocessor of its own,
@@ -137,7 +172,7 @@ expect:
 
 - **A small library.** dampf ships `<stdint.h>`, `<dampf.h>` and a `<string.h>` with only
   `memset` and `memcpy`, which take a byte value and a 16-bit size. Both copy byte by byte in
-  C; copies with `MVN` or DMA come in M12.
+  C; copies with `MVN` come in M12.
 - **`goto`** and labels are rejected, and that is decided (decision 4 of the subset). If real
   code needs `goto`, dampf may allow a form that only jumps forward and out of statements, such
   as out of two loops to a label after them. That form keeps every loop with a single entry, so
@@ -146,29 +181,30 @@ expect:
   loops with a flag, or with `return` from a helper function, which costs nothing once dampf
   inlines it.
 - **Function pointers in constant tables** known at compile time are allowed by the design of
-  the subset, but not built until something needs them; they are listed in M10.
+  the subset, but not built and not scheduled: no example and no game uses them, and a `switch`
+  on an enum does the same. They were built once and not taken in, and are taken up when a game
+  asks for them.
 - **Designated initializers** are rejected and stay out for now, without a milestone; the
   subset notes they are easy to add.
-- **Plain `char` for text only:** dampf treats `char` as a signed 8-bit type, as on x86-64, and
-  accepts arithmetic on it. The plan is to reject arithmetic on `char` beyond comparing and
-  copying, so that its signedness can never change a result; this is decision 1 of the subset,
-  open and to be taken in M10.
-- **Enum objects and pointers** take 4 bytes each in memory. Making them smaller is open, and
-  both decisions are to be taken in M10. Decision 2 of the subset would store an enum object in
-  the smallest width that holds its enumerators and allow only values of that enum in it, where
-  dampf now accepts any integer. Decision 3 is about 16-bit pointers into RAM. Within a function
+- **Pointers** stored in a struct field, a global or an array take 4 bytes. Within a function
   and through parameters, dampf already turns a pointer into one object into a 16-bit offset
-  ([pointer compression](/glossary#pointer-compression)).
-- **Hand-written assembly** linked in with `dampf build --replace` works only with the
-  [naive code generator](/glossary#naive-code-generator), and a function linked in this way
-  cannot declare its calling convention, [direct page](/glossary#direct-page) use and cycles
-  for the timing analysis. Making it work with the
-  [code generator from MIR](/glossary#code-generator-from-mir) is part of M10.
-- **Warnings.** dampf truncates a constant that does not fit the type it initializes or is
-  assigned to, such as `uint8_t w[] = { 420 }`, as gcc does, but silently, where gcc warns by
-  default. Warnings where gcc warns by default are planned for M10, this one first. Meanwhile
-  the warnings of the desktop build show it.
-- **Memory for a compile:** compiling Blubber Blasen took 1.8 GB. Less is a goal of M10.
+  (pointer compression). 16-bit pointers into RAM, decision 3 of the subset, belong to M12: a pointer that provably points only into
+  bank `$7E` could take 2 bytes, with cheaper loads. A program cannot see the size, so this is
+  an optimization, decided and built when a measured program shows the gain.
+- **Hand-written assembly** in place of a function's body (`DAMPF_ASM`, see
+  [Hints](/reference/hints)) works with both code generators and keeps the timing exact, but the
+  function must be a leaf: it calls nothing, its parameters and result are integers and
+  pointers, and `MVN` and `MVP` are rejected in it, since dampf does not follow them yet. dampf
+  runs the assembly against the C body in every build, but that check does not see writes to
+  I/O registers, and with the [naive code generator](/glossary#naive-code-generator) it does not
+  run. None of this has a milestone.
+- **Warnings.** dampf is to warn where gcc warns by default, and goes on with the build; it has
+  one such warning so far: gcc's `-Woverflow` on a constant that does not fit the type it is
+  converted to, such as `uint8_t w[] = { 420 }`. gcc's warning about an overflow while it folds
+  a constant, and its other default warnings, are not built yet and have no milestone; the
+  warnings of the desktop build show them.
+- **Memory for a compile:** compiling Blubber Blasen took 1.8 GB. Less has no milestone: dampf's
+  own speed and memory are tuned once it is more or less feature complete.
 - **Locals in Mesen:** Mesen shows the C source and the names of globals, but not the locals
   that live in fixed direct page slots, nor the C type of a variable. Better C debugging in
   Mesen is planned for M11: dampf first fills what the debug format has, then a small patch is
@@ -184,8 +220,8 @@ expect:
   tick that needs more than one frame waits for the next vertical blank, and the benchmark
   leaves out what `video.c` costs on the hardware. Your code may gain less from an optimization
   than the game did: the optimizations that made Blubber Blasen's play 13 % faster made the
-  execution tests only 0.9 % faster, and the parameters chosen on the game, the inlining limit
-  and the block order, are still to be checked on the examples. The optimizer goes on in M12,
+  execution tests only 0.9 % faster, and the block order, chosen on the game, is still to be
+  checked on the examples. The optimizer goes on in M12,
   the fine tuning. Register allocation is built in part (values go to the X or Y register by
   cost); left are the [`M` flag](/glossary#m-and-x-flags) followed across blocks in general,
   arrays of structs stored as one array per field once a measured loop gains from it, 8-bit
@@ -193,9 +229,9 @@ expect:
   in A, and 32-bit arithmetic and ordered comparisons, which still go through frame slots;
   [Writing fast C](/guide/writing-fast-c) measures that gap and says how to write around it.
   Also in M12 are the layout of blocks by a profile by default (it is built, but opt-in), a
-  superoptimizer for short hot sequences, `switch` as a jump table, `MVN` for copies,
-  profile-guided inlining, a tuning option that tries the inlining limit and the block order on
-  your own workload, and bank `$7F` for variables.
+  superoptimizer for short hot sequences, `MVN` for copies, profile-guided inlining, a tuning
+  option that tries the inlining limit and the block order on your own workload, and bank `$7F`
+  for variables.
 
 ## Never planned
 
@@ -225,15 +261,16 @@ its general limit of 60, and later in a default build of Blubber Blasen; dampf h
 to change the limit.
 
 Apart from that, where dampf lays out data differently from gcc on x86-64, a program cannot see
-it: dampf's pointers are 4 bytes instead of 8 and it does not pad struct fields, so a `sizeof`
-whose value would differ from the PC is rejected. Only the element count
+it: dampf's pointers are 4 bytes instead of 8, its enum objects take the smallest width that
+holds their enumerators, 1 or 2 bytes for most enums instead of 4, and it does not pad struct
+fields, so a `sizeof` whose value would differ from the PC is rejected. Only the element count
 `sizeof a / sizeof a[0]` is allowed for such types, because its quotient is the same on both
 sides. A struct that gcc pads is therefore copied by a struct assignment, since no constant
 size passed to `memcpy` is right on both sides. For `sizeof(struct pair)` with
 `struct pair { uint8_t a; int16_t b; }`, dampf reports, after the place in the source:
 
 ```
-error: sizeof struct pair is 3 in dampf but 4 on the PC (dampf's pointers are 4 bytes, 8 on x86-64, and dampf does not pad struct fields): the program would compute other values than its PC build. Only the element count sizeof a / sizeof a[0] is allowed for such types
+error: sizeof struct pair is 3 in dampf but 4 on the PC (dampf's pointers are 4 bytes, 8 on x86-64, its enum objects 1 or 2 bytes for most enums, 4 on x86-64, and dampf does not pad struct fields): the program would compute other values than its PC build. Only the element count sizeof a / sizeof a[0] is allowed for such types
 ```
 
 The result of every program must match gcc on x86-64 bit for bit. The tests check that for

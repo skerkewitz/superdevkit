@@ -105,8 +105,8 @@ public final class Licm {
     private static boolean loadMovable(Instr.Load l, Block b, Loops.Loop loop, MModule m, Map<MFunction, Boolean> writes) {
         Gvn.Location at = Gvn.locate(l.op(0));
         // outside the head the loop may not run, so the load may read where the program does
-        // not: in a global (bank $7E, all RAM), or at a known place of a frame slot (bank 0, whose
-        // registers a wild index could reach)
+        // not: in a global (a variable, all RAM: SnesTarget.VARIABLE_BANK), or at a known place of a
+        // frame slot (low RAM, in bank 0, whose registers a wild index could reach)
         if (l.isVolatile || b != loop.head() && !(at.base() instanceof Value.GlobalAddr || at.named() && at.exact())) {
             return false;
         }

@@ -101,8 +101,9 @@ final class MesenRunner {
         }
         for (Observed v : globals) {
             Long base = addresses.get(v.label());
-            if (base == null) {
-                throw new IOException("no address for " + v.label() + " in " + rom.labels());
+            if (base == null) {   // left out: no reachable code touches it
+                lua.append("    s = s .. \"").append(v.path()).append(" ").append(v.initial()).append("\\n\"\n");
+                continue;
             }
             long addr = base + v.offset();
             // little endian: rd(a) + rd(a+1) * 256 + ... (Lua 5.4 integers are 64 bit)

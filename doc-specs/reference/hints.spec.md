@@ -11,10 +11,16 @@ sources:
   - compiler/src/main/java/dampf/Compiler.java
   - compiler/src/test/resources/exec/hint_range.c
   - compiler/src/test/java/dampf/BudgetTest.java
+  - compiler/src/test/resources/exec/asm_functions.c
+  - compiler/src/test/resources/exec/asm/asm_functions.s
+  - compiler/src/test/java/dampf/AsmDeclarationTest.java
+  - compiler/src/main/java/dampf/asm/AsmFunction.java
+  - compiler/src/main/java/dampf/emu/AsmCheck.java
   - compiler/src/main/java/dampf/frontend/pp/Expander.java
   - cli/src/main/java/superdevkit/project/Desktop.java
   - cli/src/main/java/superdevkit/project/Web.java
   - cli/src/main/java/superdevkit/project/Kit.java
+  - compiler/src/main/java/dampf/AsmFunctions.java
 audience: Users who want to tell dampf what it cannot infer
 ---
 
@@ -32,13 +38,18 @@ The hint macros, what each tells dampf, and how each is checked in the PC build.
    [The superdevkit command](/reference/superdevkit#build)); macros that become built-ins with
    dampf, checked assertions on the PC (and `NDEBUG`); that dampf trusts a hint and never checks
    it on the SNES, and why a wrong hint is dangerous.
-2. **The hints** – one H3 per built hint (`DAMPF_RANGE`, `DAMPF_BUDGET`): what it states, where
+2. **The hints** – one H3 per built hint (`DAMPF_RANGE`, `DAMPF_BUDGET`, `DAMPF_ASM`): what it states, where
    it may stand, an example with what dampf does with it (a loop bound, a build error or
    warning), the PC check, and the messages for misuse (a wrong number of arguments is a message
    of dampf's own preprocessor; with `--opt-limit` a budget error is only a warning). Before the
    first example that shows a timing report, say that `dampf build` writes it next to the ROM
    (`<rom>.timing.txt`), what its columns are (best and worst case in CPU cycles), and link
-   [Command line](/reference/command-line).
+   [Command line](/reference/command-line). For `DAMPF_ASM`: the convention the file follows
+   (label, segment, the parameters' places and `_name__locals`, the result, the CPU state), the
+   part of ca65 dampf's assembler reads, the bound comment `; dampf: at most N`, what the analysis
+   rejects (a few real messages), the line of the timing report, and the check against the C body
+   with a real message; `--replace` as the command-line override; that the naive code generator
+   links the file but does not check it.
 3. **Not built yet** – the other hints of the catalogue in one short list, `DAMPF_TRIPS`
    postponed and why, and subrange types (`DAMPF_RANGED`); link [Limits](/reference/limits).
 
