@@ -116,13 +116,12 @@ Left:
   ([brainstorm summary](brainstorm/interrupts-and-asm_2026-11-24.md), part 1): the kit owns the
   NMI, the game an IRQ in C; interrupt contexts with frames and a direct page of their own; no
   hardware multiply in interrupt code; interrupts read only data the tick published; Rachael
-  calls the IRQ at its line; then the NMI runs the frame's work. The contexts and the published
-  data are built (above). Left, in this order: Rachael calling the IRQ at its line, and an API
-  to switch the IRQ on and set its line, which make the IRQ usable by games; then the NMI running
-  `game_vblank` and the frame's work, where `game_vblank` joins the NMI context and may call
-  nothing the tick calls unless a function can be compiled once per context (idea 2 of the
-  summary), and what it reads must be published too (open: whether every game then publishes,
-  and whether the copy moves into the kit's loop).
+  calls the IRQ at its line; then the NMI runs the frame's work. The contexts, the published
+  data and the copies per context are built (above). Left, in this order: Rachael calling the
+  IRQ at its line, and an API to switch the IRQ on and set its line, which make the IRQ usable
+  by games; then the NMI running `game_vblank` and the frame's work, where `game_vblank` joins
+  the NMI context and what it reads must be published too (open: whether every game then
+  publishes, and whether the copy moves into the kit's loop).
 
 ## M11: timing and debugging (0.11.0)
 
