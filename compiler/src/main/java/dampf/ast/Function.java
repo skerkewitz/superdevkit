@@ -106,6 +106,17 @@ public final class Function {
         this.definitionPos = definitionPos;
     }
 
+    /**
+     * Replaces the body by one that differs only in the functions it calls: in an interrupt
+     * context, a function calls that context's copies ({@code dampf.check.ContextCopies}).
+     */
+    public void replaceBody(Stmt.Block body) {
+        if (this.body == null) {
+            throw new IllegalStateException(name + " has no body to replace");
+        }
+        this.body = body;
+    }
+
     @Override
     public String toString() {
         return name;

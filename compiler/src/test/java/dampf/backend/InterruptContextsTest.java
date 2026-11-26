@@ -9,7 +9,7 @@ import dampf.Compiler;
 import dampf.ast.Function;
 import dampf.ast.Interrupt;
 import dampf.ast.Program;
-import dampf.check.CallGraph;
+import dampf.check.ContextCopies;
 import dampf.emu.Cpu65816;
 import dampf.emu.Snes;
 import dampf.frontend.CompileError;
@@ -61,24 +61,51 @@ class InterruptContextsTest {
     // ------------------------------------------------------------------ the contexts and their errors
 
     @Test
-    void aFunctionCalledFromTwoContextsIsAnError() throws Exception {
-        CompileError e = error("""
-                static void clamp(void) { if (g > 100) { g = 100; } }
+    void aFunctionCalledFromTwoContextsGetsACopyInEach() throws Exception {
+        Path f = tmp.resolve("c.c");
+        Files.writeString(f, """
+                #include <stdint.h>
+                #include <dampf.h>
+                uint16_t g;
+                static void clamp(void) { static uint16_t calls; uint16_t limit = 100; calls++; if (g > limit) { g = limit; } }
                 static void step(void) { g++; clamp(); }
+                DAMPF_INTERRUPT(nmi) void on_nmi(void) { step(); }
                 DAMPF_INTERRUPT(irq) void on_irq(void) { clamp(); }
                 void test_main(void) { step(); }
                 """);
-        assertTrue(e.getMessage().contains("'clamp' is called from two contexts, the main code (test_main → step → clamp)"
-                + " and the IRQ handler (on_irq → clamp)"), e.getMessage());
-        assertTrue(e.getMessage().contains("e.c:6:"), "at the call in the second context: " + e.getMessage());
-        CompileError both = error("""
-                static void count(void) { g++; }
-                DAMPF_INTERRUPT(nmi) void on_nmi(void) { count(); }
-                DAMPF_INTERRUPT(irq) void on_irq(void) { count(); }
-                void test_main(void) { }
-                """);
-        assertTrue(both.getMessage().contains("the NMI handler (on_nmi → count) and the IRQ handler (on_irq → count)"),
-                both.getMessage());
+        Program p = Compiler.frontEnd(new Compiler.Options(List.of(f), List.of(), List.of(), "test_main", tmp.resolve("x.sfc")));
+        ContextCopies.Result r = ContextCopies.of(p, p.function("test_main"));
+        Map<String, String> context = new HashMap<>();
+        r.contexts().forEach((fn, c) -> context.put(fn.name() + " " + fn.label(), c.key));
+        assertEquals(Map.of("on_nmi _on_nmi", "nmi", "step@nmi __nmi_step", "nmi", "clamp@nmi __nmi_clamp", "nmi",
+                "on_irq _on_irq", "irq", "clamp@irq __irq_clamp", "irq"), context,
+                "the main code keeps the originals; each context gets copies of what it shares");
+        Function copy = r.program().functions().stream().filter(fn -> fn.label().equals("__irq_clamp")).findFirst().orElseThrow();
+        Function original = p.function("clamp");
+        assertEquals(List.of("__irq_clamp__limit"), copy.locals().stream().map(v -> v.label()).toList(), "a local of its own");
+        assertTrue(dampf.check.CallGraph.of(r.program()).callsFrom(r.program().functions().stream()
+                .filter(fn -> fn.label().equals("__nmi_step")).findFirst().orElseThrow()).stream()
+                .allMatch(e -> e.callee().label().equals("__nmi_clamp")), "the NMI's copy of step calls the NMI's clamp");
+        assertTrue(dampf.check.CallGraph.of(r.program()).callsFrom(p.function("on_irq")).stream()
+                .allMatch(e -> e.callee() == copy), "the IRQ handler calls the IRQ's copy");
+        assertTrue(dampf.check.CallGraph.of(r.program()).callsFrom(p.function("step")).stream()
+                .allMatch(e -> e.callee() == original), "the main code calls the original");
+        // the static local is one object for all copies
+        String asm = String.join("\n", build(f, Compiler.Backend.MIR).assembly());
+        assertFalse(asm.contains("__irq_clamp__calls") || asm.contains("__nmi_clamp__calls"), "a static local is not copied");
+        for (Compiler.Backend b : Compiler.Backend.values()) {
+            Map<String, String> code = functions(build(f, b).assembly());
+            assertTrue(code.containsKey("_clamp") || b == Compiler.Backend.MIR, b + ": " + code.keySet());
+            assertTrue(code.keySet().stream().anyMatch(k -> k.startsWith("__irq_") || k.startsWith("__nmi_")) || b == Compiler.Backend.MIR,
+                    b + ": copies in the code: " + code.keySet());
+        }
+    }
+
+    @Test
+    void aProgramWhoseContextsShareNothingIsNotChanged() throws Exception {
+        Program p = Compiler.frontEnd(new Compiler.Options(List.of(program()), List.of(), List.of(), "test_main", tmp.resolve("x.sfc")));
+        ContextCopies.Result r = ContextCopies.of(p, p.function("test_main"));
+        assertEquals(p.functions(), r.program().functions(), "no copies");
     }
 
     @Test
@@ -134,7 +161,7 @@ class InterruptContextsTest {
     void eachHandlerIsTheRootOfItsContext() throws Exception {
         Program p = Compiler.frontEnd(new Compiler.Options(List.of(program()), List.of(), List.of(), "test_main", tmp.resolve("x.sfc")));
         Map<String, Interrupt> byName = new HashMap<>();
-        CallGraph.of(p).contexts(p.function("test_main")).forEach((f, c) -> byName.put(f.name(), c));
+        ContextCopies.of(p, p.function("test_main")).contexts().forEach((f, c) -> byName.put(f.name(), c));
         assertEquals(Map.of("on_irq", Interrupt.IRQ, "irq_work", Interrupt.IRQ, "on_nmi", Interrupt.NMI, "nmi_work", Interrupt.NMI),
                 byName, "the main code's functions are not in the map");
     }
@@ -143,10 +170,12 @@ class InterruptContextsTest {
 
     /** The code generator from MIR on exec/interrupts.c, as dampf.Compiler runs it. */
     private static MirCodeGen generate() throws Exception {
-        Program p = Compiler.frontEnd(new Compiler.Options(List.of(program()), List.of(), List.of(), "test_main", Path.of("x.sfc")));
-        Function entry = p.function("test_main");
+        Program front = Compiler.frontEnd(new Compiler.Options(List.of(program()), List.of(), List.of(), "test_main", Path.of("x.sfc")));
+        Function entry = front.function("test_main");
         Map<String, Interrupt> contexts = new HashMap<>();
-        CallGraph.of(p).contexts(entry).forEach((f, c) -> contexts.put(f.label(), c));
+        ContextCopies.Result copies = ContextCopies.of(front, entry);
+        Program p = copies.program();
+        copies.contexts().forEach((f, c) -> contexts.put(f.label(), c));
         Map<Interrupt, String> handlers = new EnumMap<>(Interrupt.class);
         p.functions().stream().filter(f -> f.interrupt() != null).forEach(f -> handlers.put(f.interrupt(), f.label()));
         MModule m = dampf.mir.Lower.lower(p);

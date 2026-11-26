@@ -187,8 +187,10 @@ is at most one per interrupt, the hardware calls it through the runtime's entry 
 never does. The handler and every function it calls form a context of their own, with their own
 frames, direct page and scratch registers, and they multiply without the CPU's multiplier
 (ADR-6FM9TXV4, [memory-map.md](memory-map.md#interrupt-contexts)). A function called from two
-contexts (the main code and a handler, or both handlers) is an error that names both call paths,
-so a helper that both need is written twice. A function written in assembly (`DAMPF_ASM`,
+contexts (the main code and a handler, or both handlers) is compiled once for each, every copy
+with frames in its own context; a `static` local of it, the globals and string literals stay one
+object for all copies (ADR-6FQ4NSHE). The copy is named after its context: `clamp@irq` in
+messages, `__irq_clamp` in the timing report and in Mesen. A function written in assembly (`DAMPF_ASM`,
 `--replace`) cannot be reached from a handler yet ([hints.md](hints.md)). On the PC the macro is empty and the handler is an
 ordinary function, which the program may call itself (`exec/interrupts.c` does, to compute the
 handlers' results there). A handler reads the game's data through the copy the tick publishes

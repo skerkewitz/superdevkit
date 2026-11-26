@@ -92,13 +92,14 @@ document of its subject.
 | ADR-6FKZFDJ3 | [Enum objects take only values of their enum and the smallest width that holds them](adr/6FKZFDJ3-enum-objects-take-only-values-of-their-enum-and.md) | Accepted | 2026-11-24 |
 | ADR-6FM063YZ | [Plain `char` is text: a `char` value is only copied, tested and compared with `==` and `!=`](adr/6FM063YZ-plain-char-is-text-a-char-value-is-only-copied.md) | Accepted | 2026-11-24 |
 | ADR-6FM7MWGX | [A switch becomes a jump table where that costs fewer cycles than its compares](adr/6FM7MWGX-a-switch-becomes-a-jump-table-where-that-costs.md) | Accepted | 2026-11-24 |
-| ADR-6FM9TXV4 | [Interrupt handlers run in contexts of their own](adr/6FM9TXV4-interrupt-handlers-run-in-contexts-of-their-own.md) | Accepted | 2026-11-24 |
+| ADR-6FM9TXV4 | [Interrupt handlers run in contexts of their own](adr/6FM9TXV4-interrupt-handlers-run-in-contexts-of-their-own.md) | Accepted; amended by ADR-6FQ4NSHE | 2026-11-24 |
 | ADR-6FMATG2V | [Hand-written assembly replaces a C function through DAMPF_ASM and is checked against its body](adr/6FMATG2V-hand-written-assembly-replaces-a-c-function.md) | Accepted | 2026-11-24 |
 | ADR-6FMHDB6H | [The console API is the hardware's state in memory, which the kit commits in the vertical blank](adr/6FMHDB6H-the-console-api-is-the-hardware-s-state-in-memory.md) | Superseded; superseded by ADR-6FNPPCSX | 2026-11-25 |
 | ADR-6FNPPCSX | [The console API is the hardware at once, with optional layers above it](adr/6FNPPCSX-the-console-api-is-the-hardware-at-once-with.md) | Accepted | 2026-11-25 |
 | ADR-6FNWEJAA | [dampf leaves out the functions a program cannot reach](adr/6FNWEJAA-dampf-leaves-out-the-functions-a-program-cannot.md) | Accepted | 2026-11-25 |
 | ADR-6FPTPCDM | [The SNES facts the compiler asks about live in dampf.target, which knows none of its types](adr/6FPTPCDM-the-snes-facts-the-compiler-asks-about-live-in.md) | Accepted | 2026-11-25 |
 | ADR-6FPV1EQV | [Interrupt code reads a copy of the tick's data that the kit makes after each tick](adr/6FPV1EQV-interrupt-code-reads-a-copy-of-the-tick-s-data.md) | Accepted | 2026-11-25 |
+| ADR-6FQ4NSHE | [A function reached from several contexts is compiled once per context](adr/6FQ4NSHE-a-function-reached-from-several-contexts-is.md) | Accepted | 2026-11-25 |
 
 ## Former numbers
 

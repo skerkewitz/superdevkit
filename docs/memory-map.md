@@ -46,8 +46,9 @@ wherever it is. The context's frames follow from the page's byte `$20`, laid out
 code's are from `$0020`, so its leaves lie in the direct page. The generated code writes a frame
 place there as `z:dampf_frame+n`, relative to D, and any other one, and the address of a local,
 with the context's own symbol (`dampf_frame_irq = $1C20`). A context whose frames take at most 224
-bytes takes one page. The code generator exports each page (`dampf_irq_dp`), and the runtime's
-entry stub sets D to it.
+bytes takes one page. A function that the main code and a handler both call has a copy in each
+context, with its frames there (ADR-6FQ4NSHE); its `static` locals stay one variable. The code
+generator exports each page (`dampf_irq_dp`), and the runtime's entry stub sets D to it.
 
 The main code's frames must end below the lowest page: with two small handlers the NMI's page is
 `$1D00`, the IRQ's `$1C00`, and the main code has `$0020-$1BFF` (7,136 bytes instead of 7,648);

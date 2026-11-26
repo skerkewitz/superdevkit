@@ -71,6 +71,12 @@ moves to the history with that release):
   timer IRQs in dampf's emulator
   ([ADR-6FM9TXV4](adr/6FM9TXV4-interrupt-handlers-run-in-contexts-of-their-own.md), 2026-11-24).
   Not for games yet: an assembly function in interrupt code is rejected.
+- **A function reached from several contexts compiled once per context**: the main code, the
+  IRQ and the NMI may call the same functions, the kit's and the game's; each context gets a
+  copy with frames of its own, `static` locals and constants stay shared, and a program whose
+  contexts share nothing is not changed
+  ([ADR-6FQ4NSHE](adr/6FQ4NSHE-a-function-reached-from-several-contexts-is.md), 2026-11-25).
+  The game's IRQ needs it to call the console API.
 - **The SNES facts out of the code generators**: the banks of RAM, where frames, the direct page,
   the stack and the variables lie, how an I/O register is reached and the multiplier's
   registers are answered by `dampf.target.SnesTarget`, which both code generators ask; the
@@ -110,13 +116,12 @@ Left:
   ([brainstorm summary](brainstorm/interrupts-and-asm_2026-11-24.md), part 1): the kit owns the
   NMI, the game an IRQ in C; interrupt contexts with frames and a direct page of their own; no
   hardware multiply in interrupt code; interrupts read only data the tick published; Rachael
-  calls the IRQ at its line; then the NMI runs the frame's work. The contexts and the published
-  data are built (above). Left, in this order: Rachael calling the IRQ at its line, and an API
-  to switch the IRQ on and set its line, which make the IRQ usable by games; then the NMI running
-  `game_vblank` and the frame's work, where `game_vblank` joins the NMI context and may call
-  nothing the tick calls unless a function can be compiled once per context (idea 2 of the
-  summary), and what it reads must be published too (open: whether every game then publishes,
-  and whether the copy moves into the kit's loop).
+  calls the IRQ at its line; then the NMI runs the frame's work. The contexts, the published
+  data and the copies per context are built (above). Left, in this order: Rachael calling the
+  IRQ at its line, and an API to switch the IRQ on and set its line, which make the IRQ usable
+  by games; then the NMI running `game_vblank` and the frame's work, where `game_vblank` joins
+  the NMI context and what it reads must be published too (open: whether every game then
+  publishes, and whether the copy moves into the kit's loop).
 
 ## M11: timing and debugging (0.11.0)
 
