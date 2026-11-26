@@ -79,12 +79,12 @@ typedef struct {
     uint8_t  m7sel;            /**< M7SEL: SDEVKIT_M7_* (SDEVKIT_MARK_MODE7). */
     uint8_t  cgwsel;           /**< CGWSEL: colour math, where and with what, SDEVKIT_CM_* (SDEVKIT_MARK_COLOR). */
     uint8_t  cgadsub;          /**< CGADSUB: colour math, how and on which layers (SDEVKIT_MARK_COLOR). */
-    uint8_t  bgmode;           /**< BGMODE: SDEVKIT_BG_MODE1 or _MODE7, SDEVKIT_BG1_TILES_16, ... (SDEVKIT_MARK_SETUP). */
+    uint8_t  bgmode;           /**< BGMODE: SDEVKIT_BG_MODE0 ... _MODE4 or _MODE7, SDEVKIT_BG1_TILES_16, ... (SDEVKIT_MARK_SETUP). */
     uint8_t  obsel;            /**< OBSEL: SDEVKIT_OBSEL(sprite tiles, sizes) (SDEVKIT_MARK_SETUP). */
-    uint8_t  mosaic;           /**< MOSAIC (SDEVKIT_MARK_SETUP); not drawn on Rachael: keep 0. */
+    uint8_t  mosaic;           /**< MOSAIC, SDEVKIT_MOSAIC() (SDEVKIT_MARK_SETUP). */
     uint8_t  bgsc[4];          /**< BG1SC..BG4SC: SDEVKIT_BGSC(map, size) (SDEVKIT_MARK_SETUP). */
     uint8_t  bgnba[2];         /**< BG12NBA, BG34NBA: SDEVKIT_BGNBA(tiles of the first, of the second) (SDEVKIT_MARK_SETUP). */
-    uint8_t  setini;           /**< SETINI (SDEVKIT_MARK_SETUP); not drawn on Rachael: keep 0. */
+    uint8_t  setini;           /**< SETINI: SDEVKIT_SETINI_EXTBG; the other bits are not drawn on Rachael: keep them 0 (SDEVKIT_MARK_SETUP). */
     uint8_t  tm;               /**< TM: the layers on the main screen, SDEVKIT_BG1_ENABLE ... (SDEVKIT_MARK_SETUP). */
     uint8_t  ts;               /**< TS: the layers on the sub screen (SDEVKIT_MARK_SETUP). */
     uint8_t  w12sel;           /**< W12SEL: BG1's and BG2's windows, SDEVKIT_WSEL() (SDEVKIT_MARK_WINDOW). */
