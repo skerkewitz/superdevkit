@@ -76,6 +76,12 @@ moves to the history with that release):
   registers are answered by `dampf.target.SnesTarget`, which both code generators ask; the
   generated code is byte for byte the same
   ([ADR-6FPTPCDM](adr/6FPTPCDM-the-snes-facts-the-compiler-asks-about-live-in.md), 2026-11-25).
+- **The data the tick publishes for interrupt code**: `SDEVKIT_PUBLISH` in `sdevkit/publish.h`
+  copies one struct after each tick, and interrupt code reads it complete through
+  `SDEVKIT_PUBLISHED`, also while the copy runs; about 10.5 cycles per byte per tick, the same
+  on the desktop and the web
+  ([ADR-6FPV1EQV](adr/6FPV1EQV-interrupt-code-reads-a-copy-of-the-tick-s-data.md), 2026-11-25).
+  Not for games yet, as the contexts.
 - **A constant on an index into the operand**: `a[i + 1]` of a global is `sta a+1,x`, the sum
   never computed (2026-11-25); the examples' work 0.7 % lower, every one's code smaller
   ([log](optimizations-log.md#a-constant-on-an-index-into-the-operand-2026-11-25-on-the-examples)).
@@ -104,12 +110,13 @@ Left:
   ([brainstorm summary](brainstorm/interrupts-and-asm_2026-11-24.md), part 1): the kit owns the
   NMI, the game an IRQ in C; interrupt contexts with frames and a direct page of their own; no
   hardware multiply in interrupt code; interrupts read only data the tick published; Rachael
-  calls the IRQ at its line; then the NMI runs the frame's work. The contexts are built (above).
-  Left, in this order: the data the tick publishes, with a barrier the optimizer respects before
-  the swap; Rachael calling the IRQ at its line, and an API to set the line, which make the IRQ
-  usable by games; then the NMI running `game_vblank` and the frame's work, where `game_vblank`
-  joins the NMI context and may call nothing the tick calls unless a function can be compiled
-  once per context (idea 2 of the summary).
+  calls the IRQ at its line; then the NMI runs the frame's work. The contexts and the published
+  data are built (above). Left, in this order: Rachael calling the IRQ at its line, and an API
+  to switch the IRQ on and set its line, which make the IRQ usable by games; then the NMI running
+  `game_vblank` and the frame's work, where `game_vblank` joins the NMI context and may call
+  nothing the tick calls unless a function can be compiled once per context (idea 2 of the
+  summary), and what it reads must be published too (open: whether every game then publishes,
+  and whether the copy moves into the kit's loop).
 
 ## M11: timing and debugging (0.11.0)
 
