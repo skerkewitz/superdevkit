@@ -228,8 +228,8 @@ void sdevkit_reg_write(uint8_t reg, uint8_t value)
         if (!dma_allowed(1)) {
             return;
         }
-    } else if (!harmless(reg, value)) {
-        check_drawing(reg, value);
+    } else if (!harmless(reg, value) && !(sdevkit__rachael.in_irq && sdevkit__rachael.irq_waited)) {
+        check_drawing(reg, value);     /* the game's IRQ writes after sdevkit_irq_wait_hblank: allowed */
     }
     sdevkit__write_reg(reg, value);
 }

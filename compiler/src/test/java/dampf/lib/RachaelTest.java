@@ -21,7 +21,7 @@ class RachaelTest {
     @TempDir
     Path tmp;
 
-    private static final List<String> RACHAEL = List.of("lib/rachael/ppu.c", "lib/rachael/render.c", "lib/rachael/dsp.c",
+    private static final List<String> RACHAEL = List.of("lib/rachael/ppu.c", "lib/rachael/render.c", "lib/rachael/dsp.c", "lib/rachael/irq.c",
             "lib/rachael/layers.c");
 
     private String run(String name, String program) throws Exception {
@@ -109,6 +109,65 @@ class RachaelTest {
     }
 
     /**
+     * The game's IRQ (sdevkit/irq.h): Rachael calls it before the row it is set for, a row set
+     * below comes in the same picture and one at or above in the next. A register written before
+     * sdevkit_irq_wait_hblank counts as written while the picture is drawn, with its register and
+     * value, so a handler that forgets the wait fails the desktop check; after the wait it is free.
+     * VRAM stays closed in the IRQ: its bytes are lost.
+     */
+    @Test
+    void theGamesIrqRunsAtItsRowAndCountsWritesBeforeTheWait() throws Exception {
+        String out = run("irq", """
+                #include <stdio.h>
+                #include "rachael.h"
+                #include "sdevkit/irq.h"
+                static uint16_t frame[SDEVKIT__W * SDEVKIT__H];
+                static int waits, calls;
+                static uint8_t rows[8];
+                static void irq(void)
+                {
+                    static const uint8_t data[2] = { 1, 2 };
+                    rows[calls++ & 7] = sdevkit__rachael.irq_row;
+                    if (waits) {
+                        sdevkit_irq_wait_hblank();
+                    }
+                    sdevkit_reg_write_twice(SDEVKIT_PPU_BG1HOFS, 9);
+                    if (sdevkit__rachael.irq_row == 40) {
+                        sdevkit_irq_line(100);           /* below: in this picture */
+                    } else {
+                        sdevkit_irq_line(40);            /* above: in the next one */
+                        sdevkit_vram_copy(0x1000, data, 2);
+                    }
+                }
+                int main(void)
+                {
+                    sdevkit__reset();
+                    sdevkit__irq_handler = irq;
+                    sdevkit_reg_write(SDEVKIT_PPU_INIDISP, 15);
+                    sdevkit_irq_line(40);
+                    sdevkit__vblank();
+                    sdevkit__render(frame);              /* without the wait: four writes counted */
+                    printf("calls %d rows %u %u drawing %u first %02X %02X lost %u\\n", calls, rows[0], rows[1],
+                           sdevkit__rachael.drawing, sdevkit__rachael.drawing_reg, sdevkit__rachael.drawing_value,
+                           sdevkit__stats().dma_lost);
+                    waits = 1;
+                    sdevkit__vblank();
+                    sdevkit__render(frame);              /* with it: none more */
+                    printf("calls %d drawing %u lost %u\\n", calls, sdevkit__rachael.drawing, sdevkit__stats().dma_lost);
+                    sdevkit_irq_off();
+                    sdevkit__vblank();
+                    sdevkit__render(frame);
+                    sdevkit_irq_line(SDEVKIT_IRQ_ROWS);  /* off too */
+                    sdevkit__vblank();
+                    sdevkit__render(frame);
+                    printf("calls %d\\n", calls);
+                    return 0;
+                }
+                """);
+        assertEquals("calls 2 rows 40 100 drawing 4 first 0D 09 lost 2\ncalls 4 drawing 4 lost 2\ncalls 4", out);
+    }
+
+    /**
      * The register shadow's layout (sdevkit/shadow.h) is the same on the PC as dampf's on the SNES:
      * no padding, the 16-bit fields first, and the groups the marks name each in one piece, in the
      * order lib/rachael/layers.c compares them.
@@ -176,7 +235,7 @@ class RachaelTest {
         Path exe = tmp.resolve("rachael_test");
         Processes.check(Path.of("."), Duration.ofMinutes(1), List.of("cc", "-std=c99", "-Wall", "-Wextra",
                 "-Wno-unused-parameter", "-I", "lib/include", "-I", "lib/rachael", "compiler/src/test/c/rachael_test.c",
-                "lib/rachael/ppu.c", "lib/rachael/render.c", "lib/rachael/dsp.c", "lib/rachael/layers.c", "-o", exe.toString()));
+                "lib/rachael/ppu.c", "lib/rachael/render.c", "lib/rachael/dsp.c", "lib/rachael/layers.c", "lib/rachael/irq.c", "-o", exe.toString()));
         String out = Processes.check(tmp, Duration.ofMinutes(1), List.of(exe.toString()));
         assertEquals("all tests passed", out.strip());
     }

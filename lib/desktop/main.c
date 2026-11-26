@@ -702,6 +702,10 @@ static uint16_t sdevkit__splash_frame(uint8_t brightness)
 
 #include "../splash/splash.h"
 
+/* The game's game_irq, or NULL: generated next to the program by superdevkit build, which reads
+ * the game's objects (game_irq.c, beside music_files.c). */
+extern void (*const sdevkit__game_irq)(void);
+
 /* Power on with this save RAM (null: as it is): the splash, the console reset again, then the
  * game. The recording begins with the save RAM of this moment. */
 static void start(const uint8_t *sram)
@@ -719,6 +723,7 @@ static void start(const uint8_t *sram)
     sdevkit__reset();
     sdevkit__splash();
     sdevkit__reset();
+    sdevkit__irq_handler = sdevkit__game_irq;   /* the game's IRQ, if it has one (sdevkit/irq.h) */
     sdevkit__dbg_reset();
     sdevkit__music_reset();
     if (cli_seed >= 0) {

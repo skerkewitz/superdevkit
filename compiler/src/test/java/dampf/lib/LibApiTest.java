@@ -17,14 +17,14 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The console API of the dev kit (ADR-6F3CJX8T, ADR-6FNPPCSX): every function its core
- * ({@code lib/include/sdevkit/snes.h}) and its optional layers ({@code shadow.h}, {@code sprites.h},
+ * ({@code lib/include/sdevkit/snes.h}, and {@code irq.h} for the game's IRQ) and its optional layers ({@code shadow.h}, {@code sprites.h},
  * {@code queue.h}, {@code input.h}, {@code easy.h}) declare exists in {@code lib/snes} and in
  * {@code lib/rachael} (the desktop), built or as a stub, there or in the layers' shared code
  * ({@code lib/layers}), and has its row in the table of {@code lib/README.md}.
  */
 class LibApiTest {
 
-    private static final List<Path> HEADERS = List.of("snes.h", "shadow.h", "sprites.h", "queue.h", "input.h", "easy.h")
+    private static final List<Path> HEADERS = List.of("snes.h", "irq.h", "shadow.h", "sprites.h", "queue.h", "input.h", "easy.h")
             .stream().map(h -> Path.of("lib/include/sdevkit").resolve(h)).toList();
     private static final Path LAYERS = Path.of("lib/layers");
     private static final Path SNES = Path.of("lib/snes");
@@ -45,7 +45,9 @@ class LibApiTest {
         for (Path h : HEADERS) {
             Matcher m = DECLARATION.matcher(code(Files.readString(h)));
             while (m.find()) {
-                names.add(m.group(1));
+                if (!m.group(1).startsWith("game_")) {      // irq.h's game_irq is the game's
+                    names.add(m.group(1));
+                }
             }
         }
         return names;

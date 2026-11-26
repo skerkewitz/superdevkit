@@ -459,13 +459,13 @@ class ProjectTest {
 
     /**
      * What the symbol check allows is what the public headers declare: a variable declared extern
-     * (sdevkit_publishing), not the parameters of a macro's body (sdevkit/publish.h's
+     * (sdevkit_publish_side), not the parameters of a macro's body (sdevkit/publish.h's
      * SDEVKIT_PUBLISH declares `tick` and `name` there).
      */
     @Test
     void theSymbolCheckTakesTheHeadersDeclarationsNotAMacrosBody() throws Exception {
         java.util.Set<String> api = Symbols.api(Path.of("lib/include/sdevkit"));
-        assertTrue(api.containsAll(List.of("sdevkit_reg_write", "sdevkit_publishing", "game_tick")), api.toString());
+        assertTrue(api.containsAll(List.of("sdevkit_reg_write", "sdevkit_publish_side", "sdevkit_publish_ready", "game_tick")), api.toString());
         assertTrue(!api.contains("tick") && !api.contains("name") && !api.contains("type"), api.toString());
     }
 

@@ -179,8 +179,9 @@ object agree between both sides (`exec/pointer_to_int.c`). The SNES platform lay
 `lib/snes` is written this way. The checker does not tell platform code from game code: a
 cast from an integer to a pointer is accepted anywhere.
 
-**Interrupt handlers.** Built in the compiler, not yet for games: a game's IRQ comes with
-Rachael's IRQ, the kit's NMI after it (ADR-6FKTVDE8).
+**Interrupt handlers.** A game has an IRQ, `game_irq` (`sdevkit/irq.h`, ADR-6FRX1GYC), which
+runs at a row of the picture on the SNES and on Rachael; the NMI is the kit's and not built yet
+(ADR-6FKTVDE8).
 `DAMPF_INTERRUPT(nmi)` or `DAMPF_INTERRUPT(irq)` from `<dampf.h>`, in front of a function
 definition, makes the function the handler of that interrupt. It must be `void name(void)`, there
 is at most one per interrupt, the hardware calls it through the runtime's entry stub and C code
@@ -194,8 +195,9 @@ messages, `__irq_clamp` in the timing report and in Mesen. A function written in
 `--replace`) cannot be reached from a handler yet ([hints.md](hints.md)). On the PC the macro is empty and the handler is an
 ordinary function, which the program may call itself (`exec/interrupts.c` does, to compute the
 handlers' results there). A handler reads the game's data through the copy the tick publishes
-(`sdevkit/publish.h`, ADR-6FPV1EQV): one struct, copied after every tick, which a handler always
-finds complete, and writes no game state. dampf keeps every store in the program's order and
+(`sdevkit/publish.h`, ADR-6FPV1EQV, ADR-6FRDS030): one struct, copied after every tick into a copy
+no handler reads and switched to in `game_vblank`, which a handler always finds complete, and
+writes no game state. dampf keeps every store in the program's order and
 removes none, and never reuses or hoists a volatile load; the kit's publishing relies on that
 (`exec/published.c`).
 

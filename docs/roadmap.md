@@ -83,11 +83,21 @@ moves to the history with that release):
   generated code is byte for byte the same
   ([ADR-6FPTPCDM](adr/6FPTPCDM-the-snes-facts-the-compiler-asks-about-live-in.md), 2026-11-25).
 - **The data the tick publishes for interrupt code**: `SDEVKIT_PUBLISH` in `sdevkit/publish.h`
-  copies one struct after each tick, and interrupt code reads it complete through
-  `SDEVKIT_PUBLISHED`, also while the copy runs; about 10.5 cycles per byte per tick, the same
-  on the desktop and the web
-  ([ADR-6FPV1EQV](adr/6FPV1EQV-interrupt-code-reads-a-copy-of-the-tick-s-data.md), 2026-11-25).
+  copies one struct after each tick into a copy interrupt code does not read, and `game_vblank`
+  makes it the current one, so interrupt code reads, complete, the data of the tick the picture
+  was made from, on the SNES with any tick length as on the desktop and the web; about 10.5
+  cycles per byte per tick
+  ([ADR-6FPV1EQV](adr/6FPV1EQV-interrupt-code-reads-a-copy-of-the-tick-s-data.md), 2026-11-25,
+  two copies since
+  [ADR-6FRDS030](adr/6FRDS030-interrupt-code-reads-the-copy-of-the-tick-whose.md), 2026-11-26).
   Not for games yet, as the contexts.
+- **The game's IRQ**: `game_irq` in `sdevkit/irq.h`, before the picture row `sdevkit_irq_line`
+  sets, on the SNES and on Rachael; it reads its published data, waits for the horizontal blank
+  (`sdevkit_irq_wait_hblank`) and writes, about 25 CPU cycles of writes measured in Mesen, and
+  Rachael counts a register written before the wait as written while the picture is drawn.
+  `dev/irq_check` splits the screen twice and matches Mesen pixel for pixel, with short ticks and
+  long ones ([ADR-6FRX1GYC](adr/6FRX1GYC-the-game-s-irq-runs-at-a-picture-row-and-writes.md),
+  2026-11-26).
 - **A constant on an index into the operand**: `a[i + 1]` of a global is `sta a+1,x`, the sum
   never computed (2026-11-25); the examples' work 0.7 % lower, every one's code smaller
   ([log](optimizations-log.md#a-constant-on-an-index-into-the-operand-2026-11-25-on-the-examples)).
@@ -108,20 +118,13 @@ moves to the history with that release):
 
 Left:
 
-- **C in interrupt handlers.** Frames have fixed places (ADR
-  [ADR-6F0R668G](adr/6F0R668G-no-recursion-no-free-function-pointers-and-no-heap.md)), so C called from
-  an NMI or IRQ would overwrite the frames of the code it interrupted, and the platform layer
-  waits for the vertical blank instead. Nearly every SNES game has an NMI handler, and raster
-  effects need an IRQ handler. The design is decided
-  ([brainstorm summary](brainstorm/interrupts-and-asm_2026-11-24.md), part 1): the kit owns the
-  NMI, the game an IRQ in C; interrupt contexts with frames and a direct page of their own; no
-  hardware multiply in interrupt code; interrupts read only data the tick published; Rachael
-  calls the IRQ at its line; then the NMI runs the frame's work. The contexts, the published
-  data and the copies per context are built (above). Left, in this order: Rachael calling the
-  IRQ at its line, and an API to switch the IRQ on and set its line, which make the IRQ usable
-  by games; then the NMI running `game_vblank` and the frame's work, where `game_vblank` joins
-  the NMI context and what it reads must be published too (open: whether every game then
-  publishes, and whether the copy moves into the kit's loop).
+- **The NMI running `game_vblank` and the frame's work.** Nearly every SNES game has an NMI
+  handler; the kit owns it ([brainstorm summary](brainstorm/interrupts-and-asm_2026-11-24.md),
+  part 1, idea 6). The contexts, the published data, the copies per context and the game's IRQ
+  are built (above). Left: the kit's NMI runs `game_vblank`, which joins the NMI context, and what
+  it reads must be published too (open: whether every game then publishes, and how a tick keeps
+  filling the copy the NMI's `game_vblank` may switch to,
+  [ADR-6FRDS030](adr/6FRDS030-interrupt-code-reads-the-copy-of-the-tick-whose.md)).
 
 ## M11: timing and debugging (0.11.0)
 
@@ -140,6 +143,11 @@ Timing ([timing.md](timing.md#not-built-yet)):
   (`DAMPF_AT_MOST`, [hints.md](hints.md)), or a bound per call chain, would make budgets usable
   there. This is how impossible path combinations get expressed, a question
   [timing.md](timing.md#open-questions) left open until the bounds turned out too pessimistic;
+- the IRQ's window checked: the timing report finds the cycles from `sdevkit_irq_wait_hblank` to
+  the game's IRQ handler's last register write, and the build fails when they exceed the budget
+  after the wait (about 25 CPU cycles, less the HDMA of the line,
+  [ADR-6FRX1GYC](adr/6FRX1GYC-the-game-s-irq-runs-at-a-picture-row-and-writes.md)); today only the
+  Mesen check sees a write too late, as a torn row;
 - level 3: DRAM refresh, HDMA and interrupts at frame level. Open is how the budget learns
   which HDMA channels a game has on, since a game turns them on at run time
   (`sdevkit_hdma_enable`).
@@ -185,6 +193,11 @@ Also in M12:
   checked against the PC's results ([optimizations.md](optimizations.md));
 - `DAMPF_TABLE`, `DAMPF_PIN_X`, `DAMPF_LIKELY`/`DAMPF_UNLIKELY` and the other transforming
   hints ([hints.md](hints.md));
+- faster code for a register write, which the game's IRQ has about 25 cycles for after its wait
+  ([ADR-6FRX1GYC](adr/6FRX1GYC-the-game-s-irq-runs-at-a-picture-row-and-writes.md)): `xba` in
+  `sdevkit_reg_write_twice` instead of a second load and a register to keep it (7 cycles less: 22
+  instead of 29 for a scroll register from a struct's field), and no `cmp #$0000` right after
+  a load, which sets the flags already (3 less, in every `SDEVKIT_PUBLISHED`);
 - the CPU's hardware divider (16 by 8 bits) for a division by a variable whose divisor dampf's
   value ranges prove to fit a byte, chosen automatically, built when a measured program divides
   by variables on a hot path (the examples do it once: Schach's opening book). It replaces the

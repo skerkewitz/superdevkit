@@ -58,8 +58,8 @@ into their predecessors (`Returns`), computes pointer sums again where their val
 (`PointerRemat`) and takes out the checks of the hints (`Hints`). How values
 get places, registers and frames is in [optimizations.md](optimizations.md).
 
-Interrupt handlers in C (`DAMPF_INTERRUPT`, ADR-6FM9TXV4) are built in the compiler, not yet for
-games. Each handler is the root of a context, and a function reached from several contexts is
+Interrupt handlers in C (`DAMPF_INTERRUPT`, ADR-6FM9TXV4) are built in the compiler; games have
+the IRQ through the kit (`sdevkit/irq.h`, ADR-6FRX1GYC), the kit's NMI comes later. Each handler is the root of a context, and a function reached from several contexts is
 copied in the AST once per context before code is generated (`dampf.check.ContextCopies`,
 ADR-6FQ4NSHE; the main code keeps the originals, so a program whose contexts share nothing is not
 changed). Both code generators give a context its own direct page below the stack
@@ -69,7 +69,8 @@ places with the context's symbol (`dampf_frame_irq`), and both multiply in softw
 runtime gets an entry stub per handler, assembled only into a program that has one
 ([memory-map.md](memory-map.md#interrupt-contexts), [timing.md](timing.md)). Handlers read the
 game's data through the copy the tick publishes, which the kit's header `sdevkit/publish.h` makes
-after every tick, guarded by a volatile flag (ADR-6FPV1EQV); no compiler pass knows about it.
+after every tick into the copy no handler reads, and switches to in `game_vblank` with a volatile
+byte (ADR-6FPV1EQV, ADR-6FRDS030); no compiler pass knows about it.
 
 ## Pipeline
 
