@@ -98,8 +98,9 @@ document of its subject.
 | ADR-6FNPPCSX | [The console API is the hardware at once, with optional layers above it](adr/6FNPPCSX-the-console-api-is-the-hardware-at-once-with.md) | Accepted | 2026-11-25 |
 | ADR-6FNWEJAA | [dampf leaves out the functions a program cannot reach](adr/6FNWEJAA-dampf-leaves-out-the-functions-a-program-cannot.md) | Accepted | 2026-11-25 |
 | ADR-6FPTPCDM | [The SNES facts the compiler asks about live in dampf.target, which knows none of its types](adr/6FPTPCDM-the-snes-facts-the-compiler-asks-about-live-in.md) | Accepted | 2026-11-25 |
-| ADR-6FPV1EQV | [Interrupt code reads a copy of the tick's data that the kit makes after each tick](adr/6FPV1EQV-interrupt-code-reads-a-copy-of-the-tick-s-data.md) | Accepted | 2026-11-25 |
+| ADR-6FPV1EQV | [Interrupt code reads a copy of the tick's data that the kit makes after each tick](adr/6FPV1EQV-interrupt-code-reads-a-copy-of-the-tick-s-data.md) | Accepted; amended by ADR-6FRDS030 | 2026-11-25 |
 | ADR-6FQ4NSHE | [A function reached from several contexts is compiled once per context](adr/6FQ4NSHE-a-function-reached-from-several-contexts-is.md) | Accepted | 2026-11-25 |
+| ADR-6FRDS030 | [Interrupt code reads the copy of the tick whose vertical blank came last](adr/6FRDS030-interrupt-code-reads-the-copy-of-the-tick-whose.md) | Accepted | 2026-11-26 |
 
 ## Former numbers
 

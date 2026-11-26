@@ -69,7 +69,8 @@ places with the context's symbol (`dampf_frame_irq`), and both multiply in softw
 runtime gets an entry stub per handler, assembled only into a program that has one
 ([memory-map.md](memory-map.md#interrupt-contexts), [timing.md](timing.md)). Handlers read the
 game's data through the copy the tick publishes, which the kit's header `sdevkit/publish.h` makes
-after every tick, guarded by a volatile flag (ADR-6FPV1EQV); no compiler pass knows about it.
+after every tick into the copy no handler reads, and switches to in `game_vblank` with a volatile
+byte (ADR-6FPV1EQV, ADR-6FRDS030); no compiler pass knows about it.
 
 ## Pipeline
 

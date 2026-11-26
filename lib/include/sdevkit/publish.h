@@ -3,28 +3,34 @@
 
 /**
  * @file publish.h
- * @brief The data the tick publishes for interrupt code (ADR-6FPV1EQV). Not for games yet.
+ * @brief The data the tick publishes for interrupt code (ADR-6FPV1EQV, ADR-6FRDS030). Not for games
+ *        yet.
  *
  * Interrupt code runs in the middle of a tick, at any instruction. If it read the game's
  * variables there, it could find a 16-bit value with its low byte new and its high byte old, or
  * half of a palette. So the tick publishes what interrupt code needs: one struct, which the tick
- * writes as an ordinary variable, and a copy of it, which the kit makes right after each tick and
- * which interrupt code reads. Interrupt code only reads it, and always finds one tick's data,
- * complete.
+ * writes as an ordinary variable, and a copy of it, which interrupt code reads. Interrupt code
+ * only reads it, and always finds the data of the tick whose game_vblank came last: the tick the
+ * picture on the screen was made from.
  *
- * The game declares the data once, in one of its C files, and names its tick, which takes the
- * place of `game_tick`:
+ * The game declares the data once, in one of its C files, and names its tick and its vertical
+ * blank, which take the place of `game_tick` and `game_vblank`:
  *
  * @code
  * #include "sdevkit/publish.h"
  *
  * struct split { uint16_t scroll_x; uint16_t colors[16]; };
  *
- * SDEVKIT_PUBLISH(struct split, split, tick)   // defines split, its copy and game_tick
+ * SDEVKIT_PUBLISH(struct split, split, tick, vblank)   // defines split, its copies, game_tick, game_vblank
  *
  * static void tick(const uint16_t pad[SDEVKIT_PADS])
  * {
  *     split.scroll_x += 1;                     // an ordinary variable, all of the tick
+ * }
+ *
+ * static void vblank(void)
+ * {
+ *     sdevkit_reg_write_twice(SDEVKIT_PPU_BG1HOFS, split.scroll_x);   // as game_vblank would
  * }
  * @endcode
  *
@@ -32,25 +38,28 @@
  *
  * @code
  * const struct split *s = SDEVKIT_PUBLISHED(split);
- * sdevkit_reg_write_twice(SDEVKIT_PPU_BG1HOFS, s->scroll_x);
+ * sdevkit_reg_write_twice(SDEVKIT_PPU_BG2HOFS, s->scroll_x);
  * @endcode
  *
- * How it works. SDEVKIT_PUBLISH defines `game_tick`: it calls the game's tick, then copies the
- * struct into the published copy. While it copies, the copy is half old and half new, so for
- * that time interrupt code reads the tick's own struct instead, which is complete then: the tick
- * has ended, and nothing writes it until the next one. One byte, sdevkit_publishing, says which
- * one to read, and SDEVKIT_PUBLISHED reads it. The tick keeps writing its own struct as any
- * variable: what it does not change keeps the value it had, nothing is a frame old, and the copy
- * always has all of it.
+ * How it works. There are two published copies. Interrupt code reads one of them, the current
+ * one; the other is free. SDEVKIT_PUBLISH defines `game_tick`: it calls the game's tick, copies
+ * the struct into the free copy and marks it ready. And it defines `game_vblank`: if a copy is
+ * ready, it makes it the current one, with one write of a byte, and then calls the game's
+ * vblank. So nothing interrupt code reads ever changes: the tick fills the copy interrupt code
+ * does not read, and the switch is one byte. And the switch comes with game_vblank, so interrupt
+ * code in the picture after it (an IRQ at a line of the picture) reads the data the picture was
+ * made from, also when the next tick has already ended, on the SNES as on the desktop. The tick
+ * keeps writing its own struct as any variable: what it does not change keeps the value it had,
+ * and the copy always has all of it.
  *
- * The cost: the published copy, as many bytes as the struct (the tick's own struct is the game's
- * data anyway), and the copy after every tick, about 55 CPU cycles and 10.5 a byte: 1,397 for
- * 128 bytes, 5,429 for 512, of the about 50,000 of a frame (lib/README.md). Interrupt code reads
- * through a pointer, a few cycles more than a variable. A game that does not include this header
- * pays nothing.
+ * The cost: two copies, each as many bytes as the struct (the tick's own struct is the game's
+ * data anyway), and two bytes; the copy after every tick, about 10.5 CPU cycles a byte (1,427
+ * for 128 bytes, of the about 50,000 of a frame), and the switch in game_vblank, 16 to 42 cycles
+ * of the vertical blank (lib/README.md). Interrupt code reads through a pointer, a few cycles
+ * more than a variable. A game that does not include this header pays nothing.
  *
- * The same C runs on the desktop and the web: there `game_tick` copies just the same, and the
- * checksums of the ticks are the same as on the SNES.
+ * The same C runs on the desktop and the web: there `game_tick` copies and `game_vblank` switches
+ * just the same, and the checksums of the ticks are the same as on the SNES.
  *
  * Not for games yet: no interrupt runs game code so far. The game's IRQ, and the kit's NMI that
  * runs game_vblank, come later (docs/roadmap.md, M10). Until then dampf's interrupt handlers
@@ -61,56 +70,82 @@
 #include "sdevkit/loop.h"
 
 /**
- * @brief 1 while the kit copies the published struct, else 0.
+ * @brief Which of the two published copies interrupt code reads: 0 or 1.
  *
- * Defined by SDEVKIT_PUBLISH, written only by the `game_tick` it defines, read only by
- * SDEVKIT_PUBLISHED. A game does not touch it.
+ * Defined by SDEVKIT_PUBLISH, written only by the `game_vblank` it defines, read by
+ * SDEVKIT_PUBLISHED and by `game_tick`, which fills the other copy. A game does not touch it.
  */
-extern uint8_t sdevkit_publishing;
+extern uint8_t sdevkit_publish_side;
 
 /**
- * @brief Declares the data the tick publishes, and defines `game_tick`.
+ * @brief 1 when `game_tick` has filled the free copy and `game_vblank` has not yet made it the
+ *        current one, else 0.
+ *
+ * Defined by SDEVKIT_PUBLISH, set by the `game_tick` it defines and cleared by its `game_vblank`.
+ * A game does not touch it.
+ */
+extern uint8_t sdevkit_publish_ready;
+
+/**
+ * @brief Declares the data the tick publishes, and defines `game_tick` and `game_vblank`.
  *
  * Once in a program, at file scope in one of the game's C files, before the tick: defines the
- * struct `name` of type `type` (the tick's own, an ordinary variable), its published copy,
- * sdevkit_publishing, and `game_tick`, which calls `tick(pad)` and then publishes. The game then
- * defines no `game_tick` of its own. `type` is a struct (an array goes into one), `tick` a
- * function `static void tick(const uint16_t pad[SDEVKIT_PADS])` of the same file, after the
- * macro.
+ * struct `name` of type `type` (the tick's own, an ordinary variable), its two published copies,
+ * sdevkit_publish_side and sdevkit_publish_ready; `game_tick`, which calls `tick(pad)`, copies
+ * `name` into the copy interrupt code does not read and marks it ready; and `game_vblank`, which
+ * makes a ready copy the current one and then calls `vblank()`. The game then defines no
+ * `game_tick` and no `game_vblank` of its own. `type` is a struct (an array goes into one),
+ * `tick` a function `static void tick(const uint16_t pad[SDEVKIT_PADS])` and `vblank` a function
+ * `static void vblank(void)` of the same file, after the macro.
  *
- * The flag's two writes are volatile: a C compiler may otherwise drop the first, which a later
- * write of the same byte overwrites with nothing between them that reads it. dampf keeps every
- * store and its order (ADR-6FPV1EQV).
+ * The bytes are read and written volatile: the copy must be complete before it is marked ready,
+ * and interrupt code must read the current copy's number anew. dampf keeps every store and its
+ * order (ADR-6FPV1EQV).
  */
-#define SDEVKIT_PUBLISH(type, name, tick)                                    \
+#define SDEVKIT_PUBLISH(type, name, tick, vblank)                            \
     type name;                                                               \
-    type sdevkit_published_##name;                                           \
-    uint8_t sdevkit_publishing;                                              \
+    type sdevkit_published_##name[2];                                        \
+    uint8_t sdevkit_publish_side;                                            \
+    uint8_t sdevkit_publish_ready;                                           \
     static void tick(const uint16_t pad[SDEVKIT_PADS]);                      \
+    static void vblank(void);                                                \
     void game_tick(const uint16_t pad[SDEVKIT_PADS])                         \
     {                                                                        \
         tick(pad);                                                           \
-        *(volatile uint8_t *)&sdevkit_publishing = 1;                        \
-        sdevkit_published_##name = name;                                     \
-        *(volatile uint8_t *)&sdevkit_publishing = 0;                        \
+        if (*(volatile uint8_t *)&sdevkit_publish_side) {                    \
+            sdevkit_published_##name[0] = name;                              \
+        } else {                                                             \
+            sdevkit_published_##name[1] = name;                              \
+        }                                                                    \
+        *(volatile uint8_t *)&sdevkit_publish_ready = 1;                     \
+    }                                                                        \
+    void game_vblank(void)                                                   \
+    {                                                                        \
+        if (*(volatile uint8_t *)&sdevkit_publish_ready) {                   \
+            *(volatile uint8_t *)&sdevkit_publish_side =                     \
+                (uint8_t)(*(volatile uint8_t *)&sdevkit_publish_side ^ 1u);  \
+            *(volatile uint8_t *)&sdevkit_publish_ready = 0;                 \
+        }                                                                    \
+        vblank();                                                            \
     }
 
 /**
  * @brief Declares the published data for the game's other C files (in a header): the struct
- *        and its copy, as SDEVKIT_PUBLISH defines them.
+ *        and its copies, as SDEVKIT_PUBLISH defines them.
  */
 #define SDEVKIT_PUBLISH_DECLARE(type, name)                                  \
     extern type name;                                                        \
-    extern type sdevkit_published_##name
+    extern type sdevkit_published_##name[2]
 
 /**
- * @brief The published data: a pointer to one tick's data, complete. For interrupt code.
+ * @brief The published data: a pointer to the current copy, the data of the tick whose
+ *        game_vblank came last. For interrupt code.
  *
- * Read it once at the start of the handler and keep the pointer; the data does not change while
- * the handler runs, since the tick it interrupted does not run meanwhile. In the tick it gives
- * the data of the tick before.
+ * Read it once at the start of the handler and keep the pointer; the copy does not change while
+ * the handler runs. In the tick it gives the data of the tick before.
  */
 #define SDEVKIT_PUBLISHED(name)                                              \
-    (*(volatile uint8_t *)&sdevkit_publishing ? &(name) : &sdevkit_published_##name)
+    (*(volatile uint8_t *)&sdevkit_publish_side ? &sdevkit_published_##name[1] \
+                                                 : &sdevkit_published_##name[0])
 
 #endif /* SDEVKIT_PUBLISH_H */

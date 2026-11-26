@@ -5,11 +5,15 @@
 # SNES's sound CPU, and what game_init uploaded into the audio RAM): dampf's code and gcc's, lib/snes and
 # Rachael must compute, show and play the same.
 #   dev/compare_example.sh catchme
+#   dev/compare_example.sh dev/irq_check     a project outside examples/ (one of the kit's checks)
 set -e
 cd "$(dirname "$0")/.."
-NAME=${1:?usage: dev/compare_example.sh <example>}
-EX=examples/$NAME
-dev/check_example.sh "$NAME"
+: "${1:?usage: dev/compare_example.sh <example, or a project's folder such as dev/irq_check>}"
+case $1 in
+    */*) EX=${1%/}; NAME=$(basename "$EX") ;;
+    *) NAME=$1; EX=examples/$NAME ;;
+esac
+dev/check_example.sh "$EX"
 # the kit's command: in a superdevkit home bin/superdevkit, in the repository its installation
 S=bin/superdevkit; [ -x "$S" ] || S=build/install/superdevkit/bin/superdevkit
 [ -x "$S" ] || ./gradlew -q installDist

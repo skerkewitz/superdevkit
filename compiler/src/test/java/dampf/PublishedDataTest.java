@@ -8,14 +8,15 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
- * The data the tick publishes for interrupt code (lib/include/sdevkit/publish.h, ADR-6FPV1EQV) on
- * the kit's frame rhythm. dev/publish_check plays its check.txt as {@link ExamplesTest} plays an
- * example: on the SNES, where the NMI and an IRQ that comes on every line of the tick in turn
- * read the published copy, and on the desktop and the web, which have no interrupts and publish
- * with the same C. Its tick names for the checksum the published copy it finds and the times the
- * interrupts found torn data, so every tick's checksum is the same on all three only if no
- * interrupt ever found torn data and every platform published the same. exec/published.c does
- * the same in an execution test, with counts of the interrupts that came while the kit copied.
+ * The data the tick publishes for interrupt code (lib/include/sdevkit/publish.h, ADR-6FPV1EQV,
+ * ADR-6FRDS030) on the kit's frame rhythm. dev/publish_check plays its check.txt as
+ * {@link ExamplesTest} plays an example: on the SNES, where the NMI and an IRQ that comes on every
+ * line of the vertical blank and the tick in turn read the published copy, and on the desktop and
+ * the web, which have no interrupts and publish with the same C. Its tick names for the checksum
+ * the published copy it finds and the times the interrupts found torn data, so every tick's
+ * checksum is the same on all three only if no interrupt ever found torn data and every platform
+ * published the same. exec/published.c does the same in an execution test, and checks that
+ * interrupt code during a tick reads the copy of the tick whose game_vblank came last.
  */
 class PublishedDataTest {
     private static final Path CHECK = Path.of("dev/publish_check");
@@ -26,38 +27,54 @@ class PublishedDataTest {
     }
 
     /**
-     * The barrier: in dampf's code for game_tick the flag is set after the tick's last store and
-     * before the copy's first, and cleared after the copy's last. dampf moves and removes no store
-     * today; this fails if a later pass does it to the flag (gcc drops the first write when it is
-     * not volatile, since the second overwrites it with nothing between them that reads it).
+     * The order of the two bytes in dampf's code (ADR-6FRDS030): game_tick marks the copy ready
+     * as its last store, after the copy (nothing but a change of the registers' width between it
+     * and the RTL), and game_vblank reads "ready", switches the current copy and then clears
+     * "ready". dampf moves and removes no store today; this fails if a later pass moves these. The
+     * copy into the free copy, never the current one, is checked by exec/published.c, where the
+     * interrupts find no torn data.
      */
     @Test
-    void theFlagIsSetBeforeTheCopyAndClearedAfterIt() throws Exception {
+    void theCopyIsMarkedReadyLastAndGameVblankSwitchesBeforeItClears() throws Exception {
         Path out = CHECK.resolve("build/publish_order.sfc");
         ExamplesTest.compile(CHECK, out);
         String s = Files.readString(out.resolveSibling("publish_order.s"));
-        int start = s.indexOf(".proc _game_tick");
-        int end = s.indexOf(".endproc", start);
-        assertTrue(start >= 0 && end > start, "no _game_tick in " + out);
-        List<String> code = s.substring(start, end).lines().map(String::strip)
-                .filter(l -> !l.isEmpty() && !l.startsWith(";") && !l.startsWith(".")).toList();
-        int set = -1, firstCopy = -1, lastCopy = -1, clear = -1, lastFrame = -1;
-        for (int i = 0; i < code.size(); i++) {
-            String l = code.get(i);
-            if (l.matches("sta\\s+_sdevkit_publishing\\b.*") && set < 0) {
-                set = i;
-            } else if (l.matches("stz\\s+_sdevkit_publishing\\b.*")) {
-                clear = i;
-            } else if (l.matches("sta\\s+\\[dampf_ptr\\+4\\],y.*")) {
-                firstCopy = firstCopy < 0 ? i : firstCopy;
-                lastCopy = i;
-            } else if (l.matches("st[az]\\s+_frame\\b.*")) {
-                lastFrame = i;
+        List<String> tick = code(s, "_game_tick");
+        int ready = -1;
+        for (int i = 0; i < tick.size(); i++) {
+            if (tick.get(i).matches("sta\\s+_sdevkit_publish_ready\\b.*")) {
+                assertTrue(ready < 0, "two stores of the ready byte in _game_tick:\n" + String.join("\n", tick));
+                ready = i;
             }
         }
-        String listing = String.join("\n", code);
-        assertTrue(set >= 0 && firstCopy >= 0 && clear >= 0, "the flag's writes and the copy in _game_tick:\n" + listing);
-        assertTrue(lastFrame < set, "a store into the tick's struct after the flag was set:\n" + listing);
-        assertTrue(set < firstCopy && lastCopy < clear, "the copy is not between the flag's two writes:\n" + listing);
+        assertTrue(ready >= 0, "no store of the ready byte in _game_tick:\n" + String.join("\n", tick));
+        List<String> after = tick.subList(ready + 1, tick.size()).stream().filter(l -> !l.matches("(rep|sep)\\s.*")).toList();
+        assertTrue(!after.isEmpty() && after.getFirst().equals("rtl"), "the ready byte is not game_tick's last store:\n"
+                + String.join("\n", tick));
+
+        List<String> vblank = code(s, "_game_vblank");
+        int load = -1, side = -1, clear = -1;
+        for (int i = 0; i < vblank.size(); i++) {
+            String l = vblank.get(i);
+            if (l.matches("lda\\s+_sdevkit_publish_ready\\b.*") && load < 0) {
+                load = i;
+            } else if (l.matches("sta\\s+_sdevkit_publish_side\\b.*")) {
+                side = i;
+            } else if (l.matches("stz\\s+_sdevkit_publish_ready\\b.*")) {
+                clear = i;
+            }
+        }
+        assertTrue(load >= 0 && load < side && side < clear, "game_vblank does not read ready, switch, then clear:\n"
+                + String.join("\n", vblank));
+    }
+
+    /** The instructions of one function of a listing, without comments, directives and labels. */
+    private static List<String> code(String s, String proc) {
+        int start = s.indexOf(".proc " + proc + "\n");
+        int end = s.indexOf(".endproc", start);
+        assertTrue(start >= 0 && end > start, "no " + proc);
+        return s.substring(start, end).lines().map(String::strip)
+                .filter(l -> !l.isEmpty() && !l.startsWith(";") && !l.startsWith(".") && !l.endsWith(":"))
+                .map(l -> l.replaceAll("\\s*;.*$", "")).toList();
     }
 }

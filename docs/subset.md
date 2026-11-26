@@ -194,8 +194,9 @@ messages, `__irq_clamp` in the timing report and in Mesen. A function written in
 `--replace`) cannot be reached from a handler yet ([hints.md](hints.md)). On the PC the macro is empty and the handler is an
 ordinary function, which the program may call itself (`exec/interrupts.c` does, to compute the
 handlers' results there). A handler reads the game's data through the copy the tick publishes
-(`sdevkit/publish.h`, ADR-6FPV1EQV): one struct, copied after every tick, which a handler always
-finds complete, and writes no game state. dampf keeps every store in the program's order and
+(`sdevkit/publish.h`, ADR-6FPV1EQV, ADR-6FRDS030): one struct, copied after every tick into a copy
+no handler reads and switched to in `game_vblank`, which a handler always finds complete, and
+writes no game state. dampf keeps every store in the program's order and
 removes none, and never reuses or hoists a volatile load; the kit's publishing relies on that
 (`exec/published.c`).
 

@@ -83,10 +83,13 @@ moves to the history with that release):
   generated code is byte for byte the same
   ([ADR-6FPTPCDM](adr/6FPTPCDM-the-snes-facts-the-compiler-asks-about-live-in.md), 2026-11-25).
 - **The data the tick publishes for interrupt code**: `SDEVKIT_PUBLISH` in `sdevkit/publish.h`
-  copies one struct after each tick, and interrupt code reads it complete through
-  `SDEVKIT_PUBLISHED`, also while the copy runs; about 10.5 cycles per byte per tick, the same
-  on the desktop and the web
-  ([ADR-6FPV1EQV](adr/6FPV1EQV-interrupt-code-reads-a-copy-of-the-tick-s-data.md), 2026-11-25).
+  copies one struct after each tick into a copy interrupt code does not read, and `game_vblank`
+  makes it the current one, so interrupt code reads, complete, the data of the tick the picture
+  was made from, on the SNES with any tick length as on the desktop and the web; about 10.5
+  cycles per byte per tick
+  ([ADR-6FPV1EQV](adr/6FPV1EQV-interrupt-code-reads-a-copy-of-the-tick-s-data.md), 2026-11-25,
+  two copies since
+  [ADR-6FRDS030](adr/6FRDS030-interrupt-code-reads-the-copy-of-the-tick-whose.md), 2026-11-26).
   Not for games yet, as the contexts.
 - **A constant on an index into the operand**: `a[i + 1]` of a global is `sta a+1,x`, the sum
   never computed (2026-11-25); the examples' work 0.7 % lower, every one's code smaller
@@ -121,7 +124,8 @@ Left:
   IRQ at its line, and an API to switch the IRQ on and set its line, which make the IRQ usable
   by games; then the NMI running `game_vblank` and the frame's work, where `game_vblank` joins
   the NMI context and what it reads must be published too (open: whether every game then
-  publishes, and whether the copy moves into the kit's loop).
+  publishes, and how a tick keeps filling the copy the NMI's `game_vblank` may switch to,
+  [ADR-6FRDS030](adr/6FRDS030-interrupt-code-reads-the-copy-of-the-tick-whose.md)).
 
 ## M11: timing and debugging (0.11.0)
 

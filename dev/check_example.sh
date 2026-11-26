@@ -4,13 +4,17 @@
 # screenshots it asks for go to examples/<name>/build/check/, with the checksums (hashes.txt) and the
 # sound (sound.txt: the DSP writes of the SNES's sound CPU, as the desktop's check writes them).
 #   dev/check_example.sh catchme             builds the example first (superdevkit build snes)
+#   dev/check_example.sh dev/publish_check   a project outside examples/ (one of the kit's checks)
 #   NOBUILD=1 dev/check_example.sh catchme   checks the ROM as it is
 #   INPUT=rec.txt dev/check_example.sh ertuep with another input than check.txt (a recording)
 # MESEN=<path> picks Mesen (default: MesenCE in .mesen/, dev/mesen.sh).
 set -e
 cd "$(dirname "$0")/.."
-NAME=${1:?usage: dev/check_example.sh <example>}
-EX=examples/$NAME
+: "${1:?usage: dev/check_example.sh <example, or a project's folder such as dev/irq_check>}"
+case $1 in
+    */*) EX=${1%/}; NAME=$(basename "$EX") ;;
+    *) NAME=$1; EX=examples/$NAME ;;
+esac
 OUT=$EX/build/check
 . dev/mesen.sh
 # the kit's command: in a superdevkit home bin/superdevkit, in the repository its installation

@@ -2,13 +2,15 @@
  *
  * Every tick changes a struct with a palette, a 16-bit value whose two bytes change together and
  * a checksum of all of it, and names for the tick's checksum (sdevkit_dbg_hash) the published
- * copy as it finds it, its own struct after it changed it, and what the interrupts found. On the
- * SNES the NMI and an IRQ read the published copy and count the times it was not one tick's
- * data, complete; the desktop and the web have no interrupts and count none. The kit's loop runs
- * the tick right after the vertical blank's start, so the IRQ comes one line later each frame,
- * from line 226 to 261 and again, and so falls on every point of the tick and of the copy after
- * it. So the checksums are the same on all three only if the SNES's interrupts never found
- * torn data and every platform published the same data at the same point.
+ * copy as it finds it (the tick before's, which game_vblank made the current one), its own
+ * struct after it changed it, and what the interrupts found. On the SNES the NMI and an IRQ read
+ * the published copy and count the times it was not one tick's data, complete; the desktop and
+ * the web have no interrupts and count none. The kit's loop runs game_vblank and then the tick
+ * right after the vertical blank's start, so the IRQ comes one line later each frame, from line
+ * 226 to 261 and again, and so falls on every point of the switch in game_vblank, of the tick
+ * and of the copy after it. So the checksums are the same on all three only if the SNES's
+ * interrupts never found torn data and every platform published the same data at the same
+ * point.
  *
  * Test code, not game code: it switches the interrupts on itself, for dampf only, since the kit
  * has no API for them yet. */
@@ -30,7 +32,7 @@ struct frame {
     uint16_t sum;               /* of all of the above */
 };
 
-SDEVKIT_PUBLISH(struct frame, frame, tick)
+SDEVKIT_PUBLISH(struct frame, frame, tick, vblank)
 
 uint16_t stale;                 /* ticks that found a published copy other than their last data */
 uint16_t irq_torn, nmi_torn;    /* the interrupts' finds: published data not one tick's, complete */
@@ -75,7 +77,7 @@ static void tick(const uint16_t pad[SDEVKIT_PADS])
     sdevkit_dbg_hash(&nmi_torn, sizeof nmi_torn);
 }
 
-void game_vblank(void)
+static void vblank(void)
 {
 }
 
