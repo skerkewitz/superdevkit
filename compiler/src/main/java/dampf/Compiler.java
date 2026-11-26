@@ -222,8 +222,12 @@ public final class Compiler {
         // Debug file names are relative to the .dbg file, so Mesen finds the sources wherever the ROM is opened.
         java.util.function.Function<String, String> debugName =
                 file -> outDir.relativize(Path.of(file).toAbsolutePath().normalize()).toString().replace('\\', '/');
-        // interrupt handlers (DAMPF_INTERRUPT): the context of every function they reach, ADR-6FM9TXV4
-        Map<Function, dampf.ast.Interrupt> contexts = CallGraph.of(program).contexts(entry);
+        // interrupt handlers (DAMPF_INTERRUPT): the context of every function they reach, and a
+        // copy of each function per context that reaches it (ADR-6FM9TXV4, ADR-6FQ4NSHE)
+        dampf.check.ContextCopies.Result copies = dampf.check.ContextCopies.of(program, entry);
+        checkAsmInInterrupts(asmFunctions, copies.reachedFrom(), program);
+        program = copies.program();
+        Map<Function, dampf.ast.Interrupt> contexts = copies.contexts();
         Map<dampf.ast.Interrupt, String> handlers = new java.util.EnumMap<>(dampf.ast.Interrupt.class);
         Map<String, dampf.ast.Interrupt> contextByLabel = new java.util.HashMap<>();
         contexts.forEach((f, c) -> contextByLabel.put(f.label(), c));
@@ -232,7 +236,6 @@ public final class Compiler {
                 handlers.put(f.interrupt(), f.label());
             }
         }
-        checkAsmInInterrupts(asmFunctions, contexts, program);
         List<String> asm;
         Map<String, long[]> timing = Map.of();
         MirCodeGen gen = null;

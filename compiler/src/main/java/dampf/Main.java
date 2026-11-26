@@ -216,7 +216,7 @@ public final class Main {
             }
             System.err.printf("%d of %d file(s) pass the front end%n", ok, files.size());
             // then what only the whole program shows: recursion, functions called but defined in
-            // none of the files, definitions in two files, a function in two interrupt contexts
+            // none of the files, definitions in two files, the interrupt handlers' rules
             boolean whole = true;
             if (!passed.isEmpty()) {
                 try {
@@ -229,7 +229,7 @@ public final class Main {
                     graph.checkNoRecursion();
                     dampf.ast.Function entryFunction = program.function(o.entry());
                     if (entryFunction != null && entryFunction.isDefined()) {
-                        graph.contexts(entryFunction);
+                        dampf.check.ContextCopies.of(program, entryFunction);
                     }
                     System.err.println("the " + passed.size() + " file(s) together: ok");
                 } catch (CompileError e) {

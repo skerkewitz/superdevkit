@@ -71,6 +71,12 @@ moves to the history with that release):
   timer IRQs in dampf's emulator
   ([ADR-6FM9TXV4](adr/6FM9TXV4-interrupt-handlers-run-in-contexts-of-their-own.md), 2026-11-24).
   Not for games yet: an assembly function in interrupt code is rejected.
+- **A function reached from several contexts compiled once per context**: the main code, the
+  IRQ and the NMI may call the same functions, the kit's and the game's; each context gets a
+  copy with frames of its own, `static` locals and constants stay shared, and a program whose
+  contexts share nothing is not changed
+  ([ADR-6FQ4NSHE](adr/6FQ4NSHE-a-function-reached-from-several-contexts-is.md), 2026-11-25).
+  The game's IRQ needs it to call the console API.
 - **The SNES facts out of the code generators**: the banks of RAM, where frames, the direct page,
   the stack and the variables lie, how an I/O register is reached and the multiplier's
   registers are answered by `dampf.target.SnesTarget`, which both code generators ask; the

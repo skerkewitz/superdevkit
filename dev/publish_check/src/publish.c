@@ -79,22 +79,18 @@ void game_vblank(void)
 {
 }
 
-/* The check, once per context: a function called from two contexts is an error. */
-#define CONSISTENT(name)                                                          \
-    static uint8_t name(const struct frame *p)                                    \
-    {                                                                             \
-        uint16_t sum = (uint16_t)(p->seq + p->buttons);                           \
-        uint16_t i;                                                               \
-        for (i = 0; i < COLORS; i++) {                                            \
-            sum = (uint16_t)(sum + p->colors[i]);                                 \
-        }                                                                         \
-        return (uint8_t)((uint16_t)(sum ^ p->twin) == p->sum                      \
-                         && (uint8_t)p->twin == (uint8_t)(p->twin >> 8)           \
-                         && (uint8_t)p->twin == (uint8_t)(p->seq + p->buttons));  \
+/* The check, which both handlers call: dampf compiles a copy for each (ADR-6FQ4NSHE). */
+static uint8_t consistent(const struct frame *p)
+{
+    uint16_t sum = (uint16_t)(p->seq + p->buttons);
+    uint16_t i;
+    for (i = 0; i < COLORS; i++) {
+        sum = (uint16_t)(sum + p->colors[i]);
     }
-
-CONSISTENT(irq_consistent)
-CONSISTENT(nmi_consistent)
+    return (uint8_t)((uint16_t)(sum ^ p->twin) == p->sum
+                     && (uint8_t)p->twin == (uint8_t)(p->twin >> 8)
+                     && (uint8_t)p->twin == (uint8_t)(p->seq + p->buttons));
+}
 
 DAMPF_INTERRUPT(irq) void on_irq(void)
 {
@@ -103,14 +99,14 @@ DAMPF_INTERRUPT(irq) void on_irq(void)
     REG8(0x4209) = (uint8_t)irq_line;
     REG8(0x420A) = (uint8_t)(irq_line >> 8);
 #endif
-    if (!irq_consistent(SDEVKIT_PUBLISHED(frame))) {
+    if (!consistent(SDEVKIT_PUBLISHED(frame))) {
         irq_torn++;
     }
 }
 
 DAMPF_INTERRUPT(nmi) void on_nmi(void)
 {
-    if (!nmi_consistent(SDEVKIT_PUBLISHED(frame))) {
+    if (!consistent(SDEVKIT_PUBLISHED(frame))) {
         nmi_torn++;
     }
 }

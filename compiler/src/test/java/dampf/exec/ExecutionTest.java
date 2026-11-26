@@ -19,7 +19,8 @@ import org.junit.jupiter.api.io.TempDir;
  * Execution tests: every program in {@code compiler/src/test/resources/exec} runs on the PC (clang) and on
  * the SNES (dampf), and all its globals must have the same values afterwards. The SNES side runs
  * in dampf's emulator, and also in Mesen when one is available (.mesen/ or -Pmesen=...), so the
- * emulator is checked against a complete SNES emulator too. Each program's entry function is
+ * emulator is checked against a complete SNES emulator too (a program with an interrupt handler
+ * with both code generators). Each program's entry function is
  * {@code test_main}. Each program is built twice, with the naive code generator and with the one
  * from MIR; the emulator runs both. The MIR interpreter runs each program too, except those with an
  * interrupt handler ({@code exec/interrupts.c}). Both sides find the kit's public headers
@@ -62,6 +63,10 @@ class ExecutionTest {
             Compiler.Result m = Compiler.compile(new Compiler.Options(List.of(src), List.of(PcReference.KIT_INCLUDE), List.of(), "test_main",
                     work.resolve(name + "_mir.sfc")).withBackend(Compiler.Backend.MIR));
             assertEquals(pc, emulator.run(m.rom(), globals).values(), "globals after test_main() (PC vs SNES, code generated from MIR)");
+            if (mesenRunner != null && m.program().functions().stream().anyMatch(f -> f.interrupt() != null)) {
+                // interrupts at any instruction: Mesen runs the code from MIR too
+                assertEquals(pc, mesenRunner.run(m.rom(), globals), "globals after test_main() (PC vs SNES in Mesen, code generated from MIR)");
+            }
             Timing.check(m, emulator, src.getFileName().toString());
             // block counts only change the order of the blocks: an arbitrary profile (about a third
             // of the blocks "never ran") must give the same results

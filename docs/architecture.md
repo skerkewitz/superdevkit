@@ -59,8 +59,10 @@ into their predecessors (`Returns`), computes pointer sums again where their val
 get places, registers and frames is in [optimizations.md](optimizations.md).
 
 Interrupt handlers in C (`DAMPF_INTERRUPT`, ADR-6FM9TXV4) are built in the compiler, not yet for
-games. Each handler is the root of a context (`CallGraph.contexts`, which rejects a function
-reached from two of them). Both code generators give a context its own direct page below the stack
+games. Each handler is the root of a context, and a function reached from several contexts is
+copied in the AST once per context before code is generated (`dampf.check.ContextCopies`,
+ADR-6FQ4NSHE; the main code keeps the originals, so a program whose contexts share nothing is not
+changed). Both code generators give a context its own direct page below the stack
 (`dampf.target.ContextAreas`), with its copy of the runtime's scratch registers; the code
 generator from MIR lays out the context's frames from that page with the main code's rule and writes their absolute
 places with the context's symbol (`dampf_frame_irq`), and both multiply in software there. The

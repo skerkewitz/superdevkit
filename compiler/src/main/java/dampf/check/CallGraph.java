@@ -81,13 +81,12 @@ public final class CallGraph {
     }
 
     /**
-     * The interrupt context of every function an interrupt handler reaches (DAMPF_INTERRUPT); the
-     * functions the entry reaches, and those nobody calls, are the main code's and not in the map.
-     * Each context gets frames, a direct page and scratch registers of its own (ADR-6FM9TXV4), so a
-     * function reached from two of them is an error, as are a handler that C code calls, a second
-     * handler of the same interrupt and an entry function marked as a handler.
+     * The program's interrupt handlers (DAMPF_INTERRUPT), by interrupt, after the checks that
+     * make the contexts well formed: the entry function is no handler, each interrupt has at most
+     * one, and no C code calls one (ADR-6FM9TXV4). Each handler is the root of a context; a
+     * function that several contexts reach gets a copy per context ({@link ContextCopies}).
      */
-    public Map<Function, Interrupt> contexts(Function entry) throws CompileError {
+    public Map<Interrupt, Function> handlers(Function entry) throws CompileError {
         if (entry.interrupt() != null) {
             throw new CompileError(entry.definitionPos(), "the entry function '" + entry.name()
                     + "' cannot be an interrupt handler (DAMPF_INTERRUPT)");
@@ -111,32 +110,17 @@ public final class CallGraph {
                 }
             }
         }
-        Map<Function, Edge> mainReach = reach(entry);
-        Map<Function, Interrupt> out = new LinkedHashMap<>();
-        Map<Interrupt, Map<Function, Edge>> reached = new java.util.EnumMap<>(Interrupt.class);
-        for (Map.Entry<Interrupt, Function> h : handlers.entrySet()) {
-            Map<Function, Edge> mine = reach(h.getValue());
-            reached.put(h.getKey(), mine);
-            for (Function f : mine.keySet()) {
-                String other = null;
-                List<Function> otherPath = null;
-                if (mainReach.containsKey(f)) {
-                    other = "the main code";
-                    otherPath = path(f, mainReach);
-                } else if (out.containsKey(f)) {
-                    other = out.get(f).handler();
-                    otherPath = path(f, reached.get(out.get(f)));
-                }
-                if (other != null) {
-                    Edge last = mine.get(f);
-                    throw new CompileError(last.pos(), "'" + f.name() + "' is called from two contexts, " + other + " ("
-                            + names(otherPath) + ") and " + h.getKey().handler() + " (" + names(path(f, mine))
-                            + "); a function belongs to one context, so each needs a copy of its own (docs/subset.md, \"Interrupt handlers\")");
-                }
-                out.put(f, h.getKey());
-            }
-        }
-        return out;
+        return handlers;
+    }
+
+    /** Every function root reaches, root included, in the order they are first reached. */
+    public java.util.Set<Function> reached(Function root) {
+        return java.util.Collections.unmodifiableSet(reach(root).keySet());
+    }
+
+    /** The way from root to f, a function root reaches: the names joined by arrows. */
+    public String pathTo(Function root, Function f) {
+        return names(path(f, reach(root)));
     }
 
     /** Every function root reaches, root included, with the edge it was first reached by (null for root). */
