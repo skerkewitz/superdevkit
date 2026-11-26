@@ -145,6 +145,9 @@ concluded.
 
 ## Open without a milestone
 
+- **HDMA with indirect tables, when a game needs it.** It needs a call that builds the table per
+  platform; direct HDMA does the same with larger tables
+  ([ADR-6FSHCP06](adr/6FSHCP06-rachael-draws-modes-0-to-4-mosaic-and-extbg-the.md)).
 - **`checkBook` in CI.** It runs by hand in a release's preparation (ADR
   [ADR-6F60ZB4N](adr/6F60ZB4N-the-book-is-brought-in-step-before-a-release-not.md)).
 - **The block order checked on the examples.** It was chosen on Blubber Blasen

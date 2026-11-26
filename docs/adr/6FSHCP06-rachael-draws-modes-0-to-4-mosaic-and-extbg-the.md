@@ -36,8 +36,10 @@ them yet.
   Mesen. They wait for a game that needs them.
 - Still undrawn and reported: HDMA with indirect tables. Its table holds 16-bit addresses of the
   data in one bank, which the same C cannot write for the SNES and the PC (a pointer on the PC is
-  8 bytes, and C has no constant for the low 16 bits of an address). It needs an API of its own,
-  decided when a game needs it.
+  8 bytes, and C has no constant for the low 16 bits of an address). It would need a new call that
+  builds the table per platform. It waits for a game that needs it (the user's decision of
+  2026-11-26); until then direct HDMA does the same with larger tables, the data written out per
+  entry.
 - `examples/modes` shows every feature on a screen of its own. Its check compares the SNES (Mesen)
   and the desktop pixel for pixel.
 
@@ -46,8 +48,9 @@ them yet.
 - Everything at once, the picture's sizes too. The other sizes touch every frontend and the
   comparison of pictures, for features few games use (high resolution is mostly text; interlace a
   few still pictures). Built for no game, they would be paid for in every frontend change.
-- A table format for indirect HDMA that both platforms read, translated on the SNES at run time.
-  Possible, but an API decision without a game to try it on.
+- A call that builds an indirect HDMA table per platform (16-bit addresses on the SNES, pointers on
+  the PC), now. Possible, but an API without a game to try it on; direct HDMA reaches the same
+  pictures.
 - A function to read a single byte from a port (`sdevkit_reg_read`). DMA reaches all three
   memories, and reading the PPU happens in the vertical blank, where a game copies anyway.
 
