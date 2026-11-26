@@ -42,6 +42,8 @@ sources:
   - examples/hello/src/*.c
   - examples/mode7/src/*.c
   - dev/irq_check/src/*.c
+  - examples/catchme/src/game.c
+  - examples/catchme/src/actors.c
 audience: Game programmers who write a game with the dev kit and look up what a function of the kit takes, does and costs
 ---
 

@@ -194,8 +194,10 @@ with frames in its own context; a `static` local of it, the globals and string l
 object for all copies (ADR-6FQ4NSHE). The copy is named after its context: `clamp@irq` in
 messages, `__irq_clamp` in the timing report and in Mesen. A function written in assembly (`DAMPF_ASM`,
 `--replace`) cannot be reached from a handler yet ([hints.md](hints.md)). On the PC the macro is empty and the handler is an
-ordinary function, which the program may call itself (`exec/interrupts.c` does, to compute the
-handlers' results there). A handler reads the game's data through the copy the tick publishes
+ordinary function, which the program may call itself in code dampf does not compile
+(`#ifndef __DAMPF__`: `exec/interrupts.c` does, to compute the handlers' results there). A call of
+a handler that dampf sees is an error, also in the branch of `DAMPF_HAS_INTERRUPTS` not taken, so
+that branch calls what the handler calls. A handler reads the game's data through the copy the tick publishes
 (`sdevkit/publish.h`, ADR-6FPV1EQV, ADR-6FRDS030): one struct, copied after every tick into a copy
 no handler reads and switched to in the vertical blank, which a handler always finds complete, and
 writes no game state. `DAMPF_HAS_INTERRUPTS` from `<dampf.h>` is 1 with dampf and 0 on the PC,

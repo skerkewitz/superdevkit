@@ -38,7 +38,13 @@ The build has three steps, and the first two are there to keep the game honest:
 2. **The symbol check.** superdevkit reads what the game's object files leave undefined and
    accepts only the functions and variables declared in `lib/include/sdevkit`, what the game
    defines itself, and a few that the C compiler calls on its own (`memcpy`, `memset`,
-   `memmove` and the stack and buffer checks).
+   `memmove` and the stack and buffer checks). It also looks in them for the game's interrupt
+   handlers and writes `build/linux/obj/game_interrupts.c`, which hands them to Rachael and the
+   frontend: `game_irq`, which a game defines to change the picture from a row on
+   (`sdevkit/irq.h`) and which Rachael calls just before that row while she draws, and the NMI
+   handler that runs the vertical blank of a game that publishes its data for interrupt code
+   (`SDEVKIT_PUBLISH`, `sdevkit/publish.h`). C has no symbol that may be missing and that gcc,
+   MSVC and emcc all accept, so the build looks for them instead.
 3. **The link** with Rachael (`lib/rachael`), the desktop frontend (`lib/desktop`) and raylib.
 
 The symbol check exists because Rachael can only count what goes through the
@@ -119,7 +125,8 @@ start with the save RAM their file names.
 When you close the window, the program prints to the error output what the SNES would have
 lost during the session (`hello: N bytes would not have reached the PPU on the SNES`, the
 [PPU](/glossary#ppu) being the chip that draws the picture), the register writes Rachael does
-not draw and the DSP writes she does not play.
+not draw and those made while the picture is drawn, the changes to the register shadow of
+`sdevkit/shadow.h` made without their mark, and the DSP writes she does not play.
 
 All options, as the program prints them for an option it does not know or one that lacks its
 argument:
@@ -178,11 +185,12 @@ The check writes the screenshots into the `--out` folder as `example_shot_30.png
 `example_splash_16.png` and so on, unfiltered. These are the names the repository's check in
 Mesen (`dev/example_check.lua`) gives its screenshots too, so that the pictures of the two can
 be compared file by file. It also writes `hashes.txt`: the checksum of every tick,
-the tick and the checksum in hex on a line (`0 635e2468`). The checksum covers the sprite
-table ([OAM](/glossary#oam)) and the bytes the game names with
-[`sdevkit_dbg_hash`](/reference/console-api#sdevkit-dbg-hash) in its tick; a game that names
-none is compared by its sprites alone. Two runs that give the same checksums played the same
-game.
+the tick and the checksum in hex on a line (`0 98683870`). The checksum covers the bytes
+the game names with [`sdevkit_dbg_hash`](/reference/console-api#sdevkit-dbg-hash) in its tick
+and its `game_vblank`, and nothing else: the kit names nothing itself, so a game names what its
+next picture depends on, such as its sprite table and its positions. A game that names nothing
+gets the same checksum, `811c9dc5`, on every tick, and the comparison tells nothing about it.
+Two runs that give the same checksums played the same game.
 
 It also writes the sound there, as `sound.txt`: every write to a register of the DSP, with
 `init` (made in `game_init`) or the tick after which it came, the register and the value in
@@ -192,7 +200,7 @@ of the two builds can be compared. Add `--wav file` to write the DSP's output as
 well. A check plays no music. Then it prints one line:
 
 ```
-frames 400 ticks 400 lost 0 undrawn 0 unheard 0 sprites 0
+frames 400 ticks 400 lost 0 undrawn 0 unheard 0 sprites 0 drawing 0 unmarked 0 refused 0 repeated 0
 ```
 
 The exit status is 1 when a byte was lost (written outside the
@@ -201,17 +209,30 @@ the game wrote a register Rachael does not draw, so that the SNES would show ano
 or when it wrote the DSP in a way Rachael does not play, so that the SNES would sound different.
 The line counts all three: `lost` the lost bytes, and each frame that lost some gets a line of
 its own before it (`lost frame N: B bytes`); `undrawn` the register writes Rachael does not
-draw and `unheard` the DSP writes she does not play. When there are any, a line before the last
-names the first of them:
+draw and `unheard` the DSP writes she does not play.
+
+Three more counts fail the check as well. `drawing` counts the register writes made while the
+picture is drawn, which the SNES would show from the line being drawn on; they belong in
+`game_vblank`. `unmarked` counts the changes to the optional register shadow
+(`sdevkit/shadow.h`) made without their mark, which the SNES does not commit. `repeated` is for
+a game that publishes its data for interrupt code (`sdevkit/publish.h`): the SNES runs such a
+game's vertical blank again while a tick overruns, so after each tick the check runs it a
+second time, counts every byte of the picture's state that the second run changes, and then
+puts Rachael back as she was. When any of these counts is not 0, a line before the last names
+the first write or byte:
 
 ```
 hello: N register writes Rachael does not draw, the first $21XX = $YY (the SNES would show something else)
+hello: N register writes while the picture is drawn, the first $21XX = $YY (the SNES would change the picture from the line being drawn on: write it in game_vblank)
+hello: N changes of sdevkit_ppu without their mark, the first in group $XX (sdevkit/shadow.h: the SNES does not commit them)
+hello: N bytes the vertical blank changed when it ran again on the same published data, the first a VRAM word I (sdevkit/publish.h: the SNES runs it again while a tick overruns, and would show something else)
 hello: N DSP writes Rachael does not play, the first $XX = $YY (docs/sound.md: what Rachael's DSP plays)
 ```
 
-The last number, `sprites`, counts the lines of the picture with more sprites or sprite tiles
-than the SNES draws; a game may mean that, to make sprites flicker, so it does not fail the
-check. What each of these rules counts is explained in
+Two counts do not fail the check. `sprites` counts the lines of the picture with more sprites
+or sprite tiles than the SNES draws; a game may mean that, to make sprites flicker. `refused`
+counts the copies the optional upload queue (`sdevkit/queue.h`) turned down as over its budget,
+which the SNES turns down the same way. What each of these rules counts is explained in
 [The SNES hardware](/guide/snes-hardware). A file the program cannot read, an unknown button,
 or an `sram` line longer than the game's save RAM ends it with exit status 2.
 
@@ -287,7 +308,7 @@ of every tick with the recorded one:
 Where a tick differs, it names the first one and exits with status 1:
 
 ```
-tick 200 has checksum 11edb09a on the SNES, the recording deadbeef
+tick 200 has checksum b184ea42 on the SNES, the recording deadbeef
 ```
 
 That tick is where the SNES and the desktop part ways, the place to look for a difference

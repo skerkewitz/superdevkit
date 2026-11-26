@@ -55,19 +55,21 @@ A compiler with that one job can assume things no general compiler can:
   of every variable ([whole program](/glossary#whole-program)).
 - **Hints in the source.** Macros in the C source give dampf knowledge it cannot infer
   ([hint](/glossary#hint)), so it can optimize on facts it could not prove itself or check a
-  promise at build time. Two of them are built so far: `DAMPF_RANGE` adds a value range at one
-  point, and `DAMPF_BUDGET` sets a cycle budget for a function, both from `<dampf.h>`.
+  promise at build time. Three of them are built so far, all from `<dampf.h>`: `DAMPF_RANGE`
+  adds a value range at one point, `DAMPF_BUDGET` sets a cycle budget for a function, and
+  `DAMPF_ASM` puts hand-written assembly in place of a function, checked against its C body.
 - **C as the contract with the PC build.** C is what keeps the same source compiling on the PC
   with gcc or clang, and that is what makes the code testable.
 
 For your own game this means two things. Its logic must also build with gcc on the PC, because
 that build is what dampf's result is compared with. And it reaches the console only through the
-kit's [console API](/reference/console-api), `sdevkit/snes.h`: PVSnesLib's calls, renamed so
-that every name starts with `sdevkit_` or `SDEVKIT_`. On the SNES the kit's
+kit's [console API](/reference/console-api), `sdevkit/snes.h`, where every name starts with
+`sdevkit_` or `SDEVKIT_`. The API is the hardware at once (every register of the picture,
+copies by [DMA](/glossary#dma), [HDMA](/glossary#hdma)), with optional layers above it that a
+game uses only if it calls them, such as a sprite list and an upload queue. On the SNES the kit's
 [platform layer](/glossary#platform-layer) in `lib/snes`, written in C, implements it, and dampf
 compiles it together with the game; on the desktop and the web Rachael implements it. A game
-written against PVSnesLib converts its names with `tools/sdevkit_rename.py`. A game that calls
-another library needs a platform layer of its own for that library.
+written against PVSnesLib or another library moves its calls to the console API by hand.
 
 ## The PC build is the reference
 
@@ -115,20 +117,21 @@ Its non-goals:
 
 ## Where it stands
 
-dampf compiles all of Blubber Blasen, and the kit's version is 0.9.2. The milestones M0
+dampf compiles all of Blubber Blasen, and the kit's version is 0.10.0. The milestones M0
 (define the subset), M1 (end to end, with stepping through C in Mesen), M2 (all of the game
 compiled by the [naive code generator](/glossary#naive-code-generator), with the PC's
 checksums), M3 (the optimizer: dampf lowers the program to [MIR](/glossary#mir), its
 intermediate representation, optimizes it and generates 65816 code from it), M4 (fine tuning:
 block layout, peephole rules, loop and branch optimizations), M6 (an assembler and linker of
 its own), M5 (Blubber Blasen builds its ROM with the dev kit from its own repository), M7 (the
-desktop, Linux and Windows, and the `superdevkit` command), M8 (the web) and M9 (more of the
-optimizer: registers chosen by cost, byte loops kept in 8-bit mode) are concluded. Language,
-platform and usability are in progress in M10; timing and debugging follow in M11, and fine
-tuning until the frame budget is met in M12. Version 0.9.1 is the first release with downloads:
-a zip each for Linux and Windows on x64, with its own Java and raylib. This is still an alpha
-release: every version before 1.0 is a pre-release, so the subset, the command line and the
-files dampf writes may change from one version to the next.
+desktop, Linux and Windows, and the `superdevkit` command), M8 (the web), M9 (more of the
+optimizer: registers chosen by cost, byte loops kept in 8-bit mode) and M10 (C in interrupt
+handlers, hand-written assembly beside the optimized code, the subset's rules for `char` and
+enums, and a console API that is the hardware at once) are concluded. Timing and debugging
+follow in M11, and fine tuning until the frame budget is met in M12. Version 0.9.1 is the first
+release with downloads: a zip each for Linux and Windows on x64, with its own Java and raylib.
+This is still an alpha release: every version before 1.0 is a pre-release, so the subset, the
+command line and the files dampf writes may change from one version to the next.
 
 Until 2026-11-19 dampf was measured on Blubber Blasen's benchmark, which ran the game code with
 a fixed input and every PVSnesLib call stubbed out. During play (the benchmark's ticks of the
@@ -138,15 +141,14 @@ frames per tick is not reached yet in play, and the compiler alone is not expect
 the game is being made to do less work at the same time.
 
 dampf built a playable ROM of the game with the dev kit's library for the SNES, which
-implements the console API `lib/include/sdevkit/snes.h`, taken over from the game and renamed
-(`setMode` is `sdevkit_set_mode`), and the main loop of `sdevkit/loop.h`. In Mesen the ROM ran
-at 1.16 frames per tick during a minute of play (3,600 frames, 3,098 ticks), measured
-on 2026-11-18 after the latest optimizations. That figure includes waiting for the
-[vertical blank](/glossary#vertical-blank) and the platform layer, so it is not comparable with
-the benchmark: a tick that needs more than one frame waits for the next vertical blank, and the
-benchmark leaves out what the game's video code costs on the hardware. No ROM has run on a real
-SNES yet. Since 2026-11-19 the dev kit's own examples are dampf's test cases and its benchmark,
-and the game's code is no longer in the repository.
+implements the console API `lib/include/sdevkit/snes.h` and the main loop of `sdevkit/loop.h`.
+In Mesen the ROM ran at 1.16 frames per tick during a minute of play (3,600 frames, 3,098
+ticks), measured on 2026-11-18 after the latest optimizations. That figure includes waiting for
+the [vertical blank](/glossary#vertical-blank) and the platform layer, so it is not comparable
+with the benchmark: a tick that needs more than one frame waits for the next vertical blank,
+and the benchmark leaves out what the game's video code costs on the hardware. No ROM has run
+on a real SNES yet. Since 2026-11-19 the dev kit's own examples are dampf's test cases and its
+benchmark, and the game's code is no longer in the repository.
 
 Since the game left, the library has gained sound effects, on the SNES through the kit's driver
 for its sound processor, the SPC700, and save RAM, the cartridge's battery RAM. Music plays on

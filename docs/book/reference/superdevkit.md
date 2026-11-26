@@ -20,7 +20,7 @@ Use `superdevkit --version`, or `superdevkit version`, to see which kit you have
 line on the standard output and exits with status 0:
 
 ```
-superdevkit 0.9.2
+superdevkit 0.10.0
 ```
 
 The command is the one in `bin/` of the [superdevkit home](/glossary#superdevkit-home), next to
@@ -44,7 +44,7 @@ the example's `build/` folder and changes two things:
 
 - **The project file.** `name` in `superdevkit.toml` becomes `NAME`, and the examples' `kit`
   line (the path to the kit's folder, which the examples are part of) becomes
-  `superdevkit = "0.9"`, the version of the kit that made the copy.
+  `superdevkit = "0.10"`, the version of the kit that made the copy.
 - **`CLAUDE.md`.** A new file that tells an AI working on the game to read the kit's guides
   first, `lib/C_STYLE.md` (C for dampf) and `lib/SNES_HARDWARE.md` (the hardware and what the
   kit has of it), with their full paths in the home.
@@ -109,13 +109,15 @@ as one [whole program](/glossary#whole-program), with `--entry main`, the
 [code generator from MIR](/glossary#code-generator-from-mir), `-I` for the kit's `lib/include`,
 the game's include folders and `build/gen`, `-D` for the macros of the project file's
 [`[snes]`](#snes-desktop-and-web) table, and `--sram` when the project file asks for save RAM.
-Next to the ROM dampf writes its other files (the assembly, the debug file for
-[Mesen](/glossary#mesen), the label file, the timing report), which
+The kit's `lib/snes/` goes to dampf with [`--lib`](/reference/command-line#lib), which keeps the
+macros of `[snes]` out of the kit's code. Next to the ROM dampf writes its other files (the
+assembly, the debug file for [Mesen](/glossary#mesen), the label file, the timing report), which
 [The generated files](/reference/output-files) describes.
 
 Every SNES build also writes `build/snes/NAME.args`, an [args file](/glossary#args-file) of what
 it compiled: the include folders, the macros, `--entry`, `--sram` and every C file, one per
-line, with absolute paths. Use it to call dampf on the game with options of your own:
+line, with absolute paths and `--lib` in front of each of the kit's files. Use it to call dampf
+on the game with options of your own:
 
 ```sh
 dampf check @build/snes/mygame.args
@@ -136,10 +138,15 @@ the build when one of them calls a function that is not part of the kit's
 error: check: src_game.o: uses printf, which is not part of superdevkit's console API (lib/include/sdevkit, ADR-6F3CK2AR)
 ```
 
-Last, the objects are linked with `lib/rachael`, the desktop's frontend `lib/desktop` and raylib
-into `build/linux/NAME`. The objects go to `build/linux/obj/`, which each build empties first,
-and the project's music to `build/linux/music/`, next to the program. The target builds on
-Linux and under [WSL](/glossary#wsl), not on Windows.
+The check also writes `game_interrupts.c` beside the objects, which tells the frontend whether
+the game defines `game_irq`, its handler of the interrupt at a picture row, and
+`sdevkit_publish_nmi`, the handler of the [vertical blank](/glossary#vertical-blank)'s
+interrupt that `SDEVKIT_PUBLISH` defines. C has no optional symbol that gcc, MSVC and `emcc` all
+take, so the build looks for them in the objects. Last, the objects and that file are linked
+with `lib/rachael`, the desktop's frontend `lib/desktop` and raylib into `build/linux/NAME`. The
+objects go to `build/linux/obj/`, which each build empties first, and the project's music to
+`build/linux/music/`, next to the program. The target builds on Linux and under
+[WSL](/glossary#wsl), not on Windows.
 
 ### win64
 
@@ -208,7 +215,7 @@ superdevkit build snes --plan
 superdevkit build snes: mygame (kit <home>)
   png    tiles assets/font_gfx.png font_gfx build/gen
   png    tiles assets/ball_gfx.png ball_gfx build/gen
-  dampf  build -I <home>/lib/include -I src -I build/gen --entry main -o build/snes/mygame.sfc src build/gen/ <home>/lib/snes/
+  dampf  build -I <home>/lib/include -I src -I build/gen --entry main -o build/snes/mygame.sfc src build/gen/ --lib <home>/lib/snes/
   write  build/compile_commands.json
 everything the build needs is there
 ```
@@ -366,7 +373,7 @@ error: superdevkit.toml: unknown key 'colour' (known: build, desktop, graphics, 
 ```
 
 Every path in the file is relative to the folder of `superdevkit.toml`. A copy made with
-[init](#init) has `superdevkit = "0.9"` in place of the `kit` line.
+[init](#init) has `superdevkit = "0.10"` in place of the `kit` line.
 
 ### name
 
@@ -380,7 +387,7 @@ A string: the version of the kit the game needs, of two or three numbers. Two nu
 that one. The command checks it against its own version and stops when they differ:
 
 ```
-error: the project needs superdevkit 0.8, this is 0.9.2 (<home>); install that version, or name a kit folder in superdevkit.toml: kit = "path"
+error: the project needs superdevkit 0.8, this is 0.10.0 (<home>); install that version, or name a kit folder in superdevkit.toml: kit = "path"
 ```
 
 Either `superdevkit` or `kit` is required.
@@ -489,12 +496,13 @@ defines = ["DEV_TOOLS", "LEVELS=8"]
 With this file, code inside `#ifdef DEV_TOOLS` is built for `linux` and `win64` only, `LEVELS`
 is 3 on the SNES and 8 on the desktop, and the web build defines neither.
 
-On the desktop and the web the macros reach the game's own files, those in `build/gen` included,
-and not the kit's library, which the link step compiles. On the SNES dampf compiles the game and
-the kit's `lib/snes` as one [whole program](/glossary#whole-program) with one set of options, so
-the macros of `[snes]` reach `lib/snes` too, and a macro with the name of something there
-changes the kit's code. The file `build/compile_commands.json` shows the files as dampf sees
-them and so holds the macros of `[snes]`, whatever the target.
+The macros reach the game's own files, those in `build/gen` included, and not the kit's
+library. On the desktop and the web the link step compiles the library. On the SNES dampf
+compiles the game and the kit's `lib/snes` as one [whole program](/glossary#whole-program), but
+gets `lib/snes` with [`--lib`](/reference/command-line#lib), whose files get no `-D` macros, so a
+macro with the name of something there does not change the kit's code. The file
+`build/compile_commands.json` shows the game's files as dampf sees them and so holds the macros
+of `[snes]`, whatever the target.
 
 An entry of another form stops the build:
 

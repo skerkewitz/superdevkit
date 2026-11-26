@@ -10,20 +10,21 @@ not need any of it to use dampf.
 
 The class `Compiler` holds the whole pipeline: C files go in, a SNES ROM with debug
 information comes out. Two code generators share the [front end](/glossary#front-end): the code
-generator from [MIR](/glossary#mir), which `dampf build` uses unless you choose the naive one or
-use `--replace`, and the naive code generator, which works straight from the [AST](/glossary#ast).
+generator from [MIR](/glossary#mir), which `dampf build` uses unless you choose the naive one,
+and the naive code generator, which works straight from the [AST](/glossary#ast).
 
 ```mermaid
 flowchart TD
     C[C files] --> PP[preprocess: dampf's own]
     PP --> P[parse: ANTLR grammar]
     P --> AST[typed AST of the whole program]
-    AST --> CHK[checks: call graph, no recursion]
-    CHK --> LOW[lowering to MIR]
+    AST --> CHK[checks: call graph, no recursion, interrupt handlers]
+    CHK --> CP[copies per context]
+    CP --> LOW[lowering to MIR]
     LOW --> PASS[MIR passes]
     PASS --> SEL[instruction selection to LIR]
     SEL --> LP[LIR passes]
-    CHK --> NCG[naive code generator]
+    CP --> NCG[naive code generator]
     LP --> AS[assembling and linking]
     NCG --> AS
     AS --> ROM[ROM and debug file]
@@ -32,10 +33,14 @@ flowchart TD
 - **Preprocess**: dampf's preprocessor expands includes and macros, one C file at a time.
 - **Parse**: an ANTLR parser turns the preprocessed text into a parse tree.
 - **AST**: the parse trees of all files become one typed AST; subset violations are found here.
-- **Checks**: the call graph of the whole program is built, and recursion is rejected.
+- **Checks**: the call graph of the whole program is built, recursion is rejected, and the
+  rules for interrupt handlers are checked.
+- **Copies per context**: a function that the main code and an interrupt handler both reach is
+  copied once for each.
 - **Lowering to MIR**: each function becomes a graph of basic blocks in [SSA](/glossary#ssa)
   form.
-- **Passes**: the optimizer's [passes](/glossary#pass) rewrite the MIR until nothing changes.
+- **Passes**: the functions the program cannot reach are dropped, then the optimizer's
+  [passes](/glossary#pass) rewrite the MIR until nothing changes.
 - **Instruction selection**: each function of the MIR becomes [LIR](/glossary#lir), 65816 code in
   basic blocks.
 - **LIR passes**: loads and stores nobody needs are removed, branch forms are chosen, and the
@@ -55,7 +60,9 @@ macro reaches the code: dampf's own include directory provides `<stdint.h>`, `<d
 `<string.h>`, and dampf searches it before the `-I` directories of the command line, as
 `gcc -nostdinc -I` would. Besides the standard's macros and the `-D` macros of the command
 line, it defines `__DAMPF__`, so that a header can tell the dampf build apart, and with `--sram`
-it defines `SDEVKIT_SRAM_SIZE` with the bytes of save RAM. An error of the preprocessor, a
+it defines `SDEVKIT_SRAM_SIZE` with the bytes of save RAM. The `-D` macros are for the program's
+own files: the files of a library, named with `--lib`, are preprocessed without them, but with
+the `-I` directories and `SDEVKIT_SRAM_SIZE`. An error of the preprocessor, a
 missing header for example, stops dampf at its file, line and column like any other error of
 the compile.
 
@@ -85,19 +92,24 @@ operation is fixed before any code is generated.
 
 A `sizeof` becomes a constant here, and it has to have the value gcc gives on x86-64, because
 the result must match the [PC build](/glossary#pc-build) bit for bit. dampf's pointers are 4
-bytes against 8 on the PC, and dampf does not pad struct fields, so for such types dampf rejects
-`sizeof` with a message. The one use it allows is the element count `sizeof a / sizeof a[0]`,
-whose quotient is the same on both.
+bytes against 8 on the PC, its objects of most enums 1 or 2 bytes against 4, and dampf does not
+pad struct fields, so for such types dampf rejects `sizeof` with a message. The one use it
+allows is the element count `sizeof a / sizeof a[0]`, whose quotient is the same on both.
 
 The class `AstBuilder` also reads the [hints](/glossary#hint) of `<dampf.h>`, macros that tell
 dampf what it cannot infer. A `DAMPF_RANGE` statement gives the lowest and highest value of a
 local variable or parameter of an integer type, with constant bounds, and becomes a statement of
 its own in the AST. `DAMPF_BUDGET` in front of a function definition gives the most CPU cycles
-the function may take.
+the function may take. `DAMPF_ASM("file.s")` after the parameter list of a definition names a
+file of hand-written assembly that dampf links in place of the compiled body. Besides the
+hints, `DAMPF_INTERRUPT(nmi)` or `DAMPF_INTERRUPT(irq)` in front of a definition makes the
+function an interrupt handler, which must be `void name(void)`.
 
 The subset is enforced here, not in the grammar. A construct outside the subset parses, and
-then gets a message that says what is not supported, with the position of the C source. Once
-the front end is through, the checks of the next section included, `Compiler` looks up the
+then gets a message that says what is not supported, with the position of the C source. Where
+gcc warns by default that a constant changes its value when it is converted, dampf gives the
+same warning (`[-Woverflow]`), which does not stop the build. Once the front end is through,
+the checks of the next section included, `Compiler` looks up the
 [entry function](/glossary#entry-function) and stops if it is missing. The execution test
 `compiler/src/test/resources/exec/calls.c` names its entry function `test_main`, so without
 `--entry` it fails:
@@ -119,8 +131,21 @@ Because dampf sees every file at once, it builds the call graph of the whole pro
 function runs twice at the same time, so the parameters and locals of a function can live at
 fixed addresses, in its static frame.
 
-The command `dampf check` runs the same check on the files that pass the front end, after it
-has checked each file on its own; the command is on [Command line](/reference/command-line).
+An interrupt breaks that: its handler can run while the main code is inside any function, also
+one the handler calls. So the same call graph checks the interrupt handlers: the entry function
+cannot be one, each interrupt has at most one, and no C code calls a handler, since the hardware
+does. Each handler is the root of a context, the handler and every function it reaches; the main
+code is the entry function's context. Each context needs frames of its own, so before any code is
+generated, `ContextCopies` copies a function that several contexts reach once per context in the
+AST. The original belongs to the first context that reaches it, in the order main code, NMI,
+IRQ, and keeps its name; a copy is called `clamp@irq` in messages and has the label
+`__irq_clamp`. A program without handlers, or whose contexts share no function, stays as it was.
+A function written in assembly that a handler reaches is an error, because its convention
+assumes the main code's [direct page](/glossary#direct-page) and frames.
+
+The command `dampf check` runs the checks of the call graph on the files that pass the front
+end, after it has checked each file on its own; the command is on
+[Command line](/reference/command-line).
 
 ## MIR and its passes
 
@@ -132,7 +157,15 @@ The class `Lower` translates the AST into MIR directly: each function becomes a 
 blocks in SSA form, with explicit widths and the signedness in the operations.
 A `DAMPF_RANGE` becomes comparisons that branch to a block ending in `unreachable` when the hint
 is wrong, and the range analysis learns the [value range](/glossary#value-range) from them.
-They stay in the MIR through all passes; the code generator takes them out.
+They stay in the MIR through all passes; the code generator takes them out. A function written
+in assembly becomes a stand-in that the passes do not look into; its C body is lowered as well,
+under another label, for the check described under the linking below.
+
+First, `Reachable` drops the functions that neither the entry function, the interrupt handlers
+nor the assembly functions reach through calls and taken addresses, with the globals only they
+used: a library's function the program does not call takes no ROM, and its variables no RAM. It
+runs before inlining, so a function that is called keeps its body, and its line in the
+[timing report](/glossary#timing-report), even where every call of it is inlined.
 
 Then `Optimizer` runs the passes. On each function it repeats, until nothing changes or at
 most 20 times:
@@ -183,7 +216,11 @@ instruction and `FrameLayout` for the places): it sets the processor modes with 
 and gives every value a place in a frame or in A, X or Y. Once every function is selected,
 `RegisterChoice` moves some of the places to X or Y where that saves cycles, and
 `PlaceColouring` gives the others their addresses on the code, a function's frame above the
-frames of all it calls.
+frames of all it calls. A `switch` on an 8- or 16-bit value becomes a jump table where its
+dispatch costs fewer cycles than the chain of compares does on average over the cases, counted
+with the cycle table; the table lies in the function's segment after its code. For a function
+written in assembly, `MirCodeGen` writes no code: it reserves the function's frame from
+`dampf_frame` and exports the places of its parameters, which the assembly file imports.
 
 What instruction selection writes is LIR, the low-level intermediate representation: 65816
 instructions in basic blocks, each with the accumulator width it runs in. Its text is the ca65
@@ -194,18 +231,32 @@ apply peephole rules (`Peephole`), run short 16-bit stretches between byte store
 `CLC` or `SEC` where the carry is known (`KnownCarry`), remove stores nobody reads
 (`DeadStores`), choose the branch forms (`BranchRelax`) and number the local labels
 (`LocalLabels`). On the finished LIR, `Timing` computes the best and worst case of every
-function in CPU cycles, which `dampf build` writes to a `.timing.txt` file next to the ROM.
+function in CPU cycles, which `dampf build` writes to a `.timing.txt` file next to the ROM. An
+assembly function gets the bounds dampf computes from its machine code, and each interrupt a
+line of its own, such as `dampf_irq`: its entry stub and its handler, from the interrupt to the
+end of its `RTI`.
 `Compiler` then checks every function with a `DAMPF_BUDGET` against its worst case: a function
 above its budget, or one without a worst case, stops the build with an error, and one above
 90 % of its budget gets a warning that does not.
 
 The [naive code generator](/glossary#naive-code-generator), `NaiveCodeGen`, translates the AST
 directly, almost everything in 32-bit `int` as C's promotions say. It stays as an independent
-reference: the tests compare the code generator from MIR with it. It is also the only one that
-accepts `--replace`, which links a hand-written assembly version of a function in place of the
-compiled one, so `--replace` without `--backend` selects it; with `--backend mir`, dampf stops
-with `--replace works with the naive code generator only`. The options are on
+reference: the tests compare the code generator from MIR with it. Both link a function's
+hand-written assembly in place of the compiled one, whether `DAMPF_ASM` declares it or
+`--replace` names it on the command line, which wins over the declaration. The options are on
 [Command line](/reference/command-line).
+
+The SNES facts the code generators need come from `SnesTarget` in the package `dampf.target`:
+the banks of RAM, where the frames, the direct page, the stack and the variables lie, and the
+multiplier's registers. The optimizer, the linker and the checks of assembly functions ask it
+as well. In a program with interrupt handlers, each interrupt's context gets a direct page of
+its own below the stack, the NMI's highest, then the IRQ's, placed by `ContextAreas` in the
+same package. Its first 32 bytes are the context's copy of the runtime's scratch registers. The
+code generator from MIR lays out the context's frames after them, with absolute addresses
+written through the context's symbol, such as `dampf_frame_irq`; the naive code generator keeps
+no frames there, so its contexts take one page each. In both, code of an interrupt context
+multiplies in software, because the factors in the CPU's multiplier cannot be read back to save
+them.
 
 Both write ca65 assembly with the source line of every C statement as a `.dbg line`
 directive. Each function and each constant object goes into a segment of its own, named
@@ -217,7 +268,11 @@ The class `RomBuilder` turns the assembly into a LoROM image with dampf's own as
 linker (`Assembler` and `Linker` in `dampf.asm`). It writes the [runtime](/glossary#runtime) as
 `dampf_runtime.s` next to the program and assembles both. The assembler reads the subset of
 ca65 that dampf writes and the runtime uses, and reports anything else as an error; like ca65 it
-works in one pass and chooses the size of each operand when it reads the line.
+works in one pass and chooses the size of each operand when it reads the line. A program with
+interrupt handlers gets the runtime with an entry stub for each, and the interrupt's vector
+points at it: the stub saves the registers, the data bank and the direct page, sets the
+context's direct page, calls the handler and restores all of it before `RTI`. A program without
+handlers gets the runtime as it always was.
 
 No function or constant object may cross a bank boundary, so dampf has to know every segment's
 size before it can place the segments in banks. After assembling it knows them all, so one
@@ -229,6 +284,15 @@ power of two, the header gets the ROM size and the checksum, and dampf writes th
 debug file in ld65's format, which Mesen reads. With `--sram`, `Compiler` then has the header
 announce battery-backed save RAM, the bytes rounded up to 2, 4, 8, 16 or 32 KB, and the checksum
 is computed again.
+
+A function written in assembly is linked from its file like the generated code. With the code
+generator from MIR, every build then checks it against its C body, since `DAMPF_ASM` claims that
+both compute the same, and dampf checks such claims. `RomBuilder.linkInMemory` links a second
+ROM that holds the C bodies as well, without writing a file, and dampf's emulator runs the
+assembly and the C body on up to 256 inputs per function. The results and all of RAM from
+`$7E:2000` to `$7F:FFFF` must be equal, and the assembly's cycles must lie within the bounds
+dampf computed; otherwise the build stops with an error at the function. The naive code
+generator links the same file and does not check it.
 
 Use `--assembler ca65` to build with ca65 and ld65 instead; the ROM
 is the same. With them, dampf assembles with `ca65 -g` and links twice, because it learns the

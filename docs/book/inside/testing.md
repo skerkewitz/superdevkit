@@ -57,11 +57,22 @@ passes, and as two ROMs in dampf's emulator, one per code generator. When
 [Mesen](/glossary#mesen) is available, the ROM of the naive code generator also runs there.
 Every run must give the PC's globals.
 
+Three of the programs test C in interrupt handlers (`DAMPF_INTERRUPT`): an NMI handler, run at
+the start of every [vertical blank](/glossary#vertical-blank), and an IRQ handler, run at a line
+the program sets, while the main code computes (`interrupts.c`); helpers called from the main
+code and from both handlers, which dampf compiles once for each (`context_copies.c`); and the
+data a tick publishes for interrupt code (`published.c`). On the PC, which has no interrupts,
+the program calls its handlers itself. Such a program skips the MIR interpreter, which has no
+interrupts and no hardware registers, and in Mesen its ROM from MIR runs too, since an
+interrupt can come at any instruction.
+
 The ROM of the code generator from MIR also checks dampf's static timing. dampf computes a best
 and a worst case in CPU cycles for every function, and in the emulator `test_main` as a whole,
 and every call of every function and runtime routine on the way, must take between the two
 (`Timing.check`). A call is measured from its first instruction to the instruction after the
-`JSL` that called it. A third ROM from MIR lays the blocks out by arbitrary block counts (a
+`JSL` that called it, without the cycles of interrupts that came meanwhile; each interrupt is
+measured against bounds of its own, from the moment it is taken to the end of its `RTI`. A
+third ROM from MIR lays the blocks out by arbitrary block counts (a
 third of the blocks "never ran", as [`--block-counts`](/reference/command-line#block-counts)
 would take them from a profile); it must give the same globals and keep the timing too, since
 a profile may change only the order of the blocks.
@@ -110,9 +121,11 @@ where it began, while dampf, like gcc, puts each token at its own line.
 of its `check.txt` in dampf's emulator, through the kit's own main loop. Where raylib was
 fetched, the same input is played on the desktop as well, on [Rachael](/glossary#rachael) with
 gcc's code. After every [tick](/glossary#tick) both sides compute a checksum of the game's
-state: the bytes the game names with `sdevkit_dbg_hash`, then the sprite table. The two lists
-must be the same, so dampf's code and gcc's, `lib/snes` and Rachael computed the same game tick
-for tick; the test names the first tick that differs. On the SNES the call only writes the
+state: the bytes the game names with `sdevkit_dbg_hash` from the end of one `game_tick` to the
+end of the next. The kit names nothing itself, so each example names its sprite table and what
+its next picture depends on. The two lists must be the same, so dampf's code and gcc's,
+`lib/snes` and Rachael computed the same game tick for tick; the test names the first tick that
+differs. On the SNES the call only writes the
 address and size of the memory to a port (`$21FC`), and the emulator reads and hashes it, so the
 check costs the game about 80 cycles a call. The sound is compared too: what `game_init`
 uploaded into the audio RAM, and every write to the sound chip's DSP that the kit's driver made
@@ -127,10 +140,24 @@ so emcc's WebAssembly, with its 32-bit pointers and `long`, computed the same ga
 dampf. The check has no window: the browser's frames and the clock that steps the game by them
 are not part of it. The web takes about two of the five minutes the examples take.
 
+Two programs of the kit's tests, not examples, are played the same way on all three.
+`PublishedDataTest` plays `dev/publish_check`, whose tick publishes data for interrupt code
+(`sdevkit/publish.h`); on the SNES the kit's NMI and an IRQ that comes on every line of the
+vertical blank and the tick in turn read that data and check it. Its checksums name what the interrupts found, so they match
+the desktop's and the web's, which have no interrupts, only when no interrupt on the SNES ever
+found torn data. `IrqCheckTest` plays `dev/irq_check`, whose IRQ splits the screen twice with
+values the tick publishes, with short ticks, long ones and ones longer than two frames. Where
+Mesen and the desktop's build are there, it also plays the ROM in Mesen and compares its
+pictures with the desktop's pixel for pixel: a register the handler writes too late shows a
+torn row on the SNES only. Two altered copies of the game must fail the desktop's check: one
+whose handler writes before `sdevkit_irq_wait_hblank`, and one whose vertical blank changes
+something when the NMI runs it again during a long tick.
+
 The emulator's run also writes the [frames](/glossary#frame) per tick to the example's
 `build/emu-check/frames.txt` (on average and over the slowest 60 ticks) and the [master
 cycles](/glossary#master-clock) of every tick to `ticks.txt` there. They come close to Mesen's
-figures but are not equal, because a [DMA](/glossary#dma) takes no CPU time in dampf's emulator.
+figures but are not equal: dampf's emulator charges a general [DMA](/glossary#dma) its 8 master
+cycles a byte, but [HDMA](/glossary#hdma) nothing.
 A line `budget T1 T2` in `check.txt` turns this into a measured budget: the test fails when a
 tick from T1 to T2 - 1 took more than a frame. Er-Tüp's budget covers its busiest waves. To see
 where that time goes, `dampf.emu.ExampleProfile` plays the same input in dampf's emulator and
@@ -161,17 +188,27 @@ example makes fewer than 1,000 calls in that time. It takes about 20 seconds.
 
 **The reference functions** are hand-written assembly versions of functions of the examples, in
 `reference/`, kept as the yardstick for dampf's code: today Er-Tüp's `random16` and `sine`.
-`ReferenceFunctionsTest` builds each example that has some with the naive code generator and all
-its reference functions linked in place of the compiled ones, plays its `check.txt` in dampf's
-emulator, and every tick's checksum must be the one of the example's normal build.
+`ReferenceFunctionsTest` builds each example that has some with the code generator from MIR and
+all its reference functions linked in place of the compiled ones (`--replace`). That build runs
+each of them against its C body as dampf compiles it, the check every function written in
+assembly with `DAMPF_ASM` gets, and the test prints the cycles of a call, by hand and by dampf.
+Then the example plays its `check.txt` in dampf's emulator, and every tick's checksum must be
+the one of the example's normal build. The check itself is tested too: the execution test
+`asm_functions.c` calls functions written in assembly with 8-, 16- and 32-bit and pointer
+parameters in both code generators, and `AsmDeclarationTest` makes sure the check finds a wrong
+result, a wrong write to memory and a loop bound in a comment (`; dampf: at most N`) set too
+low.
 
 **The examples' benchmark** (`dev/bench_examples.sh`) builds every example that has a
 `check.txt`, with the options you give it for `dampf build`, plays the check in dampf's emulator
 (`dampf.emu.ExampleBench`) and measures the work of each tick: its master cycles without the
 time the main loop spends waiting for the next frame. An example that does the same work every
 tick, such as Mandelbrot, so shows a faster compiler as less work, not as fewer frames. The
-table has one line per example: the work per tick on average and in the busiest 60 ticks, and
-the share of it in dampf's runtime routines (multiplication, division, shifts by a variable).
+work includes the DMAs the game starts, at 8 master cycles a byte; until 2026-11-25 a DMA took
+no time in the emulator, and the kit's copy of the whole sprite table in every vertical blank
+went uncounted. The table has one line per example: the work per tick on average and in the
+busiest 60 ticks, and the share of it in dampf's runtime routines (multiplication, division,
+shifts by a variable).
 With `BASELINE=` and an earlier table it adds the ratio to that table per example and their
 geometric mean, so an optimization or a tuned parameter is judged on all examples, not on one
 program. On 2026-11-20, before the runtime's multiplication moved to the CPU's multiplier, the
@@ -202,8 +239,7 @@ verifies and prints to the same text.
 
 `BackendOutputTest` freezes the output of the back end. It keeps a hash of the assembly and of
 the static timing for every execution test, 20 random programs and every example, with both
-code generators, and once more for Er-Tüp with its reference functions linked in, built by the
-naive code generator. A
+code generators, and once more for Er-Tüp with its reference functions linked in. A
 change that only moves code must keep every hash; one that changes the code on purpose records
 new hashes with `-PbackendOutput=update`, which also keeps a copy of the assembly in
 `build/backend-output-ref/` to compare against. Beside the hashes the same update writes the
@@ -245,8 +281,9 @@ builds a program that calls every function of the console API, the calls a game 
 dev kit's library, and checks their best and worst cases against the table in `lib/README.md`.
 `SnesHardwareGuideTest` checks the feature table of the guide to the SNES hardware,
 `lib/SNES_HARDWARE.md`, against `lib/snes` and against [Rachael](/glossary#rachael) in
-`lib/rachael`. `RachaelTest` checks that Rachael counts the register writes she does not draw,
-and runs her renderer's tests in C: small scenes, rendered and checked pixel by pixel.
+`lib/rachael`. `RachaelTest` checks that Rachael counts the register writes she does not draw
+and the writes the SNES would get while the picture is drawn, and runs her renderer's tests in
+C: small scenes, rendered and checked pixel by pixel.
 Like `StyleGuideTest`, each fails when its document is no longer true.
 
 `SplashTest` checks the course of the splash screen every game of the dev kit starts with, the
@@ -260,12 +297,15 @@ at full brightness, a press in frame 212, when the fade out has begun, changes n
 ## dampf's emulator and Mesen
 
 The SNES side of the tests runs in `dampf.emu`, a 65816 emulator in Java with LoROM and work
-RAM, the SPC700's boot protocol and the kit's sound driver, but no graphics, DMA or sound
-output. Of the picture it has only the timing that the kit's main loop polls: the line counter,
-the vertical blank flag and the automatic joypad read, and it has the joypads. It also has the
-CPU's multiplier and divider. The multiplier adds one bit of its second factor per CPU cycle,
-lowest first, as on the console, so code that reads the product before the eighth cycle gets a
-partial product and fails here too (`MultiplierTest`).
+RAM, the SPC700's boot protocol and the kit's sound driver, the time a DMA takes but not what
+it copies, and no graphics or sound output. Of the picture it has only the timing that the
+kit's main loop polls: the line counter, the vertical blank flag and the automatic joypad read,
+and it has the joypads. It has the interrupts: the NMI at the vertical blank and the timer IRQ
+at its line or dot, with their registers `NMITIMEN`, `HTIME`, `VTIME`, `RDNMI` and `TIMEUP`
+(`InterruptTest`). It counts the cycles spent inside interrupts apart, so the timing checks can
+leave them out. It also has the CPU's multiplier and divider. The multiplier adds one bit of
+its second factor per CPU cycle, lowest first, as on the console, so code that reads the product
+before the eighth cycle gets a partial product and fails here too (`MultiplierTest`).
 
 The emulator exists for two reasons. It runs inside the JVM, so a test needs no external program
 and runs much faster than a ROM started in Mesen; that is what makes 100 random programs on every
@@ -285,20 +325,23 @@ ways:
   here, both gave the same checksums on all 3,610 ticks and the same master cycles per tick
   within a few cycles out of millions. On the check of every example they give the same
   checksum after every tick. For the multiplier, the runtime's multiplication with one cycle
-  less of waiting gives wrong products in both.
+  less of waiting gives wrong products in both. On `exec/interrupts.c`, whose handlers check the
+  line they run on, both take the interrupts on the same lines; Mesen showed that a write of
+  `VTIME` that makes the current line the IRQ's fires it at once.
 
-In the Gradle tests, Mesen runs only for the execution tests, and only when it is there: when
-`.mesen/` in the repository holds one (it is not in git) or `-Pmesen` names one.
+In the Gradle tests, Mesen runs only for the execution tests and for `IrqCheckTest`'s pictures,
+and only when it is there: when `.mesen/` in the repository holds one (it is not in git) or
+`-Pmesen` names one.
 `dev/fetch_mesen.sh` puts MesenCE there, the Linux build `Mesen` and the Windows build
 `Mesen.exe`, both portable and with the settings the tests need; Gradle takes `.mesen/Mesen`
 when it exists, else `.mesen/Mesen.exe`. `MesenRunner` starts it headless (`--testrunner`) with
 a Lua script that waits for the write to `$21FB`, reads the globals and writes them to a file.
 It works with the Linux build, whose libraries it takes from `.mesen/lib` when that folder
-exists, and from WSL with the Windows build. On the SNES side, the random programs, the
-examples, their timing and reference functions, and the examples' benchmark run in dampf's
-emulator only.
+exists, and from WSL with the Windows build. `IrqCheckTest` plays its ROM there with
+`dev/check_example.sh`. On the SNES side, the random programs, the examples, their timing and
+reference functions, and the examples' benchmark run in dampf's emulator only.
 
-Outside the Gradle tests, `dev/check_example.sh` and `dev/compare_example.sh` start Mesen. Each
+The scripts `dev/check_example.sh` and `dev/compare_example.sh` start Mesen themselves. Each
 takes the Mesen that `MESEN` names, else `.mesen/Mesen`, else `.mesen/Mesen.exe`
 (`dev/mesen.sh`).
 
@@ -316,7 +359,7 @@ guides. The rest is switched on with Gradle properties:
 | `./gradlew test` | the default tests only |
 | `./gradlew test --tests dampf.exec.ExecutionTest` | one test class |
 | `./gradlew test --tests dampf.exec.ExecutionTest -Pexec=<name>` | only the execution test of `<name>.c` |
-| `./gradlew test -Pmesen=<path to Mesen>` | execution tests also in this Mesen instead of the one in `.mesen/` |
+| `./gradlew test -Pmesen=<path to Mesen>` | execution tests and `IrqCheckTest`'s pictures also in this Mesen instead of the one in `.mesen/` |
 | `./gradlew test -Prandom=<N>` | N random programs of each generator instead of 50 |
 | `./gradlew test -PrandomSeed=<S>` | random programs of both generators from seed S on (default 1, and today's for `RandomLoopProgram`) |
 | `./gradlew test -PppRandom=<N>` | N random macro programs instead of 300 |
@@ -397,9 +440,11 @@ small harness that includes the file, calls `test_main` and prints every global,
 with clang twice: `clang -std=c99 -O0 -Wall` with UBSan for the check, and
 `clang -std=c99 -O1 -Wall` for the values. It adds dampf's header directory with `-idirafter`,
 so a test can include `<dampf.h>`; clang searches that directory after its own, so `<stdint.h>`
-still comes from the PC. Here the PC prints `lives 4` and `score 1275`, and the
-test passes when the MIR interpreter, both ROMs in dampf's emulator and, if present, Mesen all
-end with these values, and every call in the ROM from MIR stays within its static timing.
+still comes from the PC. Both sides also find the kit's public headers in `lib/include`, so a
+test can include `"sdevkit/publish.h"`, as `published.c` does. Here the PC prints `lives 4`
+and `score 1275`, and the test passes when the MIR interpreter, both ROMs in dampf's emulator
+and, if present, Mesen all end with these values, and every call in the ROM from MIR stays
+within its static timing.
 
 A test is only useful if its result depends on what it tests: a global that nothing writes
 stays at its initial value whatever dampf does. Deliberately broken code generation must make a

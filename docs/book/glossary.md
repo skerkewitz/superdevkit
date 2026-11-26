@@ -99,7 +99,8 @@ functions there.
 
 Direct memory access: the SNES copies bytes from memory into [VRAM](#vram), [CGRAM](#cgram) or
 [OAM](#oam) without the CPU, at 8 [master clocks](#master-clock) a byte. A vertical blank has
-room for about 5,700 bytes of it. The kit's `sdevkit_dma_copy_*` functions use it.
+room for about 6,300 bytes of it. The console API's `sdevkit_dma` and copies such as
+`sdevkit_vram_copy` use it.
 
 ## Emscripten
 
@@ -138,13 +139,15 @@ a gradient). The kit's `sdevkit_hdma_set` and `sdevkit_hdma_enable` set it up.
 ## Hint
 
 A macro from dampf's header `<dampf.h>` that tells dampf something it cannot infer, such as a
-value range (`DAMPF_RANGE`) or a cycle budget (`DAMPF_BUDGET`). In the PC build a hint is a
-checked assertion or nothing. Two hints are built; see [Hints](/reference/hints).
+value range (`DAMPF_RANGE`), a cycle budget (`DAMPF_BUDGET`) or hand-written assembly in place of
+a function's body (`DAMPF_ASM`). In the PC build a hint is a checked assertion or nothing. Three
+hints are built; see [Hints](/reference/hints).
 
 ## Intrinsic
 
-A function that gives C code access to SNES hardware, such as the hardware multiplier or DMA. In
-the PC build it is a plain function. Not built yet.
+A function that gives C code access to SNES hardware, such as the hardware multiplier or DMA, and
+is a plain function in the PC build. dampf has none, and none are planned: dampf uses the
+hardware multiplier itself, and the console API reaches DMA and the registers.
 
 ## Joypad
 
@@ -192,8 +195,8 @@ reference that the tests compare the [code generator from MIR](#code-generator-f
 ## OAM
 
 The SNES's sprite table: position, tile, palette, priority and size of 128 sprites, 544 bytes. A
-game writes the kit's copy (`sdevkit_oam_memory`, through the `sdevkit_oam_*` functions), and the
-main loop copies it into OAM in every [vertical blank](#vertical-blank).
+game keeps its own copy in RAM (or the sprite list of the optional layers) and copies it into OAM
+in the [vertical blank](#vertical-blank) with `sdevkit_oam_copy`; the kit copies nothing itself.
 
 ## Pass
 
@@ -209,9 +212,9 @@ the reference: what dampf's code computes on the SNES must match it bit for bit.
 
 The C code that implements a game's console API on the real SNES: setting up the hardware, the
 main loop and waiting for the [vertical blank](#vertical-blank). dampf compiles it together with
-the game. The dev kit's is `lib/snes`, for the console API `sdevkit/snes.h` (PVSnesLib's calls,
-renamed, and the main loop). A game calls nothing but the console API; on the desktop and the web
-[Rachael](#rachael) implements the same API.
+the game. The dev kit's is `lib/snes`, for the console API `sdevkit/snes.h` (the hardware at
+once: registers, DMA and HDMA) and the main loop. A game calls nothing but the console API; on
+the desktop and the web [Rachael](#rachael) implements the same API.
 
 ## Pointer compression
 
