@@ -168,6 +168,12 @@ check must fail on what the second run of the vertical blank changes (`repeated`
 show the first frame after each tick's vertical blank, not a frame the NMI repeated during an
 overrun; `exec/published.c` checks that the NMI runs the vertical blank in the middle of ticks. `dev/compare_example.sh dev/irq_check` does the Mesen part by hand.
 
+`ModesPictureTest` does the Mesen part for `examples/modes`, which shows every picture mode
+Rachael draws (modes 0, 2, 3 and 4, offsets per tile, direct colour, mosaic, mode 7's EXTBG, and
+VRAM, CGRAM and OAM read back; ADR-6FSHCP06): where Mesen is, its eleven pictures must be the
+desktop's pixel for pixel. A mode drawn wrong shows there only, since dampf's emulator draws no
+picture.
+
 **Recordings.** Every session in the desktop's window is recorded, the joypad and the checksum of
 every tick; F11 saves it in the format of `check.txt` (with `mark` and `hash` lines, which the
 other players skip), so a bug seen on the desktop can be played again: in the window
@@ -248,7 +254,8 @@ over when it left ([ADR-6F60Z819](adr/6F60Z819-the-examples-replace-blubber-blas
   atomically (`superdevkit.AtomicWrite`), so a class compiling from it never reads a file half
   written.
 - **Mesen** (MesenCE in `.mesen/`, from `dev/fetch_mesen.sh`, or `-Pmesen=<path>`) runs the execution
-  tests, the examples in `dev/compare_example.sh` and `dev/irq_check` in `IrqCheckTest`; the random
+  tests, the examples in `dev/compare_example.sh`, `dev/irq_check` in `IrqCheckTest` and
+  `examples/modes` in `ModesPictureTest`; the random
   programs run in dampf's emulator only.
 - **Cycle table:** `CycleTableAgainstEmulatorTest` checks the cost model
   (`dampf.target.Cycles65816`) against the emulator for every opcode in dampf's processor state;

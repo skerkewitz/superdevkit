@@ -190,6 +190,34 @@ class Png2SnesTest {
     }
 
     @Test
+    void eightBitTiles() throws Exception {
+        Random r = new Random(3);
+        int[][] idx = new int[8][16];
+        for (int[] row : idx) {
+            for (int x = 0; x < 16; x++) {
+                row[x] = r.nextInt(256);
+            }
+        }
+        int[][] pal = new int[256][];
+        for (int i = 0; i < 256; i++) {
+            pal[i] = new int[] { i, 255 - i, (i * 7) & 0xFF };
+        }
+        Path p = dir.resolve("t8.png");
+        png(p, 16, indexRows(idx), 3, pal, false);
+        Png2Snes.convert(Png2Snes.Mode.TILES8, p, "t8", dir, 1);
+        byte[] t = array(dir.resolve("t8.c"), "t8_tiles");
+        assertEquals(2 * 64, t.length);
+        assertEquals(512, array(dir.resolve("t8.c"), "t8_pal").length);
+        for (int tx = 0; tx < 2; tx++) {
+            for (int y = 0; y < 8; y++) {
+                for (int x = 0; x < 8; x++) {
+                    assertEquals(idx[y][tx * 8 + x], decode(t, tx * 64, x, y, 8));
+                }
+            }
+        }
+    }
+
+    @Test
     void rgbaGetsItsColoursInOrderOfAppearance() throws Exception {
         int[] red = { 255, 0, 0, 255 }, blue = { 0, 0, 255, 255 }, clear = { 9, 9, 9, 0 };
         int[][][] rows = new int[8][][];

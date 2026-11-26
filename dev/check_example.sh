@@ -24,6 +24,12 @@ if [ "${NOBUILD:-0}" != 1 ]; then
     "$S" build snes "$EX" > /dev/null
 fi
 rm -rf "$OUT" && mkdir -p "$OUT"
+# Mesen's folder holds one check at a time (its files have fixed names): two checks at once, as
+# test classes in parallel JVMs run them (IrqCheckTest, ModesPictureTest), wait for each other
+if command -v flock > /dev/null 2>&1; then
+    exec 9> "$MESEN_DIR/example_check.lock"
+    flock 9
+fi
 cp "$EX/build/snes/$NAME.sfc" "$MESEN_DIR/example_check.sfc"
 cp dev/example_check.lua "$MESEN_DIR/example_check.lua"
 cp "${INPUT:-$EX/check.txt}" "$MESEN_DIR/example_input.txt"

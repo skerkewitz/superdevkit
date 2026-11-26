@@ -10,8 +10,10 @@
  *      last sprite to the first, and after 34 tiles the rest is dropped
  *      ("time over"), which hits the sprites with the lowest numbers.
  *      Sprites are drawn one line below their y, as on the SNES.
- *   3. Backgrounds of mode 1: BG1 and BG2 with 16 colours, BG3 with 4; or
- *      mode 7's one layer, rotated and scaled (draw_mode7).
+ *   3. Backgrounds: the layers of modes 0 to 4 with 4, 16 or 256 colours a
+ *      tile (offset-per-tile in modes 2 and 4, direct colour for 256), or
+ *      mode 7's layer, rotated and scaled, and its second layer (EXTBG);
+ *      mosaic on any of them. Modes 5 and 6 are not drawn (reported).
  *   4. Main and sub screen: the frontmost pixel of each, by the mode's
  *      priority order, minus what the windows mask (TMW, TSW).
  *   5. Colour math against the fixed colour or the sub screen, limited by
@@ -30,12 +32,13 @@ enum { L_BG1, L_BG2, L_BG3, L_BG4, L_OBJ, L_BACK };
 
 /* One layer's pixels on the current line. */
 typedef struct {
-    uint8_t color[W];     /* CGRAM index */
+    uint8_t color[W];     /* CGRAM index, or the colour of a direct-colour pixel */
     uint8_t opaque[W];
     uint8_t prio[W];      /* tile priority bit, or sprite priority 0..3 */
+    uint8_t pal[W];       /* a 256-colour tile's palette bits, for direct colour (BG1 only) */
 } Line;
 
-static Line bg_line[3];
+static Line bg_line[4];
 static Line obj_line;
 static uint8_t   obj_pal[W];          /* sprite palette 0..7, for colour math on palettes 4..7 */
 static uint8_t   win1[W], win2[W];
@@ -100,64 +103,152 @@ static void hdma_line(void)
 }
 
 /* --- Tiles ------------------------------------------------------------------------------ */
-/* Colour 0..15 (4 bpp) or 0..3 (2 bpp) of pixel (x, y) of the tile at this VRAM word. */
+/* Colour 0..255 (8 bpp), 0..15 (4 bpp) or 0..3 (2 bpp) of pixel (x, y) of the tile at this VRAM
+ * word: two bit planes a word, the planes 2 and 3 eight words on, 4 to 7 sixteen and 24. */
 static uint8_t tile_pixel(uint16_t addr, uint8_t bpp, uint8_t x, uint8_t y)
 {
     uint16_t w0 = sdevkit__rachael.vram[(uint16_t)(addr + y) & (SDEVKIT__VRAM_WORDS - 1)];
     uint8_t bit = (uint8_t)(7 - x);
     uint8_t c = (uint8_t)(((w0 >> bit) & 1) | (((w0 >> (8 + bit)) & 1) << 1));
-    if (bpp == 4) {
+    if (bpp >= 4) {
         uint16_t w1 = sdevkit__rachael.vram[(uint16_t)(addr + 8 + y) & (SDEVKIT__VRAM_WORDS - 1)];
         c = (uint8_t)(c | (((w1 >> bit) & 1) << 2) | (((w1 >> (8 + bit)) & 1) << 3));
+        if (bpp == 8) {
+            uint16_t w2 = sdevkit__rachael.vram[(uint16_t)(addr + 16 + y) & (SDEVKIT__VRAM_WORDS - 1)];
+            uint16_t w3 = sdevkit__rachael.vram[(uint16_t)(addr + 24 + y) & (SDEVKIT__VRAM_WORDS - 1)];
+            c = (uint8_t)(c | (((w2 >> bit) & 1) << 4) | (((w2 >> (8 + bit)) & 1) << 5)
+                            | (((w3 >> bit) & 1) << 6) | (((w3 >> (8 + bit)) & 1) << 7));
+        }
     }
     return c;
 }
 
 /* --- Backgrounds -------------------------------------------------------------------------- */
-static void draw_bg(uint8_t bg, uint8_t line)
+/* Mosaic (MOSAIC): blocks of size x size pixels from the picture's top left; a layer that has it
+ * on shows the block's first pixel in each, the vertical counter starting at scanline 1 and
+ * stepping a block at a time, as the PPU's does. */
+static uint8_t  mosaic_size;          /* 1..16 */
+static uint8_t  mosaic_counter;
+static uint16_t mosaic_line;
+
+/* A layer's map: where it is, its size in tiles, its tile size. */
+typedef struct {
+    uint16_t map, mapw, maph;
+    uint8_t  shift;                   /* 3 for 8 x 8 tiles, 4 for 16 x 16 */
+} MapSetup;
+
+static void map_setup(uint8_t bg, MapSetup *m)
+{
+    uint8_t sc = sdevkit__rachael.regs[SDEVKIT_PPU_BG1SC + bg];
+    m->map = (uint16_t)((sc & 0xFC) << 8);
+    m->mapw = (uint16_t)((sc & 1) ? 64 : 32);
+    m->maph = (uint16_t)((sc & 2) ? 64 : 32);
+    m->shift = (uint8_t)(((sdevkit__rachael.regs[SDEVKIT_PPU_BGMODE] >> (4 + bg)) & 1) ? 4 : 3);   /* BGMODE: 16 x 16 tiles */
+}
+
+/* The map entry under the layer's pixel (px, py), both 10 bits. */
+static uint16_t map_entry(const MapSetup *m, uint16_t px, uint16_t py)
+{
+    uint16_t tx = (uint16_t)((px >> m->shift) & (m->mapw - 1)), ty = (uint16_t)((py >> m->shift) & (m->maph - 1));
+    uint16_t screen = (uint16_t)((tx >> 5) + (ty >> 5) * (m->mapw >> 5));
+    return sdevkit__rachael.vram[(uint16_t)(m->map + screen * 0x400 + (ty & 31) * 32 + (tx & 31)) & (SDEVKIT__VRAM_WORDS - 1)];
+}
+
+/* The layer's pixels repeated over each mosaic block of the line. */
+static void mosaic_x(Line *out)
+{
+    uint16_t x;
+    for (x = 0; x < W; x++) {
+        uint16_t from = (uint16_t)(x - x % mosaic_size);
+        if (from != x) {
+            out->opaque[x] = out->opaque[from];
+            out->color[x] = out->color[from];
+            out->prio[x] = out->prio[from];
+            out->pal[x] = out->pal[from];
+        }
+    }
+}
+
+/* One layer of modes 0 to 4 on one line: bpp 2, 4 or 8 bits a pixel, its palettes from CGRAM
+ * colour palbase on (mode 0 gives each layer 32 colours). opt is the mode when BG3 holds the
+ * offsets per tile (2 and 4): from the second column of tiles on, BG3's map has a scroll for each
+ * column, two rows of entries in mode 2 (horizontal, then vertical), one in mode 4 (bit 15: the
+ * entry is vertical); bit 13 applies it to BG1, bit 14 to BG2. A horizontal one replaces the
+ * layer's scroll but its lowest three bits. direct: keep the palette bits of a 256-colour tile. */
+static void draw_bg(uint8_t bg, uint16_t line, uint8_t bpp, uint8_t palbase, uint8_t opt, uint8_t direct)
 {
     Line *out = &bg_line[bg];
-    uint8_t bpp = (uint8_t)(bg < 2 ? 4 : 2);
-    uint8_t sc = sdevkit__rachael.regs[SDEVKIT_PPU_BG1SC + bg];
-    uint16_t map = (uint16_t)((sc & 0xFC) << 8);
-    uint16_t mapw = (uint16_t)((sc & 1) ? 64 : 32), maph = (uint16_t)((sc & 2) ? 64 : 32);
+    MapSetup m, bg3;
     uint8_t nba = sdevkit__rachael.regs[bg < 2 ? SDEVKIT_PPU_BG12NBA : SDEVKIT_PPU_BG34NBA];
     uint16_t chr = (uint16_t)(((bg & 1) ? nba >> 4 : nba & 0x0F) << 12);
-    uint16_t py = (uint16_t)((line + sdevkit__rachael.vofs[bg]) & 0x3FF);
-    uint8_t big = (uint8_t)((sdevkit__rachael.regs[SDEVKIT_PPU_BGMODE] >> (4 + bg)) & 1);   /* BGMODE: this layer has 16 x 16 tiles */
-    uint8_t shift = (uint8_t)(big ? 4 : 3);
-    uint16_t ty = (uint16_t)((py >> shift) & (maph - 1));
-    uint16_t hofs = sdevkit__rachael.hofs[bg];
+    uint16_t hofs = sdevkit__rachael.hofs[bg], vofs = sdevkit__rachael.vofs[bg];
+    uint16_t valid = (uint16_t)(bg == 0 ? 0x2000 : 0x4000);
+    uint8_t words = (uint8_t)(bpp * 4);   /* VRAM words a tile */
     int16_t x = (int16_t)-(hofs & 7);   /* the first tile may start left of the screen */
+    uint8_t column = 0;
 
+    map_setup(bg, &m);
+    map_setup(2, &bg3);                /* the offsets' map, for opt */
     /* one tile (8 pixels) at a time: its map entry and row are read once */
-    for (; x < W; x = (int16_t)(x + 8)) {
-        uint16_t px = (uint16_t)((x + hofs) & 0x3FF);
-        uint16_t tx = (uint16_t)((px >> shift) & (mapw - 1));
-        uint16_t screen = (uint16_t)((tx >> 5) + (ty >> 5) * (mapw >> 5));
-        uint16_t entry = sdevkit__rachael.vram[(uint16_t)(map + screen * 0x400 + (ty & 31) * 32 + (tx & 31)) & (SDEVKIT__VRAM_WORDS - 1)];
-        uint8_t fy = (uint8_t)(py & 7), pal = (uint8_t)((entry >> 10) & 7), prio = (uint8_t)((entry >> 13) & 1), i;
-        uint16_t addr;
-        uint16_t tile = (uint16_t)(entry & 0x3FF);
-        if (big) {                     /* a 16 x 16 tile is the 8 x 8 tiles n, n + 1, n + 16, n + 17 */
+    for (; x < W; x = (int16_t)(x + 8), column++) {
+        uint16_t h = hofs, v = vofs;
+        uint16_t px, py, entry, addr, tile;
+        uint8_t fy, pal, prio, i, base, flip;
+        if (opt && column > 0) {
+            uint16_t ox = (uint16_t)(((column - 1) * 8 + (sdevkit__rachael.hofs[2] & ~7)) & 0x3FF);
+            uint16_t hval = map_entry(&bg3, ox, sdevkit__rachael.vofs[2]);
+            if (opt == 4) {
+                if (hval & valid) {
+                    if (hval & 0x8000) {
+                        v = (uint16_t)(hval & 0x3FF);
+                    } else {
+                        h = (uint16_t)((hval & 0x3F8) | (hofs & 7));
+                    }
+                }
+            } else {
+                uint16_t vval = map_entry(&bg3, ox, (uint16_t)((sdevkit__rachael.vofs[2] + 8) & 0x3FF));
+                if (hval & valid) {
+                    h = (uint16_t)((hval & 0x3F8) | (hofs & 7));
+                }
+                if (vval & valid) {
+                    v = (uint16_t)(vval & 0x3FF);
+                }
+            }
+        }
+        px = (uint16_t)((x + h) & 0x3FF);
+        py = (uint16_t)((line + v) & 0x3FF);
+        entry = map_entry(&m, px, py);
+        fy = (uint8_t)(py & 7);
+        pal = (uint8_t)((entry >> 10) & 7);
+        prio = (uint8_t)((entry >> 13) & 1);
+        tile = (uint16_t)(entry & 0x3FF);
+        if (m.shift == 4) {            /* a 16 x 16 tile is the 8 x 8 tiles n, n + 1, n + 16, n + 17 */
             uint8_t right = (uint8_t)((px >> 3) & 1), lower = (uint8_t)((py >> 3) & 1);
             if (entry & SDEVKIT_BG_TIL_FLIPX) right = (uint8_t)!right;
             if (entry & SDEVKIT_BG_TIL_FLIPY) lower = (uint8_t)!lower;
             tile = (uint16_t)(tile + right + lower * 16);
         }
         if (entry & SDEVKIT_BG_TIL_FLIPY) fy = (uint8_t)(7 - fy);
-        addr = (uint16_t)(chr + tile * (bpp == 4 ? 16 : 8));
+        addr = (uint16_t)(chr + tile * words);
+        base = (uint8_t)(bpp == 8 ? 0 : bpp == 4 ? palbase + pal * 16 : palbase + pal * 4);
+        flip = (uint8_t)((entry & SDEVKIT_BG_TIL_FLIPX) ? 7 : 0);
         for (i = 0; i < 8; i++) {
             int16_t sx = (int16_t)(x + i);
             uint8_t c;
             if (sx < 0 || sx >= W) {
                 continue;
             }
-            c = tile_pixel(addr, bpp, (uint8_t)((entry & SDEVKIT_BG_TIL_FLIPX) ? 7 - i : i), fy);
+            c = tile_pixel(addr, bpp, (uint8_t)(i ^ flip), fy);
             out->opaque[sx] = (uint8_t)(c != 0);
-            out->color[sx] = (uint8_t)(bpp == 4 ? pal * 16 + c : pal * 4 + c);
+            out->color[sx] = (uint8_t)(base + c);
             out->prio[sx] = prio;
+            if (direct) {
+                out->pal[sx] = pal;
+            }
         }
+    }
+    if (mosaic_size > 1 && (sdevkit__rachael.regs[SDEVKIT_PPU_MOSAIC] & (1 << bg))) {
+        mosaic_x(out);
     }
 }
 
@@ -175,13 +266,13 @@ static int32_t m7_clip(int32_t n)
     return (n & 0x2000) ? (n | ~(int32_t)0x3FF) : (n & 0x3FF);
 }
 
-/* BG1 of mode 7 on one line, with the PPU's arithmetic: the start of the line from the matrix,
- * the centre and the scroll, each product cut to whole 1/4 pixels (& ~63), then a step of (a, c)
- * per pixel, the map position the sum >> 8. The map is the low byte of VRAM words 0..0x3FFF, the
- * pixels of tile t the high bytes of words t * 64 ... */
-static void draw_mode7(uint8_t line)
+/* Mode 7 on one line, with the PPU's arithmetic: the start of the line from the matrix, the
+ * centre and the scroll, each product cut to whole 1/4 pixels (& ~63), then a step of (a, c) per
+ * pixel, the map position the sum >> 8. The map is the low byte of VRAM words 0..0x3FFF, the
+ * pixels of tile t the high bytes of words t * 64 ... BG1 is the pixel; with EXTBG (SETINI bit 6)
+ * BG2 is the same pixel, bit 7 its priority and bits 0-6 its colour. */
+static void draw_mode7(uint8_t line, uint8_t bg1, uint8_t bg2)
 {
-    Line *out = &bg_line[0];
     const uint16_t *m = sdevkit__rachael.m7;
     int32_t a = (int16_t)m[0], b = (int16_t)m[1], c = (int16_t)m[2], d = (int16_t)m[3];
     int32_t cx = sign13(m[4]), cy = sign13(m[5]);
@@ -204,9 +295,25 @@ static void draw_mode7(uint8_t line)
         if (!(off && outside == 2)) {
             pixel = (uint16_t)(sdevkit__rachael.vram[(tile << 6) | ((py & 7) << 3) | (px & 7)] >> 8);
         }
-        out->opaque[sx] = (uint8_t)(pixel != 0);
-        out->color[sx] = (uint8_t)pixel;
-        out->prio[sx] = 0;
+        if (bg1) {
+            bg_line[0].opaque[sx] = (uint8_t)(pixel != 0);
+            bg_line[0].color[sx] = (uint8_t)pixel;
+            bg_line[0].prio[sx] = 0;
+            bg_line[0].pal[sx] = 0;
+        }
+        if (bg2) {
+            bg_line[1].opaque[sx] = (uint8_t)((pixel & 0x7F) != 0);
+            bg_line[1].color[sx] = (uint8_t)(pixel & 0x7F);
+            bg_line[1].prio[sx] = (uint8_t)(pixel >> 7);
+        }
+    }
+    if (mosaic_size > 1) {
+        if (bg1 && (sdevkit__rachael.regs[SDEVKIT_PPU_MOSAIC] & 1)) {
+            mosaic_x(&bg_line[0]);
+        }
+        if (bg2 && (sdevkit__rachael.regs[SDEVKIT_PPU_MOSAIC] & 2)) {
+            mosaic_x(&bg_line[1]);
+        }
     }
 }
 
@@ -359,18 +466,34 @@ static const Slot order_normal[] = {
 static const Slot order_mode7[] = {
     { L_OBJ, 3 }, { L_OBJ, 2 }, { L_OBJ, 1 }, { L_BG1, 0 }, { L_OBJ, 0 }
 };
+/* Mode 7 with EXTBG: BG2's pixels with bit 7 in front of BG1, the others behind it. */
+static const Slot order_mode7_extbg[] = {
+    { L_OBJ, 3 }, { L_OBJ, 2 }, { L_BG2, 1 }, { L_OBJ, 1 }, { L_BG1, 0 }, { L_BG2, 0 }, { L_OBJ, 0 }
+};
+/* Mode 0: four layers. */
+static const Slot order_mode0[] = {
+    { L_OBJ, 3 }, { L_BG1, 1 }, { L_BG2, 1 }, { L_OBJ, 2 }, { L_BG1, 0 }, { L_BG2, 0 },
+    { L_OBJ, 1 }, { L_BG3, 1 }, { L_BG4, 1 }, { L_OBJ, 0 }, { L_BG3, 0 }, { L_BG4, 0 }
+};
+/* Modes 2 to 4: two layers. */
+static const Slot order_two[] = {
+    { L_OBJ, 3 }, { L_BG1, 1 }, { L_OBJ, 2 }, { L_BG2, 1 }, { L_OBJ, 1 }, { L_BG1, 0 },
+    { L_OBJ, 0 }, { L_BG2, 0 }
+};
+
+/* The order of the line being drawn, chosen once a line by its mode. */
+static const Slot *order;
+static uint8_t order_n;
+static uint8_t direct_line;           /* BG1's 256 colours are direct colours on this line */
+
+#define ORDER(o) (order = (o), order_n = (uint8_t)(sizeof (o) / sizeof (o)[0]))
 
 /* The frontmost layer at x on a screen with these layers (TM or TS) and
  * window masks (TMW or TSW). Returns the layer; *color is its CGRAM index. */
 static uint8_t front(uint16_t x, uint8_t shown, uint8_t masked, uint8_t *color)
 {
-    uint8_t mode7 = (uint8_t)((sdevkit__rachael.regs[SDEVKIT_PPU_BGMODE] & 7) == 7);
-    uint8_t high = (uint8_t)(!mode7 && (sdevkit__rachael.regs[SDEVKIT_PPU_BGMODE] & SDEVKIT_BG3_MODE1_PRIORITY_HIGH) != 0);
-    const Slot *order = mode7 ? order_mode7 : high ? order_bg3_high : order_normal;
-    uint8_t n = (uint8_t)(mode7 ? sizeof order_mode7 / sizeof order_mode7[0]
-                        : high ? sizeof order_bg3_high / sizeof order_bg3_high[0] : sizeof order_normal / sizeof order_normal[0]);
     uint8_t i;
-    for (i = 0; i < n; i++) {
+    for (i = 0; i < order_n; i++) {
         uint8_t layer = order[i].layer;
         const Line *l = layer == L_OBJ ? &obj_line : &bg_line[layer];
         if (!(shown & (1 << layer)) || !l->opaque[x] || l->prio[x] != order[i].prio) {
@@ -384,6 +507,20 @@ static uint8_t front(uint16_t x, uint8_t shown, uint8_t masked, uint8_t *color)
     }
     *color = 0;
     return L_BACK;
+}
+
+/* The colour of the front pixel: CGRAM's, or for a direct-colour pixel of BG1 its own, from its
+ * eight bits BBGGGRRR and the tile's palette bits bgr: BBb00 GGGg0 RRRr0. */
+static uint16_t colour_of(uint8_t layer, uint16_t x, uint8_t index)
+{
+    if (layer == L_BG1 && direct_line) {
+        uint8_t p = bg_line[0].pal[x];
+        uint16_t r = (uint16_t)(((index & 7) << 2) | ((p & 1) << 1));
+        uint16_t g = (uint16_t)((((index >> 3) & 7) << 2) | (p & 2));
+        uint16_t b = (uint16_t)(((index >> 6) << 3) | (p & 4));
+        return (uint16_t)(r | (g << 5) | (b << 10));
+    }
+    return sdevkit__rachael.cgram[index];
 }
 
 /* --- Colour math --------------------------------------------------------------------------------- */
@@ -423,6 +560,72 @@ static uint16_t brighten(uint16_t c, uint8_t level)
     return (uint16_t)(r | (g << 5) | (b << 10));
 }
 
+/* The line's layer line used for a layer: the mosaic block's first when it has mosaic on. */
+static uint16_t layer_line(uint8_t bg, uint16_t line)
+{
+    return (mosaic_size > 1 && (sdevkit__rachael.regs[SDEVKIT_PPU_MOSAIC] & (1 << bg))) ? mosaic_line : line;
+}
+
+/* The backgrounds of one line by the mode: each layer the screens show, at its bits a pixel. */
+static void draw_layers(uint8_t shown, uint16_t line)
+{
+    uint8_t bgmode = sdevkit__rachael.regs[SDEVKIT_PPU_BGMODE], mode = (uint8_t)(bgmode & 7), bg;
+    uint8_t direct = (uint8_t)((sdevkit__rachael.regs[SDEVKIT_PPU_CGWSEL] & 1) != 0);
+
+    direct_line = 0;
+    if (mode == 7) {
+        uint8_t extbg = (uint8_t)((sdevkit__rachael.regs[SDEVKIT_PPU_SETINI] & 0x40) != 0);
+        uint8_t bg1 = (uint8_t)((shown & 1) != 0), bg2 = (uint8_t)(extbg && (shown & 2));
+        if (extbg) {
+            ORDER(order_mode7_extbg);
+        } else {
+            ORDER(order_mode7);
+        }
+        direct_line = direct;
+        if (bg1 || bg2) {
+            /* both layers take the line of BG1's vertical mosaic */
+            draw_mode7((uint8_t)layer_line(0, line), bg1, bg2);
+        }
+        if (!bg1) {
+            memset(bg_line[0].opaque, 0, sizeof bg_line[0].opaque);
+        }
+        if (!bg2) {
+            memset(bg_line[1].opaque, 0, sizeof bg_line[1].opaque);
+        }
+        return;
+    }
+    if (mode == 0) {
+        ORDER(order_mode0);
+    } else if (mode == 1 || mode > 4) {   /* modes 5 and 6 are not drawn: as mode 1, reported */
+        if (bgmode & SDEVKIT_BG3_MODE1_PRIORITY_HIGH) {
+            ORDER(order_bg3_high);
+        } else {
+            ORDER(order_normal);
+        }
+    } else {
+        ORDER(order_two);
+    }
+    for (bg = 0; bg < 4; bg++) {
+        uint8_t bpp = 0, opt = 0;
+        switch (mode) {
+        case 0:  bpp = 2; break;
+        case 2:  bpp = (uint8_t)(bg < 2 ? 4 : 0); opt = 2; break;
+        case 3:  bpp = (uint8_t)(bg == 0 ? 8 : bg == 1 ? 4 : 0); break;
+        case 4:  bpp = (uint8_t)(bg == 0 ? 8 : bg == 1 ? 2 : 0); opt = 4; break;
+        default: bpp = (uint8_t)(bg < 2 ? 4 : bg == 2 ? 2 : 0); break;
+        }
+        if (bpp && (shown & (1 << bg))) {
+            uint8_t d = (uint8_t)(bpp == 8 && direct);
+            draw_bg(bg, layer_line(bg, line), bpp, (uint8_t)(mode == 0 ? bg * 32 : 0), opt, d);
+            if (d) {
+                direct_line = 1;
+            }
+        } else {
+            memset(bg_line[bg].opaque, 0, sizeof bg_line[bg].opaque);
+        }
+    }
+}
+
 void sdevkit__render(uint16_t *out)
 {
     uint16_t y, x;
@@ -448,6 +651,15 @@ void sdevkit__render(uint16_t *out)
             sdevkit__irq_handler();
             sdevkit__rachael.in_irq = 0;
         }
+        /* the vertical mosaic counter: a block's lines show its first line */
+        mosaic_size = (uint8_t)((sdevkit__rachael.regs[SDEVKIT_PPU_MOSAIC] >> 4) + 1);
+        if (y == 0) {
+            mosaic_counter = mosaic_size;
+            mosaic_line = 1;
+        } else if (--mosaic_counter == 0) {
+            mosaic_counter = mosaic_size;
+            mosaic_line = (uint16_t)(mosaic_line + mosaic_size);
+        }
         inidisp = sdevkit__rachael.regs[SDEVKIT_PPU_INIDISP];
         if (inidisp & 0x80) {
             memset(row, 0, W * sizeof row[0]);
@@ -472,18 +684,7 @@ void sdevkit__render(uint16_t *out)
             win2[x] = (uint8_t)(x >= wl2 && x <= wr2);
         }
 
-        for (x = 0; x < 3; x++) {
-            uint8_t mode7 = (uint8_t)((sdevkit__rachael.regs[SDEVKIT_PPU_BGMODE] & 7) == 7);
-            if (((tm | ts) & (1 << x)) && (!mode7 || x == 0)) {
-                if (mode7) {
-                    draw_mode7((uint8_t)(y + 1));
-                } else {
-                    draw_bg((uint8_t)x, (uint8_t)(y + 1));
-                }
-            } else {
-                memset(bg_line[x].opaque, 0, sizeof bg_line[x].opaque);
-            }
-        }
+        draw_layers((uint8_t)(tm | ts), (uint16_t)(y + 1));
         if ((tm | ts) & SDEVKIT_OBJ_ENABLE) {
             draw_sprites((uint8_t)(y + 1));
         } else {
@@ -493,7 +694,7 @@ void sdevkit__render(uint16_t *out)
         for (x = 0; x < W; x++) {
             uint8_t mc, sc, cw = in_area(cw_sel, cw_logic, x);
             uint8_t ml = front(x, tm, tmw, &mc);
-            uint16_t color = sdevkit__rachael.cgram[mc];
+            uint16_t color = colour_of(ml, x, mc);
             uint8_t clipped = region((uint8_t)(cgwsel >> 6), cw);
             uint8_t math_on = (uint8_t)!region((uint8_t)(cgwsel >> 4), cw);
             uint8_t layer_math = (uint8_t)(ml == L_BACK ? (cgadsub & SDEVKIT_CM_MSCR_BACK) != 0
@@ -510,7 +711,7 @@ void sdevkit__render(uint16_t *out)
                     if (sl == L_BACK) {
                         half = 0;                    /* empty sub screen: the fixed colour, not halved */
                     } else {
-                        sub = sdevkit__rachael.cgram[sc];
+                        sub = colour_of(sl, x, sc);
                     }
                 }
                 color = add_sub(color, sub, (uint8_t)((cgadsub & SDEVKIT_CM_SUB_MAINSUB) != 0), half);

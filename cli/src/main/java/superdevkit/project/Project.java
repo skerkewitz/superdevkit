@@ -23,6 +23,7 @@ import superdevkit.gfx.Png2Snes;
  * [graphics]                    # PNG files to C into build/gen (superdevkit png)
  * tiles = ["assets/maze_gfx.png", { png = "assets/boss.png", name = "boss_gfx" }]
  * tiles2 = []                   # 2 bits a pixel
+ * tiles8 = []                   # 8 bits a pixel
  * palette = ["assets/pal_hot.png"]
  * mode7 = [{ png = "assets/festzelt.png", first = 33 }]
  *
@@ -63,7 +64,7 @@ public record Project(Path dir, String name, String version, String kit, int sra
 
     private static final Set<String> TOP = Set.of("name", "superdevkit", "kit", "sram", "sources", "include",
             "graphics", "sound", "build", "snes", "desktop", "web");
-    private static final Set<String> GRAPHICS = Set.of("tiles", "tiles2", "palette", "mode7");
+    private static final Set<String> GRAPHICS = Set.of("tiles", "tiles2", "tiles8", "palette", "mode7");
     private static final Set<String> SOUND = Set.of("sfx", "music");
 
     /** Reads dir/superdevkit.toml. */
@@ -195,13 +196,14 @@ public record Project(Path dir, String name, String version, String kit, int sra
                 include == null ? null : List.copyOf(include), List.copyOf(graphics), sfx, List.copyOf(music), List.copyOf(before), Map.copyOf(defines));
     }
 
-    /** The order the build converts in: tiles, tiles2, palette, mode7 (as in the old build scripts). */
+    /** The order the build converts in: tiles, tiles2, tiles8, palette, mode7 (as in the old build scripts). */
     private static int order(Png2Snes.Mode m) {
         return switch (m) {
             case TILES -> 0;
             case TILES2 -> 1;
-            case PALETTE -> 2;
-            case MODE7 -> 3;
+            case TILES8 -> 2;
+            case PALETTE -> 3;
+            case MODE7 -> 4;
         };
     }
 

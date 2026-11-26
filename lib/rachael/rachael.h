@@ -70,6 +70,7 @@ typedef struct {
     /* the ports of VRAM, CGRAM and OAM, as the SNES has them */
     uint8_t        vmain;                  /* VMAIN: the step, and after which byte */
     uint16_t       vram_addr;              /* VMADD: a word address */
+    uint16_t       vram_read;              /* the word the VRAM port prefetched for a read */
     uint8_t        cg_addr;                /* CGADD: a colour */
     uint8_t        cg_latch, cg_high;      /* the low byte written, and that the next is the high one */
     uint16_t       oam_addr;               /* a byte address: OAMADD * 2, 0..543 */
@@ -123,9 +124,8 @@ void sdevkit__dsp_render(int16_t *stereo, unsigned frames);
 void sdevkit__sfx_frame(void);
 
 /* A register write whose effect Rachael does not draw, so the SNES would show something else:
- * a mode other than 1 and 7, mosaic, SETINI (interlace, high resolution, overscan, EXTBG),
- * direct colour (CGWSEL bit 0), VMAIN's address remapping, and a DMA she does not model (from
- * the PPU to memory, or HDMA with indirect tables).
+ * modes 5 and 6, SETINI's interlace, high resolution and overscan (each would change the
+ * picture's size), and HDMA with indirect tables (sdevkit_hdma_set).
  * Counted in sdevkit__rachael.undrawn; the frontends report it as they report lost bytes. */
 uint8_t sdevkit__undrawn(uint8_t reg, uint8_t value);
 

@@ -42,6 +42,10 @@ GAMES = [
     ("mode7", 270, "Mode 7",
      "The SNES's rotating and zooming background in its smallest form: a checkerboard and a sprite.",
      "X changes what lies outside the map, Z mirrors the screen."),
+    ("modes", 300, "Modes",
+     "The SNES's picture modes, one screen each: four layers, a scroll per column, 256 colours, direct colour, "
+     "mosaic, mode 7's second layer, and VRAM read back.",
+     "X shows the next screen, Z the one before."),
     ("hello", 300, "hello",
      "The smallest game of the kit: about a hundred lines of C, some text and a ball you can move.",
      "The arrows move the ball."),
