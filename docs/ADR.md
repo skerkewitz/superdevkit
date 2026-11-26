@@ -103,6 +103,7 @@ document of its subject.
 | ADR-6FRDS030 | [Interrupt code reads the copy of the tick whose vertical blank came last](adr/6FRDS030-interrupt-code-reads-the-copy-of-the-tick-whose.md) | Accepted; amended by ADR-6FS0T4WB | 2026-11-26 |
 | ADR-6FRX1GYC | [The game's IRQ runs at a picture row and writes after waiting for the horizontal blank](adr/6FRX1GYC-the-game-s-irq-runs-at-a-picture-row-and-writes.md) | Accepted | 2026-11-26 |
 | ADR-6FS0T4WB | [The kit's NMI runs the vertical blank of a game that publishes](adr/6FS0T4WB-the-kit-s-nmi-runs-the-vertical-blank-of-a-game.md) | Accepted | 2026-11-26 |
+| ADR-6FSHCP06 | [Rachael draws modes 0 to 4, mosaic and EXTBG; the picture's other sizes wait for a game](adr/6FSHCP06-rachael-draws-modes-0-to-4-mosaic-and-extbg-the.md) | Accepted | 2026-11-26 |
 
 ## Former numbers
 

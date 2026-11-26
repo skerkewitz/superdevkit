@@ -28,11 +28,15 @@ on both names only what the public headers have, and that its functions are in `
 | Sprites, with the limits of 32 a line and 34 tiles a line | built | built, and counted | `sdevkit_oam_copy`, `SDEVKIT_OBSEL`, `SDEVKIT_OAM_ATTR`, `SDEVKIT_OAM_HIDE_Y`; `sdevkit_sprite`, `sdevkit_sprites_commit` |
 | Windows, main and sub screen, colour math, brightness | built | built | `sdevkit_reg_write`, `SDEVKIT_PPU_WH0`, `SDEVKIT_PPU_TS`, `SDEVKIT_PPU_CGWSEL`, `SDEVKIT_PPU_COLDATA`, `SDEVKIT_PPU_INIDISP`; `sdevkit_ppu.wh`, `sdevkit_ppu.coldata`, `sdevkit_ppu.inidisp` |
 | HDMA in direct mode: one register, two, or one written twice (a scroll register: a wave down the screen) | built | built | `sdevkit_hdma_set`, `sdevkit_hdma_enable`; `sdevkit_hdma[n]`, `sdevkit_ppu.hdmaen` |
+| HDMA with indirect tables (a table of line counts and addresses of the data) | not built: the table holds 16-bit addresses, which the same C cannot write for the PC | not built, reported | |
 | DMA to VRAM, CGRAM and OAM, within the vertical blank's budget; down a column of a map; any B-bus register | built | built, lost bytes counted | `sdevkit_vram_copy`, `sdevkit_vram_column_copy`, `sdevkit_cgram_copy`, `sdevkit_oam_copy`, `sdevkit_dma`, `sdevkit_dma_fits`; `sdevkit_queue_vram`, `sdevkit_queue_room` |
-| Modes 0 and 2 to 6 | not built | not built, reported | |
+| DMA from the PPU to memory: VRAM (with its port's prefetch), CGRAM and OAM read back; VMAIN's address remapping, a bitmap written row by row across tiles | built | built | `sdevkit_dma`, `SDEVKIT_DMA_FROM_PPU`, `SDEVKIT_PPU_VMDATALREAD`, `SDEVKIT_PPU_CGDATAREAD`, `SDEVKIT_PPU_OAMDATAREAD`, `SDEVKIT_VMAIN_REMAP_4BPP` |
+| Modes 0, 2, 3 and 4: four layers of 4 colours, each with 32 colours of its own; a scroll per column of tiles from BG3's map (offset per tile, modes 2 and 4); BG1 with 256 colours (8-bit tiles, `superdevkit png tiles8`) or direct colour (modes 3 and 4) | built | built | `sdevkit_reg_write`, `SDEVKIT_BG_MODE0`, `SDEVKIT_BG_MODE2`, `SDEVKIT_BG_MODE3`, `SDEVKIT_BG_MODE4`, `SDEVKIT_OPT_BG1`, `SDEVKIT_OPT_VERTICAL`, `SDEVKIT_CM_DIRECT_COLOR`; `sdevkit_ppu.bgmode` |
+| Modes 5 and 6: 512 pixels wide | not built | not built, reported | |
 | Mode 7: one layer of 1024 x 1024 pixels, rotated, scaled and mirrored, and what lies outside it; with HDMA on BGMODE and TM, mode 1 above it (a status line on BG3) | built | built | `sdevkit_mode7_map_copy`, `sdevkit_mode7_tiles_copy`, `sdevkit_reg_write_twice`, `SDEVKIT_PPU_M7A`, `SDEVKIT_PPU_M7SEL`, `SDEVKIT_M7_WRAP`; `sdevkit_ppu.m7a` |
-| Mode 7's second layer (EXTBG), direct colour | not built | not built, reported | |
-| Mosaic, high resolution, interlace | not built | not built, reported | |
+| Mode 7's second layer (EXTBG): bit 7 of a pixel its priority, so sprites pass in front of and behind parts of mode 7; direct colour in mode 7 | built | built | `sdevkit_reg_write`, `SDEVKIT_PPU_SETINI`, `SDEVKIT_SETINI_EXTBG`, `SDEVKIT_CM_DIRECT_COLOR`; `sdevkit_ppu.setini` |
+| Mosaic, on every layer, mode 7's too | built | built | `sdevkit_reg_write`, `SDEVKIT_PPU_MOSAIC`, `SDEVKIT_MOSAIC`; `sdevkit_ppu.mosaic` |
+| High resolution, overscan (239 lines), interlace (SETINI) | not built | not built, reported | |
 | The game's IRQ at a row of the picture (the timer's H/V IRQ, kit-timed): a split screen, a status bar, a second scroll; its register writes after a wait for the horizontal blank, about 25 CPU cycles of them | built: the CPU's timer, the handler in C in a context of its own; a write too late shows a row torn, in Mesen (*measured*) | built: called before the row; a register written before the wait counts as written while the picture is drawn (*enforced*) | `sdevkit_irq_line`, `sdevkit_irq_off`, `sdevkit_irq_wait_hblank`, `game_irq`, `SDEVKIT_PUBLISHED` |
 | The timers at any dot, an IRQ in the middle of a row | not built: the kit owns the timer | not built | |
 | The game's vertical blank in the kit's NMI, in every vertical blank, also while a tick overruns (a game that publishes its data) | built: the NMI's handler that the macro defines, 118 to 140 CPU cycles beyond the game's code a frame | built: `game_vblank` runs it once a tick; the desktop's check runs it twice and counts what the second run changes (*enforced*) | `SDEVKIT_PUBLISH`, `SDEVKIT_PUBLISHED` |
@@ -46,10 +50,12 @@ on both names only what the public headers have, and that its functions are in `
 | Mode 7's multiplier (`$2134`-`$2136`) | not used | not needed: the game is compiled for the PC | |
 
 "Reported": `sdevkit_reg_write` can set any PPU register, and Rachael counts every write she
-does not draw (a mode other than 1 and 7, mosaic, `SETINI` for interlace, high resolution and
-EXTBG, direct colour, `VMAIN`'s address remapping, a DMA from the PPU, HDMA not in direct mode).
-The desktop check prints
-`undrawn N` and fails on it, as on a lost byte (*enforced*).
+does not draw (modes 5 and 6, `SETINI` for interlace, high resolution and overscan, HDMA with
+indirect tables). The desktop check prints `undrawn N` and fails on it, as on a lost byte
+(*enforced*). Each of them would change the picture's size in every frontend (512 pixels wide,
+239 or 448 lines high), so they wait for a game that needs them
+([ADR-6FSHCP06](../docs/adr/6FSHCP06-rachael-draws-modes-0-to-4-mosaic-and-extbg-the.md)); `examples/modes` shows every mode Rachael draws, and
+compares it with Mesen pixel for pixel.
 
 What each function costs on the SNES, in CPU cycles, is the last column of the table in
 [README.md](README.md#built-and-stub-per-function-and-platform).
@@ -281,7 +287,8 @@ loaded once in `game_init`. What else is built, on the SNES and on Rachael, is i
 
 ## Not usable yet
 
-Music on the SNES and the mouse: each waits for its feature in both columns of the table. Raster
+Music on the SNES and the mouse: each waits for its feature in both columns of the table, and so
+do modes 5 and 6, high resolution, overscan, interlace and HDMA with indirect tables. Raster
 effects work with HDMA (a value per line for a register: scrolling, colours, windows) and with the
 game's IRQ at a few rows (`sdevkit/irq.h`); an effect in the middle of a row does not.
 

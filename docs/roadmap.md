@@ -34,6 +34,16 @@ is concluded, it moves to [history.md](history.md).
 
 The order follows the likely gain and what each milestone needs from the one before.
 
+## Built since, for 0.10.1
+
+- **Rachael draws the picture modes beyond 1 and 7**: modes 0, 2, 3 and 4 with offsets per tile,
+  256-colour tiles (`superdevkit png tiles8`) and direct colour, mosaic, mode 7's second layer
+  (EXTBG), VMAIN's address remapping and VRAM, CGRAM and OAM read back by DMA; `examples/modes`
+  shows each, the same as Mesen pixel for pixel
+  ([ADR-6FSHCP06](adr/6FSHCP06-rachael-draws-modes-0-to-4-mosaic-and-extbg-the.md), 2026-11-26).
+  Left undrawn until a game needs them: modes 5 and 6, high resolution, overscan and interlace,
+  and HDMA with indirect tables.
+
 ## M11: timing and debugging (0.11.0)
 
 Timing ([timing.md](timing.md#not-built-yet)):

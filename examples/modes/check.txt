@@ -1,0 +1,21 @@
+ticks 420
+shot 20
+press 30 32 a
+shot 60
+press 70 72 a
+shot 90
+press 100 102 a
+shot 120
+press 130 132 a
+shot 160
+press 170 172 a
+shot 200
+shot 260
+press 270 272 a
+shot 300
+press 310 312 a
+shot 340
+press 350 352 a
+shot 370
+press 380 382 b
+shot 400
