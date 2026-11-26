@@ -4,6 +4,8 @@ sources:
   - lib/SNES_HARDWARE.md
   - lib/README.md
   - lib/include/sdevkit/snes.h
+  - lib/include/sdevkit/irq.h
+  - lib/include/sdevkit/publish.h
   - lib/rachael/rachael.h
   - lib/rachael/ppu.c
   - lib/rachael/dsp.c

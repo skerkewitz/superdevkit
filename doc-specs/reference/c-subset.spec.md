@@ -12,6 +12,7 @@ sources:
   - compiler/src/main/java/dampf/frontend/pp/*.java
   - compiler/src/test/resources/exec/pointer_to_int.c
   - compiler/src/main/java/dampf/check/CallGraph.java
+  - compiler/src/main/java/dampf/check/ContextCopies.java
   - compiler/src/test/java/dampf/frontend/*.java
   - compiler/src/test/resources/warnings/overflow.c
 audience: Users who need to know whether a construct is accepted, and what it means
@@ -31,7 +32,8 @@ compiled silently. Link [Writing C for dampf](/guide/writing-c) for the introduc
 1. **Types** – accepted and rejected types, with the reason for rejecting plain integer types.
    The sizes dampf uses for each accepted type, including enums and pointers, as it does today.
    Plain `char` as text: what a `char` value may and may not do, with the message, and why
-   (ADR-6FM063YZ).
+   (ADR-6FM063YZ). Enum objects: which values may be stored into one, what is rejected (with
+   the message), and the width dampf gives it (ADR-6FKZFDJ3).
 2. **Semantics** – the arithmetic rules, which are those of gcc on x86-64; dampf's `<stdint.h>`.
    Then an H3 **Warnings**: dampf warns where gcc warns by default, so far a constant that does
    not fit the type it is converted to (`uint8_t w[] = { 420 }`, the message as dampf prints
@@ -49,10 +51,18 @@ compiled silently. Link [Writing C for dampf](/guide/writing-c) for the introduc
    from a pointer to an integer (the SNES address `bank << 16 | address`; on the PC another
    number, so only distances within one object agree). One short example writing a PPU
    register; point to `lib/snes` as the code that uses both.
-9. **Preprocessor** – dampf's own, a subset of C99's, so using dampf needs no C compiler: what
+9. **Interrupt handlers** – `DAMPF_INTERRUPT(irq)` and `DAMPF_INTERRUPT(nmi)` from `<dampf.h>`:
+   what a handler must be (`void name(void)`, one per interrupt, never called from C), that the
+   game's is `game_irq` and the NMI the kit's (link [The console API](/reference/console-api)),
+   the context a handler and its callees form (frames and direct page of their own, no hardware
+   multiplier), a function called from two contexts compiled once for each with its copy's name
+   (ADR-6FQ4NSHE), what stays shared, what is rejected (with the message), that the macro is
+   empty on the PC, and `DAMPF_HAS_INTERRUPTS`.
+10. **Preprocessor** – dampf's own, a subset of C99's, so using dampf needs no C compiler: what
    it has, what it rejects (with the message), the predefined `__DAMPF__`.
-10. **Whole program** – one program from all files, `static` names local to their file.
-11. **Open decisions** – the decisions of `docs/subset.md` that are not settled, each with what
+11. **Whole program** – one program from all files, `static` names local to their file, and that
+    dampf leaves out the functions a program never reaches (ADR-6FNWEJAA).
+12. **Open decisions** – the decisions of `docs/subset.md` that are not settled, each with what
     dampf does today.
 
 ## Pay attention to
@@ -66,4 +76,5 @@ compiled silently. Link [Writing C for dampf](/guide/writing-c) for the introduc
 ## Out of scope
 
 - Hints: only that `<dampf.h>` provides them and where they may stand; the rest is on
-  [Hints](/reference/hints). Intrinsics are not built: link [Limits](/reference/limits).
+  [Hints](/reference/hints). There are no intrinsics: the hardware is reached through the console
+  API ([The console API](/reference/console-api)).

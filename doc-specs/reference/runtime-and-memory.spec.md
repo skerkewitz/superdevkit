@@ -26,8 +26,8 @@ their own assembly or to read memory in Mesen.
 
 1. **Start-up and the entry function** – what the runtime does before calling the entry
    function, the processor state the entry function finds, and the write to `$21FB` when it
-   returns; what it leaves to the kit's library on the SNES (interrupts, the sound driver's
-   upload).
+   returns; what it leaves to the kit's library on the SNES (switching interrupts on, the sound
+   driver's upload).
 2. **RAM** – everything in bank `$7E`, `DBR = $7E`, the regions as the memory map lists them.
 3. **The direct page** – which values dampf places there (frames of functions), and why.
 4. **Pointers** – how wide a pointer is today, and when dampf makes one narrower.
@@ -35,6 +35,9 @@ their own assembly or to read memory in Mesen.
    that no object crosses a bank boundary, calls across banks; FastROM as the default, the
    header, and save RAM at `$70:0000` when the build asks for it.
 6. **I/O registers** – how C code reaches them.
+7. **Interrupt handlers** – the runtime's entry stub per handler (what it saves and sets, its
+   cycles), each interrupt context's direct page and frames and where they lie, and how much
+   room that leaves the main code's frames.
 
 ## Pay attention to
 
@@ -45,5 +48,6 @@ their own assembly or to read memory in Mesen.
 ## Out of scope
 
 - The SNES platform layer of the playable ROM (`lib/snes`): only that it is the code that
-  touches the I/O registers, has no interrupt handler and uploads the sound driver.
+  touches the I/O registers, switches the IRQ and the kit's NMI on, and uploads the sound driver.
+- How a game writes its IRQ and publishes its data: [The console API](/reference/console-api).
 - How frames are laid out in detail: [Optimizations](/inside/optimizations).

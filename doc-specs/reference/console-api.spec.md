@@ -8,6 +8,8 @@ sources:
   - lib/include/sdevkit/queue.h
   - lib/include/sdevkit/input.h
   - lib/include/sdevkit/easy.h
+  - lib/include/sdevkit/irq.h
+  - lib/include/sdevkit/publish.h
   - lib/layers/layers.h
   - lib/README.md
   - lib/snes/README.md
@@ -15,6 +17,7 @@ sources:
   - lib/snes/snes.c
   - lib/snes/layers.c
   - lib/snes/sfx.c
+  - lib/snes/irq.c
   - lib/sound/sfx_voices.h
   - lib/rachael/rachael.h
   - lib/rachael/ppu.c
@@ -23,10 +26,14 @@ sources:
   - lib/rachael/music.c
   - lib/rachael/sram.c
   - lib/rachael/debug.c
+  - lib/rachael/irq.c
   - lib/splash/splash.h
   - docs/sound.md
   - docs/adr/6FNPPCSX-the-console-api-is-the-hardware-at-once-with.md
   - docs/adr/6FNWEJAA-dampf-leaves-out-the-functions-a-program-cannot.md
+  - docs/adr/6FRDS030-interrupt-code-reads-the-copy-of-the-tick-whose.md
+  - docs/adr/6FRX1GYC-the-game-s-irq-runs-at-a-picture-row-and-writes.md
+  - docs/adr/6FS0T4WB-the-kit-s-nmi-runs-the-vertical-blank-of-a-game.md
   - cli/src/main/java/superdevkit/project/Project.java
   - cli/src/main/java/superdevkit/project/Build.java
   - compiler/src/test/java/dampf/lib/LibApiTest.java
@@ -34,14 +41,16 @@ sources:
   - compiler/src/test/java/dampf/lib/LibNamesTest.java
   - examples/hello/src/*.c
   - examples/mode7/src/*.c
+  - dev/irq_check/src/*.c
 audience: Game programmers who write a game with the dev kit and look up what a function of the kit takes, does and costs
 ---
 
 ## Purpose
 
 The reference of everything a game may call or define: the frame rhythm of `sdevkit/loop.h`, the
-core of `sdevkit/snes.h`, which reaches the hardware at once, and the optional layers above it
-(`sdevkit/shadow.h`, `sprites.h`, `queue.h`, `input.h`, `easy.h`), with what each function takes,
+core of `sdevkit/snes.h`, which reaches the hardware at once, the optional layers above it
+(`sdevkit/shadow.h`, `sprites.h`, `queue.h`, `input.h`, `easy.h`), and the interrupts
+(`sdevkit/publish.h`, `sdevkit/irq.h`), with what each function takes,
 what it does on the SNES and on Rachael, and what it costs. A reader who knows a function's name
 finds its entry; a reader who knows what they want done finds the group it is in. The headers stay
 the source of truth; the page says so in one sentence and names them.
@@ -70,7 +79,9 @@ report can differ a little, since dampf compiles the whole program at once.
    time; and that the desktop's check fails on a lost byte or a register written while the
    picture is drawn. The pad bits `SDEVKIT_KEY_*` as a table. Two complete minimal games side by
    side: one on the core (from `examples/mode7`, cut down) and one on the layers (from
-   `examples/hello`, cut down), each with all three functions.
+   `examples/hello`, cut down), each with all three functions. One sentence that a game which
+   publishes its data defines `game_tick` and `game_vblank` through a macro instead, and gets
+   its vertical blank run by the kit's NMI (section 14).
 2. **Registers** – `sdevkit_reg_write` and `sdevkit_reg_write_twice`, the `SDEVKIT_PPU_*` names as
    a table (register, address, what it does, written twice or not), and the macros that build
    values: `SDEVKIT_FORCED_BLANK`, `SDEVKIT_BG_MODE1` and `_MODE7`, the `_TILES_16` bits,
@@ -124,7 +135,18 @@ report can differ a little, since dampf compiles the whole program at once.
     view (`sdevkit_dbg_toggle`, `_range`, `_color`, `_action`, `_text`, `_value`) and
     `sdevkit_dbg_box`, `_fill`, `_arrow`, which are empty on the SNES.
 
-In sections 2 to 13, each function is an entry of its own (H3 with its name): its declaration as
+14. **Interrupts** (`sdevkit/publish.h`, `sdevkit/irq.h`) – why interrupt code reads only
+    published data; `SDEVKIT_PUBLISH`, `SDEVKIT_PUBLISH_DECLARE` and `SDEVKIT_PUBLISHED`: what the
+    macro defines, which tick's data interrupt code gets, what the copy costs; the kit's NMI that
+    runs a publishing game's `vblank` in every vertical blank, also while a tick overruns, the
+    rule that `vblank` writes depend only on the published data, and the desktop check's
+    `repeated`; the game's IRQ: `game_irq` with `DAMPF_INTERRUPT(irq)`, `sdevkit_irq_line`,
+    `sdevkit_irq_off`, `sdevkit_irq_wait_hblank`, which row the handler runs before, the time
+    before the blank and the cycles for its writes after the wait (with HDMA), several splits a
+    frame, and the desktop check of a write before the wait. One complete example: a status bar
+    under a scrolling area, cut down from `dev/irq_check`.
+
+In sections 2 to 14, each function is an entry of its own (H3 with its name): its declaration as
 in the header, what it does in one to three sentences, its parameters where the header's names
 do not say it, the registers it writes where that matters, and its cost on the SNES from the
 table in `lib/README.md` (CPU cycles, and for a copy the bytes of the vertical blank it uses).

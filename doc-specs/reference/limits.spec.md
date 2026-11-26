@@ -24,12 +24,14 @@ repeating plans: what is not built yet, and what will never be.
 
 ## Sections
 
-1. **Not built yet** – what the kit leaves out on the SNES (music, C in interrupt handlers) and
-   in sound, what a game can reach (the console API only, and of the hardware only what both
-   `lib/snes` and Rachael draw), hints, intrinsics, timing in master cycles and outside the CPU
-   (DMA, interrupts), the preprocessor's subset (what it rejects), the targets and tools not built
-   (macOS, the ROM on a real console), other
-   planned items of the roadmap that a user would notice.
+1. **Not built yet** – what the kit leaves out on the SNES (music) and in sound, what a game can
+   reach (the console API only, and of the hardware only what both `lib/snes` and Rachael
+   draw), what interrupt code cannot do yet (call a function written in assembly; an IRQ in the
+   middle of a row; dampf's check of the IRQ's window for its writes; the optional layers in
+   the kit's NMI), hints, timing in master cycles and outside the CPU (DMA, HDMA and interrupts
+   at frame level), the preprocessor's subset (what it rejects), the targets and tools not built
+   (macOS, the ROM on a real console), other planned items of the roadmap that a user would
+   notice.
    For each, a sentence on what it will do and what to do meanwhile, if the sources say.
 2. **Never planned** – the README's non-goals that limit a user: full C, other targets, an own
    debugger, floating point.
