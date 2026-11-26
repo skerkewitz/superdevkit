@@ -155,6 +155,14 @@ example, the same way on all three: the data the tick publishes for interrupt co
 tick in turn read and check. Its checksums name what the interrupts found, so they are the same
 on the desktop and the web, which have no interrupts, only when the SNES's never found torn data.
 
+`IrqCheckTest` plays `dev/irq_check` the same way: the game's IRQ (`sdevkit/irq.h`,
+ADR-6FRX1GYC) splits the screen twice with values the tick publishes, with short ticks and long
+ones. Where Mesen is (`dampf.mesen`), it also plays the ROM there (`dev/check_example.sh` with
+`NOBUILD=1`) and compares the pictures with the desktop's pixel for pixel, and the web's with the
+desktop's: a register the handler writes too late shows a torn row on the SNES only. And it
+builds the same game without `sdevkit_irq_wait_hblank`, whose desktop check must fail on the
+writes before the wait. `dev/compare_example.sh dev/irq_check` does the Mesen part by hand.
+
 **Recordings.** Every session in the desktop's window is recorded, the joypad and the checksum of
 every tick; F11 saves it in the format of `check.txt` (with `mark` and `hash` lines, which the
 other players skip), so a bug seen on the desktop can be played again: in the window

@@ -22,7 +22,8 @@
  * nothing and writes no register, so the whole vertical blank (about 49,000 master cycles,
  * sdevkit/snes.h) is the game's. A tick that takes longer than a frame makes the loop wait for the
  * next vertical blank: the game then runs at 30 frames a second, never wrong, and the picture
- * shows the last one game_vblank wrote. The game is never interrupted. The three callbacks are
+ * shows the last one game_vblank wrote. The kit interrupts the game nowhere; a game may have an
+ * IRQ of its own at rows of the picture (sdevkit/irq.h). The three callbacks are
  * the game's names, so they keep the `game_` prefix; no name of the kit starts with `game_`.
  *
  * @code

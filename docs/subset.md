@@ -179,8 +179,9 @@ object agree between both sides (`exec/pointer_to_int.c`). The SNES platform lay
 `lib/snes` is written this way. The checker does not tell platform code from game code: a
 cast from an integer to a pointer is accepted anywhere.
 
-**Interrupt handlers.** Built in the compiler, not yet for games: a game's IRQ comes with
-Rachael's IRQ, the kit's NMI after it (ADR-6FKTVDE8).
+**Interrupt handlers.** A game has an IRQ, `game_irq` (`sdevkit/irq.h`, ADR-6FRX1GYC), which
+runs at a row of the picture on the SNES and on Rachael; the NMI is the kit's and not built yet
+(ADR-6FKTVDE8).
 `DAMPF_INTERRUPT(nmi)` or `DAMPF_INTERRUPT(irq)` from `<dampf.h>`, in front of a function
 definition, makes the function the handler of that interrupt. It must be `void name(void)`, there
 is at most one per interrupt, the hardware calls it through the runtime's entry stub and C code

@@ -12,7 +12,8 @@ each explains the hardware at the names that reach it.
 | queue.h | Optional: copies into VRAM and CGRAM asked for in the tick, made in the vertical blank. |
 | input.h | Optional: the buttons pressed since the last tick. |
 | easy.h | Optional: all of them, and one commit for a `game_vblank` of one line. |
-| publish.h | Not for games yet: the data the tick publishes for interrupt code, which reads it complete. |
+| irq.h | Optional: the game's IRQ, code of the game at a row of the picture (a split screen, a status bar), and the time it has. |
+| publish.h | Optional: the data the tick publishes for the game's IRQ, which reads it complete, the data the picture was made from. |
 
 A game that wants every cycle uses the core and writes the hardware in `game_vblank`; a game that
 wants none of the vertical blank's rules uses the layers (easy.h). Both mix: a layer a game does

@@ -3,8 +3,8 @@
 
 /**
  * @file publish.h
- * @brief The data the tick publishes for interrupt code (ADR-6FPV1EQV, ADR-6FRDS030). Not for games
- *        yet.
+ * @brief The data the tick publishes for interrupt code (ADR-6FPV1EQV, ADR-6FRDS030): for the game's
+ *        IRQ (sdevkit/irq.h).
  *
  * Interrupt code runs in the middle of a tick, at any instruction. If it read the game's
  * variables there, it could find a 16-bit value with its low byte new and its high byte old, or
@@ -47,7 +47,7 @@
  * ready, it makes it the current one, with one write of a byte, and then calls the game's
  * vblank. So nothing interrupt code reads ever changes: the tick fills the copy interrupt code
  * does not read, and the switch is one byte. And the switch comes with game_vblank, so interrupt
- * code in the picture after it (an IRQ at a line of the picture) reads the data the picture was
+ * code in the picture after it (the game's IRQ, sdevkit/irq.h) reads the data the picture was
  * made from, also when the next tick has already ended, on the SNES as on the desktop. The tick
  * keeps writing its own struct as any variable: what it does not change keeps the value it had,
  * and the copy always has all of it.
@@ -61,9 +61,8 @@
  * The same C runs on the desktop and the web: there `game_tick` copies and `game_vblank` switches
  * just the same, and the checksums of the ticks are the same as on the SNES.
  *
- * Not for games yet: no interrupt runs game code so far. The game's IRQ, and the kit's NMI that
- * runs game_vblank, come later (docs/roadmap.md, M10). Until then dampf's interrupt handlers
- * (`DAMPF_INTERRUPT`, docs/subset.md) are the only readers, in the kit's tests.
+ * The reader is the game's IRQ, game_irq (sdevkit/irq.h). The kit's NMI that runs game_vblank
+ * comes later (docs/roadmap.md, M10).
  */
 
 #include <stdint.h>

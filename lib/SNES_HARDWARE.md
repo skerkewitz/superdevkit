@@ -33,7 +33,8 @@ on both names only what the public headers have, and that its functions are in `
 | Mode 7: one layer of 1024 x 1024 pixels, rotated, scaled and mirrored, and what lies outside it; with HDMA on BGMODE and TM, mode 1 above it (a status line on BG3) | built | built | `sdevkit_mode7_map_copy`, `sdevkit_mode7_tiles_copy`, `sdevkit_reg_write_twice`, `SDEVKIT_PPU_M7A`, `SDEVKIT_PPU_M7SEL`, `SDEVKIT_M7_WRAP`; `sdevkit_ppu.m7a` |
 | Mode 7's second layer (EXTBG), direct colour | not built | not built, reported | |
 | Mosaic, high resolution, interlace | not built | not built, reported | |
-| Raster interrupts (H/V IRQ), the timers | not built: the game is never interrupted (`sdevkit/loop.h`) | not built | |
+| The game's IRQ at a row of the picture (the timer's H/V IRQ, kit-timed): a split screen, a status bar, a second scroll; its register writes after a wait for the horizontal blank, about 25 CPU cycles of them | built: the CPU's timer, the handler in C in a context of its own; a write too late shows a row torn, in Mesen (*measured*) | built: called before the row; a register written before the wait counts as written while the picture is drawn (*enforced*) | `sdevkit_irq_line`, `sdevkit_irq_off`, `sdevkit_irq_wait_hblank`, `game_irq`, `SDEVKIT_PUBLISHED` |
+| The timers at any dot, an IRQ in the middle of a row | not built: the kit owns the timer | not built | |
 | Sound effects: samples (BRR) from a game's `sfx.json`, 1 to 8 voices with priorities, GAIN's direct envelope, volume ([docs/sound.md](../docs/sound.md)) | built: a forwarding driver on the SPC700, the logic in C | built: Rachael's DSP, through raylib's audio stream; the DSP writes compared with the SNES's | `sdevkit_sfx_init`, `sdevkit_sfx_play` |
 | Music: tracks from files ([docs/sound.md](../docs/sound.md#music)) | not built: the calls do nothing | built: the file plays through raylib (OGG, MP3, WAV, QOA, XM, MOD) | `sdevkit_music_play`, `sdevkit_music_stop` |
 | ADSR envelopes, echo, noise, pitch modulation, looped samples | not built | not built, reported | |
@@ -101,6 +102,15 @@ What each function costs on the SNES, in CPU cycles, is the last column of the t
   object into the next is not (*documented*).
 - **Read the joypads after the automatic read** at the start of the vertical blank: the kit's
   main loop does, and hands them to `game_tick` (*enforced by the kit*).
+- **The game's IRQ** (`sdevkit/irq.h`) runs in the middle of the tick, at any instruction. It
+  reads the game's data only through the published copy (`sdevkit/publish.h`), and writes no
+  variable the main code writes too: one of the two writes could be lost (ADR-6FQ4NSHE). It reads
+  and decides first, calls `sdevkit_irq_wait_hblank()` and then writes registers: the PPU takes
+  a register for a row only in the horizontal blank before it. Measured in Mesen: about 53 CPU
+  cycles before the wait, about 25 after it (less about 6 for each HDMA channel of a byte on the
+  line). The desktop check fails on a register written before the wait (*enforced*); a write
+  after the window shows a torn row, which only the Mesen check sees (*measured*,
+  `dev/compare_example.sh`).
 - **A tick that takes longer than a frame** makes the game wait for the next vertical blank: it
   then runs at 30 frames a second, never wrong. Rachael does not show it, she has the PC's speed;
   the Mesen check counts frames and ticks (*measured*). Plan the work of a frame with the timing
@@ -262,9 +272,9 @@ loaded once in `game_init`. What else is built, on the SNES and on Rachael, is i
 
 ## Not usable yet
 
-Music on the SNES, raster effects by interrupt, the mouse: each waits for its feature in
-both columns of the table. Many raster effects work today with HDMA (a value per line for a
-register: scrolling, colours, windows).
+Music on the SNES and the mouse: each waits for its feature in both columns of the table. Raster
+effects work with HDMA (a value per line for a register: scrolling, colours, windows) and with the
+game's IRQ at a few rows (`sdevkit/irq.h`); an effect in the middle of a row does not.
 
 ## Sources
 

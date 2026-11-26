@@ -6,10 +6,9 @@
  * blank is the game's. A tick that takes longer than a frame makes the game run slower, never
  * wrong.
  *
- * There is no interrupt handler: the loop waits for the vertical blank itself. dampf keeps
- * function frames at fixed places, so C code called from an NMI that arrives in the middle of a
- * tick would overwrite the frames of the code it interrupted. Calling game_vblank from the loop
- * gives the same timing without that.
+ * The kit has no interrupt handler: the loop waits for the vertical blank itself and calls
+ * game_vblank. A game may have an IRQ (sdevkit/irq.h, irq.c), which dampf compiles in a context
+ * of its own; the kit's NMI comes later.
  *
  * After game_vblank the sound effects the tick asked for start (sfx.c). Save RAM is snes.c's.
  */

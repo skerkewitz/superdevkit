@@ -53,6 +53,8 @@
 /* CPU */
 #define NMITIMEN REG8(0x4200)
 #define WRIO     REG8(0x4201)
+#define HTIME    REG16(0x4207)  /* the timer's dot, 9 bits */
+#define VTIME    REG16(0x4209)  /* the timer's scanline, 9 bits */
 #define MDMAEN   REG8(0x420B)
 #define HDMAEN   REG8(0x420C)
 #define MEMSEL   REG8(0x420D)

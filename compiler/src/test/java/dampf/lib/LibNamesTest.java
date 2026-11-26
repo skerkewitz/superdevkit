@@ -26,7 +26,7 @@ class LibNamesTest {
 
     private static final Path PUBLIC = Path.of("lib/include/sdevkit");
     /** The callbacks a game defines: its names, not the kit's. */
-    private static final Set<String> GAME_CALLBACKS = Set.of("game_init", "game_tick", "game_vblank");
+    private static final Set<String> GAME_CALLBACKS = Set.of("game_init", "game_tick", "game_vblank", "game_irq");
 
     private static final Pattern DEFINE = Pattern.compile("(?m)^\\s*#\\s*define\\s+(\\w+)");
     /** A preprocessor line with the lines a backslash continues it on. */

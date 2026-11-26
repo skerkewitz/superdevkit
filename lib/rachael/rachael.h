@@ -79,12 +79,20 @@ typedef struct {
     uint16_t       unmarked;               /* sdevkit/shadow.h: groups changed without their mark, since power on */
     uint8_t        unmarked_group;         /* the first of them, SDEVKIT_MARK_* */
     uint16_t       undrawn;                /* register writes Rachael does not draw, since power on */
+    uint8_t        irq_on, irq_row;        /* sdevkit/irq.h: the game's IRQ runs before picture row irq_row */
+    uint8_t        in_irq;                 /* game_irq is running */
+    uint8_t        irq_waited;             /* ... and has called sdevkit_irq_wait_hblank: its register writes are free */
     uint8_t        undrawn_reg, undrawn_value;   /* the first of them */
     sdevkit__frame_stats stats;
     uint32_t       tick_hash;              /* sdevkit_dbg_hash: FNV-1a of the bytes named this tick */
 } sdevkit__rachael_state;
 
 extern sdevkit__rachael_state sdevkit__rachael;
+
+/* The game's IRQ handler (sdevkit/irq.h), or NULL: the frontend sets it from sdevkit__game_irq,
+ * which superdevkit build generates next to the program (game_irq, or none if the game has no
+ * game_irq). sdevkit__render calls it before the row sdevkit_irq_line set, after that row's HDMA. */
+extern void (*sdevkit__irq_handler)(void);
 
 /* A register write as the hardware takes it, without the check of when (the kit's own writes). */
 void sdevkit__write_reg(uint8_t reg, uint8_t value);

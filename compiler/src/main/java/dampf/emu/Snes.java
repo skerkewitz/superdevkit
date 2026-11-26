@@ -18,7 +18,9 @@ import java.nio.file.Path;
  * not modelled.
  *
  * <p>Of the picture only its timing: 262 lines a frame (NTSC), the vertical blank from line 225
- * ({@code HVBJOY} bit 7), the automatic joypad read in its first three lines (bit 0, when
+ * ({@code HVBJOY} bit 7), the horizontal blank from dot 274 to dot 1 (bit 6, as roughly as the
+ * horizontal position below: what the game's IRQ waits for, sdevkit/irq.h), the automatic joypad
+ * read in the vertical blank's first three lines (bit 0, when
  * {@code NMITIMEN} bit 0 is set), the line counter latched by {@code SLHV} and read at
  * {@code OPVCT}, and the joypads at {@code $4218}-{@code $421B} from {@link #setPads}. Enough for
  * the kit's main loop (lib/snes/main.c), which waits for the vertical blank by polling.
@@ -46,6 +48,9 @@ public final class Snes implements Bus {
     /** NTSC: master cycles per scanline, of which the CPU loses 40 to DRAM refresh. */
     private static final int LINE = 1364;
     private static final int REFRESH = 40;
+    /** HVBJOY's horizontal blank, bit 6: from dot 274 of a line to dot 1 of the next (fullsnes). */
+    private static final int HBLANK_FROM = 4 * 274;
+    private static final int HBLANK_TO = 4;
 
     /** Notified of writes to $21FA-$21FF. */
     public interface PortListener {
@@ -423,6 +428,7 @@ public final class Snes implements Bus {
                 yield v;
             }
             case 0x4212 -> (scanline >= VBLANK_FIRST_LINE ? 0x80 : 0)
+                    | (lineClock >= HBLANK_FROM || lineClock < HBLANK_TO ? 0x40 : 0)
                     | (autoJoypad && scanline >= VBLANK_FIRST_LINE && scanline < VBLANK_FIRST_LINE + 3 ? 1 : 0);
             case 0x4218 -> pads[0] & 0xFF;
             case 0x4219 -> pads[0] >> 8;

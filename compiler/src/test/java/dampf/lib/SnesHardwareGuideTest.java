@@ -33,7 +33,7 @@ class SnesHardwareGuideTest {
         Set<String> api = LibApiTest.consoleApi();
         Set<String> names = LibNamesTest.publicNames();
         StringBuilder headers = new StringBuilder();
-        for (String h : List.of("snes.h", "shadow.h", "sprites.h", "queue.h", "input.h", "easy.h")) {
+        for (String h : List.of("snes.h", "irq.h", "shadow.h", "sprites.h", "queue.h", "input.h", "easy.h")) {
             headers.append(Files.readString(Path.of("lib/include/sdevkit").resolve(h)));
         }
         String header = headers.toString();

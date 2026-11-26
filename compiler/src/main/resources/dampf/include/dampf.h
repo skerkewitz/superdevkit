@@ -32,8 +32,8 @@
  * the handler of that interrupt, 'void name(void)', called by the hardware through the runtime's
  * entry stub and by no C code. It and every function it calls run in a context of their own, with
  * their own frames, direct page and scratch registers and no hardware multiplier; a function
- * called from two contexts is compiled once for each (docs/subset.md, "Interrupt handlers"). Built in the
- * compiler, not yet for games: the kit's NMI and the game's IRQ come later (ADR-6FKTVDE8).
+ * called from two contexts is compiled once for each (docs/subset.md, "Interrupt handlers"). A game
+ * uses it for its IRQ, game_irq (sdevkit/irq.h); the NMI is the kit's and comes later.
  */
 #define DAMPF_INTERRUPT(kind) __attribute__((dampf_interrupt(kind)))
 

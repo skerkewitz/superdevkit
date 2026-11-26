@@ -17,10 +17,12 @@ case $1 in
 esac
 OUT=$EX/build/check
 . dev/mesen.sh
-# the kit's command: in a superdevkit home bin/superdevkit, in the repository its installation
-S=bin/superdevkit; [ -x "$S" ] || S=build/install/superdevkit/bin/superdevkit
-[ -x "$S" ] || ./gradlew -q installDist
-[ "${NOBUILD:-0}" = 1 ] || "$S" build snes "$EX" > /dev/null
+if [ "${NOBUILD:-0}" != 1 ]; then
+    # the kit's command: in a superdevkit home bin/superdevkit, in the repository its installation
+    S=bin/superdevkit; [ -x "$S" ] || S=build/install/superdevkit/bin/superdevkit
+    [ -x "$S" ] || ./gradlew -q installDist
+    "$S" build snes "$EX" > /dev/null
+fi
 rm -rf "$OUT" && mkdir -p "$OUT"
 cp "$EX/build/snes/$NAME.sfc" "$MESEN_DIR/example_check.sfc"
 cp dev/example_check.lua "$MESEN_DIR/example_check.lua"

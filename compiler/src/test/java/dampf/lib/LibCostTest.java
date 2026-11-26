@@ -24,7 +24,7 @@ import org.junit.jupiter.api.io.TempDir;
  * difference fails, so the numbers there are dampf's of today.
  */
 class LibCostTest {
-    private static final List<Path> HEADERS = List.of("snes.h", "shadow.h", "sprites.h", "queue.h", "input.h", "easy.h")
+    private static final List<Path> HEADERS = List.of("snes.h", "irq.h", "shadow.h", "sprites.h", "queue.h", "input.h", "easy.h")
             .stream().map(h -> Path.of("lib/include/sdevkit").resolve(h)).toList();
     private static final Path README = Path.of("lib/README.md");
     private static final Pattern PROTOTYPE = Pattern.compile("\\b(\\w+)\\s*\\(([^(){};]*)\\)\\s*;");
@@ -39,10 +39,13 @@ class LibCostTest {
         for (Path h : HEADERS) {
             headers.append(Files.readString(h).replaceAll("(?s)/\\*.*?\\*/", " ").replaceAll("(?m)^\\s*#.*$", " "));
         }
-        StringBuilder probe = new StringBuilder("#include \"sdevkit/easy.h\"\n\nvoid test_main(void)\n{\n");
+        StringBuilder probe = new StringBuilder("#include \"sdevkit/easy.h\"\n#include \"sdevkit/irq.h\"\n\nvoid test_main(void)\n{\n");
         Matcher m = PROTOTYPE.matcher(headers);
         List<String> api = new ArrayList<>();
         while (m.find()) {
+            if (m.group(1).startsWith("game_")) {          // irq.h's game_irq is the game's
+                continue;
+            }
             String params = m.group(2).trim();
             int n = params.equals("void") || params.isEmpty() ? 0 : params.split(",").length;
             api.add(m.group(1));

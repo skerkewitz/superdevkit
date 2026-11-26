@@ -1,0 +1,7 @@
+# The game's IRQ (lib/include/sdevkit/irq.h) on the SNES and on Rachael: a screen split twice by
+# the IRQ, with scroll values the tick publishes and changes every tick, with short ticks and long
+# ones. Played by IrqCheckTest as ExamplesTest plays an example, and compared pixel for pixel with
+# Mesen (dev/compare_example.sh dev/irq_check). Not an example.
+name = "irq_check"
+kit = "../.."
+sources = ["src"]
