@@ -28,7 +28,8 @@ budgets it checks at build time.
    of the counted-loops analysis, `CountedLoops`, which `Timing` asks), calls, a function that
    never returns, a loop without a bound.
 3. **The timing report** – `<rom>.timing.txt`, an example produced by dampf, how to read it,
-   and the cycle counts in the assembly comments.
+   and the cycle counts in the assembly comments. Interrupt handlers: the report's line per
+   interrupt (`dampf_irq`, `dampf_nmi`), what it counts and what not.
 4. **Budgets** – `DAMPF_BUDGET` in short with the real error message, that a build with
    `--opt-limit` reports a broken budget as a warning, linking [Hints](/reference/hints) for
    the details.
@@ -36,8 +37,8 @@ budgets it checks at build time.
 
 ## Pay attention to
 
-- Only what is built; what is not (master cycles, DMA and interrupts, `DAMPF_TRIPS`) in one
-  sentence linking [Limits](/reference/limits).
+- Only what is built; what is not (master cycles, DMA, HDMA and interrupts at frame level,
+  `DAMPF_TRIPS`) in one sentence linking [Limits](/reference/limits).
 - Examples and figures produced by dampf, run.
 
 ## Out of scope

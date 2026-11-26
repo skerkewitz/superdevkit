@@ -21,13 +21,15 @@ Linux and Windows and as a page in the browser. The kit holds:
 - the **book** ([online](https://skerkewitz.github.io/superdevkit/book/) from version 0.9.1,
   [docs/book](docs/book)): the user guide and the reference.
 
-Status: version 0.9.2. Milestones
-M0 to M9 are done: M6 is dampf's own assembler and
+Status: version 0.10.0. Milestones
+M0 to M10 are done: M6 is dampf's own assembler and
 linker; with M5 Blubber Blasen (the kit's first user, a game in its own repository) builds its
 ROM with the kit and plays its recordings with the PC's checksums; with M7 a game builds and runs
 on the SNES, Linux and Windows with the `superdevkit` command, with sound effects, save RAM, music
 on the desktop and a debug view; with M8 it runs in the browser too (`superdevkit build web`);
-with M9 dampf's optimizer chooses registers by cost and keeps byte loops in 8-bit mode. The
+with M9 dampf's optimizer chooses registers by cost and keeps byte loops in 8-bit mode; with M10
+a game has an IRQ in C and the kit's NMI, hand-written assembly beside the optimized code, and a
+console API that is the hardware at once, with optional layers above it. The
 milestones to come are in [docs/roadmap.md](docs/roadmap.md), the concluded ones in
 [docs/history.md](docs/history.md), why the kit is the project and
 dampf its compiler in [ADR-6F3CJX8T](docs/adr/6F3CJX8T-superdevkit-is-the-project-and-dampf-is-its.md).

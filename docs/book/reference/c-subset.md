@@ -28,8 +28,9 @@ The subset has these types:
 
 - **Fixed-width integers** from dampf's `<stdint.h>`: `int8_t`, `uint8_t`, `int16_t`,
   `uint16_t`, `int32_t`, `uint32_t`.
-- **`char`**, meant for text: string tables, names, small buffers. It is a signed 8-bit type,
-  as on x86-64 (see [Open decisions](#open-decisions)).
+- **`char`**, for text: string tables, names, small buffers. It is a signed 8-bit type, as on
+  x86-64, and a `char` value may only be copied, tested and compared (see
+  [Plain char is text](#plain-char-is-text)).
 - **`void`**, **pointers**, **arrays** (also multi-dimensional), **pointers to arrays** such
   as `const uint8_t (*rows)[16]`, **structs**, **enums**, and `typedef`s of these.
 - **`const`**, **`static`** and **`extern`** as in C99. `volatile` is accepted on what a
@@ -68,8 +69,103 @@ is ignored.
 | `__attribute__` after a name | `not supported yet: attributes and extensions in declarators` |
 
 There are no 64-bit types: dampf's `<stdint.h>` has no `uint64_t`, so a declaration with it is a
-syntax error. The only attribute dampf accepts is the one `DAMPF_BUDGET` expands to (see
-[Whole program](#whole-program)).
+syntax error. The only attributes dampf accepts are those that `DAMPF_BUDGET`, `DAMPF_ASM` and
+`DAMPF_INTERRUPT` from `<dampf.h>` expand to (see [Whole program](#whole-program) and
+[Interrupt handlers](#interrupt-handlers)).
+
+### Plain char is text
+
+Plain `char` is signed with gcc and clang on x86-64 and with MSVC, but unsigned with gcc on ARM.
+A program that computes with a `char` can therefore give two results on two PCs as soon as a
+byte from 128 up is in it: `c - '0'`, `c < 'a'` and `table[c]` see -56 on one and 200 on the
+other. dampf keeps the x86-64 meaning, a signed 8-bit type, and accepts a `char` value only
+where its signedness cannot change the result. These are accepted:
+
+- copying it: assignment, parameters, results, array elements, string literals, and `char`
+  arrays and pointers (pointer arithmetic is on the pointer, not on the `char`);
+- storing any number into a `char`, such as `s[0] = (char)('0' + d)`;
+- converting it to another 8-bit type: `uint8_t u = c`, `(int8_t)c`;
+- testing it for zero: `if (c)`, `while (*s)`, `!c`, `&&`, `||`, the condition of `?:`;
+- `==` and `!=` against another `char` or a constant from 0 to 127, and a `switch` whose case
+  values are all from 0 to 127;
+- `sizeof` and `&`.
+
+Everything else is rejected: arithmetic, shifts and bit operations, `<`, `<=`, `>` and `>=`,
+`==` and `!=` against anything else (`c == -1`, a `uint8_t` variable), `++`, `--` and compound
+assignment on a `char`, a `char` as an index or a pointer offset, a conversion to a wider type
+(`int16_t x = c`, a `char` passed to an `int16_t` parameter), and a `?:` with a `char` branch,
+whose type is `int`. Digit arithmetic is among them, since `c - '0'` is the same on both PCs only
+for an ASCII digit, and dampf cannot know that `c` holds one. For this file:
+
+```c [digits.c]
+#include <stdint.h>
+
+const char *score_text = "042";
+uint8_t first_digit;
+
+void game_tick(void) {
+    first_digit = score_text[1] - '0';
+}
+```
+
+For it, `dampf check` reports:
+
+```
+digits.c:7:33: error: plain char is text, and whether it is signed differs between PCs, so a char may only be copied and compared with == or != against a char or a constant from 0 to 127: use uint8_t or int8_t for a number, or cast the char: (uint8_t)c
+```
+
+A cast to an 8-bit type first is always the way out: `(uint8_t)score_text[1] - '0'` is accepted.
+Two forms get messages of their own:
+
+| Rejected | Message |
+|---|---|
+| a cast to a wider type, `(int16_t)letter` | `a cast of a plain char to int16_t depends on whether char is signed, which differs between PCs: cast to uint8_t or int8_t first, as in (int16_t)(uint8_t)c` |
+| a case value outside 0 to 127 in a switch on a `char`, `case 200:` | `case 200 on a plain char:`, the rule as in the message above, then `; only case values from 0 to 127 are allowed, or switch on (uint8_t)` |
+
+For numbers, use `int8_t` and `uint8_t`; `signed char` and `unsigned char` stay rejected.
+
+### Enum objects
+
+On the PC an enum object takes 4 bytes, and every access to it would be 32-bit work on the
+65816, although most enums have a handful of enumerators. dampf stores the object in fewer bytes
+(see [Sizes](#sizes)), which is safe only if it never holds a value outside its enumerators. C
+does not promise that, so dampf checks it: an object of an enum type takes only an enumerator of
+that enum and a value of that enum type, such as another such object, a call of a function that
+returns the enum, or a `?:` whose two branches are such values. For this file:
+
+```c [state.c]
+#include <stdint.h>
+
+typedef enum { STATE_TITLE, STATE_PLAY, STATE_OVER } GameState;
+
+GameState state;
+uint8_t lives;
+
+void game_tick(void) {
+    if (lives == 0) {
+        state = 2;
+    }
+}
+```
+
+For it, `dampf check` reports:
+
+```
+state.c:10:15: error: an object of type GameState takes only its enumerators and values of GameState, not the constant 2 (dampf keeps enum objects in fewer bytes than the PC, ADR-6FKZFDJ3)
+```
+
+Write `state = STATE_OVER;` instead. A cast `(GameState)x` is accepted from a value of
+`GameState` or from a constant that equals one of its enumerators. A store through a `void *`,
+as `memset` and `memcpy` make, is not checked.
+
+| Rejected | Message |
+|---|---|
+| `++`, `--` on an enum object, `state++` | `'++' cannot be used on an object of type GameState: it takes only its enumerators and values of GameState (ADR-6FKZFDJ3)` |
+| compound assignment, `state += 1` | the message for a store above, ending `not a value of type uint32_t (...)` |
+| a cast from another value, `(GameState)lives` | `a cast to GameState needs a value of that type or a constant that is one of its enumerators, not a value of type uint8_t (enum objects hold only their enumerators, ADR-6FKZFDJ3)` |
+| a pointer to an enum as a pointer to another type, `(uint8_t *)&state` | `a pointer to GameState cannot become a pointer to uint8_t: enum objects take only their enumerators (ADR-6FKZFDJ3)` |
+
+A pointer to an enum object may become a `void *`.
 
 ### Sizes
 
@@ -80,18 +176,24 @@ dampf gives the types these sizes today:
 | `char`, `int8_t`, `uint8_t` | 1 |
 | `int16_t`, `uint16_t` | 2 |
 | `int32_t`, `uint32_t` | 4 |
-| an enum | 4 |
+| an enum object | 1, 2 or 4 |
 | a pointer | 4 |
 | a struct | the sum of its fields |
 
 An enum type is `unsigned int` when none of its enumerators is negative and `int` otherwise, as
-with gcc, so an enum object takes 4 bytes. A pointer takes 4 bytes: a 16-bit address, the
-[bank](/glossary#bank), and a zero byte. Struct fields are laid out one after the other without
-padding.
+with gcc, and an enum value is promoted to that type in every computation, so the results are
+gcc's. The object itself takes the smallest width that holds all its enumerators: unsigned 8 or
+16 bit when none is negative, signed 8 or 16 bit otherwise, and 32 bit when 16 bits do not reach.
+`enum { S_A, S_B = 255 }` takes 1 byte, `enum { W_A, W_B = 256 }` 2. This is safe because an
+enum object takes only values of its enum (see [Enum objects](#enum-objects)). A struct field or
+an array element of an enum type takes the same width. A pointer takes 4 bytes: a 16-bit
+address, the [bank](/glossary#bank), and a zero byte. Struct fields are laid out one after the
+other without padding.
 
-::: warning Two sizes differ from the PC
-A pointer is 8 bytes and `struct { uint8_t kind; int16_t x; }` is 4 bytes with gcc on x86-64;
-dampf gives 4 and 3.
+::: warning Three sizes differ from the PC
+A pointer is 8 bytes, `struct { uint8_t kind; int16_t x; }` 4 bytes and an object of
+`enum { STATE_TITLE, STATE_PLAY, STATE_OVER }` 4 bytes with gcc on x86-64; dampf gives 4, 3
+and 1.
 :::
 
 Because the result must match gcc on x86-64 bit for bit, a `sizeof` whose value differs from
@@ -111,10 +213,11 @@ void game_tick(void) {
 For it, `dampf check` reports:
 
 ```
-sizes.c:7:20: error: sizeof uint8_t * is 4 in dampf but 8 on the PC (dampf's pointers are 4 bytes, 8 on x86-64, and dampf does not pad struct fields): the program would compute other values than its PC build. Only the element count sizeof a / sizeof a[0] is allowed for such types
+sizes.c:7:20: error: sizeof uint8_t * is 4 in dampf but 8 on the PC (dampf's pointers are 4 bytes, 8 on x86-64, its enum objects 1 or 2 bytes for most enums, 4 on x86-64, and dampf does not pad struct fields): the program would compute other values than its PC build. Only the element count sizeof a / sizeof a[0] is allowed for such types
 ```
 
-The same holds for a struct gcc pads, and for an array of pointers or of such structs. The one
+The same holds for a struct gcc pads, for an enum type or object and a struct with an enum
+field, and for an array of pointers or of such structs. The one
 exception is a division whose quotient is the same on both sides: the element count
 `sizeof names / sizeof names[0]` is accepted for `const char *names[3]`, which is 12 bytes in
 dampf and 24 on the PC, and gives 3 on both. A struct without padding, such as
@@ -160,6 +263,39 @@ dampf has no other library function.
 | `3000000000` | `integer constant '3000000000' does not fit in 32 bits (on the PC it would be a 64-bit long)` |
 | `'\xe9'` | `character constants above 127 are not supported (their value depends on the signedness of char)` |
 | `'ab'` | `multi-character constants are not supported` |
+
+### Warnings
+
+dampf warns where gcc warns without any warning option, in gcc's form, and the build goes on;
+`dampf check` and `dampf build` print the warnings. So far there is one, gcc's `-Woverflow`: a
+constant converted to an integer type that cannot hold it, in an initializer, an assignment, an
+argument or a return value. For this file:
+
+```c [delays.c]
+#include <stdint.h>
+
+uint8_t delays[] = { 60, 420 };
+```
+
+dampf prints:
+
+```
+delays.c:3:26: warning: unsigned conversion from 'int32_t' to 'uint8_t' changes value from '420' to '164' [-Woverflow]
+```
+
+On both sides `delays[1]` holds 164. The rule is gcc's: a constant gets the warning only when
+the type cannot hold it as a signed or as an unsigned number of its width. So
+`uint8_t all_bits = -1` and `int8_t top = 255` (or `0x80`) are silent, while `uint8_t x = 256`,
+`uint8_t x = -129` and `uint16_t z = 65536` warn. A constant is what dampf folds: literals,
+enumerators, macros, and arithmetic, casts and `?:` on them; a `const` variable is not one. A
+cast to the target type, `(uint8_t)420`, says the truncation is meant and silences the warning.
+
+gcc is also silent in code that is never evaluated (the operand of `sizeof`, the right side of
+`0 &&`, the branch of `?:` that a constant condition does not take) and when the constant
+overflowed while it was folded (`2147483647 + 1`), and so is dampf. gcc folds a little more than
+dampf, such as `n * 0 + 300` or `n ? 300 : 300`, and warns there where dampf does not. gcc's
+warning about the overflow itself (`integer overflow in expression`) and its other default
+warnings are not built.
 
 ## Functions
 
@@ -259,6 +395,11 @@ Every statement of C99 is accepted except these:
 
 `setjmp` and `longjmp` are not available, since dampf has no header that declares them.
 
+To write in assembly, write a whole function: `DAMPF_ASM("file.s")` after the parameter list of
+a function definition links the hand-written assembly in the file instead of compiling the body.
+The C body stays what the PC compiles and what dampf checks the assembly against; the rules are
+on [Hints](/reference/hints).
+
 The rejection of `goto` and labels is decided and stays. A `goto` into a loop would give the
 loop a second entry, and then dampf's loop optimizations and its worst-case timing bounds would
 no longer apply. If real code needs `goto`, dampf may allow a form that only jumps forward and
@@ -328,6 +469,95 @@ The two builds agree only on distances within one object:
 
 dampf does not tell platform code from game code. Both constructs, and the cast from an integer
 to a pointer such as `(uint8_t *)0x7E2000`, are accepted in any file.
+
+## Interrupt handlers
+
+A game has one interrupt of its own, the IRQ (interrupt request): its handler `game_irq` runs
+at a row of the picture. The NMI (non-maskable interrupt) is the kit's: a game that publishes its
+data gets it, and it runs the game's [vertical blank](/glossary#vertical-blank). Both are
+described on [The console API](/reference/console-api); this section is about what dampf does
+with a handler.
+
+Use `DAMPF_INTERRUPT(irq)` or `DAMPF_INTERRUPT(nmi)` from `<dampf.h>` in front of a function
+definition to make the function the handler of that interrupt. A handler must be
+`void name(void)`, there is at most one per interrupt, and C code never calls it: the hardware
+calls it through an entry stub of the [runtime](/glossary#runtime). The entry function cannot be
+one.
+
+```c [raster.c]
+#include <stdint.h>
+#include <dampf.h>
+
+uint8_t scroll;
+uint8_t wave_step;
+
+static uint8_t clamp(uint8_t value) {
+    return value > 100 ? 100 : value;
+}
+
+DAMPF_INTERRUPT(irq) void game_irq(void) {
+    scroll = clamp(scroll + wave_step);
+}
+
+void game_tick(void) {
+    wave_step = clamp(wave_step + 1);
+}
+```
+
+An interrupt can come in the middle of any code. dampf gives every local a fixed address and
+lets functions that never run at the same time share those places, so a handler that used them
+would overwrite live locals. The handler and every function it calls therefore form a context of
+their own, with their own frames, [direct page](/glossary#direct-page) and scratch registers;
+the main code (the entry function and what it calls) is another context. Code of an interrupt
+context does not use the CPU's hardware multiplier either, whose factors cannot be read back and
+restored. It multiplies in software, about five times slower: a 16-bit product takes 22 to 532
+CPU cycles instead of 108.
+
+A function that two contexts call, such as `clamp` above, is compiled once for each. Each copy
+has its own parameters and locals in its context's frames, and the functions of a context call
+that context's copies. The original belongs to the first context that reaches it, in the order
+main code, NMI, IRQ, and keeps its name. A copy is named after its context: `clamp@irq` in
+messages, `__irq_clamp` in the [timing report](/glossary#timing-report) and in Mesen. Each copy
+takes ROM, but no cycles of its own. A program whose contexts share no function compiles as if
+there were no copies.
+
+Globals, `static` locals and string literals are not copied: a `static` local of `clamp` is one
+variable for all its copies. A global that several contexts write is the program's to guard,
+since an interrupt between a read and a write of the main code loses the interrupt's write. dampf
+keeps every store in the order of the program and removes none, and never reuses or hoists a
+`volatile` load; the kit's published data, which a handler reads, relies on that.
+
+| Rejected | Message |
+|---|---|
+| a handler that is not `void name(void)` | `an interrupt handler must be 'void game_irq(void)' (DAMPF_INTERRUPT)` |
+| a second handler of the same interrupt | `'other_irq' is a second IRQ handler; the first is 'game_irq' at`, then the place of the first |
+| a call of a handler | `'game_irq' is the IRQ handler (DAMPF_INTERRUPT): the hardware calls it, C code cannot` |
+| the entry function as a handler | `the entry function 'game_tick' cannot be an interrupt handler (DAMPF_INTERRUPT)` |
+| another interrupt, `DAMPF_INTERRUPT(vblank)` | `DAMPF_INTERRUPT needs 'nmi' or 'irq'` |
+| `DAMPF_INTERRUPT` in front of anything but a function definition | `DAMPF_INTERRUPT belongs in front of a function definition` |
+| a function written in assembly (`DAMPF_ASM`) that a handler reaches | `'mix8' is written in assembly (asm/mix8.s) and reached from the IRQ handler 'game_irq': an assembly function assumes the direct page 0 and the main code's frames and may use the CPU's multiplier, so interrupt code cannot call it yet (docs/hints.md, DAMPF_ASM)` |
+
+The rules that need the whole program, from the second handler to the entry function, are
+checked by `dampf build`, and by `dampf check` when its files define the entry function. The one
+about assembly is checked only by `dampf build`.
+
+On the PC, `DAMPF_INTERRUPT` expands to nothing, and the handler is an ordinary function that
+nothing calls unless the program does. `DAMPF_HAS_INTERRUPTS`, also from `<dampf.h>`, is 1 with
+dampf and 0 on the PC. Code that leaves a job to a handler on the SNES and does it itself on the
+PC asks it, and dampf drops the branch not taken. The
+[code generator from MIR](/glossary#code-generator-from-mir) then leaves out a function only that
+branch called. Here the NMI handler calls `advance_clock`, and on the PC the tick does:
+
+```c
+void game_tick(void) {
+    if (!DAMPF_HAS_INTERRUPTS) {
+        advance_clock();
+    }
+}
+```
+
+The branch cannot call the handler itself: a call of a handler is rejected even in a branch that
+is never taken, so it calls what the handler calls.
 
 ## Preprocessor
 
@@ -411,28 +641,34 @@ b.c:2:9: error: redefinition of 'phase' (first defined at a.c:2:9); declare it e
 These checks, like the check for recursion, run when `dampf check` checks the files together,
 and at `dampf build`.
 
-The header `<dampf.h>` defines two [hints](/glossary#hint), which tell dampf what it cannot
-infer: `DAMPF_RANGE(v, lo, hi)`, a statement of its own for a local variable or parameter, and
-`DAMPF_BUDGET(n)`, which stands only in front of a function definition. What they do, and the
-messages for their misuse, are on [Hints](/reference/hints). Intrinsics for the SNES hardware
-are not built yet; see [Limits](/reference/limits).
+Because dampf sees every call, the code generator from MIR, dampf's default, leaves out the
+functions the program never reaches: those that the entry function, the interrupt handlers and
+the functions written in assembly do not reach through calls. A library's functions that a game
+does not call cost it no ROM, and a test or a debugger that calls a function by its label finds
+it only if the program calls it. A global goes with the dropped functions only when they used it
+and nothing kept does; a global that no function names stays, so a debugger can still read it by
+name. A function that is called keeps its body even where every call is inlined, so it keeps its
+line in the timing report.
+
+The header `<dampf.h>` defines three [hints](/glossary#hint), which tell dampf what it cannot
+infer: `DAMPF_RANGE(v, lo, hi)`, a statement of its own for a local variable or parameter,
+`DAMPF_BUDGET(n)`, which stands only in front of a function definition, and
+`DAMPF_ASM("file.s")`, which stands after the parameter list of a function definition. What they
+do, and the messages for their misuse, are on [Hints](/reference/hints). `<dampf.h>` also has
+`DAMPF_INTERRUPT` and `DAMPF_HAS_INTERRUPTS` (see [Interrupt handlers](#interrupt-handlers)).
+There are no intrinsics: the hardware is reached through the console API
+([The console API](/reference/console-api)).
 
 ## Open decisions
 
-Three questions about the subset are not settled. Until they are, dampf does what was
-recommended for each:
+One question about the subset is not settled. Until it is, dampf does what was recommended:
 
-- **Plain `char` for text.** The recommendation is to give `char` the x86-64 meaning, a signed
-  8-bit type, and to reject arithmetic on `char` beyond comparisons and copying, so its
-  signedness can never change a result. dampf treats `char` as signed 8 bit today but does not
-  enforce the restriction: arithmetic on `char` is accepted.
-- **Size of enum objects.** On the PC an enum object takes 4 bytes. The recommendation is to
-  allow only values of an enum type to be stored in an object of that type, so that the object
-  could be stored in the smallest width that holds its enumerators. dampf keeps 4 bytes today
-  and does not check what is stored.
 - **Pointer width.** Some pointers must be 24 bit, because data in ROM spans more than one bank.
   dampf makes every pointer 4 bytes today (address, bank, zero byte). Narrower pointers are an
-  optimization of the [code generator from MIR](/glossary#code-generator-from-mir), such as
+  optimization of the code generator from MIR, such as
   [pointer compression](/glossary#pointer-compression); they do not change `sizeof`.
 
-`goto` was the fourth open question; it is decided, see [Statements](#statements).
+The other questions are decided: plain `char` is text (see
+[Plain char is text](#plain-char-is-text)), enum objects take only values of their enum (see
+[Enum objects](#enum-objects)), a `sizeof` that differs from the PC is rejected (see
+[Sizes](#sizes)), and `goto` stays rejected (see [Statements](#statements)).

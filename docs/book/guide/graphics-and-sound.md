@@ -85,10 +85,12 @@ tiles = ["assets/font_gfx.png", "assets/ball_gfx.png"]
 ```
 
 The game includes the two headers and hands the arrays to the console API in `game_init`, which
-runs with the screen off, so the copies into VRAM can happen at once. This is cut from
-`examples/hello/src/hello.c` to the uploads, with some comments left out:
+runs with the screen off, so the copies into VRAM and CGRAM can happen at once. This is cut from
+`examples/hello/src/hello.c` to the set-up and the uploads, with some lines left out:
 
 ```c
+#include "sdevkit/loop.h"
+#include "sdevkit/easy.h"
 #include "font_gfx.h"
 #include "ball_gfx.h"
 
@@ -96,46 +98,62 @@ runs with the screen off, so the copies into VRAM can happen at once. This is cu
 #define VRAM_MAP     0x1000    /* the background map: 32 x 32 entries */
 #define VRAM_SPRITES 0x4000    /* sprite tiles */
 
-static uint16_t map[32 * 32];  /* the background map in RAM; copied in the vertical blank */
+static uint16_t map[32 * 32];  /* the background map in RAM; queued for the vertical blank */
 
 void game_init(uint16_t seed)
 {
     (void)seed;
-    sdevkit_set_mode(SDEVKIT_BG_MODE1, 0);
-    sdevkit_bg_init_tile_set(0, font_gfx_tiles, font_gfx_pal, 0, FONT_GFX_TILES_SIZE,
-                             FONT_GFX_PAL_SIZE, SDEVKIT_BG_16COLORS, VRAM_FONT);
-    sdevkit_bg_set_map_ptr(0, VRAM_MAP, SDEVKIT_SC_32x32);
-    sdevkit_oam_init_gfx_set(ball_gfx_tiles, BALL_GFX_TILES_SIZE, ball_gfx_pal, BALL_GFX_PAL_SIZE,
-                             0, VRAM_SPRITES, SDEVKIT_OBJ_SIZE16_L32);
+    sdevkit_ppu.bgmode = SDEVKIT_BG_MODE1;                     /* mode 1: two layers of 16 colours, one of 4 */
+    sdevkit_ppu.tm = SDEVKIT_BG1_ENABLE | SDEVKIT_OBJ_ENABLE;  /* the first layer and the sprites */
+    sdevkit_ppu.bgnba[0] = SDEVKIT_BGNBA(VRAM_FONT, 0);
+    sdevkit_ppu.bgsc[0] = SDEVKIT_BGSC(VRAM_MAP, SDEVKIT_SC_32x32);
+    sdevkit_ppu.vofs[0] = 0x3FF;                               /* the map's first line on the screen's first line */
+    sdevkit_ppu.obsel = SDEVKIT_OBSEL(VRAM_SPRITES, SDEVKIT_OBJ_SIZE16_L32);
+    sdevkit_vram_copy(VRAM_FONT, font_gfx_tiles, FONT_GFX_TILES_SIZE);   /* the screen is off: copy at once */
+    sdevkit_cgram_copy(0, font_gfx_pal, FONT_GFX_PAL_SIZE);
+    sdevkit_vram_copy(VRAM_SPRITES, ball_gfx_tiles, BALL_GFX_TILES_SIZE);
+    sdevkit_cgram_copy(128, ball_gfx_pal, BALL_GFX_PAL_SIZE);   /* sprite palette 0 */
     print(10, 6, "HELLO SNES!");
-    sdevkit_dma_copy_vram((const uint8_t *)map, VRAM_MAP, sizeof map);
-    sdevkit_set_brightness(15);
+    /* ... */
+    sdevkit_vram_copy(VRAM_MAP, map, sizeof map);
+    /* ... */
+    sdevkit_ppu.inidisp = 15;                                  /* the screen on at the first commit, at full brightness */
 }
 ```
 
-The arguments of the calls say where everything goes; VRAM addresses count 16-bit words, CGRAM
-addresses colours. The call `sdevkit_set_mode(SDEVKIT_BG_MODE1, 0)` switches to mode 1; in place
-of its `0`, `SDEVKIT_BG3_MODE1_PRIORITY_HIGH` would put the BG3 tiles of priority 1 above
-everything. Then
-[`sdevkit_bg_init_tile_set`](/reference/console-api#sdevkit-bg-init-tile-set) copies tiles and
-palette of a background layer. Its first `0` is the layer, numbered 0 to 3 for BG1 to BG4, and
-the tiles go to VRAM word `VRAM_FONT`. Its second `0` is the number of the palette, and
-`SDEVKIT_BG_16COLORS` the colour mode, 16 colours a palette: the palette's colours go to CGRAM
-from colour 16 times its number on, here from colour 0. The call `sdevkit_bg_set_map_ptr` puts
-the layer's map, 32 x 32 entries, at VRAM word `VRAM_MAP`.
+The game sets the registers of the [PPU](/glossary#ppu), the SNES's picture processor, through
+the register shadow of `sdevkit/easy.h`: it writes their values into the fields of
+`sdevkit_ppu`, and `sdevkit_commit`, the one call of its `game_vblank`, writes them into the PPU
+(see [The console API](/reference/console-api#the-register-shadow)). A game that writes the
+hardware itself sets the same values with `sdevkit_reg_write`, as Steinschlag
+(`examples/steinschlag`) does:
+`sdevkit_reg_write(SDEVKIT_PPU_BG12NBA, SDEVKIT_BGNBA(VRAM_CAVE_A, VRAM_FONT))`. The copies,
+[`sdevkit_vram_copy`](/reference/console-api#sdevkit-vram-copy) and
+[`sdevkit_cgram_copy`](/reference/console-api#sdevkit-cgram-copy), go into VRAM and CGRAM at
+once in either kind of game.
 
-For the sprites,
-[`sdevkit_oam_init_gfx_set`](/reference/console-api#sdevkit-oam-init-gfx-set) copies their tiles
-to VRAM word `VRAM_SPRITES` and their colours to the sprite palette its `0` names, and
-`SDEVKIT_OBJ_SIZE16_L32` makes a small sprite 16 x 16 pixels and a large one 32 x 32. The sprite
-palettes are the upper half of CGRAM: sprite palette n starts at colour 128 + 16 n, so hello's
-ball takes its colours from colour 128 on.
+The arguments say where everything goes; VRAM addresses count 16-bit words, CGRAM addresses
+colours. `SDEVKIT_BGNBA(VRAM_FONT, 0)` puts the tiles of BG1 at VRAM word `VRAM_FONT`, a
+multiple of `0x1000` (its `0` is the address of BG2's tiles), and
+`SDEVKIT_BGSC(VRAM_MAP, SDEVKIT_SC_32x32)` the layer's map, 32 x 32 entries, at word `VRAM_MAP`.
+Then `sdevkit_vram_copy` copies the font's tiles to `VRAM_FONT`, and `sdevkit_cgram_copy` its 16
+colours to CGRAM from colour 0. In mode 1 a background palette p of 16 colours is CGRAM colours
+16 p to 16 p + 15, so the font takes palette 0. Or'ed into `bgmode`,
+`SDEVKIT_BG3_MODE1_PRIORITY_HIGH` would put the BG3 tiles with the priority bit in front of
+everything, as a status line needs.
 
-A palette of its own goes to CGRAM with `sdevkit_dma_copy_cgram`, whose address is the first
-colour. CatchMe puts the colours of one of its cats, `pal_ginger`, into sprite palette 1:
+For the sprites, `SDEVKIT_OBSEL(VRAM_SPRITES, SDEVKIT_OBJ_SIZE16_L32)` says that their tiles
+start at VRAM word `VRAM_SPRITES`, a multiple of `0x2000`, and makes a small sprite 16 x 16
+pixels and a large one 32 x 32. The copies put the ball's tiles there and its colours at CGRAM
+colour 128. The sprite palettes are the upper half of CGRAM: sprite palette n starts at colour
+128 + 16 n, so hello's ball takes palette 0. Last, `inidisp = 15` switches the screen on at full
+brightness, with the first commit.
+
+A palette of its own goes to CGRAM with `sdevkit_cgram_copy` as well, whose first argument is the
+first colour. CatchMe puts the colours of one of its cats, `pal_ginger`, into sprite palette 1:
 
 ```c
-sdevkit_dma_copy_cgram(pal_ginger_pal, 128 + 16 * 1, PAL_GINGER_PAL_SIZE);
+sdevkit_cgram_copy(128 + 16 * 1, pal_ginger_pal, PAL_GINGER_PAL_SIZE);
 ```
 
 After `game_init`, copy into VRAM and CGRAM only in the
@@ -148,11 +166,12 @@ A conversion with `tiles` writes tiles and a palette, but no map. A background l
 one: a table of 16-bit entries in VRAM, one for each tile of the layer, that says which tile is
 drawn there. The game makes the map itself. `hello.c` keeps its map of 32 x 32 entries in RAM,
 and its function `print` writes text into it in code, each character as the number of its tile
-in the font. Then `sdevkit_dma_copy_vram` copies the map to `VRAM_MAP`, where
-`sdevkit_bg_set_map_ptr` told the layer to look for it; whenever the text changes, `game_vblank`
-copies it again. An entry of hello's map is a tile number alone, so every character takes
-palette 0. The map entry macros of the [console API](/reference/console-api#backgrounds) build
-an entry that names a palette as well, or mirrors the tile:
+in the font. Then `sdevkit_vram_copy` copies the map to `VRAM_MAP`, where `SDEVKIT_BGSC` told the
+layer to look for it. Whenever the text changes, `game_tick` queues the map with
+`sdevkit_queue_vram`, and the commit in `game_vblank` copies it again. An entry of hello's map is
+a tile number alone, so every character takes palette 0. The map entry macros of the
+[console API](/reference/console-api#registers) build an entry that names a palette as well, or
+mirrors the tile:
 
 ```c
 map[row * 32 + column] = SDEVKIT_BG_TIL_NUM(tile) | SDEVKIT_BG_TIL_PAL(1);
@@ -206,22 +225,26 @@ For Er-Tüp's Festzelt, converted with the name `festzelt`, the converter writes
 | `FESTZELT_PAL_FIRST` | the `first` it was converted with |
 
 The size of `festzelt_tiles` is `FESTZELT_TILES_SIZE` bytes, and `FESTZELT_TILE_COUNT` counts its
-tiles. Er-Tüp's Festzelt uses 249 tiles and 72 colours. A game loads such a picture with the
-`sdevkit_mode7_*` calls and copies the colours to where `first` put them. The `0` of
-`sdevkit_mode7_load_tiles` is the byte address of the tiles to start at, and the `0` of
-`sdevkit_mode7_load_map` the map entry to start at (row times 128 plus column), so both fill
-from the start:
+tiles. Er-Tüp's Festzelt uses 249 tiles and 72 colours. A game loads such a picture with
+`sdevkit_mode7_tiles_copy` and `sdevkit_mode7_map_copy`, and copies the colours to where `first`
+put them. The `0` of `sdevkit_mode7_tiles_copy` is the pixel to start at (tile times 64, plus row
+times 8, plus column), and the `0` of `sdevkit_mode7_map_copy` the map entry to start at (row
+times 128 plus column), so both fill from the start:
 
 ```c
-sdevkit_set_mode(SDEVKIT_BG_MODE7, 0);
-sdevkit_mode7_load_tiles(festzelt_tiles, 0, FESTZELT_TILES_SIZE);
-sdevkit_mode7_load_map(festzelt_map, 0, FESTZELT_MAP_SIZE);
-sdevkit_dma_copy_cgram(festzelt_pal, FESTZELT_PAL_FIRST, FESTZELT_PAL_SIZE);
+sdevkit_reg_write(SDEVKIT_PPU_BGMODE, SDEVKIT_BG_MODE7);
+sdevkit_mode7_tiles_copy(0, festzelt_tiles, FESTZELT_TILES_SIZE);
+sdevkit_mode7_map_copy(0, festzelt_map, FESTZELT_MAP_SIZE);
+sdevkit_cgram_copy(FESTZELT_PAL_FIRST, festzelt_pal, FESTZELT_PAL_SIZE);
 ```
 
-These are copies into VRAM and CGRAM too: with the screen off, or in the vertical blank.
-`sdevkit_mode7_set_matrix`, `sdevkit_mode7_set_center` and `sdevkit_mode7_set_select` then turn,
-scale and place the layer; they are on [The console API](/reference/console-api#mode-7).
+These are copies into VRAM and CGRAM too: with the screen off, or in the vertical blank. Map and
+tiles share the first 32 KB of VRAM, the map in the low byte of each word and the tiles in the
+high byte, so nothing else of the game may be there, and its sprite tiles go to word `0x4000` or
+above. The registers of mode 7's matrix and centre, `SDEVKIT_PPU_M7A` to `SDEVKIT_PPU_M7Y`,
+written with `sdevkit_reg_write_twice`, then turn, scale and place the layer, and
+`SDEVKIT_PPU_M7SEL` says what lies outside the map; they are on
+[The console API](/reference/console-api#colour-math-and-mode-7).
 
 ## Converting in the build
 
@@ -269,7 +292,7 @@ superdevkit build snes --plan
 superdevkit build snes: hello (kit <home>)
   png    tiles assets/font_gfx.png font_gfx build/gen
   png    tiles assets/ball_gfx.png ball_gfx build/gen
-  dampf  build -I <home>/lib/include -I src -I build/gen --entry main -o build/snes/hello.sfc src build/gen/ <home>/lib/snes/
+  dampf  build -I <home>/lib/include -I src -I build/gen --entry main -o build/snes/hello.sfc src build/gen/ --lib <home>/lib/snes/
   write  build/compile_commands.json
 everything the build needs is there
 ```
@@ -418,11 +441,12 @@ On the SNES, `sdevkit_sfx_init` sends a small driver and the samples to the SPC7
 takes about a frame per 350 bytes. The CPU does nothing else until it ends, so the picture stands
 still and the pads are not read. What the player sees meanwhile is the game's choice, because the
 [PPU](/glossary#ppu) keeps showing its picture: Steinschlag uploads with the screen still off,
-and a game that draws its title and calls `sdevkit_set_brightness(15)` before `sdevkit_sfx_init`
-shows the title instead of a black screen. On the desktop and
-the web, [Rachael](/glossary#rachael) plays the same bytes with a DSP of her own, which decodes
-the BRR and interpolates between its samples as the S-DSP does. Which voice an effect gets is
-the same C code on both, so the choice is the same on the SNES and on the PC, frame by frame.
+and a game that draws its title and switches the screen on before `sdevkit_sfx_init`, with
+`sdevkit_reg_write(SDEVKIT_PPU_INIDISP, 15)`, shows the title instead of a black screen. On the
+desktop and the web, [Rachael](/glossary#rachael) plays the same bytes with a DSP of her own,
+which decodes the BRR and interpolates between its samples as the S-DSP does. Which voice an
+effect gets is the same C code on both, so the choice is the same on the SNES and on the PC,
+frame by frame.
 
 The BRR Lab, `<home>/tools/brr_lab.html`, is the editor of `sfx.json`. Open it in a browser and
 open the game's folder `assets/sfx` with it; a folder without `sfx.json` starts with one effect

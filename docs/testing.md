@@ -152,7 +152,8 @@ browser's frames and the clock that steps the game by them (ADR-6FCVAA30) are no
 `PublishedDataTest` plays `dev/publish_check`, a program of the kit's tests rather than an
 example, the same way on all three: the data the tick publishes for interrupt code
 (`sdevkit/publish.h`, ADR-6FPV1EQV), which on the SNES the kit's NMI (in the game's vertical
-blank, ADR-6FS0T4WB) and an IRQ on every line of the tick in turn read and check. Its checksums name what the interrupts found, so they are the same
+blank, ADR-6FS0T4WB) and an IRQ on every line of the vertical blank and the tick in turn read and
+check. Its checksums name what the interrupts found, so they are the same
 on the desktop and the web, which have no interrupts, only when the SNES's never found torn data.
 
 `IrqCheckTest` plays `dev/irq_check` the same way: the game's IRQ (`sdevkit/irq.h`,
@@ -247,8 +248,8 @@ over when it left ([ADR-6F60Z819](adr/6F60Z819-the-examples-replace-blubber-blas
   atomically (`superdevkit.AtomicWrite`), so a class compiling from it never reads a file half
   written.
 - **Mesen** (MesenCE in `.mesen/`, from `dev/fetch_mesen.sh`, or `-Pmesen=<path>`) runs the execution
-  tests, and the examples in `dev/compare_example.sh`; the random programs run in dampf's emulator
-  only.
+  tests, the examples in `dev/compare_example.sh` and `dev/irq_check` in `IrqCheckTest`; the random
+  programs run in dampf's emulator only.
 - **Cycle table:** `CycleTableAgainstEmulatorTest` checks the cost model
   (`dampf.target.Cycles65816`) against the emulator for every opcode in dampf's processor state;
   `Cycles65816Test` spot-checks it against the W65C816S data sheet.

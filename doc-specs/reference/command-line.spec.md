@@ -12,6 +12,8 @@ sources:
   - compiler/src/main/java/dampf/frontend/pp/Preprocess.java
   - compiler/src/main/java/dampf/util/PassLimit.java
   - README.md
+  - compiler/src/main/java/dampf/AsmFunctions.java
+  - compiler/src/main/java/dampf/check/CallGraph.java
 audience: Users looking up a command or an option
 ---
 

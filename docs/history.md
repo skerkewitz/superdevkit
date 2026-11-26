@@ -7,7 +7,7 @@ unless a line says otherwise. The measurements are in [optimizations-log.md](opt
 
 ## Where dampf stands
 
-M0 to M9 are concluded. M0 to M4 and M6 with version 0.4.0 (2026-11-18): all of Blubber Blasen
+M0 to M10 are concluded. M0 to M4 and M6 with version 0.4.0 (2026-11-18): all of Blubber Blasen
 compiles, the benchmark and the replays give the PC's checksums, on the SNES and in a playable
 ROM, dampf's code is faster than Calypsi's, and dampf assembles and links itself. M5 as version
 0.6.0 (2026-11-19): Blubber Blasen builds its SNES ROM with the dev kit from its own repository,
@@ -17,7 +17,10 @@ desktop, the debug view, and the `superdevkit` command. M8 as version 0.8.0 (202
 (`superdevkit build web` and `run web`), every example checked in the browser against the SNES.
 M9 as version 0.9.0 (2026-11-23): the optimizer's tests and canonical form, register choice by
 cost, 8-bit loops and array indexes that need no range. The repository went public after 0.9.0,
-and 0.9.1 was its first release with downloads.
+and 0.9.1 was its first release with downloads. M10 as version 0.10.0 (2026-11-26): C in
+interrupt handlers (the game's IRQ, and the kit's NMI for a game that publishes), hand-written
+assembly beside the optimized code, the subset decisions on `char` and enums, and a console API
+that is the hardware at once, with optional layers above it.
 
 dampf is the compiler of a development kit for SNES games, superdevkit; this repository is
 superdevkit's (ADR
@@ -37,6 +40,7 @@ superdevkit's (ADR
 | M7 | Windows and Linux: Rachael and the desktop frontend in the kit, the `superdevkit` command with `init`, `build`, `run`; the examples and Blubber Blasen run on the desktop from the kit | 0.7.0 | 2026-11-19 (the game's switch handed over to it) |
 | M8 | The web: the same games in the browser; Blubber Blasen's web build from the kit | 0.8.0 | 2026-11-22 (the game's switch handed over to it) |
 | M9 | The optimizer: what was left of M3; tests and a canonical form first, then register allocation | 0.9.0 | 2026-11-23 (what was left moved to M10 and M12) |
+| M10 | Language, platform and usability: C in interrupts, hand-written assembly, the subset decisions on `char` and enums | 0.10.0 | 2026-11-26 |
 
 M6 was done ahead of M5 and is part of 0.4.0, and M5, concluded after 0.5.0 was in use, took the
 free 0.6.0 ([ADR-6F60ZDMF](adr/6F60ZDMF-m5-is-concluded-as-060-and-a-version-between.md)).
@@ -91,6 +95,20 @@ free 0.6.0 ([ADR-6F60ZDMF](adr/6F60ZDMF-m5-is-concluded-as-060-and-a-version-bet
 
 - **The roadmap split** (2026-11-24). What is done moved from the roadmap to this file
   (ADR-6FK7WP0H).
+
+- **During M10** (2026-11-24 to 2026-11-26). The `switch` as a jump table moved up from M12.
+  The intrinsics planned for M10 were dropped: the multiplier is used for every product since
+  M9, a division by a constant is a multiplication, and DMA and the wait for the vertical blank
+  are console API calls; the hardware divider for a divisor that fits a byte went to M12.
+  `restrict` was measured as about zero on the examples and rejected
+  ([optimizations-log.md](optimizations-log.md)). Subset decision 3 (16-bit pointers into RAM)
+  moved to M12, as an optimization a program cannot see. Less memory for a compile left M10:
+  dampf's own speed and memory are tuned once it is more or less feature complete. Function
+  pointers in constant tables were built and not merged, since no game uses them (PR #59). The
+  console API got a new design after the shadow state of ADR-6FMHDB6H had been built and
+  measured (ADR-6FNPPCSX). C in interrupt handlers needed two steps the brainstorm had postponed
+  or not foreseen: copies of a function per context (ADR-6FQ4NSHE), and two published copies,
+  since a short tick on the SNES published before the IRQ's row (ADR-6FRDS030).
 
 ## M0 to M2
 
@@ -333,7 +351,8 @@ both ways.
 
 ## Built for M10 and M11, released in 0.9
 
-Built on 2026-11-22, before M10 and M11 were concluded; what is left of both is in the roadmap.
+Built on 2026-11-22, before M10 and M11 were concluded; the rest of M10 is [below](#m10), what is
+left of M11 in the roadmap.
 
 - **dampf's own preprocessor** (ADR-6FD4GDN5): using dampf needs nothing but Java. A subset of
   C99's: what the kit's code and the game use, macro expansion exactly after the standard
@@ -352,6 +371,108 @@ Built on 2026-11-22, before M10 and M11 were concluded; what is left of both is 
 - **Measuring a game with only a superdevkit home** (M11): `dampf.emu.ExampleBench` writes the
   work of every tick with a fourth argument, and `ExampleCheck` and `dev/replay.sh` write the
   ROM's sound in the format of the desktop's `sound.txt`.
+
+## M10
+
+Language, platform and usability. Built from 2026-11-24 to 2026-11-26 and concluded on
+2026-11-26 as version 0.10.0; three parts were built earlier and released in 0.9
+([above](#built-for-m10-and-m11-released-in-09)). What it promised: C in interrupt handlers,
+hand-written assembly with the code generator from MIR, and the subset decisions on `char` and
+enums. On the way it also got a new console API, which every game had to move to.
+
+The C language and its code:
+
+- **gcc's `-Woverflow` warning**: a constant that does not fit the type it initialises or is
+  assigned to (`uint8_t w[] = { 420 }`) is reported where gcc reports it (2026-11-24). It hid a
+  bug in CatchMe that only the desktop build showed.
+- **Subset decision 1, plain `char` for text**: a `char` value is only copied, tested and
+  compared with `==` and `!=`
+  ([ADR-6FM063YZ](adr/6FM063YZ-plain-char-is-text-a-char-value-is-only-copied.md), 2026-11-24).
+- **Subset decision 2, enum objects in one byte**: an enum object takes only values of its enum,
+  in the smallest width that holds them
+  ([ADR-6FKZFDJ3](adr/6FKZFDJ3-enum-objects-take-only-values-of-their-enum-and.md), 2026-11-24).
+- **`switch` as a jump table** (moved up from M12): a `switch` becomes a table where that costs
+  fewer cycles than its compares, from 4 to 7 cases depending on the range check
+  ([ADR-6FM7MWGX](adr/6FM7MWGX-a-switch-becomes-a-jump-table-where-that-costs.md), 2026-11-24).
+  On the examples the work per tick is the same; the worst cases went down. Open: weighing the
+  cases by a profile (`--block-counts`), since a table treats every case as equally likely and
+  Steinschlag, whose first case is the common one, got 0.4 % slower.
+- **A constant on an index into the operand**: `a[i + 1]` of a global is `sta a+1,x`, the sum
+  never computed (2026-11-25); the examples' work 0.7 % lower, every one's code smaller
+  ([log](optimizations-log.md#a-constant-on-an-index-into-the-operand-2026-11-25-on-the-examples)).
+
+Hand-written assembly:
+
+- **Hand-written assembly with the code generator from MIR**: `DAMPF_ASM("file.s")` on a C
+  function, one convention for both code generators, cycles and safety checks from dampf's own
+  reading of the assembly, and the assembly checked against the C body in every build
+  ([ADR-6FMATG2V](adr/6FMATG2V-hand-written-assembly-replaces-a-c-function.md), 2026-11-24).
+  Er-Tüp's two reference functions are now measured against the optimized code.
+
+C in interrupt handlers, in five steps; the design is the
+[brainstorm summary](brainstorm/interrupts-and-asm_2026-11-24.md), part 1:
+
+- **Interrupt contexts, the groundwork of C in interrupt handlers**: `DAMPF_INTERRUPT(irq|nmi)`,
+  frames and a direct page per context, an entry stub (about 97 cycles beyond the handler, 102
+  for the NMI), no hardware multiply in interrupt code, the timing per handler, and NMI and
+  timer IRQs in dampf's emulator
+  ([ADR-6FM9TXV4](adr/6FM9TXV4-interrupt-handlers-run-in-contexts-of-their-own.md), 2026-11-24).
+  An assembly function in interrupt code is rejected.
+- **A function reached from several contexts compiled once per context**: the main code, the
+  IRQ and the NMI may call the same functions, the kit's and the game's; each context gets a
+  copy with frames of its own, `static` locals and constants stay shared, and a program whose
+  contexts share nothing is not changed
+  ([ADR-6FQ4NSHE](adr/6FQ4NSHE-a-function-reached-from-several-contexts-is.md), 2026-11-25).
+  The game's IRQ needs it to call the console API.
+- **The data the tick publishes for interrupt code**: `SDEVKIT_PUBLISH` in `sdevkit/publish.h`
+  copies one struct after each tick into a copy interrupt code does not read, and `game_vblank`
+  makes it the current one, so interrupt code reads, complete, the data of the tick the picture
+  was made from, on the SNES with any tick length as on the desktop and the web; about 10.5
+  cycles per byte per tick
+  ([ADR-6FPV1EQV](adr/6FPV1EQV-interrupt-code-reads-a-copy-of-the-tick-s-data.md), 2026-11-25,
+  two copies since
+  [ADR-6FRDS030](adr/6FRDS030-interrupt-code-reads-the-copy-of-the-tick-whose.md), 2026-11-26).
+  Read by the game's IRQ and the kit's NMI.
+- **The game's IRQ**: `game_irq` in `sdevkit/irq.h`, before the picture row `sdevkit_irq_line`
+  sets, on the SNES and on Rachael; it reads its published data, waits for the horizontal blank
+  (`sdevkit_irq_wait_hblank`) and writes, about 25 CPU cycles of writes measured in Mesen, and
+  Rachael counts a register written before the wait as written while the picture is drawn.
+  `dev/irq_check` splits the screen twice and matches Mesen pixel for pixel, with short ticks and
+  long ones ([ADR-6FRX1GYC](adr/6FRX1GYC-the-game-s-irq-runs-at-a-picture-row-and-writes.md),
+  2026-11-26).
+- **The kit's NMI running the vertical blank of a game that publishes**: `SDEVKIT_PUBLISH` also
+  defines the kit's NMI handler, which switches to the newest published copy and runs the game's
+  `vblank` in every vertical blank, also while a tick overruns; `game_vblank` waits for the
+  switch, so the NMI never switches to a copy a tick still fills; about 120 to 140 cycles beyond
+  `vblank` a frame and a page of RAM; the desktop's check runs `vblank` twice and counts what the
+  second run changes. A game that does not publish, the examples and the optional layers keep
+  `game_vblank` in the loop, byte for byte the same
+  ([ADR-6FS0T4WB](adr/6FS0T4WB-the-kit-s-nmi-runs-the-vertical-blank-of-a-game.md), 2026-11-26).
+
+The kit and its platform:
+
+- **The console API's core and its optional layers**: the core is the hardware at once (every
+  PPU register by `sdevkit_reg_write`, DMA, VRAM, CGRAM and OAM copies, HDMA), and the kit writes
+  nothing in the vertical blank itself; above it optional layers in portable C (the registers in
+  memory with marks, a sprite list, an upload queue with a budget the same on both platforms, the
+  buttons pressed), one commit for all of them in `game_vblank`; the desktop counts a register
+  written while the picture is drawn
+  ([ADR-6FNPPCSX](adr/6FNPPCSX-the-console-api-is-the-hardware-at-once-with.md), 2026-11-25,
+  after the [brainstorm](brainstorm/console-api-shadow-state_2026-11-24.md)'s shadow state was
+  built and turned out to cost a game that knew the vertical blank's rules). The examples draw the
+  same pictures, pixel for pixel, the core's faster than before (with DMA's time counted).
+- **Unreachable functions left out**: dampf drops the functions a program cannot reach and the
+  globals only they used, so an optional layer a game does not call costs it nothing
+  ([ADR-6FNWEJAA](adr/6FNWEJAA-dampf-leaves-out-the-functions-a-program-cannot.md), 2026-11-25);
+  the examples' code 4 to 48 % smaller.
+- **The project's defines kept out of `lib/snes`**: `--lib` compiles a library's files without
+  the `-D` defines, so `[snes]` reaches only the game's files, as on the desktop and the web
+  ([ADR-6FKYXP8C](adr/6FKYXP8C-dampf-compiles-a-library-s-files-without-the.md), 2026-11-24).
+- **The SNES facts out of the code generators**: the banks of RAM, where frames, the direct page,
+  the stack and the variables lie, how an I/O register is reached and the multiplier's
+  registers are answered by `dampf.target.SnesTarget`, which both code generators ask; the
+  generated code is byte for byte the same
+  ([ADR-6FPTPCDM](adr/6FPTPCDM-the-snes-facts-the-compiler-asks-about-live-in.md), 2026-11-25).
 
 ## Publishing
 

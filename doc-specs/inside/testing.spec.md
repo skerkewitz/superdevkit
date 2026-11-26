@@ -15,6 +15,9 @@ sources:
   - compiler/src/test/java/dampf/emu/*.java
   - compiler/src/test/java/dampf/lib/*.java
   - compiler/src/test/java/dampf/frontend/pp/*.java
+  - compiler/src/test/java/dampf/PublishedDataTest.java
+  - compiler/src/test/java/dampf/IrqCheckTest.java
+  - compiler/src/test/java/dampf/AsmDeclarationTest.java
 audience: Contributors, and users who want to know why they can trust dampf's output
 ---
 

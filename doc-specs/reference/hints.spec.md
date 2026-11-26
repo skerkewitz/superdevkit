@@ -20,6 +20,7 @@ sources:
   - cli/src/main/java/superdevkit/project/Desktop.java
   - cli/src/main/java/superdevkit/project/Web.java
   - cli/src/main/java/superdevkit/project/Kit.java
+  - compiler/src/main/java/dampf/AsmFunctions.java
 audience: Users who want to tell dampf what it cannot infer
 ---
 

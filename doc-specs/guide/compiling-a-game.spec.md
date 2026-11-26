@@ -12,6 +12,7 @@ sources:
   - compiler/src/main/java/dampf/emu/ExampleProfile.java
   - reference/README.md
   - lib/snes/README.md
+  - compiler/src/main/resources/dampf/include/dampf.h
 audience: Users moving from one example file to the many files of a real game, and users of `superdevkit build snes` who call dampf on their game themselves
 ---
 

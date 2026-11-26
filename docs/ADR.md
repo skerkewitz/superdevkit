@@ -38,7 +38,7 @@ document of its subject.
 | ADR-6F0R6G1M | [gcc with UBSan is the oracle, and the tests compare every global](adr/6F0R6G1M-gcc-with-ubsan-is-the-oracle-and-the-tests-compare.md) | Accepted; amended by ADR-6FD2DGP0 | 2026-11-17 |
 | ADR-6F0R6H68 | [dampf has its own emulator, validated against SingleStepTests and Mesen](adr/6F0R6H68-dampf-has-its-own-emulator-validated-against.md) | Accepted | 2026-11-17 |
 | ADR-6F0R6JD6 | [Every function gets a best and a worst case, and `DAMPF_BUDGET` fails the build](adr/6F0R6JD6-every-function-gets-a-best-and-a-worst-case-and.md) | Accepted | 2026-11-17 |
-| ADR-6F0R6NS5 | [The platform layer is C with `volatile` pointers, and the main loop waits for the vertical blank](adr/6F0R6NS5-the-platform-layer-is-c-with-volatile-pointers-and.md) | Accepted; amended by ADR-6FNPPCSX | 2026-11-17 |
+| ADR-6F0R6NS5 | [The platform layer is C with `volatile` pointers, and the main loop waits for the vertical blank](adr/6F0R6NS5-the-platform-layer-is-c-with-volatile-pointers-and.md) | Accepted; amended by ADR-6FNPPCSX, ADR-6FM9TXV4, ADR-6FS0T4WB | 2026-11-17 |
 | ADR-6F0R6P51 | [The compiler and the game work in parallel towards the frame budget](adr/6F0R6P51-the-compiler-and-the-game-work-in-parallel-towards.md) | Accepted; amended by ADR-6F60Z819 | 2026-11-17 |
 | ADR-6F0R6Q5P | [Value ranges are inferred first, and subrange types wait for a profile](adr/6F0R6Q5P-value-ranges-are-inferred-first-and-subrange-types.md) | Accepted | 2026-11-17 |
 | ADR-6F0R6SCV | [dampf is under the Apache License 2.0 with LLVM Exceptions](adr/6F0R6SCV-dampf-is-under-the-apache-license-20-with-llvm.md) | Accepted | 2026-11-17 |

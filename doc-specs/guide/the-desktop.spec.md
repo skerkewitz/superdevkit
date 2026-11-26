@@ -45,8 +45,10 @@ the same as the SNES's pixel for pixel, but the PC's speed, not the console's.
 3. **The check without a window** – `--check` and `--out`: the file format of `check.txt`
    (`ticks`, `press`, `shot`, `splash`, `sram`) with the example of `examples/hello/check.txt`,
    what is written (the screenshots, `hashes.txt`, `sound.txt`, `--wav`), the line it prints and
-   when its exit status is 1: lost bytes, undrawn register writes and unheard DSP writes fail it,
-   sprites over the limits do not.
+   when its exit status is 1: lost bytes, undrawn register writes, unheard DSP writes, register
+   writes while the picture is drawn (`drawing`), register shadow groups changed without their
+   mark (`unmarked`) and a vertical blank the kit's NMI would change when run again (`repeated`)
+   fail it; sprites over the limits and copies the queue refused (`refused`) do not.
 4. **Recordings and replays** – every session in the window is recorded; F11 marks the moment
    and saves `<game>_rec_<n>.txt`; the file's lines (`mark`, `hash`, `sram`); `--replay` and
    where it pauses; F5, F6, F7, F8; `--record` with `--check`. Playing a recording on the SNES
