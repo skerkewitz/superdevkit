@@ -56,10 +56,13 @@ with one, `$0020-$1CFF`. The naive code generator keeps the frames of C function
 `$2000`, so its contexts take one page each. A program without handlers keeps the whole area.
 
 Interrupt code reads the game's data only through the copies the tick publishes
-(`sdevkit/publish.h`, ADR-6FPV1EQV and ADR-6FRDS030, not for games yet). They are an ordinary
+(`sdevkit/publish.h`, ADR-6FPV1EQV and ADR-6FRDS030). They are an ordinary
 global among the variables from `$2000`, an array of two structs as large as the game's, beside
 the struct itself and three bytes: `sdevkit_publish_side` (16 bits), which says which copy
 interrupt code reads, and `sdevkit_publish_ready`; the kit reserves nothing for a game that does not publish.
+A game that publishes has the kit's NMI (ADR-6FS0T4WB), so its main code's frames end below the
+NMI's page, `$1D00`, and below the IRQ's too if it has one. `lib/snes/irq.c` keeps two bytes for
+what the kit switched on in NMITIMEN, the timer's bits and the NMI's.
 
 The linker sees RAM addresses without the bank (`$2000`, not `$7E2000`), so 16-bit address fixups
 fit. Code that needs a full 24-bit RAM address (a pointer) adds the bank itself.

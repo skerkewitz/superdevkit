@@ -33,9 +33,17 @@
  * entry stub and by no C code. It and every function it calls run in a context of their own, with
  * their own frames, direct page and scratch registers and no hardware multiplier; a function
  * called from two contexts is compiled once for each (docs/subset.md, "Interrupt handlers"). A game
- * uses it for its IRQ, game_irq (sdevkit/irq.h); the NMI is the kit's and comes later.
+ * uses it for its IRQ, game_irq (sdevkit/irq.h); the NMI is the kit's (sdevkit/publish.h).
  */
 #define DAMPF_INTERRUPT(kind) __attribute__((dampf_interrupt(kind)))
+
+/*
+ * DAMPF_HAS_INTERRUPTS: 1 where interrupt handlers run, 0 on the PC, where a handler is an
+ * ordinary function nothing calls. A constant, for code that does one thing when a handler does
+ * the work and another when nothing would (sdevkit/publish.h's game_vblank): dampf drops the
+ * branch not taken, and the code generator from MIR leaves out a function only it called.
+ */
+#define DAMPF_HAS_INTERRUPTS 1
 
 /*
  * DAMPF_ASM("file.s"), after the parameter list of a function definition:
@@ -69,6 +77,7 @@
 #define DAMPF_BUDGET(cycles)
 /* on the PC an ordinary function, which nothing calls unless the program does */
 #define DAMPF_INTERRUPT(kind)
+#define DAMPF_HAS_INTERRUPTS 0
 /* the PC compiles the C body; dampf checks the assembly against it */
 #define DAMPF_ASM(file)
 

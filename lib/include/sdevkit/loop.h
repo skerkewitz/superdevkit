@@ -23,8 +23,10 @@
  * sdevkit/snes.h) is the game's. A tick that takes longer than a frame makes the loop wait for the
  * next vertical blank: the game then runs at 30 frames a second, never wrong, and the picture
  * shows the last one game_vblank wrote. The kit interrupts the game nowhere; a game may have an
- * IRQ of its own at rows of the picture (sdevkit/irq.h). The three callbacks are
- * the game's names, so they keep the `game_` prefix; no name of the kit starts with `game_`.
+ * IRQ of its own at rows of the picture (sdevkit/irq.h), and a game that publishes its data
+ * (sdevkit/publish.h) has its vertical blank run by the kit's NMI, in every vertical blank, also
+ * while a tick overruns. The three callbacks are the game's names, so they keep the `game_`
+ * prefix; no name of the kit starts with `game_`.
  *
  * @code
  * #include "sdevkit/loop.h"

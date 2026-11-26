@@ -2,18 +2,19 @@
  *
  * Every tick changes a struct with a palette, a 16-bit value whose two bytes change together and
  * a checksum of all of it, and names for the tick's checksum (sdevkit_dbg_hash) the published
- * copy as it finds it (the tick before's, which game_vblank made the current one), its own
- * struct after it changed it, and what the interrupts found. On the SNES the NMI and an IRQ read
- * the published copy and count the times it was not one tick's data, complete; the desktop and
- * the web have no interrupts and count none. The kit's loop runs game_vblank and then the tick
- * right after the vertical blank's start, so the IRQ comes one line later each frame, from line
- * 226 to 261 and again, and so falls on every point of the switch in game_vblank, of the tick
- * and of the copy after it. So the checksums are the same on all three only if the SNES's
- * interrupts never found torn data and every platform published the same data at the same
- * point.
+ * copy as it finds it (the tick before's, which the vertical blank made the current one), its own
+ * struct after it changed it, and what the interrupts found. On the SNES the kit's NMI runs the
+ * game's vblank, which checks the published copy, and an IRQ checks it too; both count the times
+ * it was not one tick's data, complete. The desktop and the web have no interrupts: game_vblank
+ * runs vblank there, which finds nothing, and the IRQ runs never. The kit's loop starts the tick
+ * right after the NMI's switch, so the IRQ, which comes one line later each frame, from line 226
+ * to 261 and again, falls on every point of the NMI, of the tick and of the copy after it. So the
+ * checksums are the same on all three only if the SNES's interrupts never found torn data and
+ * every platform published the same data at the same point.
  *
- * Test code, not game code: it switches the interrupts on itself, for dampf only, since the kit
- * has no API for them yet. */
+ * Test code, not game code: its IRQ comes in the vertical blank, where sdevkit_irq_line puts none,
+ * so it writes the timer's registers itself, for dampf only, every vertical blank after the kit
+ * has switched the NMI on. */
 #include <stdint.h>
 #include <dampf.h>
 #include "sdevkit/loop.h"
@@ -48,7 +49,6 @@ void game_init(uint16_t seed)
 #ifdef __DAMPF__
     REG8(0x4209) = (uint8_t)FIRST_LINE;
     REG8(0x420A) = 0;
-    REG8(0x4200) = 0xA1;   /* the NMI, the IRQ at line VTIME, and the joypads' automatic read */
 #endif
 }
 
@@ -77,10 +77,6 @@ static void tick(const uint16_t pad[SDEVKIT_PADS])
     sdevkit_dbg_hash(&nmi_torn, sizeof nmi_torn);
 }
 
-static void vblank(void)
-{
-}
-
 /* The check, which both handlers call: dampf compiles a copy for each (ADR-6FQ4NSHE). */
 static uint8_t consistent(const struct frame *p)
 {
@@ -106,8 +102,12 @@ DAMPF_INTERRUPT(irq) void on_irq(void)
     }
 }
 
-DAMPF_INTERRUPT(nmi) void on_nmi(void)
+/* In the kit's NMI on the SNES, after its switch; in game_vblank on the PC. */
+static void vblank(void)
 {
+#ifdef __DAMPF__
+    REG8(0x4200) = 0xA1;   /* the NMI, the IRQ at line VTIME, and the joypads' automatic read */
+#endif
     if (!consistent(SDEVKIT_PUBLISHED(frame))) {
         nmi_torn++;
     }

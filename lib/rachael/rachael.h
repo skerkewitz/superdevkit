@@ -90,8 +90,8 @@ typedef struct {
 extern sdevkit__rachael_state sdevkit__rachael;
 
 /* The game's IRQ handler (sdevkit/irq.h), or NULL: the frontend sets it from sdevkit__game_irq,
- * which superdevkit build generates next to the program (game_irq, or none if the game has no
- * game_irq). sdevkit__render calls it before the row sdevkit_irq_line set, after that row's HDMA. */
+ * which superdevkit build generates next to the program (game_interrupts.c: game_irq, or none if
+ * the game has no game_irq). sdevkit__render calls it before the row sdevkit_irq_line set, after that row's HDMA. */
 extern void (*sdevkit__irq_handler)(void);
 
 /* A register write as the hardware takes it, without the check of when (the kit's own writes). */

@@ -35,6 +35,7 @@ on both names only what the public headers have, and that its functions are in `
 | Mosaic, high resolution, interlace | not built | not built, reported | |
 | The game's IRQ at a row of the picture (the timer's H/V IRQ, kit-timed): a split screen, a status bar, a second scroll; its register writes after a wait for the horizontal blank, about 25 CPU cycles of them | built: the CPU's timer, the handler in C in a context of its own; a write too late shows a row torn, in Mesen (*measured*) | built: called before the row; a register written before the wait counts as written while the picture is drawn (*enforced*) | `sdevkit_irq_line`, `sdevkit_irq_off`, `sdevkit_irq_wait_hblank`, `game_irq`, `SDEVKIT_PUBLISHED` |
 | The timers at any dot, an IRQ in the middle of a row | not built: the kit owns the timer | not built | |
+| The game's vertical blank in the kit's NMI, in every vertical blank, also while a tick overruns (a game that publishes its data) | built: the NMI's handler that the macro defines, 118 to 140 CPU cycles beyond the game's code a frame | built: `game_vblank` runs it once a tick; the desktop's check runs it twice and counts what the second run changes (*enforced*) | `SDEVKIT_PUBLISH`, `SDEVKIT_PUBLISHED` |
 | Sound effects: samples (BRR) from a game's `sfx.json`, 1 to 8 voices with priorities, GAIN's direct envelope, volume ([docs/sound.md](../docs/sound.md)) | built: a forwarding driver on the SPC700, the logic in C | built: Rachael's DSP, through raylib's audio stream; the DSP writes compared with the SNES's | `sdevkit_sfx_init`, `sdevkit_sfx_play` |
 | Music: tracks from files ([docs/sound.md](../docs/sound.md#music)) | not built: the calls do nothing | built: the file plays through raylib (OGG, MP3, WAV, QOA, XM, MOD) | `sdevkit_music_play`, `sdevkit_music_stop` |
 | ADSR envelopes, echo, noise, pitch modulation, looped samples | not built | not built, reported | |
@@ -111,10 +112,18 @@ What each function costs on the SNES, in CPU cycles, is the last column of the t
   line). The desktop check fails on a register written before the wait (*enforced*); a write
   after the window shows a torn row, which only the Mesen check sees (*measured*,
   `dev/compare_example.sh`).
+- **The game's vertical blank in the kit's NMI** (`sdevkit/publish.h`, a game that publishes its
+  data) runs in the middle of the tick too, so the same holds: it reads the game's data only
+  through the published copy, writes no variable the main code writes, and uses none of the
+  optional layers. What it writes depends only on the published data: the NMI runs it again in
+  every vertical blank while a tick overruns. The desktop check runs it twice after each tick and
+  fails on what the second run changes (*enforced*).
 - **A tick that takes longer than a frame** makes the game wait for the next vertical blank: it
-  then runs at 30 frames a second, never wrong. Rachael does not show it, she has the PC's speed;
-  the Mesen check counts frames and ticks (*measured*). Plan the work of a frame with the timing
-  report and `DAMPF_BUDGET` (C_STYLE.md, part 6).
+  then runs at 30 frames a second, never wrong. A game whose vertical blank the kit's NMI runs
+  keeps its scroll, its splits and its uploads in every frame meanwhile; any other keeps the
+  registers as the last writes left them, an IRQ's too. Rachael does not show it, she has the
+  PC's speed; the Mesen check counts frames and ticks (*measured*). Plan the work of a frame with
+  the timing report and `DAMPF_BUDGET` (C_STYLE.md, part 6).
 
 ## Sound: what the SNES can play
 

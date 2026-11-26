@@ -90,7 +90,7 @@ moves to the history with that release):
   ([ADR-6FPV1EQV](adr/6FPV1EQV-interrupt-code-reads-a-copy-of-the-tick-s-data.md), 2026-11-25,
   two copies since
   [ADR-6FRDS030](adr/6FRDS030-interrupt-code-reads-the-copy-of-the-tick-whose.md), 2026-11-26).
-  Not for games yet, as the contexts.
+  Read by the game's IRQ and the kit's NMI (below).
 - **The game's IRQ**: `game_irq` in `sdevkit/irq.h`, before the picture row `sdevkit_irq_line`
   sets, on the SNES and on Rachael; it reads its published data, waits for the horizontal blank
   (`sdevkit_irq_wait_hblank`) and writes, about 25 CPU cycles of writes measured in Mesen, and
@@ -98,6 +98,14 @@ moves to the history with that release):
   `dev/irq_check` splits the screen twice and matches Mesen pixel for pixel, with short ticks and
   long ones ([ADR-6FRX1GYC](adr/6FRX1GYC-the-game-s-irq-runs-at-a-picture-row-and-writes.md),
   2026-11-26).
+- **The kit's NMI running the vertical blank of a game that publishes**: `SDEVKIT_PUBLISH` also
+  defines the kit's NMI handler, which switches to the newest published copy and runs the game's
+  `vblank` in every vertical blank, also while a tick overruns; `game_vblank` waits for the
+  switch, so the NMI never switches to a copy a tick still fills; about 120 to 140 cycles beyond
+  `vblank` a frame and a page of RAM; the desktop's check runs `vblank` twice and counts what the
+  second run changes. A game that does not publish, the examples and the optional layers keep
+  `game_vblank` in the loop, byte for byte the same
+  ([ADR-6FS0T4WB](adr/6FS0T4WB-the-kit-s-nmi-runs-the-vertical-blank-of-a-game.md), 2026-11-26).
 - **A constant on an index into the operand**: `a[i + 1]` of a global is `sta a+1,x`, the sum
   never computed (2026-11-25); the examples' work 0.7 % lower, every one's code smaller
   ([log](optimizations-log.md#a-constant-on-an-index-into-the-operand-2026-11-25-on-the-examples)).
@@ -116,15 +124,7 @@ moves to the history with that release):
   ([ADR-6FNWEJAA](adr/6FNWEJAA-dampf-leaves-out-the-functions-a-program-cannot.md), 2026-11-25);
   the examples' code 4 to 48 % smaller.
 
-Left:
-
-- **The NMI running `game_vblank` and the frame's work.** Nearly every SNES game has an NMI
-  handler; the kit owns it ([brainstorm summary](brainstorm/interrupts-and-asm_2026-11-24.md),
-  part 1, idea 6). The contexts, the published data, the copies per context and the game's IRQ
-  are built (above). Left: the kit's NMI runs `game_vblank`, which joins the NMI context, and what
-  it reads must be published too (open: whether every game then publishes, and how a tick keeps
-  filling the copy the NMI's `game_vblank` may switch to,
-  [ADR-6FRDS030](adr/6FRDS030-interrupt-code-reads-the-copy-of-the-tick-whose.md)).
+Nothing is left to build: M10 is concluded with the release of 0.10.0.
 
 ## M11: timing and debugging (0.11.0)
 
@@ -242,6 +242,12 @@ concluded.
   iteration and Steinschlag's cave. Later, from the same brainstorm: `dampf eject`, which writes
   a function's optimized code as the start of a `.s` file, and arguments in registers together
   with M12's calling convention (row 7).
+- **The optional layers in the kit's NMI.** A game on the layers (`sdevkit_commit`, the queue,
+  the shadow registers, the sprite list) keeps `game_vblank` in the loop, since their state is
+  the tick's
+  ([ADR-6FS0T4WB](adr/6FS0T4WB-the-kit-s-nmi-runs-the-vertical-blank-of-a-game.md)). The layers
+  could publish their own state as a game publishes its struct, so their commit could run in the
+  NMI too.
 - **Less memory for a compile.** Blubber Blasen took 1.8 GB. Moved out of M10 on 2026-11-24:
   dampf's own speed and memory are tuned once it is more or less feature complete.
 

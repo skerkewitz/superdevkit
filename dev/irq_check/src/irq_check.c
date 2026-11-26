@@ -1,16 +1,19 @@
-/* The game's IRQ (sdevkit/irq.h) on the kit's frame rhythm: the screen split twice.
+/* The game's IRQ (sdevkit/irq.h) and the kit's NMI (sdevkit/publish.h) on the kit's frame rhythm:
+ * the screen split twice.
  *
  * BG1 is a field of stripes, each pixel column of a tile a colour and each tile a palette by its
- * column and row, so a scroll shows to the pixel, across and down. game_vblank scrolls the top; the IRQ before row SPLIT1 scrolls
- * the middle by another value and sets the IRQ before row SPLIT2, which moves the bottom part
- * up and sets SPLIT1 again, for the next frame. All three values change every tick, and the tick
- * publishes them (sdevkit/publish.h), so each split shows the tick the rest of the picture was
- * made from. The handler reads its value first, then waits for the horizontal blank
- * (sdevkit_irq_wait_hblank) and writes. An HDMA channel writes the brightness on every line, the
- * IRQ's lines too. With A held the tick is long: on the SNES it then ends below both splits, while it
- * ends above them otherwise; the desktop draws the same either way. The pictures of check.txt's
- * shots are compared with Mesen's (dev/compare_example.sh dev/irq_check), the checksums of the
- * ticks by IrqCheckTest. */
+ * column and row, so a scroll shows to the pixel, across and down. The game's vblank, which the
+ * kit's NMI runs on the SNES, scrolls the top; the IRQ before row SPLIT1 scrolls the middle by
+ * another value and sets the IRQ before row SPLIT2, which moves the bottom part up and sets
+ * SPLIT1 again, for the next frame. All three values change every tick, and the tick publishes
+ * them, so each part shows the tick the rest of the picture was made from. The handler reads its
+ * value first, then waits for the horizontal blank (sdevkit_irq_wait_hblank) and writes. An HDMA
+ * channel writes the brightness on every line, the IRQ's lines too. With A held the tick is long:
+ * on the SNES it then ends below both splits, while it ends above them otherwise. With B held it
+ * is longer than two frames: the NMI then comes in the middle of it and runs vblank again on the
+ * same data, and the IRQ splits the same picture again. The desktop draws the same either way.
+ * The pictures of check.txt's shots are compared with Mesen's (dev/compare_example.sh
+ * dev/irq_check), the checksums of the ticks by IrqCheckTest. */
 #include <stdint.h>
 #include <dampf.h>
 #include "sdevkit/loop.h"
@@ -23,6 +26,7 @@
 #define VRAM_TILES 0x0000
 #define VRAM_MAP 0x1000
 #define LONG_WORK 830           /* the long tick's rounds: it ends below SPLIT2 on the SNES */
+#define OVERRUN_WORK 3400       /* the longest: more than two frames on the SNES */
 
 struct split {
     uint16_t top_x;             /* rows 0 to SPLIT1 - 1 */
@@ -86,7 +90,7 @@ static void tick(const uint16_t pad[SDEVKIT_PADS])
     split.top_x = (uint16_t)(split.top_x + 1u);
     split.mid_x = (uint16_t)(split.mid_x + ((pad[0] & SDEVKIT_KEY_RIGHT) ? 5u : 3u));
     split.low_y = (uint16_t)((split.low_y + 2u) & 0x3FFu);
-    rounds = (pad[0] & SDEVKIT_KEY_A) ? LONG_WORK : 10;
+    rounds = (pad[0] & SDEVKIT_KEY_B) ? OVERRUN_WORK : (pad[0] & SDEVKIT_KEY_A) ? LONG_WORK : 10;
     for (i = 0; i < rounds; i++) {
         work = (uint16_t)(work * 5u + i + split.seq);
     }
@@ -96,7 +100,7 @@ static void tick(const uint16_t pad[SDEVKIT_PADS])
 
 static void vblank(void)
 {
-    sdevkit_reg_write_twice(SDEVKIT_PPU_BG1HOFS, split.top_x);
+    sdevkit_reg_write_twice(SDEVKIT_PPU_BG1HOFS, SDEVKIT_PUBLISHED(split)->top_x);
     sdevkit_reg_write_twice(SDEVKIT_PPU_BG1VOFS, 0x3FF);
     sdevkit_irq_line(SPLIT1);
 }
