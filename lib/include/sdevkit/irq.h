@@ -84,8 +84,9 @@
  *   counts it as lost.
  * - It uses no HDMA call: Rachael does not draw an HDMA channel changed in the middle of the
  *   picture, and the desktop counts it as a write while the picture is drawn.
- * - game_vblank ends before the first row the IRQ runs at: a register written there, the IRQ
- *   between the two bytes of a scroll register, would be wrong.
+ * - game_vblank, or the vertical blank the kit's NMI runs (sdevkit/publish.h), ends before the
+ *   first row the IRQ runs at: a register written there would show in the middle of the picture,
+ *   and in game_vblank the IRQ could even come between the two bytes of a scroll register.
  *
  * **The desktop and the web.** Rachael calls game_irq while she draws the picture, before the
  * row it is set for, after that row's HDMA, as the SNES does. A register it writes before

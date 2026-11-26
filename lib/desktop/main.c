@@ -62,10 +62,11 @@
  * every frame is one tick, and the splash comes before them, without input), writes the screenshots it
  * asks for as PNG into the folder of --out (default .), the checksum of every tick
  * (sdevkit_dbg_hash: "tick hash" in hex, one a line) into hashes.txt there, and prints "frames N ticks N lost L
- * undrawn U unheard H sprites S drawing D unmarked M refused R"; the exit status is 1 when a byte
- * was lost, a register write was one Rachael does not draw (sdevkit__undrawn), a register was
- * written while the picture was drawn, a group of sdevkit/shadow.h changed without its mark, a DSP
- * write was one she does not play (sdevkit__sound.unheard),
+ * undrawn U unheard H sprites S drawing D unmarked M refused R repeated P"; the exit status is 1
+ * when a byte was lost, a register write was one Rachael does not draw (sdevkit__undrawn), a
+ * register was written while the picture was drawn, a group of sdevkit/shadow.h changed without
+ * its mark, a DSP write was one she does not play (sdevkit__sound.unheard), the vertical blank of a
+ * game that publishes changed the picture when it ran a second time (repeat_vblank),
  * or the file is a recording and a tick's checksum is not the recorded one. sound.txt there has
  * the sound as dampf's emulator also writes it (dampf.emu.ExampleCheck): every DSP write, "init"
  * (in game_init) or the tick after which it was made, the register and the value in hex; after
@@ -611,6 +612,90 @@ static int load_input(const char *path, Input *in, long default_ticks)
     return 1;
 }
 
+/* The game's interrupt handlers, or NULL: generated next to the program by superdevkit build,
+ * which reads the game's objects (game_interrupts.c, beside music_files.c): game_irq, and the NMI
+ * handler that SDEVKIT_PUBLISH defines (sdevkit/publish.h). */
+extern void (*const sdevkit__game_irq)(void);
+extern void (*const sdevkit__game_nmi)(void);
+
+/* A check of a game whose vertical blank the SNES's NMI runs (sdevkit/publish.h): after each
+ * game_vblank, the NMI's handler runs once more in a vertical blank of its own, as on the SNES
+ * while a tick overruns, and every byte of the picture's state it changes counts. Rachael is
+ * then put back as it was, so the check plays on as if it had not run. */
+static int repeat_check;
+static unsigned repeated;               /* bytes the second run changed, since the check began */
+static const char *repeated_what;       /* the first of them: where */
+static unsigned repeated_at;            /* ... its register, address or index */
+
+static void repeat_count(const char *what, unsigned at)
+{
+    if (repeated == 0) {
+        repeated_what = what;
+        repeated_at = at;
+    }
+    repeated++;
+}
+
+static void repeat_vblank(void)
+{
+    static sdevkit__rachael_state before;
+    const sdevkit__rachael_state *now = &sdevkit__rachael;
+    unsigned i;
+
+    before = sdevkit__rachael;
+    sdevkit__vblank();
+    sdevkit__game_nmi();
+    for (i = 0; i < SDEVKIT__VRAM_WORDS; i++) {
+        if (now->vram[i] != before.vram[i]) {
+            repeat_count("VRAM word", i);
+        }
+    }
+    for (i = 0; i < 256; i++) {
+        if (now->cgram[i] != before.cgram[i]) {
+            repeat_count("CGRAM colour", i);
+        }
+    }
+    for (i = 0; i < sizeof now->oam; i++) {
+        if (now->oam[i] != before.oam[i]) {
+            repeat_count("OAM byte", i);
+        }
+    }
+    for (i = 0; i < sizeof now->regs; i++) {
+        if (now->regs[i] != before.regs[i]) {
+            repeat_count("register $21", i);
+        }
+    }
+    for (i = 0; i < 4; i++) {
+        if (now->hofs[i] != before.hofs[i] || now->vofs[i] != before.vofs[i]) {
+            repeat_count("scroll of BG", i + 1);
+        }
+    }
+    for (i = 0; i < 6; i++) {
+        if (now->m7[i] != before.m7[i]) {
+            repeat_count("register $21", 0x1B + i);
+        }
+    }
+    if (now->m7hofs != before.m7hofs || now->m7vofs != before.m7vofs) {
+        repeat_count("mode 7 scroll", 0);
+    }
+    if (now->fixed_r != before.fixed_r || now->fixed_g != before.fixed_g || now->fixed_b != before.fixed_b) {
+        repeat_count("register $21", 0x32);
+    }
+    for (i = 0; i < 8; i++) {
+        if (now->hdma[i].reg != before.hdma[i].reg || now->hdma[i].two != before.hdma[i].two
+            || now->hdma[i].table != before.hdma[i].table) {
+            repeat_count("HDMA channel", i);
+        }
+    }
+    if (now->hdma_enabled != before.hdma_enabled) {
+        repeat_count("register $42", 0x0C);
+    }
+    if (now->irq_on != before.irq_on || (now->irq_on && now->irq_row != before.irq_row)) {
+        repeat_count("IRQ row", now->irq_row);
+    }
+    sdevkit__rachael = before;
+}
+
 /* One frame of the console; returns the bytes lost in it: those written during the picture
  * (in game_tick, which the vertical blank would otherwise forget) and those over the vertical
  * blank's budget (in game_vblank). */
@@ -635,6 +720,9 @@ static unsigned frame_step(const uint16_t pad[SDEVKIT_PADS])
     lost = sdevkit__stats().dma_lost;
     sdevkit__vblank();
     game_vblank();
+    if (repeat_check && sdevkit__game_nmi != NULL) {
+        repeat_vblank();
+    }
     sound_tick = tick_count - 1;
     sdevkit__sfx_frame();
     sound_step();
@@ -701,10 +789,6 @@ static uint16_t sdevkit__splash_frame(uint8_t brightness)
 }
 
 #include "../splash/splash.h"
-
-/* The game's game_irq, or NULL: generated next to the program by superdevkit build, which reads
- * the game's objects (game_irq.c, beside music_files.c). */
-extern void (*const sdevkit__game_irq)(void);
 
 /* Power on with this save RAM (null: as it is): the splash, the console reset again, then the
  * game. The recording begins with the save RAM of this moment. */
@@ -895,6 +979,12 @@ static void report_timing(FILE *out)
         fprintf(out, "%s: %u changes of sdevkit_ppu without their mark, the first in group $%02X "
                      "(sdevkit/shadow.h: the SNES does not commit them)\n",
                 GAME_NAME, sdevkit__rachael.unmarked, sdevkit__rachael.unmarked_group);
+    }
+    if (repeated > 0) {
+        fprintf(out, "%s: %u bytes the vertical blank changed when it ran again on the same published data, "
+                     "the first a %s %u (sdevkit/publish.h: the SNES runs it again while a tick overruns, "
+                     "and would show something else)\n",
+                GAME_NAME, repeated, repeated_what, repeated_at);
     }
 }
 
@@ -1301,6 +1391,7 @@ static int check(const char *path, const char *out, const char *record, const ch
         return 2;
     }
     splash_out = out;
+    repeat_check = 1;
     {
         char name[512];
         snprintf(name, sizeof name, "%s/hashes.txt", out);
@@ -1377,11 +1468,11 @@ static int check(const char *path, const char *out, const char *record, const ch
     report_undrawn(stdout);
     report_timing(stdout);
     report_unheard(stdout);
-    printf("frames %ld ticks %ld lost %u undrawn %u unheard %u sprites %u drawing %u unmarked %u refused %u\n",
+    printf("frames %ld ticks %ld lost %u undrawn %u unheard %u sprites %u drawing %u unmarked %u refused %u repeated %u\n",
            in.ticks, in.ticks, lost, sdevkit__rachael.undrawn, sdevkit__sound.unheard, sprite_lines,
-           sdevkit__rachael.drawing, sdevkit__rachael.unmarked, sdevkit__queue_refused());
+           sdevkit__rachael.drawing, sdevkit__rachael.unmarked, sdevkit__queue_refused(), repeated);
     return lost > 0 || sdevkit__rachael.undrawn > 0 || sdevkit__rachael.drawing > 0 || sdevkit__rachael.unmarked > 0
-           || sdevkit__sound.unheard > 0 || differs >= 0 ? 1 : 0;
+           || sdevkit__sound.unheard > 0 || repeated > 0 || differs >= 0 ? 1 : 0;
 }
 
 /* The options, the same on the web, where the page passes none (Module.callMain takes them, after

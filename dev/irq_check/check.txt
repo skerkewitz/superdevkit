@@ -2,6 +2,7 @@ ticks 600
 press 100 220 right
 press 150 300 a
 press 400 500 a
+press 540 570 b
 shot 60
 shot 120
 shot 160
@@ -10,4 +11,6 @@ shot 299
 shot 350
 shot 450
 shot 520
+shot 545
+shot 560
 shot 599
