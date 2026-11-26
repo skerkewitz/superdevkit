@@ -22,9 +22,10 @@ N-1. Only `game_vblank` or the kit's loop runs between a tick and its picture on
 
 **Decision.**
 
-- Two published copies, `sdevkit_published_<name>[2]`, and two bytes:
-  `sdevkit_publish_side`, the copy interrupt code reads (the current one), and
-  `sdevkit_publish_ready`, set when the other copy holds a tick that no `game_vblank` has
+- Two published copies, `sdevkit_published_<name>[2]`, and two variables:
+  `sdevkit_publish_side`, the copy interrupt code reads (the current one; 16 bits, so that
+  interrupt code reads it with one load and no masking, 9 cycles less than a byte), and
+  `sdevkit_publish_ready`, a byte, set when the other copy holds a tick that no `game_vblank` has
   switched to yet. The flag `sdevkit_publishing` goes.
 - `SDEVKIT_PUBLISH(type, name, tick, vblank)` takes the game's vertical blank too and defines both
   callbacks:
@@ -56,11 +57,11 @@ N-1. Only `game_vblank` or the kit's loop runs between a tick and its picture on
 
 **Consequences.**
 
-- RAM: a second copy of the struct and two bytes instead of one.
+- RAM: a second copy of the struct and three bytes instead of one.
 - Cycles, from the timing report of a tick that changes one word, against the same game without
-  the macro: `game_tick` takes 419 cycles more for a struct of 32 bytes, 1,427 for 128 and 5,459
-  for 512, 30 more than the one copy with the flag; `game_vblank` takes 16 more when no copy is
-  ready and 42 when it switches.
+  the macro: `game_tick` takes 411 cycles more for a struct of 32 bytes, 1,419 for 128 and 5,451
+  for 512, 22 more than the one copy with the flag; `game_vblank` takes 16 more when no copy is
+  ready and 38 when it switches.
 - `exec/published.c` runs ticks and `game_vblank` back to back while an IRQ and the NMI check the
   published data: no torn data, the tick's number never going back, and during a tick always the
   copy of the tick whose `game_vblank` came last, in dampf's emulator and in Mesen, with both code

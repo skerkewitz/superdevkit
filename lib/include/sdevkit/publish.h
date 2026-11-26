@@ -53,8 +53,8 @@
  * and the copy always has all of it.
  *
  * The cost: two copies, each as many bytes as the struct (the tick's own struct is the game's
- * data anyway), and two bytes; the copy after every tick, about 10.5 CPU cycles a byte (1,427
- * for 128 bytes, of the about 50,000 of a frame), and the switch in game_vblank, 16 to 42 cycles
+ * data anyway), and two bytes; the copy after every tick, about 10.5 CPU cycles a byte (1,419
+ * for 128 bytes, of the about 50,000 of a frame), and the switch in game_vblank, 16 to 38 cycles
  * of the vertical blank (lib/README.md). Interrupt code reads through a pointer, a few cycles
  * more than a variable. A game that does not include this header pays nothing.
  *
@@ -72,10 +72,12 @@
 /**
  * @brief Which of the two published copies interrupt code reads: 0 or 1.
  *
+ * 16 bits, so that interrupt code reads it with one load and no masking: an interrupt that
+ * writes in the horizontal blank has little time.
  * Defined by SDEVKIT_PUBLISH, written only by the `game_vblank` it defines, read by
  * SDEVKIT_PUBLISHED and by `game_tick`, which fills the other copy. A game does not touch it.
  */
-extern uint8_t sdevkit_publish_side;
+extern uint16_t sdevkit_publish_side;
 
 /**
  * @brief 1 when `game_tick` has filled the free copy and `game_vblank` has not yet made it the
@@ -98,21 +100,21 @@ extern uint8_t sdevkit_publish_ready;
  * `tick` a function `static void tick(const uint16_t pad[SDEVKIT_PADS])` and `vblank` a function
  * `static void vblank(void)` of the same file, after the macro.
  *
- * The bytes are read and written volatile: the copy must be complete before it is marked ready,
+ * The two variables are read and written volatile: the copy must be complete before it is marked ready,
  * and interrupt code must read the current copy's number anew. dampf keeps every store and its
  * order (ADR-6FPV1EQV).
  */
 #define SDEVKIT_PUBLISH(type, name, tick, vblank)                            \
     type name;                                                               \
     type sdevkit_published_##name[2];                                        \
-    uint8_t sdevkit_publish_side;                                            \
+    uint16_t sdevkit_publish_side;                                           \
     uint8_t sdevkit_publish_ready;                                           \
     static void tick(const uint16_t pad[SDEVKIT_PADS]);                      \
     static void vblank(void);                                                \
     void game_tick(const uint16_t pad[SDEVKIT_PADS])                         \
     {                                                                        \
         tick(pad);                                                           \
-        if (*(volatile uint8_t *)&sdevkit_publish_side) {                    \
+        if (*(volatile uint16_t *)&sdevkit_publish_side) {                   \
             sdevkit_published_##name[0] = name;                              \
         } else {                                                             \
             sdevkit_published_##name[1] = name;                              \
@@ -122,8 +124,8 @@ extern uint8_t sdevkit_publish_ready;
     void game_vblank(void)                                                   \
     {                                                                        \
         if (*(volatile uint8_t *)&sdevkit_publish_ready) {                   \
-            *(volatile uint8_t *)&sdevkit_publish_side =                     \
-                (uint8_t)(*(volatile uint8_t *)&sdevkit_publish_side ^ 1u);  \
+            *(volatile uint16_t *)&sdevkit_publish_side =                    \
+                (uint16_t)(*(volatile uint16_t *)&sdevkit_publish_side ^ 1u); \
             *(volatile uint8_t *)&sdevkit_publish_ready = 0;                 \
         }                                                                    \
         vblank();                                                            \
@@ -145,7 +147,7 @@ extern uint8_t sdevkit_publish_ready;
  * the handler runs. In the tick it gives the data of the tick before.
  */
 #define SDEVKIT_PUBLISHED(name)                                              \
-    (*(volatile uint8_t *)&sdevkit_publish_side ? &sdevkit_published_##name[1] \
+    (*(volatile uint16_t *)&sdevkit_publish_side ? &sdevkit_published_##name[1] \
                                                  : &sdevkit_published_##name[0])
 
 #endif /* SDEVKIT_PUBLISH_H */

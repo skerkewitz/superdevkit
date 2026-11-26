@@ -58,8 +58,8 @@ with one, `$0020-$1CFF`. The naive code generator keeps the frames of C function
 Interrupt code reads the game's data only through the copies the tick publishes
 (`sdevkit/publish.h`, ADR-6FPV1EQV and ADR-6FRDS030, not for games yet). They are an ordinary
 global among the variables from `$2000`, an array of two structs as large as the game's, beside
-the struct itself and two bytes: `sdevkit_publish_side`, which says which copy interrupt code
-reads, and `sdevkit_publish_ready`; the kit reserves nothing for a game that does not publish.
+the struct itself and three bytes: `sdevkit_publish_side` (16 bits), which says which copy
+interrupt code reads, and `sdevkit_publish_ready`; the kit reserves nothing for a game that does not publish.
 
 The linker sees RAM addresses without the bank (`$2000`, not `$7E2000`), so 16-bit address fixups
 fit. Code that needs a full 24-bit RAM address (a pointer) adds the bank itself.

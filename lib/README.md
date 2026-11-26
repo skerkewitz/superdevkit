@@ -198,15 +198,16 @@ A game that publishes data for interrupt code (`sdevkit/publish.h`) pays for it 
 the copy of its struct into the copy interrupt code does not read, a loop of 21 cycles per two
 bytes through dampf's struct copy, and the write of the byte that marks it ready; and in
 `game_vblank` the check of that byte and the switch, 16 cycles when there is nothing to switch and
-42 when there is. In CPU cycles on the SNES, from the timing report of a tick that changes one word,
+38 when there is. In CPU cycles on the SNES, from the timing report of a tick that changes one word,
 against the same game without the header (2026-11-26):
 
 | Struct | Cycles after the tick |
 | --- | ---: |
-| 32 bytes | 419 |
-| 128 bytes | 1,427 |
-| 512 bytes | 5,459 |
+| 32 bytes | 411 |
+| 128 bytes | 1,419 |
+| 512 bytes | 5,451 |
 
-About 85 cycles and 10.5 a byte; a frame has about 50,000. The RAM is two copies of the struct and
-two bytes. Interrupt code reads the data through a pointer (`[dp],y`, a cycle or two more per
-access than a global). A game that does not include the header pays nothing.
+About 75 cycles and 10.5 a byte; a frame has about 50,000. The RAM is two copies of the struct and
+three bytes. Interrupt code finds the current copy with a load and a branch (about 15 cycles in
+`SDEVKIT_PUBLISHED`) and then reads it indexed (`lda copy+n,x`, a cycle more per access than a
+global). A game that does not include the header pays nothing.
