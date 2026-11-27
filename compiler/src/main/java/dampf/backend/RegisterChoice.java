@@ -36,6 +36,11 @@ import java.util.function.Predicate;
  *     none.</li>
  * </ul>
  *
+ * A candidate may also take R for one loop only, loaded on the ways in and stored on the ways
+ * out, or for the part of a loop that leaves R alone ({@link #parts}: the rare ways of the loop,
+ * where something else uses R, find it in its place, stored where they start and loaded where
+ * they end).
+ *
  * Candidates are taken greedily by the cycles they save, X first, then Y. Selection's own patterns
  * (a loop's counter in X, an index in Y) keep their values out of the frame already; this takes
  * what they leave.
@@ -128,6 +133,12 @@ final class RegisterChoice {
                         Plan q = plan(lf, an, round, g, r, blockWeights, loop);
                         if (q != null && (p == null || q.benefit() > p.benefit())) {
                             p = q;
+                        }
+                        for (java.util.Set<LBlock> part : parts(an, round, g, r, blockWeights, loop)) {
+                            q = plan(lf, an, round, g, r, blockWeights, part, true);
+                            if (q != null && (p == null || q.benefit() > p.benefit())) {
+                                p = q;
+                            }
                         }
                     }
                     if (p != null && p.benefit() > 0) {
@@ -431,6 +442,118 @@ final class RegisterChoice {
     }
 
     /**
+     * For g in r in a set of blocks only: a load of r from g's place at the end of every block
+     * outside it that goes into it (where g is live there; the block must go nowhere else), and,
+     * where the set writes g, a store at the start of every block outside it that it goes to
+     * where g is live (all its ways in from the set), or else at the end of the block in the set
+     * that goes only there. Returns their weighted cycles, or null where they cannot go: r or the
+     * flags read where a load goes in, a way that would need an edge of its own.
+     */
+    private static Double partEdges(LFunction lf, Analysis an, Round round, Group g, Reg r, Map<LBlock, Double> weights,
+                                    java.util.Set<LBlock> part, BitSet units, Map<LItem, List<LItem>> replace, BitSet region) {
+        LOperand.Mem anyPlace = placeOf(lf, an, g);
+        if (anyPlace == null) {
+            return null;
+        }
+        Map<LBlock, List<LBlock>> preds = new IdentityHashMap<>();
+        for (LBlock b : lf.blocks()) {
+            for (LBlock t : b.successors()) {
+                preds.computeIfAbsent(t, k -> new ArrayList<>()).add(b);
+            }
+        }
+        boolean writes = false;
+        for (LBlock b : part) {
+            for (LItem it : b.items()) {
+                PlaceColouring.Access a = an.access.get(it);
+                if (a != null && a.writes().stream().anyMatch(units::get)) {
+                    writes = true;
+                }
+            }
+        }
+        double cost = 0;
+        java.util.Set<LBlock> loaded = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        java.util.Set<LBlock> stored = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        for (LBlock b : lf.blocks()) {
+            if (!part.contains(b)) {
+                continue;
+            }
+            if (an.liveIn.get(b).intersects(units)) {
+                for (LBlock p : preds.getOrDefault(b, List.of())) {
+                    if (part.contains(p) || !loaded.add(p)) {
+                        continue;
+                    }
+                    LOperand.Mem place = liveOwner(an, an.liveIn.get(b), units, anyPlace);
+                    if (place == null || p == lf.blocks().getFirst() && p.items().isEmpty()
+                            || liveAtStart(b, round.rLiveOut().getOrDefault(b, false), r)
+                            || (flagsAtStart(b, round.flagsOut().getOrDefault(b, 0)) & (RedundantLoads.N | RedundantLoads.Z)) != 0) {
+                        return null;
+                    }
+                    Double c = atEnd(p, new LInstr(r.load, place, null, true, true, false), replace, region, round, weights);
+                    if (c == null) {
+                        return null;
+                    }
+                    cost += c;
+                }
+            }
+            if (!writes) {
+                continue;
+            }
+            for (LBlock t : b.successors()) {
+                if (part.contains(t) || !an.liveIn.get(t).intersects(units) || stored.contains(t)) {
+                    continue;
+                }
+                LOperand.Mem place = liveOwner(an, an.liveIn.get(t), units, anyPlace);
+                if (place == null) {
+                    return null;
+                }
+                LInstr store = new LInstr(r.store, place, null, true, true, false);
+                boolean allIn = true;
+                for (LBlock p : preds.getOrDefault(t, List.of())) {
+                    allIn &= part.contains(p);
+                }
+                if (allIn) {
+                    stored.add(t);     // (one store for every way in)
+                    // right after the block's label (comments before it belong to the way in from above)
+                    LItem anchor = t.label() != null ? t.label() : t.items().isEmpty() ? null : t.items().getFirst();
+                    if (anchor == null || replace.containsKey(anchor)) {
+                        return null;
+                    }
+                    replace.put(anchor, anchor instanceof dampf.lir.LLabel ? List.of(anchor, store) : List.of(store, anchor));
+                    region.set(round.position().get(anchor));
+                    cost += weights.getOrDefault(t, 1.0) * store.cycles();
+                } else {
+                    Double c = atEnd(b, store, replace, region, round, weights);
+                    if (c == null) {
+                        return null;
+                    }
+                    cost += c;
+                }
+            }
+        }
+        return cost;
+    }
+
+    /**
+     * Puts i at the end of block p, before its jump if it ends with one; its weighted cycles, or
+     * null where p goes to more than one block or its last item is replaced already.
+     */
+    private static Double atEnd(LBlock p, LInstr i, Map<LItem, List<LItem>> replace, BitSet region, Round round,
+                                Map<LBlock, Double> weights) {
+        if (p.successors().size() != 1 || p.items().isEmpty()) {
+            return null;
+        }
+        LItem anchor = p.items().getLast();
+        LInstr last = p.last();
+        boolean jumps = last != null && !last.fallsThrough() && anchor == last;
+        if (replace.containsKey(anchor)) {
+            return null;
+        }
+        replace.put(anchor, jumps ? List.of(i, anchor) : List.of(anchor, i));
+        region.set(round.position().get(anchor));
+        return weights.getOrDefault(p, 1.0) * i.cycles();
+    }
+
+    /**
      * g's place named by the one owner whose bytes are live here (the check of the places follows
      * owners: a load before the loop must read the value that comes in, a store after it write the
      * one read there); null if it is not one plain place.
@@ -645,9 +768,57 @@ final class RegisterChoice {
         return read;
     }
 
+    /**
+     * The parts of a loop where g may take r, without the loop's blocks that use r for something
+     * else (an instruction that writes r and does not name g, or r read at the block's start):
+     * all such blocks out, and also those that run less than a quarter as often as the loop's
+     * head. Empty where nothing would go.
+     */
+    private static List<java.util.Set<LBlock>> parts(Analysis an, Round round, Group g, Reg r, Map<LBlock, Double> weights,
+                                                    java.util.Set<LBlock> loop) {
+        java.util.Set<LBlock> free = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        double most = 0;
+        for (LBlock b : loop) {
+            most = Math.max(most, weights.getOrDefault(b, 1.0));
+            boolean other = liveAtStart(b, round.rLiveOut().getOrDefault(b, false), r);
+            for (LItem it : b.items()) {
+                if (it instanceof LInstr i && writes(i, r) && !touches(an, g, i)) {
+                    other = true;
+                }
+            }
+            if (!other) {
+                free.add(b);
+            }
+        }
+        List<java.util.Set<LBlock>> out = new ArrayList<>();
+        if (free.isEmpty() || free.size() == loop.size()) {
+            return out;
+        }
+        out.add(free);
+        java.util.Set<LBlock> hot = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        for (LBlock b : free) {
+            if (weights.getOrDefault(b, 1.0) * 4 >= most) {
+                hot.add(b);
+            }
+        }
+        if (!hot.isEmpty() && hot.size() < free.size()) {
+            out.add(hot);
+        }
+        return out;
+    }
+
     /** The plan for g in r, or null if g cannot go there. */
     private static Plan plan(LFunction lf, Analysis an, Round round, Group g, Reg r, Map<LBlock, Double> weights,
                              java.util.Set<LBlock> only) {
+        return plan(lf, an, round, g, r, weights, only, false);
+    }
+
+    /**
+     * {@code part}: {@code only} is any set of blocks (not a whole loop), entered and left
+     * anywhere ({@link #partEdges}).
+     */
+    private static Plan plan(LFunction lf, Analysis an, Round round, Group g, Reg r, Map<LBlock, Double> weights,
+                             java.util.Set<LBlock> only, boolean part) {
         BitSet units = new BitSet();
         for (int u = 0; u < an.byUnit.size(); u++) {
             if (an.byUnit.get(u) != null && PlaceColouring.rep(an.byUnit.get(u)) == g) {
@@ -787,7 +958,8 @@ final class RegisterChoice {
             return null;       // only read where A holds it already: RedundantLoads and DeadStores take it all
         }
         if (only != null) {
-            Double edges = loopEdges(lf, an, round, g, r, weights, only, units, replace, region);
+            Double edges = part ? partEdges(lf, an, round, g, r, weights, only, units, replace, region)
+                    : loopEdges(lf, an, round, g, r, weights, only, units, replace, region);
             if (edges == null) {
                 return null;
             }

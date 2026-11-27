@@ -2149,3 +2149,32 @@ next step needs to tell the common way of a loop from the rare one.
 Of the static worst cases 35 grow and 30 shrink: the worst case takes the rare ways, which now
 weigh less. The most: the spelling family `pairs` 34,768 → 37,262 (+7.2 %), Er-Tüp's `hud_crate`
 +6.2 % and `crate_grow` +5.4 %; `game_tick` of modes −4.0 %.
+
+## A register for the common part of a loop (2026-11-27, on the examples)
+
+`RegisterChoice` gave a candidate a register for its whole live range or for a whole loop; a loop
+whose rare way uses X for something else (a `switch`'s jump table, a call, another index) kept its
+counter or offset in the frame on every way. Now a candidate may also take a register for a part
+of a loop: the loop without the blocks where something else writes the register (or reads it at
+their start), and that part again without the blocks that run less than a quarter as often as
+the loop's head. The rare blocks find the value in its place: it is stored at the start of a rare
+block the part goes to (or at the end of the part's block, where the rare block has other ways
+in), and loaded at the end of a rare block that goes back into the part. The weights of the step
+before decide whether that pays.
+
+In Er-Tüp's `enemies_update` the offset of the enemy lives in X on the way that skips an empty
+slot (`TXA / ADC #14 / TAX / CPX`), and the `switch` over the kinds stores and reloads it; in
+Steinschlag's `cave_scan_rows` the cell's index is in X and the cell in Y while the loop looks at
+the cells nothing happens to. A first version stored the value only once for a rare block reached
+from two blocks of the part, where the store went to the end of each; the check of the places
+(`PlaceCheck`) found the read that was not written on every way.
+
+The examples, against the step before: Er-Tüp 0.963, Steinschlag 0.975, modes 0.996, Schach
+0.997, Catch Me 0.999, the rest the same; geometric mean 0.991. Without the weights of the step
+before the same choice gains almost nothing (Er-Tüp 0.993, geometric mean 0.999).
+
+Of the static worst cases 29 shrink and 16 grow, by up to 2.8 % (Er-Tüp's `slot_machine`; the
+loops of `draw_enemies` +2.7 %, `cave_scan_rows` +0.7 %: the rare way pays the store and the
+load); with the step before, 46 shrink and 42 grow, the spelling family `pairs` still +7.2 %.
+modes' `tiles4` −5.0 %. Of the C guide's examples `pairs_by_offsets` costs 15,409 cycles instead
+of 15,361 and `pairs_by_list` 17,431 instead of 17,481; every rule holds.
