@@ -13,6 +13,15 @@ report names the first loop in it without a bound (`(loop at game.c:395)`) or el
 call of a function without one (`(calls _level_fall)`). A function that never returns has no best
 case either; the report shows `never` for it.
 
+A function inlined at every call has no code of its own in the ROM (ADR-6FVMCY48): its body is
+still compiled, placed and timed as if it were called, and only that code is left out of the
+ROM. The report keeps its line with the note `(inlined at every call, no code of its own)`, and
+its `DAMPF_BUDGET` is checked as before; there is no label for it in the `.lbl` and `.dbg` files,
+since its copies are part of their callers (their source lines are still the callee's). A
+function keeps its code where a call of it is left (the inliner found it too large, or the pass
+limit stopped it), where hand-written assembly names it, and as the entry or an interrupt
+handler.
+
 The assembly comments (`dampf.backend.AsmWriter`) give every instruction its cycles and every C
 line without a branch or label inside its sum (`[ 12 cyc ]`, or `[ 43 cyc + calls ]` when it
 calls a function); a line with a branch gets no sum.

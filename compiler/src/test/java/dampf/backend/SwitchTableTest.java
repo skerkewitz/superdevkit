@@ -87,8 +87,9 @@ class SwitchTableTest {
     @Test
     void theExecutionTestHasItsTables() throws Exception {
         Path src = Path.of(SwitchTableTest.class.getResource("/exec/switch_table.c").toURI());
+        // each function's own code, which those inlined at every call have only with this option (ADR-6FVMCY48)
         Compiler.compile(new Compiler.Options(List.of(src), List.of(), List.of(), "test_main", tmp.resolve("t.sfc"))
-                .withBackend(Compiler.Backend.MIR));
+                .withBackend(Compiler.Backend.MIR).withInlinedCode(true));
         String asm = Files.readString(tmp.resolve("t.s"));
         // the jump tables per function
         Map<String, Integer> tables = new HashMap<>();

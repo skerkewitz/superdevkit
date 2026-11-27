@@ -2037,6 +2037,32 @@ function left the timing report, and 40 tests that measure a function by its ent
 (roadmap, ideas). The execution tests' harness reported a global left out as missing; it now
 compares the global's initial value, which the PC's run must still have.
 
+## Inlined functions without code of their own (2026-11-27, on the examples)
+
+The step the section above left for later (ADR-6FVMCY48). After the optimizer,
+`Reachable.needCode` finds the functions that no call and no assembly reaches any more; the code
+generator still compiles, places and times them, and leaves their code out of the ROM. Code bytes
+(the `C_` segments), before and after:
+
+| Example | before | after | change |
+| --- | ---: | ---: | ---: |
+| CatchMe | 21,381 | 14,430 | -32.5 % |
+| Ertüp | 79,789 | 59,838 | -25.0 % |
+| Hello | 7,721 | 5,332 | -30.9 % |
+| Mandelbrot | 8,674 | 5,806 | -33.1 % |
+| Mode 7 | 6,428 | 4,181 | -35.0 % |
+| Modes | 16,876 | 11,583 | -31.4 % |
+| Schach | 42,051 | 30,702 | -27.0 % |
+| Steinschlag | 24,065 | 17,686 | -26.5 % |
+| All | 206,985 | 149,558 | -27.7 % |
+
+The work per tick is the same for every example (1.000 against the build before), and so is
+every best and worst case in their timing reports; 25 (Mode 7) to 131 (Ertüp) lines of a report
+are now functions without code. Three tests read a function's own code that is now inlined
+everywhere (the switch tables, the published data's order, the interrupt test's main code); two
+of them build with `withInlinedCode(true)`, the interrupt test looks at the code the function
+is inlined into.
+
 ## Every pointer as `restrict`: the ceiling (2026-11-25, on the examples)
 
 What `restrict`, or a no-alias hint of dampf's own, could gain at most. dampf assumes that a store

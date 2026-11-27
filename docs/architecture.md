@@ -51,8 +51,10 @@ last, comparisons next to the branches that use them (`SinkCompares`) and the or
 instructions for the code generator (`Schedule`). Before all of them, the functions that neither
 the entry, the interrupt handlers nor the assembly functions reach are dropped, with the globals
 only they used (`Reachable`, ADR-6FNWEJAA): a library's functions a program does not call take no
-ROM and their variables no RAM; a function that is called keeps its body even where it is inlined,
-so the timing report keeps it. The
+ROM and their variables no RAM. A function that is called stays in the MIR even where it is
+inlined, so the timing report keeps it; after the optimizer, `Reachable.needCode` finds the ones
+no call and no assembly reaches any more, and the code generator compiles and times them but
+leaves their code out of the ROM (ADR-6FVMCY48). The
 code generator itself first gives loop exits their own blocks (`ExitEdges`), copies return blocks
 into their predecessors (`Returns`), computes pointer sums again where their value is needed
 (`PointerRemat`) and takes out the checks of the hints (`Hints`). How values

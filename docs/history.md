@@ -488,6 +488,15 @@ Built on 2026-11-26, after M10 and ahead of M11; released as 0.10.1 on 2026-11-2
   Left undrawn until a game needs them: modes 5 and 6, high resolution, overscan and interlace,
   and HDMA with indirect tables.
 
+## Built after 0.10.1
+
+Built on 2026-11-27, ahead of M11; not released yet.
+
+- **Inlined functions without code of their own**: a function inlined at every call keeps its
+  line in the timing report and its budget, but no code in the ROM
+  ([ADR-6FVMCY48](adr/6FVMCY48-a-function-inlined-at-every-call-keeps-its-timing.md),
+  2026-11-27); the examples' code 25 to 35 % smaller, their work per tick unchanged.
+
 ## Publishing
 
 The dev kit went public as superdevkit on 2026-11-23, after version 0.9.0. What it took:
