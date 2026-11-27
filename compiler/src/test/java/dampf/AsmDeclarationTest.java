@@ -120,6 +120,61 @@ class AsmDeclarationTest {
     }
 
     @Test
+    void variablesTheAssemblyNamesStayInBank7eAndTheCheckUsesWhat7fLeavesFree() throws Exception {
+        // big and other do not fit into bank $7E together; the assembly names big, so other goes
+        // to $7F (ADR-6FVM9QWS), and the check's pointer parameter points into the rest of $7F
+        String c = """
+                #include <stdint.h>
+                #include <dampf.h>
+                uint16_t total;
+                uint8_t big[30000];
+                uint8_t other[30000];
+                void add(const uint8_t *p, uint16_t x) DAMPF_ASM("asm/f.s")
+                {
+                    total = (uint16_t)(total + x + *p + big[5]);
+                }
+                void test_main(void)
+                {
+                    other[100] = 1;
+                    big[5] = 2;
+                    add(&other[100], 3);
+                    add(&big[0], 4);
+                }
+                """;
+        String asm = """
+                        .p816
+                        .smart  off
+                        .a16
+                        .i16
+                        .importzp _add__p, _add__x
+                        .import _total, _big
+                        .export _add
+                        .segment "C_add"
+                .proc _add
+                        ldy     #0
+                        lda     [_add__p],y
+                        and     #$00FF
+                        clc
+                        adc     z:_add__x
+                        clc
+                        adc     _total
+                        sta     _total
+                        lda     _big+5
+                        and     #$00FF
+                        clc
+                        adc     _total
+                        sta     _total
+                        rtl
+                .endproc
+                """;
+        Compiler.Result r = build(c, asm, Compiler.Backend.MIR, Map.of());
+        assertEquals(1, r.asmChecks().size());
+        String labels = Files.readString(r.rom().labels());
+        assertTrue(labels.contains("7F0000 ._other"), labels);
+        assertTrue(labels.matches("(?s).*00[0-9A-F]{4} \\._big\\R.*"), labels);
+    }
+
+    @Test
     void theCheckFindsABoundCommentTooLow() throws Exception {
         String c = """
                 #include <stdint.h>

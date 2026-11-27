@@ -116,6 +116,16 @@ public final class MirCodeGen {
         }
     }
 
+    /**
+     * The variables that live in WRAM's second bank, by symbol ({@link VariableBanks}), before
+     * {@link #generate}: the code reaches them long, and a pointer to one carries bank $7F.
+     */
+    public MirCodeGen secondBank(Set<String> symbols) {
+        sel.secondBank.clear();
+        sel.secondBank.addAll(symbols);
+        return this;
+    }
+
     /** At most this many segments per assembly module: ca65 allows about 256 per object file. */
     private static final int SEGMENTS_PER_MODULE = 200;
 
@@ -799,10 +809,11 @@ public final class MirCodeGen {
         for (MModule.Global g : module.globals()) {
             boolean zero = g.init().stream().allMatch(d -> d.symbol() == null && d.value() == 0);
             AsmWriter w = g.readOnly() ? new AsmWriter() : ram;
-            String segment = g.readOnly() ? NaiveCodeGen.romSegment(g.symbol()) : zero ? "BSS" : "DATA";
+            String segment = g.readOnly() ? NaiveCodeGen.romSegment(g.symbol())
+                    : NaiveCodeGen.ramSegment(zero, sel.secondBank.contains(g.symbol()));
             w.blank();
             w.raw("        .segment \"" + segment + "\"");
-            if (segment.equals("BSS")) {
+            if (zero && !g.readOnly()) {
                 w.raw(Selection.pad(g.symbol() + ":", 28) + ".res    " + Math.max(1, g.size()));
                 continue;
             }
@@ -834,7 +845,7 @@ public final class MirCodeGen {
                 flush(w, line);
                 count = 0;
                 String target = a.symbol() + (a.value() == 0 ? "" : (a.value() > 0 ? "+" : "") + a.value());
-                if (sel.rom.contains(a.symbol())) {
+                if (sel.rom.contains(a.symbol()) || sel.secondBank.contains(a.symbol())) {
                     w.raw("        .word   .loword(" + target + ")");
                     w.raw("        .byte   ^(" + target + "), 0");
                 } else {

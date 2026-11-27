@@ -249,7 +249,9 @@ decided. Decisions 1, 2, 4 and 5 are decided. What dampf does today:
 - decision 3: pointers are 4 bytes in memory (address, bank, a zero byte) with both code
   generators; the code generator from MIR turns a pointer into one object into a 16-bit offset
   within a function and through parameters ([optimizations.md](optimizations.md#pointer-compression)); 16-bit
-  pointers into RAM are not built;
+  pointers into RAM are not built, and since variables that do not fit into bank $7E go to $7F
+  ([ADR-6FVM9QWS](adr/6FVM9QWS-variables-that-do-not-fit-into-bank-7e-go-to-bank.md)), one needs a
+  proof that its pointer stays in $7E;
 - decision 4: `goto` and labels are rejected ([ADR-6F3CJVHC](adr/6F3CJVHC-goto-and-labels-stay-rejected-and-a-forward-and.md));
 - decision 5: a `sizeof` that differs from the PC is rejected, except the element count.
 
@@ -283,7 +285,9 @@ decided. Decisions 1, 2, 4 and 5 are decided. What dampf does today:
    into ROM, and the ROM data is larger than one bank (the PVSnesLib build has 310 KB of ROM).
    So some pointers must be 24 bit. This is a compiler design decision, not a subset rule, but it
    comes from the game: whole-program analysis can tell which pointers only ever point into
-   bank 0 RAM (the object pointers like `Bubble *b`) and keep those at 16 bit.
+   bank $7E RAM (the object pointers like `Bubble *b`) and keep those at 16 bit. Since variables
+   can live in bank $7F too (only when they do not fit into $7E), that analysis has to prove the
+   bank of what a pointer points to, not only that it is RAM.
 
 4. **`goto`** (decided 2026-11-18). `goto` and labels stay rejected. If real code needs `goto`,
    dampf may allow a form that only jumps forward and out of statements, which keeps every loop

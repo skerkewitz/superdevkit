@@ -33,6 +33,10 @@ GAMES = [
     ("steinschlag", 400, "Steinschlag",
      "A miner digs through a cave for gems, while boulders fall, roll and crush whatever they land on.",
      "Enter starts. The arrows move. Hold Z to dig or take a gem without moving."),
+    ("gruft", 600, "Gruft",
+     "A dungeon of 160 by 128 cells, made anew for every game: rooms, corridors, gold, potions, rats, bats "
+     "and ghouls. Its maps need both banks of the SNES's RAM.",
+     "Enter starts. The arrows move, and a step into a creature fights it."),
     ("schach", 457, "Schach",
      "Chess against the console, on three levels. You play white.",
      "Left and right choose the level, Enter starts. The arrows move the cursor, X picks up and moves, Z puts back."),

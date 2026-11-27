@@ -1,0 +1,9 @@
+# Gruft's project file (superdevkit.toml, ADR-6F3CJZBY): superdevkit build snes makes the ROM,
+# superdevkit run plays it on the desktop.
+name = "gruft"
+kit = "../.."                 # the kit's repository, which this example is part of
+sources = ["src"]
+
+[graphics]
+tiles = ["assets/dungeon_gfx.png"]
+palette = ["assets/pal_dim.png"]

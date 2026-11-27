@@ -7,6 +7,7 @@ sources:
   - compiler/src/main/resources/dampf/snes/runtime.s
   - compiler/src/main/java/dampf/snes/RomBuilder.java
   - compiler/src/main/java/dampf/backend/FrameLayout.java
+  - compiler/src/main/java/dampf/backend/VariableBanks.java
   - README.md
   - compiler/src/main/java/dampf/mir/PointerOffsets.java
   - compiler/src/main/java/dampf/mir/PointerParams.java
@@ -28,7 +29,10 @@ their own assembly or to read memory in Mesen.
    function, the processor state the entry function finds, and the write to `$21FB` when it
    returns; what it leaves to the kit's library on the SNES (switching interrupts on, the sound
    driver's upload).
-2. **RAM** – everything in bank `$7E`, `DBR = $7E`, the regions as the memory map lists them.
+2. **RAM** – the variables in bank `$7E`, `DBR = $7E`, the regions as the memory map lists them;
+   when they do not fit, the largest go to bank `$7F` (chosen by dampf, invisible to the
+   program), what that costs, which variables stay in `$7E`, and the error when both banks are
+   full.
 3. **The direct page** – which values dampf places there (frames of functions), and why.
 4. **Pointers** – how wide a pointer is today, and when dampf makes one narrower.
 5. **ROM** – the layout of the ROM, banks, how code and constant data are spread over banks,
