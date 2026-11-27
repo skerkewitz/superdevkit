@@ -2135,3 +2135,17 @@ transfer sets N and Z as the load does.
 
 The examples, against `develop`: Er-Tüp 0.990, Schach 0.991, Mode 7 0.992, Mandelbrot 0.993,
 Catch Me 0.998, Hello, modes and Steinschlag 1.000; geometric mean 0.995.
+
+## Block weights from the branches (2026-11-27, on the examples)
+
+Without a profile, `Weights` gave every block 8 to the power of its loop depth, so the rare way
+through a loop weighed as much as the common one. It now estimates how often each block runs per
+call: a loop's head 8 times per entry, and the ways of a branch (or of a `switch`) share equally;
+a loop inside a loop counts as one block whose exits share its runs, and the blocks after a loop
+run as often as the loop is entered. Only `RegisterChoice` reads the weights. Alone the change
+is no gain (Er-Tüp 0.998, modes 0.999, the rest the same; geometric mean 1.000); it is what the
+next step needs to tell the common way of a loop from the rare one.
+
+Of the static worst cases 35 grow and 30 shrink: the worst case takes the rare ways, which now
+weigh less. The most: the spelling family `pairs` 34,768 → 37,262 (+7.2 %), Er-Tüp's `hud_crate`
++6.2 % and `crate_grow` +5.4 %; `game_tick` of modes −4.0 %.
