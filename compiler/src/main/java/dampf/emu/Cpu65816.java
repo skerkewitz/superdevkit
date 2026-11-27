@@ -47,6 +47,16 @@ public final class Cpu65816 {
     public int depth;
     /** cyclesAbove[d]: the CPU cycles spent at a depth greater than d, from the interrupt's first cycle to its RTI's last. */
     public final long[] cyclesAbove = new long[8];
+    /**
+     * The master cycles of the CPU's own cycles so far, each access at the speed of its address
+     * ({@link Bus#speed}) and each internal operation 6: what dampf's timing counts. DRAM refresh
+     * and DMA, which stop the CPU between its cycles, are not in it.
+     */
+    public long master;
+    /** masterAbove[d]: as {@link #cyclesAbove}, in master cycles. */
+    public final long[] masterAbove = new long[8];
+    /** The master cycle an interrupt began at (of {@link #master}), for the last one taken. */
+    public long interruptMasterStart;
     /** The cycle an interrupt began at, and where it returns to (bank and address), for the last one taken. */
     public long interruptStart;
     public int interruptReturn;
@@ -113,26 +123,28 @@ public final class Cpu65816 {
     // ------------------------------------------------------------------ bus cycles
 
     private int rd(int address) {
-        cycle();
+        cycle(bus.speed(address & 0xFFFFFF));
         accesses++;
         return bus.read(address & 0xFFFFFF) & 0xFF;
     }
 
     private void wr(int address, int value) {
-        cycle();
+        cycle(bus.speed(address & 0xFFFFFF));
         accesses++;
         bus.write(address & 0xFFFFFF, value & 0xFF);
     }
 
     private void io() {
-        cycle();
+        cycle(dampf.target.MasterCycles.IO);
         bus.idle();
     }
 
-    private void cycle() {
+    private void cycle(int masterCycles) {
         cycles++;
+        master += masterCycles;
         for (int k = 0; k < depth; k++) {
             cyclesAbove[k]++;
+            masterAbove[k] += masterCycles;
         }
     }
 
@@ -144,6 +156,7 @@ public final class Cpu65816 {
      */
     public void interrupt(int vector) {
         interruptStart = cycles;
+        interruptMasterStart = master;
         interruptReturn = pbr << 16 | pc;
         interrupts++;
         depth = Math.min(depth + 1, cyclesAbove.length);

@@ -13,4 +13,13 @@ public interface Bus {
 
     /** A CPU cycle without a memory access. */
     void idle();
+
+    /**
+     * The master cycles an access to {@code address} costs ({@link dampf.target.MasterCycles#speed}),
+     * for the CPU's count of master cycles; 8 on a bus without the SNES's timing. An internal
+     * operation costs {@link dampf.target.MasterCycles#IO}.
+     */
+    default int speed(int address) {
+        return dampf.target.MasterCycles.SLOW;
+    }
 }

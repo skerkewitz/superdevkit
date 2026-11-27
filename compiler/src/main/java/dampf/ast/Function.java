@@ -64,13 +64,33 @@ public final class Function {
         return definitionPos;
     }
 
-    /** The cycle budget from DAMPF_BUDGET (CPU cycles, calls included), or null. */
+    /** The cycle budget from DAMPF_BUDGET (master cycles, calls included), or null. */
     public Long budget() {
         return budget;
     }
 
     public void setBudget(long cycles) {
         this.budget = cycles;
+    }
+
+    private int irqHdmaChannels;
+    private int irqHdmaBytes;
+
+    /**
+     * The HDMA the IRQ handler declares for its line (SDEVKIT_IRQ_HDMA, sdevkit/irq.h): the channels
+     * of every declaration in it, and the most bytes one names; 0 and 0 without one.
+     */
+    public int irqHdmaChannels() {
+        return irqHdmaChannels;
+    }
+
+    public int irqHdmaBytes() {
+        return irqHdmaBytes;
+    }
+
+    public void declareIrqHdma(int channels, int bytes) {
+        irqHdmaChannels |= channels;
+        irqHdmaBytes = Math.max(irqHdmaBytes, bytes);
     }
 
     /** The interrupt this function handles (DAMPF_INTERRUPT), or null for an ordinary function. */

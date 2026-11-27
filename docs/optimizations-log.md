@@ -2250,3 +2250,8 @@ Steinschlag 0.947). Compiling Er-Tüp takes 17.4 s instead of 14.0 s on `develop
 After bank `$7F` for variables came in (with Gruft and the execution tests `bank_7f` and
 `bank_7f_pointers`): 274 worst cases smaller, 1,558 the same, none larger; Gruft's work 0.991
 (`draw_view` −6.7 % in the worst case); the nine examples' geometric mean 0.987.
+
+Since the timing counts master cycles (ADR-6FVMDV79), both checks of the parts compare the
+worst case the timing report gives, in master cycles, with the code's banks and FastROM. Against
+`develop` with it: 276 worst cases smaller, 1,556 the same, none larger; the IRQ window of
+`dev/irq_check` the same (102 of 116 master cycles after the wait); the examples' work as before.

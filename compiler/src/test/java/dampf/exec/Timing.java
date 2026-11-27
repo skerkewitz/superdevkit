@@ -14,9 +14,9 @@ final class Timing {
 
     static void check(Compiler.Result r, EmulatorRunner emulator, String what) throws IOException {
         long[] b = r.timing().get("_test_main");
-        long measured = emulator.cyclesOf(r.rom(), "_test_main");
-        assertTrue(b[0] <= measured, what + ": test_main took " + measured + " CPU cycles, the best case says " + b[0]);
-        assertTrue(b[1] < 0 || measured <= b[1], what + ": test_main took " + measured + " CPU cycles, the worst case says " + b[1]);
+        long measured = emulator.masterCyclesOf(r.rom(), "_test_main");
+        assertTrue(b[0] <= measured, what + ": test_main took " + measured + " master cycles, the best case says " + b[0]);
+        assertTrue(b[1] < 0 || measured <= b[1], what + ": test_main took " + measured + " master cycles, the worst case says " + b[1]);
         EmulatorRunner.CallCheck calls = emulator.checkCalls(r.rom(), r.timing());
         assertTrue(calls.wrong().isEmpty(), what + ": calls outside their static bounds: " + calls.wrong());
     }

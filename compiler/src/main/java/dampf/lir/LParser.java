@@ -13,10 +13,10 @@ import java.util.regex.Pattern;
  * {@code .smart off} and as the printer's cycle column assumes.
  */
 public final class LParser {
-    private static final Pattern SOURCE_LINE = Pattern.compile("^(; [^\\s:]+:\\d+(?:   .*?)?)(?:\\s+\\[ (\\d+) cyc( \\+ calls)? \\])?$");
+    private static final Pattern SOURCE_LINE = Pattern.compile("^(; [^\\s:]+:\\d+(?:   .*?)?)(?:\\s+\\[ (\\d+)(?:-(\\d+))? mc( \\+ calls)? \\])?$");
     private static final Pattern EQUATE = Pattern.compile("^([A-Za-z_@][A-Za-z0-9_@]*)\\s*=\\s*(.*)$");
     private static final Pattern LABEL = Pattern.compile("^([A-Za-z_@][A-Za-z0-9_@]*)?:(.*)$");
-    private static final Pattern CYCLES = Pattern.compile("^(.*?)\\s+(\\d+(?:/\\d+)?|\\?)$");
+    private static final Pattern CYCLES = Pattern.compile("^(.*?)\\s+(\\d+(?:-\\d+)?(?:/\\d+)?|\\?)$");
 
     private LParser() {}
 
@@ -64,7 +64,9 @@ public final class LParser {
             if (s.matches()) {
                 LSourceLine sl = new LSourceLine(s.group(1));
                 if (s.group(2) != null) {
-                    sl.setCycles(Integer.valueOf(s.group(2)), s.group(3) != null);
+                    int best = Integer.parseInt(s.group(2));
+                    sl.setCycles(new dampf.target.MasterCycles.Range(best, s.group(3) == null ? best : Integer.parseInt(s.group(3))),
+                            s.group(4) != null);
                 }
                 return sl;
             }

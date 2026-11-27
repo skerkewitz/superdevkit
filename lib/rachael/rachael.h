@@ -83,6 +83,11 @@ typedef struct {
     uint8_t        irq_on, irq_row;        /* sdevkit/irq.h: the game's IRQ runs before picture row irq_row */
     uint8_t        in_irq;                 /* game_irq is running */
     uint8_t        irq_waited;             /* ... and has called sdevkit_irq_wait_hblank: its register writes are free */
+    uint8_t        irq_hdma_channels;      /* SDEVKIT_IRQ_HDMA in this call of game_irq: the channels it declared, */
+    uint8_t        irq_hdma_bytes;         /* and their bytes on the line (none: no HDMA on the IRQ's line) */
+    uint16_t       irq_hdma;               /* IRQ lines with more HDMA than declared, since power on */
+    uint8_t        irq_hdma_row;           /* the first of them: its row, the declared channels and bytes, */
+    uint8_t        irq_hdma_declared[2], irq_hdma_actual[2];   /* and those that ran */
     uint8_t        undrawn_reg, undrawn_value;   /* the first of them */
     sdevkit__frame_stats stats;
     uint32_t       tick_hash;              /* sdevkit_dbg_hash: FNV-1a of the bytes named this tick */

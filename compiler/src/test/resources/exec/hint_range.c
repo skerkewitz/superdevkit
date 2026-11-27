@@ -13,7 +13,7 @@ uint8_t lens[4];
 uint16_t total;
 int16_t signed_sum;
 
-DAMPF_BUDGET(2000) static uint8_t text_len(const char *s)
+DAMPF_BUDGET(14000) static uint8_t text_len(const char *s)
 {
     uint8_t n = 0;
     while (s[n]) {

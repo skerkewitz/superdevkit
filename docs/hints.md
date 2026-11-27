@@ -173,7 +173,7 @@ on, dampf follows the machine code and rejects, each with the line:
   `; dampf: at most N`: the loop that starts at the branch's target runs at most N rounds each
   time it is entered. Loops nest and are entered at their first instruction.
 
-The same walk gives the best and the worst case in CPU cycles ([timing.md](timing.md)), so the
+The same walk gives the best and the worst case in master cycles ([timing.md](timing.md)), so the
 timing report lists the function (`(assembly, file.s)`), a caller's bounds include it, and
 `DAMPF_BUDGET` works on it.
 

@@ -30,7 +30,7 @@ is concluded, it moves to [history.md](history.md).
 
 | Milestone | Goal | Version | State |
 | --- | --- | --- | --- |
-| M11 | Timing and debugging: master cycles, bounds for more loops, locals and types in Mesen | 0.11.0 | Next |
+| M11 | Timing and debugging: bounds for more loops, locals and types in Mesen | 0.11.0 | Next |
 | M12 | Fine tuning: what was left of M4 and M9, until the frame budget is met | 0.12.0 | Planned |
 
 The order follows the likely gain and what each milestone needs from the one before.
@@ -39,7 +39,6 @@ The order follows the likely gain and what each milestone needs from the one bef
 
 Timing ([timing.md](timing.md#not-built-yet)):
 
-- master cycles instead of CPU cycles, in the report, the comments and the budgets;
 - the costliest path per C line, in the report and in budget errors, and best and worst case in
   the comments of lines with a branch;
 - bounds for more loops: 37 of the game's functions have none; `DAMPF_TRIPS` for loops without
@@ -52,14 +51,11 @@ Timing ([timing.md](timing.md#not-built-yet)):
   (`DAMPF_AT_MOST`, [hints.md](hints.md)), or a bound per call chain, would make budgets usable
   there. This is how impossible path combinations get expressed, a question
   [timing.md](timing.md#open-questions) left open until the bounds turned out too pessimistic;
-- the IRQ's window checked: the timing report finds the cycles from `sdevkit_irq_wait_hblank` to
-  the game's IRQ handler's last register write, and the build fails when they exceed the budget
-  after the wait (about 25 CPU cycles, less the HDMA of the line,
-  [ADR-6FRX1GYC](adr/6FRX1GYC-the-game-s-irq-runs-at-a-picture-row-and-writes.md)); today only the
-  Mesen check sees a write too late, as a torn row;
 - level 3: DRAM refresh, HDMA and interrupts at frame level. Open is how the budget learns
   which HDMA channels a game has on, since a game turns them on at run time
-  (`sdevkit_hdma_enable`).
+  (`sdevkit_hdma_enable`); the IRQ's window takes it from the game's declaration of its line,
+  which Rachael checks
+  ([ADR-6FVWK4JE](adr/6FVWK4JE-the-build-checks-the-irq-s-writes-after-the-wait.md)).
 
 Better C debugging in Mesen: Mesen shows the C source and the names of global variables from
 the `.dbg` file, and that is all. Of a C symbol (`csym`) it reads only the name and the assembly

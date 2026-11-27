@@ -96,6 +96,37 @@ public final class LInstr implements LItem {
         return known() ? Cycles65816.cycles(opcode, m16, x16, isConditionalBranch()) : 0;
     }
 
+    /**
+     * Master cycles ({@link dampf.target.MasterCycles#of}), with the code in FastROM or SlowROM; for
+     * a conditional branch when it is not taken. 0 if unknown.
+     */
+    public dampf.target.MasterCycles.Range master(boolean fastRom) {
+        return master(fastRom, false);
+    }
+
+    /** Master cycles of a conditional branch that is taken (the same as {@link #master} for any other). */
+    public dampf.target.MasterCycles.Range masterTaken(boolean fastRom) {
+        return master(fastRom, isConditionalBranch());
+    }
+
+    private dampf.target.MasterCycles.Range master(boolean fastRom, boolean taken) {
+        return master(new dampf.target.MasterCycles.Code(fastRom, java.util.Set.of()), taken);
+    }
+
+    /** As {@link #master(boolean)}, with the variables in bank $7F that {@code code} names. */
+    public dampf.target.MasterCycles.Range master(dampf.target.MasterCycles.Code code) {
+        return master(code, false);
+    }
+
+    public dampf.target.MasterCycles.Range masterTaken(dampf.target.MasterCycles.Code code) {
+        return master(code, isConditionalBranch());
+    }
+
+    private dampf.target.MasterCycles.Range master(dampf.target.MasterCycles.Code code, boolean taken) {
+        return known() ? dampf.target.MasterCycles.of(opcode, mode(), operand, m16, x16, taken, code)
+                : dampf.target.MasterCycles.Range.of(0);
+    }
+
     /** Bytes, 0 if unknown. */
     public int length() {
         return known() ? Cycles65816.length(opcode, m16, x16) : 0;

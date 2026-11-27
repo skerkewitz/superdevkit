@@ -3,6 +3,7 @@ package dampf.asm;
 import dampf.frontend.CompileError;
 import dampf.frontend.SourcePos;
 import dampf.target.Cycles65816;
+import dampf.target.MasterCycles;
 import dampf.target.SnesTarget;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -43,9 +44,12 @@ import java.util.regex.Pattern;
  *     {@code .a16}, {@code .i8}, {@code .i16} directives must follow the {@code SEP} and
  *     {@code REP}).</li>
  * </ul>
- * From the same walk it computes the best and the worst case in CPU cycles with the cycle table
- * of the C code ({@link Cycles65816}), loops collapsed innermost first as in the code generator's
- * timing, and the bytes of locals the code uses.
+ * From the same walk it computes the best and the worst case in master cycles with the cost model
+ * of the C code ({@link MasterCycles}; ADR-6FVMDV79): the code in FastROM or SlowROM, the direct
+ * page and the stack in low RAM, an absolute address in DBR's bank $7E while DBR is as it was
+ * (any bank after a PLB), a long address at the speed of its number, or 6 to 8 for a symbol (ROM
+ * or RAM), a pointer 6 to 8; loops collapsed innermost first as in the code generator's timing.
+ * And the bytes of locals the code uses.
  */
 public final class AsmFunction {
     /** The suffix of the symbol of an assembly function's own locals: {@code _<f>__locals}. */
@@ -68,7 +72,7 @@ public final class AsmFunction {
      */
     public record Spec(String name, String label, List<Param> params, Set<String> otherFrames) {}
 
-    /** What the analysis found: the bytes of locals the code uses, the best and worst case in CPU cycles. */
+    /** What the analysis found: the bytes of locals the code uses, the best and worst case in master cycles. */
     public record Result(String label, int localsBytes, long best, long worst) {}
 
     private static final Pattern ASSEMBLER_ERROR = Pattern.compile("^[^:]*:(\\d+): (.*)$", Pattern.DOTALL);
@@ -81,14 +85,16 @@ public final class AsmFunction {
     private final String[] source;
     private final Spec spec;
     private final ObjectFile obj;
+    private final boolean fastRom;
     private ObjectFile.Section section;
     private final Map<Integer, ObjectFile.AsmLine> lineAt = new HashMap<>();
     private final Map<Integer, ObjectFile.Fixup> fixupAt = new HashMap<>();
     private final Map<String, Param> params = new HashMap<>();
     private int localsEnd;
 
-    private AsmFunction(String file, String text, Spec spec, ObjectFile obj) {
+    private AsmFunction(String file, String text, Spec spec, ObjectFile obj, boolean fastRom) {
         this.file = file;
+        this.fastRom = fastRom;
         this.source = text.split("\n", -1);
         this.spec = spec;
         this.obj = obj;
@@ -102,7 +108,12 @@ public final class AsmFunction {
      * {@code spec} in it.
      */
     public static Result analyse(String file, String text, Spec spec) throws CompileError {
-        return new AsmFunction(file, text, spec, assemble(file, text)).run();
+        return analyse(file, text, spec, true);
+    }
+
+    /** The same, with the code in FastROM or SlowROM ({@code --slowrom}). */
+    public static Result analyse(String file, String text, Spec spec, boolean fastRom) throws CompileError {
+        return new AsmFunction(file, text, spec, assemble(file, text), fastRom).run();
     }
 
     /** The file assembled on its own; what the assembler does not read is a compile error at its line. */
@@ -231,25 +242,28 @@ public final class AsmFunction {
             }
             List<Edge> out = new ArrayList<>();
             State next = step(at, line.line(), op, mnemonic, mode, s, bytes);
-            long c = Cycles65816.cycles(op, s.m16(), s.x16(), false);
-            long worst = c + (!s.x16() && Cycles65816.pageCrossing(op) ? 1 : 0);
+            MasterCycles.Range cost = master(at, op, mode, s, bytes, false);
+            long c = cost.best();
+            long cw = cost.worst();
+            // with 8-bit index registers an indexed read that crosses a page takes an internal cycle more
+            long worst = cw + (!s.x16() && Cycles65816.pageCrossing(op) ? MasterCycles.IO : 0);
             switch (mnemonic) {
                 case "rtl" -> {
                     returns(line.line(), s);
-                    out.add(new Edge(RET, c, c));
+                    out.add(new Edge(RET, c, cw));
                 }
-                case "bra", "brl" -> out.add(new Edge(target(at, line.line()), c, c));
+                case "bra", "brl" -> out.add(new Edge(target(at, line.line()), c, cw));
                 case "jmp", "jml" -> {
                     if (!mode.equals("abs") && !mode.equals("long")) {
                         throw error(line.line(), "an indirect jump, which dampf cannot follow; an assembly function "
                                 + "has to show its control flow (branches and JMP to labels)");
                     }
-                    out.add(new Edge(target(at, line.line()), c, c));
+                    out.add(new Edge(target(at, line.line()), c, cw));
                 }
                 default -> {
                     if (BRANCHES.contains(mnemonic)) {
-                        long taken = Cycles65816.cycles(op, s.m16(), s.x16(), true);
-                        out.add(new Edge(target(at, line.line()), taken, taken));
+                        MasterCycles.Range taken = master(at, op, mode, s, bytes, true);
+                        out.add(new Edge(target(at, line.line()), taken.best(), taken.worst()));
                     }
                     out.add(new Edge(at + length, c, worst));
                 }
@@ -271,6 +285,30 @@ public final class AsmFunction {
                 }
             }
         }
+    }
+
+    /**
+     * The master cycles of the instruction at {@code at} in state {@code s}: the direct page in low
+     * RAM (the code may use it only with D as it was), data through DBR in bank $7E while DBR is
+     * as it was, a long address by its number, a symbol reached long and a pointer 6 to 8.
+     */
+    private MasterCycles.Range master(int at, int op, String mode, State s, byte[] bytes, boolean taken) {
+        MasterCycles.Range anywhere = new MasterCycles.Range(MasterCycles.FAST, MasterCycles.JOYPAD);
+        MasterCycles.Range data = switch (mode) {
+            case "long", "long,x" -> {
+                if (fixupAt.containsKey(at + 1)) {
+                    yield MasterCycles.POINTER;
+                }
+                int a = (bytes[at + 1] & 0xFF) | (bytes[at + 2] & 0xFF) << 8 | (bytes[at + 3] & 0xFF) << 16;
+                yield mode.equals("long") ? MasterCycles.Range.of(MasterCycles.speed(a, fastRom))
+                        : MasterCycles.speeds(a, a | 0xFFFF, fastRom);
+            }
+            case "[dp]", "[dp],y" -> MasterCycles.POINTER;
+            default -> s.dbr() == ORIGINAL ? MasterCycles.speeds(SnesTarget.DATA_BANK << 16, SnesTarget.DATA_BANK << 16 | 0xFFFF, fastRom)
+                    : anywhere;
+        };
+        return MasterCycles.cost(op, s.m16(), s.x16(), taken, MasterCycles.code(fastRom), MasterCycles.LOW_RAM, data,
+                MasterCycles.Range.of(MasterCycles.SLOW));
     }
 
     private static boolean isIndexOp(String mnemonic) {
@@ -594,7 +632,7 @@ public final class AsmFunction {
 
     // ------------------------------------------------------------------ cycles
 
-    /** A cost interval in CPU cycles. */
+    /** A cost interval in master cycles. */
     private record Bound(long best, long worst) {
         Bound plus(Bound o) {
             return new Bound(best + o.best, worst + o.worst);
