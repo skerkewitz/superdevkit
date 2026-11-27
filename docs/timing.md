@@ -21,7 +21,9 @@ its `DAMPF_BUDGET` is checked as before; there is no label for it in the `.lbl` 
 since its copies are part of their callers (their source lines are still the callee's). A
 function keeps its code where a call of it is left (the inliner found it too large, or the pass
 limit stopped it), where hand-written assembly names it, and as the entry or an interrupt
-handler.
+handler. Its code is in its callers: each copy is in the caller's assembly listing, under the
+callee's source lines. The line in the report is the bound of the function on its own; a copy
+can be cheaper, since the inliner folds the caller's constants into it.
 
 The assembly comments (`dampf.backend.AsmWriter`) give every instruction its master cycles in the
 column on the right (`30`; a conditional branch `12/18`, not taken and taken; an access through a
