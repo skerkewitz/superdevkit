@@ -2255,3 +2255,162 @@ Since the timing counts master cycles (ADR-6FVMDV79), both checks of the parts c
 worst case the timing report gives, in master cycles, with the code's banks and FastROM. Against
 `develop` with it: 276 worst cases smaller, 1,556 the same, none larger; the IRQ window of
 `dev/irq_check` the same (102 of 116 master cycles after the wait); the examples' work as before.
+
+## The game's three hottest functions by hand (2026-11-27, on Blubber Blasen)
+
+How much is left in dampf's code: three of Blubber Blasen's hottest functions in play, each in
+three versions, measured in dampf's emulator. The game's code and the versions stay outside the
+repository (ADR-6F60Z819); this entry keeps the method and the numbers. The summary and what
+follows from it are in [optimizations.md](optimizations.md#the-games-hottest-functions-by-hand-2026-11-27).
+
+**The play profile.** dampf 0.10.1 (`develop` at 41ca1d3, code from MIR, FastROM) built a copy of
+the game on the kit's console API. Two scripted inputs, written by a small generator (a
+deterministic random walk with jumps, bubbles and dashes), played in dampf's emulator like the
+examples' `check.txt`:
+
+- **solo**: player 1 alone, ticks 180 to 6,000, continued after each game over;
+- **with the CPU partner**: player 2 played by the game's CPU partner, ticks 270 to 6,000, rounds
+  1 to 4.
+
+The work of a tick is its master cycles without the main loop's waiting, as
+`dev/bench_examples.sh` counts it; a per-instruction profile (`dampf profile --instructions`) gave
+the shares. Over the whole stretch, with the round intros, a tick took 0.578 frames solo and 0.845
+with the CPU partner; the play ticks alone 0.594 and 0.932 (busiest 1.48 and 2.11). The hottest
+functions by their share of the CPU cycles:
+
+| Function | Solo | With the CPU partner | Calls with the CPU partner |
+| --- | ---: | ---: | ---: |
+| `oam_add` (video.c) | 12.3 % | 9.8 % | 74,737 |
+| `separate` (bubble.c) | 12.2 % | 8.0 % | 4,893 |
+| `evaluate` (cpu.c, the CPU partner) | (not called) | 8.6 % | 5,045 |
+
+`oam_add` packs one sprite into the game's sprite table (straight-line byte code, 45 call sites),
+`separate` is the bubbles' pair loop, `evaluate` the CPU partner's look-ahead: a loop over up to
+five predicted positions around a loop over the dangers.
+
+**The versions.**
+
+- A: dampf on the C as the game has it.
+- B: dampf on the best C spelling, by `lib/C_STYLE.md` and what A's code showed; the same result
+  for every input, also on the PC.
+- C: hand-written 65816 assembly of the whole function, with what dampf inlines into it, linked
+  with `--replace`, relying only on what holds for every input. A version that needed a fact
+  dampf cannot infer would have been a separate C'.
+
+**Correctness.** Each version played both inputs with all of WRAM from `$7E:2000` compared with
+A's at the end of every tick (the few 4-byte pointers into ROM that move with the code left out),
+identical in every tick. On top of dampf's own check of `--replace`, which covers these functions
+poorly ([hints.md](hints.md#as-built)), each had a harness of its own in dampf's emulator: all
+65,536 pairs of two byte parameters in 32 global states for `oam_add` (2.1 million calls),
+20,000 generated states for `separate`, 123,000 inputs of game-like, random and edge data for
+`evaluate`.
+
+**Per call**, master cycles measured in dampf's emulator from the function's first instruction
+to its return, interrupts left out, with the CPU partner (solo in brackets):
+
+| Function | A average | B average | C average | A / C | Work per tick, B | Work per tick, C |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `oam_add` | 2,268 (2,223) | 1,790 (1,790) | 1,067 (1,058) | 2.13 | −2.1 % (−2.6 %) | −5.3 % (−6.6 %) |
+| `separate` | 27,772 (32,287) | 24,887 (29,131) | 14,195 (16,062) | 1.96 | −0.8 % (−1.2 %) | −3.8 % (−6.0 %) |
+| `evaluate` | 29,409 | 17,923 | 11,877 | 2.48 | −3.0 % | −5.3 % |
+
+- `oam_add`: measured worst 2,548, 2,252 and 1,552; timing report 3,332, 2,382 and 1,624; code
+  489, 400 and 301 bytes (C with a table of 32).
+- `separate`: B's static worst case is about 30 % larger than A's (771,172), and B is 23 % slower
+  than A on states where many bubbles touch.
+- `evaluate`: the timing report's worst case is 2,451,626 for A and 194,488 for B, since B walks
+  the dangers with a pointer; on 32 dangers and 5 samples the measured worst is 363,226, 215,366
+  and 133,988. Code 554, 529 and 369 bytes. A further hand-written version (the two loops
+  interchanged, the five samples unrolled, exact for every input) takes 8,348 (A / C2 = 3.52,
+  −6.3 %).
+
+The emulator's counts are about 3 % above the sums of the cycle comments over the same
+instruction counts (`oam_add` 2,268 measured, 2,201 summed): the DRAM refresh, 40 master cycles a
+line, which the timing leaves out ([timing.md](timing.md)).
+
+**B's spellings**, each measured on its own and identical in play:
+
+- `oam_add`: a flag set on several paths and tested twice later replaced by a branch to the rare
+  case's own code (−251 per call); a chain of constant returns, inlined, as two `const` tables of
+  8 (−89); a pointer global into one constant table as an offset into it (−105); a counter
+  incremented before the stores that use it (−33).
+- `evaluate`: a return before the loop nest when the dangers' list is empty (one call in five);
+  loads through the pointer parameter and tests of the action hoisted out of the outer loop (−4,009
+  together); two 5-element arrays of the struct as one of 10, so the second is no longer reached
+  through a 24-bit pointer (−3,617); the loop's end pointer computed once (−670); signed values
+  compared as `v ^ 0x8000` unsigned, a `switch` for the action (−3,190). A `DAMPF_RANGE` on the
+  coordinates instead gave the same code to the cycle.
+- `separate`: a list of the bubbles that take part, with copies of their positions, walked in the
+  pair loop (−10.4 % per call). dampf keeps the list's counters in the direct page, masks every
+  byte and multiplies each index by the struct's size, and its code for the touching pairs takes
+  7,664 per call against A's 4,679. A list of byte offsets cannot be written for this struct: its
+  `sizeof` differs from the PC's (23 against 24 bytes), and its 16 offsets do not fit a byte.
+
+**The gap between A and C, by class**, in model cycles per call:
+
+| Class | `oam_add` | `separate` | `evaluate` |
+| --- | ---: | ---: | ---: |
+| 1. the compiler, with the facts it has | 566 (49 %) | 4,480 (34 %) | 17,532 (100 %) |
+| 2. the compiler, given a fact it cannot infer | 0 | 0 | 0 |
+| 3. the C spelling | 486 (42 %) | 6,912 (53 %) | (65 % of class 1 closed by B) |
+| 4. only a person | 114 (10 %) | 1,764 (13 %) | 0 (C2: 3,529 more) |
+| gap A − C | 1,165 | 13,156 (13,577 measured) | 17,532 |
+
+What class 1 is made of, with the M12 row that covers it (roadmap):
+
+- `oam_add`: byte code in 16-bit mode (`AND #$00FF`, `REP`/`SEP` around byte stores, 16-bit
+  compares) 306, row 3; values parked in the frame and loaded again 168, row 2; a hot path
+  through `BCC`+`JMP` 42, row 8; a test of a value known to be even against `$FF` 36 and a
+  `CMP #0` after a load 14, not listed. Class 3's items (the flag, the tables, the pointer
+  global) a compiler could do too, with jump threading over a φ of constants past blocks that do other work, a lookup table for
+  a chain of constant returns and a whole-program view of the pointer's stores; none is in M12.
+- `separate`: a counter in the direct page beside the offset in Y 1,250, row 2; the 16 slots
+  tested in a loop instead of unrolled 1,150, row 11; the block layout 560, row 8; byte code in
+  16 bits 680, row 3; the inner loop's start `j * 23` instead of the outer offset plus 23 470,
+  strength reduction across a loop nest, not listed; a difference stored every pair for the rare
+  path 370, row 2. dampf's non-floating rounds of the inner loop (184 per round) are what a
+  person writes for that loop.
+- `evaluate`: signed compares of two variables (`EOR #$8000` on both and a compare through `R0`,
+  five per pair) where the subtraction's N and V, values kept biased or an unsigned loop test
+  would do 6,290; the second field array reached through a 24-bit pointer built every pair 3,010;
+  values through the direct page 2,770, row 2; loop-invariant work in the outer loop (loads
+  through the pointer parameter, a bound recomputed, invariant tests) 2,530; no exit when the
+  inner loop runs 0 times 1,830; two induction variables summed every pair 700; invariant
+  summands added every pair 440; else blocks out of line 440, row 8. Of these only rows 2 and 8
+  are in M12: 3,210 of the 17,532.
+
+**Patterns on the whole game**, from the instruction profile of A (with the CPU partner; solo in
+brackets):
+
+- masks and mode switches: `AND #$00FF` 5.1 % (5.3 %) of all work, `SEP`/`REP` 1.7 % (2.0 %);
+- frame stores 13.0 % and loads 11.5 % of all work;
+- a branch over a `JMP` 1.4 % (1.6 %); a `CMP #0` after a load 0.22 % (0.29 %);
+- the two-variable signed compare ran 316,037 times with the CPU partner, 302,258 of them in
+  `evaluate` (1.8 % of the work), and 4,490 times solo;
+- a 24-bit pointer into bank `$7E` built at run time: 349,447 times (277,141); whether the other
+  sites share `evaluate`'s cause was not checked;
+- pointer globals copied into the direct page in each function that reads them: the level's
+  cell pointer (33 sites, `level_on_ground` 33,012 calls) and `oam_add`'s table pointer, 1.7 %
+  (1.9 %) of the work;
+- the call of `oam_add` (`JSL`, four argument stores, two zero extensions, `RTL`) 241 per call,
+  1.0 % (1.35 %); the same applies to `level_on_ground`, `vacuum_move` and `add_danger`.
+
+**Measured on the side:**
+
+- Profile-guided inlining, by hand: one copy of `oam_add`'s body for each of its five hottest
+  call sites (80 % of the calls with the CPU partner, 87 % solo) made the work 1.3 % (2.3 %)
+  less for 1,727 bytes more. dampf never inlines it: about 133 MIR instructions and 45 call sites,
+  where `Inline` takes 60 for a callee with several sites. B's body inlined saved only the
+  call, since dampf does not fold a constant table's element at a constant index. The
+  hand-written function called with `JSL` (−5.3 %) beat both inlined versions.
+- The calling convention of row 7 saves about nothing for `oam_add`: no call of it is a tail call,
+  and its first parameter is the last it reads, so the callee would store it at once (0 to 8
+  cycles a call).
+- The block layout by a profile (`--block-counts` with the counts of the same run) made the run
+  with the CPU partner 0.7 % slower (1,743.5 against 1,730.8 million master cycles) and
+  `separate`'s worst case 6 % larger, although `separate` itself took 0.3 % less.
+- The timing report bounds `for (i = 0; i < count; i++)` over a global array of 32 by the
+  counter's type, 255 rounds, and a walk with a pointer up to `&a[count]` by the array, 32: that
+  is the step from 2.45 million to 0.30 million (B1) in `evaluate`'s worst case (row 9).
+- Three small folds dampf misses: a constant array's element at a constant index stays a load,
+  `x * 256` of a byte is eight `ASL` where `x << 8` is an `XBA`, and `(v >> 6) & 1` is six `LSR`.
