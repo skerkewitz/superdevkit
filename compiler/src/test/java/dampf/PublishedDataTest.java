@@ -39,7 +39,8 @@ class PublishedDataTest {
     @Test
     void theCopyIsMarkedReadyLastAndTheNmiSwitchesBeforeItClears() throws Exception {
         Path out = CHECK.resolve("build/publish_order.sfc");
-        ExamplesTest.compile(CHECK, out);
+        // game_tick's own code: inlined into the main loop, it has none (ADR-6FVMCY48)
+        Compiler.compile(ExamplesTest.options(CHECK, out).withBackend(Compiler.Backend.MIR).withInlinedCode(true));
         String s = Files.readString(out.resolveSibling("publish_order.s"));
         List<String> tick = code(s, "_game_tick");
         int ready = -1;

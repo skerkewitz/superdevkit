@@ -67,4 +67,37 @@ class ReachableTest {
         Reachable.run(m, Set.of("_main", "_dead"));
         assertEquals(List.of("_main", "_helper", "_dead", "_also_dead"), m.functions().stream().map(MFunction::name).toList());
     }
+
+    @Test
+    void afterInliningOnlyWhatIsStillCalledNeedsCode() {
+        MModule m = MirParser.parse("""
+                global @_jump : 4 const = [ 0: ptr @_by_table ]
+
+                func @_main() -> void {
+                b0_entry:
+                    call void @_called()
+                    ret
+                }
+
+                func @_called() -> void {
+                b0_entry:
+                    ret
+                }
+
+                func @_inlined() -> void {
+                b0_entry:
+                    call void @_called()
+                    ret
+                }
+
+                func @_by_table() -> void {
+                b0_entry:
+                    ret
+                }
+                """);
+        // _inlined is no longer called (its calls were inlined): timed, but no code; a global
+        // the ROM keeps reaches _by_table
+        assertEquals(Set.of("_main", "_called", "_by_table"), Reachable.needCode(m, Set.of("_main")));
+        assertEquals(4, m.functions().size());
+    }
 }

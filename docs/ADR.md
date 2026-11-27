@@ -96,7 +96,7 @@ document of its subject.
 | ADR-6FMATG2V | [Hand-written assembly replaces a C function through DAMPF_ASM and is checked against its body](adr/6FMATG2V-hand-written-assembly-replaces-a-c-function.md) | Accepted | 2026-11-24 |
 | ADR-6FMHDB6H | [The console API is the hardware's state in memory, which the kit commits in the vertical blank](adr/6FMHDB6H-the-console-api-is-the-hardware-s-state-in-memory.md) | Superseded; superseded by ADR-6FNPPCSX | 2026-11-25 |
 | ADR-6FNPPCSX | [The console API is the hardware at once, with optional layers above it](adr/6FNPPCSX-the-console-api-is-the-hardware-at-once-with.md) | Accepted | 2026-11-25 |
-| ADR-6FNWEJAA | [dampf leaves out the functions a program cannot reach](adr/6FNWEJAA-dampf-leaves-out-the-functions-a-program-cannot.md) | Accepted | 2026-11-25 |
+| ADR-6FNWEJAA | [dampf leaves out the functions a program cannot reach](adr/6FNWEJAA-dampf-leaves-out-the-functions-a-program-cannot.md) | Accepted; amended by ADR-6FVMCY48 | 2026-11-25 |
 | ADR-6FPTPCDM | [The SNES facts the compiler asks about live in dampf.target, which knows none of its types](adr/6FPTPCDM-the-snes-facts-the-compiler-asks-about-live-in.md) | Accepted | 2026-11-25 |
 | ADR-6FPV1EQV | [Interrupt code reads a copy of the tick's data that the kit makes after each tick](adr/6FPV1EQV-interrupt-code-reads-a-copy-of-the-tick-s-data.md) | Accepted; amended by ADR-6FRDS030, ADR-6FRX1GYC, ADR-6FS0T4WB | 2026-11-25 |
 | ADR-6FQ4NSHE | [A function reached from several contexts is compiled once per context](adr/6FQ4NSHE-a-function-reached-from-several-contexts-is.md) | Accepted | 2026-11-25 |
@@ -104,6 +104,7 @@ document of its subject.
 | ADR-6FRX1GYC | [The game's IRQ runs at a picture row and writes after waiting for the horizontal blank](adr/6FRX1GYC-the-game-s-irq-runs-at-a-picture-row-and-writes.md) | Accepted | 2026-11-26 |
 | ADR-6FS0T4WB | [The kit's NMI runs the vertical blank of a game that publishes](adr/6FS0T4WB-the-kit-s-nmi-runs-the-vertical-blank-of-a-game.md) | Accepted | 2026-11-26 |
 | ADR-6FSHCP06 | [Rachael draws modes 0 to 4, mosaic and EXTBG; the picture's other sizes wait for a game](adr/6FSHCP06-rachael-draws-modes-0-to-4-mosaic-and-extbg-the.md) | Accepted | 2026-11-26 |
+| ADR-6FVMCY48 | [A function inlined at every call keeps its timing entry but no code](adr/6FVMCY48-a-function-inlined-at-every-call-keeps-its-timing.md) | Accepted | 2026-11-27 |
 
 ## Former numbers
 

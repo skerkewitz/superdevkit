@@ -180,11 +180,6 @@ when a game asks for them.
 
 Ideas without a milestone; one becomes a step of a milestone when it is decided.
 
-- **Inlined functions without a copy of their own.** A function inlined at every call keeps its
-  body in the ROM, so the timing report has it (ADR-6FNWEJAA). Dropping that body but keeping its
-  entry in the report would shrink the examples' code by another 25 to 35 % (measured on
-  2026-11-25).
-
 - **dampf in Compiler Explorer.** A local Compiler Explorer (godbolt) knows extra compilers from
   `etc/config/c.local.properties`; a wrapper script takes its gcc-style arguments (`-S -o out.s
   input.c`), calls dampf and turns `.dbg line, "file", N` into the `.file`/`.loc` directives

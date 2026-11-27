@@ -156,6 +156,19 @@ public final class MirCodeGen {
         return c == null ? Selection.FRAME : Selection.FRAME + "_" + c.key;
     }
 
+    /**
+     * The functions that get no code in the ROM ({@link dampf.mir.Reachable#needCode}): inlined at
+     * every call, nothing takes their address. Compiled and timed all the same, so the timing
+     * report and DAMPF_BUDGET keep them (ADR-6FVMCY48).
+     */
+    private Set<String> withoutCode = Set.of();
+
+    /** The functions to compile and time but leave out of the ROM; before {@link #generate}. */
+    public MirCodeGen withoutCode(Set<String> labels) {
+        this.withoutCode = Set.copyOf(labels);
+        return this;
+    }
+
     public List<String> generate() throws CompileError {
         MFunction entryFunction = module.function(entry);
         if (entryFunction == null || !entryFunction.params().isEmpty()) {
@@ -241,6 +254,9 @@ public final class MirCodeGen {
                 checkCode.add(code);   // the C body an assembly function is checked against: not in the ROM
                 continue;
             }
+            if (withoutCode.contains(f.name())) {
+                continue;   // inlined at every call: timed above, no code of its own
+            }
             if (f == entryFunction) {
                 entryBlock = banked.size();
             }
@@ -298,7 +314,7 @@ public final class MirCodeGen {
         w.raw("        .importzp dampf_regs, dampf_ptr");
         w.raw("        .import dampf_mul16, dampf_mul32, dampf_udiv16, dampf_udiv32, dampf_sdiv32");
         List<String> all = new ArrayList<>();
-        module.functions().forEach(f -> all.add(f.name()));
+        module.functions().stream().filter(f -> !withoutCode.contains(f.name())).forEach(f -> all.add(f.name()));
         module.globals().forEach(g -> all.add(g.symbol()));
         for (int i = 0; i < all.size(); i += 8) {
             w.raw("        .global " + String.join(", ", all.subList(i, Math.min(all.size(), i + 8))));
@@ -558,7 +574,8 @@ public final class MirCodeGen {
         if (modules > 1 || !asmSymbols.isEmpty()) {
             // (the assembly of DAMPF_ASM imports the globals and its parameters' places)
             List<String> all = new ArrayList<>();
-            this.module.functions().stream().filter(f -> f.checkOf() == null).forEach(f -> all.add(f.name()));
+            this.module.functions().stream().filter(f -> f.checkOf() == null && !withoutCode.contains(f.name()))
+                    .forEach(f -> all.add(f.name()));
             this.module.globals().forEach(g -> all.add(g.symbol()));
             for (MFunction f : this.module.functions()) {
                 if (f.isAsm()) {
