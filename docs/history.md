@@ -504,9 +504,11 @@ Built on 2026-11-27, ahead of M11; not released yet.
   written in CPU cycles fails with a message that says so. The code dampf writes is the same.
 - **The IRQ's window checked** (2026-11-27): the timing report gives the master cycles from the
   end of the IRQ handler's wait for the horizontal blank to its last PPU register write, and the
-  build fails above the 158 the blank leaves, counted without HDMA on the line
-  ([ADR-6FVNN9DW](adr/6FVNN9DW-the-build-checks-the-irq-s-writes-after-the-wait.md)). Mesen
-  agrees on `dev/irq_check` (102, clean) and on a handler that writes too late (186, row 72 torn).
+  build fails when they pass the 158 the blank leaves, less the HDMA the handler declares for its
+  line (`SDEVKIT_IRQ_HDMA`), which Rachael checks on the desktop
+  ([ADR-6FVWK4JE](adr/6FVWK4JE-the-build-checks-the-irq-s-writes-after-the-wait.md)). Mesen
+  agrees on `dev/irq_check` (102 of 116, clean) and on a handler that writes too late (186, row 72
+  torn).
 
 ## Publishing
 

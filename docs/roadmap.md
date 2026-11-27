@@ -53,9 +53,9 @@ Timing ([timing.md](timing.md#not-built-yet)):
   [timing.md](timing.md#open-questions) left open until the bounds turned out too pessimistic;
 - level 3: DRAM refresh, HDMA and interrupts at frame level. Open is how the budget learns
   which HDMA channels a game has on, since a game turns them on at run time
-  (`sdevkit_hdma_enable`); the same would let the IRQ's window count the HDMA of its line, which
-  it leaves out today
-  ([ADR-6FVNN9DW](adr/6FVNN9DW-the-build-checks-the-irq-s-writes-after-the-wait.md)).
+  (`sdevkit_hdma_enable`); the IRQ's window takes it from the game's declaration of its line,
+  which Rachael checks
+  ([ADR-6FVWK4JE](adr/6FVWK4JE-the-build-checks-the-irq-s-writes-after-the-wait.md)).
 
 Better C debugging in Mesen: Mesen shows the C source and the names of global variables from
 the `.dbg` file, and that is all. Of a C symbol (`csym`) it reads only the name and the assembly

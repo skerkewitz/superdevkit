@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.function.Function;
 
 /**
- * The IRQ's window (ADR-6FRX1GYC, ADR-6FVNN9DW): the game's IRQ handler waits for the horizontal
+ * The IRQ's window (ADR-6FRX1GYC, ADR-6FVWK4JE): the game's IRQ handler waits for the horizontal
  * blank before its row ({@code sdevkit_irq_wait_hblank}, a loop that polls HVBJOY) and then writes
  * PPU registers, which must land before the PPU fetches the row's first tiles. This finds, in the
  * handler's code, the master cycles from the end of the wait to the end of the last write to a
@@ -50,11 +50,35 @@ public final class IrqWindow {
      * {@link #NONE} when it writes nothing after one, {@link #UNBOUNDED} with a loop on the way;
      * {@code waits}: whether it waits at all.
      */
-    public record Result(boolean waits, long worst) {
+    public record Result(boolean waits, long worst, int hdmaChannels, int hdmaBytes) {
         public boolean bounded() {
             return worst < UNBOUNDED;
         }
+
+        /** The same, with the HDMA the handler declares for its line (SDEVKIT_IRQ_HDMA). */
+        public Result withHdma(int channels, int bytes) {
+            return new Result(waits, worst, channels, bytes);
+        }
+
+        /** The master cycles the writes have after the wait: the window less the declared HDMA. */
+        public long room() {
+            return WINDOW - hdma(hdmaChannels, hdmaBytes);
+        }
     }
+
+    /**
+     * The master cycles HDMA takes on a line, the worst case for these channels and bytes: 18 once
+     * when a channel runs, and per channel 8 and 8 more for a new entry of its table (its line
+     * count byte), and 8 for each byte written (fullsnes, "SNES Timings"; ADR-6FVWK4JE).
+     */
+    public static int hdma(int channels, int bytes) {
+        int n = Integer.bitCount(channels & 0xFF);
+        return n == 0 ? 0 : HDMA_LINE + n * HDMA_CHANNEL + bytes * HDMA_BYTE;
+    }
+
+    static final int HDMA_LINE = 18;
+    static final int HDMA_CHANNEL = 16;
+    static final int HDMA_BYTE = 8;
 
     private final boolean fastRom;
     private final String wait;
@@ -104,7 +128,7 @@ public final class IrqWindow {
                 worst = Math.max(worst, w >= UNBOUNDED ? UNBOUNDED : first + w);
             }
         }
-        return new Result(waits, worst);
+        return new Result(waits, worst, 0, 0);
     }
 
     /** The wait function's own way from the end of its loop to the end of its RTL. */

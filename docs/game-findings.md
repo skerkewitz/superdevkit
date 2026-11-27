@@ -226,3 +226,22 @@ take the function's new worst case from `<rom>.timing.txt` and give it the margi
 had over the old worst case; a budget that was a share of the frame or of the vertical blank can
 now be that share of 357,368 or 49,000 directly. Nothing else changes: the code dampf writes is
 the same, byte for byte.
+
+## 10. The IRQ's HDMA: declare it in `game_irq` (2026-11-27)
+
+dampf now checks the game's IRQ at build time (superdevkit's ADR-6FVWK4JE): from the end of
+`sdevkit_irq_wait_hblank` to the handler's last PPU register write it may take 158 master cycles
+(about 25 CPU cycles), less the HDMA that runs on the IRQ's line, and the build fails when the
+writes come later (the row would tear). HDMA is decided at run time, so the handler states it:
+`SDEVKIT_IRQ_HDMA(channels, bytes)` from `sdevkit/irq.h`, a statement in `game_irq`, with the
+channels that may run on its line (`SDEVKIT_HDMA_CHANNELn` or'ed) and the most bytes they write
+there together (1 for `SDEVKIT_HDMA_ONE`, 2 for `_TWO_REGS` and `_TWICE`). Each channel of one
+byte takes 42 master cycles of the 158, two of one byte each 66. On the desktop and the web the
+check fails when more HDMA runs on the IRQ's line than declared, so a missing declaration shows
+there.
+
+What the game must change: if it has a `game_irq` and HDMA channels running on its line (the
+game uses HDMA for its colour windows), add the declaration at the start of `game_irq`, with
+every channel that can be on at that row. Then build: the timing report's line `_game_irq (after
+the wait; room, worst)` shows how much room is left; if the build fails, move work from after
+the wait to before it, or write fewer registers there.

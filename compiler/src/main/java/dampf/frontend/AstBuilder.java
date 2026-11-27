@@ -1951,6 +1951,9 @@ public final class AstBuilder {
         SourcePos at = pos(p.primaryExpression().Identifier().getSymbol());
         List<CParser.AssignmentExpressionContext> args = p.getChild(2) instanceof CParser.ArgumentExpressionListContext al
                 ? al.assignmentExpression() : List.of();
+        if (name.equals("__dampf_irq_hdma")) {
+            return irqHdma(args, at);
+        }
         if (!name.equals("__dampf_range")) {
             throw new CompileError(at, "unknown hint '" + name + "'");
         }
@@ -1978,6 +1981,32 @@ public final class AstBuilder {
             throw new CompileError(at, "DAMPF_RANGE: the lowest value is above the highest");
         }
         return new Stmt.Range(var.variable(), bounds[0], bounds[1], at);
+    }
+
+    /**
+     * SDEVKIT_IRQ_HDMA(channels, bytes) in the IRQ handler (sdevkit/irq.h, ADR-6FVWK4JE): the HDMA
+     * that runs on its line, which the check of its window takes from the time after the wait.
+     * Two constants; the statement itself is nothing.
+     */
+    private Stmt irqHdma(List<CParser.AssignmentExpressionContext> args, SourcePos at) throws CompileError {
+        if (args.size() != 2) {
+            throw new CompileError(at, "SDEVKIT_IRQ_HDMA needs two arguments: the channels (SDEVKIT_HDMA_CHANNELn or'ed)"
+                    + " and the bytes they write on the line");
+        }
+        if (current == null || current.interrupt() != Interrupt.IRQ) {
+            throw new CompileError(at, "SDEVKIT_IRQ_HDMA belongs in the IRQ handler (DAMPF_INTERRUPT(irq) void game_irq(void))");
+        }
+        long[] v = new long[2];
+        for (int k = 0; k < 2; k++) {
+            Long c = fold(rvalue(assignment(args.get(k))));
+            if (c == null || c < 0 || c > 255) {
+                throw new CompileError(pos(args.get(k)), "SDEVKIT_IRQ_HDMA: the " + (k == 0 ? "channels" : "bytes")
+                        + " must be a constant from 0 to 255");
+            }
+            v[k] = c;
+        }
+        current.declareIrqHdma((int) v[0], (int) v[1]);
+        return new Stmt.Block(List.of(), at, at);
     }
 
     /** The postfix expression an assignment expression consists of, if that is all it is. */

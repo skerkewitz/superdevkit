@@ -8,7 +8,8 @@
  * SPLIT1 again, for the next frame. All three values change every tick, and the tick publishes
  * them, so each part shows the tick the rest of the picture was made from. The handler reads its
  * value first, then waits for the horizontal blank (sdevkit_irq_wait_hblank) and writes. An HDMA
- * channel writes the brightness on every line, the IRQ's lines too. With A held the tick is long:
+ * channel writes the brightness on every line, the IRQ's lines too, which the handler declares
+ * (SDEVKIT_IRQ_HDMA): dampf takes its time from the writes', and Rachael checks it. With A held the tick is long:
  * on the SNES it then ends below both splits, while it ends above them otherwise. With B held it
  * is longer than two frames: the NMI then comes in the middle of it and runs vblank again on the
  * same data, and the IRQ splits the same picture again. The desktop draws the same either way.
@@ -107,6 +108,7 @@ static void vblank(void)
 
 DAMPF_INTERRUPT(irq) void game_irq(void)
 {
+    SDEVKIT_IRQ_HDMA(SDEVKIT_HDMA_CHANNEL1, 1);   /* the brightness, one byte on every line */
     const struct split *s = SDEVKIT_PUBLISHED(split);
     if (irq_split == 0) {
         uint16_t x = s->mid_x;

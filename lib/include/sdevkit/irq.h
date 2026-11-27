@@ -56,8 +56,9 @@
  * - After the wait: its register writes must end within about 25 cycles of the wait's return,
  *   158 master cycles, less about 6 for each HDMA channel of one byte on that line (more for more
  *   bytes). dampf checks it: the timing report gives the master cycles from the wait to the last
- *   register write, and the build fails above 158, counted without HDMA on the line
- *   (ADR-6FVNN9DW); with HDMA there, keep the margin. The wait
+ *   register write, and the build fails above 158 less the HDMA the handler declares for its line
+ *   with SDEVKIT_IRQ_HDMA (ADR-6FVWK4JE); without a declaration the line has none, and the
+ *   desktop's check fails when more HDMA runs there than declared. The wait
  *   returns up to 12 cycles after the blank has begun, a round of its loop, and the rest of the
  *   blank is the writes'. A scroll register (sdevkit_reg_write_twice) takes 17, a register of one
  *   byte about 10: one scroll register, or two registers of a byte. More goes in HDMA, or in an
@@ -149,5 +150,41 @@ void sdevkit_irq_off(void);
  * fails the desktop check.
  */
 void sdevkit_irq_wait_hblank(void);
+
+/**
+ * @brief In game_irq, before the wait: the HDMA that runs on the IRQ's line, a statement of its own.
+ *
+ * HDMA runs at the start of the horizontal blank, the one the handler waits for, and stops the CPU
+ * meanwhile, so it takes from the time the handler's writes have after the wait. dampf checks
+ * that time at build time and takes the declared HDMA from it: per line 18 master cycles once and,
+ * for each channel, 16 (8 for the channel, 8 for a new entry of its table) and 8 for each byte
+ * it writes (fullsnes, "SNES Timings"). One channel of one byte: 42 of the 158.
+ * Without a declaration the line has no HDMA. On the desktop and the web Rachael compares it with
+ * the HDMA that runs on the line, and the check fails when more channels run, or they write more
+ * bytes, than declared. Declared more than once, the channels of all and the most bytes count.
+ * @code
+ * DAMPF_INTERRUPT(irq) void game_irq(void)
+ * {
+ *     SDEVKIT_IRQ_HDMA(SDEVKIT_HDMA_CHANNEL1, 1);   // channel 1 writes one byte on this line
+ *     ...
+ * }
+ * @endcode
+ * @param channels the channels that may run on the line, SDEVKIT_HDMA_CHANNELn or'ed (constant)
+ * @param bytes    the most bytes they write on it together: 1 a channel of SDEVKIT_HDMA_ONE,
+ *                 2 of SDEVKIT_HDMA_TWO_REGS or SDEVKIT_HDMA_TWICE (constant)
+ */
+#ifdef __DAMPF__
+#define SDEVKIT_IRQ_HDMA(channels, bytes) __dampf_irq_hdma(channels, bytes)
+#else
+#define SDEVKIT_IRQ_HDMA(channels, bytes) sdevkit_irq_hdma((uint8_t)(channels), (uint8_t)(bytes))
+#endif
+
+/**
+ * @brief What SDEVKIT_IRQ_HDMA calls on the desktop and the web, where Rachael checks it; write
+ *        the macro, which dampf reads at build time (a call of this function is not seen there).
+ * @param channels as SDEVKIT_IRQ_HDMA's
+ * @param bytes    as SDEVKIT_IRQ_HDMA's
+ */
+void sdevkit_irq_hdma(uint8_t channels, uint8_t bytes);
 
 #endif /* SDEVKIT_IRQ_H */

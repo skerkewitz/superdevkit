@@ -132,6 +132,7 @@ write with a constant register is one store. The layers' commits are in the next
 | `sdevkit_hdma_enable` | built | built | 136 |
 | `sdevkit_irq_line` | built (the CPU's timer: VTIME, HTIME, NMITIMEN) | built (Rachael calls `game_irq` before the row) | 358 |
 | `sdevkit_irq_off` | built | built | 222 |
+| `sdevkit_irq_hdma` | built (does nothing: dampf reads the macro `SDEVKIT_IRQ_HDMA` and takes the declared HDMA from the IRQ's window) | built (compares the HDMA on the IRQ's line with the declaration: more fails the check) | 42 |
 | `sdevkit_irq_wait_hblank` | built (polls HVBJOY's horizontal blank) | built (notes that the handler waited: its register writes are free from then on) | 108 to unbounded |
 | `sdevkit_shadow_commit` | built | built (and counts a group changed without its mark) | 870 to 14,034 |
 | `sdevkit_sprite` | built | built | 136 to 836 |
