@@ -242,6 +242,7 @@ public final class MirCodeGen {
             limit.apply("ByteLoops", f.name(), () -> dampf.lir.ByteLoops.run(lf, resultInA));
             limit.apply("KnownCarry", f.name(), () -> KnownCarry.run(lf));
             limit.apply("DeadStores", f.name(), () -> new DeadStores(ownValueBytes(f)).run(lf));
+            limit.apply("SinkStores", f.name(), () -> new DeadStores(ownValueBytes(f)).sink(lf));
             BranchRelax.run(lf);
             Map<String, String> renamed = dampf.lir.LocalLabels.renumber(code.function(), "@L");
             Map<String, Integer> bounds = new HashMap<>();

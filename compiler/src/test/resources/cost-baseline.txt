@@ -145,8 +145,8 @@ ertuep _dartboard 1757
 ertuep _dicecup 1212
 ertuep _dma0 94
 ertuep _dma_source 61
-ertuep _draw_all 282475
-ertuep _draw_bullets 7731
+ertuep _draw_all 282411
+ertuep _draw_bullets 7667
 ertuep _draw_enemies 92921
 ertuep _draw_items 4457
 ertuep _draw_parts 4817
@@ -158,7 +158,7 @@ ertuep _effects 4183
 ertuep _effects_vblank 460
 ertuep _end_of_stage 6594
 ertuep _ending 246974
-ertuep _enemies_update 175489
+ertuep _enemies_update 175425
 ertuep _enemy_destroyed 157210
 ertuep _enemy_hit 157298
 ertuep _enemy_spawn 1461
@@ -216,7 +216,7 @@ ertuep _overlap 119
 ertuep _part_spawn 174
 ertuep _parts_update 2165
 ertuep _path_at 1166
-ertuep _picture 282551
+ertuep _picture 282487
 ertuep _place_chairs 4149
 ertuep _play -1
 ertuep _player_start 76
@@ -256,10 +256,10 @@ ertuep _sfx_voices_frame -1
 ertuep _ship_hit 4813
 ertuep _ship_in_wall 805
 ertuep _shot_new 374
-ertuep _shots_update 9237
+ertuep _shots_update 9197
 ertuep _sin1024 72
 ertuep _sine 24
-ertuep _slot 10713
+ertuep _slot 10709
 ertuep _slot_machine 5645
 ertuep _slot_reel 271
 ertuep _small 271
@@ -337,12 +337,12 @@ hello dampf_mul32 400
 hello dampf_sdiv32 2594
 hello dampf_udiv16 772
 hello dampf_udiv32 2432
-mandelbrot _compute 20686
+mandelbrot _compute 20654
 mandelbrot _cycle_palette 3642
 mandelbrot _dma0 94
 mandelbrot _dma_source 61
 mandelbrot _game_init 1316709
-mandelbrot _game_tick 21504
+mandelbrot _game_tick 21472
 mandelbrot _game_vblank 331
 mandelbrot _in_bulbs 2200
 mandelbrot _main -1

@@ -2178,3 +2178,20 @@ loops of `draw_enemies` +2.7 %, `cave_scan_rows` +0.7 %: the rare way pays the s
 load); with the step before, 46 shrink and 42 grow, the spelling family `pairs` still +7.2 %.
 modes' `tiles4` −5.0 %. Of the C guide's examples `pairs_by_offsets` costs 15,409 cycles instead
 of 15,361 and `pairs_by_list` 17,431 instead of 17,481; every rule holds.
+
+## A store only a rare way reads moves onto it (2026-11-27, on the examples)
+
+`DeadStores` removed a store no way reads; a store that only some of a block's successors read
+stayed on every way. Now such a store at the end of a block moves to the start of each successor
+that reads the place, where another successor does not, if nothing between the store and the
+block's end touches the place, the stored register or the widths (compares, branches, the carry
+and the other index registers may), and if each of those successors has no other way in (a
+branch's long form, a block that only jumps, is followed to where it jumps). It then runs on
+fewer ways and never on more, so no path gets longer. In Steinschlag's `cave_scan_rows` the kind
+of the cell is stored only where the cell is one that moves.
+
+The examples, against the step before: Steinschlag 0.971, Catch Me 0.999, Mandelbrot 0.999, the
+rest the same; geometric mean 0.996. Of the stores the trace found overwritten before they were
+read (Schach 2.6 % of its work, Er-Tüp 1.3 %), most are followed by a change of A before their
+block ends, where the value is gone.
+No worst case grows; 8 shrink, by up to 0.8 % (Er-Tüp's `draw_bullets`).
