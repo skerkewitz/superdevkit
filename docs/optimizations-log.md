@@ -2084,3 +2084,54 @@ Nothing to gain: pointer compression and inlining already tell dampf where nearl
 points, and the stores left through unknown pointers are not in hot code. Steinschlag got slower
 because the registers freed changed other choices. `restrict` stays rejected, and the no-alias
 hint is not built.
+
+## Where the direct page traffic goes (2026-11-27, on the examples)
+
+Before register allocation (M12, row 2) a trace of the examples' benchmark: each instruction's
+master cycles charged to a kind, plain accesses to the frames (`$0020` to `$1DFF`) apart, and
+which places A, X and Y equal followed as the program runs (a tool kept out of the repository).
+Loads, stores, operands (`ADC p`) and read-modify-writes (`INC p`) of frame places are this share
+of the work:
+
+| Example | Loads | Stores | Operands | `INC p` and the like | Together |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Steinschlag | 10.9 % | 13.8 % | 8.0 % | 6.7 % | 39 % |
+| Schach | 14.3 % | 10.6 % | 7.4 % | 2.0 % | 34 % |
+| Er-Tüp | 13.2 % | 9.4 % | 2.7 % | 1.9 % | 27 % |
+| Catch Me | 9.3 % | 8.0 % | 3.3 % | 4.9 % | 26 % |
+| modes | 11.4 % | 8.3 % | 5.0 % | 2.8 % | 27 % |
+| Mode 7 | 8.2 % | 7.2 % | 1.9 % | 3.2 % | 21 % |
+| Hello | 4.1 % | 2.8 % | 1.1 % | 1.5 % | 10 % |
+
+What the loads could have taken from a register instead:
+
+- X or Y held what `LDA` loaded, or A what `LDX` loaded: Er-Tüp 3.3 % of the work, Schach 1.8 %,
+  Hello 1.0 %, Catch Me 0.5 %. `RedundantLoads` took only a load the same register held, and
+  `RegContents` forgot what X held after `TAX`, did not follow `STX` and `STY`, and forgot A at
+  `TXA` (the entry after this one).
+- A value loaded within three instructions of its store, X untouched in between: Steinschlag
+  4.0 %, modes 2.2 %, Er-Tüp 1.9 %, Catch Me 1.8 %, Schach 1.5 %, Mode 7 1.8 %.
+- A value loaded more than 50 instructions after its store (across calls and long stretches):
+  Schach 8.7 % with the operands, the others 1 to 3 %.
+- Stores whose next access is another store, dead on the way the program took: Schach 2.9 %,
+  Er-Tüp 1.8 %, Catch Me 1.3 %.
+
+The hot loops share a pattern: a counter or an offset that could live in X on the loop's common
+way stays in its place because a rare part of the loop (a `switch`, a call, another index) uses X.
+In Steinschlag's `cave_scan_rows` the loop over a row's cells keeps its counter in the frame (`INC
+p`, 7 cycles, and a load each round), and stores the cell and its kind every round, which only
+the rare way reads; Er-Tüp's enemy loops (`draw_enemies`, `collide`) and Schach's `gen_moves` and
+`attacked` look alike. `RegisterChoice` gives a register for a whole live range or a whole loop,
+and its block weights (8 to the power of the loop depth) do not tell the common way from the rare.
+
+## A load of what another register holds is a transfer (2026-11-27, on the examples)
+
+`RegContents` now follows a set of places and constants for X and Y as it does for A: `TAX` gives X
+what A holds, `TXA` A what X holds, `STX p` and `STY p` add p, and a write to a place or a byte next
+to it is forgotten in all three (X forgot only a write to the same operand before). `RedundantLoads`
+turns a load of what another register holds into a transfer: `LDA p` into `TXA` or `TYA` (2 cycles
+instead of 4 or 5), `LDX p` into `TAX` or `TYX`, `LDY p` into `TAY` or `TXY`, all at 16 bits; a
+transfer sets N and Z as the load does.
+
+The examples, against `develop`: Er-Tüp 0.990, Schach 0.991, Mode 7 0.992, Mandelbrot 0.993,
+Catch Me 0.998, Hello, modes and Steinschlag 1.000; geometric mean 0.995.

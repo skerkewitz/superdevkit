@@ -144,7 +144,7 @@ The worst case of each function in CPU cycles, from the timing report; "is" is t
 test checks ("same": within 5 %).
 
 <!-- measurements: written by StyleGuideTest -->
-Measured 2026-11-24 (worst case of the timing report, code generator from MIR).
+Measured 2026-11-27 (worst case of the timing report, code generator from MIR).
 
 | Rule | This | CPU cycles | is | than this | CPU cycles |
 | --- | --- | ---: | --- | --- | ---: |
@@ -153,10 +153,10 @@ Measured 2026-11-24 (worst case of the timing report, code generator from MIR).
 | `fast-switch-table` | `dispatch_switch` | 33 | faster | `dispatch_if_chain` | 90 |
 | `same-32-bit-bits` | `xor_32` | 36 | same | `xor_16_halves` | 36 |
 | `same-declaration-place` | `declared_at_top` | 5,025 | same | `declared_where_used` | 5,025 |
-| `same-enum-object` | `step_enum` | 2,774 | same | `step_uint8` | 2,774 |
+| `same-enum-object` | `step_enum` | 2,773 | same | `step_uint8` | 2,773 |
 | `same-increment-form` | `count_postfix` | 5,025 | same | `count_prefix` | 5,025 |
 | `same-index-form` | `read_indexed` | 5,025 | same | `read_pointer_arithmetic` | 5,025 |
-| `same-list-of-offsets` | `pairs_by_offsets` | 15,385 | same | `pairs_by_counter` | 15,493 |
+| `same-list-of-offsets` | `pairs_by_offsets` | 15,361 | same | `pairs_by_counter` | 15,493 |
 | `same-loop-form` | `loop_for` | 5,025 | same | `loop_while` | 5,025 |
 | `same-named-temporary` | `with_temporary` | 45 | same | `inline_expression` | 45 |
 | `same-pointer-walk` | `move_by_pointer` | 1,521 | same | `move_by_index` | 1,521 |
@@ -164,7 +164,7 @@ Measured 2026-11-24 (worst case of the timing report, code generator from MIR).
 | `slow-compare-sum` | `compare_sum` | 104 | slower | `compare_sum_narrowed` | 86 |
 | `slow-divide-variable` | `divide_variables` | 804 | slower | `divide_constant` | 17 |
 | `slow-hand-shifts` | `times_40_by_shifts` | 41 | slower | `times_40` | 31 |
-| `slow-index-list` | `pairs_by_list` | 17,505 | slower | `pairs_by_counter` | 15,493 |
+| `slow-index-list` | `pairs_by_list` | 17,481 | slower | `pairs_by_counter` | 15,493 |
 | `slow-multiply-variable` | `multiply_variables` | 140 | slower | `multiply_constant` | 31 |
 | `slow-signed-divide` | `divide_signed` | 101 | slower | `divide_unsigned` | 17 |
 <!-- end of measurements -->

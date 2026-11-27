@@ -7,28 +7,33 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * What A, X and Y hold for sure, as a data flow analysis over a function's blocks: for A the
- * operands it equals (places in the frame and immediates; after {@code LDA x / STA y} both), for
- * X and Y one each. A place is forgotten when something writes it or a byte next to it, A when an
- * instruction changes it, everything at a call; a store through a pointer may write any place.
- * Where ways meet, what all of them bring holds. Only places of the frame and immediates are
- * followed. The operands are typed ({@link LOperand}, ADR-6F8NBFAQ).
+ * What A, X and Y hold for sure, as a data flow analysis over a function's blocks: for each
+ * register the operands it equals (places in the frame and immediates; after {@code LDA x / STA y}
+ * both, after {@code TAX} what A equals). A place is forgotten when something writes it or a byte
+ * next to it, a register when an instruction changes it, everything at a call; a store through a
+ * pointer may write any place. Where ways meet, what all of them bring holds. Only places of the
+ * frame and immediates are followed, and X and Y only at 16 bits. The operands are typed
+ * ({@link LOperand}, ADR-6F8NBFAQ).
  */
 public final class RegContents {
-    /** What the registers hold: the operands A equals, and what X and Y equal (null: unknown). */
-    public record State(Set<LOperand> a, LOperand x, LOperand y) {
-        public static final State NONE = new State(Set.of(), null, null);
+    /** What the registers hold: the operands A, X and Y each equal. */
+    public record State(Set<LOperand> a, Set<LOperand> x, Set<LOperand> y) {
+        public static final State NONE = new State(Set.of(), Set.of(), Set.of());
 
         /** What both hold. */
         public State meet(State o) {
-            Set<LOperand> both = new HashSet<>(a);
-            both.retainAll(o.a);
-            return new State(Set.copyOf(both), x != null && x.equals(o.x) ? x : null, y != null && y.equals(o.y) ? y : null);
+            return new State(both(a, o.a), both(x, o.x), both(y, o.y));
+        }
+
+        private static Set<LOperand> both(Set<LOperand> p, Set<LOperand> q) {
+            Set<LOperand> out = new HashSet<>(p);
+            out.retainAll(q);
+            return Set.copyOf(out);
         }
 
         /** Whether everything this says holds in o too. */
         public boolean within(State o) {
-            return o.a.containsAll(a) && (x == null || x.equals(o.x)) && (y == null || y.equals(o.y));
+            return o.a.containsAll(a) && o.x.containsAll(x) && o.y.containsAll(y);
         }
     }
 
@@ -69,39 +74,50 @@ public final class RegContents {
         String m = i.mnemonic();
         LOperand op = i.op();
         boolean m8 = !i.m16();
+        boolean x8 = !i.x16();
         Set<LOperand> a = new HashSet<>(s.a());
-        LOperand x = s.x();
-        LOperand y = s.y();
+        Set<LOperand> x = new HashSet<>(s.x());
+        Set<LOperand> y = new HashSet<>(s.y());
         boolean writesMemory = switch (m) {
-            case "sta", "stx", "sty", "stz", "inc", "dec", "asl", "lsr", "rol", "ror" -> op != null && !(op instanceof LOperand.Acc);
+            case "sta", "stx", "sty", "stz", "inc", "dec", "asl", "lsr", "rol", "ror", "tsb", "trb" ->
+                    op != null && !(op instanceof LOperand.Acc);
             default -> false;
         };
-        if (writesMemory && (writesAnyPlace(op) || op.equals(x))) {
-            x = null;
-        }
-        if (writesMemory && (writesAnyPlace(op) || op.equals(y))) {
-            y = null;
+        if (writesMemory) {
+            forgetPlace(a, op);
+            forgetPlace(x, op);
+            forgetPlace(y, op);
         }
         switch (m) {
-            case "ldy" -> y = trackable(op) ? op : null;
-            case "ldx" -> x = trackable(op) ? op : null;
-            case "inx", "dex", "tax", "tsx", "plx" -> x = null;
-            case "iny", "dey", "tay", "ply" -> y = null;
-            case "txy" -> y = x;
-            case "tyx" -> x = y;
-            case "mvn", "mvp" -> {
-                x = null;
-                y = null;
+            case "ldx" -> x = known(op, x8);
+            case "ldy" -> y = known(op, x8);
+            case "stx" -> {
+                if (!x8 && !writesAnyPlace(op) && trackable(op)) {
+                    x.add(op);
+                }
             }
-            case "jsl", "jsr" -> {
+            case "sty" -> {
+                if (!x8 && !writesAnyPlace(op) && trackable(op)) {
+                    y.add(op);
+                }
+            }
+            // (TAX copies all 16 bits of A; A's operands are known at 16 bits only)
+            case "tax" -> x = m8 || x8 ? new HashSet<>() : new HashSet<>(a);
+            case "tay" -> y = m8 || x8 ? new HashSet<>() : new HashSet<>(a);
+            case "txy" -> y = x8 ? new HashSet<>() : new HashSet<>(x);
+            case "tyx" -> x = x8 ? new HashSet<>() : new HashSet<>(y);
+            case "inx", "dex", "tsx", "plx" -> x.clear();
+            case "iny", "dey", "ply" -> y.clear();
+            case "mvn", "mvp", "jsl", "jsr" -> {
                 a.clear();
-                x = null;
-                y = null;
+                x.clear();
+                y.clear();
             }
             default -> { }
         }
-        if (writesMemory) {
-            forgetPlace(a, op);
+        if (x8) {
+            x.clear();
+            y.clear();
         }
         switch (m) {
             case "sep" -> {
@@ -123,8 +139,10 @@ public final class RegContents {
                     a.add(op);
                 }
             }
+            case "txa" -> a = m8 || x8 ? new HashSet<>() : new HashSet<>(s.x());
+            case "tya" -> a = m8 || x8 ? new HashSet<>() : new HashSet<>(s.y());
             case "stx", "sty", "stz", "cmp", "cpx", "cpy", "ldx", "ldy", "inx", "dex", "iny", "dey",
-                 "tax", "tay", "txy", "tyx",
+                 "tax", "tay", "txy", "tyx", "phx", "phy", "pha", "php",
                  "bcc", "bcs", "beq", "bne", "bmi", "bpl", "bvc", "bvs", "bra", "jmp", "clc", "sec" -> { }
             case "asl", "lsr", "rol", "ror", "inc", "dec" -> {
                 if (op == null || op instanceof LOperand.Acc) {
@@ -133,7 +151,16 @@ public final class RegContents {
             }
             default -> a.clear();
         }
-        return new State(Set.copyOf(a), x, y);
+        return new State(Set.copyOf(a), Set.copyOf(x), Set.copyOf(y));
+    }
+
+    /** What an index register loaded with op holds. */
+    private static Set<LOperand> known(LOperand op, boolean x8) {
+        Set<LOperand> out = new HashSet<>();
+        if (!x8 && trackable(op)) {
+            out.add(op);
+        }
+        return out;
     }
 
     /** {@code #$20}: the accumulator's width bit of REP and SEP. */

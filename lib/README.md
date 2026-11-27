@@ -140,15 +140,15 @@ write with a constant register is one store. The layers' commits are in the next
 | `sdevkit_queue_vram` | built | built | 29 |
 | `sdevkit_queue_vram_column` | built | built | 29 |
 | `sdevkit_queue_cgram` | built | built | 29 |
-| `sdevkit_queue_color` | built | built | 79 to 246 |
+| `sdevkit_queue_color` | built | built | 79 to 244 |
 | `sdevkit_queue_mode7_map` | built | built | 29 |
 | `sdevkit_queue_mode7_tiles` | built | built | 29 |
 | `sdevkit_queue_room` | built | built | 42 to 53 |
-| `sdevkit_queue_commit` | built | built | 48 to 3,672 |
+| `sdevkit_queue_commit` | built | built | 47 to 3,671 |
 | `sdevkit_input_update` | built | built | 86 |
-| `sdevkit_commit` | built | built | 249 to 6,381 |
+| `sdevkit_commit` | built | built | 248 to 6,380 |
 | `sdevkit_sfx_init` | built | built | 51 to unbounded |
-| `sdevkit_sfx_play` | built | built | 39 to 158 |
+| `sdevkit_sfx_play` | built | built | 39 to 156 |
 | `sdevkit_music_play` | empty, not built yet: dampf removes the calls (`DebugCallsTest`) | built (the track's file, over and over, in the window) | 6 |
 | `sdevkit_music_stop` | empty, not built yet: dampf removes the calls | built | 6 |
 | `sdevkit_sram` | built (the cartridge's battery RAM at $70:0000, `dampf --sram`) | built (`<game>.srm` next to the program) | 11 |
