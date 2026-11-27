@@ -2098,3 +2098,160 @@ store at a fixed address takes one CPU cycle more with the long address (`lda f:
 an indexed one costs the same (`lda f:x,x` and `lda x,x` both 6: the absolute form pays the cycle
 for the 16-bit index, the long one does not); a stored zero takes four more (`lda #0` and
 `sta f:x`, 9, instead of `stz x`, 5); the index goes into X, never Y, as for constant data.
+
+## Where the direct page traffic goes (2026-11-27, on the examples)
+
+Before register allocation (M12, row 2) a trace of the examples' benchmark: each instruction's
+master cycles charged to a kind, plain accesses to the frames (`$0020` to `$1DFF`) apart, and
+which places A, X and Y equal followed as the program runs (a tool kept out of the repository).
+Loads, stores, operands (`ADC p`) and read-modify-writes (`INC p`) of frame places are this share
+of the work:
+
+| Example | Loads | Stores | Operands | `INC p` and the like | Together |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Steinschlag | 10.9 % | 13.8 % | 8.0 % | 6.7 % | 39 % |
+| Schach | 14.3 % | 10.6 % | 7.4 % | 2.0 % | 34 % |
+| Er-Tüp | 13.2 % | 9.4 % | 2.7 % | 1.9 % | 27 % |
+| Catch Me | 9.3 % | 8.0 % | 3.3 % | 4.9 % | 26 % |
+| modes | 11.4 % | 8.3 % | 5.0 % | 2.8 % | 27 % |
+| Mode 7 | 8.2 % | 7.2 % | 1.9 % | 3.2 % | 21 % |
+| Hello | 4.1 % | 2.8 % | 1.1 % | 1.5 % | 10 % |
+
+What the loads could have taken from a register instead:
+
+- X or Y held what `LDA` loaded, or A what `LDX` loaded: Er-Tüp 3.3 % of the work, Schach 1.8 %,
+  Hello 1.0 %, Catch Me 0.5 %. `RedundantLoads` took only a load the same register held, and
+  `RegContents` forgot what X held after `TAX`, did not follow `STX` and `STY`, and forgot A at
+  `TXA` (the entry after this one).
+- A value loaded within three instructions of its store, X untouched in between: Steinschlag
+  4.0 %, modes 2.2 %, Er-Tüp 1.9 %, Catch Me 1.8 %, Schach 1.5 %, Mode 7 1.8 %.
+- A value loaded more than 50 instructions after its store (across calls and long stretches):
+  Schach 8.7 % with the operands, the others 1 to 3 %.
+- Stores whose next access is another store, dead on the way the program took: Schach 2.9 %,
+  Er-Tüp 1.8 %, Catch Me 1.3 %.
+
+The hot loops share a pattern: a counter or an offset that could live in X on the loop's common
+way stays in its place because a rare part of the loop (a `switch`, a call, another index) uses X.
+In Steinschlag's `cave_scan_rows` the loop over a row's cells keeps its counter in the frame (`INC
+p`, 7 cycles, and a load each round), and stores the cell and its kind every round, which only
+the rare way reads; Er-Tüp's enemy loops (`draw_enemies`, `collide`) and Schach's `gen_moves` and
+`attacked` look alike. `RegisterChoice` gives a register for a whole live range or a whole loop,
+and its block weights (8 to the power of the loop depth) do not tell the common way from the rare.
+
+## A load of what another register holds is a transfer (2026-11-27, on the examples)
+
+`RegContents` now follows a set of places and constants for X and Y as it does for A: `TAX` gives X
+what A holds, `TXA` A what X holds, `STX p` and `STY p` add p, and a write to a place or a byte next
+to it is forgotten in all three (X forgot only a write to the same operand before). `RedundantLoads`
+turns a load of what another register holds into a transfer: `LDA p` into `TXA` or `TYA` (2 cycles
+instead of 4 or 5), `LDX p` into `TAX` or `TYX`, `LDY p` into `TAY` or `TXY`, all at 16 bits; a
+transfer sets N and Z as the load does.
+
+The examples, against `develop`: Er-Tüp 0.990, Schach 0.991, Mode 7 0.992, Mandelbrot 0.993,
+Catch Me 0.998, Hello, modes and Steinschlag 1.000; geometric mean 0.995.
+
+## Block weights from the branches (2026-11-27, on the examples)
+
+Without a profile, `Weights` gave every block 8 to the power of its loop depth, so the rare way
+through a loop weighed as much as the common one. It now estimates how often each block runs per
+call: a loop's head 8 times per entry, and the ways of a branch (or of a `switch`) share equally;
+a loop inside a loop counts as one block whose exits share its runs, and the blocks after a loop
+run as often as the loop is entered. Only `RegisterChoice` reads the weights. Alone the change
+is no gain (Er-Tüp 0.998, modes 0.999, the rest the same; geometric mean 1.000); it is what the
+next step needs to tell the common way of a loop from the rare one.
+
+Of the static worst cases 35 grow and 30 shrink: the worst case takes the rare ways, which now
+weigh less. The most: the spelling family `pairs` 34,768 → 37,262 (+7.2 %), Er-Tüp's `hud_crate`
++6.2 % and `crate_grow` +5.4 %; `game_tick` of modes −4.0 %.
+
+## A register for the common part of a loop (2026-11-27, on the examples)
+
+`RegisterChoice` gave a candidate a register for its whole live range or for a whole loop; a loop
+whose rare way uses X for something else (a `switch`'s jump table, a call, another index) kept its
+counter or offset in the frame on every way. Now a candidate may also take a register for a part
+of a loop: the loop without the blocks where something else writes the register (or reads it at
+their start), and that part again without the blocks that run less than a quarter as often as
+the loop's head. The rare blocks find the value in its place: it is stored at the start of a rare
+block the part goes to (or at the end of the part's block, where the rare block has other ways
+in), and loaded at the end of a rare block that goes back into the part. The weights of the step
+before decide whether that pays.
+
+In Er-Tüp's `enemies_update` the offset of the enemy lives in X on the way that skips an empty
+slot (`TXA / ADC #14 / TAX / CPX`), and the `switch` over the kinds stores and reloads it; in
+Steinschlag's `cave_scan_rows` the cell's index is in X and the cell in Y while the loop looks at
+the cells nothing happens to. A first version stored the value only once for a rare block reached
+from two blocks of the part, where the store went to the end of each; the check of the places
+(`PlaceCheck`) found the read that was not written on every way.
+
+The examples, against the step before: Er-Tüp 0.963, Steinschlag 0.975, modes 0.996, Schach
+0.997, Catch Me 0.999, the rest the same; geometric mean 0.991. Without the weights of the step
+before the same choice gains almost nothing (Er-Tüp 0.993, geometric mean 0.999).
+
+Of the static worst cases 29 shrink and 16 grow, by up to 2.8 % (Er-Tüp's `slot_machine`; the
+loops of `draw_enemies` +2.7 %, `cave_scan_rows` +0.7 %: the rare way pays the store and the
+load); with the step before, 46 shrink and 42 grow, the spelling family `pairs` still +7.2 %.
+modes' `tiles4` −5.0 %. Of the C guide's examples `pairs_by_offsets` costs 15,409 cycles instead
+of 15,361 and `pairs_by_list` 17,431 instead of 17,481; every rule holds.
+
+## A store only a rare way reads moves onto it (2026-11-27, on the examples)
+
+`DeadStores` removed a store no way reads; a store that only some of a block's successors read
+stayed on every way. Now such a store at the end of a block moves to the start of each successor
+that reads the place, where another successor does not, if nothing between the store and the
+block's end touches the place, the stored register or the widths (compares, branches, the carry
+and the other index registers may), and if each of those successors has no other way in (a
+branch's long form, a block that only jumps, is followed to where it jumps). It then runs on
+fewer ways and never on more, so no path gets longer. In Steinschlag's `cave_scan_rows` the kind
+of the cell is stored only where the cell is one that moves.
+
+The examples, against the step before: Steinschlag 0.971, Catch Me 0.999, Mandelbrot 0.999, the
+rest the same; geometric mean 0.996. Of the stores the trace found overwritten before they were
+read (Schach 2.6 % of its work, Er-Tüp 1.3 %), most are followed by a change of A before their
+block ends, where the value is gone.
+
+No worst case grows; 8 shrink, by up to 0.8 % (Er-Tüp's `draw_bullets`).
+
+## Loads and stores on a way of their own, tried (2026-11-27, on the examples)
+
+A register for part of a loop needs a load on every way into the part and a store on every way
+out; where such a way leaves a block that also goes elsewhere, the plan was given up. Counted
+while compiling Er-Tüp, that happened thousands of times (`draw_enemies`, `draw_items`,
+`collide`). The try put the load or store on the way itself: right before the label where the
+block falls into the next, or right after the label of a branch's long form that only that
+branch names. The examples did exactly the same work (Er-Tüp 127,465 master cycles a tick before
+and after, Schach 366,985 and 366,986); the plans it made possible were not the ones that pay,
+and `draw_enemies` kept its counter in the frame. It also needed a guard: a part that moved its
+load onto a way in was taken again in the next round with the load moved back, without end
+(Catch Me's `cats_move`). Not built.
+
+## The parts of loops without a larger worst case (2026-11-27, on the examples)
+
+Steps 2 and 3 above made the examples' average faster and 40 static worst cases larger than on
+`develop` (the spelling family `pairs` +6.9 %, Er-Tüp's `hud_crate` +6.2 %), and a worst case
+that grows breaks a budget. The register choice now leaves the worst case of no function larger:
+
+- The choice runs as on `develop` first: whole live ranges and whole loops, weighed by the loop
+  depth. The weights from the branches are used only after it, for the parts of loops.
+- The parts are taken one at a time, each on the code with the ones before, and undone where the
+  function's worst case on that code grows (`Timing`, calls left out).
+- Then the function is finished twice on copies, with the parts and without (its places coloured
+  and given addresses, the LIR passes run), and the parts stay only where the finished code's
+  worst case is not larger. The check on the unfinished code alone left one larger: Schach's
+  `chess_init` +0.4 %, where `STA p / LDX p` became `TAX` only in the finished code, and the
+  choice's `TAY / TYX` was the longer one.
+
+Against `develop`, the worst cases of the timing reports of every execution test, random program
+and example: 264 smaller, 1,496 the same, none larger; of the spelling families (and the examples)
+in `cost-baseline.txt` 135 smaller, none larger. The examples' work against `develop`: Steinschlag
+0.955, Er-Tüp 0.971, Schach 0.988, Mandelbrot and Mode 7 0.992, modes 0.995, Catch Me 0.997,
+Hello 1.000; geometric mean 0.986, against 0.982 with the larger worst cases (Er-Tüp 0.951,
+Steinschlag 0.947). Compiling Er-Tüp takes 17.4 s instead of 14.0 s on `develop` (the parts and the second finishing of the functions that have some).
+
+After bank `$7F` for variables came in (with Gruft and the execution tests `bank_7f` and
+`bank_7f_pointers`): 274 worst cases smaller, 1,558 the same, none larger; Gruft's work 0.991
+(`draw_view` −6.7 % in the worst case); the nine examples' geometric mean 0.987.
+
+Since the timing counts master cycles (ADR-6FVMDV79), both checks of the parts compare the
+worst case the timing report gives, in master cycles, with the code's banks and FastROM. Against
+`develop` with it: 276 worst cases smaller, 1,556 the same, none larger; the IRQ window of
+`dev/irq_check` the same (102 of 116 master cycles after the wait); the examples' work as before.

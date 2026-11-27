@@ -134,22 +134,22 @@ write with a constant register is one store. The layers' commits are in the next
 | `sdevkit_irq_off` | built | built | 222 |
 | `sdevkit_irq_hdma` | built (does nothing: dampf reads the macro `SDEVKIT_IRQ_HDMA` and takes the declared HDMA from the IRQ's window) | built (compares the HDMA on the IRQ's line with the declaration: more fails the check) | 42 |
 | `sdevkit_irq_wait_hblank` | built (polls HVBJOY's horizontal blank) | built (notes that the handler waited: its register writes are free from then on) | 108 to unbounded |
-| `sdevkit_shadow_commit` | built | built (and counts a group changed without its mark) | 870 to 14,034 |
+| `sdevkit_shadow_commit` | built | built (and counts a group changed without its mark) | 870 to 13,570 |
 | `sdevkit_sprite` | built | built | 136 to 836 |
 | `sdevkit_sprites_commit` | built | built | 398 to 3,534 |
 | `sdevkit_queue_dma` | built | built | 382 to 1,300 |
 | `sdevkit_queue_vram` | built | built | 186 |
 | `sdevkit_queue_vram_column` | built | built | 186 |
 | `sdevkit_queue_cgram` | built | built | 186 |
-| `sdevkit_queue_color` | built | built | 502 to 1,596 |
+| `sdevkit_queue_color` | built | built | 502 to 1,580 |
 | `sdevkit_queue_mode7_map` | built | built | 186 |
 | `sdevkit_queue_mode7_tiles` | built | built | 186 |
 | `sdevkit_queue_room` | built | built | 274 to 340 |
-| `sdevkit_queue_commit` | built | built | 312 to 22,968 |
+| `sdevkit_queue_commit` | built | built | 306 to 22,962 |
 | `sdevkit_input_update` | built | built | 582 to 590 |
-| `sdevkit_commit` | built | built | 1,624 to 40,580 |
+| `sdevkit_commit` | built | built | 1,618 to 40,110 |
 | `sdevkit_sfx_init` | built | built | 348 to unbounded |
-| `sdevkit_sfx_play` | built | built | 264 to 1,054 |
+| `sdevkit_sfx_play` | built | built | 264 to 1,038 |
 | `sdevkit_music_play` | empty, not built yet: dampf removes the calls (`DebugCallsTest`) | built (the track's file, over and over, in the window) | 42 |
 | `sdevkit_music_stop` | empty, not built yet: dampf removes the calls | built | 42 |
 | `sdevkit_sram` | built (the cartridge's battery RAM at $70:0000, `dampf --sram`) | built (`<game>.srm` next to the program) | 72 |

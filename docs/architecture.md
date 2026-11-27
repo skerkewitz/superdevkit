@@ -16,11 +16,11 @@ default of `dampf build`) selects instructions once per function (`Selection` an
 kind of instruction, with `FrameLayout` proposing the places); some places go to X or Y where
 that saves cycles (`RegisterChoice`), and the others get their addresses on the code
 (`PlaceColouring`, checked by `PlaceCheck`, ADR-6F8NBG4P); the LIR passes then remove loads of what a
-register holds or move them out of a loop (`RedundantLoads`, on `RegContents`), apply peephole rules
+register holds, turn loads of what another register holds into transfers or move them out of a loop (`RedundantLoads`, on `RegContents`), apply peephole rules
 (`Peephole`), run short 16-bit stretches between byte stores in 8 bits (`ByteStretches`) and
 loops over bytes in 8 bits from entry to exit (`ByteLoops`), drop a
-`CLC` or `SEC` where the carry is known (`KnownCarry`) and remove stores nobody
-reads (`DeadStores`), choose the branch forms (`BranchRelax`) and number the local labels
+`CLC` or `SEC` where the carry is known (`KnownCarry`), remove stores nobody
+reads and move a store only some ways read onto those ways (`DeadStores`), choose the branch forms (`BranchRelax`) and number the local labels
 (`LocalLabels`); `Timing` gives the best and worst case on the LIR. The way there is in
 [archive/transition-to-lir.md](archive/transition-to-lir.md). The naive code generator works on the AST and stays the reference for optimized
 builds (`--backend naive`; see [testing.md](testing.md)).

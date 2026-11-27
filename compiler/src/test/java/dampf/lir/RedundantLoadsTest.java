@@ -144,4 +144,22 @@ class RedundantLoadsTest {
         new RedundantLoads(false).hoistOverTest(f);
         assertEquals(before, code(f));
     }
+
+    @Test
+    void aLoadOfWhatAnotherRegisterHoldsIsATransfer() {
+        // X was loaded with p and A stored to q: LDA p is TXA, LDX q is TAX, LDY p is TAY (A holds p too)
+        LFunction f = function(
+                ins("ldx", "z:dampf_frame+0"),
+                ins("lda", "z:dampf_frame+4"),
+                ins("sta", "z:dampf_frame+2"),
+                ins("lda", "z:dampf_frame+0"),
+                ins("sta", "z:dampf_frame+6"),
+                ins("ldy", "z:dampf_frame+0"),
+                ins("lda", "z:dampf_frame+4"),
+                ins("ldx", "z:dampf_frame+4"),
+                ins("rtl", null));
+        new RedundantLoads().run(f);
+        assertEquals(List.of("ldx z:dampf_frame+0", "lda z:dampf_frame+4", "sta z:dampf_frame+2", "txa",
+                "sta z:dampf_frame+6", "tay", "lda z:dampf_frame+4", "tax", "rtl"), code(f));
+    }
 }

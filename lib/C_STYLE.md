@@ -153,10 +153,10 @@ Measured 2026-11-27 (worst case of the timing report, code generator from MIR).
 | `fast-switch-table` | `dispatch_switch` | 212 | faster | `dispatch_if_chain` | 554 |
 | `same-32-bit-bits` | `xor_32` | 246 | same | `xor_16_halves` | 246 |
 | `same-declaration-place` | `declared_at_top` | 32,564 | same | `declared_where_used` | 32,564 |
-| `same-enum-object` | `step_enum` | 17,610 | same | `step_uint8` | 17,610 |
+| `same-enum-object` | `step_enum` | 17,604 | same | `step_uint8` | 17,604 |
 | `same-increment-form` | `count_postfix` | 32,564 | same | `count_prefix` | 32,564 |
 | `same-index-form` | `read_indexed` | 32,564 | same | `read_pointer_arithmetic` | 32,564 |
-| `same-list-of-offsets` | `pairs_by_offsets` | 100,188 | same | `pairs_by_counter` | 99,116 |
+| `same-list-of-offsets` | `pairs_by_offsets` | 99,996 | same | `pairs_by_counter` | 99,116 |
 | `same-loop-form` | `loop_for` | 32,564 | same | `loop_while` | 32,564 |
 | `same-named-temporary` | `with_temporary` | 304 | same | `inline_expression` | 304 |
 | `same-pointer-walk` | `move_by_pointer` | 9,644 | same | `move_by_index` | 9,644 |
@@ -164,7 +164,7 @@ Measured 2026-11-27 (worst case of the timing report, code generator from MIR).
 | `slow-compare-sum` | `compare_sum` | 666 | slower | `compare_sum_narrowed` | 558 |
 | `slow-divide-variable` | `divide_variables` | 5,442 | slower | `divide_constant` | 112 |
 | `slow-hand-shifts` | `times_40_by_shifts` | 264 | slower | `times_40` | 204 |
-| `slow-index-list` | `pairs_by_list` | 113,960 | slower | `pairs_by_counter` | 99,116 |
+| `slow-index-list` | `pairs_by_list` | 113,412 | slower | `pairs_by_counter` | 99,116 |
 | `slow-multiply-variable` | `multiply_variables` | 894 | slower | `multiply_constant` | 204 |
 | `slow-signed-divide` | `divide_signed` | 624 | slower | `divide_unsigned` | 112 |
 <!-- end of measurements -->

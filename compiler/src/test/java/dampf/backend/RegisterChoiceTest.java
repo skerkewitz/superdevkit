@@ -313,6 +313,53 @@ class RegisterChoiceTest {
     }
 
     @Test
+    void aPlaceGoesToXForTheCommonPartOfALoop() {
+        // the loop's rare way needs X for another index and a call: v stays in X on the common
+        // way, is stored where the rare way starts and loaded where it ends
+        LFunction f = new LFunction(new LDirective(LDirective.Kind.PROC, null, List.of("f"), null, ".proc f"));
+        f.rebuild(new ArrayList<>(List.of(
+                ins("lda", place(P)), ins("inc", new LOperand.Acc()), ins("sta", place(V)),
+                ins("lda", global("_g", LOperand.Index.NONE)), ins("sec"), ins("sbc", place(V)), ins("sta", global("_o1", LOperand.Index.NONE)),
+                new dampf.lir.LLabel("loop"),
+                ins("ldx", place(V)), ins("lda", global("_t", LOperand.Index.X)), ins("beq", new LOperand.Label("step")),
+                new dampf.lir.LLabel("rare"),
+                ins("ldx", new LOperand.Imm("$0005")), ins("lda", global("_a", LOperand.Index.X)), ins("sta", global("_o", LOperand.Index.NONE)),
+                ins("jsl", new LOperand.Label("g")),
+                new dampf.lir.LLabel("step"),
+                ins("inc", place(V)), ins("lda", place(V)), ins("cmp", new LOperand.Imm("$0010")), ins("bcc", new LOperand.Label("loop")),
+                ins("lda", global("_h", LOperand.Index.NONE)), ins("sec"), ins("sbc", place(V)), ins("sta", global("_o3", LOperand.Index.NONE)),
+                ins("rtl"))));
+        java.util.Set<dampf.lir.LBlock> loop = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        loop.add(f.block("loop"));
+        loop.add(f.block("rare"));
+        loop.add(f.block("step"));
+        PlaceColouring.Frame frame = new PlaceColouring.Frame() {
+            @Override
+            public Integer fixed(PlaceColouring.Place p) {
+                return p.key() == P ? 0 : null;
+            }
+
+            @Override
+            public int bytes(PlaceColouring.Place p) {
+                return 2;
+            }
+        };
+        Map<dampf.lir.LBlock, Double> weights = Map.of(f.block("loop"), 8.0, f.block("rare"), 1.0, f.block("step"), 8.0);
+        RegisterChoice.run(f, o -> Set.of(P, V, W).contains(o.key()), frame, weights, weights, code -> 0, false, false, List.of(loop),
+                dampf.util.PassLimit.none());
+        List<String> out = new ArrayList<>();
+        for (LInstr i : f.instrs()) {
+            out.add(i.mnemonic() + (i.op() == null ? "" : i.op() instanceof LOperand.Mem m && m.owner() != null ? " " + m.owner().key()
+                    : " " + i.op().text()));
+        }
+        assertEquals(List.of("lda p", "inc a", "sta v", "lda _g", "sec", "sbc v", "sta _o1", "ldx v",
+                "lda _t,x", "beq step",
+                "stx v", "ldx #$0005", "lda _a,x", "sta _o", "jsl g", "ldx v",
+                "inx", "cpx #$0010", "bcc loop",
+                "stx v", "lda _h", "sec", "sbc v", "sta _o3", "rtl"), out);
+    }
+
+    @Test
     void theLoopsAreKnownAfterAnEarlierChoice() {
         // w goes to X first, which cuts the code into new blocks; v, in Y for the loop only (the
         // loop needs X for another index), must still find the loop among them

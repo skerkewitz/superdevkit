@@ -312,8 +312,8 @@ public final class RedundantLoads {
                 }
                 boolean held = switch (load.mnemonic()) {
                     case "lda" -> st.a().contains(op);
-                    case "ldx" -> op.equals(st.x());
-                    default -> op.equals(st.y());
+                    case "ldx" -> st.x().contains(op);
+                    default -> st.y().contains(op);
                 };
                 if (held) {
                     someHold = true;
@@ -393,8 +393,8 @@ public final class RedundantLoads {
                 int flags = liveAfter.get(in);
                 boolean held = op != null && switch (in.mnemonic()) {
                     case "lda" -> in.m16() && s.a().contains(op);
-                    case "ldx" -> op.equals(s.x());
-                    case "ldy" -> op.equals(s.y());
+                    case "ldx" -> s.x().contains(op);
+                    case "ldy" -> s.y().contains(op);
                     default -> false;
                 };
                 if (held && (flags & (N | Z)) == 0) {
@@ -407,6 +407,14 @@ public final class RedundantLoads {
                     items.set(k, cmp);
                     changed++;
                     s = contents.after(cmp, s);
+                    continue;
+                }
+                // a load of what another register holds: a transfer, which sets N and Z the same
+                LInstr transfer = held ? null : transfer(in, s);
+                if (transfer != null) {
+                    items.set(k, transfer);
+                    changed++;
+                    s = contents.after(transfer, s);
                     continue;
                 }
                 // LDA x / ADC y (or AND, ORA, EOR) with A holding y: ADC x (the operation is
@@ -430,6 +438,26 @@ public final class RedundantLoads {
             f.rebuild(f.items());
         }
         return changed;
+    }
+
+    /**
+     * {@code LDA p} as {@code TXA} or {@code TYA} where X or Y holds p, {@code LDX p} as {@code TAX}
+     * or {@code TYX}, {@code LDY p} as {@code TAY} or {@code TXY}; all at 16 bits (a transfer to
+     * an 8-bit A leaves the high byte, as the load does, but the registers' contents are known at
+     * 16 bits only). Null where no register holds it.
+     */
+    private static LInstr transfer(LInstr in, RegContents.State s) {
+        LOperand op = in.op();
+        if (op == null || !in.m16() || !in.x16()) {
+            return null;
+        }
+        String t = switch (in.mnemonic()) {
+            case "lda" -> s.x().contains(op) ? "txa" : s.y().contains(op) ? "tya" : null;
+            case "ldx" -> s.a().contains(op) ? "tax" : s.y().contains(op) ? "tyx" : null;
+            case "ldy" -> s.a().contains(op) ? "tay" : s.x().contains(op) ? "txy" : null;
+            default -> null;
+        };
+        return t == null ? null : new LInstr(t, (String) null, in.comment(), true, true, false);
     }
 
     private static final java.util.Set<String> COMMUTATIVE = java.util.Set.of("adc", "and", "ora", "eor");
