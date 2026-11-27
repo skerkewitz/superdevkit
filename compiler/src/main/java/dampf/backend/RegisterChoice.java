@@ -115,6 +115,10 @@ final class RegisterChoice {
         List<java.util.Set<LBlock>> blockLoops = new ArrayList<>(loops);
         int n = 0;
         for (Reg r : Reg.values()) {
+            // the groups that went to r for part of a loop: their loads and stores on the ways in
+            // and out still name them, and they are not judged for a part again (a part could
+            // take back what the one before put on its ways, round after round)
+            java.util.Set<Object> inPart = new java.util.HashSet<>();
             while (true) {
                 Analysis an = PlaceColouring.analyse(lf, tracked, frame);
                 Map<LItem, Integer> position = new IdentityHashMap<>();
@@ -124,6 +128,7 @@ final class RegisterChoice {
                 Round round = new Round(RedundantLoads.flagsLiveOut(lf), registerLiveOut(lf, r), readUnits(an), position, named(lf, an),
                         freeLoads(lf), aLiveOut(lf), registerLiveOut(lf, r.other()));
                 List<Plan> plans = new ArrayList<>();
+                java.util.Set<Plan> partPlans = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
                 for (Group g : an.groups) {
                     if (g.into != null || g.fixed != null || g.direct || g.bytes != 2 || !allTracked(g, tracked)) {
                         continue;
@@ -134,10 +139,14 @@ final class RegisterChoice {
                         if (q != null && (p == null || q.benefit() > p.benefit())) {
                             p = q;
                         }
+                        if (inPart.contains(key(g))) {
+                            continue;
+                        }
                         for (java.util.Set<LBlock> part : parts(an, round, g, r, blockWeights, loop)) {
                             q = plan(lf, an, round, g, r, blockWeights, part, true);
                             if (q != null && (p == null || q.benefit() > p.benefit())) {
                                 p = q;
+                                partPlans.add(q);
                             }
                         }
                     }
@@ -154,6 +163,9 @@ final class RegisterChoice {
                 for (Plan p : plans) {
                     if (!p.region().intersects(taken) && limit.allows()) {
                         taken.or(p.region());
+                        if (partPlans.contains(p)) {
+                            inPart.add(key(p.group()));
+                        }
                         replace.putAll(p.replace());
                         chosen++;
                         limit.count("RegisterChoice " + r, lf.name());
@@ -766,6 +778,15 @@ final class RegisterChoice {
             a.reads().forEach(read::set);
         }
         return read;
+    }
+
+    /** A group's places, the same in every round (the groups are found again in each). */
+    private static Object key(Group g) {
+        java.util.Set<Object> k = new java.util.HashSet<>();
+        for (Place p : g.members) {
+            k.add(List.of(p.key(), p.incoming()));
+        }
+        return k;
     }
 
     /**
