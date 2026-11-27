@@ -53,6 +53,9 @@ typedef struct {
 } HdmaRun;
 
 static HdmaRun hdma_run[8];
+/* What hdma_line did on the current line: the channels that ran (one that read its table's end
+ * too) and the bytes they wrote, for the check of the IRQ's declaration (SDEVKIT_IRQ_HDMA). */
+static uint8_t hdma_line_channels, hdma_line_bytes;
 
 static void hdma_start(void)
 {
@@ -68,6 +71,8 @@ static void hdma_start(void)
 static void hdma_line(void)
 {
     uint8_t c;
+    hdma_line_channels = 0;
+    hdma_line_bytes = 0;
     for (c = 0; c < 8; c++) {
         HdmaRun *r = &hdma_run[c];
         const sdevkit__hdma_channel *h = &sdevkit__rachael.hdma[c];
@@ -75,6 +80,7 @@ static void hdma_line(void)
         if (r->done) {
             continue;
         }
+        hdma_line_channels = (uint8_t)(hdma_line_channels | (1 << c));
         if (r->lines == 0) {
             uint8_t count = *r->p++;
             if (count == 0) {
@@ -91,6 +97,7 @@ static void hdma_line(void)
             write = 1;
         }
         if (write) {
+            hdma_line_bytes = (uint8_t)(hdma_line_bytes + size);
             sdevkit__write_reg(h->reg, r->data[0]);
             if (h->two == SDEVKIT_HDMA_TWO_REGS) {
                 sdevkit__write_reg((uint8_t)(h->reg + 1), r->data[1]);
@@ -648,8 +655,23 @@ void sdevkit__render(uint16_t *out)
              * SNES (sdevkit/irq.h); a row it sets below this one comes in this picture */
             sdevkit__rachael.in_irq = 1;
             sdevkit__rachael.irq_waited = 0;
+            sdevkit__rachael.irq_hdma_channels = 0;
+            sdevkit__rachael.irq_hdma_bytes = 0;
             sdevkit__irq_handler();
             sdevkit__rachael.in_irq = 0;
+            /* the HDMA of this line against the handler's declaration (SDEVKIT_IRQ_HDMA), which
+             * dampf takes from the time after the wait: more than declared fails the check */
+            if ((hdma_line_channels & (uint8_t)~sdevkit__rachael.irq_hdma_channels) != 0
+                    || hdma_line_bytes > sdevkit__rachael.irq_hdma_bytes) {
+                if (sdevkit__rachael.irq_hdma == 0) {
+                    sdevkit__rachael.irq_hdma_row = (uint8_t)y;
+                    sdevkit__rachael.irq_hdma_declared[0] = sdevkit__rachael.irq_hdma_channels;
+                    sdevkit__rachael.irq_hdma_declared[1] = sdevkit__rachael.irq_hdma_bytes;
+                    sdevkit__rachael.irq_hdma_actual[0] = hdma_line_channels;
+                    sdevkit__rachael.irq_hdma_actual[1] = hdma_line_bytes;
+                }
+                sdevkit__rachael.irq_hdma++;
+            }
         }
         /* the vertical mosaic counter: a block's lines show its first line */
         mosaic_size = (uint8_t)((sdevkit__rachael.regs[SDEVKIT_PPU_MOSAIC] >> 4) + 1);

@@ -55,6 +55,13 @@ void sdevkit_publish_nmi_on(void)
     NMITIMEN = (uint8_t)(NMITIMEN_PADS | NMITIMEN_NMI | timer_bits);
 }
 
+/* SDEVKIT_IRQ_HDMA is dampf's at build time (sdevkit/irq.h); the function is the desktop's. */
+void sdevkit_irq_hdma(uint8_t channels, uint8_t bytes)
+{
+    (void)channels;
+    (void)bytes;
+}
+
 void sdevkit_irq_wait_hblank(void)
 {
     while (!(REG16(0x4212) & HVBJOY_HBLANK)) {

@@ -334,30 +334,10 @@ public final class Snes implements Bus {
         vMatch = match;
     }
 
-    /** Master cycles of one access, by address (fullsnes, "SNES Memory Map"). */
-    private int speed(int address) {
-        int bank = address >> 16;
-        int offset = address & 0xFFFF;
-        if ((bank & 0x40) != 0) {
-            // $40-$7F and $C0-$FF: ROM or WRAM all through
-            return bank >= 0xC0 && fastRom ? 6 : 8;
-        }
-        if (offset < 0x2000) {
-            return 8;
-        }
-        if (offset < 0x4000) {
-            return 6;
-        }
-        if (offset < 0x4200) {
-            return 12;
-        }
-        if (offset < 0x6000) {
-            return 6;
-        }
-        if (offset < 0x8000) {
-            return 8;
-        }
-        return bank >= 0x80 && fastRom ? 6 : 8;
+    /** Master cycles of one access, by address ({@link dampf.target.MasterCycles#speed}). */
+    @Override
+    public int speed(int address) {
+        return dampf.target.MasterCycles.speed(address, fastRom);
     }
 
     /** Runs the multiplier up to the CPU cycle {@code until}. */

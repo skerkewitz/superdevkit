@@ -54,7 +54,7 @@ game took 0.79 frames per tick ([docs/optimizations.md](docs/optimizations.md#wh
 2026-11-19 the kit's own examples (`examples/`) are dampf's test cases and its benchmark
 (`dev/bench_examples.sh`), and the game's code is no longer in this repository
 ([ADR-6F60Z819](docs/adr/6F60Z819-the-examples-replace-blubber-blasen-s-snapshot-as.md)). dampf computes a best and a
-worst case in CPU cycles for every function, and a function over its cycle budget
+worst case in master cycles for every function, and a function over its cycle budget
 (`DAMPF_BUDGET`) fails the build ([docs/timing.md](docs/timing.md)). The naive code generator,
 straight from the AST, stays as an independent reference (`--backend naive`): every test program
 is built with both and compared with the PC (clang).

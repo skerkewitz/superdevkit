@@ -174,7 +174,8 @@ and booleans and knows none of the compiler's types. Outside it, on the SNES sid
 runtime `compiler/src/main/resources/dampf/snes/runtime.s` (start-up, arithmetic routines,
 header, vectors, and the entry stubs of interrupt handlers in C), whose data bank, stack and
 multiplier registers `SnesTargetTest` checks against `SnesTarget`. Of the list above, the cost
-model counts CPU cycles only; the multiplier is used for a product of two bytes and in the
+model counts master cycles by the memory each access reaches (`dampf.target.MasterCycles`,
+ADR-6FVMDV79); the multiplier is used for a product of two bytes and in the
 runtime's multiplication, division is a software routine (the hardware divider is planned in
 M12 of the [roadmap](roadmap.md)), and there are no intrinsics.
 
@@ -206,14 +207,15 @@ design and not dampf's current output (dampf runs X and Y at 16 bit with D = 0):
 ```
 
 The naive code generator writes all of this: the source line, the processor state, a comment per
-instruction, and the CPU cycles of every instruction (from `dampf.target.Cycles65816`; a
-conditional branch shows "not taken/taken"). The code generator from MIR writes the source line,
+instruction, and the master cycles of every instruction (from `dampf.target.MasterCycles`, with
+the CPU cycles of `dampf.target.Cycles65816`; a conditional branch shows "not taken/taken", an
+access through a pointer "best-worst"). The code generator from MIR writes the source line,
 the cycles, and a comment per MIR instruction (`; %0 = add i16 %a, %b`) above the instructions it
 became; it writes no processor state line. Both share `dampf.backend.AsmWriter`. A C line of
 straight-line code gets the sum in its header; a line with branches gets none. The static timing
 analysis gives the best and worst case per function, not per line (`<rom>.timing.txt`, code from
-MIR only). The cycles are CPU cycles; master cycles, which depend on the memory each access
-touches, are not computed yet ([timing.md](timing.md)).
+MIR only). The cycles are master cycles, by the memory each access touches
+([timing.md](timing.md#master-cycles)).
 
 ## Implementation
 

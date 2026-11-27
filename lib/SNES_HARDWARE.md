@@ -37,7 +37,7 @@ on both names only what the public headers have, and that its functions are in `
 | Mode 7's second layer (EXTBG): bit 7 of a pixel its priority, so sprites pass in front of and behind parts of mode 7; direct colour in mode 7 | built | built | `sdevkit_reg_write`, `SDEVKIT_PPU_SETINI`, `SDEVKIT_SETINI_EXTBG`, `SDEVKIT_CM_DIRECT_COLOR`; `sdevkit_ppu.setini` |
 | Mosaic, on every layer, mode 7's too | built | built | `sdevkit_reg_write`, `SDEVKIT_PPU_MOSAIC`, `SDEVKIT_MOSAIC`; `sdevkit_ppu.mosaic` |
 | High resolution, overscan (239 lines), interlace (SETINI) | not built | not built, reported | |
-| The game's IRQ at a row of the picture (the timer's H/V IRQ, kit-timed): a split screen, a status bar, a second scroll; its register writes after a wait for the horizontal blank, about 25 CPU cycles of them | built: the CPU's timer, the handler in C in a context of its own; a write too late shows a row torn, in Mesen (*measured*) | built: called before the row; a register written before the wait counts as written while the picture is drawn (*enforced*) | `sdevkit_irq_line`, `sdevkit_irq_off`, `sdevkit_irq_wait_hblank`, `game_irq`, `SDEVKIT_PUBLISHED` |
+| The game's IRQ at a row of the picture (the timer's H/V IRQ, kit-timed): a split screen, a status bar, a second scroll; its register writes after a wait for the horizontal blank, 158 master cycles of them (about 25 CPU cycles) | built: the CPU's timer, the handler in C in a context of its own; writes after the wait too late for the blank fail the build, less the HDMA the handler declares for its line (*enforced*); a write too late shows a row torn, in Mesen (*measured*) | built: called before the row; a register written before the wait counts as written while the picture is drawn, and more HDMA on the IRQ's line than `SDEVKIT_IRQ_HDMA` declares fails the check (*enforced*) | `sdevkit_irq_line`, `sdevkit_irq_off`, `sdevkit_irq_wait_hblank`, `SDEVKIT_IRQ_HDMA`, `game_irq`, `SDEVKIT_PUBLISHED` |
 | The timers at any dot, an IRQ in the middle of a row | not built: the kit owns the timer | not built | |
 | The game's vertical blank in the kit's NMI, in every vertical blank, also while a tick overruns (a game that publishes its data) | built: the NMI's handler that the macro defines, 118 to 140 CPU cycles beyond the game's code a frame | built: `game_vblank` runs it once a tick; the desktop's check runs it twice and counts what the second run changes (*enforced*) | `SDEVKIT_PUBLISH`, `SDEVKIT_PUBLISHED` |
 | Sound effects: samples (BRR) from a game's `sfx.json`, 1 to 8 voices with priorities, GAIN's direct envelope, volume ([docs/sound.md](../docs/sound.md)) | built: a forwarding driver on the SPC700, the logic in C | built: Rachael's DSP, through raylib's audio stream; the DSP writes compared with the SNES's | `sdevkit_sfx_init`, `sdevkit_sfx_play` |
@@ -57,7 +57,7 @@ indirect tables). The desktop check prints `undrawn N` and fails on it, as on a 
 ([ADR-6FSHCP06](../docs/adr/6FSHCP06-rachael-draws-modes-0-to-4-mosaic-and-extbg-the.md)); `examples/modes` shows every mode Rachael draws, and
 compares it with Mesen pixel for pixel.
 
-What each function costs on the SNES, in CPU cycles, is the last column of the table in
+What each function costs on the SNES, in master cycles, is the last column of the table in
 [README.md](README.md#built-and-stub-per-function-and-platform).
 
 ## Video memory

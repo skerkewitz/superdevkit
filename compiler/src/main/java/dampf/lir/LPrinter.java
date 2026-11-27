@@ -1,10 +1,11 @@
 package dampf.lir;
 
 /**
- * LIR as ca65 source: instructions with aligned operands and comments, and their CPU cycles in a
- * column on the right (a conditional branch shows "not taken/taken", an instruction the cycle
- * table does not know "?"); a C line's cost at the end of its header; every other line as
- * written.
+ * LIR as ca65 source: instructions with aligned operands and comments, and their master cycles in
+ * a column on the right ({@link LInstr#master}, with the code in FastROM unless told otherwise; a
+ * conditional branch shows "not taken/taken", an access through a pointer "best-worst", an
+ * instruction the cycle table does not know "?"); a C line's cost at the end of its header; every
+ * other line as written.
  */
 public final class LPrinter {
     static final int OPERAND_COLUMN = 16;
@@ -14,26 +15,32 @@ public final class LPrinter {
     private LPrinter() {}
 
     public static String print(LUnit unit) {
+        return print(unit, dampf.target.MasterCycles.Code.FAST);
+    }
+
+    /** The text, with the cycles of the code in FastROM or SlowROM. */
+    public static String print(LUnit unit, dampf.target.MasterCycles.Code fastRom) {
         StringBuilder out = new StringBuilder();
         for (LItem i : unit.items()) {
-            print(i, out);
+            print(i, out, fastRom);
         }
         return out.toString();
     }
 
-    private static void print(LItem item, StringBuilder out) {
+    private static void print(LItem item, StringBuilder out, dampf.target.MasterCycles.Code fastRom) {
         switch (item) {
             case LFunction f -> {
                 line(f.proc().text(), out);
                 for (LBlock b : f.blocks()) {
                     for (LItem i : b.items()) {
-                        print(i, out);
+                        print(i, out, fastRom);
                     }
                 }
                 if (f.endproc() != null) {
                     line(f.endproc().text(), out);
                 }
             }
+            case LInstr in -> line(instr(in, fastRom), out);
             default -> line(line(item), out);
         }
     }
@@ -56,6 +63,10 @@ public final class LPrinter {
     }
 
     static String instr(LInstr in) {
+        return instr(in, dampf.target.MasterCycles.Code.FAST);
+    }
+
+    static String instr(LInstr in, dampf.target.MasterCycles.Code fastRom) {
         StringBuilder line = new StringBuilder("        ").append(in.mnemonic());
         if (in.operand() != null) {
             pad(line, OPERAND_COLUMN);
@@ -69,8 +80,8 @@ public final class LPrinter {
             line.append(';');
         }
         String cycles = !in.known() ? "?"
-                : in.isConditionalBranch() ? in.cycles() + "/" + in.cyclesTaken()
-                : Integer.toString(in.cycles());
+                : in.isConditionalBranch() ? in.master(fastRom) + "/" + in.masterTaken(fastRom)
+                : in.master(fastRom).toString();
         pad(line, CYCLE_COLUMN);
         line.append(" ".repeat(Math.max(0, 5 - cycles.length()))).append(cycles);
         return line.toString();
@@ -82,7 +93,7 @@ public final class LPrinter {
         }
         StringBuilder h = new StringBuilder(s.text());
         pad(h, CYCLE_COLUMN - 12);
-        h.append("[ ").append(s.cycles()).append(" cyc").append(s.calls() ? " + calls" : "").append(" ]");
+        h.append("[ ").append(s.cycles()).append(" mc").append(s.calls() ? " + calls" : "").append(" ]");
         return h.toString();
     }
 

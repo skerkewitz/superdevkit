@@ -7,7 +7,8 @@ underneath (memory speeds, multipliers) is in [optimizations.md](optimizations.m
 ## As built
 
 `dampf.backend.Timing` computes, for every function the code generator from MIR writes, a best
-and a worst case in **CPU cycles** from its entry to its return, calls included. `dampf build`
+and a worst case in **master cycles** from its entry to its return, calls included (ADR-6FVMDV79;
+up to 0.10 they were CPU cycles). `dampf build`
 writes them to `<rom>.timing.txt`, most expensive first. After each unbounded function the
 report names the first loop in it without a bound (`(loop at game.c:395)`) or else the first
 call of a function without one (`(calls _level_fall)`). A function that never returns has no best
@@ -20,19 +21,54 @@ its `DAMPF_BUDGET` is checked as before; there is no label for it in the `.lbl` 
 since its copies are part of their callers (their source lines are still the callee's). A
 function keeps its code where a call of it is left (the inliner found it too large, or the pass
 limit stopped it), where hand-written assembly names it, and as the entry or an interrupt
-handler.
+handler. Its code is in its callers: each copy is in the caller's assembly listing, under the
+callee's source lines. The line in the report is the bound of the function on its own; a copy
+can be cheaper, since the inliner folds the caller's constants into it.
 
-The assembly comments (`dampf.backend.AsmWriter`) give every instruction its cycles and every C
-line without a branch or label inside its sum (`[ 12 cyc ]`, or `[ 43 cyc + calls ]` when it
-calls a function); a line with a branch gets no sum.
+The assembly comments (`dampf.backend.AsmWriter`) give every instruction its master cycles in the
+column on the right (`30`; a conditional branch `12/18`, not taken and taken; an access through a
+pointer `48-52`, the memory it reaches not being known) and every C line without a branch or label
+inside its sum (`[ 72 mc ]`, or `[ 258 mc + calls ]` when it calls a function); a line with a
+branch gets no sum.
+
+### Master cycles
+
+A master cycle is a tick of the SNES's 21.477 MHz clock. Each CPU cycle is a memory access or an
+internal operation, and the SNES makes the CPU wait for slow memory, so a CPU cycle takes 6, 8 or
+12 master cycles by where it goes (`dampf.target.MasterCycles`, the same table dampf's emulator
+uses):
+
+| Where | Master cycles |
+| --- | --- |
+| an internal operation | 6 |
+| the code and constant data in ROM from bank `$80` | 6 (FastROM), 8 with `--slowrom` |
+| WRAM: the direct page, the stack, the variables | 8 |
+| the I/O registers at `$2000-$3FFF` and `$4200-$5FFF` (PPU, DMA, the multiplier) | 6 |
+| the old joypad registers at `$4000-$41FF` | 12 |
+
+Each instruction's cycles are sorted by where they go: reads of the code (opcode and operand),
+the stack, the direct page, the data its operand reaches, a table read, internal operations
+(`MasterCycles.accesses`, checked against the emulator for every opcode in both widths by
+`MasterCyclesAgainstEmulatorTest`). The data's place comes from the operand as the code generator
+writes it ([memory-map.md](memory-map.md)): an absolute address is WRAM (DBR is `$7E`); a long
+address given as a number is the register at its own speed, and with an index every address from it
+to the end of its bank counts (`sta f:$002100,x` is 6 to 12); a long address of a symbol is constant
+data in ROM, or a variable in WRAM's second bank `$7F` (8, ADR-6FVM9QWS); an access through a pointer is 6 to 8, the best case for an I/O register or FastROM, the
+worst for RAM. The old joypad registers through a pointer are not counted: dampf's code reads the
+pads through the automatic read at `$4218`. In dampf's code a CPU cycle averages about 6.4 master
+cycles (the worst cases of the examples' functions: 6.2 to 6.6 times what they were in CPU
+cycles).
+
+Not counted, as before: DRAM refresh (40 master cycles a scanline), DMA and HDMA, which stop the
+CPU whatever it runs (level 3 below).
 
 ### How the bounds are computed
 
 - **Per block** (level 1): the code as written, instruction by instruction, with the cycle table
-  (accumulator width followed through the code; index registers 16 bit). Inside a block there
-  are only forward branches over a few instructions and the code generator's small loops (shifts,
-  copies), which it marks with their bound. A conditional branch costs 2 when not taken, 3 when
-  taken. The jump table of a `switch` (`JMP (table,X)`) is a way out to every entry of
+  and the places above (accumulator width followed through the code; index registers 16 bit).
+  Inside a block there are only forward branches over a few instructions and the code generator's
+  small loops (shifts, copies), which it marks with their bound. A conditional branch costs 2 CPU
+  cycles (12 master cycles from FastROM) when not taken, 3 (18) when taken. The jump table of a `switch` (`JMP (table,X)`) is a way out to every entry of
   the table, each at the same cost.
 - **Across blocks** (level 2): the loops of the function, innermost first, each collapsed into
   one node: worst case = (rounds - 1) × the longest way round + the longest way out, best case =
@@ -70,17 +106,22 @@ calls a function); a line with a branch gets no sum.
   fixed bounds counted from `runtime.s`.
 - **Interrupts**: a program with interrupt handlers in C (`DAMPF_INTERRUPT`, ADR-6FM9TXV4) gets a
   line per interrupt in the report, `dampf_irq` and `dampf_nmi`: from the interrupt being taken to
-  the end of its `RTI`, the runtime's entry stub and the handler. The stub takes 66 cycles to the
-  handler's first instruction (71 for the NMI, which reads RDNMI in 8 bits) and 31 from its
-  return, so an IRQ costs at least 97 cycles beyond its handler. Not counted: the end of the
-  instruction the interrupt came in, and an NMI that comes while the IRQ handler runs. Interrupt
-  code multiplies in software, `dampf_mul16_soft` 22–532 cycles (one round per bit of the second
-  factor) and `dampf_mul32_soft` 1,168–1,968, where the main code takes 108 and 398–400 on the
-  CPU's multiplier.
+  the end of its `RTI`, the runtime's entry stub and the handler. The stub takes 448 master cycles
+  to the handler's first instruction (478 for the NMI, which reads RDNMI in 8 bits; 66 and 71 CPU
+  cycles), of which the interrupt itself takes 60 and the stub's first instruction, in bank `$00`,
+  32; and 212 from its return (31 CPU cycles), so an IRQ costs at least 660 master cycles beyond
+  its handler (with `--slowrom` 498, 536 and 224). Mesen measured the 388 from the stub's first
+  instruction to the handler's (ADR-6FRX1GYC). Not counted: the end of the instruction the
+  interrupt came in, and an NMI that comes while the IRQ handler runs. Interrupt code multiplies in
+  software, `dampf_mul16_soft` 146–3,526 master cycles (one round per bit of the second factor)
+  and `dampf_mul32_soft` 8,046–13,614, where the main code takes 678 and 2,530–2,542 on the CPU's
+  multiplier.
 - **Functions written in assembly** (`DAMPF_ASM`, [hints.md](hints.md)): `dampf.asm.AsmFunction`
-  follows the machine code from the function's label with the same cycle table, the register
-  widths through `SEP`, `REP`, `PHP` and `PLP`; a conditional branch costs 2 or 3 as above, and
-  with 8-bit index registers an indexed read may cross a page, which the worst case counts. Every
+  follows the machine code from the function's label with the same cost model, the register
+  widths through `SEP`, `REP`, `PHP` and `PLP`; a conditional branch costs 2 or 3 CPU cycles as
+  above, and with 8-bit index registers an indexed read may cross a page, which the worst case
+  counts. The places: an absolute address is WRAM while DBR is as it was (anything, 6 to 12, after
+  a `PLB`), a long address the speed of its number, a symbol reached long or a pointer 6 to 8. Every
   backward branch carries its bound as a comment, `; dampf: at most N` (the loop from its target
   runs at most N rounds per entry); the loops are collapsed innermost first with the formula
   above. The report marks such a function `(assembly, file.s)`. The check against the C body
@@ -90,14 +131,14 @@ calls a function); a line with a branch gets no sum.
 ### Budgets
 
 `DAMPF_BUDGET(n)` from `<dampf.h>`, in front of a function definition
-(`DAMPF_BUDGET(6800) void vblank_handler(void) { ... }`), gives the function a budget in CPU
-cycles, calls included. It expands to `__attribute__((dampf_budget(n)))` for dampf and to nothing
+(`DAMPF_BUDGET(45000) void vblank_handler(void) { ... }`), gives the function a budget in master
+cycles, calls included (a frame has 357,368). It expands to `__attribute__((dampf_budget(n)))` for dampf and to nothing
 on the PC; `n` must be a number. After the timing, `dampf build` checks it on the function as
 compiled on its own:
 
 - worst case above the budget: a compile error at the function, with the worst and the best
-  case (`b.c:5:42: error: 'sum' takes up to 1137 CPU cycles, over its budget of 1000
-  (DAMPF_BUDGET); best case 17, see the .timing.txt file`, for a loop over 32 bytes);
+  case (`b.c:5:42: error: 'sum' takes up to 7468 master cycles, over its budget of 7000
+  (DAMPF_BUDGET); best case 108, see the .timing.txt file`, for a loop over 32 bytes);
 - no worst case: a compile error that names the loop or the call without a bound, since a budget
   can only be guaranteed for bounded code;
 - worst case above 90 % of the budget: a warning, printed by `dampf build`.
@@ -105,15 +146,73 @@ compiled on its own:
 With `--opt-limit` (a build that stops the passes early, to find the one that broke a program)
 the two errors are warnings: such a build is slower on purpose.
 
-The budget is in CPU cycles, like the report; the frame numbers below are in master cycles,
-about 8 per CPU cycle.
+The budget is in master cycles, like the report and the frame numbers below (ADR-6FVMDV79). Up
+to dampf 0.10 it was in CPU cycles: a budget written then is about a sixth of what it means
+now, and the build fails on it. The error says so when the worst case is at most 8 times the
+budget (`...; DAMPF_BUDGET counts master cycles now, not CPU cycles as it did up to dampf 0.10: a
+budget written in CPU cycles needs about 6.5 times its number`): multiply an old budget by 6.5, or
+take the worst case from the new report and keep the margin it had.
+
+### The IRQ's window
+
+The game's IRQ handler (`sdevkit/irq.h`) waits for the horizontal blank before its row
+(`sdevkit_irq_wait_hblank`) and then writes PPU registers, which show cleanly only if they land
+before the PPU fetches the row's first tiles: Mesen measured 158 master cycles from the wait's
+latest return to that moment, without HDMA on the line (ADR-6FRX1GYC). `dampf.backend.IrqWindow`
+finds, in the handler's code, the worst case from the end of the wait (the branch out of the loop
+that polls HVBJOY, where dampf inlined the wait, or the wait's `RTL`) to the end of the last write
+to a PPU register (`$2100-$213F` at a long address), on every way, calls included; a second wait
+on the way starts the count anew, and work after the last write is free.
+
+HDMA runs at the start of the same blank and stops the CPU meanwhile, so it takes from that time.
+Which channels run on the IRQ's line is decided at run time, so the handler declares them
+(ADR-6FVWK4JE): `SDEVKIT_IRQ_HDMA(channels, bytes)`, a statement in `game_irq`, names the channels
+that may run on its line and the most bytes they write there together. dampf subtracts their
+worst case from the 158: 18 master cycles once and, per channel, 16 (8 for the channel, 8 for a
+new entry of its table), and 8 a byte (fullsnes, "SNES Timings"; `IrqWindow.hdma`). Without a
+declaration the line has no HDMA. Rachael makes it sound: on the IRQ's line she compares the
+channels that run and the bytes they write with the declaration, and the desktop's check fails
+when more runs (`irq_check: 1200 IRQ lines with more HDMA than game_irq declares, the first before
+row 72: declared channels $00 with 0 bytes, ran channels $02 with 1 bytes ...`).
+
+Measured in Mesen (2026-11-27, `dev/irq_check` with other tables): how much later the wait
+returned at most than without HDMA, on the IRQ's lines 72 and 150, against the formula:
+
+| HDMA on the line | Mesen | dampf |
+| --- | ---: | ---: |
+| 1 channel, 1 byte | 36 | 42 |
+| 1 channel, 1 byte, a new entry on every line | 36 | 42 |
+| 1 channel, 2 bytes | 42 | 50 |
+| 2 channels, 1 byte each | 50 | 66 |
+| 2 channels, 1 byte each, new entries | 50 | 66 |
+| 4 channels, 1 byte each | 84 | 114 |
+| 4 channels, 7 bytes | 108 | 138 |
+
+Mesen charges 8 a channel and 8 a byte and about 20 once, and nothing more for a new entry; the
+formula keeps fullsnes's 8 for the line count byte, which real hardware reads at a new entry.
+
+The report has a line for it after the functions, the room and the worst case (`116  102
+_game_irq   (after the wait; room, worst)` for `dev/irq_check`, which declares its one channel of
+one byte), and when the worst case is above the room the build fails at the handler:
+
+`irq_late.c:108:44: error: 'game_irq' ends its last register write up to 186 master cycles
+after sdevkit_irq_wait_hblank returns, over the 116 the horizontal blank leaves: the row may tear;
+move work before the wait; 158 less the 42 of the HDMA it declares (SDEVKIT_IRQ_HDMA: channels
+$02, 1 bytes)` (`dev/irq_check`'s handler with a second scroll register written before the
+first).
+
+A loop between the wait and a write fails the build too. With `--opt-limit` both are warnings.
+Not seen: writes through a pointer. Checked against Mesen: `dev/irq_check` (102 of 116) shows the
+same picture as the desktop; the handler that writes too late (186) tears row 72 in 10 of 11
+shots.
 
 ### Checked against the emulator
 
 Every execution test and random program measures `test_main` and every call of every function
-and runtime routine on the way (from its first instruction to the instruction after the `JSL`)
-and checks best ≤ measured ≤ worst (`Timing.check`), leaving out the cycles of interrupts that came
-meanwhile, and measures each interrupt against its own bounds (`exec/interrupts.c`);
+and runtime routine on the way (from its first instruction to the instruction after the `JSL`),
+in master cycles as dampf's emulator counts them for the CPU (`Cpu65816.master`: each access at
+its address's speed, without DRAM refresh and DMA), and checks best ≤ measured ≤ worst
+(`Timing.check`), leaving out the cycles of interrupts that came meanwhile, and measures each interrupt against its own bounds (`exec/interrupts.c`);
 `ExamplesTimingTest` does the same for every
 call of every example in its first 3,000 frames (and did for the 180,000 calls of Blubber
 Blasen's benchmark while the game's code was here). A runtime bound set too low on purpose
@@ -126,13 +225,12 @@ In Blubber Blasen's benchmark build (2026-11-18, after the LIR passes), 294 func
 37 do not. The loops
 left are those that run over memory (`while (s[n]) n++;`, a queue,
 `while (stage_next < stage_count)`), whose counter is not stepped by a constant, or that could
-really run forever in C; they need a hint. Examples: `abs16` 13–21 cycles, `floating` 27–34,
+really run forever in C; they need a hint. Examples, in CPU cycles as counted then: `abs16` 13–21, `floating` 27–34,
 `level_solid_px` 21–144, `text_number` 215–3,114, `bg_clear` 107–65,786, `separate`
 27–137,435.
 
 ### Not built yet
 
-- Master cycles: memory speeds are not counted (the benchmark measures them in the emulator).
 - Level 3: DRAM refresh, HDMA and interrupts at frame level.
 - The naive code generator (`--backend naive`) writes no report and checks no budget.
 - `DAMPF_TRIPS(n)` for loops without a counter.
@@ -148,9 +246,8 @@ not built.
 ### Why the 65816 can be timed exactly
 
 The 65816 has no cache, no pipeline and no branch prediction. Every instruction takes a fixed,
-documented number of cycles, which depends only on a few known conditions. The design counts in
-master cycles, the only unit in which memory speed differences are exact, and reports both
-master and CPU cycles; as built, everything is in CPU cycles.
+documented number of cycles, which depends only on a few known conditions. dampf counts in
+master cycles, the only unit in which memory speed differences are exact.
 
 ### Level 1: exact to the cycle, per path
 
@@ -160,7 +257,7 @@ For code without branches, the run time is exact. Every condition that adds cycl
 | --- | --- | --- |
 | 16-bit instead of 8-bit operand | Accumulator or index width (M and X flags) | Yes: dampf tracks the processor state at every instruction |
 | Direct page access | The low byte of the direct page register D is not zero | Yes: dampf aligns D so this extra cycle does not occur |
-| Memory region | FastROM, SlowROM, WRAM, I/O | Yes: every address is fixed at compile time (not counted yet: CPU cycles only) |
+| Memory region | FastROM, SlowROM, WRAM, I/O | Yes: every fixed address is known at compile time; through a pointer, 6 to 8 master cycles |
 | Indexed read across a page boundary | With an 8-bit index register, base + index crosses a 256-byte page. With a 16-bit index, and for indexed writes, the extra cycle is always paid. | Index registers are 16 bit as built, so the cycle is always paid. With 8-bit indexes, arrays placed by their `DAMPF_RANGE` would never cross a page: the cycle disappears and the cost stops depending on the data. |
 | Branch taken or not | Depends on data | Level 2 |
 
@@ -194,12 +291,13 @@ A function's own bound excludes interrupt time; frame-level budgets add the hand
 
 ### Frame numbers
 
-- One NTSC frame: 262 scanlines × 1364 master cycles = 357,368 master cycles, roughly
-  45,000–55,000 CPU cycles depending on how much code runs from FastROM and how often WRAM is
-  accessed. On the console every other frame has one scanline 4 master cycles shorter, so frames
+- One NTSC frame: 262 scanlines × 1364 master cycles = 357,368 master cycles (the DRAM refresh
+  takes 10,480 of them), roughly 45,000–55,000 CPU cycles depending on how much code runs from
+  FastROM and how often WRAM is accessed. On the console every other frame has one scanline 4 master cycles shorter, so frames
   average 357,366; dampf's emulator (`ExampleCheck.FRAME`) counts 357,368, `dampf profile` and
   `bench` divide by the average.
-- Vertical blank: scanlines 225–261, roughly 6,000–8,000 CPU cycles. Everything that talks to
+- Vertical blank: scanlines 225–261, 37 × 1,364 = 50,468 master cycles (48,988 without the
+  refresh), roughly 6,000–8,000 CPU cycles. Everything that talks to
   the graphics hardware (sprite table via DMA, tiles, palettes) must fit in here.
 - Sound runs on its own CPU (the SPC700) and costs nothing here.
 - The goal: game logic in Blubber Blasen's busiest scene uses at most 60 % of a frame, after
@@ -218,4 +316,5 @@ down; with it, the build refuses the change that causes it.
   loops (Er-Tüp's `collide`); a hint for how often a path runs per call, or a bound per call
   chain, is a step of M11 ([roadmap.md](roadmap.md#m11-timing-and-debugging-0110)).
 - How the frame-level budget learns which HDMA channels a game has on, since a game turns them
-  on at run time.
+  on at run time. The IRQ's window has the game's declaration of its line (`SDEVKIT_IRQ_HDMA`,
+  ADR-6FVWK4JE), which Rachael checks; a frame budget could take the same form.

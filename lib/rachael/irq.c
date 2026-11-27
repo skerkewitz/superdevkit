@@ -18,6 +18,17 @@ void sdevkit_irq_off(void)
     sdevkit__rachael.irq_on = 0;
 }
 
+/* SDEVKIT_IRQ_HDMA: the HDMA the handler declares for its line, which render.c compares with the
+ * HDMA that runs there after the call. Declared more than once, the channels of all and the most
+ * bytes count, as in dampf's check. */
+void sdevkit_irq_hdma(uint8_t channels, uint8_t bytes)
+{
+    sdevkit__rachael.irq_hdma_channels = (uint8_t)(sdevkit__rachael.irq_hdma_channels | channels);
+    if (bytes > sdevkit__rachael.irq_hdma_bytes) {
+        sdevkit__rachael.irq_hdma_bytes = bytes;
+    }
+}
+
 /* The SNES waits for the horizontal blank; Rachael has no time, she notes that the handler waited. */
 void sdevkit_irq_wait_hblank(void)
 {

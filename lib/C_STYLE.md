@@ -124,8 +124,8 @@ Write whichever reads better; these cost the same:
 `<dampf.h>` has three (the book's page "Hints" and [docs/hints.md](../docs/hints.md) have the details):
 
 - **`DAMPF_BUDGET(n)`** in front of every function called each frame whose time matters, at
-  least `game_tick` and `game_vblank` with their callees: a worst case above `n` CPU cycles is a
-  build error, above 90 % a warning, so a slower change is found when it is made.
+  least `game_tick` and `game_vblank` with their callees: a worst case above `n` master cycles
+  (a frame has 357,368) is a build error, above 90 % a warning, so a slower change is found when it is made.
 - **`DAMPF_RANGE(v, lo, hi)`** only where a measurement shows it changes the code. Today that is
   a loop the timing report calls unbounded (a hint on its counter gives it a bound) and a value
   whose range saves work: a signed division, a comparison with a sum, a multiplication of two
@@ -140,31 +140,31 @@ Write whichever reads better; these cost the same:
 
 ## Measurements
 
-The worst case of each function in CPU cycles, from the timing report; "is" is the claim the
+The worst case of each function in master cycles, from the timing report; "is" is the claim the
 test checks ("same": within 5 %).
 
 <!-- measurements: written by StyleGuideTest -->
-Measured 2026-11-24 (worst case of the timing report, code generator from MIR).
+Measured 2026-11-27 (worst case of the timing report, code generator from MIR).
 
-| Rule | This | CPU cycles | is | than this | CPU cycles |
+| Rule | This | master cycles | is | than this | master cycles |
 | --- | --- | ---: | --- | --- | ---: |
-| `fast-array-per-field` | `move_array_per_field` | 1,361 | faster | `move_array_of_structs` | 1,521 |
-| `fast-multiply-bytes` | `multiply_bytes` | 62 | faster | `multiply_words` | 140 |
-| `fast-switch-table` | `dispatch_switch` | 33 | faster | `dispatch_if_chain` | 90 |
-| `same-32-bit-bits` | `xor_32` | 36 | same | `xor_16_halves` | 36 |
-| `same-declaration-place` | `declared_at_top` | 5,025 | same | `declared_where_used` | 5,025 |
-| `same-enum-object` | `step_enum` | 2,774 | same | `step_uint8` | 2,774 |
-| `same-increment-form` | `count_postfix` | 5,025 | same | `count_prefix` | 5,025 |
-| `same-index-form` | `read_indexed` | 5,025 | same | `read_pointer_arithmetic` | 5,025 |
-| `same-list-of-offsets` | `pairs_by_offsets` | 15,385 | same | `pairs_by_counter` | 15,493 |
-| `same-loop-form` | `loop_for` | 5,025 | same | `loop_while` | 5,025 |
-| `same-named-temporary` | `with_temporary` | 45 | same | `inline_expression` | 45 |
-| `same-pointer-walk` | `move_by_pointer` | 1,521 | same | `move_by_index` | 1,521 |
-| `slow-32-bit` | `add_32` | 86 | slower | `add_16` | 31 |
-| `slow-compare-sum` | `compare_sum` | 104 | slower | `compare_sum_narrowed` | 86 |
-| `slow-divide-variable` | `divide_variables` | 804 | slower | `divide_constant` | 17 |
-| `slow-hand-shifts` | `times_40_by_shifts` | 41 | slower | `times_40` | 31 |
-| `slow-index-list` | `pairs_by_list` | 17,505 | slower | `pairs_by_counter` | 15,493 |
-| `slow-multiply-variable` | `multiply_variables` | 140 | slower | `multiply_constant` | 31 |
-| `slow-signed-divide` | `divide_signed` | 101 | slower | `divide_unsigned` | 17 |
+| `fast-array-per-field` | `move_array_per_field` | 8,684 | faster | `move_array_of_structs` | 9,644 |
+| `fast-multiply-bytes` | `multiply_bytes` | 398 | faster | `multiply_words` | 894 |
+| `fast-switch-table` | `dispatch_switch` | 212 | faster | `dispatch_if_chain` | 554 |
+| `same-32-bit-bits` | `xor_32` | 246 | same | `xor_16_halves` | 246 |
+| `same-declaration-place` | `declared_at_top` | 32,564 | same | `declared_where_used` | 32,564 |
+| `same-enum-object` | `step_enum` | 17,610 | same | `step_uint8` | 17,610 |
+| `same-increment-form` | `count_postfix` | 32,564 | same | `count_prefix` | 32,564 |
+| `same-index-form` | `read_indexed` | 32,564 | same | `read_pointer_arithmetic` | 32,564 |
+| `same-list-of-offsets` | `pairs_by_offsets` | 100,188 | same | `pairs_by_counter` | 99,116 |
+| `same-loop-form` | `loop_for` | 32,564 | same | `loop_while` | 32,564 |
+| `same-named-temporary` | `with_temporary` | 304 | same | `inline_expression` | 304 |
+| `same-pointer-walk` | `move_by_pointer` | 9,644 | same | `move_by_index` | 9,644 |
+| `slow-32-bit` | `add_32` | 594 | slower | `add_16` | 212 |
+| `slow-compare-sum` | `compare_sum` | 666 | slower | `compare_sum_narrowed` | 558 |
+| `slow-divide-variable` | `divide_variables` | 5,442 | slower | `divide_constant` | 112 |
+| `slow-hand-shifts` | `times_40_by_shifts` | 264 | slower | `times_40` | 204 |
+| `slow-index-list` | `pairs_by_list` | 113,960 | slower | `pairs_by_counter` | 99,116 |
+| `slow-multiply-variable` | `multiply_variables` | 894 | slower | `multiply_constant` | 204 |
+| `slow-signed-divide` | `divide_signed` | 624 | slower | `divide_unsigned` | 112 |
 <!-- end of measurements -->

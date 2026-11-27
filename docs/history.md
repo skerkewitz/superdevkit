@@ -505,6 +505,19 @@ Built on 2026-11-27, ahead of M11; not released yet.
   run with variables in both banks, and the new example `examples/gruft`, a dungeon of 160 x 128
   cells whose maps take about 100 KB, plays with three of them in `$7F`
   ([ADR-6FVM9QWS](adr/6FVM9QWS-variables-that-do-not-fit-into-bank-7e-go-to-bank.md), 2026-11-27).
+- **Master cycles instead of CPU cycles** (2026-11-27): the timing report, the cycles in the
+  assembly comments (`[ 72 mc ]`) and `DAMPF_BUDGET` count master cycles, each access at the
+  speed of the memory it reaches, from the same table as dampf's emulator, whose count of the
+  CPU's master cycles the tests now check every call against
+  ([ADR-6FVMDV79](adr/6FVMDV79-timing-assembly-comments-and-budgets-count-master.md)). A budget
+  written in CPU cycles fails with a message that says so. The code dampf writes is the same.
+- **The IRQ's window checked** (2026-11-27): the timing report gives the master cycles from the
+  end of the IRQ handler's wait for the horizontal blank to its last PPU register write, and the
+  build fails when they pass the 158 the blank leaves, less the HDMA the handler declares for its
+  line (`SDEVKIT_IRQ_HDMA`), which Rachael checks on the desktop
+  ([ADR-6FVWK4JE](adr/6FVWK4JE-the-build-checks-the-irq-s-writes-after-the-wait.md)). Mesen
+  agrees on `dev/irq_check` (102 of 116, clean) and on a handler that writes too late (186, row 72
+  torn).
 
 ## Publishing
 

@@ -64,7 +64,8 @@
  * (sdevkit_dbg_hash: "tick hash" in hex, one a line) into hashes.txt there, and prints "frames N ticks N lost L
  * undrawn U unheard H sprites S drawing D unmarked M refused R repeated P"; the exit status is 1
  * when a byte was lost, a register write was one Rachael does not draw (sdevkit__undrawn), a
- * register was written while the picture was drawn, a group of sdevkit/shadow.h changed without
+ * register was written while the picture was drawn, an IRQ line had more HDMA than game_irq
+ * declares (SDEVKIT_IRQ_HDMA), a group of sdevkit/shadow.h changed without
  * its mark, a DSP write was one she does not play (sdevkit__sound.unheard), the vertical blank of a
  * game that publishes changed the picture when it ran a second time (repeat_vblank),
  * or the file is a recording and a tick's checksum is not the recorded one. sound.txt there has
@@ -980,6 +981,14 @@ static void report_timing(FILE *out)
                      "(sdevkit/shadow.h: the SNES does not commit them)\n",
                 GAME_NAME, sdevkit__rachael.unmarked, sdevkit__rachael.unmarked_group);
     }
+    if (sdevkit__rachael.irq_hdma > 0) {
+        fprintf(out, "%s: %u IRQ lines with more HDMA than game_irq declares, the first before row %u: "
+                     "declared channels $%02X with %u bytes, ran channels $%02X with %u bytes "
+                     "(sdevkit/irq.h, SDEVKIT_IRQ_HDMA: dampf takes the declared HDMA from the time after the wait)\n",
+                GAME_NAME, sdevkit__rachael.irq_hdma, sdevkit__rachael.irq_hdma_row,
+                sdevkit__rachael.irq_hdma_declared[0], sdevkit__rachael.irq_hdma_declared[1],
+                sdevkit__rachael.irq_hdma_actual[0], sdevkit__rachael.irq_hdma_actual[1]);
+    }
     if (repeated > 0) {
         fprintf(out, "%s: %u bytes the vertical blank changed when it ran again on the same published data, "
                      "the first a %s %u (sdevkit/publish.h: the SNES runs it again while a tick overruns, "
@@ -1471,7 +1480,8 @@ static int check(const char *path, const char *out, const char *record, const ch
     printf("frames %ld ticks %ld lost %u undrawn %u unheard %u sprites %u drawing %u unmarked %u refused %u repeated %u\n",
            in.ticks, in.ticks, lost, sdevkit__rachael.undrawn, sdevkit__sound.unheard, sprite_lines,
            sdevkit__rachael.drawing, sdevkit__rachael.unmarked, sdevkit__queue_refused(), repeated);
-    return lost > 0 || sdevkit__rachael.undrawn > 0 || sdevkit__rachael.drawing > 0 || sdevkit__rachael.unmarked > 0
+    return lost > 0 || sdevkit__rachael.undrawn > 0 || sdevkit__rachael.drawing > 0 || sdevkit__rachael.irq_hdma > 0
+            || sdevkit__rachael.unmarked > 0
            || sdevkit__sound.unheard > 0 || repeated > 0 || differs >= 0 ? 1 : 0;
 }
 

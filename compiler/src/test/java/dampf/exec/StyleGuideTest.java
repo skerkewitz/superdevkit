@@ -78,7 +78,7 @@ class StyleGuideTest {
             }
             int from = guide.indexOf(BEGIN), to = guide.indexOf(END);
             assertTrue(from >= 0 && to > from, GUIDE + " has no block " + BEGIN + " ... " + END);
-            StringBuilder table = new StringBuilder("\n| Rule | This | CPU cycles | is | than this | CPU cycles |\n"
+            StringBuilder table = new StringBuilder("\n| Rule | This | master cycles | is | than this | master cycles |\n"
                     + "| --- | --- | ---: | --- | --- | ---: |\n");
             rows.forEach(r -> table.append(r.line()).append('\n'));
             String old = guide.substring(from + BEGIN.length(), to);

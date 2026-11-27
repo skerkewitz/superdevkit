@@ -37,7 +37,7 @@ document of its subject.
 | ADR-6F0R6FT6 | [The naive code generator stays as an independent reference](adr/6F0R6FT6-the-naive-code-generator-stays-as-an-independent.md) | Accepted | 2026-11-17 |
 | ADR-6F0R6G1M | [gcc with UBSan is the oracle, and the tests compare every global](adr/6F0R6G1M-gcc-with-ubsan-is-the-oracle-and-the-tests-compare.md) | Accepted; amended by ADR-6FD2DGP0 | 2026-11-17 |
 | ADR-6F0R6H68 | [dampf has its own emulator, validated against SingleStepTests and Mesen](adr/6F0R6H68-dampf-has-its-own-emulator-validated-against.md) | Accepted | 2026-11-17 |
-| ADR-6F0R6JD6 | [Every function gets a best and a worst case, and `DAMPF_BUDGET` fails the build](adr/6F0R6JD6-every-function-gets-a-best-and-a-worst-case-and.md) | Accepted | 2026-11-17 |
+| ADR-6F0R6JD6 | [Every function gets a best and a worst case, and `DAMPF_BUDGET` fails the build](adr/6F0R6JD6-every-function-gets-a-best-and-a-worst-case-and.md) | Accepted; amended by ADR-6FVMDV79 | 2026-11-17 |
 | ADR-6F0R6NS5 | [The platform layer is C with `volatile` pointers, and the main loop waits for the vertical blank](adr/6F0R6NS5-the-platform-layer-is-c-with-volatile-pointers-and.md) | Accepted; amended by ADR-6FNPPCSX, ADR-6FM9TXV4, ADR-6FS0T4WB | 2026-11-17 |
 | ADR-6F0R6P51 | [The compiler and the game work in parallel towards the frame budget](adr/6F0R6P51-the-compiler-and-the-game-work-in-parallel-towards.md) | Accepted; amended by ADR-6F60Z819 | 2026-11-17 |
 | ADR-6F0R6Q5P | [Value ranges are inferred first, and subrange types wait for a profile](adr/6F0R6Q5P-value-ranges-are-inferred-first-and-subrange-types.md) | Accepted | 2026-11-17 |
@@ -104,11 +104,10 @@ document of its subject.
 | ADR-6FRX1GYC | [The game's IRQ runs at a picture row and writes after waiting for the horizontal blank](adr/6FRX1GYC-the-game-s-irq-runs-at-a-picture-row-and-writes.md) | Accepted | 2026-11-26 |
 | ADR-6FS0T4WB | [The kit's NMI runs the vertical blank of a game that publishes](adr/6FS0T4WB-the-kit-s-nmi-runs-the-vertical-blank-of-a-game.md) | Accepted | 2026-11-26 |
 | ADR-6FSHCP06 | [Rachael draws modes 0 to 4, mosaic and EXTBG; the picture's other sizes wait for a game](adr/6FSHCP06-rachael-draws-modes-0-to-4-mosaic-and-extbg-the.md) | Accepted | 2026-11-26 |
-<<<<<<< HEAD
 | ADR-6FVM9QWS | [Variables that do not fit into bank $7E go to bank $7F, largest first, chosen by dampf](adr/6FVM9QWS-variables-that-do-not-fit-into-bank-7e-go-to-bank.md) | Accepted; amends ADR-6F0R69B6, ADR-6F0R6A8V | 2026-11-27 |
-=======
 | ADR-6FVMCY48 | [A function inlined at every call keeps its timing entry but no code](adr/6FVMCY48-a-function-inlined-at-every-call-keeps-its-timing.md) | Accepted | 2026-11-27 |
->>>>>>> origin/develop
+| ADR-6FVMDV79 | [Timing, assembly comments and budgets count master cycles](adr/6FVMDV79-timing-assembly-comments-and-budgets-count-master.md) | Accepted | 2026-11-27 |
+| ADR-6FVWK4JE | [The build checks the IRQ's writes after the wait, less the HDMA the game declares](adr/6FVWK4JE-the-build-checks-the-irq-s-writes-after-the-wait.md) | Accepted | 2026-11-27 |
 
 ## Former numbers
 

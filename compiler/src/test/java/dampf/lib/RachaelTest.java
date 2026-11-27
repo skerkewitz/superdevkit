@@ -225,6 +225,66 @@ class RachaelTest {
     }
 
     /**
+     * SDEVKIT_IRQ_HDMA (sdevkit/irq.h, ADR-6FVWK4JE): on the IRQ's line Rachael compares the HDMA
+     * that runs (channels, bytes written) with what the handler declared, and counts the line when
+     * more runs; dampf takes the declared HDMA from the time after the wait, so a handler that
+     * forgets or understates it fails the desktop check.
+     */
+    @Test
+    void hdmaOnTheIrqsLineMustBeDeclared() throws Exception {
+        String out = run("irqhdma", """
+                #include <stdio.h>
+                #include "rachael.h"
+                #include "sdevkit/irq.h"
+                static uint16_t frame[SDEVKIT__W * SDEVKIT__H];
+                static int declare;
+                static const uint8_t table[] = { 200, 15, 0 };
+                static void irq(void)
+                {
+                    if (declare == 1) {
+                        SDEVKIT_IRQ_HDMA(SDEVKIT_HDMA_CHANNEL1, 1);
+                    } else if (declare == 2) {
+                        SDEVKIT_IRQ_HDMA(SDEVKIT_HDMA_CHANNEL2, 1);   /* another channel */
+                    }
+                    sdevkit_irq_wait_hblank();
+                }
+                static void show(void)
+                {
+                    printf("lines %u row %u declared %02X %u ran %02X %u\\n", sdevkit__rachael.irq_hdma,
+                           sdevkit__rachael.irq_hdma_row, sdevkit__rachael.irq_hdma_declared[0],
+                           sdevkit__rachael.irq_hdma_declared[1], sdevkit__rachael.irq_hdma_actual[0],
+                           sdevkit__rachael.irq_hdma_actual[1]);
+                }
+                int main(void)
+                {
+                    sdevkit__reset();
+                    sdevkit__irq_handler = irq;
+                    sdevkit_hdma_set(1, SDEVKIT_PPU_INIDISP, SDEVKIT_HDMA_ONE, table);
+                    sdevkit_hdma_enable(SDEVKIT_HDMA_CHANNEL1);
+                    sdevkit_irq_line(0);                 /* the entry's first line: its count and byte */
+                    sdevkit__vblank();
+                    sdevkit__render(frame);              /* not declared */
+                    show();
+                    declare = 1;
+                    sdevkit__vblank();
+                    sdevkit__render(frame);              /* declared: nothing more */
+                    show();
+                    sdevkit_irq_line(50);                /* in the entry: the channel runs, no byte */
+                    sdevkit__vblank();
+                    sdevkit__render(frame);
+                    show();
+                    declare = 2;
+                    sdevkit__vblank();
+                    sdevkit__render(frame);              /* the wrong channel */
+                    show();
+                    return 0;
+                }
+                """);
+        assertEquals("lines 1 row 0 declared 00 0 ran 02 1\nlines 1 row 0 declared 00 0 ran 02 1\n"
+                + "lines 1 row 0 declared 00 0 ran 02 1\nlines 2 row 0 declared 00 0 ran 02 1", out);
+    }
+
+    /**
      * The register shadow's layout (sdevkit/shadow.h) is the same on the PC as dampf's on the SNES:
      * no padding, the 16-bit fields first, and the groups the marks name each in one piece, in the
      * order lib/rachael/layers.c compares them.

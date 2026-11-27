@@ -74,6 +74,6 @@ class DebugCallsTest {
                         sdevkit_dbg_arrow(x[i], 0, 4, -4, i);
                     }
                 """);
-        assertArrayEquals(without, with, "test_main's best and worst case in CPU cycles, without and with the calls");
+        assertArrayEquals(without, with, "test_main's best and worst case in master cycles, without and with the calls");
     }
 }

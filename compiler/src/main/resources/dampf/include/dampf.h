@@ -22,8 +22,10 @@
 
 /*
  * DAMPF_BUDGET(cycles), in front of a function definition: the function must finish within this
- * many CPU cycles, calls included (its worst case in the timing report). A worst case above it,
- * or none at all, is a compile error (a warning with --opt-limit); above 90 % of it, a warning. A number, not an expression.
+ * many master cycles, calls included (its worst case in the timing report; a CPU cycle is 6 to 8
+ * of them, a frame 357,368; up to dampf 0.10 the budget counted CPU cycles). A worst case above
+ * it, or none at all, is a compile error (a warning with --opt-limit); above 90 % of it, a
+ * warning. A number, not an expression.
  */
 #define DAMPF_BUDGET(cycles) __attribute__((dampf_budget(cycles)))
 

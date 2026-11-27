@@ -179,7 +179,7 @@ public final class Compiler {
 
     /**
      * What a compilation produced. {@code timing}: per function (by label) the best and worst case
-     * in CPU cycles, worst -1 if unbounded (the code generator from MIR only; empty otherwise).
+     * in master cycles, worst -1 if unbounded (the code generator from MIR only; empty otherwise).
      * {@code warnings}: messages that do not stop the build (a constant that does not fit the type
      * it is converted to, as gcc warns; a function close to its budget).
      */
@@ -268,8 +268,8 @@ public final class Compiler {
             java.util.Set<String> withoutCode = new java.util.HashSet<>();
             mir.functions().stream().filter(f -> !o.inlinedCode() && !f.isAsm() && f.checkOf() == null && !needCode.contains(f.name()))
                     .forEach(f -> withoutCode.add(f.name()));
-            gen = new MirCodeGen(mir, entry.label(), debugName, o.blockCounts(), limit).interrupts(contextByLabel, handlers)
-                    .withoutCode(withoutCode);
+            gen = new MirCodeGen(mir, entry.label(), debugName, o.blockCounts(), limit).fastRom(o.fastRom())
+                    .interrupts(contextByLabel, handlers).withoutCode(withoutCode);
             List<VariableBanks.Item> items = new java.util.ArrayList<>();
             java.util.Set<String> named = asmSymbols(asmFunctions.values());
             for (dampf.mir.MModule.Global g : mir.globals()) {
@@ -288,10 +288,15 @@ public final class Compiler {
             withoutCode.forEach(label -> notes.merge(label, INLINED_EVERYWHERE, (x, y) -> x + "; " + y));
             handlers.forEach((c, label) -> notes.merge("dampf_" + c.key, "the " + c + " from the interrupt to the end of its RTI: entry stub and "
                     + label, (x, y) -> y + "; " + x));
-            writeTiming(timing, notes, asmFunctions, outDir.resolve(baseName + ".timing.txt"));
+            Map<String, dampf.backend.IrqWindow.Result> windows = new java.util.HashMap<>(gen.irqWindows());
+            for (Function f : program.functions()) {
+                windows.computeIfPresent(f.label(), (k, w) -> w.withHdma(f.irqHdmaChannels(), f.irqHdmaBytes()));
+            }
+            writeTiming(timing, notes, asmFunctions, windows, outDir.resolve(baseName + ".timing.txt"));
             // with a pass limit, the passes that prove a loop's bound may not have run: a budget
             // that cannot be guaranteed is then a warning, so the program can still be bisected
             checkBudgets(program, timing, why, warnings, limit.limited());
+            checkIrqWindow(program, windows, warnings, limit.limited());
         } else {
             NaiveCodeGen naive = new NaiveCodeGen(program, entry, asmFunctions.keySet(), debugName).interrupts(contexts);
             asm = new java.util.ArrayList<>(naive.generate());
@@ -465,13 +470,57 @@ public final class Compiler {
     /** The timing report's note on a function that has no code of its own in the ROM. */
     static final String INLINED_EVERYWHERE = "inlined at every call, no code of its own";
 
+    /**
+     * The IRQ's window (ADR-6FRX1GYC, ADR-6FVWK4JE): the handler's last PPU register write after
+     * its wait for the horizontal blank must end within {@link dampf.backend.IrqWindow#WINDOW}
+     * master cycles of the wait's end, less the HDMA it declares for its line (SDEVKIT_IRQ_HDMA).
+     */
+    private static void checkIrqWindow(Program program, Map<String, dampf.backend.IrqWindow.Result> windows,
+                                       List<String> warnings, boolean onlyWarn) throws CompileError {
+        List<dampf.frontend.Diagnostic> errors = new java.util.ArrayList<>();
+        for (Function f : program.functions()) {
+            dampf.backend.IrqWindow.Result w = windows.get(f.label());
+            if (w == null || !w.waits() || w.worst() == dampf.backend.IrqWindow.NONE) {
+                continue;
+            }
+            long window = w.room();
+            String hdma = w.hdmaChannels() == 0 ? "; without HDMA on the line, which SDEVKIT_IRQ_HDMA would declare (sdevkit/irq.h)"
+                    : "; " + dampf.backend.IrqWindow.WINDOW + " less the " + dampf.backend.IrqWindow.hdma(w.hdmaChannels(), w.hdmaBytes())
+                    + " of the HDMA it declares (SDEVKIT_IRQ_HDMA: channels $" + String.format("%02X", w.hdmaChannels())
+                    + ", " + w.hdmaBytes() + " bytes)";
+            if (!w.bounded()) {
+                errors.add(new dampf.frontend.Diagnostic(dampf.frontend.Diagnostic.Severity.ERROR, f.definitionPos(), "'"
+                        + f.name() + "' has a loop between sdevkit_irq_wait_hblank and a register write, so its writes"
+                        + " cannot be shown to land in the horizontal blank's " + window + " master cycles" + hdma));
+            } else if (w.worst() > window) {
+                errors.add(new dampf.frontend.Diagnostic(dampf.frontend.Diagnostic.Severity.ERROR, f.definitionPos(), "'"
+                        + f.name() + "' ends its last register write up to " + w.worst() + " master cycles after"
+                        + " sdevkit_irq_wait_hblank returns, over the " + window + " the horizontal blank leaves: the row"
+                        + " may tear; move work before the wait" + hdma));
+            }
+        }
+        if (onlyWarn) {
+            errors.forEach(d -> warnings.add(new dampf.frontend.Diagnostic(dampf.frontend.Diagnostic.Severity.WARNING,
+                    d.pos(), d.message() + "; an error without the pass limit").toString()));
+        } else if (!errors.isEmpty()) {
+            throw new CompileError(errors);
+        }
+    }
+
     /** Above this share of its budget, a function gets a warning. */
     static final double BUDGET_WARNING = 0.9;
+    /**
+     * The most master cycles a CPU cycle of dampf's code takes outside the old joypad registers:
+     * a budget the worst case exceeds by at most this factor may have been written in CPU cycles.
+     */
+    static final int OLD_UNIT = 8;
 
     /**
-     * DAMPF_BUDGET: a function's worst case (CPU cycles, calls included) must not be above its
+     * DAMPF_BUDGET: a function's worst case (master cycles, calls included) must not be above its
      * budget, and must exist. Checked on the function as compiled on its own; a copy inlined
-     * into a caller is part of the caller's bound.
+     * into a caller is part of the caller's bound. Budgets counted CPU cycles until they counted
+     * master cycles (ADR-6FVMDV79): when the worst case is over the budget by at most
+     * {@link #OLD_UNIT} times, the error says so, since such a budget may be one in the old unit.
      */
     private static void checkBudgets(Program program, Map<String, long[]> timing, Map<String, String> why,
                                      List<String> warnings, boolean onlyWarn) throws CompileError {
@@ -486,13 +535,15 @@ public final class Compiler {
             if (t[1] < 0) {
                 errors.add(new dampf.frontend.Diagnostic(dampf.frontend.Diagnostic.Severity.ERROR, at, "'" + f.name() + "' has no worst case ("
                         + why.getOrDefault(f.label(), "a loop without a bound") + "), so its budget of " + budget
-                        + " cycles cannot be guaranteed (DAMPF_BUDGET)"));
+                        + " master cycles cannot be guaranteed (DAMPF_BUDGET)"));
             } else if (t[1] > budget) {
                 errors.add(new dampf.frontend.Diagnostic(dampf.frontend.Diagnostic.Severity.ERROR, at, "'" + f.name() + "' takes up to " + t[1]
-                        + " CPU cycles, over its budget of " + budget + " (DAMPF_BUDGET); best case " + t[0]
-                        + ", see the .timing.txt file"));
+                        + " master cycles, over its budget of " + budget + " (DAMPF_BUDGET); best case " + t[0]
+                        + ", see the .timing.txt file"
+                        + (t[1] <= OLD_UNIT * budget ? "; DAMPF_BUDGET counts master cycles now, not CPU cycles as it did up to"
+                        + " dampf 0.10: a budget written in CPU cycles needs about 6.5 times its number (docs/timing.md)" : "")));
             } else if (t[1] > budget * BUDGET_WARNING) {
-                warnings.add(at + ": warning: '" + f.name() + "' takes up to " + t[1] + " CPU cycles, "
+                warnings.add(at + ": warning: '" + f.name() + "' takes up to " + t[1] + " master cycles, "
                         + Math.round(100.0 * t[1] / budget) + " % of its budget of " + budget + " (DAMPF_BUDGET)");
             }
         }
@@ -506,14 +557,16 @@ public final class Compiler {
 
     /** The timing report: every function's best and worst case, the most expensive first. */
     private static void writeTiming(Map<String, long[]> timing, Map<String, String> why, Map<String, AsmFunctions.Asm> asm,
-                                    Path file) throws IOException {
+                                    Map<String, dampf.backend.IrqWindow.Result> windows, Path file) throws IOException {
         Map<String, String> notes = new java.util.HashMap<>(why);
         asm.values().forEach(a -> notes.put(a.function().label(), "assembly, " + a.name()));
         StringBuilder out = new StringBuilder("""
-                # dampf timing: best and worst case per function in CPU cycles, from entry to return,
-                # calls included, interrupts and DMA not (docs/timing.md). "unbounded": a loop without
-                # a known bound on the way; the first such loop in the function, or the first call
-                # of a function without a bound, is named after it. "never": the function never returns.
+                # dampf timing: best and worst case per function in master cycles (a CPU cycle is 6, 8
+                # or 12 of them by the memory it reaches; a frame has 357,368), from entry to return,
+                # calls included, interrupts, DMA and DRAM refresh not (docs/timing.md). "unbounded":
+                # a loop without a known bound on the way; the first such loop in the function, or the
+                # first call of a function without a bound, is named after it. "never": the function
+                # never returns.
                 """);
         out.append(String.format("%12s %12s  %s%n", "best", "worst", "function"));
         timing.entrySet().stream()
@@ -525,6 +578,16 @@ public final class Compiler {
                             e.getValue()[1] < 0 ? "unbounded" : Long.toString(e.getValue()[1]), e.getKey(),
                             reason == null ? "" : "   (" + reason + ")"));
                 });
+        windows.forEach((label, w) -> {
+            if (!w.waits()) {
+                return;
+            }
+            out.append(String.format("%n# The IRQ's window (ADR-6FRX1GYC, ADR-6FVWK4JE): master cycles from the end of the wait%n"
+                    + "# for the horizontal blank to the end of the last PPU register write, and the room:%n"
+                    + "# %d less the HDMA the handler declares for its line (SDEVKIT_IRQ_HDMA).%n", dampf.backend.IrqWindow.WINDOW));
+            out.append(String.format("%12d %12s  %s%n", w.room(), w.worst() == dampf.backend.IrqWindow.NONE ? "no write"
+                    : w.bounded() ? Long.toString(w.worst()) : "unbounded", label + "   (after the wait; room, worst)"));
+        });
         Files.writeString(file, out);
     }
 }

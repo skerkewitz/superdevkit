@@ -47,6 +47,13 @@ class AsmFunctionTest {
         return e.diagnostics().getFirst().message();
     }
 
+    /** Master cycles from FastROM: LDA dp in 16 bits, an implied instruction or a branch not taken, one taken, LDX #, RTL. */
+    private static final long LDA_DP = 2 * 6 + 2 * 8;
+    private static final long IMPLIED = 2 * 6;
+    private static final long TAKEN = 3 * 6;
+    private static final long IMM = 3 * 6;
+    private static final long RTL = 6 + 3 * 8 + 2 * 6;
+
     @Test
     void straightCodeHasItsCyclesFromTheTable() throws CompileError {
         AsmFunction.Result r = analyse("""
@@ -55,8 +62,9 @@ class AsmFunctionTest {
                         adc     _global                 ; 5
                         rtl                             ; 6
                 """);
-        assertEquals(17, r.best());
-        assertEquals(17, r.worst());
+        // master cycles: code reads and internal operations 6, the direct page, WRAM and the stack 8
+        assertEquals(LDA_DP + IMPLIED + (3 * 6 + 2 * 8) + RTL, r.best());
+        assertEquals(r.best(), r.worst());
         assertEquals(0, r.localsBytes());
     }
 
@@ -68,8 +76,8 @@ class AsmFunctionTest {
                         inc     a                       ; 2
                 @zero:  rtl                             ; 6
                 """);
-        assertEquals(4 + 3 + 6, r.best());
-        assertEquals(4 + 2 + 2 + 6, r.worst());
+        assertEquals(LDA_DP + TAKEN + RTL, r.best());
+        assertEquals(LDA_DP + IMPLIED + IMPLIED + RTL, r.worst());
     }
 
     @Test
@@ -81,8 +89,8 @@ class AsmFunctionTest {
                         rtl                             ; 6
                 """);
         // best: the shortest way out (one round), as for C; worst: 15 rounds back (2 + 3) and the last (2 + 2)
-        assertEquals(3 + 2 + 2 + 6, r.best());
-        assertEquals(3 + 15 * (2 + 3) + 2 + 2 + 6, r.worst());
+        assertEquals(IMM + IMPLIED + IMPLIED + RTL, r.best());
+        assertEquals(IMM + 15 * (IMPLIED + TAKEN) + IMPLIED + IMPLIED + RTL, r.worst());
     }
 
     @Test
@@ -96,9 +104,9 @@ class AsmFunctionTest {
                         bne     @outer                  ; dampf: at most 4
                         rtl                             ; 6
                 """);
-        long inner = 7 * (2 + 3) + 2 + 2;
-        long round = 3 + inner + 2;
-        assertEquals(3 + 3 * (round + 3) + round + 2 + 6, r.worst());
+        long inner = 7 * (IMPLIED + TAKEN) + IMPLIED + IMPLIED;
+        long round = IMM + inner + IMPLIED;
+        assertEquals(IMM + 3 * (round + TAKEN) + round + IMPLIED + RTL, r.worst());
     }
 
     @Test
@@ -148,7 +156,7 @@ class AsmFunctionTest {
                         bne     @loop                   ; dampf: at most 2
                         rtl
                 """);
-        assertEquals(3 + 1 * (2 + 3) + 2 + 2 + 6, r.worst());
+        assertEquals(IMM + 1 * (IMPLIED + TAKEN) + IMPLIED + IMPLIED + RTL, r.worst());
     }
 
     @Test

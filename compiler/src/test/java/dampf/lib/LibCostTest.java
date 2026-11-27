@@ -19,7 +19,7 @@ import org.junit.jupiter.api.io.TempDir;
  * What each function of the console API costs on the SNES: a program that calls every function of
  * sdevkit/snes.h and of the optional layers once (with zeros) is built by dampf with lib/snes, and
  * the best and worst case of
- * each function in CPU cycles, from the timing report, are the last column of the table in
+ * each function in master cycles, from the timing report, are the last column of the table in
  * lib/README.md. With LIB_COSTS=update in the environment the column is written, else a
  * difference fails, so the numbers there are dampf's of today.
  */
@@ -81,7 +81,7 @@ class LibCostTest {
         out.append(readme.substring(last));
         assertEquals(api.size(), rows, "a row of the table in " + README + " for each function of " + HEADERS);
         String expected = out.toString().replace("| Function | SNES | desktop |\n| --- | --- | --- |",
-                "| Function | SNES | desktop | CPU cycles on the SNES |\n| --- | --- | --- | ---: |");
+                "| Function | SNES | desktop | master cycles on the SNES |\n| --- | --- | --- | ---: |");
         if ("update".equals(System.getenv("LIB_COSTS"))) {
             Files.writeString(README, expected);
         } else {
