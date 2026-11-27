@@ -53,7 +53,7 @@ the stack, the direct page, the data its operand reaches, a table read, internal
 writes it ([memory-map.md](memory-map.md)): an absolute address is WRAM (DBR is `$7E`); a long
 address given as a number is the register at its own speed, and with an index every address from it
 to the end of its bank counts (`sta f:$002100,x` is 6 to 12); a long address of a symbol is constant
-data in ROM; an access through a pointer is 6 to 8, the best case for an I/O register or FastROM, the
+data in ROM, or a variable in WRAM's second bank `$7F` (8, ADR-6FVM9QWS); an access through a pointer is 6 to 8, the best case for an I/O register or FastROM, the
 worst for RAM. The old joypad registers through a pointer are not counted: dampf's code reads the
 pads through the automatic read at `$4218`. In dampf's code a CPU cycle averages about 6.4 master
 cycles (the worst cases of the examples' functions: 6.2 to 6.6 times what they were in CPU

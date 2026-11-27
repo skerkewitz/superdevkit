@@ -276,7 +276,7 @@ public final class Assembler {
 
     /** Segments whose contents are not in the ROM (their .res reserve only). */
     static boolean writesNothing(String segment) {
-        return segment.equals("BSS") || segment.equals("ZEROPAGE");
+        return segment.equals("BSS") || segment.equals(Linker.BSS_SECOND) || segment.equals("ZEROPAGE");
     }
 
     private void dbg(List<String> args) {

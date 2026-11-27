@@ -80,6 +80,7 @@ public final class IrqWindow {
     static final int HDMA_CHANNEL = 16;
     static final int HDMA_BYTE = 8;
 
+    private final dampf.target.MasterCycles.Code code;
     private final boolean fastRom;
     private final String wait;
     private final Function<String, LFunction> codeOf;
@@ -92,8 +93,9 @@ public final class IrqWindow {
      *                one written in assembly)
      * @param boundOf a function's best and worst case
      */
-    IrqWindow(boolean fastRom, String wait, Function<String, LFunction> codeOf, Function<String, Timing.Bound> boundOf) {
-        this.fastRom = fastRom;
+    IrqWindow(dampf.target.MasterCycles.Code code, String wait, Function<String, LFunction> codeOf, Function<String, Timing.Bound> boundOf) {
+        this.code = code;
+        this.fastRom = code.fastRom();
         this.wait = wait;
         this.codeOf = codeOf;
         this.boundOf = boundOf;
@@ -295,7 +297,7 @@ public final class IrqWindow {
             if (readsHvbjoy(in) || in.isCall() && isWait(in.operand())) {
                 return new Step(Reach.NOTHING, CLEAN);   // another wait: its writes count from its own end
             }
-            long own = in.master(fastRom).worst();
+            long own = in.master(code).worst();
             long write = writesPpu(in) ? own : NONE;
             long ret = NONE;
             List<long[]> next = new ArrayList<>();   // {item, cost to get there}
@@ -310,7 +312,7 @@ public final class IrqWindow {
                 }
                 next.add(new long[] {i + 1, Timing.add(own, worst)});
             } else if (in.isConditionalBranch()) {
-                next.add(new long[] {target(in), in.masterTaken(fastRom).worst()});
+                next.add(new long[] {target(in), in.masterTaken(code).worst()});
                 next.add(new long[] {i + 1, own});
             } else if (in.isTableJump()) {
                 for (String e : c.f.tableTargets(in.tableLabel())) {

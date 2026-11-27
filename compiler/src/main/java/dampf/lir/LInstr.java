@@ -110,7 +110,20 @@ public final class LInstr implements LItem {
     }
 
     private dampf.target.MasterCycles.Range master(boolean fastRom, boolean taken) {
-        return known() ? dampf.target.MasterCycles.of(opcode, mode(), operand, m16, x16, taken, fastRom)
+        return master(new dampf.target.MasterCycles.Code(fastRom, java.util.Set.of()), taken);
+    }
+
+    /** As {@link #master(boolean)}, with the variables in bank $7F that {@code code} names. */
+    public dampf.target.MasterCycles.Range master(dampf.target.MasterCycles.Code code) {
+        return master(code, false);
+    }
+
+    public dampf.target.MasterCycles.Range masterTaken(dampf.target.MasterCycles.Code code) {
+        return master(code, isConditionalBranch());
+    }
+
+    private dampf.target.MasterCycles.Range master(dampf.target.MasterCycles.Code code, boolean taken) {
+        return known() ? dampf.target.MasterCycles.of(opcode, mode(), operand, m16, x16, taken, code)
                 : dampf.target.MasterCycles.Range.of(0);
     }
 

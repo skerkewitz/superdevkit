@@ -15,11 +15,11 @@ public final class LPrinter {
     private LPrinter() {}
 
     public static String print(LUnit unit) {
-        return print(unit, true);
+        return print(unit, dampf.target.MasterCycles.Code.FAST);
     }
 
     /** The text, with the cycles of the code in FastROM or SlowROM. */
-    public static String print(LUnit unit, boolean fastRom) {
+    public static String print(LUnit unit, dampf.target.MasterCycles.Code fastRom) {
         StringBuilder out = new StringBuilder();
         for (LItem i : unit.items()) {
             print(i, out, fastRom);
@@ -27,7 +27,7 @@ public final class LPrinter {
         return out.toString();
     }
 
-    private static void print(LItem item, StringBuilder out, boolean fastRom) {
+    private static void print(LItem item, StringBuilder out, dampf.target.MasterCycles.Code fastRom) {
         switch (item) {
             case LFunction f -> {
                 line(f.proc().text(), out);
@@ -63,10 +63,10 @@ public final class LPrinter {
     }
 
     static String instr(LInstr in) {
-        return instr(in, true);
+        return instr(in, dampf.target.MasterCycles.Code.FAST);
     }
 
-    static String instr(LInstr in, boolean fastRom) {
+    static String instr(LInstr in, dampf.target.MasterCycles.Code fastRom) {
         StringBuilder line = new StringBuilder("        ").append(in.mnemonic());
         if (in.operand() != null) {
             pad(line, OPERAND_COLUMN);

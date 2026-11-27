@@ -129,11 +129,11 @@ final class AsmWriter {
 
     @Override
     public String toString() {
-        return text(true);
+        return text(dampf.target.MasterCycles.Code.FAST);
     }
 
     /** The ca65 source, with the cycles of the code in FastROM or SlowROM. */
-    String text(boolean fastRom) {
+    String text(dampf.target.MasterCycles.Code fastRom) {
         for (LFunction f : unit.functions()) {
             Timing.lineCosts(f, fastRom);
         }

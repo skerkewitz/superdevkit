@@ -11,11 +11,12 @@ The compiler takes these addresses and banks from one place, `dampf.target.SnesT
 interrupt contexts' pages from `dampf.target.ContextAreas` (ADR-6FPTPCDM); the runtime has its
 own copies, which a test compares with them.
 
-## RAM: everything in bank $7E, DBR = $7E
+## RAM: bank $7E, and $7F for what does not fit, DBR = $7E
 
-The data bank register (DBR) is set to `$7E` at start-up and never changes. All variables live in
+The data bank register (DBR) is set to `$7E` at start-up and never changes. The variables live in
 bank `$7E`, so 16-bit absolute addresses (`lda abs`, `lda abs,x`) reach all 64 KB of it. Blubber
-Blasen needs about 25 KB of RAM, which does not fit into the 8 KB that bank 0 mirrors.
+Blasen needs about 25 KB of RAM, which does not fit into the 8 KB that bank 0 mirrors. Variables
+that do not fit into `$7E` go to `$7F` ([below](#bank-7f)).
 
 The first 8 KB of bank `$7E` are the same memory as `$0000-$1FFF` in bank 0. The direct page
 (`D = 0`) and the stack live there, because both are always addressed through bank 0.
@@ -26,7 +27,7 @@ The first 8 KB of bank `$7E` are the same memory as `$0000-$1FFF` in bank 0. The
 | `$0020-$1DFF` | the frames (`dampf_frame`, a compiled stack; the part below `$0100` is in the direct page). The naive generator uses only the start, for the frame of a function written in assembly ([hints.md](hints.md), `DAMPF_ASM`). |
 | below `$1E00` | only with interrupt handlers in C: each interrupt context's direct page and frames, whole pages ([below](#interrupt-contexts)) |
 | `$1E00-$1FFF` | stack |
-| `$2000-$FFFE` | variables: globals, static locals, and the naive generator's frames |
+| `$2000-$FFFE` | variables: globals, static locals, and the naive generator's frames (57,343 bytes) |
 
 The frames must fit into `$0020-$1DFF`, or the build fails (less with interrupt handlers, see
 [Interrupt contexts](#interrupt-contexts)). A function's frame starts after the
@@ -34,7 +35,40 @@ frames of the functions it calls, so the leaves of the call graph lie in the dir
 ([optimizations.md](optimizations.md), optimization A). The linker does not know this area: the
 generated code sets `dampf_frame = $0020` itself.
 
-Bank `$7F` (another 64 KB) is not used yet.
+## Bank $7F
+
+While all variables fit into bank `$7E`, they all stay there, and the code is what it always
+was. When they do not, dampf moves the largest variable to bank `$7F`, then the next largest,
+until the rest fits into `$7E`; one too large for what is left of `$7F` is passed over for the
+next smaller one, and among equal sizes the program's order decides
+([ADR-6FVM9QWS](adr/6FVM9QWS-variables-that-do-not-fit-into-bank-7e-go-to-bank.md),
+`dampf.backend.VariableBanks`). The program cannot tell which bank a variable is in and writes
+nothing for it. Variables that an assembly function names (`DAMPF_ASM`, `--replace`) stay in
+`$7E`, where its 16-bit addresses reach them, and so do the naive code generator's frames.
+
+| Address (bank $7F) | Use |
+| --- | --- |
+| `$0000-$FFFE` | the variables that do not fit into bank `$7E` (65,535 bytes): first those without initial values (segment `BSS7F`), then the others (`DATA7F`) |
+
+Bank `$7F` is not mirrored anywhere, so its variables start at `$0000`. Its last byte stays free
+for the same reason as `$7E:FFFF` ([Pointers](#pointers)). The start-up clears `BSS7F` and
+copies the initial values of `DATA7F` from bank `$80`, but only in a program that has them:
+any other gets the runtime it always had.
+
+The code reaches a variable in `$7F` with long addresses, as it reaches constant data in ROM
+(`lda f:x`, `sta f:x,x`): one cycle more at a fixed address, none at an index (the absolute
+form pays a cycle for the 16-bit index, the long one does not); the cycle counts and the timing
+report include it. The instructions that have no long form are not used on it: a zero is stored
+with `lda #0` and `sta` instead of `stz` (four cycles more), an index goes into X rather than Y
+(there is no long,Y), and a value is loaded into A rather than X or Y. Variables that fit into
+neither bank are a compile error at the largest one left over:
+
+```
+full.c:4:9: error: the variables need 128,000 bytes, more than RAM holds: 57,343 in bank $7E and 65,535 in bank $7F ('c', 32000 bytes, finds no room in either)
+```
+
+The linker refuses a 16-bit address of a variable in `$7F` (it would reach `$7E`) and a bank
+whose variables take more than it holds, both of which only hand-written assembly could cause.
 
 ## Interrupt contexts
 
@@ -64,8 +98,10 @@ A game that publishes has the kit's NMI (ADR-6FS0T4WB), so its main code's frame
 NMI's page, `$1D00`, and below the IRQ's too if it has one. `lib/snes/irq.c` keeps two bytes for
 what the kit switched on in NMITIMEN, the timer's bits and the NMI's.
 
-The linker sees RAM addresses without the bank (`$2000`, not `$7E2000`), so 16-bit address fixups
-fit. Code that needs a full 24-bit RAM address (a pointer) adds the bank itself.
+The linker sees the addresses of bank `$7E` without the bank (`$2000`, not `$7E2000`), so 16-bit
+address fixups fit; code that needs a full 24-bit address there (a pointer) adds the bank itself.
+The addresses of bank `$7F` have their bank (`$7F0000`), as ROM's do, so a pointer to such a
+variable takes the bank from its label (`^x`).
 
 ## Enum objects
 
@@ -79,18 +115,20 @@ and array elements of an enum type are laid out with that width.
 ## Pointers
 
 A pointer is 4 bytes in memory: the 16-bit address, the bank, and a zero byte (MIR's `ptr` type).
-A pointer to RAM has bank `$7E`, a pointer to ROM the bank of the data. Pointers are read through
+A pointer to RAM has bank `$7E` or `$7F`, the bank of its variable, a pointer to ROM the bank of
+the data. Pointers are read through
 the direct page: a pointer whose place is in the direct page is used where it is
 (`lda [place],y`), any other is copied to `dampf_ptr` first (`lda [dampf_ptr],y`).
 
 No object crosses a bank boundary, so pointer arithmetic only changes the low word. The last byte
-of every ROM bank and of RAM ($7E:FFFF) stays free, so a pointer just past the end of an object
+of every ROM bank and of each RAM bank ($7E:FFFF, $7F:FFFF) stays free, so a pointer just past the end of an object
 never wraps to the start of its bank and still compares greater than every pointer into the
 object. Objects are at most 32 KB, so every offset within an object fits a signed 16-bit number
 (MIR's `ptradd` with an i16 offset relies on that).
 
-Pointers that provably always point into RAM could become 16 bits ([subset.md](subset.md),
-decision 3); that is not built. Built is a narrower form: a pointer that provably points into one
+Pointers that provably always point into bank `$7E` could become 16 bits ([subset.md](subset.md),
+decision 3); that is not built, and since variables can live in `$7F` it needs a proof of the
+bank as well as of RAM. Built is a narrower form: a pointer that provably points into one
 known object becomes a 16-bit offset into it, within a function and across calls
 (`PointerOffsets`, `PointerParams`; [optimizations.md](optimizations.md#pointer-compression)).
 
@@ -139,6 +177,7 @@ of variables together must fit into bank `$80`.
 ## Why
 
 Why RAM is laid out this way, and the alternatives weighed, are in ADR
-[ADR-6F0R69B6](adr/6F0R69B6-all-variables-live-in-bank-7e-and-dbr-stays-7e.md); pointers in
+[ADR-6F0R69B6](adr/6F0R69B6-all-variables-live-in-bank-7e-and-dbr-stays-7e.md) and, for bank
+`$7F`, [ADR-6FVM9QWS](adr/6FVM9QWS-variables-that-do-not-fit-into-bank-7e-go-to-bank.md); pointers in
 [ADR-6F0R6A8V](adr/6F0R6A8V-pointers-are-4-bytes-and-no-object-crosses-a-bank.md), the ROM in
 [ADR-6F0R6C4B](adr/6F0R6C4B-lorom-with-fastrom-code-from-bank-80-one-segment.md).

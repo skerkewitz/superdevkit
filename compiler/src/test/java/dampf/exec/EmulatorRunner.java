@@ -46,7 +46,7 @@ final class EmulatorRunner {
                 values.put(v.path(), v.initial());
                 continue;
             }
-            int addr = (int) (base + v.offset()); // a bank $7E address without the bank
+            int addr = dampf.target.SnesTarget.wramIndex(base) + v.offset();   // bank $7E from 0, $7F from $10000
             long raw = 0;
             for (int i = 0; i < v.type().size(); i++) {
                 raw |= (long) (wram[addr + i] & 0xFF) << (8 * i);

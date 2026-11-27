@@ -109,18 +109,13 @@ Also in M12:
   intrinsics planned in M10 (dropped on 2026-11-24): the multiplier is used for every product
   since M9, a division by a constant is a multiplication, DMA and the wait for the vertical
   blank are console API calls, and dampf places constant data in its banks itself;
-- bank `$7F` for variables ([memory-map.md](memory-map.md)): a pointer's bank and how a
-  variable is reached are each answered in one place since the target module (ADR-6FPTPCDM); left
-  are a bank per variable, a RAM area in `$7F` for the linker, the runtime's start-up copy, the
-  instructions that have no long form, and the check of assembly functions, which uses `$7F` as
-  scratch memory;
 - subset decision 3, 16-bit pointers into RAM ([subset.md](subset.md); moved from M10 on
   2026-11-24): a pointer stored in a struct field, a global or an array takes 4 bytes today, and
   a pointer that provably points only into bank `$7E` could take 2, with cheaper loads and
   dereferences. A program cannot see the size (decision 5 rejects a `sizeof` that differs), so it
   is an optimization, decided and built when a measured program shows the gain; few pointers are
-  stored today (the game has 4 pointer fields). It goes with bank `$7F` for variables: once
-  variables can live there, a 2-byte pointer also needs a proof of its bank;
+  stored today (the game has 4 pointer fields). Since variables that do not fit into `$7E` go to
+  `$7F` ([history.md](history.md#built-after-0101)), a 2-byte pointer also needs a proof of its bank;
 - subrange types (`DAMPF_RANGED`, `DAMPF_AS`), only when a profile shows a hot value whose range
   dampf cannot infer ([subrange-types.md](subrange-types.md), ADR
   [ADR-6F0R6Q5P](adr/6F0R6Q5P-value-ranges-are-inferred-first-and-subrange-types.md)).

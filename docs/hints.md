@@ -146,7 +146,9 @@ generators:
   32-bit one or a pointer with the high word in X;
 - it is called with `JSL` and returns with `RTL`, with A, X and Y 16 bit, DBR = $7E and D = 0 on
   entry and exit, the interrupt flag as it was and nothing left on the stack. A, X, Y, the flags
-  and the runtime's scratch registers (`dampf_regs`, `dampf_ptr`) may change.
+  and the runtime's scratch registers (`dampf_regs`, `dampf_ptr`) may change;
+- a global it names (`_total`) stays in bank $7E, so a 16-bit address reaches it, also in a
+  program whose variables do not all fit there ([memory-map.md](memory-map.md#bank-7f)).
 
 dampf assembles the file with its own assembler, which reads the part of ca65 dampf writes:
 instructions; labels, also cheap local (`@x`) and unnamed ones (`:`, `:+`); a label and an
@@ -182,9 +184,10 @@ the state after the program's start-up, it calls the body and the assembly on 25
 function (64 for a function without parameters): the edge values of each parameter, then random
 values from a fixed seed, within the range of a `DAMPF_RANGE` on the parameter at the start of
 the body; the globals the body reads (also in the functions it calls) as after start-up, then all
-zero, all ones and random, except those that hold pointers; pointer parameters pointing into bank
-$7F, which programs do not use and the check fills with random bytes; and the byte above an 8-bit
-parameter not 0. The result (its bytes) and all of RAM from $7E:2000 to $7F:FFFF must be the
+zero, all ones and random, except those that hold pointers; pointer parameters pointing into the
+part of bank $7F the program's variables leave free (all of it, unless they do not fit into
+$7E: [memory-map.md](memory-map.md#bank-7f)), which the check fills with random bytes and of
+which it needs 4 KB; and the byte above an 8-bit parameter not 0. The result (its bytes) and all of RAM from $7E:2000 to $7F:FFFF must be the
 same after both, and the assembly's cycles must lie within the bounds dampf computed, so a bound
 comment set too low fails as well. A difference stops the build with the inputs and both
 results:

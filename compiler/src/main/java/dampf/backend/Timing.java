@@ -138,7 +138,7 @@ final class Timing {
      * @param callees the bounds of called functions (by label), including the runtime's
      */
     static Bound of(MFunction f, LFunction code, Map<String, Integer> loopBounds, List<Block> order,
-                    Ranges ranges, boolean fastRom, Function<String, Bound> callees) {
+                    Ranges ranges, dampf.target.MasterCycles.Code fastRom, Function<String, Bound> callees) {
         Map<String, Block> byName = new HashMap<>();
         for (Block b : f.blocks()) {
             byName.put(b.name(), b);
@@ -281,7 +281,7 @@ final class Timing {
     /** The ways out of one block's code, items [from, to), with their cost intervals. */
     private static Map<Object, Bound> block(List<LItem> items, int from, int to, Map<String, Integer> labelAt,
                                             Map<String, Integer> loopBounds, Map<String, Block> byName, Block next,
-                                            boolean fastRom, Function<String, Bound> callees,
+                                            dampf.target.MasterCycles.Code fastRom, Function<String, Bound> callees,
                                             Function<String, List<String>> tables) {
         int n = to - from;
         long[] min = new long[n + 1];
@@ -415,7 +415,7 @@ final class Timing {
      * depends on the path (the bounds of the whole function cover those). Calls count only the
      * call itself and are marked "+ calls".
      */
-    static void lineCosts(LFunction f, boolean fastRom) {
+    static void lineCosts(LFunction f, dampf.target.MasterCycles.Code fastRom) {
         LSourceLine header = null;
         Bound sum = new Bound(0, 0);
         boolean branches = false;

@@ -145,6 +145,11 @@ class MasterCyclesAgainstEmulatorTest {
         int sta = Cycles65816.opcode("sta", "long");
         assertEquals(MasterCycles.Range.of(30), MasterCycles.of(sta, "long", "f:$002118", false, true, false, true));
         assertEquals(MasterCycles.Range.of(38), MasterCycles.of(sta, "long", "f:$002118", false, true, false, false));
+        // LDA long of a symbol: constant data in ROM, or a variable in bank $7F (ADR-6FVM9QWS)
+        int ldaLong = Cycles65816.opcode("lda", "long");
+        assertEquals(MasterCycles.Range.of(4 * 6 + 2 * 6), MasterCycles.of(ldaLong, "long", "f:_table+2", true, true, false, true));
+        assertEquals(MasterCycles.Range.of(4 * 6 + 2 * 8), MasterCycles.of(ldaLong, "long", "f:_map+2", true, true, false,
+                new MasterCycles.Code(true, java.util.Set.of("_map"))));
         // LDA abs, 16 bit: WRAM through DBR
         int ldaAbs = Cycles65816.opcode("lda", "abs");
         assertEquals(MasterCycles.Range.of(3 * 6 + 2 * 8), MasterCycles.of(ldaAbs, "abs", "_x", true, true, false, true));

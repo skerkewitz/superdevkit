@@ -40,14 +40,17 @@ public final class RomBuilder {
     private static final int HEADER_AND_VECTORS = 0x40; // $FFC0-$FFFF of bank $80
 
     /** Segments the runtime puts into bank $80 (besides HEADER and VECTORS at fixed addresses). */
-    private static final List<String> FIXED = List.of("STARTUP", "DAMPF_CODE", "DATA");
+    private static final List<String> FIXED = List.of("STARTUP", "DAMPF_CODE", "DATA", dampf.asm.Linker.DATA_SECOND);
 
     private RomBuilder() {}
 
     /** The symbols the runtime is assembled with (ca65's -D): FastROM, and an entry stub per interrupt handler. */
-    static Map<String, Long> runtimeDefines(boolean fastRom, java.util.Set<dampf.ast.Interrupt> interrupts) {
+    static Map<String, Long> runtimeDefines(boolean fastRom, java.util.Set<dampf.ast.Interrupt> interrupts, List<String> modules) {
         Map<String, Long> d = new LinkedHashMap<>();
         d.put("DAMPF_FASTROM", fastRom ? 1L : 0L);
+        // the start-up clears and copies the variables in bank $7F only if there are any
+        d.put("DAMPF_BSS7F", hasSegment(modules, dampf.asm.Linker.BSS_SECOND) ? 1L : 0L);
+        d.put("DAMPF_DATA7F", hasSegment(modules, dampf.asm.Linker.DATA_SECOND) ? 1L : 0L);
         for (dampf.ast.Interrupt i : dampf.ast.Interrupt.values()) {
             d.put("DAMPF_" + i.name(), interrupts.contains(i) ? 1L : 0L);
         }
@@ -86,7 +89,7 @@ public final class RomBuilder {
         List<String> objects = new ArrayList<>();
         String runtimeObj = "dampf_runtime.o";
         List<String> ca65 = new ArrayList<>(List.of("ca65", "-g"));
-        runtimeDefines(fastRom, interrupts).forEach((k, v) -> ca65.addAll(List.of("-D", k + "=" + v)));
+        runtimeDefines(fastRom, interrupts, modules).forEach((k, v) -> ca65.addAll(List.of("-D", k + "=" + v)));
         ca65.addAll(List.of("-o", runtimeObj, runtime.getFileName().toString()));
         run(outDir, ca65.toArray(String[]::new));
         objects.add(runtimeObj);
@@ -144,7 +147,7 @@ public final class RomBuilder {
         Map<String, long[]> asmFiles = new LinkedHashMap<>();
         Files.writeString(outDir.resolve("dampf_runtime.s"), runtime, StandardCharsets.UTF_8);
         asmFiles.put("dampf_runtime.s", fileInfo(outDir.resolve("dampf_runtime.s")));
-        objects.add(dampf.asm.Assembler.assemble("dampf_runtime.s", runtime, runtimeDefines(fastRom, interrupts)));
+        objects.add(dampf.asm.Assembler.assemble("dampf_runtime.s", runtime, runtimeDefines(fastRom, interrupts, modules)));
         List<String> banked = new ArrayList<>();
         for (int i = 0; i < modules.size(); i++) {
             String name = modules.size() == 1 ? baseName : baseName + "_" + (i + 1);
@@ -196,7 +199,7 @@ public final class RomBuilder {
             runtime = new String(in.readAllBytes(), StandardCharsets.UTF_8);
         }
         List<dampf.asm.ObjectFile> objects = new ArrayList<>();
-        objects.add(dampf.asm.Assembler.assemble("dampf_runtime.s", runtime, runtimeDefines(fastRom, interrupts)));
+        objects.add(dampf.asm.Assembler.assemble("dampf_runtime.s", runtime, runtimeDefines(fastRom, interrupts, modules)));
         List<String> banked = new ArrayList<>();
         for (int i = 0; i < modules.size(); i++) {
             objects.add(dampf.asm.Assembler.assemble("module_" + (i + 1) + ".s", modules.get(i), Map.of()));
@@ -210,6 +213,12 @@ public final class RomBuilder {
     /** Size and modification time (seconds) of a file, for the debug file. */
     private static long[] fileInfo(Path file) throws IOException {
         return new long[] {Files.size(file), Files.getLastModifiedTime(file).toMillis() / 1000};
+    }
+
+    /** Whether a module of the program has a part of the segment. */
+    static boolean hasSegment(List<String> modules, String segment) {
+        Pattern p = Pattern.compile("^\\s*\\.segment\\s+\"" + segment + "\"", Pattern.MULTILINE);
+        return modules.stream().anyMatch(m -> p.matcher(m).find());
     }
 
     /** The segments the code generator made for functions (C...) and constant objects (R...). */
@@ -229,9 +238,11 @@ public final class RomBuilder {
                     DP:    start = $0000, size = $0100, type = rw;   # direct page (D = 0)
                     #      $%04X-$%04X the frames of the code from MIR (dampf_frame); $%04X-$%04X stack
                     RAM:   start = $%04X, size = $%04X, type = rw;   # bank $%02X (DBR = $%02X), see docs/memory-map.md; $FFFF stays free (one past the end)
+                    RAM7F: start = $%02X%04X, size = $%04X, type = rw; # the variables that do not fit into bank $%02X
                 """.formatted(SnesTarget.FRAME_START, SnesTarget.STACK - 1, SnesTarget.STACK, SnesTarget.LOW_RAM_END - 1,
-                SnesTarget.VARIABLES_START, SnesTarget.VARIABLES_END - SnesTarget.VARIABLES_START, SnesTarget.VARIABLE_BANK,
-                SnesTarget.DATA_BANK);
+                SnesTarget.VARIABLES_START, SnesTarget.variableBytes(SnesTarget.VARIABLE_BANK), SnesTarget.VARIABLE_BANK,
+                SnesTarget.DATA_BANK, SnesTarget.SECOND_VARIABLE_BANK, SnesTarget.SECOND_VARIABLES_START,
+                SnesTarget.variableBytes(SnesTarget.SECOND_VARIABLE_BANK), SnesTarget.VARIABLE_BANK);
     }
 
     private static String measureConfig(List<String> banked) {
@@ -241,6 +252,8 @@ public final class RomBuilder {
         c.append("    ZEROPAGE: load = DP, type = zp, optional = yes;\n");
         c.append("    BSS:      load = RAM, type = bss, define = yes, optional = yes;\n");
         c.append("    DATA:     load = ALL, run = RAM, type = rw, define = yes, optional = yes;\n");
+        c.append("    BSS7F:    load = RAM7F, type = bss, define = yes, optional = yes;\n");
+        c.append("    DATA7F:   load = ALL, run = RAM7F, type = rw, define = yes, optional = yes;\n");
         for (String s : List.of("STARTUP", "DAMPF_CODE", "HEADER", "VECTORS")) {
             c.append("    ").append(s).append(": load = ALL, type = ro;\n");
         }
@@ -331,6 +344,8 @@ public final class RomBuilder {
         c.append("    STARTUP:    load = ROM80, type = ro;\n");
         c.append("    DAMPF_CODE: load = ROM80, type = ro;\n");
         c.append("    DATA:       load = ROM80, run = RAM, type = rw, define = yes, optional = yes;\n");
+        c.append("    BSS7F:      load = RAM7F, type = bss, define = yes, optional = yes;\n");
+        c.append("    DATA7F:     load = ROM80, run = RAM7F, type = rw, define = yes, optional = yes;\n");
         for (int b = 0; b < banks.size(); b++) {
             for (String s : banks.get(b)) {
                 c.append(String.format("    %s: load = ROM%02X, type = ro;%n", s, FIRST_BANK + b));

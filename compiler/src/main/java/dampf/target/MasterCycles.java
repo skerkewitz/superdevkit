@@ -191,6 +191,16 @@ public final class MasterCycles {
                 fixed + a.direct() * direct.worst() + a.data() * data.worst() + a.table() * table.worst());
     }
 
+    /**
+     * What the speeds of an instruction depend on beyond its operand: the ROM's speed, and the
+     * symbols reached long that are variables in WRAM's second bank ($7F, ADR-6FVM9QWS) rather than
+     * constant data in ROM.
+     */
+    public record Code(boolean fastRom, java.util.Set<String> ramLong) {
+        /** FastROM, no variable in bank $7F. */
+        public static final Code FAST = new Code(true, java.util.Set.of());
+    }
+
     /** Any address a pointer of dampf's code may hold: RAM, ROM, save RAM, an I/O register. */
     public static final Range POINTER = new Range(FAST, SLOW);
     /** Low RAM, where the direct page and the stack are. */
@@ -201,14 +211,20 @@ public final class MasterCycles {
      * ({@code z:x} direct page, {@code x} or {@code x,x} absolute in DBR's bank $7E, {@code f:x}
      * long, {@code [x],y} through a pointer): an I/O register given as a number at its own speed,
      * the CPU's multiplier ({@code WRMPYA}, {@code WRMPYB}, {@code RDMPY}) at 6, any other symbol
-     * reached long is constant data in ROM, at the code's speed. A long address with an index
+     * reached long is constant data in ROM, at the code's speed (or a variable in bank $7F, 8). A long address with an index
      * counts every address from it to the end of its bank.
      */
     public static Range of(int opcode, String mode, String operand, boolean m16, boolean x16, boolean taken,
                            boolean fastRom) {
+        return of(opcode, mode, operand, m16, x16, taken, new Code(fastRom, java.util.Set.of()));
+    }
+
+    /** The same, a symbol reached long being a variable in bank $7F (8) when {@code c} names it. */
+    public static Range of(int opcode, String mode, String operand, boolean m16, boolean x16, boolean taken, Code c) {
+        boolean fastRom = c.fastRom();
         int code = code(fastRom);
         Range data = switch (mode) {
-            case "long", "long,x" -> longOperand(operand, mode.equals("long,x"), fastRom);
+            case "long", "long,x" -> longOperand(operand, mode.equals("long,x"), c);
             case "[dp]", "[dp],y" -> POINTER;
             default -> speeds(SnesTarget.DATA_BANK << 16, SnesTarget.DATA_BANK << 16 | 0xFFFF, fastRom);
         };
@@ -216,7 +232,8 @@ public final class MasterCycles {
         return cost(opcode, m16, x16, taken, code, LOW_RAM, data, table);
     }
 
-    private static Range longOperand(String operand, boolean indexed, boolean fastRom) {
+    private static Range longOperand(String operand, boolean indexed, Code c) {
+        boolean fastRom = c.fastRom();
         if (operand == null) {
             return Range.of(SLOW);
         }
@@ -234,7 +251,10 @@ public final class MasterCycles {
             default -> number(o);
         };
         if (address == null) {
-            return Range.of(code(fastRom));   // constant data in ROM, from bank $80
+            int plus = o.indexOf('+');
+            String symbol = (plus < 0 ? o : o.substring(0, plus)).strip();
+            // a variable in WRAM's second bank, else constant data in ROM from bank $80
+            return Range.of(c.ramLong().contains(symbol) ? SLOW : code(fastRom));
         }
         return indexed ? speeds(address, address | 0xFFFF, fastRom) : Range.of(speed(address, fastRom));
     }

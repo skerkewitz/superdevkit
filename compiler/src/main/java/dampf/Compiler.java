@@ -3,8 +3,10 @@ package dampf;
 import dampf.ast.Function;
 import dampf.ast.Program;
 import dampf.ast.Type;
+import dampf.ast.Variable;
 import dampf.backend.MirCodeGen;
 import dampf.backend.NaiveCodeGen;
+import dampf.backend.VariableBanks;
 import dampf.mir.Lower;
 import dampf.check.CallGraph;
 import dampf.frontend.AstBuilder;
@@ -268,6 +270,14 @@ public final class Compiler {
                     .forEach(f -> withoutCode.add(f.name()));
             gen = new MirCodeGen(mir, entry.label(), debugName, o.blockCounts(), limit).fastRom(o.fastRom())
                     .interrupts(contextByLabel, handlers).withoutCode(withoutCode);
+            List<VariableBanks.Item> items = new java.util.ArrayList<>();
+            java.util.Set<String> named = asmSymbols(asmFunctions.values());
+            for (dampf.mir.MModule.Global g : mir.globals()) {
+                if (!g.readOnly()) {
+                    items.add(new VariableBanks.Item(g.symbol(), Math.max(1, g.size()), named.contains(g.symbol())));
+                }
+            }
+            gen.secondBank(secondBank(items, program));
             for (AsmFunctions.Asm a : asmFunctions.values()) {
                 gen.asm(a.function().label(), a.paramSymbols(), a.result().best(), a.result().worst());
             }
@@ -288,8 +298,23 @@ public final class Compiler {
             checkBudgets(program, timing, why, warnings, limit.limited());
             checkIrqWindow(program, windows, warnings, limit.limited());
         } else {
-            asm = new java.util.ArrayList<>(new NaiveCodeGen(program, entry, asmFunctions.keySet(), debugName)
-                    .interrupts(contexts).generate());
+            NaiveCodeGen naive = new NaiveCodeGen(program, entry, asmFunctions.keySet(), debugName).interrupts(contexts);
+            asm = new java.util.ArrayList<>(naive.generate());
+            // the variables' banks need the static frames' bytes, which the code knows once
+            // generated: when the variables do not fit into bank $7E, once more with some in $7F
+            List<VariableBanks.Item> items = new java.util.ArrayList<>();
+            java.util.Set<String> named = asmSymbols(asmFunctions.values());
+            for (Variable v : program.globals()) {
+                if (!v.inRom()) {
+                    items.add(new VariableBanks.Item(v.label(), Math.max(1, v.type().size()), named.contains(v.label())));
+                }
+            }
+            items.add(new VariableBanks.Item("(the static frames)", naive.frameBytes(), true));
+            java.util.Set<String> second = secondBank(items, program);
+            if (!second.isEmpty()) {
+                asm = new java.util.ArrayList<>(new NaiveCodeGen(program, entry, asmFunctions.keySet(), debugName)
+                        .interrupts(contexts).secondBank(second).generate());
+            }
         }
         for (AsmFunctions.Asm a : asmFunctions.values()) {
             if (a.text() != null) {
@@ -306,6 +331,36 @@ public final class Compiler {
             checks = checkAsm(program, asm, gen, asmFunctions, o.fastRom(), handlers.keySet());
         }
         return new Result(program, asm, rom, timing, warnings, checks);
+    }
+
+    /** The C symbols the assembly functions' files name: those variables stay in bank $7E, where 16-bit addresses reach. */
+    private static java.util.Set<String> asmSymbols(java.util.Collection<AsmFunctions.Asm> asmFunctions) {
+        java.util.Set<String> out = new java.util.HashSet<>();
+        java.util.regex.Pattern symbol = java.util.regex.Pattern.compile("\\b_[A-Za-z_]\\w*");
+        for (AsmFunctions.Asm a : asmFunctions) {
+            if (a.text() != null) {
+                java.util.regex.Matcher m = symbol.matcher(a.text());
+                while (m.find()) {
+                    out.add(m.group());
+                }
+            }
+        }
+        return out;
+    }
+
+    /**
+     * The variables that go to bank $7F ({@link VariableBanks}, ADR-6FVM9QWS); the variables
+     * that do not fit into both banks are a compile error, at the largest one left over.
+     */
+    private static java.util.Set<String> secondBank(List<VariableBanks.Item> items, Program program) throws CompileError {
+        try {
+            return VariableBanks.secondBank(items);
+        } catch (VariableBanks.Overflow e) {
+            Variable at = program.globals().stream().filter(v -> v.label().equals(e.symbol())).findFirst()
+                    .orElse(program.globals().stream().filter(v -> !v.inRom()).findFirst().orElseThrow());
+            String which = e.symbol() == null ? "" : " ('" + at.name() + "', " + at.type().size() + " bytes, finds no room in either)";
+            throw new CompileError(at.pos(), e.getMessage() + which);
+        }
     }
 
     /**
@@ -349,8 +404,12 @@ public final class Compiler {
         List<dampf.emu.AsmCheck.Global> globals = new java.util.ArrayList<>();
         for (dampf.ast.Variable v : program.globals()) {
             Long address = at.get(v.label());
-            if (!v.inRom() && address != null && address >= dampf.target.SnesTarget.VARIABLES_START && address + v.type().size() <= 0x10000) {
-                globals.add(new dampf.emu.AsmCheck.Global(v.name(), (int) (long) address, v.type().size(),
+            if (v.inRom() || address == null) {
+                continue;
+            }
+            int wram = dampf.target.SnesTarget.wramIndex(address);
+            if (wram >= dampf.target.SnesTarget.VARIABLES_START && wram + v.type().size() <= 0x20000) {
+                globals.add(new dampf.emu.AsmCheck.Global(v.name(), wram, v.type().size(),
                         read.contains(v) && !AsmFunctions.holdsPointer(v.type())));
             }
         }
@@ -372,8 +431,15 @@ public final class Compiler {
                     r instanceof Type.Pointer, a.result().best(), a.result().worst()));
         }
         try {
+            // the free part of bank $7F, after the variables there (ADR-6FVM9QWS)
+            int scratch = (int) (at.getOrDefault("__BSS7F_SIZE__", 0L) + at.getOrDefault("__DATA7F_SIZE__", 0L));
+            if (scratch > 0x10000 - dampf.emu.AsmCheck.SCRATCH) {
+                throw new CompileError(asmFunctions.values().iterator().next().function().definitionPos(),
+                        "the check of the assembly functions needs " + dampf.emu.AsmCheck.SCRATCH
+                                + " bytes of bank $7F, which the variables take (DAMPF_ASM)");
+            }
             return dampf.emu.AsmCheck.run(image.rom(), (int) (long) at.get("dampf_entry"), functions, globals,
-                    dampf.emu.AsmCheck.INPUTS);
+                    dampf.emu.AsmCheck.INPUTS, scratch);
         } catch (dampf.emu.AsmCheck.Failure e) {
             AsmFunctions.Asm a = asmFunctions.get(e.function());
             throw new CompileError(a.function().definitionPos(), e.getMessage() + " (" + a.name() + ", DAMPF_ASM)");

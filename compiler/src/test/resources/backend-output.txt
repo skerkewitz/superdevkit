@@ -13,6 +13,9 @@ example_ertuep_reference.naive.s0 c72801d1149e2b534d93b900
 example_ertuep_reference.naive.s1 f6bbec20e33527a7f26ad187
 example_ertuep_reference.naive.s2 3d4d0561c92a7fd6b733beac
 example_ertuep_reference.naive.s3 c2aeb0fa1b826714b26d80d1
+example_gruft.mir.s0 a28f8a7ca50f75b7e2898614
+example_gruft.mir.timing a11b4e74cdd7d390e0610232
+example_gruft.naive.s0 b18a9e66caa4056db971c75f
 example_hello.mir.s0 8fd157c8f47844e765602c87
 example_hello.mir.timing e90cbdefb26e9217bf576c32
 example_hello.naive.s0 cdba7574b09d75d52a66c33d
@@ -45,6 +48,16 @@ exec_asm_functions.mir.s1 9380dbfca364658679381eb5
 exec_asm_functions.mir.timing f9484fbf8031d4bebe1a7b86
 exec_asm_functions.naive.s0 c95b7e71e046a84fd4d1cc60
 exec_asm_functions.naive.s1 9380dbfca364658679381eb5
+exec_bank_7f.layout.s0 f22df6868531b117b32b5ea3
+exec_bank_7f.layout.timing df168d0c4c764553baf1e64d
+exec_bank_7f.mir.s0 648d3db917c2cd8ce94d434e
+exec_bank_7f.mir.timing df168d0c4c764553baf1e64d
+exec_bank_7f.naive.s0 7e4b6dda3bc967aebd8103f6
+exec_bank_7f_pointers.layout.s0 3a41403a687807776db17e63
+exec_bank_7f_pointers.layout.timing 1c24a3b86b51e88d33a4dd0c
+exec_bank_7f_pointers.mir.s0 afac1c616a790807a16d10b6
+exec_bank_7f_pointers.mir.timing e3b40872c93926e3613c18a5
+exec_bank_7f_pointers.naive.s0 0d0f12b004b4cf7673fe2388
 exec_banks.layout.s0 61a63bb3a5ec07e9322f98d5
 exec_banks.layout.timing 2d539768431729a0b36b6ade
 exec_banks.mir.s0 b85e3a5a787bb84e3de714b8
