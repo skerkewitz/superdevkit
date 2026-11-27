@@ -63,7 +63,24 @@ call its own statement.
   (`&a[list[k]]`), unless most slots are free: dampf steps a counter's element offset by the
   element's size, where an index loaded from a list is multiplied by the size on every element.
   Measured in Blubber Blasen's pair loop too, where the list cost three times as much a line. If
-  you need a list, let it hold byte offsets (`same-list-of-offsets`).
+  you need a list, let it hold byte offsets (`same-list-of-offsets`). The measurement is a worst
+  case, every slot in use, which is what the timing report and a `DAMPF_BUDGET` see. Where most
+  slots are free most of the time, a list does less work on average and more at worst:
+  Blubber Blasen's bubble pair loop with a list of the floating bubbles took 10 % less a call in
+  play, a 30 % larger worst case and 23 % more where many bubbles touch. Choose by what counts
+  for the function, its budget or its average.
+- **`slow-word-offsets`** Keep a list of byte offsets (`same-list-of-offsets`) in `uint8_t`: as
+  `uint16_t` dampf reaches each element through a 24-bit pointer instead of indexing the array
+  with X. An array whose offsets do not fit a byte is better walked with a counter.
+- **`slow-field-array-offset`** Put an array field that a loop indexes by a variable first in
+  its struct, and two of them into one (`int16_t xy[10]`, x at `xy[k]`, y at `xy[5 + k]`), not
+  `x[5]` and `y[5]`: dampf indexes such a field with X only at offset 0 in the struct, and
+  builds a 24-bit pointer to the element for every access at any other offset. Measured in Blubber
+  Blasen's CPU partner too, where one array instead of two took 14 % off the function.
+- **`slow-pointer-global`** Keep which row of one table is current as an offset into the table
+  (`frame_off`, read `(&frames[0][0])[frame_off + i]`), not as a global pointer (`frame_row[i]`):
+  a function that reads through a global pointer copies its 4 bytes into its frame at every
+  call and reads with a 24-bit address.
 - **`slow-multiply-variable`** Multiply by a constant where the factor is one: `va * vb` calls
   the runtime, `va * 40` is shifts and adds.
 - **`slow-divide-variable`** Divide by a constant power of two where you can: `va / vb` calls the
@@ -97,6 +114,13 @@ call its own statement.
   (ADR-6FM7MWGX). Fewer cases, cases far apart and a switch in a loop whose counter dampf keeps in
   X are compared one after the other in the order written: put the common case first. A first
   `case 0` is tested before the table too, so the empty slots of an object array stay cheap.
+- **`fast-const-table`** Choose among constants by a small value with a `const` table
+  (`cls = classes[pal]`), not with tests that return constants one after the other: the table is
+  one indexed load from ROM.
+- **`fast-pointer-walk-bound`** Walk the first `n` elements of a global array with a pointer up to
+  `&items[n]` where the worst case matters: the timing report bounds the walk by the array's
+  length, a counter `i < n` only by its type (255 rounds for a `uint8_t`). With a constant bound
+  both are the same (`same-pointer-walk`).
 - A multiplication or an unsigned division by a constant is cheap (`slow-multiply-variable`,
   `slow-divide-variable`): write it as such, in the clear form.
 
@@ -111,7 +135,11 @@ Write whichever reads better; these cost the same:
 - **`same-pointer-walk`** an array walked with a pointer beside the loop's counter (`o->x; o++`)
   or indexed (`a[i].x`);
 - **`same-list-of-offsets`** a counter over all slots, or a list of the used slots that holds their
-  byte offsets (`(Ball *)((uint8_t *)balls + list[k])`), as long as the offsets fit its type;
+  byte offsets (`(Ball *)((uint8_t *)balls + list[k])`), as long as the offsets fit a `uint8_t`
+  (`slow-word-offsets`). Take an offset from a pointer difference,
+  `(uint8_t)((const uint8_t *)&balls[i] - (const uint8_t *)balls)`, which is right on the SNES
+  and on the PC; `i * sizeof(Ball)` is rejected for a struct whose size differs between them
+  (the PC pads it, dampf does not);
 - **`same-named-temporary`** a named temporary or the expression written inline: a value used
   once stays in the accumulator either way;
 - **`same-enum-object`** a state kept in an enum object or in a `uint8_t` with the enumerators as
@@ -149,22 +177,27 @@ Measured 2026-11-27 (worst case of the timing report, code generator from MIR).
 | Rule | This | master cycles | is | than this | master cycles |
 | --- | --- | ---: | --- | --- | ---: |
 | `fast-array-per-field` | `move_array_per_field` | 8,684 | faster | `move_array_of_structs` | 9,644 |
+| `fast-const-table` | `classify_by_table` | 304 | faster | `classify_by_chain` | 702 |
 | `fast-multiply-bytes` | `multiply_bytes` | 398 | faster | `multiply_words` | 894 |
+| `fast-pointer-walk-bound` | `nearest_by_pointer` | 12,814 | faster | `nearest_by_index` | 125,992 |
 | `fast-switch-table` | `dispatch_switch` | 212 | faster | `dispatch_if_chain` | 554 |
 | `same-32-bit-bits` | `xor_32` | 246 | same | `xor_16_halves` | 246 |
 | `same-declaration-place` | `declared_at_top` | 32,564 | same | `declared_where_used` | 32,564 |
 | `same-enum-object` | `step_enum` | 17,604 | same | `step_uint8` | 17,604 |
 | `same-increment-form` | `count_postfix` | 32,564 | same | `count_prefix` | 32,564 |
 | `same-index-form` | `read_indexed` | 32,564 | same | `read_pointer_arithmetic` | 32,564 |
-| `same-list-of-offsets` | `pairs_by_offsets` | 99,996 | same | `pairs_by_counter` | 99,116 |
+| `same-list-of-offsets` | `pairs_by_offsets` | 101,068 | same | `pairs_by_counter` | 99,740 |
 | `same-loop-form` | `loop_for` | 32,564 | same | `loop_while` | 32,564 |
 | `same-named-temporary` | `with_temporary` | 304 | same | `inline_expression` | 304 |
 | `same-pointer-walk` | `move_by_pointer` | 9,644 | same | `move_by_index` | 9,644 |
 | `slow-32-bit` | `add_32` | 594 | slower | `add_16` | 212 |
 | `slow-compare-sum` | `compare_sum` | 666 | slower | `compare_sum_narrowed` | 558 |
 | `slow-divide-variable` | `divide_variables` | 5,442 | slower | `divide_constant` | 112 |
+| `slow-field-array-offset` | `sum_two_fields` | 23,532 | slower | `sum_one_field` | 15,806 |
 | `slow-hand-shifts` | `times_40_by_shifts` | 264 | slower | `times_40` | 204 |
 | `slow-index-list` | `pairs_by_list` | 113,412 | slower | `pairs_by_counter` | 99,116 |
 | `slow-multiply-variable` | `multiply_variables` | 894 | slower | `multiply_constant` | 204 |
+| `slow-pointer-global` | `show_by_pointer` | 438 | slower | `show_by_offset` | 388 |
 | `slow-signed-divide` | `divide_signed` | 624 | slower | `divide_unsigned` | 112 |
+| `slow-word-offsets` | `pairs_by_word_offsets` | 128,758 | slower | `pairs_by_byte_offsets` | 101,068 |
 <!-- end of measurements -->
