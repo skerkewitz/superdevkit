@@ -104,6 +104,10 @@ What each function costs on the SNES, in CPU cycles, is the last column of the t
 - **FastROM**: code and constant data in the banks from `$80` are read at 3.58 MHz, WRAM at
   2.68 MHz; dampf builds FastROM and places its function frames in the direct page, whose
   instructions are a byte shorter (*documented*; the cycles are in the timing report).
+- **WRAM is 128 KB, in banks `$7E` and `$7F`**: variables live in `$7E`, which 16-bit addresses
+  reach (57,343 bytes from `$2000`); when they do not fit, dampf moves the largest of them to
+  `$7F`, where an access at a fixed address takes a cycle more. A game that fits into `$7E` writes nothing for it
+  and gets the same code ([docs/memory-map.md](../docs/memory-map.md#bank-7f)) (*documented*).
 - **A DMA does not cross a 64 KB bank**: the source address wraps inside its bank. dampf places
   no object across a bank boundary, so a copy of one object is safe; a copy that runs from one
   object into the next is not (*documented*).

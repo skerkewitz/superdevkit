@@ -1,8 +1,9 @@
 ; dampf SNES runtime: start-up, header and vectors (milestone M1).
 ;
-; After reset: native mode, A/X/Y 16 bit, D = 0, DBR = $7E (all variables are
-; in bank $7E, see docs/memory-map.md), stack at $1FFF, BSS cleared, DATA
-; copied from ROM to RAM. Then it calls the entry function
+; After reset: native mode, A/X/Y 16 bit, D = 0, DBR = $7E (the variables are
+; in bank $7E, those that do not fit there in $7F, see docs/memory-map.md),
+; stack at $1FFF, BSS and BSS7F cleared, DATA and DATA7F copied from ROM to
+; RAM. Then it calls the entry function
 ; (dampf_entry, set by the compiler) and, when that returns, writes 1 to
 ; $21FB (an unused B-bus port) so a test script knows the program is done,
 ; and loops forever.
@@ -13,6 +14,12 @@
         .import dampf_entry
         .import __BSS_RUN__, __BSS_SIZE__
         .import __DATA_LOAD__, __DATA_RUN__, __DATA_SIZE__
+.if DAMPF_BSS7F
+        .import __BSS7F_RUN__, __BSS7F_SIZE__
+.endif
+.if DAMPF_DATA7F
+        .import __DATA7F_LOAD__, __DATA7F_RUN__, __DATA7F_SIZE__
+.endif
         .export dampf_done
         .exportzp dampf_regs, dampf_ptr
         .export dampf_mul16, dampf_mul32, dampf_udiv16, dampf_udiv32, dampf_sdiv32
@@ -72,6 +79,33 @@ reset:
         ldy     #.loword(__DATA_RUN__)
         mvn     #^__DATA_LOAD__, #$7E   ; leaves DBR = $7E, the destination bank
 @data_done:
+
+        ; the variables in bank $7F (ADR-6FVM9QWS), only in a program that has some
+.if DAMPF_BSS7F
+        ; clear BSS7F, from its end down (an 8-bit long store, X counts the bytes)
+        sep     #$20
+        .a8
+        lda     #0
+        ldx     #.loword(__BSS7F_SIZE__)
+        beq     @bss7f_done
+@bss7f: sta     f:__BSS7F_RUN__-1,x
+        dex
+        bne     @bss7f
+@bss7f_done:
+        rep     #$20
+        .a16
+.endif
+.if DAMPF_DATA7F
+        ; copy DATA7F from ROM to bank $7F
+        lda     #.loword(__DATA7F_SIZE__)
+        dec     a
+        ldx     #.loword(__DATA7F_LOAD__)
+        ldy     #.loword(__DATA7F_RUN__)
+        mvn     #^__DATA7F_LOAD__, #$7F ; leaves DBR = $7F
+        pea     $7E7E
+        plb                     ; DBR = $7E again
+        plb
+.endif
 
 .if DAMPF_IRQ
         cli                     ; an IRQ handler in C: IRQs come once the program sets the timer (NMITIMEN)

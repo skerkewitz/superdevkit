@@ -76,8 +76,9 @@ public final class RomDiff {
             String[] w = line.split("\\s+");
             if (w.length == 3 && w[0].equals("al") && w[2].startsWith("._") && !w[2].startsWith(".__")) {
                 int a = Integer.parseInt(w[1], 16);
-                if (a >= 0x2000 && a < 0x8000) {   /* the globals, in bank $7E (bank 0 is ROM from $8000) */
-                    byAddress.putIfAbsent(a, w[2].substring(2));
+                // the globals: in bank $7E without the bank (bank 0 is ROM from $8000), in bank $7F with it
+                if (a >= 0x2000 && a < 0x8000 || a >> 16 == dampf.target.SnesTarget.SECOND_VARIABLE_BANK) {
+                    byAddress.putIfAbsent(dampf.target.SnesTarget.wramIndex(a), w[2].substring(2));
                 }
             }
         }

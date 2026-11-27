@@ -488,6 +488,19 @@ Built on 2026-11-26, after M10 and ahead of M11; released as 0.10.1 on 2026-11-2
   Left undrawn until a game needs them: modes 5 and 6, high resolution, overscan and interlace,
   and HDMA with indirect tables.
 
+## Built for M12
+
+Built after 0.10.1, not released yet.
+
+- **Bank `$7F` for variables**: when a program's variables do not fit into bank `$7E`, dampf
+  moves the largest of them to bank `$7F` until the rest fits, reaches them there with long
+  addresses and gives pointers to them bank `$7F`; the start-up clears and copies them, the
+  check of assembly functions uses only the part of `$7F` they leave free, and variables that
+  fit into neither bank are a compile error. A program that fits into `$7E` builds the same ROM
+  as before, byte for byte (the examples did); `exec/bank_7f.c` and `exec/bank_7f_pointers.c`
+  run with variables in both banks
+  ([ADR-6FVM9QWS](adr/6FVM9QWS-variables-that-do-not-fit-into-bank-7e-go-to-bank.md), 2026-11-27).
+
 ## Publishing
 
 The dev kit went public as superdevkit on 2026-11-23, after version 0.9.0. What it took:

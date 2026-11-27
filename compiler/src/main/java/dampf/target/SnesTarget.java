@@ -23,10 +23,15 @@ public final class SnesTarget {
      */
     public static final int DATA_BANK = 0x7E;
     /**
-     * The bank of the variables (globals, static locals, the naive generator's frames): the bank
-     * byte of a pointer to one. The code generators ask here wherever they write it.
+     * The first bank of the variables (globals, static locals, the naive generator's frames): the
+     * bank byte of a pointer to one there. The code generators ask here wherever they write it.
      */
     public static final int VARIABLE_BANK = DATA_BANK;
+    /**
+     * WRAM's second bank, for the variables that do not fit into the first one (ADR-6FVM9QWS): a
+     * variable there is reached long, and a pointer to it carries this bank.
+     */
+    public static final int SECOND_VARIABLE_BANK = 0x7F;
     /**
      * The bank byte of a pointer to a frame place: low RAM ($0000-$1FFF) is the same memory in
      * bank 0 and at the start of WRAM's first bank, and a pointer to it carries this one.
@@ -41,9 +46,9 @@ public final class SnesTarget {
         LONG
     }
 
-    /** A variable: through the data bank while the variables are in it, else long. */
-    public static Reach variable() {
-        return VARIABLE_BANK == DATA_BANK ? Reach.DATA_BANK : Reach.LONG;
+    /** A variable in {@code bank}: through the data bank if it is there, else long. */
+    public static Reach variable(int bank) {
+        return bank == DATA_BANK ? Reach.DATA_BANK : Reach.LONG;
     }
 
     /** Constant data in ROM: long, since the data bank is RAM. */
@@ -103,6 +108,21 @@ public final class SnesTarget {
     public static final int VARIABLES_START = LOW_RAM_END;
     /** Where they end: $FFFF stays free, so a pointer just past an object never wraps to the bank's start. */
     public static final int VARIABLES_END = 0xFFFF;
+    /** Where the variables start in {@link #SECOND_VARIABLE_BANK}: at its start, no low RAM mirrors it. */
+    public static final int SECOND_VARIABLES_START = 0x0000;
+
+    /**
+     * A variable's address as the linker gives it, as an index into WRAM ($7E:0000 is 0): the
+     * labels of bank $7E have no bank ($2000), those of bank $7F have theirs ($7F0000).
+     */
+    public static int wramIndex(long label) {
+        return (int) (label >> 16 == SECOND_VARIABLE_BANK ? label - ((long) VARIABLE_BANK << 16) : label);
+    }
+
+    /** The bytes the variables may take in {@code bank}: $7E:2000-$FFFE, $7F:0000-$FFFE. */
+    public static int variableBytes(int bank) {
+        return VARIABLES_END - (bank == VARIABLE_BANK ? VARIABLES_START : SECOND_VARIABLES_START);
+    }
     /** The bytes of a direct page. */
     static final int DIRECT_PAGE = 0x100;
 

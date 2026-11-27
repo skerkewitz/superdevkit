@@ -64,7 +64,7 @@ final class MesenRunner {
                 local function finish(text, code)
                   local f = io.open(out, "w"); f:write(text); f:close(); emu.stop(code)
                 end
-                local function rd(a) return emu.read(0x7E0000 + a, emu.memType.snesMemory) end   -- variables are in bank $7E
+                local function rd(a) return emu.read(0x7E0000 + a, emu.memType.snesMemory) end   -- a: the index in WRAM
                 local ok, err = pcall(function()
                   local frames = 0
                   local ppuLost = 0
@@ -105,7 +105,7 @@ final class MesenRunner {
                 lua.append("    s = s .. \"").append(v.path()).append(" ").append(v.initial()).append("\\n\"\n");
                 continue;
             }
-            long addr = base + v.offset();
+            long addr = dampf.target.SnesTarget.wramIndex(base) + v.offset();   // bank $7E from 0, $7F from $10000
             // little endian: rd(a) + rd(a+1) * 256 + ... (Lua 5.4 integers are 64 bit)
             StringBuilder expr = new StringBuilder();
             for (int i = 0; i < v.type().size(); i++) {

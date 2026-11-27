@@ -2058,3 +2058,17 @@ Nothing to gain: pointer compression and inlining already tell dampf where nearl
 points, and the stores left through unknown pointers are not in hot code. Steinschlag got slower
 because the registers freed changed other choices. `restrict` stays rejected, and the no-alias
 hint is not built.
+
+## Bank `$7F` for variables: the examples unchanged (2026-11-27, on the examples)
+
+Variables that do not fit into bank `$7E` go to `$7F`, largest first
+([ADR-6FVM9QWS](adr/6FVM9QWS-variables-that-do-not-fit-into-bank-7e-go-to-bank.md)). Every
+example's variables fit into `$7E`, so nothing moves: `dev/bench_examples.sh` gives a ratio of
+1.000 for each of the eight, and every example's ROM is byte for byte the one built before the
+change; `BackendOutputTest` keeps all 408 earlier outputs.
+
+What a variable in `$7F` costs, by the cycle table (16-bit A and index registers): a load or
+store at a fixed address takes one CPU cycle more with the long address (`lda f:x` 6, `lda x` 5);
+an indexed one costs the same (`lda f:x,x` and `lda x,x` both 6: the absolute form pays the cycle
+for the 16-bit index, the long one does not); a stored zero takes four more (`lda #0` and
+`sta f:x`, 9, instead of `stz x`, 5); the index goes into X, never Y, as for constant data.

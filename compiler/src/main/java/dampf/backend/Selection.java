@@ -49,6 +49,18 @@ final class Selection {
     static final LOperand.Mem VIA_Q = new LOperand.Mem(LOperand.Width.NONE, "dampf_ptr", 4, LOperand.Index.Y, true);
     static final String FRAME = "dampf_frame";
     final Set<String> rom = new HashSet<>();
+    /** The variables in WRAM's second bank ({@link VariableBanks}): reached long, like ROM data, but written too. */
+    final Set<String> secondBank = new HashSet<>();
+
+    /** The bank byte of a pointer to a RAM variable. */
+    int bankOf(String variable) {
+        return secondBank.contains(variable) ? SnesTarget.SECOND_VARIABLE_BANK : SnesTarget.VARIABLE_BANK;
+    }
+
+    /** How a global is reached: ROM data and the variables in the second bank long, the others through the data bank. */
+    SnesTarget.Reach reach(String symbol) {
+        return rom.contains(symbol) ? SnesTarget.romData() : SnesTarget.variable(bankOf(symbol));
+    }
 
     /** Position of every value, frame slot and φ "incoming" place in dampf_frame. */
     final Map<Object, Integer> place = new IdentityHashMap<>();
@@ -149,7 +161,7 @@ final class Selection {
             case Value.Undef u -> imm(0);
             case Value.GlobalAddr g -> rom.contains(g.symbol())
                     ? (w == 0 ? new LOperand.Imm(".loword(" + g.symbol() + ")") : new LOperand.Imm("^" + g.symbol()))
-                    : (w == 0 ? new LOperand.Imm(".loword(" + g.symbol() + ")") : imm(SnesTarget.VARIABLE_BANK));
+                    : (w == 0 ? new LOperand.Imm(".loword(" + g.symbol() + ")") : imm(bankOf(g.symbol())));
             case Value.SlotAddr s -> w == 0 ? new LOperand.Imm(".loword(" + absFrame + "+" + place.get(s.slot()) + ")",
                     new LOperand.Owner(s.slot(), false, 0)) : imm(SnesTarget.FRAME_BANK);
             case Value.Param p -> w >= words(p.type()) ? imm(0) : placeOf(p, w);
@@ -205,8 +217,7 @@ final class Selection {
     /** A memory operand for byte {@code k} of the object at a fixed address, or null if the address is not fixed. */
     LOperand.Mem fixed(Value address, int k) {
         return switch (address) {
-            case Value.GlobalAddr g -> new LOperand.Mem(width(rom.contains(g.symbol()) ? SnesTarget.romData() : SnesTarget.variable()),
-                    g.symbol(), k, LOperand.Index.NONE, false);
+            case Value.GlobalAddr g -> new LOperand.Mem(width(reach(g.symbol())), g.symbol(), k, LOperand.Index.NONE, false);
             case Value.SlotAddr s -> at(place.get(s.slot()) + k).owned(new LOperand.Owner(s.slot(), false, k));
             // a number made into a pointer (a hardware register): as the target reaches numbers
             case Value.Const c -> number(c.bits() + k);
