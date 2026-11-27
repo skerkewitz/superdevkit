@@ -205,6 +205,22 @@ functions (most of it linking the second ROM), against 13 s for the whole build,
 every build and not only in `dampf check`. It does not see writes to I/O registers. The naive
 code generator links the same file and does not run the check.
 
+For a function that works on globals the check is weak, as hand-written versions of three of
+Blubber Blasen's functions showed (2026-11-27,
+[optimizations-log.md](optimizations-log.md#the-games-three-hottest-functions-by-hand-2026-11-27-on-blubber-blasen)):
+
+- A global that holds a pointer keeps its value after start-up, `NULL` for one the program sets
+  later, so the C body reads through it from the direct page, which holds the frames and is not
+  the same for the two calls: a correct assembly failed.
+- Globals filled with random bytes rarely form the states the program has: a slot of an object
+  array was "in use" with a chance of 2 in 256, so a pair loop's check saw almost no pair, and a
+  version with a wrong threshold passed.
+- All of RAM from `$7E:2000` is compared, so a hand-written function's own variables (its BSS)
+  must hold after the call what they held before it, which the C body leaves alone.
+
+Such a function needs a harness of its own for now, as `ReferenceFunctionsTest` plays the
+example's `check.txt` with the reference linked ([roadmap](roadmap.md#open-without-a-milestone)).
+
 The MIR passes treat an assembly function as unknown code: calls of it are not inlined, its
 parameters are not rewritten (`PointerParams`, `IndexParams`) and get no ranges from the callers,
 and it may write any memory. The MIR interpreter and the tests' PC side run the C body.

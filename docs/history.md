@@ -112,6 +112,18 @@ free 0.6.0 ([ADR-6F60ZDMF](adr/6F60ZDMF-m5-is-concluded-as-060-and-a-version-bet
   or not foreseen: copies of a function per context (ADR-6FQ4NSHE), and two published copies,
   since a short tick on the SNES published before the IRQ's row (ADR-6FRDS030).
 
+- **M12 reworked** (2026-11-27). Blubber Blasen's three hottest functions in play were compared
+  with hand-written versions: dampf's code takes 2 to 2.5 times their cycles, no gap needed a
+  fact dampf cannot infer, and most of what a compiler could get was in rules M12 did not list
+  ([optimizations.md](optimizations.md#the-games-hottest-functions-by-hand-2026-11-27)). Rows
+  12 to 16 came in: signed comparisons through the subtraction's flags, a constant field offset
+  as an indexed access's displacement, pointer globals without a copy into the frame, more
+  loop-invariant code with unswitching, and jump threading over flags; small folds joined row 11.
+  The estimates of rows 3 (5-10 % to 3-5 %), 7 (1-3 % to below 1 %) and 8 (about 1 % to none:
+  the block layout by a profile made the game 0.7 % slower) were revised, and the table is
+  ordered by likely gain. Two open points came with it: the check of hand-written functions
+  that read globals, and the DRAM refresh in M11's level 3.
+
 ## M0 to M2
 
 - **M0.** The decisions in subset.md are implemented as recommended until decided. The hint macros
