@@ -1,7 +1,7 @@
 <!-- GENERATED from doc-specs/reference/limits.spec.md by /docs-gen. Do not edit; change the spec or its sources. -->
 # Limits
 
-superdevkit, and dampf with it, is at version 0.10.0: milestones M0 to M10 are concluded. dampf
+superdevkit, and dampf with it, is at version 0.10.1: milestones M0 to M10 are concluded. dampf
 is the compiler of superdevkit, a [development kit](/glossary#dev-kit) for SNES games. The
 milestones named on this page are the open ones: M11 for timing and debugging, and M12 for fine
 tuning.

@@ -13,7 +13,7 @@ also describes plans. What is not built yet, listed for users, is on
 
 ## Where dampf stands
 
-The kit is at version 0.10.0, and the milestones M0 to M10 are concluded (M10 as 0.10.0 on
+The kit is at version 0.10.1, and the milestones M0 to M10 are concluded (M10 as 0.10.0 on
 2026-11-26). A game is written once against the kit's [console API](/glossary#console-api), and
 the `superdevkit` command builds it for the SNES with dampf, as a program for Linux and Windows,
 and since 0.8.0 as a page in the browser, with the same picture on each, sound effects, save
@@ -26,12 +26,13 @@ interrupts in C: an IRQ handler of its own, which runs at a picture row the game
 kit's NMI handler, which runs the game's [vertical blank](/glossary#vertical-blank) for a game
 that publishes the data of its tick. A game can also replace a function by hand-written assembly
 beside the optimized code, and the console API is the hardware at once, with optional layers
-above it. Built since, for 0.10.1: [Rachael](/glossary#rachael), the SNES the kit rebuilds for
-the desktop and the web, draws the picture modes beyond 1 and 7 too, modes 0, 2, 3 and 4 with
-offsets per tile, 256-colour tiles (`superdevkit png tiles8`) and direct colour, mosaic, mode
-7's second layer (EXTBG), `VMAIN`'s address remapping, and [VRAM](/glossary#vram),
-[CGRAM](/glossary#cgram) and [OAM](/glossary#oam) read back by [DMA](/glossary#dma). The
-example `modes` shows each, the same as in [Mesen](/glossary#mesen) pixel for pixel.
+above it. With 0.10.1, released on 2026-11-27, [Rachael](/glossary#rachael), the SNES the kit
+rebuilds for the desktop and the web, draws the picture modes beyond 1 and 7 too, modes 0, 2,
+3 and 4 with offsets per tile, 256-colour tiles (`superdevkit png tiles8`) and direct colour,
+mosaic, mode 7's second layer (EXTBG), `VMAIN`'s address remapping, and
+[VRAM](/glossary#vram), [CGRAM](/glossary#cgram) and [OAM](/glossary#oam) read back by
+[DMA](/glossary#dma). The example `modes` shows each, the same as in [Mesen](/glossary#mesen)
+pixel for pixel.
 
 The compiler is not at its goal yet: during play the game took 0.79 frames per
 [tick](/glossary#tick) on 2026-11-18 against a goal of 0.6. The speedups still open are part of

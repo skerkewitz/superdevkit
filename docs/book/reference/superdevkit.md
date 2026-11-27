@@ -20,7 +20,7 @@ Use `superdevkit --version`, or `superdevkit version`, to see which kit you have
 line on the standard output and exits with status 0:
 
 ```
-superdevkit 0.10.0
+superdevkit 0.10.1
 ```
 
 The command is the one in `bin/` of the [superdevkit home](/glossary#superdevkit-home), next to
@@ -388,7 +388,7 @@ A string: the version of the kit the game needs, of two or three numbers. Two nu
 that one. The command checks it against its own version and stops when they differ:
 
 ```
-error: the project needs superdevkit 0.8, this is 0.10.0 (<home>); install that version, or name a kit folder in superdevkit.toml: kit = "path"
+error: the project needs superdevkit 0.8, this is 0.10.1 (<home>); install that version, or name a kit folder in superdevkit.toml: kit = "path"
 ```
 
 Either `superdevkit` or `kit` is required.
