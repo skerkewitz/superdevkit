@@ -47,11 +47,13 @@ public final class Compiler {
      *                     else none
      * @param library      the sources (among {@code sources}) of a library ({@code --lib}): compiled
      *                     without {@code defines}, which are for the program's own files (ADR-6FEWEE95, ADR-6FKYXP8C)
+     * @param inlinedCode  a function inlined at every call keeps its code in the ROM, as before
+     *                     ADR-6FVMCY48 (for tests that read a function's own code); false by default
      */
     public record Options(List<Path> sources, List<Path> includeDirs, List<String> defines, String entry, Path output,
                           Map<String, Path> replacements, Backend backend,
                           java.util.function.BiFunction<String, String, Long> blockCounts, boolean fastRom, boolean ca65,
-                          int sram, long optLimit, java.util.Set<Path> library) {
+                          int sram, long optLimit, java.util.Set<Path> library, boolean inlinedCode) {
         /** The largest save RAM of a LoROM cartridge that dampf announces: 32 KB at $70:0000. */
         public static final int MAX_SRAM = 32 * 1024;
 
@@ -60,7 +62,7 @@ public final class Compiler {
                        java.util.function.BiFunction<String, String, Long> blockCounts, boolean fastRom, boolean ca65,
                        int sram, long optLimit) {
             this(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fastRom, ca65, sram, optLimit,
-                    java.util.Set.of());
+                    java.util.Set.of(), false);
         }
 
         public Options(List<Path> sources, List<Path> includeDirs, List<String> defines, String entry, Path output,
@@ -97,20 +99,20 @@ public final class Compiler {
         }
 
         public Options withBackend(Backend b) {
-            return new Options(sources, includeDirs, defines, entry, output, replacements, b, blockCounts, fastRom, ca65, sram, optLimit, library);
+            return new Options(sources, includeDirs, defines, entry, output, replacements, b, blockCounts, fastRom, ca65, sram, optLimit, library, inlinedCode);
         }
 
         public Options withBlockCounts(java.util.function.BiFunction<String, String, Long> counts) {
-            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, counts, fastRom, ca65, sram, optLimit, library);
+            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, counts, fastRom, ca65, sram, optLimit, library, inlinedCode);
         }
 
         public Options withFastRom(boolean fast) {
-            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fast, ca65, sram, optLimit, library);
+            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fast, ca65, sram, optLimit, library, inlinedCode);
         }
 
         /** {@code true}: assemble and link with ca65 and ld65. */
         public Options withCa65(boolean useCa65) {
-            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fastRom, useCa65, sram, optLimit, library);
+            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fastRom, useCa65, sram, optLimit, library, inlinedCode);
         }
 
         /** With this many bytes of save RAM (0: none). */
@@ -118,18 +120,27 @@ public final class Compiler {
             if (bytes < 0 || bytes > MAX_SRAM) {
                 throw new IllegalArgumentException("save RAM of " + bytes + " bytes: 0 to " + MAX_SRAM);
             }
-            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fastRom, ca65, bytes, optLimit, library);
+            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fastRom, ca65, bytes, optLimit, library, inlinedCode);
         }
 
         /** With at most this many pass applications (negative: the limit the environment sets, else none). */
         public Options withOptLimit(long limit) {
-            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fastRom, ca65, sram, limit, library);
+            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fastRom, ca65, sram, limit, library, inlinedCode);
         }
 
         /** With these of the sources as a library's ({@code --lib}): compiled without {@code defines}. */
         public Options withLibrary(java.util.Collection<Path> files) {
             return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fastRom, ca65, sram, optLimit,
-                    java.util.Set.copyOf(files));
+                    java.util.Set.copyOf(files), inlinedCode);
+        }
+
+        /**
+         * {@code true}: a function inlined at every call keeps its code in the ROM, as before
+         * ADR-6FVMCY48 (for tests that read a function's own code).
+         */
+        public Options withInlinedCode(boolean keep) {
+            return new Options(sources, includeDirs, defines, entry, output, replacements, backend, blockCounts, fastRom, ca65, sram, optLimit,
+                    library, keep);
         }
 
         /** The defines the preprocessor gets: the user's, and SDEVKIT_SRAM_SIZE with save RAM. */
@@ -249,9 +260,16 @@ public final class Compiler {
             dampf.mir.MModule mir = Lower.lower(program, locals, true);
             dampf.util.PassLimit limit = new dampf.util.PassLimit(
                     o.optLimit() >= 0 ? o.optLimit() : dampf.util.PassLimit.configured(), baseName);
-            dampf.mir.Reachable.run(mir, roots(entry, handlers.values(), asmFunctions.values()));
+            java.util.Set<String> roots = roots(entry, handlers.values(), asmFunctions.values());
+            dampf.mir.Reachable.run(mir, roots);
             dampf.mir.Optimizer.run(mir, false, true, limit);
-            gen = new MirCodeGen(mir, entry.label(), debugName, o.blockCounts(), limit).interrupts(contextByLabel, handlers);
+            // a function inlined at every call keeps its entry in the timing report, not its code
+            java.util.Set<String> needCode = dampf.mir.Reachable.needCode(mir, roots);
+            java.util.Set<String> withoutCode = new java.util.HashSet<>();
+            mir.functions().stream().filter(f -> !o.inlinedCode() && !f.isAsm() && f.checkOf() == null && !needCode.contains(f.name()))
+                    .forEach(f -> withoutCode.add(f.name()));
+            gen = new MirCodeGen(mir, entry.label(), debugName, o.blockCounts(), limit).interrupts(contextByLabel, handlers)
+                    .withoutCode(withoutCode);
             List<VariableBanks.Item> items = new java.util.ArrayList<>();
             java.util.Set<String> named = asmSymbols(asmFunctions.values());
             for (dampf.mir.MModule.Global g : mir.globals()) {
@@ -267,6 +285,7 @@ public final class Compiler {
             timing = gen.timing();
             Map<String, String> why = gen.unboundedWhy();
             Map<String, String> notes = new java.util.HashMap<>(why);
+            withoutCode.forEach(label -> notes.merge(label, INLINED_EVERYWHERE, (x, y) -> x + "; " + y));
             handlers.forEach((c, label) -> notes.merge("dampf_" + c.key, "the " + c + " from the interrupt to the end of its RTI: entry stub and "
                     + label, (x, y) -> y + "; " + x));
             writeTiming(timing, notes, asmFunctions, outDir.resolve(baseName + ".timing.txt"));
@@ -442,6 +461,9 @@ public final class Compiler {
                     + " cannot call it yet (docs/hints.md, DAMPF_ASM)");
         }
     }
+
+    /** The timing report's note on a function that has no code of its own in the ROM. */
+    static final String INLINED_EVERYWHERE = "inlined at every call, no code of its own";
 
     /** Above this share of its budget, a function gets a warning. */
     static final double BUDGET_WARNING = 0.9;

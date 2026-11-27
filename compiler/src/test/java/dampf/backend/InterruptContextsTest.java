@@ -246,8 +246,11 @@ class InterruptContextsTest {
                 assertFalse(code.get(f).contains("a:dampf_frame+") || code.get(f).contains("(dampf_frame+"),
                         b + " " + f + " reaches the main code's frames");
             }
-            assertTrue(MULTIPLIER.matcher(code.get("_mix")).find(), b + ": the main code still uses the multiplier");
-            assertFalse(code.get("_mix").contains("dampf_frame_"), b + ": the main code reaches no context's frames");
+            // mix, or the main code it is inlined into (no code of its own then, ADR-6FVMCY48)
+            String main = String.join("\n", List.of("_mix", "_main_work", "_test_main").stream()
+                    .map(f -> code.getOrDefault(f, "")).toList());
+            assertTrue(MULTIPLIER.matcher(main).find(), b + ": the main code still uses the multiplier");
+            assertFalse(main.contains("dampf_frame_"), b + ": the main code reaches no context's frames");
         }
         // and the runtime's software multiplications do not touch it either
         String runtime = new String(RomBuilderAccess.runtime());

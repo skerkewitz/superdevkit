@@ -119,7 +119,7 @@ Also in M12:
   dereferences. A program cannot see the size (decision 5 rejects a `sizeof` that differs), so it
   is an optimization, decided and built when a measured program shows the gain; few pointers are
   stored today (the game has 4 pointer fields). Since variables that do not fit into `$7E` go to
-  `$7F` ([history.md](history.md#built-for-m12)), a 2-byte pointer also needs a proof of its bank;
+  `$7F` ([history.md](history.md#built-after-0101)), a 2-byte pointer also needs a proof of its bank;
 - subrange types (`DAMPF_RANGED`, `DAMPF_AS`), only when a profile shows a hot value whose range
   dampf cannot infer ([subrange-types.md](subrange-types.md), ADR
   [ADR-6F0R6Q5P](adr/6F0R6Q5P-value-ranges-are-inferred-first-and-subrange-types.md)).
@@ -174,11 +174,6 @@ when a game asks for them.
 ## Future ideas
 
 Ideas without a milestone; one becomes a step of a milestone when it is decided.
-
-- **Inlined functions without a copy of their own.** A function inlined at every call keeps its
-  body in the ROM, so the timing report has it (ADR-6FNWEJAA). Dropping that body but keeping its
-  entry in the report would shrink the examples' code by another 25 to 35 % (measured on
-  2026-11-25).
 
 - **dampf in Compiler Explorer.** A local Compiler Explorer (godbolt) knows extra compilers from
   `etc/config/c.local.properties`; a wrapper script takes its gcc-style arguments (`-S -o out.s
