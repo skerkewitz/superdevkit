@@ -177,7 +177,7 @@ public final class Compiler {
 
     /**
      * What a compilation produced. {@code timing}: per function (by label) the best and worst case
-     * in CPU cycles, worst -1 if unbounded (the code generator from MIR only; empty otherwise).
+     * in master cycles, worst -1 if unbounded (the code generator from MIR only; empty otherwise).
      * {@code warnings}: messages that do not stop the build (a constant that does not fit the type
      * it is converted to, as gcc warns; a function close to its budget).
      */
@@ -266,8 +266,8 @@ public final class Compiler {
             java.util.Set<String> withoutCode = new java.util.HashSet<>();
             mir.functions().stream().filter(f -> !o.inlinedCode() && !f.isAsm() && f.checkOf() == null && !needCode.contains(f.name()))
                     .forEach(f -> withoutCode.add(f.name()));
-            gen = new MirCodeGen(mir, entry.label(), debugName, o.blockCounts(), limit).interrupts(contextByLabel, handlers)
-                    .withoutCode(withoutCode);
+            gen = new MirCodeGen(mir, entry.label(), debugName, o.blockCounts(), limit).fastRom(o.fastRom())
+                    .interrupts(contextByLabel, handlers).withoutCode(withoutCode);
             for (AsmFunctions.Asm a : asmFunctions.values()) {
                 gen.asm(a.function().label(), a.paramSymbols(), a.result().best(), a.result().worst());
             }
@@ -401,11 +401,18 @@ public final class Compiler {
 
     /** Above this share of its budget, a function gets a warning. */
     static final double BUDGET_WARNING = 0.9;
+    /**
+     * The most master cycles a CPU cycle of dampf's code takes outside the old joypad registers:
+     * a budget the worst case exceeds by at most this factor may have been written in CPU cycles.
+     */
+    static final int OLD_UNIT = 8;
 
     /**
-     * DAMPF_BUDGET: a function's worst case (CPU cycles, calls included) must not be above its
+     * DAMPF_BUDGET: a function's worst case (master cycles, calls included) must not be above its
      * budget, and must exist. Checked on the function as compiled on its own; a copy inlined
-     * into a caller is part of the caller's bound.
+     * into a caller is part of the caller's bound. Budgets counted CPU cycles until they counted
+     * master cycles (ADR-6FVMDV79): when the worst case is over the budget by at most
+     * {@link #OLD_UNIT} times, the error says so, since such a budget may be one in the old unit.
      */
     private static void checkBudgets(Program program, Map<String, long[]> timing, Map<String, String> why,
                                      List<String> warnings, boolean onlyWarn) throws CompileError {
@@ -420,13 +427,15 @@ public final class Compiler {
             if (t[1] < 0) {
                 errors.add(new dampf.frontend.Diagnostic(dampf.frontend.Diagnostic.Severity.ERROR, at, "'" + f.name() + "' has no worst case ("
                         + why.getOrDefault(f.label(), "a loop without a bound") + "), so its budget of " + budget
-                        + " cycles cannot be guaranteed (DAMPF_BUDGET)"));
+                        + " master cycles cannot be guaranteed (DAMPF_BUDGET)"));
             } else if (t[1] > budget) {
                 errors.add(new dampf.frontend.Diagnostic(dampf.frontend.Diagnostic.Severity.ERROR, at, "'" + f.name() + "' takes up to " + t[1]
-                        + " CPU cycles, over its budget of " + budget + " (DAMPF_BUDGET); best case " + t[0]
-                        + ", see the .timing.txt file"));
+                        + " master cycles, over its budget of " + budget + " (DAMPF_BUDGET); best case " + t[0]
+                        + ", see the .timing.txt file"
+                        + (t[1] <= OLD_UNIT * budget ? "; DAMPF_BUDGET counts master cycles now, not CPU cycles as it did up to"
+                        + " dampf 0.10: a budget written in CPU cycles needs about 6.5 times its number (docs/timing.md)" : "")));
             } else if (t[1] > budget * BUDGET_WARNING) {
-                warnings.add(at + ": warning: '" + f.name() + "' takes up to " + t[1] + " CPU cycles, "
+                warnings.add(at + ": warning: '" + f.name() + "' takes up to " + t[1] + " master cycles, "
                         + Math.round(100.0 * t[1] / budget) + " % of its budget of " + budget + " (DAMPF_BUDGET)");
             }
         }
@@ -444,10 +453,12 @@ public final class Compiler {
         Map<String, String> notes = new java.util.HashMap<>(why);
         asm.values().forEach(a -> notes.put(a.function().label(), "assembly, " + a.name()));
         StringBuilder out = new StringBuilder("""
-                # dampf timing: best and worst case per function in CPU cycles, from entry to return,
-                # calls included, interrupts and DMA not (docs/timing.md). "unbounded": a loop without
-                # a known bound on the way; the first such loop in the function, or the first call
-                # of a function without a bound, is named after it. "never": the function never returns.
+                # dampf timing: best and worst case per function in master cycles (a CPU cycle is 6, 8
+                # or 12 of them by the memory it reaches; a frame has 357,368), from entry to return,
+                # calls included, interrupts, DMA and DRAM refresh not (docs/timing.md). "unbounded":
+                # a loop without a known bound on the way; the first such loop in the function, or the
+                # first call of a function without a bound, is named after it. "never": the function
+                # never returns.
                 """);
         out.append(String.format("%12s %12s  %s%n", "best", "worst", "function"));
         timing.entrySet().stream()

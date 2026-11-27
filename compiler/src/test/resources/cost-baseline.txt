@@ -1,713 +1,713 @@
-# The static worst case in CPU cycles of every function of every example and of
+# The static worst case in master cycles of every function of every example and of
 # every member of the spelling families (one call through spelling_entry; -1: unbounded).
 # Written by BackendOutputTest with -PbackendOutput=update; its diff shows what got slower.
-catchme _actors_draw 4129
-catchme _actors_hide 152
-catchme _actors_reset 730
-catchme _actors_scare 363
+catchme _actors_draw 27594
+catchme _actors_hide 928
+catchme _actors_reset 4602
+catchme _actors_scare 2256
 catchme _add_score -1
-catchme _aligned 40
-catchme _best_load 525
-catchme _best_save 499
-catchme _can_go 228
-catchme _cat_speed 116
+catchme _aligned 266
+catchme _best_load 3414
+catchme _best_save 3246
+catchme _can_go 1450
+catchme _cat_speed 736
 catchme _cats_move -1
-catchme _cell_x 39
-catchme _cell_y 39
-catchme _chase 4154
-catchme _clear_map 16414
+catchme _cell_x 250
+catchme _cell_y 250
+catchme _chase 26506
+catchme _clear_map 102588
 catchme _collisions -1
-catchme _commit_registers 2062
-catchme _debug_boxes 6
-catchme _debug_register 6
-catchme _decide 4207
-catchme _dma0 94
-catchme _dma_source 61
-catchme _draw_cell 2784
+catchme _commit_registers 13518
+catchme _debug_boxes 42
+catchme _debug_register 42
+catchme _decide 26830
+catchme _dma0 604
+catchme _dma_source 406
+catchme _draw_cell 17694
 catchme _eat -1
 catchme _game_init -1
 catchme _game_tick -1
-catchme _game_vblank 6648
+catchme _game_vblank 42242
 catchme _glyph -1
 catchme _hud -1
 catchme _main -1
-catchme _maze_blink 218
-catchme _maze_cell 101
-catchme _maze_clear_cell 2870
-catchme _maze_draw 587200
-catchme _maze_reset 33682
-catchme _memcpy_2 126
+catchme _maze_blink 1420
+catchme _maze_cell 644
+catchme _maze_clear_cell 18254
+catchme _maze_draw 3735640
+catchme _maze_reset 214380
+catchme _memcpy_2 854
 catchme _mouse_move -1
 catchme _new_game -1
 catchme _number -1
-catchme _put 855
-catchme _queue_done 21
-catchme _queue_source 59
-catchme _random16 105
+catchme _put 5764
+catchme _queue_done 138
+catchme _queue_source 398
+catchme _random16 688
 catchme _ready -1
-catchme _reverse 18
-catchme _save_sum 221
+catchme _reverse 118
+catchme _save_sum 1466
 catchme _sdevkit__frame -1
 catchme _sdevkit__read_pads -1
-catchme _sdevkit__reset_ppu 14069
+catchme _sdevkit__reset_ppu 85938
 catchme _sdevkit__sfx_frame -1
 catchme _sdevkit__splash -1
 catchme _sdevkit__splash_frame -1
-catchme _sdevkit__start 14125
+catchme _sdevkit__start 86286
 catchme _sdevkit__wait_vblank -1
-catchme _sdevkit_cgram_copy 100
-catchme _sdevkit_commit 6367
-catchme _sdevkit_dbg_action 6
-catchme _sdevkit_dbg_box 6
-catchme _sdevkit_dbg_hash 79
-catchme _sdevkit_dbg_range 6
-catchme _sdevkit_dbg_toggle 6
-catchme _sdevkit_hdma_enable 21
-catchme _sdevkit_hdma_set 84
-catchme _sdevkit_input_update 86
-catchme _sdevkit_music_play 6
-catchme _sdevkit_music_stop 6
-catchme _sdevkit_oam_copy 104
-catchme _sdevkit_queue_cgram 185
-catchme _sdevkit_queue_commit 3672
-catchme _sdevkit_queue_dma 192
-catchme _sdevkit_queue_vram 189
-catchme _sdevkit_reg_write 25
-catchme _sdevkit_reg_write_twice 43
-catchme _sdevkit_sprites_commit 560
-catchme _sdevkit_sram 14
-catchme _sdevkit_vram_copy 116
-catchme _sdevkit_vram_fill 120
-catchme _set_tile 40
+catchme _sdevkit_cgram_copy 638
+catchme _sdevkit_commit 40484
+catchme _sdevkit_dbg_action 42
+catchme _sdevkit_dbg_box 42
+catchme _sdevkit_dbg_hash 510
+catchme _sdevkit_dbg_range 42
+catchme _sdevkit_dbg_toggle 42
+catchme _sdevkit_hdma_enable 136
+catchme _sdevkit_hdma_set 554
+catchme _sdevkit_input_update 590
+catchme _sdevkit_music_play 42
+catchme _sdevkit_music_stop 42
+catchme _sdevkit_oam_copy 662
+catchme _sdevkit_queue_cgram 1210
+catchme _sdevkit_queue_commit 22968
+catchme _sdevkit_queue_dma 1260
+catchme _sdevkit_queue_vram 1234
+catchme _sdevkit_reg_write 170
+catchme _sdevkit_reg_write_twice 288
+catchme _sdevkit_sprites_commit 3534
+catchme _sdevkit_sram 90
+catchme _sdevkit_vram_copy 734
+catchme _sdevkit_vram_fill 752
+catchme _set_tile 262
 catchme _sfx_dsp -1
-catchme _sfx_voice 1691
+catchme _sfx_voice 11226
 catchme _sfx_voices_frame -1
-catchme _shadow_check 6
-catchme _sprite_hide 24
-catchme _sprite_set 823
-catchme _sprites_copy 273
+catchme _shadow_check 42
+catchme _sprite_hide 156
+catchme _sprite_set 5544
+catchme _sprites_copy 1704
 catchme _start_level -1
-catchme _step 160
+catchme _step 1058
 catchme _text -1
 catchme _title -1
 catchme _title_parade -1
-catchme _touches 86
-catchme _towards 2871
-catchme _wall_tile 120
-catchme _wander 1428
-catchme dampf_mul16 108
-catchme dampf_mul32 400
-catchme dampf_sdiv32 2594
-catchme dampf_udiv16 772
-catchme dampf_udiv32 2432
-ertuep _add_pfand 16501
-ertuep _aim 347
-ertuep _autopilot 15087
-ertuep _barrel 670
-ertuep _beermat 149
-ertuep _begin 443
-ertuep _big 277
-ertuep _boss_aim_y 72
-ertuep _boss_collide 209389
-ertuep _boss_draw 155147
-ertuep _boss_start 37647
-ertuep _boss_update 15325
-ertuep _boss_vblank 2353
-ertuep _bucket 33
-ertuep _build_column 4601
-ertuep _build_row 2050
-ertuep _build_rows 4521
-ertuep _build_wall 2183
-ertuep _bullet_dir 610
-ertuep _bullet_new 498
-ertuep _bullets_update 6545
-ertuep _caps_flying 465
-ertuep _carousel_aim_y 20
-ertuep _carousel_collide 68912
-ertuep _carousel_draw 3090
-ertuep _carousel_start 7161
-ertuep _carousel_update 15221
-ertuep _carousel_view 1006
-ertuep _cell_entry 51
-ertuep _chair_radius 46
-ertuep _checkpoint_before 329
-ertuep _checkpoint_reached 155
-ertuep _coin_ring 5154
-ertuep _collect 16746
+catchme _touches 550
+catchme _towards 18260
+catchme _wall_tile 758
+catchme _wander 9094
+catchme dampf_mul16 678
+catchme dampf_mul32 2542
+catchme dampf_sdiv32 17750
+catchme dampf_udiv16 5226
+catchme dampf_udiv32 16670
+ertuep _add_pfand 107270
+ertuep _aim 2264
+ertuep _autopilot 97132
+ertuep _barrel 4388
+ertuep _beermat 986
+ertuep _begin 2730
+ertuep _big 1750
+ertuep _boss_aim_y 462
+ertuep _boss_collide 1362610
+ertuep _boss_draw 987436
+ertuep _boss_start 242486
+ertuep _boss_update 96162
+ertuep _boss_vblank 15390
+ertuep _bucket 208
+ertuep _build_column 30858
+ertuep _build_row 13510
+ertuep _build_rows 30330
+ertuep _build_wall 14200
+ertuep _bullet_dir 3794
+ertuep _bullet_new 3110
+ertuep _bullets_update 41932
+ertuep _caps_flying 2884
+ertuep _carousel_aim_y 130
+ertuep _carousel_collide 433008
+ertuep _carousel_draw 19654
+ertuep _carousel_start 44970
+ertuep _carousel_update 95504
+ertuep _carousel_view 6452
+ertuep _cell_entry 332
+ertuep _chair_radius 294
+ertuep _checkpoint_before 2176
+ertuep _checkpoint_reached 1022
+ertuep _coin_ring 32130
+ertuep _collect 108850
 ertuep _collide -1
-ertuep _cos1024 77
-ertuep _crate_grow 662
-ertuep _crate_update 384
-ertuep _crate_volley 1832
-ertuep _crown_damage 5690
-ertuep _damage 5675
-ertuep _dartboard 1757
-ertuep _dicecup 1214
-ertuep _dma0 94
-ertuep _dma_source 61
-ertuep _draw_all 280042
-ertuep _draw_bullets 7785
-ertuep _draw_enemies 90474
-ertuep _draw_items 4457
-ertuep _draw_parts 4769
-ertuep _draw_player 1335
-ertuep _draw_shots 4667
-ertuep _draw_sprite 222
-ertuep _draw_title_logo 15758
-ertuep _effects 4268
-ertuep _effects_vblank 460
-ertuep _end_of_stage 6467
-ertuep _ending 247549
-ertuep _enemies_update 175702
-ertuep _enemy_destroyed 157277
-ertuep _enemy_hit 157365
-ertuep _enemy_spawn 1461
-ertuep _fade_to 33
-ertuep _festzelt_drunk 53
-ertuep _festzelt_hash 485
-ertuep _festzelt_hofs 19
-ertuep _festzelt_load 2472
-ertuep _festzelt_unload 24
-ertuep _festzelt_vblank 233
-ertuep _festzelt_view 2484
-ertuep _finish 10899
-ertuep _fire 2711
-ertuep _fire_at_ship 967
-ertuep _fire_cork 1024
-ertuep _fly 381
-ertuep _foam_over 11292
+ertuep _cos1024 488
+ertuep _crate_grow 4194
+ertuep _crate_update 2456
+ertuep _crate_volley 11496
+ertuep _crown_damage 35718
+ertuep _damage 36324
+ertuep _dartboard 11044
+ertuep _dicecup 7750
+ertuep _dma0 604
+ertuep _dma_source 406
+ertuep _draw_all 1782352
+ertuep _draw_bullets 50052
+ertuep _draw_enemies 576622
+ertuep _draw_items 28508
+ertuep _draw_parts 30228
+ertuep _draw_player 8428
+ertuep _draw_shots 29888
+ertuep _draw_sprite 1414
+ertuep _draw_title_logo 98836
+ertuep _effects 27276
+ertuep _effects_vblank 2916
+ertuep _end_of_stage 41232
+ertuep _ending 1605906
+ertuep _enemies_update 1100338
+ertuep _enemy_destroyed 1003428
+ertuep _enemy_hit 1004024
+ertuep _enemy_spawn 9252
+ertuep _fade_to 212
+ertuep _festzelt_drunk 332
+ertuep _festzelt_hash 3044
+ertuep _festzelt_hofs 124
+ertuep _festzelt_load 15690
+ertuep _festzelt_unload 152
+ertuep _festzelt_vblank 1448
+ertuep _festzelt_view 15880
+ertuep _finish 68012
+ertuep _fire 16964
+ertuep _fire_at_ship 6120
+ertuep _fire_cork 6538
+ertuep _fly 2546
+ertuep _foam_over 71390
 ertuep _game_init -1
 ertuep _game_tick -1
-ertuep _game_vblank 3534
-ertuep _heart 1168
-ertuep _hendl 253
-ertuep _hop 249
-ertuep _hud_blank_below 13329
-ertuep _hud_clear_row1 1041
-ertuep _hud_crate 577
-ertuep _hud_lives 248
-ertuep _hud_message 5576
-ertuep _hud_pfand 10353
-ertuep _hud_pfand_at 10325
-ertuep _hud_play 17103
-ertuep _hud_put 60
-ertuep _hud_sekt 134
-ertuep _hud_text 4159
-ertuep _huge 1133
-ertuep _in_box 106
-ertuep _item_spawn 494
-ertuep _items_update 5752
-ertuep _kettle_collide 209356
-ertuep _kettle_update 12612
-ertuep _load_stage_gfx 2503
-ertuep _lose_life 284
-ertuep _machine_collide 73701
-ertuep _machine_update 10333
+ertuep _game_vblank 22778
+ertuep _heart 7466
+ertuep _hendl 1672
+ertuep _hop 1646
+ertuep _hud_blank_below 83308
+ertuep _hud_clear_row1 6444
+ertuep _hud_crate 3652
+ertuep _hud_lives 1580
+ertuep _hud_message 35676
+ertuep _hud_pfand 68664
+ertuep _hud_pfand_at 68476
+ertuep _hud_play 111260
+ertuep _hud_put 384
+ertuep _hud_sekt 840
+ertuep _hud_text 26762
+ertuep _huge 7226
+ertuep _in_box 706
+ertuep _item_spawn 3126
+ertuep _items_update 36686
+ertuep _kettle_collide 1362396
+ertuep _kettle_update 79940
+ertuep _load_stage_gfx 15884
+ertuep _lose_life 1804
+ertuep _machine_collide 471678
+ertuep _machine_update 65446
 ertuep _main -1
-ertuep _memset_5 4514
-ertuep _memset_7 3874
-ertuep _mettigel 1235
-ertuep _mode1 34
-ertuep _near 144
-ertuep _new_game 216460
-ertuep _objects_clear 16273
-ertuep _organ 5001
-ertuep _overlap 119
-ertuep _part_spawn 178
-ertuep _parts_update 2165
-ertuep _path_at 1166
-ertuep _picture 280118
-ertuep _place_chairs 4165
+ertuep _memset_5 30238
+ertuep _memset_7 25950
+ertuep _mettigel 7894
+ertuep _mode1 210
+ertuep _near 942
+ertuep _new_game 1406628
+ertuep _objects_clear 99438
+ertuep _organ 31100
+ertuep _overlap 800
+ertuep _part_spawn 1148
+ertuep _parts_update 13836
+ertuep _path_at 7450
+ertuep _picture 1782834
+ertuep _place_chairs 26412
 ertuep _play -1
-ertuep _player_start 76
-ertuep _player_update 19116
-ertuep _pretzel 270
-ertuep _random16 68
-ertuep _receipts 1044
-ertuep _respawn 216242
-ertuep _room_at 39
-ertuep _scaled 198
+ertuep _player_start 488
+ertuep _player_update 121798
+ertuep _pretzel 1804
+ertuep _random16 446
+ertuep _receipts 6618
+ertuep _respawn 1405210
+ertuep _room_at 248
+ertuep _scaled 1266
 ertuep _sdevkit__frame -1
 ertuep _sdevkit__read_pads -1
-ertuep _sdevkit__reset_ppu 14069
+ertuep _sdevkit__reset_ppu 85938
 ertuep _sdevkit__sfx_frame -1
 ertuep _sdevkit__splash -1
 ertuep _sdevkit__splash_frame -1
-ertuep _sdevkit__start 14125
+ertuep _sdevkit__start 86286
 ertuep _sdevkit__wait_vblank -1
-ertuep _sdevkit_cgram_copy 100
-ertuep _sdevkit_cgram_set 47
-ertuep _sdevkit_dbg_hash 79
-ertuep _sdevkit_hdma_enable 21
-ertuep _sdevkit_hdma_set 84
-ertuep _sdevkit_mode7_map_copy 116
-ertuep _sdevkit_mode7_tiles_copy 116
-ertuep _sdevkit_oam_copy 104
-ertuep _sdevkit_reg_write 25
-ertuep _sdevkit_reg_write_twice 43
-ertuep _sdevkit_vram_column_copy 116
-ertuep _sdevkit_vram_copy 116
-ertuep _sdevkit_vram_fill 120
-ertuep _set_look 47
-ertuep _set_view 625
+ertuep _sdevkit_cgram_copy 638
+ertuep _sdevkit_cgram_set 298
+ertuep _sdevkit_dbg_hash 510
+ertuep _sdevkit_hdma_enable 136
+ertuep _sdevkit_hdma_set 554
+ertuep _sdevkit_mode7_map_copy 734
+ertuep _sdevkit_mode7_tiles_copy 734
+ertuep _sdevkit_oam_copy 662
+ertuep _sdevkit_reg_write 170
+ertuep _sdevkit_reg_write_twice 288
+ertuep _sdevkit_vram_column_copy 734
+ertuep _sdevkit_vram_copy 734
+ertuep _sdevkit_vram_fill 752
+ertuep _set_look 304
+ertuep _set_view 4010
 ertuep _sfx_dsp -1
-ertuep _sfx_voice 1691
+ertuep _sfx_voice 11226
 ertuep _sfx_voices_frame -1
-ertuep _ship_hit 4813
-ertuep _ship_in_wall 807
-ertuep _shot_new 374
-ertuep _shots_update 9302
-ertuep _sin1024 72
-ertuep _sine 24
-ertuep _slot 10714
-ertuep _slot_machine 5490
-ertuep _slot_reel 271
-ertuep _small 269
-ertuep _solid_at 180
-ertuep _spit_bottles 5434
-ertuep _split_on 131
-ertuep _spr 236
-ertuep _sprites_copy 222
-ertuep _sprites_hide_all 4059
-ertuep _stage_init 22105
-ertuep _stage_scroll 7061
-ertuep _stage_select 149
-ertuep _stage_start 162728
-ertuep _stage_vblank 2666
-ertuep _start_demo 222847
-ertuep _start_ruckel 5654
-ertuep _stein 5462
-ertuep _step 41
-ertuep _sway 1552
-ertuep _sway_init 883
-ertuep _tentacles 3047
-ertuep _title 227853
-ertuep _title_stage 3809
-ertuep _toward 185
-ertuep _tuba 4590
-ertuep _tuba_2 10714
-ertuep _waves_from 12865
-ertuep _waves_spawn 18470
-ertuep dampf_mul16 108
-ertuep dampf_mul32 400
-ertuep dampf_sdiv32 2594
-ertuep dampf_udiv16 772
-ertuep dampf_udiv32 2432
-hello _commit_registers 2062
-hello _dma0 94
-hello _dma_source 61
+ertuep _ship_hit 31214
+ertuep _ship_in_wall 5176
+ertuep _shot_new 2350
+ertuep _shots_update 59926
+ertuep _sin1024 462
+ertuep _sine 154
+ertuep _slot 67092
+ertuep _slot_machine 34964
+ertuep _slot_reel 1682
+ertuep _small 1708
+ertuep _solid_at 1168
+ertuep _spit_bottles 34502
+ertuep _split_on 816
+ertuep _spr 1506
+ertuep _sprites_copy 1386
+ertuep _sprites_hide_all 24734
+ertuep _stage_init 138874
+ertuep _stage_scroll 46838
+ertuep _stage_select 980
+ertuep _stage_start 1069030
+ertuep _stage_vblank 17320
+ertuep _start_demo 1446772
+ertuep _start_ruckel 35482
+ertuep _stein 34698
+ertuep _step 268
+ertuep _sway 10062
+ertuep _sway_init 5496
+ertuep _tentacles 19692
+ertuep _title 1475642
+ertuep _title_stage 24418
+ertuep _toward 1244
+ertuep _tuba 29470
+ertuep _tuba_2 67006
+ertuep _waves_from 83886
+ertuep _waves_spawn 117744
+ertuep dampf_mul16 678
+ertuep dampf_mul32 2542
+ertuep dampf_sdiv32 17750
+ertuep dampf_udiv16 5226
+ertuep dampf_udiv32 16670
+hello _commit_registers 13518
+hello _dma0 604
+hello _dma_source 406
 hello _game_init -1
 hello _game_tick -1
-hello _game_vblank 6381
+hello _game_vblank 40580
 hello _main -1
-hello _move_ball 146
+hello _move_ball 930
 hello _print -1
 hello _print_number -1
-hello _queue_done 21
-hello _queue_source 59
+hello _queue_done 138
+hello _queue_source 398
 hello _sdevkit__frame -1
 hello _sdevkit__read_pads -1
-hello _sdevkit__reset_ppu 14069
+hello _sdevkit__reset_ppu 85938
 hello _sdevkit__sfx_frame -1
 hello _sdevkit__splash -1
 hello _sdevkit__splash_frame -1
-hello _sdevkit__start 14125
+hello _sdevkit__start 86286
 hello _sdevkit__wait_vblank -1
-hello _sdevkit_cgram_copy 100
-hello _sdevkit_commit 6367
-hello _sdevkit_dbg_hash 79
-hello _sdevkit_hdma_enable 21
-hello _sdevkit_hdma_set 84
-hello _sdevkit_oam_copy 104
-hello _sdevkit_queue_commit 3672
-hello _sdevkit_queue_dma 192
-hello _sdevkit_queue_vram 189
-hello _sdevkit_reg_write 25
-hello _sdevkit_reg_write_twice 43
-hello _sdevkit_sprite 206
-hello _sdevkit_sprites_commit 560
-hello _sdevkit_vram_copy 116
-hello _sdevkit_vram_fill 120
+hello _sdevkit_cgram_copy 638
+hello _sdevkit_commit 40484
+hello _sdevkit_dbg_hash 510
+hello _sdevkit_hdma_enable 136
+hello _sdevkit_hdma_set 554
+hello _sdevkit_oam_copy 662
+hello _sdevkit_queue_commit 22968
+hello _sdevkit_queue_dma 1260
+hello _sdevkit_queue_vram 1234
+hello _sdevkit_reg_write 170
+hello _sdevkit_reg_write_twice 288
+hello _sdevkit_sprite 1306
+hello _sdevkit_sprites_commit 3534
+hello _sdevkit_vram_copy 734
+hello _sdevkit_vram_fill 752
 hello _sfx_dsp -1
-hello _sfx_voice 1691
+hello _sfx_voice 11226
 hello _sfx_voices_frame -1
-hello _shadow_check 6
-hello dampf_mul16 108
-hello dampf_mul32 400
-hello dampf_sdiv32 2594
-hello dampf_udiv16 772
-hello dampf_udiv32 2432
-mandelbrot _compute 20926
-mandelbrot _cycle_palette 3642
-mandelbrot _dma0 94
-mandelbrot _dma_source 61
-mandelbrot _game_init 1316709
-mandelbrot _game_tick 21744
-mandelbrot _game_vblank 331
-mandelbrot _in_bulbs 2230
+hello _shadow_check 42
+hello dampf_mul16 678
+hello dampf_mul32 2542
+hello dampf_sdiv32 17750
+hello dampf_udiv16 5226
+hello dampf_udiv32 16670
+mandelbrot _compute 134680
+mandelbrot _cycle_palette 23500
+mandelbrot _dma0 604
+mandelbrot _dma_source 406
+mandelbrot _game_init 8363978
+mandelbrot _game_tick 139870
+mandelbrot _game_vblank 2052
+mandelbrot _in_bulbs 14382
 mandelbrot _main -1
-mandelbrot _make_palette 135491
-mandelbrot _pixel_done 209
+mandelbrot _make_palette 907488
+mandelbrot _pixel_done 1346
 mandelbrot _sdevkit__frame -1
 mandelbrot _sdevkit__read_pads -1
-mandelbrot _sdevkit__reset_ppu 14069
+mandelbrot _sdevkit__reset_ppu 85938
 mandelbrot _sdevkit__sfx_frame -1
 mandelbrot _sdevkit__splash -1
 mandelbrot _sdevkit__splash_frame -1
-mandelbrot _sdevkit__start 14125
+mandelbrot _sdevkit__start 86286
 mandelbrot _sdevkit__wait_vblank -1
-mandelbrot _sdevkit_cgram_copy 100
-mandelbrot _sdevkit_cgram_set 47
-mandelbrot _sdevkit_dbg_hash 79
-mandelbrot _sdevkit_mode7_map_copy 116
-mandelbrot _sdevkit_mode7_tiles_copy 116
-mandelbrot _sdevkit_oam_copy 104
-mandelbrot _sdevkit_reg_write 25
-mandelbrot _sdevkit_reg_write_twice 43
-mandelbrot _sdevkit_vram_copy 116
-mandelbrot _sdevkit_vram_fill 120
-mandelbrot _set_matrix 103
+mandelbrot _sdevkit_cgram_copy 638
+mandelbrot _sdevkit_cgram_set 298
+mandelbrot _sdevkit_dbg_hash 510
+mandelbrot _sdevkit_mode7_map_copy 734
+mandelbrot _sdevkit_mode7_tiles_copy 734
+mandelbrot _sdevkit_oam_copy 662
+mandelbrot _sdevkit_reg_write 170
+mandelbrot _sdevkit_reg_write_twice 288
+mandelbrot _sdevkit_vram_copy 734
+mandelbrot _sdevkit_vram_fill 752
+mandelbrot _set_matrix 656
 mandelbrot _sfx_dsp -1
-mandelbrot _sfx_voice 1691
+mandelbrot _sfx_voice 11226
 mandelbrot _sfx_voices_frame -1
-mandelbrot _tile_start 438
-mandelbrot _view_start 120
-mandelbrot _write_matrix 92
-mandelbrot dampf_mul16 108
-mandelbrot dampf_mul32 400
-mandelbrot dampf_sdiv32 2594
-mandelbrot dampf_udiv16 772
-mandelbrot dampf_udiv32 2432
-mode7 _dma0 94
-mode7 _dma_source 61
-mode7 _game_init 3191336
-mode7 _game_tick 1519
-mode7 _game_vblank 141
+mandelbrot _tile_start 2818
+mandelbrot _view_start 774
+mandelbrot _write_matrix 578
+mandelbrot dampf_mul16 678
+mandelbrot dampf_mul32 2542
+mandelbrot dampf_sdiv32 17750
+mandelbrot dampf_udiv16 5226
+mandelbrot dampf_udiv32 16670
+mode7 _dma0 604
+mode7 _dma_source 406
+mode7 _game_init 20331278
+mode7 _game_tick 9818
+mode7 _game_vblank 886
 mode7 _main -1
-mode7 _make_map 3069088
-mode7 _make_sprite 90699
-mode7 _make_tiles 30397
+mode7 _make_map 19563986
+mode7 _make_sprite 565012
+mode7 _make_tiles 195224
 mode7 _sdevkit__frame -1
 mode7 _sdevkit__read_pads -1
-mode7 _sdevkit__reset_ppu 14069
+mode7 _sdevkit__reset_ppu 85938
 mode7 _sdevkit__sfx_frame -1
 mode7 _sdevkit__splash -1
 mode7 _sdevkit__splash_frame -1
-mode7 _sdevkit__start 14125
+mode7 _sdevkit__start 86286
 mode7 _sdevkit__wait_vblank -1
-mode7 _sdevkit_cgram_copy 100
-mode7 _sdevkit_cgram_set 47
-mode7 _sdevkit_dbg_hash 79
-mode7 _sdevkit_mode7_map_copy 116
-mode7 _sdevkit_mode7_tiles_copy 116
-mode7 _sdevkit_oam_copy 104
-mode7 _sdevkit_reg_write 25
-mode7 _sdevkit_reg_write_twice 43
-mode7 _sdevkit_vram_copy 116
-mode7 _sdevkit_vram_fill 120
+mode7 _sdevkit_cgram_copy 638
+mode7 _sdevkit_cgram_set 298
+mode7 _sdevkit_dbg_hash 510
+mode7 _sdevkit_mode7_map_copy 734
+mode7 _sdevkit_mode7_tiles_copy 734
+mode7 _sdevkit_oam_copy 662
+mode7 _sdevkit_reg_write 170
+mode7 _sdevkit_reg_write_twice 288
+mode7 _sdevkit_vram_copy 734
+mode7 _sdevkit_vram_fill 752
 mode7 _sfx_dsp -1
-mode7 _sfx_voice 1691
+mode7 _sfx_voice 11226
 mode7 _sfx_voices_frame -1
-mode7 dampf_mul16 108
-mode7 dampf_mul32 400
-mode7 dampf_sdiv32 2594
-mode7 dampf_udiv16 772
-mode7 dampf_udiv32 2432
-modes _dma0 94
-modes _dma_source 61
-modes _game_init 29870337
-modes _game_tick 5632
+mode7 dampf_mul16 678
+mode7 dampf_mul32 2542
+mode7 dampf_sdiv32 17750
+mode7 dampf_udiv16 5226
+mode7 dampf_udiv32 16670
+modes _dma0 604
+modes _dma_source 406
+modes _game_init 192344916
+modes _game_tick 36048
 modes _game_vblank -1
 modes _glyph -1
 modes _label -1
 modes _main -1
-modes _make_bitmap 15469856
-modes _make_mode7 14400108
-modes _memcpy 11074
-modes _memset 10274
-modes _picture 143135
+modes _make_bitmap 95285246
+modes _make_mode7 97057422
+modes _memcpy 76062
+modes _memset 68830
+modes _picture 900778
 modes _print -1
-modes _reset_registers 942
+modes _reset_registers 5838
 modes _sdevkit__frame -1
 modes _sdevkit__read_pads -1
-modes _sdevkit__reset_ppu 14069
+modes _sdevkit__reset_ppu 85938
 modes _sdevkit__sfx_frame -1
 modes _sdevkit__splash -1
 modes _sdevkit__splash_frame -1
-modes _sdevkit__start 14125
+modes _sdevkit__start 86286
 modes _sdevkit__wait_vblank -1
-modes _sdevkit_cgram_copy 100
-modes _sdevkit_cgram_set 47
-modes _sdevkit_dbg_hash 79
-modes _sdevkit_dma 94
-modes _sdevkit_mode7_map_copy 116
-modes _sdevkit_mode7_tiles_copy 116
-modes _sdevkit_oam_copy 104
-modes _sdevkit_reg_write 25
-modes _sdevkit_reg_write_twice 43
-modes _sdevkit_vram_copy 116
-modes _sdevkit_vram_fill 120
+modes _sdevkit_cgram_copy 638
+modes _sdevkit_cgram_set 298
+modes _sdevkit_dbg_hash 510
+modes _sdevkit_dma 604
+modes _sdevkit_mode7_map_copy 734
+modes _sdevkit_mode7_tiles_copy 734
+modes _sdevkit_oam_copy 662
+modes _sdevkit_reg_write 170
+modes _sdevkit_reg_write_twice 288
+modes _sdevkit_vram_copy 734
+modes _sdevkit_vram_fill 752
 modes _setup -1
-modes _setup_direct 513838
-modes _setup_mode0 641817
-modes _setup_mode2 293669
-modes _setup_mode3 558436
-modes _setup_mode4 506059
+modes _setup_direct 3229262
+modes _setup_mode0 4130740
+modes _setup_mode2 1842180
+modes _setup_mode3 3500944
+modes _setup_mode4 3274750
 modes _setup_mode7 -1
-modes _setup_mosaic 735947
+modes _setup_mosaic 4733204
 modes _setup_vram -1
 modes _sfx_dsp -1
-modes _sfx_voice 1691
+modes _sfx_voice 11226
 modes _sfx_voices_frame -1
-modes _sprite_colours 22
+modes _sprite_colours 146
 modes _text -1
-modes _tile_set 1494
-modes _tiles2 340003
-modes _tiles4 257315
-modes _tiles8_direct 390685
-modes dampf_mul16 108
-modes dampf_mul32 400
-modes dampf_sdiv32 2594
-modes dampf_udiv16 772
-modes dampf_udiv32 2432
-schach _add 54
-schach _add_pawn 188
+modes _tile_set 9506
+modes _tiles2 2228200
+modes _tiles4 1611240
+modes _tiles8_direct 2437060
+modes dampf_mul16 678
+modes dampf_mul32 2542
+modes dampf_sdiv32 17750
+modes dampf_udiv16 5226
+modes dampf_udiv32 16670
+schach _add 352
+schach _add_pawn 1210
 schach _attacked -1
 schach _book_find -1
-schach _book_init 14
-schach _book_seed 15
-schach _chess_hash 47
-schach _chess_init 1047779
+schach _book_init 94
+schach _book_seed 104
+schach _chess_hash 320
+schach _chess_init 6867448
 schach _child -1
-schach _clear_promotion 2582
-schach _commit_registers 2062
+schach _clear_promotion 16382
+schach _commit_registers 13518
 schach _console_turn -1
-schach _dma0 94
-schach _dma_source 61
+schach _dma0 604
+schach _dma_source 406
 schach _draw_board -1
-schach _draw_labels 7986
+schach _draw_labels 51484
 schach _draw_level -1
-schach _draw_moves 123519
+schach _draw_moves 814376
 schach _draw_promotion -1
-schach _draw_sprites 584
-schach _draw_square 266
-schach _element_tile 45
+schach _draw_sprites 3678
+schach _draw_square 1696
+schach _element_tile 292
 schach _enter -1
-schach _ep_possible 105
-schach _evaluate 422
+schach _ep_possible 672
+schach _evaluate 2754
 schach _finish -1
-schach _from_tt 39
+schach _from_tt 256
 schach _game_end -1
 schach _game_init -1
 schach _game_tick -1
-schach _game_vblank 6381
+schach _game_vblank 40580
 schach _gave_check -1
 schach _gen_moves -1
 schach _generate -1
-schach _has_moves 6170
-schach _has_pieces 11150
+schach _has_moves 40106
+schach _has_pieces 70166
 schach _illegal_after -1
 schach _in_check -1
-schach _is_target 11031
+schach _is_target 71320
 schach _leave -1
 schach _left_in_check -1
 schach _list_legal -1
 schach _main -1
-schach _make_move 1580
-schach _make_null 252
-schach _move_cursor 192
+schach _make_move 10338
+schach _make_null 1638
+schach _move_cursor 1218
 schach _move_made -1
-schach _move_piece 277
+schach _move_piece 1824
 schach _move_text -1
 schach _new_game -1
 schach _next -1
-schach _next_random 91
-schach _no_mating_material 4173
+schach _next_random 588
+schach _no_mating_material 26220
 schach _null_done -1
-schach _number_text 3302
+schach _number_text 22330
 schach _panel -1
 schach _panel_yellow -1
-schach _piece_index 31
-schach _piece_of_char 84
-schach _play_move 1673
+schach _piece_index 200
+schach _piece_of_char 514
+schach _play_move 10952
 schach _player -1
 schach _player_turn -1
 schach _promote -1
-schach _queue_done 21
-schach _queue_maps 514
-schach _queue_source 59
-schach _repeated 7902
-schach _repetitions 23260
-schach _rnd32 221
-schach _score_moves 23789289
+schach _queue_done 138
+schach _queue_maps 3312
+schach _queue_source 398
+schach _repeated 51050
+schach _repetitions 152862
+schach _rnd32 1472
+schach _score_moves 155842792
 schach _sdevkit__frame -1
 schach _sdevkit__read_pads -1
-schach _sdevkit__reset_ppu 14069
+schach _sdevkit__reset_ppu 85938
 schach _sdevkit__sfx_frame -1
 schach _sdevkit__splash -1
 schach _sdevkit__splash_frame -1
-schach _sdevkit__start 14125
+schach _sdevkit__start 86286
 schach _sdevkit__wait_vblank -1
-schach _sdevkit_cgram_copy 100
-schach _sdevkit_cgram_set 47
-schach _sdevkit_commit 6367
-schach _sdevkit_dbg_hash 79
-schach _sdevkit_hdma_enable 21
-schach _sdevkit_hdma_set 84
-schach _sdevkit_input_update 86
-schach _sdevkit_oam_copy 104
-schach _sdevkit_queue_commit 3672
-schach _sdevkit_queue_dma 203
-schach _sdevkit_queue_vram 200
-schach _sdevkit_reg_write 25
-schach _sdevkit_reg_write_twice 43
+schach _sdevkit_cgram_copy 638
+schach _sdevkit_cgram_set 298
+schach _sdevkit_commit 40484
+schach _sdevkit_dbg_hash 510
+schach _sdevkit_hdma_enable 136
+schach _sdevkit_hdma_set 554
+schach _sdevkit_input_update 590
+schach _sdevkit_oam_copy 662
+schach _sdevkit_queue_commit 22968
+schach _sdevkit_queue_dma 1330
+schach _sdevkit_queue_vram 1304
+schach _sdevkit_reg_write 170
+schach _sdevkit_reg_write_twice 288
 schach _sdevkit_sfx_init -1
-schach _sdevkit_sfx_play 158
-schach _sdevkit_sprite 156
-schach _sdevkit_sprites_commit 560
-schach _sdevkit_vram_copy 116
-schach _sdevkit_vram_fill 120
-schach _search_clear 67601
+schach _sdevkit_sfx_play 1054
+schach _sdevkit_sprite 982
+schach _sdevkit_sprites_commit 3534
+schach _sdevkit_vram_copy 734
+schach _sdevkit_vram_fill 752
+schach _search_clear 417900
 schach _search_run -1
 schach _search_start -1
-schach _set_fen 78736
-schach _set_start 78757
-schach _setup_from_board 44161
+schach _set_fen 501882
+schach _set_start 502024
+schach _setup_from_board 284400
 schach _sfx_dsp -1
 schach _sfx_upload -1
 schach _sfx_upload_begin -1
 schach _sfx_upload_end -1
-schach _sfx_voice 1691
+schach _sfx_voice 11226
 schach _sfx_voices_frame -1
 schach _sfx_voices_init -1
-schach _sfx_voices_play 158
-schach _shadow_check 6
-schach _skip_capture 339
+schach _sfx_voices_play 1054
+schach _shadow_check 42
+schach _skip_capture 2200
 schach _slider_on_line -1
 schach _start_iteration -1
 schach _stop -1
 schach _text_at -1
-schach _text_dirty 75
+schach _text_dirty 492
 schach _think -1
 schach _title -1
-schach _to_tt 41
-schach _tt_store 255
-schach _unmake_move 526
-schach _unmake_null 127
-schach dampf_mul16 108
-schach dampf_mul32 400
-schach dampf_sdiv32 2594
-schach dampf_udiv16 772
-schach dampf_udiv32 2432
-spelling copy copy_down 1823
-spelling copy copy_i16 1823
-spelling copy copy_ptr 1823
-spelling copy copy_ptr_end 1823
-spelling copy copy_u16 1823
-spelling copy copy_u8 1823
-spelling copy copy_while_n 1823
-spelling field-arrays fields_u16 1361
-spelling field-arrays fields_u8 1361
-spelling fill-words fill_do 1035
-spelling fill-words fill_i16 1044
-spelling fill-words fill_ptr_end 1044
-spelling fill-words fill_ptr_walk 1044
-spelling fill-words fill_u16 1044
-spelling fill-words fill_u16_down 1044
-spelling fill-words fill_u16_le 1044
-spelling fill-words fill_u16_ne 1044
-spelling fill-words fill_u8 1044
-spelling fill-words fill_u8_down 1044
-spelling fill-words fill_while 1044
-spelling pairs pairs_down 37897
-spelling pairs pairs_hoisted 34864
-spelling pairs pairs_i16 34864
-spelling pairs pairs_ptr 34864
-spelling pairs pairs_u16 34864
-spelling pairs pairs_u8 34864
-spelling search find_break_u16 2361
-spelling search find_break_u8 2361
-spelling search find_cond_u16 2361
-spelling search find_ptr 2401
-spelling search find_return_i16 2364
-spelling search find_return_u16 2364
-spelling search find_return_u8 2364
-spelling struct-fields struct_down 1585
-spelling struct-fields struct_ptr 1521
-spelling struct-fields struct_ptr_count 1521
-spelling struct-fields struct_u16 1521
-spelling struct-fields struct_u8 1521
-spelling sum-bound-128 i16_down 3494
-spelling sum-bound-128 i16_up 3238
-spelling sum-bound-128 u16_down 3494
-spelling sum-bound-128 u16_up 3238
-spelling sum-bound-128 u8_up 3238
-spelling sum-bound-129 i16_down 3521
-spelling sum-bound-129 i16_up 3263
-spelling sum-bound-129 u16_down 3521
-spelling sum-bound-129 u16_up 3263
-spelling sum-bound-129 u8_up 3263
-spelling sum-bound-20 i16_down 578
-spelling sum-bound-20 i16_up 538
-spelling sum-bound-20 u16_down 578
-spelling sum-bound-20 u16_up 538
-spelling sum-bound-20 u8_up 538
-spelling sum-bound-200 i16_down 5438
-spelling sum-bound-200 i16_up 5038
-spelling sum-bound-200 u16_down 5438
-spelling sum-bound-200 u16_up 5038
-spelling sum-bound-200 u8_up 5038
-spelling sum-bound-30 i16_down 848
-spelling sum-bound-30 i16_up 788
-spelling sum-bound-30 u16_down 848
-spelling sum-bound-30 u16_up 788
-spelling sum-bound-30 u8_up 788
-spelling sum-bound-300 i16_down 8138
-spelling sum-bound-300 i16_up 7538
-spelling sum-bound-300 u16_down 8138
-spelling sum-bound-300 u16_up 7538
-spelling sum-bytes a_u16_lt100 2538
-spelling sum-bytes b_u8_lt100 2538
-spelling sum-bytes c_i16_lt100 2538
-spelling sum-bytes d_u8_ne100 2538
-spelling sum-bytes e_u8_le99 2538
-spelling sum-bytes f_u16_le99 2538
-spelling sum-bytes g_u16_down 2738
-spelling sum-bytes h_u8_down 2738
-spelling sum-bytes i_u16_dowhile 2725
-spelling sum-bytes j_u16_var_bound 1703958
-spelling sum-bytes k_u8_var_bound 6681
-spelling sum-bytes l_u16_local_bound 1703958
-spelling sum-bytes m_u16_from1 2538
-spelling sum-bytes n_u16_ne100 2738
-spelling sum-bytes o_u16_while 2538
-spelling sum-bytes x_ptr_walk 2538
-spelling sum-bytes y_ptr_end 2538
-spelling table-2d flat_index 3238
-spelling table-2d flat_ptr 3238
-spelling table-2d rows_i16 3238
-spelling table-2d rows_ptr 3238
-spelling table-2d rows_u16 3238
-spelling table-2d rows_u8 3238
+schach _to_tt 268
+schach _tt_store 1684
+schach _unmake_move 3400
+schach _unmake_null 812
+schach dampf_mul16 678
+schach dampf_mul32 2542
+schach dampf_sdiv32 17750
+schach dampf_udiv16 5226
+schach dampf_udiv32 16670
+spelling copy copy_down 11344
+spelling copy copy_i16 11344
+spelling copy copy_ptr 11344
+spelling copy copy_ptr_end 11344
+spelling copy copy_u16 11344
+spelling copy copy_u8 11344
+spelling copy copy_while_n 11344
+spelling field-arrays fields_u16 8684
+spelling field-arrays fields_u8 8684
+spelling fill-words fill_do 6472
+spelling fill-words fill_i16 6526
+spelling fill-words fill_ptr_end 6526
+spelling fill-words fill_ptr_walk 6526
+spelling fill-words fill_u16 6526
+spelling fill-words fill_u16_down 6526
+spelling fill-words fill_u16_le 6526
+spelling fill-words fill_u16_ne 6526
+spelling fill-words fill_u8 6526
+spelling fill-words fill_u8_down 6526
+spelling fill-words fill_while 6526
+spelling pairs pairs_down 247568
+spelling pairs pairs_hoisted 223030
+spelling pairs pairs_i16 223030
+spelling pairs pairs_ptr 223030
+spelling pairs pairs_u16 223030
+spelling pairs pairs_u8 223030
+spelling search find_break_u16 14996
+spelling search find_break_u8 14996
+spelling search find_cond_u16 14996
+spelling search find_ptr 15260
+spelling search find_return_i16 15014
+spelling search find_return_u16 15014
+spelling search find_return_u8 15014
+spelling struct-fields struct_down 10028
+spelling struct-fields struct_ptr 9644
+spelling struct-fields struct_ptr_count 9644
+spelling struct-fields struct_u16 9644
+spelling struct-fields struct_u8 9644
+spelling sum-bound-128 i16_down 22522
+spelling sum-bound-128 i16_up 20986
+spelling sum-bound-128 u16_down 22522
+spelling sum-bound-128 u16_up 20986
+spelling sum-bound-128 u8_up 20986
+spelling sum-bound-129 i16_down 22696
+spelling sum-bound-129 i16_up 21148
+spelling sum-bound-129 u16_down 22696
+spelling sum-bound-129 u16_up 21148
+spelling sum-bound-129 u8_up 21148
+spelling sum-bound-20 i16_down 3730
+spelling sum-bound-20 i16_up 3490
+spelling sum-bound-20 u16_down 3730
+spelling sum-bound-20 u16_up 3490
+spelling sum-bound-20 u8_up 3490
+spelling sum-bound-200 i16_down 35050
+spelling sum-bound-200 i16_up 32650
+spelling sum-bound-200 u16_down 35050
+spelling sum-bound-200 u16_up 32650
+spelling sum-bound-200 u8_up 32650
+spelling sum-bound-30 i16_down 5470
+spelling sum-bound-30 i16_up 5110
+spelling sum-bound-30 u16_down 5470
+spelling sum-bound-30 u16_up 5110
+spelling sum-bound-30 u8_up 5110
+spelling sum-bound-300 i16_down 52450
+spelling sum-bound-300 i16_up 48850
+spelling sum-bound-300 u16_down 52450
+spelling sum-bound-300 u16_up 48850
+spelling sum-bytes a_u16_lt100 16450
+spelling sum-bytes b_u8_lt100 16450
+spelling sum-bytes c_i16_lt100 16450
+spelling sum-bytes d_u8_ne100 16450
+spelling sum-bytes e_u8_le99 16450
+spelling sum-bytes f_u16_le99 16450
+spelling sum-bytes g_u16_down 17650
+spelling sum-bytes h_u8_down 17650
+spelling sum-bytes i_u16_dowhile 17568
+spelling sum-bytes j_u16_var_bound 11272342
+spelling sum-bytes k_u8_var_bound 44200
+spelling sum-bytes l_u16_local_bound 11272342
+spelling sum-bytes m_u16_from1 16450
+spelling sum-bytes n_u16_ne100 17650
+spelling sum-bytes o_u16_while 16450
+spelling sum-bytes x_ptr_walk 16450
+spelling sum-bytes y_ptr_end 16450
+spelling table-2d flat_index 20986
+spelling table-2d flat_ptr 20986
+spelling table-2d rows_i16 20986
+spelling table-2d rows_ptr 20986
+spelling table-2d rows_u16 20986
+spelling table-2d rows_u8 20986
 steinschlag _add_score -1
-steinschlag _approach 119
-steinschlag _blast 491427
-steinschlag _camera 320
-steinschlag _cave_scan_rows 392762850
+steinschlag _approach 772
+steinschlag _blast 3170056
+steinschlag _camera 2074
+steinschlag _cave_scan_rows 2533539354
 steinschlag _cave_start -1
-steinschlag _cave_tick_begin 24
-steinschlag _cell_changed 279
-steinschlag _crawl 492056
-steinschlag _dma0 94
-steinschlag _dma_source 61
-steinschlag _draw_cave 221266
-steinschlag _draw_miner 233
-steinschlag _fall 491713
+steinschlag _cave_tick_begin 156
+steinschlag _cell_changed 1800
+steinschlag _crawl 3174014
+steinschlag _dma0 604
+steinschlag _dma_source 406
+steinschlag _draw_cave 1419754
+steinschlag _draw_miner 1482
+steinschlag _fall 3171920
 steinschlag _game_init -1
 steinschlag _game_tick -1
-steinschlag _game_vblank 1494
+steinschlag _game_vblank 9328
 steinschlag _hud -1
-steinschlag _hud_clear 1057
+steinschlag _hud_clear 6606
 steinschlag _hud_gems -1
 steinschlag _hud_lives -1
 steinschlag _hud_number -1
@@ -717,40 +717,40 @@ steinschlag _hud_time -1
 steinschlag _main -1
 steinschlag _miner_input -1
 steinschlag _miner_step -1
-steinschlag _next_to_miner 564
+steinschlag _next_to_miner 3530
 steinschlag _play -1
-steinschlag _random16 105
-steinschlag _round_top 31
+steinschlag _random16 688
+steinschlag _round_top 196
 steinschlag _sdevkit__frame -1
 steinschlag _sdevkit__read_pads -1
-steinschlag _sdevkit__reset_ppu 14069
+steinschlag _sdevkit__reset_ppu 85938
 steinschlag _sdevkit__sfx_frame -1
 steinschlag _sdevkit__splash -1
 steinschlag _sdevkit__splash_frame -1
-steinschlag _sdevkit__start 14125
+steinschlag _sdevkit__start 86286
 steinschlag _sdevkit__wait_vblank -1
-steinschlag _sdevkit_cgram_copy 100
-steinschlag _sdevkit_dbg_hash 79
-steinschlag _sdevkit_oam_copy 104
-steinschlag _sdevkit_reg_write 25
-steinschlag _sdevkit_reg_write_twice 43
+steinschlag _sdevkit_cgram_copy 638
+steinschlag _sdevkit_dbg_hash 510
+steinschlag _sdevkit_oam_copy 662
+steinschlag _sdevkit_reg_write 170
+steinschlag _sdevkit_reg_write_twice 288
 steinschlag _sdevkit_sfx_init -1
-steinschlag _sdevkit_sfx_play 158
-steinschlag _sdevkit_vram_copy 116
-steinschlag _sdevkit_vram_fill 120
-steinschlag _set 297
+steinschlag _sdevkit_sfx_play 1054
+steinschlag _sdevkit_vram_copy 734
+steinschlag _sdevkit_vram_fill 752
+steinschlag _set 1914
 steinschlag _sfx_dsp -1
 steinschlag _sfx_upload -1
 steinschlag _sfx_upload_begin -1
 steinschlag _sfx_upload_end -1
-steinschlag _sfx_voice 1691
+steinschlag _sfx_voice 11226
 steinschlag _sfx_voices_frame -1
 steinschlag _sfx_voices_init -1
-steinschlag _sfx_voices_play 158
+steinschlag _sfx_voices_play 1054
 steinschlag _start_cave -1
 steinschlag _title -1
-steinschlag dampf_mul16 108
-steinschlag dampf_mul32 400
-steinschlag dampf_sdiv32 2594
-steinschlag dampf_udiv16 772
-steinschlag dampf_udiv32 2432
+steinschlag dampf_mul16 678
+steinschlag dampf_mul32 2542
+steinschlag dampf_sdiv32 17750
+steinschlag dampf_udiv16 5226
+steinschlag dampf_udiv32 16670

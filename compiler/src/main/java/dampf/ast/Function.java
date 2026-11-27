@@ -64,7 +64,7 @@ public final class Function {
         return definitionPos;
     }
 
-    /** The cycle budget from DAMPF_BUDGET (CPU cycles, calls included), or null. */
+    /** The cycle budget from DAMPF_BUDGET (master cycles, calls included), or null. */
     public Long budget() {
         return budget;
     }

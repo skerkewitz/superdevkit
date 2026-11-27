@@ -68,7 +68,7 @@ class BackendOutputTest {
             }
         }
         spellingCosts(costs);
-        StringBuilder costText = new StringBuilder("# The static worst case in CPU cycles of every function of every example and of\n"
+        StringBuilder costText = new StringBuilder("# The static worst case in master cycles of every function of every example and of\n"
                 + "# every member of the spelling families (one call through spelling_entry; -1: unbounded).\n"
                 + "# Written by BackendOutputTest with -PbackendOutput=update; its diff shows what got slower.\n");
         costs.forEach((k, v) -> costText.append(k).append(' ').append(v).append('\n'));

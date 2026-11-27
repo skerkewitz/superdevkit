@@ -326,14 +326,14 @@ class InterruptContextsTest {
                     t.dbr = cpu.dbr;
                     t.s = cpu.s + 4;
                     t.returnTo = cpu.interruptReturn;
-                    t.start = cpu.interruptStart - cpu.cyclesAbove[t.depth];   // (the entry's cycles are not nested ones)
+                    t.start = cpu.interruptMasterStart - cpu.masterAbove[t.depth];   // (the entry's cycles are not nested ones)
                     open.push(t);
                 }
                 Taken t = open.peek();
                 if (t == null || cpu.depth != t.depth && address != t.returnTo) {
                     return;
                 }
-                long own = cpu.cycles - cpu.cyclesAbove[t.depth];
+                long own = cpu.master - cpu.masterAbove[t.depth];
                 if (address == handler.get(t.kind) && t.handler < 0) {
                     t.handler = own;
                     if (cpu.d != page.get(t.kind) || cpu.dbr != 0x7E || cpu.m || cpu.xf) {
@@ -358,8 +358,8 @@ class InterruptContextsTest {
             assertTrue(irqs >= 20 && nmis >= 10, b + ": " + irqs + " IRQs and " + nmis + " NMIs");
             assertTrue(done.stream().anyMatch(t -> t.kind == Interrupt.NMI && t.depth == 2), b + ": an NMI inside the IRQ handler");
             for (Taken t : done) {
-                assertEquals((long) Timing.INTERRUPT_ENTRY.get(t.kind), t.handler - t.start, b + ": the " + t.kind + " stub's entry");
-                assertEquals(Timing.INTERRUPT_EXIT, t.end - t.back, b + ": the " + t.kind + " stub's exit");
+                assertEquals((long) Timing.interruptEntry(t.kind, true), t.handler - t.start, b + ": the " + t.kind + " stub's entry");
+                assertEquals(Timing.interruptExit(true), t.end - t.back, b + ": the " + t.kind + " stub's exit");
             }
         }
     }
@@ -369,7 +369,7 @@ class InterruptContextsTest {
         Compiler.Result r = build(program(), Compiler.Backend.MIR);
         Map<String, long[]> t = r.timing();
         for (Interrupt c : Interrupt.values()) {
-            long stub = Timing.INTERRUPT_ENTRY.get(c) + Timing.INTERRUPT_EXIT;
+            long stub = Timing.interruptEntry(c, true) + Timing.interruptExit(true);
             long[] handler = t.get(c == Interrupt.IRQ ? "_on_irq" : "_on_nmi");
             assertEquals(handler[0] + stub, t.get("dampf_" + c.key)[0], c + " best case");
             assertEquals(handler[1] + stub, t.get("dampf_" + c.key)[1], c + " worst case");

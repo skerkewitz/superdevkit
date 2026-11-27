@@ -30,7 +30,7 @@ is concluded, it moves to [history.md](history.md).
 
 | Milestone | Goal | Version | State |
 | --- | --- | --- | --- |
-| M11 | Timing and debugging: master cycles, bounds for more loops, locals and types in Mesen | 0.11.0 | Next |
+| M11 | Timing and debugging: bounds for more loops, the IRQ's window, locals and types in Mesen | 0.11.0 | Next |
 | M12 | Fine tuning: what was left of M4 and M9, until the frame budget is met | 0.12.0 | Planned |
 
 The order follows the likely gain and what each milestone needs from the one before.
@@ -39,7 +39,6 @@ The order follows the likely gain and what each milestone needs from the one bef
 
 Timing ([timing.md](timing.md#not-built-yet)):
 
-- master cycles instead of CPU cycles, in the report, the comments and the budgets;
 - the costliest path per C line, in the report and in budget errors, and best and worst case in
   the comments of lines with a branch;
 - bounds for more loops: 37 of the game's functions have none; `DAMPF_TRIPS` for loops without

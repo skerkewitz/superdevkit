@@ -9,7 +9,7 @@
  * Every name a game can use starts with `sdevkit_` or `SDEVKIT_`; nothing else of the kit is
  * meant for it. `lib/snes` implements this header on the console, compiled by dampf with the
  * game; `lib/rachael` (Rachael, the SNES rebuilt in portable C) on the desktop and the web.
- * `lib/README.md` lists what each function costs in CPU cycles. This header, `sdevkit/loop.h`
+ * `lib/README.md` lists what each function costs in master cycles. This header, `sdevkit/loop.h`
  * and the optional layers' headers are all a game needs: what the hardware does is explained
  * here, at the names that reach it.
  *

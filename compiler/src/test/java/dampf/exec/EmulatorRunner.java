@@ -58,17 +58,27 @@ final class EmulatorRunner {
 
     /**
      * The CPU cycles the entry function takes, from its first instruction until control is back
-     * in the runtime (at dampf_done, right after the JSL that called it): what the static timing
-     * bounds. The cycles of interrupts that came meanwhile are left out.
+     * in the runtime (at dampf_done, right after the JSL that called it). The cycles of interrupts
+     * that came meanwhile are left out.
      */
     long cyclesOf(RomBuilder.Rom rom, String function) throws IOException {
+        return measure(rom, function, false);
+    }
+
+    /** The same in master cycles ({@link dampf.emu.Cpu65816#master}): what the static timing bounds. */
+    long masterCyclesOf(RomBuilder.Rom rom, String function) throws IOException {
+        return measure(rom, function, true);
+    }
+
+    private long measure(RomBuilder.Rom rom, String function, boolean master) throws IOException {
         Map<String, Long> addresses = labels(rom.labels());
         long start = addresses.get(function);
         long stop = addresses.get("dampf_done");
         Snes snes = Snes.load(rom.rom());
         long[] at = {-1, -1};
         snes.run(limitMasterCycles, address -> {
-            long own = snes.cpu().cycles - snes.cpu().cyclesAbove[0];
+            dampf.emu.Cpu65816 cpu = snes.cpu();
+            long own = master ? cpu.master - cpu.masterAbove[0] : cpu.cycles - cpu.cyclesAbove[0];
             if (address == start && at[0] < 0) {
                 at[0] = own;
             } else if (address == stop && at[0] >= 0 && at[1] < 0) {
@@ -86,7 +96,7 @@ final class EmulatorRunner {
 
     /**
      * Runs the ROM and measures every call of every function (and runtime routine) with static
-     * bounds: from its first instruction to the instruction after the JSL that called it. Each
+     * bounds, in master cycles: from its first instruction to the instruction after the JSL that called it. Each
      * must lie within the bounds (best, worst; worst -1: unbounded). The cycles of interrupts that
      * came during a call are not the call's. An interrupt whose entry stub has bounds
      * ({@code dampf_irq}, {@code dampf_nmi}) is measured too, from its first cycle to the end of
@@ -109,13 +119,13 @@ final class EmulatorRunner {
         List<String> wrong = new java.util.ArrayList<>();
         dampf.emu.Cpu65816 cpu = snes.cpu();
         snes.run(limitMasterCycles, address -> {
-            long cycles = cpu.cycles;
+            long cycles = cpu.master;
             while (!stack.isEmpty() && stack.peek().returnTo() == address && stack.peek().depth() >= cpu.depth) {
                 Call c = stack.pop();
-                long took = cycles - c.start() - (cpu.cyclesAbove[c.depth()] - c.above());
+                long took = cycles - c.start() - (cpu.masterAbove[c.depth()] - c.above());
                 long[] b = timing.get(c.function());
                 if ((took < b[0] || b[1] >= 0 && took > b[1]) && wrong.size() < 10) {
-                    wrong.add(c.function() + " took " + took + " CPU cycles, bounds " + b[0] + ".." + (b[1] < 0 ? "unbounded" : b[1]));
+                    wrong.add(c.function() + " took " + took + " master cycles, bounds " + b[0] + ".." + (b[1] < 0 ? "unbounded" : b[1]));
                 }
                 calls[0]++;
             }
@@ -124,12 +134,12 @@ final class EmulatorRunner {
                 interrupts[0] = cpu.interrupts;
                 String stub = starts.get((long) address | 0x800000);   // its label is in bank $80, the vector leads to $00
                 if (stub != null) {
-                    stack.push(new Call(stub, cpu.interruptStart, cpu.interruptReturn, cpu.depth, cpu.cyclesAbove[cpu.depth]));
+                    stack.push(new Call(stub, cpu.interruptMasterStart, cpu.interruptReturn, cpu.depth, cpu.masterAbove[cpu.depth]));
                 }
             } else {
                 String f = starts.get((long) address);
                 if (f != null && previous[0] >= 0 && byteAt(image, previous[0]) == 0x22) {   // after a JSL
-                    stack.push(new Call(f, cycles, previous[0] + 4, cpu.depth, cpu.cyclesAbove[cpu.depth]));
+                    stack.push(new Call(f, cycles, previous[0] + 4, cpu.depth, cpu.masterAbove[cpu.depth]));
                 }
             }
             previous[0] = address;

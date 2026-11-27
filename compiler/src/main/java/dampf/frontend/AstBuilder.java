@@ -265,7 +265,7 @@ public final class AstBuilder {
                     java.util.regex.Matcher m = java.util.regex.Pattern.compile("__attribute__\\(\\(dampf_budget\\((\\d+)[uU]?\\)\\)\\)")
                             .matcher(fs.getText());
                     if (!m.matches()) {
-                        throw error(fs, "DAMPF_BUDGET needs a number of CPU cycles");
+                        throw error(fs, "DAMPF_BUDGET needs a number of master cycles");
                     }
                     if (!budgetAllowed) {
                         throw error(fs, "DAMPF_BUDGET belongs in front of a function definition");

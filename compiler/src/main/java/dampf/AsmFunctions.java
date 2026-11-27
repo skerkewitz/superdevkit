@@ -73,7 +73,7 @@ final class AsmFunctions {
             }
             String text = Files.readString(file);
             AsmFunction.Spec spec = new AsmFunction.Spec(f.name(), f.label(), params(f), otherFrames(program, f));
-            AsmFunction.Result r = AsmFunction.analyse(shown, text, spec);
+            AsmFunction.Result r = AsmFunction.analyse(shown, text, spec, o.fastRom());
             out.put(f.name(), new Asm(f, file.toAbsolutePath().normalize(), shown, seen.add(file.toAbsolutePath().normalize()) ? text : null, r));
         }
         return out;

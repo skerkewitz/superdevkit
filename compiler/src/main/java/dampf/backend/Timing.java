@@ -21,8 +21,10 @@ import java.util.Set;
 import java.util.function.Function;
 
 /**
- * Static timing: the best and the worst case of a function in CPU cycles, from the code the code
- * generator wrote (docs/timing.md, levels 1 and 2).
+ * Static timing: the best and the worst case of a function in master cycles (ADR-6FVMDV79), from
+ * the code the code generator wrote (docs/timing.md, levels 1 and 2). Every instruction costs
+ * what its accesses cost where they go ({@link LInstr#master}), with the code in FastROM or
+ * SlowROM.
  *
  * <p>Within a block the code is straight, except for forward branches over a few instructions
  * and the small loops the code generator marks with their bound (shifts, copies). Every way out
@@ -66,37 +68,64 @@ final class Timing {
     }
 
     /**
-     * The runtime's routines, from JSL's target to their RTL, counted by hand from runtime.s with
-     * the cycle table (16-bit registers, D = 0): the multiplications without a loop, on the
-     * CPU's multiplier; the divisions in fixed loops of 16 or 32 rounds, best and worst way
-     * through each round.
+     * The runtime's routines, from JSL's target to their RTL, in master cycles with the code in
+     * FastROM: the multiplications without a loop, on the CPU's multiplier; the divisions in
+     * fixed loops of 16 or 32 rounds, best and worst way through each round. Counted from
+     * runtime.s with {@link dampf.target.MasterCycles} over every way through (the direct page and
+     * the stack at 8, the multiplier's registers and internal operations at 6); in CPU cycles they
+     * are 108, 398-400, 564-772, 1,888-2,432 and 1,940-2,594.
      */
-    static final Map<String, Bound> RUNTIME = Map.of(
-            "dampf_mul16", new Bound(108, 108),
-            "dampf_mul32", new Bound(398, 400),
-            "dampf_udiv16", new Bound(564, 772),
-            "dampf_udiv32", new Bound(1888, 2432),
-            "dampf_sdiv32", new Bound(1940, 2594));
+    static final Map<String, Bound> RUNTIME_FAST = Map.of(
+            "dampf_mul16", new Bound(678, 678),
+            "dampf_mul32", new Bound(2530, 2542),
+            "dampf_udiv16", new Bound(3786, 5226),
+            "dampf_udiv32", new Bound(12894, 16670),
+            "dampf_sdiv32", new Bound(13238, 17750));
+    /** The same with the code in SlowROM ({@code --slowrom}), every read of the code at 8. */
+    static final Map<String, Bound> RUNTIME_SLOW = Map.of(
+            "dampf_mul16", new Bound(814, 814),
+            "dampf_mul32", new Bound(3000, 3016),
+            "dampf_udiv16", new Bound(4318, 5950),
+            "dampf_udiv32", new Bound(14526, 18814),
+            "dampf_sdiv32", new Bound(14928, 20096));
 
     /**
      * The multiplications of interrupt code, in software (ADR-6FM9TXV4), counted the same way: one
-     * round of 23 or 32 cycles per bit of the second factor up to its highest, and 32 rounds of 36
-     * or 61. Only a program with an interrupt handler has them.
+     * round per bit of the second factor up to its highest (22-532 CPU cycles), and 32 rounds
+     * (1,168-1,968). Only a program with an interrupt handler has them.
      */
-    static final Map<String, Bound> RUNTIME_SOFT = Map.of(
-            "dampf_mul16_soft", new Bound(22, 532),
-            "dampf_mul32_soft", new Bound(1168, 1968));
+    static final Map<String, Bound> RUNTIME_SOFT_FAST = Map.of(
+            "dampf_mul16_soft", new Bound(146, 3526),
+            "dampf_mul32_soft", new Bound(8046, 13614));
+    static final Map<String, Bound> RUNTIME_SOFT_SLOW = Map.of(
+            "dampf_mul16_soft", new Bound(168, 4060),
+            "dampf_mul32_soft", new Bound(8894, 15294));
+
+    static Map<String, Bound> runtime(boolean fastRom) {
+        return fastRom ? RUNTIME_FAST : RUNTIME_SLOW;
+    }
+
+    static Map<String, Bound> runtimeSoft(boolean fastRom) {
+        return fastRom ? RUNTIME_SOFT_FAST : RUNTIME_SOFT_SLOW;
+    }
 
     /**
-     * The runtime's entry stub of an interrupt handler (runtime.s), in CPU cycles: from the
-     * interrupt being taken (the CPU's 8 cycles of pushing PBR, PC and P and reading the vector) to
-     * the handler's first instruction, and from its RTL's target to the end of the RTI. The NMI
-     * reads RDNMI in 8 bits, so it takes 5 more cycles than the IRQ. The instruction the CPU was
-     * running when the interrupt came, which it finishes first, is not counted.
+     * The runtime's entry stub of an interrupt handler (runtime.s), in master cycles: from the
+     * interrupt being taken to the handler's first instruction, and from its RTL's target to the
+     * end of the RTI. The interrupt itself takes 60 (a read at the program counter, an internal
+     * operation, PBR, PC and P pushed, the vector read from bank 0's SlowROM; 62 when the code is
+     * in SlowROM); the stub's first instruction, a JML into bank $80, runs in bank 0 at 8 a byte.
+     * The NMI reads RDNMI in 8 bits, so it takes 30 more than the IRQ (5 CPU cycles). In CPU
+     * cycles the entry is 71 and 66, the exit 31. The instruction the CPU was running when the
+     * interrupt came, which it finishes first, is not counted.
      */
-    static final Map<dampf.ast.Interrupt, Integer> INTERRUPT_ENTRY = Map.of(dampf.ast.Interrupt.NMI, 71,
-            dampf.ast.Interrupt.IRQ, 66);
-    static final int INTERRUPT_EXIT = 31;
+    static int interruptEntry(dampf.ast.Interrupt c, boolean fastRom) {
+        return c == dampf.ast.Interrupt.NMI ? (fastRom ? 478 : 536) : (fastRom ? 448 : 498);
+    }
+
+    static int interruptExit(boolean fastRom) {
+        return fastRom ? 212 : 224;
+    }
 
     private static final Object RET = new Object();
 
@@ -109,7 +138,7 @@ final class Timing {
      * @param callees the bounds of called functions (by label), including the runtime's
      */
     static Bound of(MFunction f, LFunction code, Map<String, Integer> loopBounds, List<Block> order,
-                    Ranges ranges, Function<String, Bound> callees) {
+                    Ranges ranges, boolean fastRom, Function<String, Bound> callees) {
         Map<String, Block> byName = new HashMap<>();
         for (Block b : f.blocks()) {
             byName.put(b.name(), b);
@@ -136,7 +165,7 @@ final class Timing {
             int from = labelAt.get(b.name());
             int to = k + 1 < order.size() ? labelAt.get(order.get(k + 1).name()) : items.size();
             Block next = k + 1 < order.size() ? order.get(k + 1) : null;
-            exits.put(b, block(items, from + 1, to, labelAt, loopBounds, byName, next, callees, code::tableTargets));
+            exits.put(b, block(items, from + 1, to, labelAt, loopBounds, byName, next, fastRom, callees, code::tableTargets));
         }
         // loops, innermost first, become single nodes
         Map<Block, Node> node = new IdentityHashMap<>();
@@ -252,7 +281,8 @@ final class Timing {
     /** The ways out of one block's code, items [from, to), with their cost intervals. */
     private static Map<Object, Bound> block(List<LItem> items, int from, int to, Map<String, Integer> labelAt,
                                             Map<String, Integer> loopBounds, Map<String, Block> byName, Block next,
-                                            Function<String, Bound> callees, Function<String, List<String>> tables) {
+                                            boolean fastRom, Function<String, Bound> callees,
+                                            Function<String, List<String>> tables) {
         int n = to - from;
         long[] min = new long[n + 1];
         long[] max = new long[n + 1];
@@ -270,13 +300,14 @@ final class Timing {
                 if (rounds != null) {
                     // a small loop: from here to the branch back; straight code in between
                     int back = backBranch(items, from + i, to, label.name());
-                    long body = 0;
+                    Bound body = new Bound(0, 0);
                     for (int j = from + i + 1; j < back; j++) {
-                        body += ((LInstr) items.get(j)).cycles();
+                        body = body.plus(cost(((LInstr) items.get(j)).master(fastRom)));
                     }
                     LInstr br = (LInstr) items.get(back);
-                    Bound loop = new Bound(body + br.cycles(),
-                            add(times(rounds - 1, body + br.cyclesTaken()), body + br.cycles()));
+                    Bound last = body.plus(cost(br.master(fastRom)));
+                    Bound again = body.plus(cost(br.masterTaken(fastRom)));
+                    Bound loop = new Bound(last.best(), add(times(rounds - 1, again.worst()), last.worst()));
                     relax(min, max, back - from + 1, a.plus(loop));
                 } else {
                     relax(min, max, i + 1, a);
@@ -287,8 +318,9 @@ final class Timing {
             String m = it.mnemonic();
             String op = it.operand();
             Block target = op == null ? null : byName.get(op);
+            Bound own = cost(it.master(fastRom));
             if (it.isConditionalBranch()) {
-                Bound taken = a.plus(new Bound(it.cyclesTaken(), it.cyclesTaken()));
+                Bound taken = a.plus(cost(it.masterTaken(fastRom)));
                 if (target != null) {
                     join(out, target, taken);
                 } else {
@@ -298,10 +330,10 @@ final class Timing {
                     }
                     relax(min, max, t - from, taken);
                 }
-                relax(min, max, i + 1, a.plus(new Bound(it.cycles(), it.cycles())));
+                relax(min, max, i + 1, a.plus(own));
             } else if (it.isTableJump()) {
                 // a switch's jump table: to each of its entries, a block or a stub behind the jump
-                Bound go = a.plus(new Bound(it.cycles(), it.cycles()));
+                Bound go = a.plus(own);
                 List<String> entries = tables.apply(it.tableLabel());
                 if (entries.isEmpty()) {
                     throw new IllegalStateException("a jump through a table that is not in the function: " + it);
@@ -319,7 +351,7 @@ final class Timing {
                     relax(min, max, t - from, go);
                 }
             } else if (m.equals("jmp") || m.equals("bra") || m.equals("brl") || m.equals("jml")) {
-                Bound go = a.plus(new Bound(it.cycles(), it.cycles()));
+                Bound go = a.plus(own);
                 if (target != null) {
                     join(out, target, go);
                 } else {
@@ -330,12 +362,12 @@ final class Timing {
                     relax(min, max, t - from, go);
                 }
             } else if (m.equals("rtl") || m.equals("rts") || m.equals("rti")) {
-                join(out, RET, a.plus(new Bound(it.cycles(), it.cycles())));
+                join(out, RET, a.plus(own));
             } else if (m.equals("jsl") || m.equals("jsr")) {
                 Bound callee = callees.apply(op);
-                relax(min, max, i + 1, a.plus(new Bound(it.cycles(), it.cycles())).plus(callee));
+                relax(min, max, i + 1, a.plus(own).plus(callee));
             } else {
-                relax(min, max, i + 1, a.plus(new Bound(it.cycles(), it.cycles())));
+                relax(min, max, i + 1, a.plus(own));
             }
         }
         if (min[n] >= 0) {
@@ -345,6 +377,10 @@ final class Timing {
             join(out, next, new Bound(min[n], max[n]));
         }
         return out;
+    }
+
+    private static Bound cost(dampf.target.MasterCycles.Range r) {
+        return new Bound(r.best(), r.worst());
     }
 
     private static int backBranch(List<LItem> items, int label, int to, String name) {
@@ -373,14 +409,15 @@ final class Timing {
     }
 
     /**
-     * The cost of each C line of a function, set on its header: the sum of its instructions when
-     * the line is straight code; none for a line with branches, jumps or labels, whose cost
+     * The cost of each C line of a function in master cycles, set on its header: the sum of its
+     * instructions when the line is straight code (a range when an access through a pointer may go
+     * to faster or slower memory); none for a line with branches, jumps or labels, whose cost
      * depends on the path (the bounds of the whole function cover those). Calls count only the
      * call itself and are marked "+ calls".
      */
-    static void lineCosts(LFunction f) {
+    static void lineCosts(LFunction f, boolean fastRom) {
         LSourceLine header = null;
-        long sum = 0;
+        Bound sum = new Bound(0, 0);
         boolean branches = false;
         boolean calls = false;
         for (LBlock b : f.blocks()) {
@@ -389,7 +426,7 @@ final class Timing {
                     case LSourceLine s -> {
                         setCost(header, sum, branches, calls);
                         header = s;
-                        sum = 0;
+                        sum = new Bound(0, 0);
                         branches = false;
                         calls = false;
                     }
@@ -398,7 +435,7 @@ final class Timing {
                         if (in.isConditionalBranch() || in.isJump()) {
                             branches = true;
                         } else {
-                            sum += in.cycles();
+                            sum = sum.plus(cost(in.master(fastRom)));
                         }
                         calls |= in.isCall();
                     }
@@ -409,9 +446,10 @@ final class Timing {
         setCost(header, sum, branches, calls);
     }
 
-    private static void setCost(LSourceLine header, long sum, boolean branches, boolean calls) {
+    private static void setCost(LSourceLine header, Bound sum, boolean branches, boolean calls) {
         if (header != null) {
-            header.setCycles(!branches && sum > 0 ? Integer.valueOf((int) sum) : null, calls);
+            header.setCycles(!branches && sum.worst() > 0
+                    ? new dampf.target.MasterCycles.Range((int) sum.best(), (int) sum.worst()) : null, calls);
         }
     }
 }

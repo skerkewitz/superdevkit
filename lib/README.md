@@ -109,60 +109,60 @@ prefix, and every external name in `lib/` is `sdevkit_*`, `sdevkit__*` or `main`
 ## Built and stub, per function and platform
 
 Desktop means `rachael/` with `desktop/` (Linux, Windows, and with `web/` the browser). The last column is what a call costs on the
-SNES: best to worst case in CPU cycles, calls included, from the timing report of a program that
+SNES: best to worst case in master cycles, calls included, from the timing report of a program that
 calls every function (`LibCostTest` writes it with `LIB_COSTS=update`, and fails when it is not
 today's). A call with constants is often less: dampf inlines the small ones, and a register
 write with a constant register is one store. The layers' commits are in the next section.
 
 | Function | SNES | desktop | CPU cycles on the SNES |
 | --- | --- | --- | ---: |
-| `sdevkit_reg_write` | built | built | 25 |
-| `sdevkit_reg_write_twice` | built | built | 43 |
-| `sdevkit_dma` | built | built (VRAM, CGRAM, OAM and the registers by their ports, both ways: from the PPU to memory VRAM, CGRAM and OAM read back) | 94 |
-| `sdevkit_vram_copy` | built | built | 116 |
-| `sdevkit_vram_column_copy` | built | built | 116 |
-| `sdevkit_vram_fill` | built | built | 120 |
-| `sdevkit_cgram_copy` | built | built | 100 |
-| `sdevkit_cgram_set` | built | built | 47 |
-| `sdevkit_oam_copy` | built | built | 104 |
-| `sdevkit_mode7_map_copy` | built | built | 116 |
-| `sdevkit_mode7_tiles_copy` | built | built | 116 |
-| `sdevkit_dma_fits` | built (from the line the picture is at) | built (from the bytes copied in this vertical blank) | 81 to 86 |
-| `sdevkit_hdma_set` | built | built (the direct modes; another is counted as undrawn) | 84 |
-| `sdevkit_hdma_enable` | built | built | 21 |
-| `sdevkit_irq_line` | built (the CPU's timer: VTIME, HTIME, NMITIMEN) | built (Rachael calls `game_irq` before the row) | 57 |
-| `sdevkit_irq_off` | built | built | 35 |
-| `sdevkit_irq_wait_hblank` | built (polls HVBJOY's horizontal blank) | built (notes that the handler waited: its register writes are free from then on) | 17 to unbounded |
-| `sdevkit_shadow_commit` | built | built (and counts a group changed without its mark) | 135 to 2,143 |
-| `sdevkit_sprite` | built | built | 21 to 133 |
-| `sdevkit_sprites_commit` | built | built | 60 to 560 |
-| `sdevkit_queue_dma` | built | built | 59 to 198 |
-| `sdevkit_queue_vram` | built | built | 29 |
-| `sdevkit_queue_vram_column` | built | built | 29 |
-| `sdevkit_queue_cgram` | built | built | 29 |
-| `sdevkit_queue_color` | built | built | 79 to 246 |
-| `sdevkit_queue_mode7_map` | built | built | 29 |
-| `sdevkit_queue_mode7_tiles` | built | built | 29 |
-| `sdevkit_queue_room` | built | built | 42 to 53 |
-| `sdevkit_queue_commit` | built | built | 48 to 3,672 |
-| `sdevkit_input_update` | built | built | 86 |
-| `sdevkit_commit` | built | built | 249 to 6,381 |
-| `sdevkit_sfx_init` | built | built | 51 to unbounded |
-| `sdevkit_sfx_play` | built | built | 39 to 158 |
-| `sdevkit_music_play` | empty, not built yet: dampf removes the calls (`DebugCallsTest`) | built (the track's file, over and over, in the window) | 6 |
-| `sdevkit_music_stop` | empty, not built yet: dampf removes the calls | built | 6 |
-| `sdevkit_sram` | built (the cartridge's battery RAM at $70:0000, `dampf --sram`) | built (`<game>.srm` next to the program) | 11 |
-| `sdevkit_dbg_vram` | built (a single zero word: the SNES cannot read VRAM) | built | 14 |
-| `sdevkit_dbg_hash` | built (the address and size to a port; the checker hashes) | built | 79 |
-| `sdevkit_dbg_toggle` | empty: dampf removes the calls (`DebugCallsTest`) | built (the debug view, F1) | 6 |
-| `sdevkit_dbg_range` | empty: dampf removes the calls | built (the debug view) | 6 |
-| `sdevkit_dbg_color` | empty: dampf removes the calls | built (the debug view) | 6 |
-| `sdevkit_dbg_action` | empty: dampf removes the calls | built (the debug view) | 6 |
-| `sdevkit_dbg_text` | empty: dampf removes the calls | built (a line the debug view shows) | 6 |
-| `sdevkit_dbg_value` | empty: dampf removes the calls | built (a value the debug view shows) | 6 |
-| `sdevkit_dbg_box` | empty: dampf removes the calls, and the loops left empty | built (over the picture in the debug view) | 6 |
-| `sdevkit_dbg_fill` | empty: dampf removes the calls, and the loops left empty | built (a filled box in the debug view) | 6 |
-| `sdevkit_dbg_arrow` | empty: dampf removes the calls, and the loops left empty | built (an arrow in the debug view) | 6 |
+| `sdevkit_reg_write` | built | built | 164 to 170 |
+| `sdevkit_reg_write_twice` | built | built | 276 to 288 |
+| `sdevkit_dma` | built | built (VRAM, CGRAM, OAM and the registers by their ports, both ways: from the PPU to memory VRAM, CGRAM and OAM read back) | 604 |
+| `sdevkit_vram_copy` | built | built | 734 |
+| `sdevkit_vram_column_copy` | built | built | 734 |
+| `sdevkit_vram_fill` | built | built | 752 |
+| `sdevkit_cgram_copy` | built | built | 638 |
+| `sdevkit_cgram_set` | built | built | 298 |
+| `sdevkit_oam_copy` | built | built | 662 |
+| `sdevkit_mode7_map_copy` | built | built | 734 |
+| `sdevkit_mode7_tiles_copy` | built | built | 734 |
+| `sdevkit_dma_fits` | built (from the line the picture is at) | built (from the bytes copied in this vertical blank) | 500 to 530 |
+| `sdevkit_hdma_set` | built | built (the direct modes; another is counted as undrawn) | 544 to 554 |
+| `sdevkit_hdma_enable` | built | built | 136 |
+| `sdevkit_irq_line` | built (the CPU's timer: VTIME, HTIME, NMITIMEN) | built (Rachael calls `game_irq` before the row) | 358 |
+| `sdevkit_irq_off` | built | built | 222 |
+| `sdevkit_irq_wait_hblank` | built (polls HVBJOY's horizontal blank) | built (notes that the handler waited: its register writes are free from then on) | 108 to unbounded |
+| `sdevkit_shadow_commit` | built | built (and counts a group changed without its mark) | 870 to 14,034 |
+| `sdevkit_sprite` | built | built | 136 to 836 |
+| `sdevkit_sprites_commit` | built | built | 398 to 3,534 |
+| `sdevkit_queue_dma` | built | built | 382 to 1,300 |
+| `sdevkit_queue_vram` | built | built | 186 |
+| `sdevkit_queue_vram_column` | built | built | 186 |
+| `sdevkit_queue_cgram` | built | built | 186 |
+| `sdevkit_queue_color` | built | built | 502 to 1,596 |
+| `sdevkit_queue_mode7_map` | built | built | 186 |
+| `sdevkit_queue_mode7_tiles` | built | built | 186 |
+| `sdevkit_queue_room` | built | built | 274 to 340 |
+| `sdevkit_queue_commit` | built | built | 312 to 22,968 |
+| `sdevkit_input_update` | built | built | 582 to 590 |
+| `sdevkit_commit` | built | built | 1,624 to 40,580 |
+| `sdevkit_sfx_init` | built | built | 348 to unbounded |
+| `sdevkit_sfx_play` | built | built | 264 to 1,054 |
+| `sdevkit_music_play` | empty, not built yet: dampf removes the calls (`DebugCallsTest`) | built (the track's file, over and over, in the window) | 42 |
+| `sdevkit_music_stop` | empty, not built yet: dampf removes the calls | built | 42 |
+| `sdevkit_sram` | built (the cartridge's battery RAM at $70:0000, `dampf --sram`) | built (`<game>.srm` next to the program) | 72 |
+| `sdevkit_dbg_vram` | built (a single zero word: the SNES cannot read VRAM) | built | 90 |
+| `sdevkit_dbg_hash` | built (the address and size to a port; the checker hashes) | built | 510 |
+| `sdevkit_dbg_toggle` | empty: dampf removes the calls (`DebugCallsTest`) | built (the debug view, F1) | 42 |
+| `sdevkit_dbg_range` | empty: dampf removes the calls | built (the debug view) | 42 |
+| `sdevkit_dbg_color` | empty: dampf removes the calls | built (the debug view) | 42 |
+| `sdevkit_dbg_action` | empty: dampf removes the calls | built (the debug view) | 42 |
+| `sdevkit_dbg_text` | empty: dampf removes the calls | built (a line the debug view shows) | 42 |
+| `sdevkit_dbg_value` | empty: dampf removes the calls | built (a value the debug view shows) | 42 |
+| `sdevkit_dbg_box` | empty: dampf removes the calls, and the loops left empty | built (over the picture in the debug view) | 42 |
+| `sdevkit_dbg_fill` | empty: dampf removes the calls, and the loops left empty | built (a filled box in the debug view) | 42 |
+| `sdevkit_dbg_arrow` | empty: dampf removes the calls, and the loops left empty | built (an arrow in the debug view) | 42 |
 
 ## The commit's time
 

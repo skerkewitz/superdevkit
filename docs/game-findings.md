@@ -211,3 +211,18 @@ What the game would change: the calls along the table, and its own sprite table 
 `game_vblank`. Er-Tüp's diff on the kit's branch `new_snes_api` (`examples/ertuep`) shows each kind
 of change on a game built the way the game is. Checking that the game builds and plays the same is
 the game project's job.
+
+## 9. `DAMPF_BUDGET` counts master cycles: every budget needs a new number (2026-11-27)
+
+dampf's timing report, the cycles in its assembly comments and `DAMPF_BUDGET` now count master
+cycles instead of CPU cycles (superdevkit's ADR-6FVMDV79): each access at the speed of the memory
+it reaches (code from FastROM 6, WRAM 8, I/O registers 6), the unit of the frame (357,368) and of
+the vertical blank (about 49,000 without the DRAM refresh). The worst cases of the kit's examples
+are 6.2 to 6.6 times what they were in CPU cycles.
+
+What the game must change: every `DAMPF_BUDGET(n)`. With the old numbers the build fails, and the
+error says that the budget may be in CPU cycles. Either multiply each `n` by about 6.5, or better
+take the function's new worst case from `<rom>.timing.txt` and give it the margin the old budget
+had over the old worst case; a budget that was a share of the frame or of the vertical blank can
+now be that share of 357,368 or 49,000 directly. Nothing else changes: the code dampf writes is
+the same, byte for byte.

@@ -71,12 +71,13 @@ class AsmDeclarationTest {
     @Test
     void theAssemblyIsLinkedTimedAndCheckedAgainstItsBody() throws Exception {
         Compiler.Result r = build(PROGRAM, ASM, Compiler.Backend.MIR, Map.of());
-        // lda dp 4, and #imm 3, clc 2, adc dp 4, clc 2, adc dp 4, rtl 6
-        assertEquals(25, r.timing().get("_twice_plus")[0]);
-        assertEquals(25, r.timing().get("_twice_plus")[1]);
+        // lda dp 4, and #imm 3, clc 2, adc dp 4, clc 2, adc dp 4, rtl 6 CPU cycles: in master cycles
+        // the code's reads and internal operations 6, the direct page and the stack 8
+        assertEquals(168, r.timing().get("_twice_plus")[0]);
+        assertEquals(168, r.timing().get("_twice_plus")[1]);
         assertEquals(1, r.asmChecks().size());
         assertEquals(dampf.emu.AsmCheck.INPUTS, r.asmChecks().getFirst().inputs());
-        assertEquals(25, r.asmChecks().getFirst().asmWorst());
+        assertEquals(168, r.asmChecks().getFirst().asmWorst());
         String report = Files.readString(tmp.resolve("out/p.timing.txt"));
         assertTrue(report.contains("_twice_plus   (assembly, "), report);
     }
@@ -175,7 +176,7 @@ class AsmDeclarationTest {
         Files.writeString(other, ASM.replace("        clc\n        adc     z:_twice_plus__x\n        rtl",
                 "        clc\n        adc     z:_twice_plus__x\n        nop\n        rtl"));
         Compiler.Result r = build(PROGRAM, ASM, Compiler.Backend.MIR, Map.of("twice_plus", other));
-        assertEquals(27, r.timing().get("_twice_plus")[1]);
+        assertEquals(180, r.timing().get("_twice_plus")[1]);
     }
 
     @Test

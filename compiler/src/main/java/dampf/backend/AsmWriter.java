@@ -12,7 +12,7 @@ import java.util.Map;
 
 /**
  * Collects what a code generator writes as LIR ({@link LUnit}); {@link LPrinter} turns it into
- * ca65 source with aligned operands and comments, and the CPU cycles of every instruction in a
+ * ca65 source with aligned operands and comments, and the master cycles of every instruction in a
  * column on the right.
  *
  * <p>It follows the accumulator width through the code ({@code SEP/REP #$20}; index registers are
@@ -129,9 +129,14 @@ final class AsmWriter {
 
     @Override
     public String toString() {
+        return text(true);
+    }
+
+    /** The ca65 source, with the cycles of the code in FastROM or SlowROM. */
+    String text(boolean fastRom) {
         for (LFunction f : unit.functions()) {
-            Timing.lineCosts(f);
+            Timing.lineCosts(f, fastRom);
         }
-        return LPrinter.print(unit);
+        return LPrinter.print(unit, fastRom);
     }
 }

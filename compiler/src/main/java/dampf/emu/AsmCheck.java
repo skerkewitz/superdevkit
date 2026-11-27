@@ -47,12 +47,12 @@ public final class AsmCheck {
     /**
      * One assembly function: its name (in C), its label's and its C body's CPU addresses, its
      * parameters with the addresses of their places for each, the size of its result (0: void),
-     * whether that is a pointer, and its bounds in CPU cycles from the static analysis.
+     * whether that is a pointer, and its bounds in master cycles from the static analysis.
      */
     public record Function(String name, int asmAddress, int cAddress, List<Param> params, List<Integer> asmPlaces,
                            List<Integer> cPlaces, int resultSize, boolean resultPointer, long best, long worst) {}
 
-    /** What the check measured: inputs, and the CPU cycles of the assembly and of the C body (fewest, most). */
+    /** What the check measured: inputs, and the master cycles of the assembly and of the C body (fewest, most). */
     public record Report(String name, int inputs, long asmBest, long asmWorst, long cBest, long cWorst) {}
 
     /** The assembly does something else than the C body, or breaks its bounds. */
@@ -189,7 +189,7 @@ public final class AsmCheck {
         cpu.y = registers[2];
         cpu.pbr = address >> 16;
         cpu.pc = address & 0xFFFF;
-        long cycles = cpu.cycles;
+        long cycles = cpu.master;
         if (!snes.resume(snes.masterClock() + CALL, a -> {
             if (a == returnTo && cpu.s == stack) {
                 snes.stop();
@@ -198,7 +198,7 @@ public final class AsmCheck {
             throw new Failure(f.name(), what + " of '" + f.name() + "' did not return within " + CALL / 8
                     + " CPU cycles for " + argsText(f, args));
         }
-        long took = cpu.cycles - cycles;
+        long took = cpu.master - cycles;
         if (cpu.m || cpu.xf || cpu.dbr != SnesTarget.DATA_BANK || cpu.d != 0) {
             throw new Failure(f.name(), what + " of '" + f.name() + "' returned with another CPU state (16-bit A, X and Y, "
                     + "DBR $" + hex(SnesTarget.DATA_BANK, 2) + ", D 0) for " + argsText(f, args));

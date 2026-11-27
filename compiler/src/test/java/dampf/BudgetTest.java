@@ -59,8 +59,23 @@ class BudgetTest {
         CompileError e = assertThrows(CompileError.class,
                 () -> build(PROGRAM.replace("BUDGET", "DAMPF_BUDGET(" + (w - 1) + ")")));
         String msg = e.diagnostics().getFirst().message();
-        assertTrue(msg.contains("'sum' takes up to " + w + " CPU cycles, over its budget of " + (w - 1)), msg);
+        assertTrue(msg.contains("'sum' takes up to " + w + " master cycles, over its budget of " + (w - 1)), msg);
+        assertTrue(msg.contains("DAMPF_BUDGET counts master cycles now, not CPU cycles"), msg);
         assertEquals(5, e.diagnostics().getFirst().pos().line());
+    }
+
+    @Test
+    void aBudgetInTheOldUnitSaysSo() throws Exception {
+        // a budget written in CPU cycles, as up to dampf 0.10: about a sixth of the master cycles
+        long w = worst();
+        CompileError old = assertThrows(CompileError.class,
+                () -> build(PROGRAM.replace("BUDGET", "DAMPF_BUDGET(" + (w / 7) + ")")));
+        assertTrue(old.diagnostics().getFirst().message().contains("a budget written in CPU cycles needs about 6.5 times its number"),
+                old.diagnostics().getFirst().message());
+        // far below even that: no hint
+        CompileError far = assertThrows(CompileError.class,
+                () -> build(PROGRAM.replace("BUDGET", "DAMPF_BUDGET(" + (w / 20) + ")")));
+        assertTrue(!far.diagnostics().getFirst().message().contains("CPU cycles"), far.diagnostics().getFirst().message());
     }
 
     @Test

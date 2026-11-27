@@ -496,6 +496,12 @@ Built on 2026-11-27, ahead of M11; not released yet.
   line in the timing report and its budget, but no code in the ROM
   ([ADR-6FVMCY48](adr/6FVMCY48-a-function-inlined-at-every-call-keeps-its-timing.md),
   2026-11-27); the examples' code 25 to 35 % smaller, their work per tick unchanged.
+- **Master cycles instead of CPU cycles** (2026-11-27): the timing report, the cycles in the
+  assembly comments (`[ 72 mc ]`) and `DAMPF_BUDGET` count master cycles, each access at the
+  speed of the memory it reaches, from the same table as dampf's emulator, whose count of the
+  CPU's master cycles the tests now check every call against
+  ([ADR-6FVMDV79](adr/6FVMDV79-timing-assembly-comments-and-budgets-count-master.md)). A budget
+  written in CPU cycles fails with a message that says so. The code dampf writes is the same.
 
 ## Publishing
 

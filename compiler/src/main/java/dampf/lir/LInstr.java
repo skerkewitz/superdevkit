@@ -96,6 +96,24 @@ public final class LInstr implements LItem {
         return known() ? Cycles65816.cycles(opcode, m16, x16, isConditionalBranch()) : 0;
     }
 
+    /**
+     * Master cycles ({@link dampf.target.MasterCycles#of}), with the code in FastROM or SlowROM; for
+     * a conditional branch when it is not taken. 0 if unknown.
+     */
+    public dampf.target.MasterCycles.Range master(boolean fastRom) {
+        return master(fastRom, false);
+    }
+
+    /** Master cycles of a conditional branch that is taken (the same as {@link #master} for any other). */
+    public dampf.target.MasterCycles.Range masterTaken(boolean fastRom) {
+        return master(fastRom, isConditionalBranch());
+    }
+
+    private dampf.target.MasterCycles.Range master(boolean fastRom, boolean taken) {
+        return known() ? dampf.target.MasterCycles.of(opcode, mode(), operand, m16, x16, taken, fastRom)
+                : dampf.target.MasterCycles.Range.of(0);
+    }
+
     /** Bytes, 0 if unknown. */
     public int length() {
         return known() ? Cycles65816.length(opcode, m16, x16) : 0;

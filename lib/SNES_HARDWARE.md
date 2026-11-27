@@ -57,7 +57,7 @@ indirect tables). The desktop check prints `undrawn N` and fails on it, as on a 
 ([ADR-6FSHCP06](../docs/adr/6FSHCP06-rachael-draws-modes-0-to-4-mosaic-and-extbg-the.md)); `examples/modes` shows every mode Rachael draws, and
 compares it with Mesen pixel for pixel.
 
-What each function costs on the SNES, in CPU cycles, is the last column of the table in
+What each function costs on the SNES, in master cycles, is the last column of the table in
 [README.md](README.md#built-and-stub-per-function-and-platform).
 
 ## Video memory
