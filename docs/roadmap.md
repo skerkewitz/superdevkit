@@ -7,10 +7,11 @@ without a milestone, and ideas. What is done and released is in
 ## Where things stand
 
 M0 to M10 are concluded ([history.md](history.md#where-dampf-stands)); M10 was released as
-0.10.0 on 2026-11-26. During play the game took 0.79 frames per tick on 2026-11-18 against a
-goal of 0.6, so the compiler work goes on while the game reduces its own work in parallel; the
-current numbers are in [optimizations.md](optimizations.md#where-things-stand). Next: timing and
-debugging (M11), then fine tuning (M12).
+0.10.0 on 2026-11-26, and Rachael's further picture modes as 0.10.1 on 2026-11-27. During play
+the game took 0.79 frames per tick on 2026-11-18 against a goal of 0.6, so the compiler work
+goes on while the game reduces its own work in parallel; the current numbers are in
+[optimizations.md](optimizations.md#where-things-stand). Next: timing and debugging (M11), then
+fine tuning (M12).
 
 ## Versions
 
@@ -33,16 +34,6 @@ is concluded, it moves to [history.md](history.md).
 | M12 | Fine tuning: what was left of M4 and M9, until the frame budget is met | 0.12.0 | Planned |
 
 The order follows the likely gain and what each milestone needs from the one before.
-
-## Built since, for 0.10.1
-
-- **Rachael draws the picture modes beyond 1 and 7**: modes 0, 2, 3 and 4 with offsets per tile,
-  256-colour tiles (`superdevkit png tiles8`) and direct colour, mosaic, mode 7's second layer
-  (EXTBG), VMAIN's address remapping and VRAM, CGRAM and OAM read back by DMA; `examples/modes`
-  shows each, the same as Mesen pixel for pixel
-  ([ADR-6FSHCP06](adr/6FSHCP06-rachael-draws-modes-0-to-4-mosaic-and-extbg-the.md), 2026-11-26).
-  Left undrawn until a game needs them: modes 5 and 6, high resolution, overscan and interlace,
-  and HDMA with indirect tables.
 
 ## M11: timing and debugging (0.11.0)
 

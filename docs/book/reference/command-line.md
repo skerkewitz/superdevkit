@@ -26,7 +26,7 @@ Use `dampf --version`, or `dampf version`, to see which dampf you have. It print
 the standard output and exits with status 0:
 
 ```
-dampf 0.10.0
+dampf 0.10.1
 ```
 
 The commands `build`, `check` and `parse` print everything on the standard error stream;

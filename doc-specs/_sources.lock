@@ -1,6 +1,6 @@
 # The files each generated page of the book was last written from, with a hash of each.
 # Written by ./gradlew stampBook, read by BookSourcesTest. Do not edit by hand.
-guide/compiling-a-game README.md 5a49af496ed4
+guide/compiling-a-game README.md 33702fb7a011
 guide/compiling-a-game cli/src/main/java/superdevkit/project/Build.java b240a347e6d2
 guide/compiling-a-game compiler/src/main/java/dampf/Compiler.java 60d2a08f9de4
 guide/compiling-a-game compiler/src/main/java/dampf/ConfigFile.java 3c0bd51783ef
@@ -13,14 +13,14 @@ guide/compiling-a-game examples/ertuep/README.md fa29e15c6fef
 guide/compiling-a-game examples/ertuep/superdevkit.toml b51530c35a03
 guide/compiling-a-game lib/snes/README.md d1e55ece0c1c
 guide/compiling-a-game reference/README.md c1cf9891f91e
-guide/debugging README.md 5a49af496ed4
+guide/debugging README.md 33702fb7a011
 guide/debugging cli/src/main/java/superdevkit/project/Run.java 71c6b4797323
 guide/debugging compiler/src/main/java/dampf/backend/AsmWriter.java afaea3479539
 guide/debugging compiler/src/test/resources/exec/calls.c 05c772704eda
 guide/debugging doc-specs/guide/debugging.spec.md da62d93f3a0e
 guide/debugging docs/architecture.md 220841c1120b
 guide/debugging docs/testing.md cbb752af3881
-guide/getting-started README.md 5a49af496ed4
+guide/getting-started README.md 33702fb7a011
 guide/getting-started cli/build.gradle.kts b862dfc7f20e
 guide/getting-started cli/src/dist/README.md e670e0574e30
 guide/getting-started cli/src/main/java/superdevkit/Main.java f52abaa88dcf
@@ -72,7 +72,7 @@ guide/graphics-and-sound lib/include/sdevkit/snes.h 9255765e2665
 guide/graphics-and-sound lib/snes/snes.c 873b82bb186d
 guide/graphics-and-sound tools/README.md f86d086cd385
 guide/graphics-and-sound tools/brr_lab.html 3423d929ef83
-guide/introduction README.md 5a49af496ed4
+guide/introduction README.md 33702fb7a011
 guide/introduction doc-specs/guide/introduction.spec.md 6fa050a51c63
 guide/introduction docs/ADR.md 2ec9b452a3cb
 guide/introduction docs/adr/6F0R61EZ-dampf-is-a-compiler-of-its-own-for-one-target-the.md 2c0fd878479c
@@ -158,9 +158,9 @@ guide/introduction docs/adr/6FRDS030-interrupt-code-reads-the-copy-of-the-tick-w
 guide/introduction docs/adr/6FRX1GYC-the-game-s-irq-runs-at-a-picture-row-and-writes.md 543310764948
 guide/introduction docs/adr/6FS0T4WB-the-kit-s-nmi-runs-the-vertical-blank-of-a-game.md 03215a47fa30
 guide/introduction docs/adr/6FSHCP06-rachael-draws-modes-0-to-4-mosaic-and-extbg-the.md 8ac290471a14
-guide/introduction docs/history.md ff72add03a8f
+guide/introduction docs/history.md 7172aa3123de
 guide/introduction docs/optimizations.md 3fd8e8a5548a
-guide/introduction docs/roadmap.md c04a4f066374
+guide/introduction docs/roadmap.md f71429e21167
 guide/introduction lib/README.md 98c69f7674f2
 guide/introduction lib/snes/README.md d1e55ece0c1c
 guide/introduction tools/README.md f86d086cd385
@@ -736,7 +736,7 @@ inside/optimizations docs/optimizations-log.md 0345f2e19096
 inside/optimizations docs/optimizations.md 3fd8e8a5548a
 inside/optimizations docs/subrange-types.md bc1bfac4d79b
 inside/optimizations reference/README.md c1cf9891f91e
-inside/roadmap README.md 5a49af496ed4
+inside/roadmap README.md 33702fb7a011
 inside/roadmap doc-specs/inside/roadmap.spec.md cfb027d623c6
 inside/roadmap docs/ADR.md 2ec9b452a3cb
 inside/roadmap docs/adr/6F0R61EZ-dampf-is-a-compiler-of-its-own-for-one-target-the.md 2c0fd878479c
@@ -822,11 +822,11 @@ inside/roadmap docs/adr/6FRDS030-interrupt-code-reads-the-copy-of-the-tick-whose
 inside/roadmap docs/adr/6FRX1GYC-the-game-s-irq-runs-at-a-picture-row-and-writes.md 543310764948
 inside/roadmap docs/adr/6FS0T4WB-the-kit-s-nmi-runs-the-vertical-blank-of-a-game.md 03215a47fa30
 inside/roadmap docs/adr/6FSHCP06-rachael-draws-modes-0-to-4-mosaic-and-extbg-the.md 8ac290471a14
-inside/roadmap docs/history.md ff72add03a8f
-inside/roadmap docs/roadmap.md c04a4f066374
+inside/roadmap docs/history.md 7172aa3123de
+inside/roadmap docs/roadmap.md f71429e21167
 inside/roadmap lib/README.md 98c69f7674f2
 inside/testing .github/workflows/build.yml 4529a07aa039
-inside/testing README.md 5a49af496ed4
+inside/testing README.md 33702fb7a011
 inside/testing compiler/build.gradle.kts ad28bb502873
 inside/testing compiler/src/test/java/dampf/AsmDeclarationTest.java 3adb74085b0f
 inside/testing compiler/src/test/java/dampf/ExamplesTest.java dc9ebf5ca984
@@ -998,7 +998,7 @@ reference/c-subset docs/adr/6FRX1GYC-the-game-s-irq-runs-at-a-picture-row-and-wr
 reference/c-subset docs/adr/6FS0T4WB-the-kit-s-nmi-runs-the-vertical-blank-of-a-game.md 03215a47fa30
 reference/c-subset docs/adr/6FSHCP06-rachael-draws-modes-0-to-4-mosaic-and-extbg-the.md 8ac290471a14
 reference/c-subset docs/subset.md 8a314c2aeb0e
-reference/command-line README.md 5a49af496ed4
+reference/command-line README.md 33702fb7a011
 reference/command-line compiler/src/main/java/dampf/AsmFunctions.java e5f66a3a278f
 reference/command-line compiler/src/main/java/dampf/Compiler.java 60d2a08f9de4
 reference/command-line compiler/src/main/java/dampf/ConfigFile.java 3c0bd51783ef
@@ -1162,7 +1162,7 @@ reference/hints docs/adr/6FSHCP06-rachael-draws-modes-0-to-4-mosaic-and-extbg-th
 reference/hints docs/hints.md cab395ee1d18
 reference/hints docs/subrange-types.md bc1bfac4d79b
 reference/hints docs/timing.md 47a3b572c82d
-reference/limits README.md 5a49af496ed4
+reference/limits README.md 33702fb7a011
 reference/limits compiler/src/main/java/dampf/frontend/Preprocessor.java 0a4d918ae457
 reference/limits compiler/src/main/java/dampf/frontend/pp/Condition.java 94b585787791
 reference/limits compiler/src/main/java/dampf/frontend/pp/Expander.java 4cbfe781b422
@@ -1258,13 +1258,13 @@ reference/limits docs/adr/6FS0T4WB-the-kit-s-nmi-runs-the-vertical-blank-of-a-ga
 reference/limits docs/adr/6FSHCP06-rachael-draws-modes-0-to-4-mosaic-and-extbg-the.md 8ac290471a14
 reference/limits docs/hints.md cab395ee1d18
 reference/limits docs/optimizations.md 3fd8e8a5548a
-reference/limits docs/roadmap.md c04a4f066374
+reference/limits docs/roadmap.md f71429e21167
 reference/limits docs/sound.md b691152715cd
 reference/limits docs/subset.md 8a314c2aeb0e
 reference/limits docs/timing.md 47a3b572c82d
 reference/limits lib/README.md 98c69f7674f2
 reference/limits lib/snes/README.md d1e55ece0c1c
-reference/output-files README.md 5a49af496ed4
+reference/output-files README.md 33702fb7a011
 reference/output-files cli/src/main/java/superdevkit/project/Build.java b240a347e6d2
 reference/output-files compiler/src/main/java/dampf/Compiler.java 60d2a08f9de4
 reference/output-files compiler/src/main/java/dampf/asm/DbgWriter.java 36079cfa6388
@@ -1273,7 +1273,7 @@ reference/output-files compiler/src/main/java/dampf/snes/RomBuilder.java 52f748d
 reference/output-files compiler/src/main/java/dampf/target/Cycles65816.java cc3e69cfc7d4
 reference/output-files doc-specs/reference/output-files.spec.md 9865ce5a8e71
 reference/output-files docs/architecture.md 220841c1120b
-reference/runtime-and-memory README.md 5a49af496ed4
+reference/runtime-and-memory README.md 33702fb7a011
 reference/runtime-and-memory compiler/src/main/java/dampf/backend/FrameLayout.java 4e6b9908c06f
 reference/runtime-and-memory compiler/src/main/java/dampf/mir/PointerOffsets.java 045a8e78c659
 reference/runtime-and-memory compiler/src/main/java/dampf/mir/PointerParams.java 4cac19e9c135
@@ -1368,7 +1368,7 @@ reference/runtime-and-memory docs/memory-map.md f959f93c2800
 reference/runtime-and-memory docs/optimizations.md 3fd8e8a5548a
 reference/runtime-and-memory docs/sound.md b691152715cd
 reference/runtime-and-memory lib/snes/README.md d1e55ece0c1c
-reference/superdevkit README.md 5a49af496ed4
+reference/superdevkit README.md 33702fb7a011
 reference/superdevkit cli/build.gradle.kts b862dfc7f20e
 reference/superdevkit cli/src/main/java/superdevkit/Main.java f52abaa88dcf
 reference/superdevkit cli/src/main/java/superdevkit/gfx/ConvertException.java aae170ce6040

@@ -117,7 +117,7 @@ Its non-goals:
 
 ## Where it stands
 
-dampf compiles all of Blubber Blasen, and the kit's version is 0.10.0. The milestones M0
+dampf compiles all of Blubber Blasen, and the kit's version is 0.10.1. The milestones M0
 (define the subset), M1 (end to end, with stepping through C in Mesen), M2 (all of the game
 compiled by the [naive code generator](/glossary#naive-code-generator), with the PC's
 checksums), M3 (the optimizer: dampf lowers the program to [MIR](/glossary#mir), its
