@@ -2085,6 +2085,20 @@ points, and the stores left through unknown pointers are not in hot code. Steins
 because the registers freed changed other choices. `restrict` stays rejected, and the no-alias
 hint is not built.
 
+## Bank `$7F` for variables: the examples unchanged (2026-11-27, on the examples)
+
+Variables that do not fit into bank `$7E` go to `$7F`, largest first
+([ADR-6FVM9QWS](adr/6FVM9QWS-variables-that-do-not-fit-into-bank-7e-go-to-bank.md)). Every
+example's variables fit into `$7E`, so nothing moves: `dev/bench_examples.sh` gives a ratio of
+1.000 for each of the eight, and every example's ROM is byte for byte the one built before the
+change; `BackendOutputTest` keeps all 408 earlier outputs.
+
+What a variable in `$7F` costs, by the cycle table (16-bit A and index registers): a load or
+store at a fixed address takes one CPU cycle more with the long address (`lda f:x` 6, `lda x` 5);
+an indexed one costs the same (`lda f:x,x` and `lda x,x` both 6: the absolute form pays the cycle
+for the 16-bit index, the long one does not); a stored zero takes four more (`lda #0` and
+`sta f:x`, 9, instead of `stz x`, 5); the index goes into X, never Y, as for constant data.
+
 ## Where the direct page traffic goes (2026-11-27, on the examples)
 
 Before register allocation (M12, row 2) a trace of the examples' benchmark: each instruction's
@@ -2232,3 +2246,7 @@ in `cost-baseline.txt` 135 smaller, none larger. The examples' work against `dev
 0.955, Er-Tüp 0.971, Schach 0.988, Mandelbrot and Mode 7 0.992, modes 0.995, Catch Me 0.997,
 Hello 1.000; geometric mean 0.986, against 0.982 with the larger worst cases (Er-Tüp 0.951,
 Steinschlag 0.947). Compiling Er-Tüp takes 17.4 s instead of 14.0 s on `develop` (the parts and the second finishing of the functions that have some).
+
+After bank `$7F` for variables came in (with Gruft and the execution tests `bank_7f` and
+`bank_7f_pointers`): 274 worst cases smaller, 1,558 the same, none larger; Gruft's work 0.991
+(`draw_view` −6.7 % in the worst case); the nine examples' geometric mean 0.987.

@@ -113,6 +113,36 @@ public final class NaiveCodeGen {
 
     private final java.util.Set<String> replaced;
 
+    /** The variables in WRAM's second bank, by label ({@link VariableBanks}); reached long. */
+    private java.util.Set<String> secondBank = java.util.Set.of();
+    /** The bytes of the static frames, after {@link #generate}: they stay in bank $7E. */
+    private int frameBytes;
+
+    /** The variables that live in bank $7F (by label), before {@link #generate}. */
+    public NaiveCodeGen secondBank(java.util.Set<String> labels) {
+        this.secondBank = java.util.Set.copyOf(labels);
+        return this;
+    }
+
+    /** The bytes of the static frames (parameters, locals, temporaries), after {@link #generate}. */
+    public int frameBytes() {
+        return frameBytes;
+    }
+
+    /** Whether the code reaches a variable long: ROM data, and the variables in bank $7F. */
+    private boolean far(Variable v) {
+        return (v.inRom() ? SnesTarget.romData() : SnesTarget.variable(bankOf(v))) == SnesTarget.Reach.LONG;
+    }
+
+    private int bankOf(Variable v) {
+        return secondBank.contains(v.label()) ? SnesTarget.SECOND_VARIABLE_BANK : SnesTarget.VARIABLE_BANK;
+    }
+
+    /** The segment of a variable in RAM: zero ones are only reserved, the others copied from ROM at start-up. */
+    public static String ramSegment(boolean zero, boolean secondBank) {
+        return zero ? (secondBank ? dampf.asm.Linker.BSS_SECOND : "BSS") : (secondBank ? dampf.asm.Linker.DATA_SECOND : "DATA");
+    }
+
     /**
      * The interrupt context of each function an interrupt handler reaches
      * ({@link dampf.check.CallGraph#contexts}, ADR-6FM9TXV4). The naive code has no frames in low
@@ -290,7 +320,7 @@ public final class NaiveCodeGen {
         for (Variable v : program.globals()) {
             Init init = program.initialValues().get(v);
             boolean zero = init == null || init.items().stream().allMatch(i -> i.address() == null && i.value() == 0);
-            String segment = v.inRom() ? romSegment(v.label()) : zero ? "BSS" : "DATA";
+            String segment = v.inRom() ? romSegment(v.label()) : ramSegment(zero, secondBank.contains(v.label()));
             AsmWriter ram = asm;
             if (v.inRom()) {
                 asm = new AsmWriter();
@@ -298,7 +328,7 @@ public final class NaiveCodeGen {
             asm.blank();
             asm.raw("        .segment \"" + segment + "\"");
             String what = (v.kind() == Variable.Kind.STATIC_LOCAL ? "static " : "") + v.type() + " " + v.name();
-            if (segment.equals("BSS")) {
+            if (zero && !v.inRom()) {
                 asm.raw(pad(v.label() + ":", 28) + ".res    " + v.type().size() + pad("", 4) + "; " + what);
                 continue;
             }
@@ -332,7 +362,7 @@ public final class NaiveCodeGen {
                 flushBytes(line);
                 count = 0;
                 String target = a.address().label() + offset(a.addressOffset());
-                if (a.address().inRom()) {
+                if (far(a.address())) {
                     asm.raw("        .word   .loword(" + target + ")");
                     asm.raw("        .byte   ^(" + target + "), 0");
                 } else {
@@ -383,12 +413,15 @@ public final class NaiveCodeGen {
             asm.note("static frame of " + f.name() + "()");
             for (Variable v : f.params()) {
                 asm.raw(pad(v.label() + ":", 28) + ".res    " + v.type().size() + pad("", 4) + "; parameter " + v.type() + " " + v.name());
+                frameBytes += v.type().size();
             }
             for (Variable v : f.locals()) {
                 asm.raw(pad(v.label() + ":", 28) + ".res    " + v.type().size() + pad("", 4) + "; local " + v.type() + " " + v.name());
+                frameBytes += v.type().size();
             }
             for (int i = 0; i < temps; i++) {
                 asm.raw(pad(tempLabel(f, i) + ":", 28) + ".res    4    ; temporary");
+                frameBytes += 4;
             }
         }
     }
@@ -627,11 +660,11 @@ public final class NaiveCodeGen {
 
     /** Where an object is. */
     private sealed interface Place {
-        /** A fixed address: {@code symbol + offset}; long addressing if in ROM. */
-        record Fixed(String symbol, long offset, boolean rom) implements Place {}
+        /** A fixed address: {@code symbol + offset}; {@code far}: long addressing (ROM data, or a variable in bank $7F). */
+        record Fixed(String symbol, long offset, boolean far) implements Place {}
 
         /** {@code symbol + offset + index}, the 16-bit index in a temporary (loaded into X). */
-        record Indexed(String symbol, long offset, boolean rom, String index) implements Place {}
+        record Indexed(String symbol, long offset, boolean far, String index) implements Place {}
 
         /** {@code pointer + offset}, the 24-bit pointer in a 4-byte slot (copied to the direct page). */
         record Pointed(String pointer, long offset) implements Place {}
@@ -639,8 +672,8 @@ public final class NaiveCodeGen {
 
     private static Place plus(Place p, long d) {
         return switch (p) {
-            case Place.Fixed f -> new Place.Fixed(f.symbol(), f.offset() + d, f.rom());
-            case Place.Indexed i -> new Place.Indexed(i.symbol(), i.offset() + d, i.rom(), i.index());
+            case Place.Fixed f -> new Place.Fixed(f.symbol(), f.offset() + d, f.far());
+            case Place.Indexed i -> new Place.Indexed(i.symbol(), i.offset() + d, i.far(), i.index());
             case Place.Pointed q -> new Place.Pointed(q.pointer(), q.offset() + d);
         };
     }
@@ -648,7 +681,7 @@ public final class NaiveCodeGen {
     /** Computes where an lvalue is; may emit code (an index, a pointer) into temporaries. */
     private Place placeOf(Expr lv) throws CompileError {
         return switch (lv) {
-            case Expr.Var v -> new Place.Fixed(v.variable().label(), 0, v.variable().inRom());
+            case Expr.Var v -> new Place.Fixed(v.variable().label(), 0, far(v.variable()));
             case Expr.Member m -> plus(placeOf(m.base()), m.field().offset());
             case Expr.Deref d -> new Place.Pointed(gen32(d.pointer()), 0);
             case Expr.Index i -> {
@@ -679,13 +712,13 @@ public final class NaiveCodeGen {
         switch (base) {
             case Place.Fixed f -> {
                 out.ins("sta", t, "byte offset of the element");
-                return new Place.Indexed(f.symbol(), f.offset(), f.rom(), t);
+                return new Place.Indexed(f.symbol(), f.offset(), f.far(), t);
             }
             case Place.Indexed x -> {
                 out.ins("clc", null, null);
                 out.ins("adc", x.index(), null);
                 out.ins("sta", t, "byte offset of the element");
-                return new Place.Indexed(x.symbol(), x.offset(), x.rom(), t);
+                return new Place.Indexed(x.symbol(), x.offset(), x.far(), t);
             }
             case Place.Pointed q -> {
                 out.ins("clc", null, null);
@@ -717,10 +750,10 @@ public final class NaiveCodeGen {
     /** Sets up X or Y for an access; returns the operand for the word at {@code extra}. */
     private String operand(Place p, long extra) {
         return switch (p) {
-            case Place.Fixed f -> prefix(f.rom()) + f.symbol() + offset(f.offset() + extra);
+            case Place.Fixed f -> prefix(f.far()) + f.symbol() + offset(f.offset() + extra);
             case Place.Indexed i -> {
                 out.ins("ldx", i.index(), null);
-                yield prefix(i.rom()) + i.symbol() + offset(i.offset() + extra) + ",x";
+                yield prefix(i.far()) + i.symbol() + offset(i.offset() + extra) + ",x";
             }
             case Place.Pointed q -> {
                 out.ins("ldy", imm(extra), null); // the offset is already in the pointer (preparePointer)
@@ -729,9 +762,9 @@ public final class NaiveCodeGen {
         };
     }
 
-    /** The operand's prefix for a variable or ROM data: "f:" where the target reaches it long. */
-    private static String prefix(boolean rom) {
-        return (rom ? SnesTarget.romData() : SnesTarget.variable()) == SnesTarget.Reach.LONG ? "f:" : "";
+    /** The operand's prefix for a variable or ROM data: "f:" where the target reaches it long ({@link #far}). */
+    private static String prefix(boolean far) {
+        return far ? "f:" : "";
     }
 
     /**
@@ -787,7 +820,7 @@ public final class NaiveCodeGen {
 
     /** A 4-byte value from memory, as a slot (a RAM label, or a temporary it was copied to). */
     private String load32(Place p) {
-        if (p instanceof Place.Fixed f && !f.rom()) {
+        if (p instanceof Place.Fixed f && !f.far()) {
             return f.symbol() + offset(f.offset());
         }
         String t = temp();
@@ -800,7 +833,7 @@ public final class NaiveCodeGen {
     }
 
     private void store32(Place p, String from, String comment) {
-        if (p instanceof Place.Fixed f && !f.rom()) {
+        if (p instanceof Place.Fixed f && !f.far()) {
             copy32(from, f.symbol() + offset(f.offset()), comment);
             return;
         }
@@ -819,7 +852,7 @@ public final class NaiveCodeGen {
                 String target = f.symbol() + offset(f.offset());
                 out.ins("lda", "#.loword(" + target + ")", "&" + target);
                 out.ins("sta", t, null);
-                out.ins("lda", f.rom() ? "#^(" + target + ")" : imm(SnesTarget.VARIABLE_BANK), f.rom() ? "bank of the ROM data"
+                out.ins("lda", f.far() ? "#^(" + target + ")" : imm(SnesTarget.VARIABLE_BANK), f.far() ? (secondBank.contains(f.symbol()) ? "bank $7F: RAM" : "bank of the ROM data")
                         : "bank $" + hex(SnesTarget.VARIABLE_BANK, 2) + ": RAM");
                 out.ins("sta", t + "+2", null);
             }
@@ -829,7 +862,7 @@ public final class NaiveCodeGen {
                 out.ins("clc", null, null);
                 out.ins("adc", "#.loword(" + target + ")", "&" + target + "[index]");
                 out.ins("sta", t, null);
-                out.ins("lda", i.rom() ? "#^(" + target + ")" : imm(SnesTarget.VARIABLE_BANK), null);
+                out.ins("lda", i.far() ? "#^(" + target + ")" : imm(SnesTarget.VARIABLE_BANK), null);
                 out.ins("sta", t + "+2", null);
             }
             case Place.Pointed q -> {
@@ -1589,10 +1622,10 @@ public final class NaiveCodeGen {
      * 16- or 32-bit variable in RAM (its low word), also through conversions that keep the low
      * 16 bits.
      */
-    private static String operand16(Expr e) {
+    private String operand16(Expr e) {
         return switch (e) {
             case Expr.Const k -> imm(k.value());
-            case Expr.Var v -> v.type().size() >= 2 && Type.isScalar(v.type()) && !v.variable().inRom() ? v.variable().label() : null;
+            case Expr.Var v -> v.type().size() >= 2 && Type.isScalar(v.type()) && !far(v.variable()) ? v.variable().label() : null;
             case Expr.Convert c when c.operand().type().size() >= 2 && c.type().size() >= 2 -> operand16(c.operand());
             default -> null;
         };

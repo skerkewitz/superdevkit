@@ -496,6 +496,15 @@ Built on 2026-11-27, ahead of M11; not released yet.
   line in the timing report and its budget, but no code in the ROM
   ([ADR-6FVMCY48](adr/6FVMCY48-a-function-inlined-at-every-call-keeps-its-timing.md),
   2026-11-27); the examples' code 25 to 35 % smaller, their work per tick unchanged.
+- **Bank `$7F` for variables**: when a program's variables do not fit into bank `$7E`, dampf
+  moves the largest of them to bank `$7F` until the rest fits, reaches them there with long
+  addresses and gives pointers to them bank `$7F`; the start-up clears and copies them, the
+  check of assembly functions uses only the part of `$7F` they leave free, and variables that
+  fit into neither bank are a compile error. A program that fits into `$7E` builds the same ROM
+  as before, byte for byte (the examples did); `exec/bank_7f.c` and `exec/bank_7f_pointers.c`
+  run with variables in both banks, and the new example `examples/gruft`, a dungeon of 160 x 128
+  cells whose maps take about 100 KB, plays with three of them in `$7F`
+  ([ADR-6FVM9QWS](adr/6FVM9QWS-variables-that-do-not-fit-into-bank-7e-go-to-bank.md), 2026-11-27).
 
 ## Publishing
 

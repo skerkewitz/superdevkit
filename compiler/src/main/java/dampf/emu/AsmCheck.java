@@ -17,8 +17,9 @@ import java.util.Set;
  * <p>The ROM runs its start-up until the program's entry; from that state each input calls the C
  * body and then the assembly, each from the same memory: the parameters (edge values, then random
  * ones from a fixed seed, within a parameter's {@code DAMPF_RANGE}), the globals the C body reads
- * (as after start-up, all zero, all ones, then random bytes; not those holding pointers), and bank
- * $7F, which programs do not use, filled with random bytes: a pointer parameter points into it.
+ * (as after start-up, all zero, all ones, then random bytes; not those holding pointers), and the
+ * part of bank $7F the program's variables leave free (all of it in most programs, ADR-6FVM9QWS),
+ * filled with random bytes: a pointer parameter points into it.
  * A, X and Y start with the same random values for both. After each call the result (the bytes
  * of its type: the low byte of A for 8 bits, A and X for 32 bits and pointers) and all of RAM from
  * $7E:2000 to $7F:FFFF (globals, bank $7F) must be the same, and the assembly's cycles must lie
@@ -41,7 +42,7 @@ public final class AsmCheck {
      */
     public record Param(String name, int size, boolean signed, boolean pointer, long lo, long hi) {}
 
-    /** A global in RAM: name, address in bank $7E, size, whether the check gives it other values. */
+    /** A global in RAM: name, address in WRAM (bank $7E from 0, $7F from $10000), size, whether the check gives it other values. */
     public record Global(String name, int address, int size, boolean varied) {}
 
     /**
@@ -71,13 +72,20 @@ public final class AsmCheck {
         }
     }
 
+    /** The fewest free bytes in bank $7F the check needs for what pointer parameters point to. */
+    public static final int SCRATCH = 0x1000;
+
     /**
      * Runs the check. {@code entry}: the CPU address of the program's entry function, where the
      * start-up ends; {@code globals}: the program's globals in RAM (for the messages, and those
-     * marked varied for the inputs).
+     * marked varied for the inputs); {@code scratch}: where the free part of bank $7F starts
+     * (after the variables there, at least {@link #SCRATCH} bytes before its end).
      */
-    public static List<Report> run(byte[] rom, int entry, List<Function> functions, List<Global> globals, int inputs)
+    public static List<Report> run(byte[] rom, int entry, List<Function> functions, List<Global> globals, int inputs, int scratch)
             throws Failure {
+        if (scratch < 0 || scratch > 0x10000 - SCRATCH) {
+            throw new IllegalArgumentException("the scratch memory must leave " + SCRATCH + " bytes of bank $7F");
+        }
         Snes snes = new Snes(rom);
         Cpu65816 cpu = snes.cpu();
         cpu.reset();
@@ -95,7 +103,7 @@ public final class AsmCheck {
         List<Report> reports = new ArrayList<>();
         int n = 0;
         for (Function f : functions) {
-            reports.add(check(snes, start, stack, entry, f, globals, inputs, 0x5EED_0000L + n++));
+            reports.add(check(snes, start, stack, entry, f, globals, inputs, scratch, 0x5EED_0000L + n++));
         }
         return reports;
     }
@@ -103,10 +111,12 @@ public final class AsmCheck {
     private record Outcome(long result, byte[] ram, long cycles) {}
 
     private static Report check(Snes snes, byte[] start, int stack, int returnTo, Function f, List<Global> globals,
-                                int inputs, long seed) throws Failure {
+                                int inputs, int scratch, long seed) throws Failure {
         Random random = new Random(seed);
-        List<long[]> tuples = inputs(f.params(), inputs, random);
-        byte[] bank7f = new byte[0x10000];
+        // pointer parameters point into the middle of the free part of bank $7F
+        long pointerBase = (long) SnesTarget.SECOND_VARIABLE_BANK << 16 | (scratch + 0x10000) / 2;
+        List<long[]> tuples = inputs(f.params(), inputs, random, pointerBase);
+        byte[] bank7f = new byte[0x10000 - scratch];
         long asmBest = Long.MAX_VALUE;
         long asmWorst = 0;
         long cBest = Long.MAX_VALUE;
@@ -122,7 +132,7 @@ public final class AsmCheck {
                 }
             }
             random.nextBytes(bank7f);
-            System.arraycopy(bank7f, 0, memory, 0x10000, 0x10000);   // bank $7F, where pointer parameters point
+            System.arraycopy(bank7f, 0, memory, 0x10000 + scratch, bank7f.length);   // where pointer parameters point
             int[] registers = {random.nextInt(0x10000), random.nextInt(0x10000), random.nextInt(0x10000)};
             byte[] cMemory = memory.clone();
             byte[] asmMemory = memory.clone();
@@ -223,11 +233,11 @@ public final class AsmCheck {
 
     // ------------------------------------------------------------------ inputs
 
-    /** Where pointer parameters point: the middle of bank $7F. */
-    private static final long POINTER_BASE = 0x7F8000;
-
-    /** The argument tuples: the edge values of every parameter, then random tuples, at most {@code count}. */
-    static List<long[]> inputs(List<Param> params, int count, Random random) {
+    /**
+     * The argument tuples: the edge values of every parameter, then random tuples, at most
+     * {@code count}; a pointer parameter points near {@code pointerBase}.
+     */
+    static List<long[]> inputs(List<Param> params, int count, Random random, long pointerBase) {
         List<long[]> out = new ArrayList<>();
         if (params.isEmpty()) {
             for (int k = 0; k < Math.min(count, 64); k++) {
@@ -238,7 +248,7 @@ public final class AsmCheck {
         List<List<Long>> edges = new ArrayList<>();
         long product = 1;
         for (Param p : params) {
-            List<Long> e = edges(p);
+            List<Long> e = edges(p, pointerBase);
             edges.add(e);
             product = Math.min(Long.MAX_VALUE / 1024, product * e.size());
         }
@@ -266,18 +276,18 @@ public final class AsmCheck {
         while (out.size() < count) {
             long[] t = new long[params.size()];
             for (int p = 0; p < params.size(); p++) {
-                t[p] = randomValue(params.get(p), random);
+                t[p] = randomValue(params.get(p), random, pointerBase);
             }
             out.add(t);
         }
         return out;
     }
 
-    private static List<Long> edges(Param p) {
+    private static List<Long> edges(Param p, long pointerBase) {
         Set<Long> e = new LinkedHashSet<>();
         if (p.pointer()) {
-            e.add(POINTER_BASE);
-            e.add(POINTER_BASE + 1);
+            e.add(pointerBase);
+            e.add(pointerBase + 1);
             return List.copyOf(e);
         }
         long[] candidates = {p.lo(), p.hi(), 0, 1, -1, p.lo() + 1, p.hi() - 1, 0x7F, 0x80, 0xFF, 0x100, 0x7FFF, 0x8000,
@@ -290,9 +300,9 @@ public final class AsmCheck {
         return List.copyOf(e);
     }
 
-    private static long randomValue(Param p, Random random) {
+    private static long randomValue(Param p, Random random, long pointerBase) {
         if (p.pointer()) {
-            return POINTER_BASE + random.nextInt(1024) - 512;
+            return pointerBase + random.nextInt(1024) - 512;
         }
         long span = p.hi() - p.lo() + 1;
         return p.lo() + (long) (random.nextDouble() * span);
@@ -334,9 +344,14 @@ public final class AsmCheck {
     private static String where(int b, List<Global> globals) {
         for (Global g : globals) {
             if (b >= g.address() && b < g.address() + g.size()) {
-                return g.name() + (b == g.address() ? "" : "+" + (b - g.address())) + " ($7E:" + hex(b, 4) + ")";
+                return g.name() + (b == g.address() ? "" : "+" + (b - g.address())) + " (" + bankAddress(b) + ")";
             }
         }
+        return bankAddress(b);
+    }
+
+    /** A WRAM index as bank and address. */
+    private static String bankAddress(int b) {
         return b >= 0x10000 ? "$7F:" + hex(b - 0x10000, 4) : "$7E:" + hex(b, 4);
     }
 

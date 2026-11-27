@@ -29,8 +29,8 @@ document of its subject.
 | ADR-6F0R668G | [No recursion, no free function pointers and no heap, so frames have fixed places](adr/6F0R668G-no-recursion-no-free-function-pointers-and-no-heap.md) | Accepted | 2026-11-17 |
 | ADR-6F0R6752 | [`gcc -E` preprocesses, without host headers or host macros](adr/6F0R6752-gcc-e-preprocesses-without-host-headers-or-host.md) | Superseded; superseded by ADR-6FD4GDN5 | 2026-11-17 |
 | ADR-6F0R68AN | [Hints are macros, and a hint that states a fact is checked on the PC](adr/6F0R68AN-hints-are-macros-and-a-hint-that-states-a-fact-is.md) | Accepted | 2026-11-17 |
-| ADR-6F0R69B6 | [All variables live in bank $7E, and DBR stays $7E](adr/6F0R69B6-all-variables-live-in-bank-7e-and-dbr-stays-7e.md) | Accepted | 2026-11-17 |
-| ADR-6F0R6A8V | [Pointers are 4 bytes, and no object crosses a bank or exceeds 32 KB](adr/6F0R6A8V-pointers-are-4-bytes-and-no-object-crosses-a-bank.md) | Accepted | 2026-11-17 |
+| ADR-6F0R69B6 | [All variables live in bank $7E, and DBR stays $7E](adr/6F0R69B6-all-variables-live-in-bank-7e-and-dbr-stays-7e.md) | Accepted; amended by ADR-6FVM9QWS | 2026-11-17 |
+| ADR-6F0R6A8V | [Pointers are 4 bytes, and no object crosses a bank or exceeds 32 KB](adr/6F0R6A8V-pointers-are-4-bytes-and-no-object-crosses-a-bank.md) | Accepted; amended by ADR-6FVM9QWS | 2026-11-17 |
 | ADR-6F0R6BSK | [Structs have no padding, and a `sizeof` that differs from the PC is an error](adr/6F0R6BSK-structs-have-no-padding-and-a-sizeof-that-differs.md) | Accepted | 2026-11-17 |
 | ADR-6F0R6C4B | [LoROM with FastROM, code from bank $80, one segment per function, `JSL` for every call](adr/6F0R6C4B-lorom-with-fastrom-code-from-bank-80-one-segment.md) | Accepted | 2026-11-17 |
 | ADR-6F0R6DZD | [Three IR levels, and HIR waits until something needs it](adr/6F0R6DZD-three-ir-levels-and-hir-waits-until-something.md) | Accepted | 2026-11-17 |
@@ -104,7 +104,11 @@ document of its subject.
 | ADR-6FRX1GYC | [The game's IRQ runs at a picture row and writes after waiting for the horizontal blank](adr/6FRX1GYC-the-game-s-irq-runs-at-a-picture-row-and-writes.md) | Accepted | 2026-11-26 |
 | ADR-6FS0T4WB | [The kit's NMI runs the vertical blank of a game that publishes](adr/6FS0T4WB-the-kit-s-nmi-runs-the-vertical-blank-of-a-game.md) | Accepted | 2026-11-26 |
 | ADR-6FSHCP06 | [Rachael draws modes 0 to 4, mosaic and EXTBG; the picture's other sizes wait for a game](adr/6FSHCP06-rachael-draws-modes-0-to-4-mosaic-and-extbg-the.md) | Accepted | 2026-11-26 |
+<<<<<<< HEAD
+| ADR-6FVM9QWS | [Variables that do not fit into bank $7E go to bank $7F, largest first, chosen by dampf](adr/6FVM9QWS-variables-that-do-not-fit-into-bank-7e-go-to-bank.md) | Accepted; amends ADR-6F0R69B6, ADR-6F0R6A8V | 2026-11-27 |
+=======
 | ADR-6FVMCY48 | [A function inlined at every call keeps its timing entry but no code](adr/6FVMCY48-a-function-inlined-at-every-call-keeps-its-timing.md) | Accepted | 2026-11-27 |
+>>>>>>> origin/develop
 
 ## Former numbers
 

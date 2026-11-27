@@ -34,6 +34,7 @@ on 2026-11-27:
 | Hello | 80,271 | 81,270 | 50.0 % |
 | Mode 7 | 10,604 | 10,634 | 49.2 % |
 | modes | 53,393 | 121,709 | 3.4 % |
+| Gruft | 130,683 | 435,653 | 7.3 % |
 
 On 2026-11-20, before the runtime used the CPU's multiplier, the naive code generator did 3.0
 times the work on the geometric mean of all seven examples, from 1.26 times (Mandelbrot, whose
