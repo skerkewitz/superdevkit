@@ -2,7 +2,9 @@
  * claim: pairs_by_offsets same pairs_by_counter
  * A list of the used slots costs what a counter over all slots costs if it holds their byte
  * offsets: an index from a list is multiplied by the element's size on every use
- * (slow-index-list), an offset is not. The offsets must fit the list's type. */
+ * (slow-index-list), an offset is not. The struct is 11 bytes on the SNES and 12 on the PC, so
+ * sizeof(Ball) is rejected: the offsets come from a pointer difference, which is right on both.
+ * They must fit a byte (slow-word-offsets). */
 #include <dampf.h>
 #include <stdint.h>
 
@@ -11,7 +13,8 @@ typedef struct {
     uint8_t  kind;
     int16_t  vx, vy;
     uint16_t x, y;
-} Ball;
+    uint8_t  r;
+} Ball;   /* 11 bytes on the SNES, 12 on the PC (dampf does not pad) */
 
 #define BALLS 12
 Ball balls[BALLS];
@@ -47,7 +50,7 @@ void pairs_by_offsets(void)
     uint8_t list[BALLS], n = 0, li, lj, i;
     for (i = 0; i < BALLS; i++) {
         if (used(&balls[i])) {
-            list[n++] = (uint8_t)(i * sizeof(Ball));
+            list[n++] = (uint8_t)((const uint8_t *)&balls[i] - (const uint8_t *)balls);
         }
     }
     DAMPF_RANGE(n, 0, BALLS);

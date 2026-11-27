@@ -8,9 +8,10 @@ without a milestone, and ideas. What is done and released is in
 
 M0 to M10 are concluded ([history.md](history.md#where-dampf-stands)); M10 was released as
 0.10.0 on 2026-11-26, and Rachael's further picture modes as 0.10.1 on 2026-11-27. During play
-the game took 0.79 frames per tick on 2026-11-18 against a goal of 0.6, so the compiler work
-goes on while the game reduces its own work in parallel; the current numbers are in
-[optimizations.md](optimizations.md#where-things-stand). Next: timing and debugging (M11), then
+the game took 0.594 frames of work per play tick on 2026-11-27 alone and 0.932 with the CPU
+partner, its busiest ticks 1.48 and 2.11, against a goal of 0.6 for the busiest scene, so the
+compiler work goes on while the game reduces its own work in parallel; the numbers and how they
+were measured are in [optimizations.md](optimizations.md#where-things-stand). Next: timing and debugging (M11), then
 fine tuning (M12).
 
 ## Versions
@@ -51,7 +52,10 @@ Timing ([timing.md](timing.md#not-built-yet)):
   (`DAMPF_AT_MOST`, [hints.md](hints.md)), or a bound per call chain, would make budgets usable
   there. This is how impossible path combinations get expressed, a question
   [timing.md](timing.md#open-questions) left open until the bounds turned out too pessimistic;
-- level 3: DRAM refresh, HDMA and interrupts at frame level. Open is how the budget learns
+- level 3: DRAM refresh, HDMA and interrupts at frame level. The refresh alone makes a
+  function's measured cycles about 3 % more than the cycle comments add up to (40 master cycles
+  of each line's 1,364; `oam_add` 2,268 a call measured against 2,201 summed over the same
+  instructions, [log](optimizations-log.md#the-games-three-hottest-functions-by-hand-2026-11-27-on-blubber-blasen)). Open is how the budget learns
   which HDMA channels a game has on, since a game turns them on at run time
   (`sdevkit_hdma_enable`); the IRQ's window takes it from the game's declaration of its line,
   which Rachael checks
@@ -71,28 +75,43 @@ writes the processor state line in the assembly as the naive code generator does
 
 ## M12: fine tuning (0.12.0)
 
-What was left of M4 and M9, until the frame budget is met. The rows keep the numbers of the
-plan made on 2026-11-17 (the rows not listed are done, [history.md](history.md#m3-and-m4)); the
-gains are estimates from the profile's shares, not measurements, and several ideas that looked
-good measured zero ([optimizations.md](optimizations.md#tried-and-rejected)).
+What was left of M4 and M9, until the frame budget is met. Rows 2 to 11 keep the numbers of the
+plan made on 2026-11-17 (the rows not listed are done, [history.md](history.md#m3-and-m4)); rows
+12 to 16 and the revised estimates of rows 3, 7, 8 and 9 come from the game's three hottest
+functions compared with hand-written code on 2026-11-27
+([optimizations.md](optimizations.md#the-games-hottest-functions-by-hand-2026-11-27)). The order
+follows the likely gain. The gains are estimates from the profile's shares unless a row says
+measured, and several ideas that looked good measured zero
+([optimizations.md](optimizations.md#tried-and-rejected)).
 
 | # | Idea | Likely gain | Effort | Notes |
 | --- | --- | --- | --- | --- |
-| 2 | Register allocation: values in A, X and Y over several instructions instead of a direct page place each | 2-4 % more | high | Loads and stores of direct page values are the largest share of the cycles: 10 to 39 % of the examples' work, measured on 2026-11-27 ([log](optimizations-log.md#where-the-direct-page-traffic-goes-2026-11-27-on-the-examples)). With one accumulator, choosing what lives where is the hard part. Places get their addresses on the LIR and go to X or Y by cost since M9 ([history.md](history.md#m9)); since 2026-11-27 a load of what another register holds is a transfer, the block weights come from the branches, a value may take X or Y for the common part of a loop, and a store only a rare way reads moves onto it (the examples 1.3 % less work, Steinschlag 4.5 %, Er-Tüp 2.9 %), and no function's worst case grows (a part of a loop that would make one larger is not taken: with them it was 1.8 %). Left: the counter beside an offset in a loop with a rare `switch` (Er-Tüp's `draw_enemies`, Steinschlag's `cave_scan_rows`, `INC p` and a load each round), stores whose value A loses before the block ends (Schach 2.6 % of its work), values live across calls and long stretches (Schach 8.7 %); the choice of the index register is still selection's (`findXCounters`, `findYIndexes`; without the first the pair loops cost up to 0.9 % more, without the second up to 1.8 %), `FrameLayout`'s predictions for selection (kept until a model of the whole function replaces them, ADR-6FGF7X0N), and `Schedule`'s order for a computed value stored at an index into a global, which needs a cost model (value last makes `hud_lives` 12 % faster and Schach's `next` slower); `findForwards` and `Schedule` are still needed (2026-11-22: without them the examples are 1.6 and 0.5 % slower); registers across calls were measured at 0.35 % at most and are not built. The estimate was 10-20 % until 2026-11-27, from the share of the direct page traffic; after the first four steps the rest is put at 2-4 %, since much of that traffic cannot move into three registers: the rare ways of a loop compete for X, and values live across calls stay in memory. |
-| 3 | 8-bit stretches: the M flag followed (`REP`/`SEP`) across blocks, `uint8_t` code in 8-bit mode | 5-10 % | high | Fewer `AND #$00FF`, and 8-bit accesses are a cycle cheaper. Within a block and in loops over bytes this is done since M9 ([history.md](history.md#m9)). Left: the general placement across blocks. Measured then: the other switches are 0.5 to 4.5 % of the examples' work and nearly all around byte stores, where they are needed. |
-| 4 | Arrays of structs as one array per field (catalogue D, `DAMPF_SPLIT`), with HIR to do it in | 5-10 % in the bubble loops | high | `separate`, `bubbles_update` and `bubbles_draw` are 30 %. Needs a subset decision or a hint, since the layout then differs from the PC. Measured against it: in the game's pair loop (its finding 9) one array per field was 16 % slower for the counted loop and 1 % slower for the sorted list, and in `exec/pair_loops.c` 1.9 % slower for the counted loop; a loop that moves two fields of every element gains about 12 % (the spelling families `struct-fields` and `field-arrays`). The game reaches its objects through pointers (1,516 `->`), so a split needs to know where each pointer points. Taken up when a measured loop gains clearly, as the hint `DAMPF_SPLIT`. |
+| 3 | 8-bit stretches: the M flag followed (`REP`/`SEP`) across blocks, `uint8_t` code in 8-bit mode | 3-5 % | high | Fewer `AND #$00FF`, and 8-bit accesses are a cycle cheaper. Within a block and in loops over bytes this is done since M9 ([history.md](history.md#m9)). Left: the general placement across blocks. Measured then: the other switches are 0.5 to 4.5 % of the examples' work and nearly all around byte stores, where they are needed. On Blubber Blasen's play ([the study of 2026-11-27](optimizations-log.md#the-games-three-hottest-functions-by-hand-2026-11-27-on-blubber-blasen)) `AND #$00FF` is 5.1 % of all work (5.3 % solo) and `SEP`/`REP` 1.7 % (2.0 %), and a byte access in 16-bit mode costs a cycle more; in `oam_add` alone 306 master cycles a call, where a hand-written version stays in 8 bits from start to end and keeps B at 0, so that `TAX` and `TAY` zero-extend. 3-5 % of the game's work looks reachable; the estimate was 5-10 % until then. |
+| 2 | Register allocation: values in A, X and Y over several instructions instead of a direct page place each | 2-4 % more | high | Loads and stores of direct page values are the largest share of the cycles: 10 to 39 % of the examples' work, measured on 2026-11-27 ([log](optimizations-log.md#where-the-direct-page-traffic-goes-2026-11-27-on-the-examples)). With one accumulator, choosing what lives where is the hard part. Places get their addresses on the LIR and go to X or Y by cost since M9 ([history.md](history.md#m9)); since 2026-11-27 a load of what another register holds is a transfer, the block weights come from the branches, a value may take X or Y for the common part of a loop, and a store only a rare way reads moves onto it (the examples 1.3 % less work, Steinschlag 4.5 %, Er-Tüp 2.9 %), and no function's worst case grows (a part of a loop that would make one larger is not taken: with them it was 1.8 %). Left: the counter beside an offset in a loop with a rare `switch` (Er-Tüp's `draw_enemies`, Steinschlag's `cave_scan_rows`, `INC p` and a load each round), stores whose value A loses before the block ends (Schach 2.6 % of its work), values live across calls and long stretches (Schach 8.7 %); the choice of the index register is still selection's (`findXCounters`, `findYIndexes`; without the first the pair loops cost up to 0.9 % more, without the second up to 1.8 %), `FrameLayout`'s predictions for selection (kept until a model of the whole function replaces them, ADR-6FGF7X0N), and `Schedule`'s order for a computed value stored at an index into a global, which needs a cost model (value last makes `hud_lives` 12 % faster and Schach's `next` slower); `findForwards` and `Schedule` are still needed (2026-11-22: without them the examples are 1.6 and 0.5 % slower); registers across calls were measured at 0.35 % at most and are not built. On the game (2026-11-27) frame stores are 13.0 % and loads 11.5 % of all work, and `oam_add` parks values in the frame for 168 master cycles a call ([optimizations.md](optimizations.md#the-games-hottest-functions-by-hand-2026-11-27)). The estimate was 10-20 % until 2026-11-27, from the share of the direct page traffic; after the first four steps the rest is put at 2-4 %, since much of that traffic cannot move into three registers: the rare ways of a loop compete for X, and values live across calls stay in memory. |
 | 5 | 8-bit index registers, arrays aligned to pages | 2-4 % | high | `LDA abs,X` a cycle cheaper; needs the X flag followed and the alignment in the memory map. |
-| 7 | Calling convention (catalogue C): the first argument in A, `JMP` for tail calls | 1-3 % | medium | `ground_px` is called 12,000 times in 800 ticks. |
-| 8 | The block layout by a profile by default | ~1 % | low | Opt-in today (`--block-counts`); needs a profile of the program (`dampf bench --profile`). |
-| 9 | Value ranges from array bounds | 1-2 % | medium | More 8-bit narrowing, fewer masks. An index into an array needs no range for its access since M9 (ADR-6F8NBESR), but the value ranges do not learn from that access yet. |
+| 4 | Arrays of structs as one array per field (catalogue D, `DAMPF_SPLIT`), with HIR to do it in | 5-10 % in the bubble loops | high | `separate`, `bubbles_update` and `bubbles_draw` are 30 %. Needs a subset decision or a hint, since the layout then differs from the PC. Measured against it: in the game's pair loop (its finding 9) one array per field was 16 % slower for the counted loop and 1 % slower for the sorted list, and in `exec/pair_loops.c` 1.9 % slower for the counted loop; a loop that moves two fields of every element gains about 12 % (the spelling families `struct-fields` and `field-arrays`). The game reaches its objects through pointers (1,516 `->`), so a split needs to know where each pointer points. Taken up when a measured loop gains clearly, as the hint `DAMPF_SPLIT`. |
+| 14 | Pointer globals without a copy into the frame: a direct page place of their own, or an offset into the one object they point into | 1.7-1.9 % | medium | A function that reads through a global pointer copies its 4 bytes into its frame first (`LDA [dp],Y` needs it in the direct page), at every call: 124 master cycles a call of `oam_add`. The game's level cell pointer (33 sites, `level_on_ground` with 33,012 calls) and `oam_add`'s table pointer take 1.7 % of the work with the CPU partner and 1.9 % solo ([the study of 2026-11-27](optimizations-log.md#the-games-three-hottest-functions-by-hand-2026-11-27-on-blubber-blasen)). Where every store to the pointer is into the same object (`p = &table[k]`, the whole program known), it can become a 16-bit offset, as `PointerParams` does for parameters; otherwise a direct page place (what `DAMPF_DP` would ask for). |
+| 12 | Signed comparisons of two variables through the subtraction's flags (`SBC`, then N and V), and `a > b ? a - b : b - a` as one subtraction and a conditional negation | 1.8 % with the CPU partner | low | Today `a < b` of two `int16_t` is `EOR #$8000` on both and a compare through `R0`, 146 master cycles and the branch, where the exact form takes about 80 and, where the ranges rule out an overflow, `CMP` and `BMI` 56. Five of them per pair are 814 of the 1,897 cycles of a pair in the CPU partner's `evaluate`: 6,290 a call, 1.8 % of the work; elsewhere in the game 0.05 % ([the study of 2026-11-27](optimizations-log.md#the-games-three-hottest-functions-by-hand-2026-11-27-on-blubber-blasen)). A `DAMPF_RANGE` that rules out an overflow does not shorten the comparison today, nor does it change any of `evaluate`'s code. |
+| 15 | Loop-invariant code across a loop nest and for loads through pointer parameters, unswitching on an invariant condition, and a loop nest skipped when its inner loop runs 0 times | about 1.4 % | medium | `Licm` moves a load only from the loop's head or of a global, and an instruction only from the blocks every round passes. In `evaluate` the outer loop reloads two fields through the pointer parameter, recomputes the inner loop's bound from a global no store changes and tests three invariant conditions every round: 2,530 master cycles a call; when the danger list is empty (one call in five) the outer loop runs for nothing, 1,830 a call; invariant summands added in every pair, 440. Together about 1.4 % of the work with the CPU partner; other sites not measured ([the study of 2026-11-27](optimizations-log.md#the-games-three-hottest-functions-by-hand-2026-11-27-on-blubber-blasen)). |
+| 16 | Jump threading over flags and φs of constants past blocks that do other work, and conditions an earlier test already decided | 1.1-1.3 % | medium | In `oam_add` a flag written on each path (up to three times) and tested twice later, and an inlined callee that tests again what the caller decided, cost 251 master cycles a call: 1.1 % of the work with the CPU partner, 1.3 % solo, from this one function ([the study of 2026-11-27](optimizations-log.md#the-games-three-hottest-functions-by-hand-2026-11-27-on-blubber-blasen)). `Simplify` threads a branch on a φ of constants only where the block does nothing but branch; here the flag is tested after other work, and a condition an earlier test decided is tested again (correlated conditions). A chain of constant returns that is a table (`if (p == 3) return 1; ...`) as a lookup in a constant table would save 89 more. |
+| 13 | A constant field offset as the displacement of an indexed access (`LDA a+10,X`) instead of a 24-bit pointer built for each access | 0.9 % measured, up to 2-3 % | low to medium | In `evaluate` the first of two array fields of a struct, at offset 0, indexed by a variable is `LDA a,X`, and the second, at offset 10, a 24-bit pointer to the element built in the frame every pair, plus 10 into a second pointer and `LDA [dp],Y`: 3,010 master cycles a call, 0.9 % of the work ([the study of 2026-11-27](optimizations-log.md#the-games-three-hottest-functions-by-hand-2026-11-27-on-blubber-blasen)). A 24-bit pointer into bank `$7E` is built at run time 349,447 times in that run and 277,141 times solo; if those sites share the cause, 2-3 %; not checked per site. |
+| 9 | Value ranges from array bounds | 1-2 % | medium | More 8-bit narrowing, fewer masks. An index into an array needs no range for its access since M9 (ADR-6F8NBESR), but the value ranges do not learn from that access yet. Also for the timing: a loop `i < count` over a global array of 32 is bounded by the counter's type, 255 rounds, where a walk with a pointer up to `&a[count]` gets 32 (`evaluate`'s worst case 2.45 million master cycles against 0.30 million, [the study of 2026-11-27](optimizations-log.md#the-games-three-hottest-functions-by-hand-2026-11-27-on-blubber-blasen)). |
 | 10 | Superoptimizer for short hot sequences | 1-3 % | high | Gains spread thin. |
-| 11 | `<<8` as a byte store, `MVN` for copies (and `memcpy`), unrolling by hint | <1 % each | low to medium | Large locally, small on the whole game. |
+| 7 | Calling convention (catalogue C): the first argument in A, `JMP` for tail calls | <1 % | medium | `ground_px` is called 12,000 times in 800 ticks. For the game's hottest callee, `oam_add` (74,737 calls in 5,730 ticks), it saves about nothing ([the study of 2026-11-27](optimizations-log.md#the-games-three-hottest-functions-by-hand-2026-11-27-on-blubber-blasen)): no call of it is a tail call, and its first parameter is the last it reads, so the callee stores it at once (0 to 8 master cycles a call). The whole call costs it 241 a call, 1.0 % of the work (1.35 % solo), which only inlining saves. The estimate was 1-3 % until then. |
+| 11 | `<<8` as a byte store, `MVN` for copies (and `memcpy`), unrolling by hint, small folds | <1 % each | low to medium | Large locally, small on the whole game. Small folds found in [the study of 2026-11-27](optimizations-log.md#the-games-three-hottest-functions-by-hand-2026-11-27-on-blubber-blasen): a constant array's element at a constant index stays a load (after inlining with a constant argument too), `x * 256` of a byte is eight `ASL` where `x << 8` is an `XBA`, `(v >> 6) & 1` is six `LSR`, and the start of an inner loop over a struct array, `(i + 1) * 23`, is multiplied by shifts in every round of the outer loop instead of stepped (470 master cycles a call in `separate`). Unrolling the 16 slots of `separate`'s outer scan would save 1,150 a call. |
+| 8 | The block layout by a profile by default | none: measured 0.7 % slower | low | Opt-in today (`--block-counts`); needs a profile of the program (`dampf bench --profile`). Measured on the game ([the study of 2026-11-27](optimizations-log.md#the-games-three-hottest-functions-by-hand-2026-11-27-on-blubber-blasen)): with the block counts of the same run the work with the CPU partner grew 0.7 %, and `separate`'s worst case 6 %, although `separate` itself took 0.3 % less. Why is not known; to be understood before it becomes the default. The estimate was about 1 % until then. |
 
 Also in M12:
 
 - 32-bit arithmetic and ordered comparisons, which still go through frame slots (the rule
   `slow-32-bit` of [lib/C_STYLE.md](../lib/C_STYLE.md));
-- profile-guided inlining, and code size spent for speed where the profile says it is hot;
+- profile-guided inlining, and code size spent for speed where the profile says it is hot.
+  Measured on the game
+  ([log](optimizations-log.md#the-games-three-hottest-functions-by-hand-2026-11-27-on-blubber-blasen)):
+  `oam_add`'s body copied by hand into its five hottest call sites (80 % of its calls) took 1.3 % off the work with the CPU partner and 2.3 % solo,
+  for 1,727 bytes. dampf never inlines it: about 133 MIR instructions and 45 call sites, where a
+  callee with several sites may have 60 (`Inline.SMALL`). `level_on_ground`, `vacuum_move` and
+  `add_danger` pay the same call of about 240 master cycles 10,000 to 33,000 times a run;
 - a tuning option (`--tune`) that tries the parameters chosen today on one game (the inlining
   limit, the block order) on the user's own workload and keeps the fastest build, each candidate
   checked against the PC's results ([optimizations.md](optimizations.md));
@@ -121,9 +140,9 @@ Also in M12:
   [ADR-6F0R6Q5P](adr/6F0R6Q5P-value-ranges-are-inferred-first-and-subrange-types.md)).
 
 The split of struct arrays (4) waits until a measured loop asks for it. The rest has to come
-from the game doing less work: the pair loop of `separate` (16 %) and the CPU partner (the
-game's finding 1, forwarded to it), as the [checkpoint after M2](history.md#checkpoint-after-m2)
-concluded.
+from the game doing less work: the pair loop of `separate` (8 % of the play work with the CPU
+partner, 12 % solo, on 2026-11-27) and the CPU partner (the game's finding 1, forwarded to it),
+as the [checkpoint after M2](history.md#checkpoint-after-m2) concluded.
 
 ## Open without a milestone
 
@@ -151,6 +170,13 @@ concluded.
   ([ADR-6FS0T4WB](adr/6FS0T4WB-the-kit-s-nmi-runs-the-vertical-blank-of-a-game.md)). The layers
   could publish their own state as a game publishes its struct, so their commit could run in the
   NMI too.
+- **A better check of hand-written functions that read globals.** The check of `DAMPF_ASM` and
+  `--replace` keeps pointer globals as after start-up, fills the other globals with random
+  bytes, which rarely make a state the program has, and makes hand-written code leave its own
+  variables as it found them ([hints.md](hints.md#as-built)). It passed a hand-written
+  `separate` with a wrong threshold and failed a correct `oam_add`. Ideas: pointer globals set to
+  where the program's stores point, globals taken from states a recorded run passes through (a
+  `check.txt` played to chosen ticks), the assembly's own BSS left out of the comparison.
 - **Less memory for a compile.** Blubber Blasen took 1.8 GB. Moved out of M10 on 2026-11-24:
   dampf's own speed and memory are tuned once it is more or less feature complete.
 

@@ -40,6 +40,20 @@ On 2026-11-20, before the runtime used the CPU's multiplier, the naive code gene
 times the work on the geometric mean of all seven examples, from 1.26 times (Mandelbrot, whose
 time was the runtime's 32-bit multiplication) to 6.4 times (Er-Tüp).
 
+Blubber Blasen itself, on 2026-11-27: dampf 0.10.1 built a copy of the game on the kit's console
+API, and two scripted inputs played it in dampf's emulator, its work per tick counted as the
+examples' is ([log](optimizations-log.md#the-games-three-hottest-functions-by-hand-2026-11-27-on-blubber-blasen)):
+
+| Play, frames of work per play tick | Average | Busiest tick |
+| --- | --- | --- |
+| Solo (ticks 180 to 6,000) | 0.594 | 1.48 |
+| With the CPU partner (ticks 270 to 6,000) | 0.932 | 2.11 |
+
+These are not comparable with the figures of 2026-11-18 below: those came from the game's own
+benchmark in Mesen, with another input and every PVSnesLib call stubbed out; these come from the
+game's code of today, which has changed in between, on the kit's console API with nothing
+stubbed, from other inputs and in dampf's emulator.
+
 Before, dampf was measured on Blubber Blasen's benchmark (`tools/snesbench` in the game
 repository), which ran the game code with a fixed input, every PVSnesLib call stubbed out; all
 3,610 ticks gave the PC's checksums. Its last figures follow.
@@ -222,6 +236,7 @@ exposed a miscompilation (fixed on 2026-11-19). Which come next, by likely gain 
 | Calypsi | about 1.1 × on `level_solid_px` (an older run) |
 | dampf, naive code generator | 4.5 × on `level_solid_px` ([log](optimizations-log.md#the-first-reference-function-level_solid_px-2026-11-17)) |
 | dampf from MIR, today | 1.14 × on `level_solid_px` ([Where things stand](#where-things-stand)) |
+| dampf from MIR, 2026-11-27 | 2.0 to 2.5 × on the game's three hottest functions in play ([below](#the-games-hottest-functions-by-hand-2026-11-27)) |
 | dampf after the optimizations, hot loops, without hints | estimated 1.2–1.5 × |
 | dampf after the optimizations, hot loops, with hints | estimated 1.1–1.2 ×, in places equal |
 | dampf, the rest of the code | equal to or better than what a human writes there in practice |
@@ -263,6 +278,52 @@ game links the hand-written version in its place with `DAMPF_ASM`, whose convent
 keep the timing exact ([hints.md](hints.md)); only when measurement demands it.
 Hand-written assembly for the whole game was tried years ago and failed.
 
+### The game's hottest functions by hand (2026-11-27)
+
+How much is left: Blubber Blasen's three hottest functions in play (the profile in *Where things
+stand*), `oam_add`, `separate` and `evaluate`, each compiled by dampf from the C as it is (A),
+compiled from the best C spelling (B), and written by hand in 65816 assembly with everything
+dampf inlines into it (C). B and C compute the same as A for every input, and both inputs played
+with all of WRAM identical to A's at the end of every tick. The method, the numbers and what
+each gap is made of are in the
+[log](optimizations-log.md#the-games-three-hottest-functions-by-hand-2026-11-27-on-blubber-blasen).
+
+| Function | A | B | C | A / C | Work per tick with C, solo / with the CPU partner |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `oam_add` | 2,268 | 1,790 | 1,067 | 2.13 | −6.6 % / −5.3 % |
+| `separate` | 27,772 | 24,887 | 14,195 | 1.96 | −6.0 % / −3.8 % |
+| `evaluate` | 29,409 | 17,923 | 11,877 | 2.48 | (not called) / −5.3 % |
+
+Master cycles per call on average, with the CPU partner. The gap between A and C by class:
+
+| Class | `oam_add` | `separate` | `evaluate` |
+| --- | ---: | ---: | ---: |
+| the compiler, with the facts it has | 49 % | 34 % | 100 % |
+| the compiler, given a fact it cannot infer | 0 | 0 | 0 |
+| the C spelling | 42 % | 53 % | (B closes 65 %) |
+| only a person | 10 % | 13 % | 0 |
+
+What follows:
+
+- dampf's code takes 2 to 2.5 times the cycles of hand-written code on these functions, far from
+  the 1.14 of `level_solid_px` and from the 1.2 to 1.5 estimated above for hot loops. Hand-written
+  versions of all three, added up, would take about 14 % off the work with the CPU partner and
+  13 % solo.
+- No gap needed a fact dampf cannot infer. Every hand-written version relies only on what the C
+  says; a hint would have added 2 % to `evaluate` (no overflow in a difference) and nothing to the
+  others.
+- Most of what a compiler could get lies in rules M12 did not list: in `evaluate` about 14,300 of
+  the 17,532 cycles a call, all but rows 2 and 8 (signed compares of two variables, a field array
+  at a constant offset reached through a 24-bit pointer, loop-invariant work across a loop nest, a
+  nest that has nothing to do, two induction variables where one would do), in `oam_add` the C
+  spelling's items (a flag tested after the paths that set it, a chain of constant returns, a
+  pointer global). `separate`'s compiler part is mostly in rows that exist (2, 3, 8, 11); the rest
+  of it is the algorithm, a list of the bubbles that take part, which pays only once dampf compiles
+  lists well. M12 was reworked from this ([roadmap](roadmap.md#m12-fine-tuning-0120)).
+- The C spelling gets part of the way: B takes 2.1 %, 0.8 % and 3.0 % off the work with the CPU
+  partner, where C takes 5.3 %, 3.8 % and 5.3 %. The spellings that pay went to the game
+  ([game-findings.md](game-findings.md)) and, where they hold in general, into the C guide.
+
 ## Knowing the machine
 
 dampf knows exactly where its code runs: a Ricoh 5A22 at 60 Hz (NTSC), 128 KB of WRAM, no
@@ -286,8 +347,11 @@ applies it everywhere, not only in the routines a human tunes, and exact timing
 
 The game's replays are recordings of real play. Run in the cycle-counting emulator, they show how
 often each branch is taken and which functions are hot. Built: the layout of the blocks by a
-profile's block counts (G). Open: inlining hot functions more readily, and spending code size for
-speed where it matters. Hot code and its tables belong in FastROM, which today holds all of
+profile's block counts (G); on the game it made the run with the CPU partner 0.7 % slower
+(2026-11-27, [log](optimizations-log.md#the-games-three-hottest-functions-by-hand-2026-11-27-on-blubber-blasen)).
+Open: inlining hot functions more readily (one hot callee inlined by hand at its five hottest
+call sites took 1.3 to 2.3 % off the work, the same log entry), and spending code size for speed
+where it matters. Hot code and its tables belong in FastROM, which today holds all of
 dampf's code and constant data anyway. Many `DAMPF_LIKELY`/`DAMPF_UNLIKELY` hints become
 unnecessary.
 
