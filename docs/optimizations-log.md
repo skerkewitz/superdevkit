@@ -2194,4 +2194,18 @@ The examples, against the step before: Steinschlag 0.971, Catch Me 0.999, Mandel
 rest the same; geometric mean 0.996. Of the stores the trace found overwritten before they were
 read (Schach 2.6 % of its work, Er-Tüp 1.3 %), most are followed by a change of A before their
 block ends, where the value is gone.
+
 No worst case grows; 8 shrink, by up to 0.8 % (Er-Tüp's `draw_bullets`).
+
+## Loads and stores on a way of their own, tried (2026-11-27, on the examples)
+
+A register for part of a loop needs a load on every way into the part and a store on every way
+out; where such a way leaves a block that also goes elsewhere, the plan was given up. Counted
+while compiling Er-Tüp, that happened thousands of times (`draw_enemies`, `draw_items`,
+`collide`). The try put the load or store on the way itself: right before the label where the
+block falls into the next, or right after the label of a branch's long form that only that
+branch names. The examples did exactly the same work (Er-Tüp 127,465 master cycles a tick before
+and after, Schach 366,985 and 366,986); the plans it made possible were not the ones that pay,
+and `draw_enemies` kept its counter in the frame. It also needed a guard: a part that moved its
+load onto a way in was taken again in the next round with the load moved back, without end
+(Catch Me's `cats_move`). Not built.

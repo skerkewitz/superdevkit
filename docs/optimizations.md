@@ -22,17 +22,18 @@ Since 2026-11-19 dampf is measured on its examples: `dev/bench_examples.sh` give
 tick of each (master cycles without the main loop's waiting; it counts a frame as 262 lines of
 1,364, 357,368) and compares a
 change with a baseline on all of them ([testing.md](testing.md)). Code from MIR, FastROM, measured
-on 2026-11-20:
+on 2026-11-27:
 
 | Example | Work per tick, average | Busiest 60 ticks | In dampf's runtime |
 | --- | --- | --- | --- |
-| Er-Tüp | 150,410 | 286,177 | 2.6 % |
-| Schach | 416,847 | 593,472 | 1.0 % |
-| Steinschlag | 97,505 | 176,840 | 1.1 % |
-| Mandelbrot | 247,517 | 317,590 | 81.3 % |
-| Catchme | 52,189 | 160,087 | 18.8 % |
-| Hello | 60,916 | 62,016 | 65.9 % |
-| Mode 7 | 27,211 | 27,462 | 68.0 % |
+| Er-Tüp | 127,465 | 255,046 | 1.1 % |
+| Schach | 366,985 | 516,288 | 1.2 % |
+| Steinschlag | 71,187 | 131,804 | 1.5 % |
+| Mandelbrot | 74,647 | 87,564 | 62.7 % |
+| Catchme | 45,966 | 143,470 | 20.3 % |
+| Hello | 80,253 | 81,254 | 50.1 % |
+| Mode 7 | 10,604 | 10,635 | 49.2 % |
+| modes | 53,337 | 119,908 | 3.4 % |
 
 On 2026-11-20, before the runtime used the CPU's multiplier, the naive code generator did 3.0
 times the work on the geometric mean of all seven examples, from 1.26 times (Mandelbrot, whose
@@ -67,7 +68,7 @@ entry.
 
 | # | Optimization | Status | Latest measured gain |
 | --- | --- | --- | --- |
-| A | Static frames in the direct page: locals, parameters and temporaries in fixed direct page places, shared between functions never active at the same time (the call graph is complete and has no recursion, [subset.md](subset.md)) | Partly. Frames as a compiled stack with the leaves in the direct page, places shared within a function by liveness, values every use takes from A not stored; open: the rest of register allocation | 386,306 → 379,855 ([values not stored](optimizations-log.md#values-not-stored-2026-11-17)) |
+| A | Static frames in the direct page: locals, parameters and temporaries in fixed direct page places, shared between functions never active at the same time (the call graph is complete and has no recursion, [subset.md](subset.md)) | Partly. Frames as a compiled stack with the leaves in the direct page, places shared within a function by liveness, values every use takes from A not stored, a value in X or Y for the common part of a loop (`RegisterChoice`), a store only a rare way reads moved onto it (`DeadStores`); open: a model of the whole function (roadmap M12, row 2) | 386,306 → 379,855 ([values not stored](optimizations-log.md#values-not-stored-2026-11-17)) |
 | B | Width analysis (8/16 bit) and value ranges | Partly. Narrowing from the types, 16-bit pointer offsets, value ranges (see below), switches on bytes in 16 bits, 8 bit kept between a byte load and a byte store and across register accesses, short 16-bit stretches between byte stores in 8 bits (`ByteStretches`), loops over bytes in 8 bits from entry to exit (`ByteLoops`); open: full `REP`/`SEP` tracking | 379,855 → 370,620 ([switches on bytes](optimizations-log.md#switches-on-bytes-compare-16-bits-2026-11-17)) |
 | C | Inlining and calling convention | Partly. Inlining (`Inline`), arguments computed in the callee's parameter place, returns copied into each path; open: parameters in registers, tail calls | 370,620 → 364,829 ([returns copied](optimizations-log.md#returns-copied-into-each-path-2026-11-17)) |
 | D | Data layout: arrays of structs split into one array per field, or D pointed at the current object | Not built | |
@@ -80,7 +81,7 @@ entry.
 | K | Peephole | Partly. A remembers every place it equals, `INC`/`DEC` in place, `STZ`, no `CMP #0` where N and Z already describe A, `TAX` for a reload of a stored value, shifts as a mask, the high byte as a byte load (`Peephole`), no `CLC` where the carry is known clear (`KnownCarry`) | 391,423 → 386,306 ([no `CMP #0`](optimizations-log.md#no-cmp-0-where-the-flags-are-set-2026-11-17)) |
 | L | `switch` as a jump table (`JMP (abs,X)`) | Built (M10). A `switch` on an 8- or 16-bit value whose table costs fewer cycles than its compares on average over the cases, with at most four entries per case (ADR-6FM7MWGX): from 4 cases without a range check, 6 from 0, 7 far from 0 or negative; a first case 0 tested before the table. Open: a switch in a loop whose counter lives in X, 32-bit values, cases weighed by a profile | Ertüp's busiest tick 262,654 → 260,166 master clocks ([jump tables](optimizations-log.md#switch-as-a-jump-table-2026-11-24-on-the-examples)) |
 | M | Copy and fill with `MVN`/`MVP` or DMA | Not built | |
-| N | Values in X and Y | Partly. Loop counters in X (also next to an index in Y, and with their stepped value read after the step: a `do` loop's test, `i - 1` going down; compared with a constant or a 16-bit value in its place), a second index in Y, loop-invariant indexes in Y, the index through a pointer in Y (rows of 2D arrays included), what A, X and Y hold known across blocks, a load of what another register holds as a transfer | 329,834 → 326,596 ([index in Y](optimizations-log.md#a-pointer-plus-an-index-the-index-in-y-2026-11-17)) |
+| N | Values in X and Y | Partly. Loop counters in X (also next to an index in Y, and with their stepped value read after the step: a `do` loop's test, `i - 1` going down; compared with a constant or a 16-bit value in its place), a second index in Y, loop-invariant indexes in Y, the index through a pointer in Y (rows of 2D arrays included), what A, X and Y hold known across blocks, a load of what another register holds as a transfer, a place in X or Y for the part of a loop that leaves the register alone | 329,834 → 326,596 ([index in Y](optimizations-log.md#a-pointer-plus-an-index-the-index-in-y-2026-11-17)) |
 
 The expectation before any of this was a factor of 3 to 6 over the naive code generator; what
 play measures now is in *Where things stand*.
@@ -181,6 +182,10 @@ allowed (the platform layer uses them); this form does not need the rule against
 - The index registers chosen by `RegisterChoice` alone, without `findXCounters` and `findYIndexes`:
   nine versions, none as good as selection's choice on the pair loops and the worst cases
   ([log](optimizations-log.md#the-index-register-choice-tried-in-registerchoice-2026-11-23)).
+- A register's loads and stores for part of a loop on a way of their own (2026-11-27): where a
+  way into or out of the part leaves a block that also goes elsewhere, putting the load or store
+  on that way alone changed no example's work
+  ([log](optimizations-log.md#loads-and-stores-on-a-way-of-their-own-tried-2026-11-27-on-the-examples)).
 - Selection without `FrameLayout`'s predictions: the examples do 1.1 % more work and 104 worst
   cases grow, so they stay until a model of the whole function replaces them
   ([log](optimizations-log.md#framelayouts-predictions-measured-and-kept-2026-11-23)).
