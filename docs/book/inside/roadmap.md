@@ -13,7 +13,7 @@ also describes plans. What is not built yet, listed for users, is on
 
 ## Where dampf stands
 
-The kit is at version 0.10.0, and the milestones M0 to M10 are concluded (M10 as 0.10.0 on
+The kit is at version 0.10.1, and the milestones M0 to M10 are concluded (M10 as 0.10.0 on
 2026-11-26). A game is written once against the kit's [console API](/glossary#console-api), and
 the `superdevkit` command builds it for the SNES with dampf, as a program for Linux and Windows,
 and since 0.8.0 as a page in the browser, with the same picture on each, sound effects, save
@@ -26,7 +26,13 @@ interrupts in C: an IRQ handler of its own, which runs at a picture row the game
 kit's NMI handler, which runs the game's [vertical blank](/glossary#vertical-blank) for a game
 that publishes the data of its tick. A game can also replace a function by hand-written assembly
 beside the optimized code, and the console API is the hardware at once, with optional layers
-above it.
+above it. With 0.10.1, released on 2026-11-27, [Rachael](/glossary#rachael), the SNES the kit
+rebuilds for the desktop and the web, draws the picture modes beyond 1 and 7 too, modes 0, 2,
+3 and 4 with offsets per tile, 256-colour tiles (`superdevkit png tiles8`) and direct colour,
+mosaic, mode 7's second layer (EXTBG), `VMAIN`'s address remapping, and
+[VRAM](/glossary#vram), [CGRAM](/glossary#cgram) and [OAM](/glossary#oam) read back by
+[DMA](/glossary#dma). The example `modes` shows each, the same as in [Mesen](/glossary#mesen)
+pixel for pixel.
 
 The compiler is not at its goal yet: during play the game took 0.79 frames per
 [tick](/glossary#tick) on 2026-11-18 against a goal of 0.6. The speedups still open are part of
@@ -175,7 +181,10 @@ Other work is open without a milestone. dampf's own speed and memory are tuned o
 or less feature complete; a compile of Blubber Blasen took 1.8 GB. A game on the kit's optional
 layers keeps `game_vblank` in its loop, since the layers' state is the tick's; the layers could
 publish their own state as a game publishes its data, so that their commit runs in the NMI
-handler too.
+handler too. Rachael leaves a few picture features undrawn until a game needs them, and the
+desktop check fails on each: modes 5 and 6, high resolution, overscan and interlace, which
+change the picture's size in every frontend, and HDMA with indirect tables, which needs a call
+that builds the table for each platform; direct HDMA does the same with larger tables.
 
 Some ideas have no milestone either and become a step of one only when they are decided:
 dropping the body of a function inlined at every call while keeping its entry in the timing
@@ -213,7 +222,7 @@ GitHub, for Linux and Windows on x64, with a Java runtime and raylib in it, so t
 installs no Java. A workflow builds each zip on its own system, checks it as a user gets it and
 makes a draft release from a version tag. The draft becomes public only when someone has tried
 a zip and published it. When a release is published, a second workflow puts the book and the
-seven examples on GitHub Pages, so the site always describes a released version. For the
+examples on GitHub Pages, so the site always describes a released version. For the
 desktop a C compiler stays needed. A check in the automatic builds that the book is up to date
 is still open. The licence is decided already: superdevkit, dampf included, is under the Apache
 License 2.0 with LLVM Exceptions, the same as LLVM, so code dampf and the library put into a ROM

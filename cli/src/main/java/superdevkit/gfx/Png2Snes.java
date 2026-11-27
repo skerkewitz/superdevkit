@@ -12,8 +12,8 @@ import superdevkit.AtomicWrite;
 
 /**
  * PNG to SNES graphics data, as C for dampf ({@code superdevkit png}, the converter of
- * tools/README.md): tiles of 4 or 2 bits per pixel and their palette, a palette alone, or a picture
- * for mode 7.
+ * tools/README.md): tiles of 8, 4 or 2 bits per pixel and their palette, a palette alone, or a
+ * picture for mode 7.
  *
  * <ul>
  *   <li>{@code tiles}: the image has at most 16 colours: an indexed PNG uses its palette as it is
@@ -24,7 +24,10 @@ import superdevkit.AtomicWrite;
  *       and n + 17. NAME_tiles (32 bytes a tile, the SNES's planar 4-bit format), NAME_pal (16
  *       colours, BGR 5:5:5, low byte first), NAME_TILE_COUNT, NAME_TILES_SIZE, NAME_PAL_SIZE.</li>
  *   <li>{@code tiles2}: the same with 2 bits a pixel (4 colours, indices 0 to 3), for BG3 of
- *       mode 1: 16 bytes a tile, a palette of 4 colours.</li>
+ *       mode 1 and the layers of mode 0: 16 bytes a tile, a palette of 4 colours.</li>
+ *   <li>{@code tiles8}: the same with 8 bits a pixel (256 colours, indices 0 to 255), for BG1 of
+ *       modes 3 and 4: 64 bytes a tile (bit planes 0-1, 2-3, 4-5, 6-7, 16 bytes each), a palette
+ *       of 256 colours; an RGB image may have 255 colours besides the transparent one.</li>
  *   <li>{@code palette}: the colours of the first row of pixels, left to right: NAME_pal only.</li>
  *   <li>{@code mode7}: an indexed PNG 1024 wide and up to 1024 high, one byte a pixel: index i &gt; 0
  *       becomes FIRST - 1 + i (where its colours go in CGRAM), 0 stays 0. Identical 8 x 8 blocks
@@ -37,7 +40,7 @@ import superdevkit.AtomicWrite;
  * converters in Java, so building needs nothing but Java).
  */
 public final class Png2Snes {
-    public enum Mode { TILES, TILES2, PALETTE, MODE7 }
+    public enum Mode { TILES, TILES2, TILES8, PALETTE, MODE7 }
 
     private Png2Snes() {
     }
@@ -52,7 +55,7 @@ public final class Png2Snes {
             mode7(png, name, outDir, first, source);
             return;
         }
-        Indexed img = indexed(png);
+        Indexed img = indexed(png, mode == Mode.TILES8 ? 256 : 16);
         if (mode == Mode.PALETTE) {
             for (int x = 16; x < img.width; x++) {
                 if (img.pixels[0][x] != 0) {
@@ -72,7 +75,7 @@ public final class Png2Snes {
         if (img.width % 8 != 0 || img.height % 8 != 0) {
             throw new ConvertException(png + ": " + img.width + " x " + img.height + " is not a multiple of 8 x 8");
         }
-        int planes = mode == Mode.TILES2 ? 2 : 4;
+        int planes = mode == Mode.TILES2 ? 2 : mode == Mode.TILES8 ? 8 : 4;
         List<int[]> colours = img.colours;
         if (planes == 2) {
             int used = maxIndex(img.pixels);
@@ -100,19 +103,20 @@ public final class Png2Snes {
         write(outDir, name, source, tiles, bgr555(colours), (img.width / 8) * (img.height / 8));
     }
 
-    /** An image as indices 0..15 and its 16 colours (r, g, b). */
+    /** An image as indices 0..max - 1 and its max colours (r, g, b). */
     private record Indexed(int width, int height, int[][] pixels, List<int[]> colours) {}
 
-    private static Indexed indexed(Path png) throws IOException, ConvertException {
+    private static Indexed indexed(Path png, int max) throws IOException, ConvertException {
         Png.Image img = Png.read(png);
         List<int[]> colours = new ArrayList<>();
         int[][] pixels;
         if (img.indexed()) {
             int used = maxIndex(img.indices());
-            if (used > 15) {
-                throw new ConvertException(png + ": uses palette index " + used + "; a 4-bit tile has 16 colours");
+            if (used > max - 1) {
+                throw new ConvertException(png + ": uses palette index " + used + "; " + (max == 256 ? "an 8" : "a 4") + "-bit tile has "
+                        + max + " colours");
             }
-            for (int i = 0; i < Math.min(16, img.palette().length); i++) {
+            for (int i = 0; i < Math.min(max, img.palette().length); i++) {
                 int[] p = img.palette()[i];
                 colours.add(new int[] { p[0], p[1], p[2] });
             }
@@ -132,8 +136,8 @@ public final class Png2Snes {
                     Integer k = index.get(rgb);
                     if (k == null) {
                         colours.add(new int[] { rgb >> 16 & 0xFF, rgb >> 8 & 0xFF, rgb & 0xFF });
-                        if (colours.size() > 16) {
-                            throw new ConvertException(png + ": more than 15 colours besides the transparent one");
+                        if (colours.size() > max) {
+                            throw new ConvertException(png + ": more than " + (max - 1) + " colours besides the transparent one");
                         }
                         k = colours.size() - 1;
                         index.put(rgb, k);
@@ -142,7 +146,7 @@ public final class Png2Snes {
                 }
             }
         }
-        while (colours.size() < 16) {
+        while (colours.size() < max) {
             colours.add(new int[] { 0, 0, 0 });
         }
         return new Indexed(img.width(), img.height(), pixels, colours);

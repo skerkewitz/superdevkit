@@ -23,7 +23,7 @@ import superdevkit.sfx.Sfx;
  *     --verbose   every step as it runs     --plan     the steps, without running them
  *     --dry-run   checks that everything is there, and does nothing                --debug    -O0; web: the debug view
  * superdevkit gen [FOLDER]                    only the conversions, into build/gen, for a build system of its own
- * superdevkit png tiles|tiles2|palette|mode7 picture.png NAME out_dir [FIRST]
+ * superdevkit png tiles|tiles2|tiles8|palette|mode7 picture.png NAME out_dir [FIRST]
  * superdevkit sfx assets/sfx/sfx.json NAME out_dir
  * superdevkit --version
  * </pre>
@@ -204,7 +204,7 @@ public final class Main {
             err.println("error: " + e.getMessage());
             return 1;
         } catch (IllegalArgumentException e) {
-            err.println("error: png tiles|tiles2|palette|mode7 picture.png NAME out_dir [FIRST]: " + e.getMessage());
+            err.println("error: png tiles|tiles2|tiles8|palette|mode7 picture.png NAME out_dir [FIRST]: " + e.getMessage());
             return 2;
         }
     }
@@ -235,7 +235,7 @@ public final class Main {
                                                                  web in the browser, served from this machine)
                            --verbose  every step   --plan  the steps only   --dry-run  checks only   --debug  -O0 (web: and F1's view)
                        superdevkit gen [FOLDER]                  only the conversions, into build/gen
-                       superdevkit png tiles|tiles2|palette|mode7 picture.png NAME out_dir [FIRST]
+                       superdevkit png tiles|tiles2|tiles8|palette|mode7 picture.png NAME out_dir [FIRST]
                        superdevkit sfx assets/sfx/sfx.json NAME out_dir
                        superdevkit --version""");
         return 2;

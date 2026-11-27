@@ -44,30 +44,87 @@ class RachaelTest {
                 int main(void)
                 {
                     static const uint8_t data[2] = { 1, 2 };
+                    static const uint8_t table[1] = { 0 };
+                    uint8_t into[2];
                     sdevkit__reset();                                /* the screen off: every write arrives */
                     sdevkit_reg_write(SDEVKIT_PPU_BGMODE, SDEVKIT_BG_MODE1);   /* what she draws */
                     sdevkit_reg_write_twice(SDEVKIT_PPU_BG1HOFS, 10);
                     sdevkit_reg_write(SDEVKIT_PPU_TM, 0x13);
-                    sdevkit_reg_write(SDEVKIT_PPU_MOSAIC, 0x00);     /* mosaic off */
+                    sdevkit_reg_write(SDEVKIT_PPU_MOSAIC, 0x31);     /* mosaic of size 3 on BG1 */
                     sdevkit_reg_write_twice(SDEVKIT_PPU_M7A, 0x40);  /* a mode 7 matrix value, no effect in mode 1 */
                     sdevkit_vram_copy(0x1000, data, 2);
+                    sdevkit_reg_write(SDEVKIT_PPU_BGMODE, SDEVKIT_BG_MODE0);
+                    sdevkit_reg_write(SDEVKIT_PPU_BGMODE, SDEVKIT_BG_MODE2);
+                    sdevkit_reg_write(SDEVKIT_PPU_BGMODE, SDEVKIT_BG_MODE3);
+                    sdevkit_reg_write(SDEVKIT_PPU_BGMODE, SDEVKIT_BG_MODE4);
+                    sdevkit_reg_write(SDEVKIT_PPU_CGWSEL, SDEVKIT_CM_DIRECT_COLOR);
+                    sdevkit_reg_write(SDEVKIT_PPU_SETINI, SDEVKIT_SETINI_EXTBG);
+                    sdevkit_reg_write(SDEVKIT_PPU_VMAIN, 0x80 | SDEVKIT_VMAIN_REMAP_4BPP);
+                    sdevkit_dma(SDEVKIT_DMA_FROM_PPU | 0x01, SDEVKIT_PPU_VMDATALREAD, into, 2);
                     show("drawn");
-                    sdevkit_reg_write(SDEVKIT_PPU_MOSAIC, 0x31);     /* mosaic of size 3 on BG1 */
-                    show("mosaic");
-                    sdevkit_reg_write(SDEVKIT_PPU_MOSAIC, 0x00);
-                    sdevkit_reg_write(SDEVKIT_PPU_BGMODE, 0x03);     /* mode 3 */
+                    sdevkit_reg_write(SDEVKIT_PPU_BGMODE, 0x05);     /* mode 5: high resolution */
                     show("mode");
-                    sdevkit_reg_write(SDEVKIT_PPU_BGMODE, SDEVKIT_BG_MODE1);
                     sdevkit_reg_write(SDEVKIT_PPU_SETINI, 0x01);     /* SETINI: interlace */
                     sdevkit_reg_write(SDEVKIT_PPU_SETINI, 0x00);
-                    sdevkit_reg_write(SDEVKIT_PPU_VMAIN, 0x84);      /* VMAIN's address remapping */
-                    sdevkit_dma(0x80, SDEVKIT_PPU_VMDATAL, data, 2); /* a DMA from the PPU to memory */
-                    show("copies");
+                    sdevkit_hdma_set(1, SDEVKIT_PPU_BG1HOFS, 0x40 | SDEVKIT_HDMA_TWICE, table);   /* indirect HDMA */
+                    show("more");
                     printf("first %02X %02X\\n", sdevkit__rachael.undrawn_reg, sdevkit__rachael.undrawn_value);
                     return 0;
                 }
                 """);
-        assertEquals("drawn 0\nmosaic 1\nmode 2\ncopies 5\nfirst 06 31", out);
+        assertEquals("drawn 0\nmode 1\nmore 3\nfirst 05 05", out);
+    }
+
+    /**
+     * The ports as the SNES has them: VMAIN's address remapping (a run of addresses fills a row of
+     * pixels across 4-bit tiles), and VRAM, CGRAM and OAM read back by DMA, VRAM with the word it
+     * fetched when the address was set given twice (dev's examples/modes compares the picture with
+     * Mesen's).
+     */
+    @Test
+    void thePortsRemapAndReadBack() throws Exception {
+        String out = run("ports", """
+                #include <stdio.h>
+                #include "rachael.h"
+                int main(void)
+                {
+                    static const uint16_t words[4] = { 0x1111, 0x2222, 0x3333, 0x4444 };
+                    static const uint16_t colours[2] = { 0x7FFF, 0x1234 };
+                    static const uint8_t sprite[4] = { 10, 20, 30, 40 };
+                    uint16_t back[5];
+                    uint8_t cg[4], ob[4];
+                    sdevkit__reset();                                /* the screen off */
+                    /* remapped: logical 0, 1, 2, 3 are words 0, 8, 16, 24 (planes 0-1 and 2-3 of tile 0, then tile 1) */
+                    sdevkit_reg_write(SDEVKIT_PPU_VMAIN, 0x80 | SDEVKIT_VMAIN_REMAP_4BPP);
+                    sdevkit_reg_write(SDEVKIT_PPU_VMADDL, 0);
+                    sdevkit_reg_write(SDEVKIT_PPU_VMADDH, 0);
+                    sdevkit_dma(0x01, SDEVKIT_PPU_VMDATAL, words, sizeof words);
+                    printf("remap %04X %04X %04X %04X %04X\\n", sdevkit__rachael.vram[0], sdevkit__rachael.vram[8],
+                           sdevkit__rachael.vram[16], sdevkit__rachael.vram[24], sdevkit__rachael.vram[1]);
+                    sdevkit_vram_copy(0x100, words, sizeof words);
+                    sdevkit_reg_write(SDEVKIT_PPU_VMAIN, 0x80);
+                    sdevkit_reg_write(SDEVKIT_PPU_VMADDL, 0x00);
+                    sdevkit_reg_write(SDEVKIT_PPU_VMADDH, 0x01);
+                    sdevkit_dma(SDEVKIT_DMA_FROM_PPU | 0x01, SDEVKIT_PPU_VMDATALREAD, back, sizeof back);
+                    printf("vram %04X %04X %04X %04X %04X\\n", back[0], back[1], back[2], back[3], back[4]);
+                    sdevkit_cgram_copy(5, colours, sizeof colours);
+                    sdevkit_reg_write(SDEVKIT_PPU_CGADD, 5);
+                    sdevkit_dma(SDEVKIT_DMA_FROM_PPU, SDEVKIT_PPU_CGDATAREAD, cg, sizeof cg);
+                    printf("cgram %02X %02X %02X %02X\\n", cg[0], cg[1], cg[2], cg[3]);
+                    sdevkit_oam_copy(8, sprite, sizeof sprite);
+                    sdevkit_reg_write(SDEVKIT_PPU_OAMADDL, 4);       /* word 4: byte 8 */
+                    sdevkit_reg_write(SDEVKIT_PPU_OAMADDH, 0);
+                    sdevkit_dma(SDEVKIT_DMA_FROM_PPU, SDEVKIT_PPU_OAMDATAREAD, ob, sizeof ob);
+                    printf("oam %u %u %u %u\\n", ob[0], ob[1], ob[2], ob[3]);
+                    sdevkit__vblank();
+                    sdevkit__display();
+                    sdevkit_reg_write(SDEVKIT_PPU_INIDISP, 15);
+                    sdevkit_dma(SDEVKIT_DMA_FROM_PPU | 0x01, SDEVKIT_PPU_VMDATALREAD, back, 2);   /* while drawn: lost */
+                    printf("lost %u\\n", sdevkit__rachael.dma_lost);
+                    return 0;
+                }
+                """);
+        assertEquals("remap 1111 2222 3333 4444 0000\nvram 1111 1111 2222 3333 4444\ncgram FF 7F 34 12\noam 10 20 30 40\nlost 2", out);
     }
 
     /**

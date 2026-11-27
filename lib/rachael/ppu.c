@@ -25,16 +25,10 @@ uint8_t sdevkit__undrawn(uint8_t reg, uint8_t value)
 {
     switch (reg) {
     case SDEVKIT_PPU_BGMODE:
-        return (uint8_t)((value & 7) != 1 && (value & 7) != 7);   /* modes 1 and 7 are drawn */
-    case SDEVKIT_PPU_CGWSEL:
-        return (uint8_t)(value & 1);                  /* direct colour */
-    case SDEVKIT_PPU_MOSAIC:                           /* a size and a layer */
-        return (uint8_t)((value & 0xF0) != 0 && (value & 0x0F) != 0);
-    case SDEVKIT_PPU_SETINI:
-        return (uint8_t)(value != 0);
-    case SDEVKIT_PPU_VMAIN:                            /* the address remapped */
-        return (uint8_t)((value & 0x0C) != 0);
-    default:                                           /* drawn, or without effect in mode 1 */
+        return (uint8_t)((value & 7) == 5 || (value & 7) == 6);   /* modes 0 to 4 and 7 are drawn */
+    case SDEVKIT_PPU_SETINI:                           /* EXTBG is drawn; interlace, overscan, high resolution not */
+        return (uint8_t)((value & ~0x40) != 0);
+    default:                                           /* drawn */
         return 0;
     }
 }
@@ -48,22 +42,55 @@ static void count_undrawn(uint8_t reg, uint8_t value)
     sdevkit__rachael.undrawn++;
 }
 
-/* A byte through the VRAM port: the low or the high byte of the word at the address, which steps
- * after the byte VMAIN names, by 1, 32 or 128 words. */
-static void vram_port(uint8_t high, uint8_t value)
+/* The word the VRAM port reaches: the address, remapped by VMAIN bits 2-3 so that the low 8, 9 or
+ * 10 bits aaaaaYYYxxxxx become xxxxxYYY: a column of a 4-, 2- or 8-bit picture is one run of
+ * addresses. */
+static uint16_t *vram_word(void)
+{
+    uint16_t a = sdevkit__rachael.vram_addr;
+    switch ((sdevkit__rachael.vmain >> 2) & 3) {
+    case 1:  a = (uint16_t)((a & 0xFF00) | ((a & 0x001F) << 3) | ((a >> 5) & 7)); break;
+    case 2:  a = (uint16_t)((a & 0xFE00) | ((a & 0x003F) << 3) | ((a >> 6) & 7)); break;
+    case 3:  a = (uint16_t)((a & 0xFC00) | ((a & 0x007F) << 3) | ((a >> 7) & 7)); break;
+    default: break;
+    }
+    return &sdevkit__rachael.vram[a & (SDEVKIT__VRAM_WORDS - 1)];
+}
+
+/* The address steps after the byte VMAIN names (bit 7: the high one), by 1, 32 or 128 words. */
+static void vram_step(uint8_t high)
 {
     static const uint16_t steps[4] = { 1, 32, 128, 128 };
     uint8_t vmain = sdevkit__rachael.vmain;
-    uint16_t *w = &sdevkit__rachael.vram[sdevkit__rachael.vram_addr & (SDEVKIT__VRAM_WORDS - 1)];
+    if ((uint8_t)((vmain >> 7) & 1) == high) {
+        sdevkit__rachael.vram_addr = (uint16_t)(sdevkit__rachael.vram_addr + steps[vmain & 3]);
+    }
+}
+
+/* A byte through the VRAM port: the low or the high byte of the word at the address. */
+static void vram_port(uint8_t high, uint8_t value)
+{
+    uint16_t *w = vram_word();
 
     if (high) {
         *w = (uint16_t)((*w & 0x00FF) | (value << 8));
     } else {
         *w = (uint16_t)((*w & 0xFF00) | value);
     }
-    if ((uint8_t)((vmain >> 7) & 1) == high) {
-        sdevkit__rachael.vram_addr = (uint16_t)(sdevkit__rachael.vram_addr + steps[vmain & 3]);
+    vram_step(high);
+}
+
+/* A byte read through the VRAM port ($2139, $213A): of the word the port prefetched. When the
+ * address steps, the port first prefetches the word at the address before the step, as the SNES
+ * does, so a run of reads gives the first word twice. */
+static uint8_t vram_read_port(uint8_t high)
+{
+    uint8_t value = (uint8_t)(high ? sdevkit__rachael.vram_read >> 8 : sdevkit__rachael.vram_read);
+    if ((uint8_t)((sdevkit__rachael.vmain >> 7) & 1) == high) {
+        sdevkit__rachael.vram_read = *vram_word();
+        vram_step(high);
     }
+    return value;
 }
 
 /* A byte through the CGRAM port: the low byte is kept, the high byte writes the colour. */
@@ -118,9 +145,11 @@ void sdevkit__write_reg(uint8_t reg, uint8_t value)
         break;
     case SDEVKIT_PPU_VMADDL:
         sdevkit__rachael.vram_addr = (uint16_t)((sdevkit__rachael.vram_addr & 0xFF00) | value);
+        sdevkit__rachael.vram_read = *vram_word();   /* the port prefetches the new address */
         break;
     case SDEVKIT_PPU_VMADDH:
         sdevkit__rachael.vram_addr = (uint16_t)((sdevkit__rachael.vram_addr & 0x00FF) | (value << 8));
+        sdevkit__rachael.vram_read = *vram_word();
         break;
     case SDEVKIT_PPU_VMDATAL:
         vram_port(0, value);
@@ -240,10 +269,41 @@ void sdevkit_reg_write_twice(uint8_t reg, uint16_t value)
     sdevkit_reg_write(reg, (uint8_t)(value >> 8));
 }
 
+/* A read of a PPU register by DMA from the PPU to memory: the ports of OAM ($2138), VRAM ($2139,
+ * $213A) and CGRAM ($213B). Another register gives 0: it holds what the bus held last (the SNES's
+ * "open bus"), which a game cannot count on. */
+static uint8_t read_reg(uint8_t reg)
+{
+    switch (reg) {
+    case 0x38: {                                      /* OAM, a byte at a time */
+        uint16_t a = sdevkit__rachael.oam_addr;
+        uint8_t v = a < 512 ? sdevkit__rachael.oam[a] : sdevkit__rachael.oam[512 + (a & 31)];
+        sdevkit__rachael.oam_addr = (uint16_t)((a + 1) % (128 * 4 + 8 * 4));
+        return v;
+    }
+    case 0x39:
+        return vram_read_port(0);
+    case 0x3A:
+        return vram_read_port(1);
+    case 0x3B: {                                      /* CGRAM: the low byte, then the high one */
+        uint16_t c = sdevkit__rachael.cgram[sdevkit__rachael.cg_addr];
+        if (!sdevkit__rachael.cg_high) {
+            sdevkit__rachael.cg_high = 1;
+            return (uint8_t)c;
+        }
+        sdevkit__rachael.cg_high = 0;
+        sdevkit__rachael.cg_addr++;
+        return (uint8_t)(c >> 8);                     /* bit 7 is open bus on the SNES: 0 here */
+    }
+    default:
+        return 0;
+    }
+}
+
 /* --- Copies ---------------------------------------------------------------------------------- */
-/* A DMA from memory to the PPU as the SNES makes it: the bytes go to bbad, bbad + 1, ... in the
- * pattern of DMAP's mode, from one fixed byte or one after the other. From the PPU to memory
- * (DMAP bit 7) she does not model. */
+/* A DMA as the SNES makes it, between memory and bbad, bbad + 1, ... in the pattern of DMAP's mode;
+ * DMAP bit 7 copies from the PPU to memory (the ports read back), else from memory to the PPU, from
+ * one fixed byte (bit 3) or one after the other. */
 void sdevkit_dma(uint8_t dmap, uint8_t bbad, const void *src, uint16_t bytes)
 {
     static const uint8_t pattern[8][4] = {
@@ -253,11 +313,15 @@ void sdevkit_dma(uint8_t dmap, uint8_t bbad, const void *src, uint16_t bytes)
     const uint8_t *s = (const uint8_t *)src;
     uint32_t n = bytes == 0 ? 0x10000u : bytes, i;
 
-    if (dmap & 0x80) {
-        count_undrawn(bbad, dmap);
+    if (!dma_allowed((uint16_t)(n > 0xFFFF ? 0xFFFF : n))) {
         return;
     }
-    if (!dma_allowed((uint16_t)(n > 0xFFFF ? 0xFFFF : n))) {
+    if (dmap & 0x80) {
+        uint8_t *d = (uint8_t *)(uintptr_t)src;    /* to memory: src is where the bytes go */
+        for (i = 0; i < n; i++) {
+            uint8_t v = read_reg((uint8_t)(bbad + pattern[dmap & 7][i & 3]));
+            d[(dmap & 0x08) ? 0 : i] = v;
+        }
         return;
     }
     for (i = 0; i < n; i++) {

@@ -117,7 +117,7 @@ Its non-goals:
 
 ## Where it stands
 
-dampf compiles all of Blubber Blasen, and the kit's version is 0.10.0. The milestones M0
+dampf compiles all of Blubber Blasen, and the kit's version is 0.10.1. The milestones M0
 (define the subset), M1 (end to end, with stepping through C in Mesen), M2 (all of the game
 compiled by the [naive code generator](/glossary#naive-code-generator), with the PC's
 checksums), M3 (the optimizer: dampf lowers the program to [MIR](/glossary#mir), its
@@ -152,8 +152,10 @@ benchmark, and the game's code is no longer in the repository.
 
 Since the game left, the library has gained sound effects, on the SNES through the kit's driver
 for its sound processor, the SPC700, and save RAM, the cartridge's battery RAM. Music plays on
-the desktop and the web, not yet on the SNES. Most of the hints are not built. dampf computes a
-best and a worst case in CPU cycles for every function, and a function marked with
+the desktop and the web, not yet on the SNES. Rachael draws the picture modes 0 to 4 and 7,
+with mosaic and direct colour, the same as Mesen pixel for pixel; modes 5 and 6, high resolution,
+overscan and interlace wait until a game needs them. Most of the hints are not built. dampf
+computes a best and a worst case in CPU cycles for every function, and a function marked with
 `DAMPF_BUDGET` that goes over its cycle budget fails the build. The [Roadmap](/inside/roadmap)
 has the plan, and [Limits](/reference/limits) lists what dampf does not do yet.
 

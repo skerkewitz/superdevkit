@@ -20,7 +20,9 @@ cost, 8-bit loops and array indexes that need no range. The repository went publ
 and 0.9.1 was its first release with downloads. M10 as version 0.10.0 (2026-11-26): C in
 interrupt handlers (the game's IRQ, and the kit's NMI for a game that publishes), hand-written
 assembly beside the optimized code, the subset decisions on `char` and enums, and a console API
-that is the hardware at once, with optional layers above it.
+that is the hardware at once, with optional layers above it. 0.10.1 (2026-11-27) added picture
+modes 0, 2, 3 and 4, mosaic and mode 7's second layer to the desktop and the web
+([below](#built-after-m10-released-in-0101)).
 
 dampf is the compiler of a development kit for SNES games, superdevkit; this repository is
 superdevkit's (ADR
@@ -473,6 +475,18 @@ The kit and its platform:
   registers are answered by `dampf.target.SnesTarget`, which both code generators ask; the
   generated code is byte for byte the same
   ([ADR-6FPTPCDM](adr/6FPTPCDM-the-snes-facts-the-compiler-asks-about-live-in.md), 2026-11-25).
+
+## Built after M10, released in 0.10.1
+
+Built on 2026-11-26, after M10 and ahead of M11; released as 0.10.1 on 2026-11-27.
+
+- **Rachael draws the picture modes beyond 1 and 7**: modes 0, 2, 3 and 4 with offsets per tile,
+  256-colour tiles (`superdevkit png tiles8`) and direct colour, mosaic, mode 7's second layer
+  (EXTBG), VMAIN's address remapping and VRAM, CGRAM and OAM read back by DMA; `examples/modes`
+  shows each, the same as Mesen pixel for pixel
+  ([ADR-6FSHCP06](adr/6FSHCP06-rachael-draws-modes-0-to-4-mosaic-and-extbg-the.md), 2026-11-26).
+  Left undrawn until a game needs them: modes 5 and 6, high resolution, overscan and interlace,
+  and HDMA with indirect tables.
 
 ## Publishing
 

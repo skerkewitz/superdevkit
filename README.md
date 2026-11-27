@@ -16,12 +16,13 @@ Linux and Windows and as a page in the browser. The kit holds:
 - the **tools** ([tools](tools/README.md)): the editor of a game's sound effects (BRR Lab,
   [docs/sound.md](docs/sound.md));
 - **examples** ([examples](examples/)): games and programs, from `hello` to the shooter
-  Er-Tüp, which are also the kit's test cases and its benchmark; from version 0.9.1, all seven
-  can be [played in the browser](https://skerkewitz.github.io/superdevkit/example/);
+  Er-Tüp, and `modes`, every picture mode the kit draws; they are also the kit's test cases and
+  its benchmark, and from version 0.9.1 they can be
+  [played in the browser](https://skerkewitz.github.io/superdevkit/example/);
 - the **book** ([online](https://skerkewitz.github.io/superdevkit/book/) from version 0.9.1,
   [docs/book](docs/book)): the user guide and the reference.
 
-Status: version 0.10.0. Milestones
+Status: version 0.10.1. Milestones
 M0 to M10 are done: M6 is dampf's own assembler and
 linker; with M5 Blubber Blasen (the kit's first user, a game in its own repository) builds its
 ROM with the kit and plays its recordings with the PC's checksums; with M7 a game builds and runs

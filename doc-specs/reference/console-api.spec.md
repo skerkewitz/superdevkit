@@ -34,6 +34,7 @@ sources:
   - docs/adr/6FRDS030-interrupt-code-reads-the-copy-of-the-tick-whose.md
   - docs/adr/6FRX1GYC-the-game-s-irq-runs-at-a-picture-row-and-writes.md
   - docs/adr/6FS0T4WB-the-kit-s-nmi-runs-the-vertical-blank-of-a-game.md
+  - docs/adr/6FSHCP06-rachael-draws-modes-0-to-4-mosaic-and-extbg-the.md
   - cli/src/main/java/superdevkit/project/Project.java
   - cli/src/main/java/superdevkit/project/Build.java
   - compiler/src/test/java/dampf/lib/LibApiTest.java

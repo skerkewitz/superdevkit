@@ -7,10 +7,11 @@ without a milestone, and ideas. What is done and released is in
 ## Where things stand
 
 M0 to M10 are concluded ([history.md](history.md#where-dampf-stands)); M10 was released as
-0.10.0 on 2026-11-26. During play the game took 0.79 frames per tick on 2026-11-18 against a
-goal of 0.6, so the compiler work goes on while the game reduces its own work in parallel; the
-current numbers are in [optimizations.md](optimizations.md#where-things-stand). Next: timing and
-debugging (M11), then fine tuning (M12).
+0.10.0 on 2026-11-26, and Rachael's further picture modes as 0.10.1 on 2026-11-27. During play
+the game took 0.79 frames per tick on 2026-11-18 against a goal of 0.6, so the compiler work
+goes on while the game reduces its own work in parallel; the current numbers are in
+[optimizations.md](optimizations.md#where-things-stand). Next: timing and debugging (M11), then
+fine tuning (M12).
 
 ## Versions
 
@@ -135,6 +136,9 @@ concluded.
 
 ## Open without a milestone
 
+- **HDMA with indirect tables, when a game needs it.** It needs a call that builds the table per
+  platform; direct HDMA does the same with larger tables
+  ([ADR-6FSHCP06](adr/6FSHCP06-rachael-draws-modes-0-to-4-mosaic-and-extbg-the.md)).
 - **`checkBook` in CI.** It runs by hand in a release's preparation (ADR
   [ADR-6F60ZB4N](adr/6F60ZB4N-the-book-is-brought-in-step-before-a-release-not.md)).
 - **The block order checked on the examples.** It was chosen on Blubber Blasen
