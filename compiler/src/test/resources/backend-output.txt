@@ -13,6 +13,9 @@ example_ertuep_reference.naive.s0 a01606ad18fdcc9c5a808b87
 example_ertuep_reference.naive.s1 332081aa4ba311695fb9cf0d
 example_ertuep_reference.naive.s2 3d4d0561c92a7fd6b733beac
 example_ertuep_reference.naive.s3 c2aeb0fa1b826714b26d80d1
+example_gruft.mir.s0 eb49a2da45c7b3dda441c8a8
+example_gruft.mir.timing f64bb39933326c0e0af5e0b7
+example_gruft.naive.s0 83f4b3089c37b9a383397fb3
 example_hello.mir.s0 82f4c9a9757b68e6157088a9
 example_hello.mir.timing e6de1614cd02c315b2b2a221
 example_hello.naive.s0 505ed6b55d71cc1c6dab8096

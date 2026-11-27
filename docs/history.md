@@ -502,7 +502,8 @@ Built on 2026-11-27, ahead of M11; not released yet.
   check of assembly functions uses only the part of `$7F` they leave free, and variables that
   fit into neither bank are a compile error. A program that fits into `$7E` builds the same ROM
   as before, byte for byte (the examples did); `exec/bank_7f.c` and `exec/bank_7f_pointers.c`
-  run with variables in both banks
+  run with variables in both banks, and the new example `examples/gruft`, a dungeon of 160 x 128
+  cells whose maps take about 100 KB, plays with three of them in `$7F`
   ([ADR-6FVM9QWS](adr/6FVM9QWS-variables-that-do-not-fit-into-bank-7e-go-to-bank.md), 2026-11-27).
 
 ## Publishing
