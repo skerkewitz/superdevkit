@@ -26,14 +26,14 @@ on 2026-11-27:
 
 | Example | Work per tick, average | Busiest 60 ticks | In dampf's runtime |
 | --- | --- | --- | --- |
-| Er-Tüp | 127,465 | 255,046 | 1.1 % |
-| Schach | 366,985 | 516,288 | 1.2 % |
-| Steinschlag | 71,187 | 131,804 | 1.5 % |
+| Er-Tüp | 130,237 | 257,309 | 1.0 % |
+| Schach | 366,974 | 515,798 | 1.2 % |
+| Steinschlag | 71,724 | 132,344 | 1.5 % |
 | Mandelbrot | 74,647 | 87,564 | 62.7 % |
-| Catchme | 45,966 | 143,470 | 20.3 % |
-| Hello | 80,253 | 81,254 | 50.1 % |
-| Mode 7 | 10,604 | 10,635 | 49.2 % |
-| modes | 53,337 | 119,908 | 3.4 % |
+| Catchme | 46,048 | 143,012 | 20.3 % |
+| Hello | 80,271 | 81,270 | 50.0 % |
+| Mode 7 | 10,604 | 10,634 | 49.2 % |
+| modes | 53,393 | 121,709 | 3.4 % |
 
 On 2026-11-20, before the runtime used the CPU's multiplier, the naive code generator did 3.0
 times the work on the geometric mean of all seven examples, from 1.26 times (Mandelbrot, whose
@@ -182,6 +182,12 @@ allowed (the platform layer uses them); this form does not need the rule against
 - The index registers chosen by `RegisterChoice` alone, without `findXCounters` and `findYIndexes`:
   nine versions, none as good as selection's choice on the pair loops and the worst cases
   ([log](optimizations-log.md#the-index-register-choice-tried-in-registerchoice-2026-11-23)).
+- Parts of loops in registers where they make a worst case larger (2026-11-27): judged by the
+  weights from the branches alone, they gained more on average (the examples 1.8 % less work
+  instead of 1.4 %, Er-Tüp 4.9 % instead of 2.9 %), and 40 worst cases grew by up to 6.9 % (the
+  spelling family `pairs`). A budget is a worst case, so a part is now taken only where no
+  function's worst case grows
+  ([log](optimizations-log.md#the-parts-of-loops-without-a-larger-worst-case-2026-11-27-on-the-examples)).
 - A register's loads and stores for part of a loop on a way of their own (2026-11-27): where a
   way into or out of the part leaves a block that also goes elsewhere, putting the load or store
   on that way alone changed no example's work

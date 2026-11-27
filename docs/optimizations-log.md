@@ -2209,3 +2209,26 @@ and after, Schach 366,985 and 366,986); the plans it made possible were not the 
 and `draw_enemies` kept its counter in the frame. It also needed a guard: a part that moved its
 load onto a way in was taken again in the next round with the load moved back, without end
 (Catch Me's `cats_move`). Not built.
+
+## The parts of loops without a larger worst case (2026-11-27, on the examples)
+
+Steps 2 and 3 above made the examples' average faster and 40 static worst cases larger than on
+`develop` (the spelling family `pairs` +6.9 %, Er-Tüp's `hud_crate` +6.2 %), and a worst case
+that grows breaks a budget. The register choice now leaves the worst case of no function larger:
+
+- The choice runs as on `develop` first: whole live ranges and whole loops, weighed by the loop
+  depth. The weights from the branches are used only after it, for the parts of loops.
+- The parts are taken one at a time, each on the code with the ones before, and undone where the
+  function's worst case on that code grows (`Timing`, calls left out).
+- Then the function is finished twice on copies, with the parts and without (its places coloured
+  and given addresses, the LIR passes run), and the parts stay only where the finished code's
+  worst case is not larger. The check on the unfinished code alone left one larger: Schach's
+  `chess_init` +0.4 %, where `STA p / LDX p` became `TAX` only in the finished code, and the
+  choice's `TAY / TYX` was the longer one.
+
+Against `develop`, the worst cases of the timing reports of every execution test, random program
+and example: 264 smaller, 1,496 the same, none larger; of the spelling families (and the examples)
+in `cost-baseline.txt` 135 smaller, none larger. The examples' work against `develop`: Steinschlag
+0.955, Er-Tüp 0.971, Schach 0.988, Mandelbrot and Mode 7 0.992, modes 0.995, Catch Me 0.997,
+Hello 1.000; geometric mean 0.986, against 0.982 with the larger worst cases (Er-Tüp 0.951,
+Steinschlag 0.947). Compiling Er-Tüp takes 17.4 s instead of 14.0 s on `develop` (the parts and the second finishing of the functions that have some).

@@ -40,7 +40,7 @@ class WeightsTest {
     @Test
     void branchesShareAndLoopsRunEightTimes() {
         MFunction f = MirParser.parse(NESTED).function("_run");
-        Map<String, Double> w = Weights.of(f, null);
+        Map<String, Double> w = Weights.estimated(f, null);
         assertEquals(1.0, w.get("b0_entry"));
         assertEquals(8.0, w.get("b1_for"));
         assertEquals(4.0, w.get("b2_body"));       // the loop's test: half stays
@@ -54,7 +54,7 @@ class WeightsTest {
     @Test
     void aProfileWins() {
         MFunction f = MirParser.parse(NESTED).function("_run");
-        Map<String, Double> w = Weights.of(f, name -> name.equals("b3_rare") ? 7L : null);
+        Map<String, Double> w = Weights.estimated(f, name -> name.equals("b3_rare") ? 7L : null);
         assertEquals(7.0, w.get("b3_rare"));
     }
 }

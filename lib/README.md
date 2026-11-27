@@ -133,7 +133,7 @@ write with a constant register is one store. The layers' commits are in the next
 | `sdevkit_irq_line` | built (the CPU's timer: VTIME, HTIME, NMITIMEN) | built (Rachael calls `game_irq` before the row) | 57 |
 | `sdevkit_irq_off` | built | built | 35 |
 | `sdevkit_irq_wait_hblank` | built (polls HVBJOY's horizontal blank) | built (notes that the handler waited: its register writes are free from then on) | 17 to unbounded |
-| `sdevkit_shadow_commit` | built | built (and counts a group changed without its mark) | 135 to 2,079 |
+| `sdevkit_shadow_commit` | built | built (and counts a group changed without its mark) | 135 to 2,113 |
 | `sdevkit_sprite` | built | built | 21 to 133 |
 | `sdevkit_sprites_commit` | built | built | 60 to 560 |
 | `sdevkit_queue_dma` | built | built | 59 to 198 |
@@ -146,7 +146,7 @@ write with a constant register is one store. The layers' commits are in the next
 | `sdevkit_queue_room` | built | built | 42 to 53 |
 | `sdevkit_queue_commit` | built | built | 47 to 3,671 |
 | `sdevkit_input_update` | built | built | 86 |
-| `sdevkit_commit` | built | built | 248 to 6,316 |
+| `sdevkit_commit` | built | built | 248 to 6,350 |
 | `sdevkit_sfx_init` | built | built | 51 to unbounded |
 | `sdevkit_sfx_play` | built | built | 39 to 156 |
 | `sdevkit_music_play` | empty, not built yet: dampf removes the calls (`DebugCallsTest`) | built (the track's file, over and over, in the window) | 6 |

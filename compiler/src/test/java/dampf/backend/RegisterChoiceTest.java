@@ -345,7 +345,8 @@ class RegisterChoiceTest {
             }
         };
         Map<dampf.lir.LBlock, Double> weights = Map.of(f.block("loop"), 8.0, f.block("rare"), 1.0, f.block("step"), 8.0);
-        RegisterChoice.run(f, o -> Set.of(P, V, W).contains(o.key()), frame, weights, false, false, List.of(loop));
+        RegisterChoice.run(f, o -> Set.of(P, V, W).contains(o.key()), frame, weights, weights, code -> 0, false, false, List.of(loop),
+                dampf.util.PassLimit.none());
         List<String> out = new ArrayList<>();
         for (LInstr i : f.instrs()) {
             out.add(i.mnemonic() + (i.op() == null ? "" : i.op() instanceof LOperand.Mem m && m.owner() != null ? " " + m.owner().key()

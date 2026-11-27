@@ -189,8 +189,8 @@ public final class MirCodeGen {
             }
         }
         Map<MFunction, AsmWriter> codes = new HashMap<>();
-        Map<MFunction, List<Block>> orders = new HashMap<>();
-        Map<MFunction, Ranges> ranges = new HashMap<>();
+        Map<MFunction, List<Block>> orders = blockOrders;
+        Map<MFunction, Ranges> ranges = functionRanges;
         for (MFunction f : module.functions()) {
             if (f.isAsm()) {
                 continue;   // hand-written: no code
@@ -210,6 +210,7 @@ public final class MirCodeGen {
         }
         frameTotal = 0;
         Set<MFunction> done = new HashSet<>();
+        codes0 = codes;
         for (MFunction f : module.functions()) {
             colourPlaces(f, codes, done, new HashSet<>());
         }
@@ -443,6 +444,73 @@ public final class MirCodeGen {
     final Map<Instr, Value.Param> argumentOf = new IdentityHashMap<>();
     /** The function each parameter belongs to. */
     final Map<Value.Param, MFunction> paramOwner = new IdentityHashMap<>();
+    /** The order of each function's blocks and its value ranges, for the timing while choosing registers. */
+    final Map<MFunction, List<Block>> blockOrders = new HashMap<>();
+    final Map<MFunction, Ranges> functionRanges = new HashMap<>();
+
+    /**
+     * f's worst case in CPU cycles on code, calls left out (they cost the same either way), for
+     * comparing two forms of its code; Long.MAX_VALUE where it has none.
+     */
+    long worstOf(MFunction f, LFunction code, Map<String, Integer> loopBounds) {
+        try {
+            Timing.Bound b = Timing.of(f, code, loopBounds, blockOrders.get(f), functionRanges.get(f), callee -> new Timing.Bound(0, 0));
+            return b.bounded() ? b.worst() : Long.MAX_VALUE;
+        } catch (RuntimeException e) {
+            return Long.MAX_VALUE;
+        }
+    }
+
+    /**
+     * The worst case of f (calls left out) with the code {@code items} finished as {@link #generate}
+     * finishes it: its places coloured from {@code from}, given their addresses, and the passes
+     * on the LIR. Leaves the places of every function as they were.
+     */
+    long finishedWorst(MFunction f, List<dampf.lir.LItem> items, java.util.function.Predicate<LOperand.Owner> tracked,
+                       PlaceColouring.Frame frame, int from, FrameLayout l, java.util.Set<Object> own, Map<String, Integer> loopBounds) {
+        LFunction code = new LFunction(codes0.get(f).function().proc());
+        code.rebuild(new ArrayList<>(items));
+        Map<PlaceColouring.Place, Integer> saved = new HashMap<>(placeAt);
+        String savedFrame = sel.absFrame;
+        try {
+            Map<PlaceColouring.Place, Integer> at = PlaceColouring.colour(code, tracked, frame, from, dampf.util.PassLimit.none());
+            at.forEach((p, a) -> {
+                placeAt.putIfAbsent(p, a);
+                if (own.contains(p.key())) {
+                    placeAt.put(p, a);
+                }
+            });
+            int base = from - l.slotsEnd;
+            for (Value.Param p : f.params()) {
+                placeAt.put(new PlaceColouring.Place(p, false), base + l.offset.get(p));
+            }
+            for (Value.Slot s : f.slots()) {
+                placeAt.put(new PlaceColouring.Place(s, false), base + l.offset.get(s));
+            }
+            sel.absFrame = frameSymbol(f);
+            assignPlaces(code);
+            code.rebuild(code.items().stream().filter(it -> !(it instanceof dampf.lir.LMark)).toList());
+            boolean resultInA = f.result() != MType.VOID;
+            new RedundantLoads(resultInA).run(code);
+            new Peephole(sel.absFrame).run(code);
+            ByteStretches.run(code);
+            dampf.lir.ByteLoops.run(code, resultInA);
+            KnownCarry.run(code);
+            new DeadStores(ownValueBytes(f)).run(code);
+            new DeadStores(ownValueBytes(f)).sink(code);
+            return worstOf(f, code, loopBounds);
+        } catch (RuntimeException e) {
+            return Long.MAX_VALUE;
+        } finally {
+            placeAt.clear();
+            placeAt.putAll(saved);
+            sel.absFrame = savedFrame;
+        }
+    }
+
+    /** The code of each function, for {@link #finishedWorst}. */
+    private Map<MFunction, AsmWriter> codes0 = Map.of();
+
     /** Where each function's frame begins, after colouring. */
     final Map<MFunction, Integer> placedBase = new HashMap<>();
     final Map<MFunction, Integer> placedSize = new HashMap<>();
@@ -521,9 +589,22 @@ public final class MirCodeGen {
         LFunction lf = codes.get(f).function();
         java.util.function.Predicate<LOperand.Owner> tracked = o -> own.contains(o.key());
         report(f, dampf.lir.PlaceCheck.written(lf, tracked, o -> o.key() instanceof Value.Param));
-        Map<String, Double> weights = Weights.of(f, blockCounts == null ? null : name -> blockCounts.apply(f.name(), name));
-        RegisterChoice.run(lf, tracked, frame, Weights.of(lf, weights), Selection.words(f.result()) == 2,
-                f.result() != MType.VOID, Weights.loops(f, lf), limit);
+        java.util.function.Function<String, Long> counts = blockCounts == null ? null : name -> blockCounts.apply(f.name(), name);
+        Map<String, Double> weights = Weights.of(f, counts);
+        Map<String, Integer> loopBounds = codes.get(f).loopBounds();
+        boolean highX = Selection.words(f.result()) == 2;
+        boolean resultInA = f.result() != MType.VOID;
+        RegisterChoice.run(lf, tracked, frame, Weights.of(lf, weights), highX, resultInA, Weights.loops(f, lf), limit);
+        // then parts of loops in registers, each where the worst case of the code as it is now
+        // does not grow, and all of them only where the finished code's worst case does not grow
+        // either (the passes after the choice can make the two forms differ)
+        List<dampf.lir.LItem> whole = new ArrayList<>(lf.items());
+        if (RegisterChoice.runParts(lf, tracked, frame, Weights.of(lf, Weights.estimated(f, counts)), code -> worstOf(f, code, loopBounds),
+                highX, resultInA, Weights.loops(f, lf), limit) > 0
+                && finishedWorst(f, lf.items(), tracked, frame, newBase + l.slotsEnd, l, own, loopBounds)
+                        > finishedWorst(f, whole, tracked, frame, newBase + l.slotsEnd, l, own, loopBounds)) {
+            lf.rebuild(whole);
+        }
         Map<PlaceColouring.Place, Integer> at = PlaceColouring.colour(lf, tracked, frame, newBase + l.slotsEnd, limit);
         int end = newBase + l.slotsEnd;
         for (Map.Entry<PlaceColouring.Place, Integer> e : at.entrySet()) {

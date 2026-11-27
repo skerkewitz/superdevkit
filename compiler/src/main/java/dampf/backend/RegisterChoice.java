@@ -108,82 +108,152 @@ final class RegisterChoice {
      */
     static int run(LFunction lf, Predicate<LOperand.Owner> tracked, PlaceColouring.Frame frame, Map<LBlock, Double> weights,
                    boolean highWordInX, boolean resultInA, List<java.util.Set<LBlock>> loops, dampf.util.PassLimit limit) {
+        return run(lf, tracked, frame, weights, null, null, highWordInX, resultInA, loops, limit);
+    }
+
+    /**
+     * As above, and then, with {@code partWeights} (null: not), a value may take a register for
+     * part of a loop ({@link #parts}), judged by those weights: after the whole choice, on its
+     * code, one at a time, and kept only where {@code worst}, the function's worst case in
+     * cycles, does not grow (a rare way pays the stores and loads, and it may be the worst one).
+     */
+    static int run(LFunction lf, Predicate<LOperand.Owner> tracked, PlaceColouring.Frame frame, Map<LBlock, Double> weights,
+                   Map<LBlock, Double> partWeights, java.util.function.ToLongFunction<LFunction> worst, boolean highWordInX,
+                   boolean resultInA, List<java.util.Set<LBlock>> loops, dampf.util.PassLimit limit) {
         returnsX = highWordInX;
         returnsA = resultInA;
         // (apply cuts the code into new blocks: these follow them)
         Map<LBlock, Double> blockWeights = new IdentityHashMap<>(weights);
+        Map<LBlock, Double> partBlockWeights = partWeights == null ? null : new IdentityHashMap<>(partWeights);
         List<java.util.Set<LBlock>> blockLoops = new ArrayList<>(loops);
         int n = 0;
         for (Reg r : Reg.values()) {
-            // the groups that went to r for part of a loop: their loads and stores on the ways in
-            // and out still name them, and they are not judged for a part again (a part could
-            // take back what the one before put on its ways, round after round)
-            java.util.Set<Object> inPart = new java.util.HashSet<>();
-            while (true) {
-                Analysis an = PlaceColouring.analyse(lf, tracked, frame);
-                Map<LItem, Integer> position = new IdentityHashMap<>();
-                for (LItem it : lf.items()) {
-                    position.put(it, position.size());
-                }
-                Round round = new Round(RedundantLoads.flagsLiveOut(lf), registerLiveOut(lf, r), readUnits(an), position, named(lf, an),
-                        freeLoads(lf), aLiveOut(lf), registerLiveOut(lf, r.other()));
-                List<Plan> plans = new ArrayList<>();
-                java.util.Set<Plan> partPlans = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
-                for (Group g : an.groups) {
-                    if (g.into != null || g.fixed != null || g.direct || g.bytes != 2 || !allTracked(g, tracked)) {
-                        continue;
-                    }
-                    Plan p = plan(lf, an, round, g, r, blockWeights, null);
-                    for (java.util.Set<LBlock> loop : blockLoops) {
-                        Plan q = plan(lf, an, round, g, r, blockWeights, loop);
-                        if (q != null && (p == null || q.benefit() > p.benefit())) {
-                            p = q;
-                        }
-                        if (inPart.contains(key(g))) {
-                            continue;
-                        }
-                        for (java.util.Set<LBlock> part : parts(an, round, g, r, blockWeights, loop)) {
-                            q = plan(lf, an, round, g, r, blockWeights, part, true);
-                            if (q != null && (p == null || q.benefit() > p.benefit())) {
-                                p = q;
-                                partPlans.add(q);
-                            }
-                        }
-                    }
-                    if (p != null && p.benefit() > 0) {
-                        plans.add(p);
-                    }
-                }
-                // by benefit; one whose live range meets a chosen one's waits for the next round,
-                // where it is judged on the code with the chosen one in r
-                plans.sort(java.util.Comparator.comparingDouble(Plan::benefit).reversed());
-                BitSet taken = new BitSet();
-                Map<LItem, List<LItem>> replace = new IdentityHashMap<>();
-                int chosen = 0;
-                for (Plan p : plans) {
-                    if (!p.region().intersects(taken) && limit.allows()) {
-                        taken.or(p.region());
-                        if (partPlans.contains(p)) {
-                            inPart.add(key(p.group()));
-                        }
-                        replace.putAll(p.replace());
-                        chosen++;
-                        limit.count("RegisterChoice " + r, lf.name());
-                    }
-                }
-                if (chosen == 0) {
-                    break;
-                }
-                Map<LItem, LBlock> origin = origins(lf, replace);
-                apply(lf, replace);
-                follow(lf, origin, blockWeights, blockLoops);
-                n += chosen;
+            n += rounds(lf, tracked, frame, r, blockWeights, partBlockWeights, blockLoops, limit, null);
+        }
+        if (partWeights != null) {
+            for (Reg r : Reg.values()) {
+                n += rounds(lf, tracked, frame, r, partBlockWeights, blockWeights, blockLoops, limit, worst);
             }
         }
         if (n > 0 && limit.allows() && dropFlagTransfers(lf)) {
             limit.count("RegisterChoice flags", lf.name());
         }
         return n;
+    }
+
+    /**
+     * Only the second half of {@link #run} with {@code partWeights}: parts of loops, on code whose
+     * choice is made already. Returns how many groups went.
+     */
+    static int runParts(LFunction lf, Predicate<LOperand.Owner> tracked, PlaceColouring.Frame frame, Map<LBlock, Double> partWeights,
+                        java.util.function.ToLongFunction<LFunction> worst, boolean highWordInX, boolean resultInA,
+                        List<java.util.Set<LBlock>> loops, dampf.util.PassLimit limit) {
+        returnsX = highWordInX;
+        returnsA = resultInA;
+        Map<LBlock, Double> partBlockWeights = new IdentityHashMap<>(partWeights);
+        List<java.util.Set<LBlock>> blockLoops = new ArrayList<>(loops);
+        int n = 0;
+        for (Reg r : Reg.values()) {
+            n += rounds(lf, tracked, frame, r, partBlockWeights, null, blockLoops, limit, worst);
+        }
+        if (n > 0 && limit.allows() && dropFlagTransfers(lf)) {
+            limit.count("RegisterChoice flags", lf.name());
+        }
+        return n;
+    }
+
+    /**
+     * Rounds of choosing for r until nothing goes. With {@code worst}: only parts of loops, one a
+     * round, each undone where the worst case grows. Returns how many groups went. {@code others}:
+     * weights that follow the blocks as well (or null).
+     */
+    private static int rounds(LFunction lf, Predicate<LOperand.Owner> tracked, PlaceColouring.Frame frame, Reg r,
+                              Map<LBlock, Double> blockWeights, Map<LBlock, Double> others, List<java.util.Set<LBlock>> blockLoops,
+                              dampf.util.PassLimit limit, java.util.function.ToLongFunction<LFunction> worst) {
+        boolean partsOnly = worst != null;
+        long worstNow = partsOnly ? worst.applyAsLong(lf) : 0;
+        int n = 0;
+        // the groups that went to r for part of a loop: their loads and stores on the ways in
+        // and out still name them, and they are not judged for a part again (a part could
+        // take back what the one before put on its ways, round after round)
+        java.util.Set<Object> inPart = new java.util.HashSet<>();
+        while (true) {
+            Analysis an = PlaceColouring.analyse(lf, tracked, frame);
+            Map<LItem, Integer> position = new IdentityHashMap<>();
+            for (LItem it : lf.items()) {
+                position.put(it, position.size());
+            }
+            Round round = new Round(RedundantLoads.flagsLiveOut(lf), registerLiveOut(lf, r), readUnits(an), position, named(lf, an),
+                    freeLoads(lf), aLiveOut(lf), registerLiveOut(lf, r.other()));
+            List<Plan> plans = new ArrayList<>();
+            for (Group g : an.groups) {
+                if (g.into != null || g.fixed != null || g.direct || g.bytes != 2 || !allTracked(g, tracked)) {
+                    continue;
+                }
+                Plan p = null;
+                if (!partsOnly) {
+                    p = plan(lf, an, round, g, r, blockWeights, null);
+                    for (java.util.Set<LBlock> loop : blockLoops) {
+                        Plan q = plan(lf, an, round, g, r, blockWeights, loop);
+                        if (q != null && (p == null || q.benefit() > p.benefit())) {
+                            p = q;
+                        }
+                    }
+                } else if (!inPart.contains(key(g))) {
+                    for (java.util.Set<LBlock> loop : blockLoops) {
+                        for (java.util.Set<LBlock> part : parts(an, round, g, r, blockWeights, loop)) {
+                            Plan q = plan(lf, an, round, g, r, blockWeights, part, true);
+                            if (q != null && (p == null || q.benefit() > p.benefit())) {
+                                p = q;
+                            }
+                        }
+                    }
+                }
+                if (p != null && p.benefit() > 0) {
+                    plans.add(p);
+                }
+            }
+            // by benefit; one whose live range meets a chosen one's waits for the next round,
+            // where it is judged on the code with the chosen one in r
+            plans.sort(java.util.Comparator.comparingDouble(Plan::benefit).reversed());
+            BitSet taken = new BitSet();
+            Map<LItem, List<LItem>> replace = new IdentityHashMap<>();
+            int chosen = 0;
+            for (Plan p : plans) {
+                if (partsOnly && chosen > 0) {
+                    break;     // one at a time: each is judged by the worst case
+                }
+                if (!p.region().intersects(taken) && limit.allows()) {
+                    taken.or(p.region());
+                    if (partsOnly) {
+                        inPart.add(key(p.group()));
+                    }
+                    replace.putAll(p.replace());
+                    chosen++;
+                    limit.count("RegisterChoice " + r, lf.name());
+                }
+            }
+            if (chosen == 0) {
+                return n;
+            }
+            Map<LItem, LBlock> origin = origins(lf, replace);
+            List<LItem> before = new ArrayList<>(lf.items());
+            apply(lf, replace);
+            if (partsOnly) {
+                long now = worst.applyAsLong(lf);
+                if (now > worstNow) {
+                    lf.rebuild(before);   // the worst case grew: as it was (the group is not judged again)
+                    n--;
+                } else {
+                    worstNow = now;
+                }
+            }
+            if (others != null) {
+                follow(lf, origin, others, new ArrayList<>());
+            }
+            follow(lf, origin, blockWeights, blockLoops);
+            n += chosen;
+        }
     }
 
     /** The block each item comes from, and each item that replaces it. */

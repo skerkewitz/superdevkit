@@ -16,15 +16,35 @@ import java.util.function.Function;
 
 /**
  * How often a block runs, for decisions that weigh cycles (K1 of docs/archive/compiler-flaws.md):
- * the profile's count where there is one ({@code --block-counts}), else an estimate: a loop's head
- * runs 8 times per entry, and a branch's ways share equally ({@link #estimate}). A LIR block weighs what the MIR block weighs whose code it is part of (the
+ * the profile's count where there is one ({@code --block-counts}), else 8 to the power of the
+ * block's loop depth ({@link #of}), or an estimate where a loop's head runs 8 times per entry and
+ * a branch's ways share equally ({@link #estimated}, for the parts of loops in RegisterChoice). A LIR block weighs what the MIR block weighs whose code it is part of (the
  * last MIR block label above it); the cycles of an instruction are {@link dampf.lir.LInstr#cycles}.
  */
 final class Weights {
     private Weights() {}
 
-    /** The weight of each MIR block, by name. {@code counts}: the profile's count of a block name, or null. */
+    /**
+     * The weight of each MIR block, by name: the profile's count, else 8 to the power of its loop
+     * depth. {@code counts}: the profile's count of a block name, or null.
+     */
     static Map<String, Double> of(MFunction f, Function<String, Long> counts) {
+        Map<Block, Integer> depth = new IdentityHashMap<>();
+        for (Loops.Loop l : Loops.find(f)) {
+            for (Block b : l.blocks()) {
+                depth.merge(b, 1, Integer::sum);
+            }
+        }
+        Map<String, Double> out = new HashMap<>();
+        for (Block b : f.blocks()) {
+            Long n = counts == null ? null : counts.apply(b.name());
+            out.put(b.name(), n != null ? (double) n : Math.pow(8, depth.getOrDefault(b, 0)));
+        }
+        return out;
+    }
+
+    /** As {@link #of}, with the {@link #estimate} in place of the loop depth. */
+    static Map<String, Double> estimated(MFunction f, Function<String, Long> counts) {
         Map<Block, Double> estimate = estimate(f);
         Map<String, Double> out = new HashMap<>();
         for (Block b : f.blocks()) {
