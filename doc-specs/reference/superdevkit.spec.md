@@ -33,8 +33,9 @@ The page opens, before the first H2, with the usage lines exactly as `superdevki
    [Limits](/reference/limits), where the default target and the browser command are
    described), and what each target starts (the desktop's program, Mesen for
    `snes`, the browser for `web`).
-4. **png** – the converter: its kinds (`tiles`, `tiles2`, `palette`, `mode7`), arguments and what
-   it writes. Short: [Graphics and sound](/guide/graphics-and-sound) explains its use.
+4. **png** – the converter: its kinds (`tiles`, `tiles2`, `tiles8`, `palette`, `mode7`),
+   arguments and what it writes. Short: [Graphics and sound](/guide/graphics-and-sound)
+   explains its use.
 5. **sfx** – the sound effects' converter: arguments and what it writes. Short, linking
    [Graphics and sound](/guide/graphics-and-sound).
 6. **The project file** – `superdevkit.toml`: every key and table the reader accepts (`name`,

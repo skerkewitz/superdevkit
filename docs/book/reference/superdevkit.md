@@ -11,7 +11,7 @@ usage: superdevkit init NAME [--from EXAMPLE]   a new project in ./NAME, from an
                                                  web in the browser, served from this machine)
            --verbose  every step   --plan  the steps only   --dry-run  checks only   --debug  -O0 (web: and F1's view)
        superdevkit gen [FOLDER]                  only the conversions, into build/gen
-       superdevkit png tiles|tiles2|palette|mode7 picture.png NAME out_dir [FIRST]
+       superdevkit png tiles|tiles2|tiles8|palette|mode7 picture.png NAME out_dir [FIRST]
        superdevkit sfx assets/sfx/sfx.json NAME out_dir
        superdevkit --version
 ```
@@ -293,6 +293,7 @@ name. A build runs the same conversion for every picture of the project file's
 |---|---|---|
 | `tiles` | at most 16 colours, cut into 8 × 8 tiles | `NAME_tiles` (4 bits a pixel), `NAME_pal` (16 colours) |
 | `tiles2` | at most 4 colours | `NAME_tiles` (2 bits a pixel), `NAME_pal` (4 colours) |
+| `tiles8` | at most 256 colours | `NAME_tiles` (8 bits a pixel), `NAME_pal` (256 colours) |
 | `palette` | the first row of pixels, at most 16 colours | `NAME_pal` only |
 | `mode7` | an indexed PNG 1024 wide, up to 1024 high | `NAME_map`, `NAME_tiles`, `NAME_pal` |
 
@@ -421,8 +422,9 @@ pictures or sounds.
 
 ### [graphics]
 
-A table of the pictures the build converts with [png](#png), one array for each kind: `tiles`,
-`tiles2`, `palette` and `mode7`. An entry is the path of a PNG file, or an inline table:
+A table of the pictures the build converts with [png](#png), one array for each kind:
+`tiles`, `tiles2`, `tiles8`, `palette` and `mode7`. An entry is the path of a PNG file, or an
+inline table:
 
 | Key | Meaning |
 |---|---|
@@ -437,8 +439,8 @@ mode7 = [{ png = "assets/festzelt.png", first = 33 }]
 ```
 
 Each picture becomes `build/gen/NAME.c` and `NAME.h`, converted in the order `tiles`, `tiles2`,
-`palette`, `mode7`. A file name that is no C name needs a `name`, and two pictures with the same
-name are an error, as is a picture called `sfx` when the project has sound effects.
+`tiles8`, `palette`, `mode7`. A file name that is no C name needs a `name`, and two pictures
+with the same name are an error, as is a picture called `sfx` when the project has sound effects.
 
 ### [sound]
 

@@ -143,15 +143,22 @@ are not part of it. The web takes about two of the five minutes the examples tak
 Two programs of the kit's tests, not examples, are played the same way on all three.
 `PublishedDataTest` plays `dev/publish_check`, whose tick publishes data for interrupt code
 (`sdevkit/publish.h`); on the SNES the kit's NMI and an IRQ that comes on every line of the
-vertical blank and the tick in turn read that data and check it. Its checksums name what the interrupts found, so they match
-the desktop's and the web's, which have no interrupts, only when no interrupt on the SNES ever
-found torn data. `IrqCheckTest` plays `dev/irq_check`, whose IRQ splits the screen twice with
-values the tick publishes, with short ticks, long ones and ones longer than two frames. Where
-Mesen and the desktop's build are there, it also plays the ROM in Mesen and compares its
-pictures with the desktop's pixel for pixel: a register the handler writes too late shows a
-torn row on the SNES only. Two altered copies of the game must fail the desktop's check: one
-whose handler writes before `sdevkit_irq_wait_hblank`, and one whose vertical blank changes
-something when the NMI runs it again during a long tick.
+vertical blank and the tick in turn read that data and check it. Its checksums name what the
+interrupts found, so they match the desktop's and the web's, which have no interrupts, only
+when no interrupt on the SNES ever found torn data. `IrqCheckTest` plays `dev/irq_check`, whose
+IRQ splits the screen twice with values the tick publishes, with short ticks, long ones and ones
+longer than two frames. Where Mesen and the desktop's build are there, it also plays the ROM in
+Mesen and compares its pictures with the desktop's pixel for pixel: a register the handler
+writes too late shows a torn row on the SNES only. Two altered copies of the game must fail the
+desktop's check: one whose handler writes before `sdevkit_irq_wait_hblank`, and one whose
+vertical blank changes something when the NMI runs it again during a long tick.
+
+`ModesPictureTest` does the same for the example `examples/modes`, which shows every picture
+mode Rachael draws: modes 0, 2, 3 and 4, offsets per tile, direct colour, mosaic, mode 7's EXTBG,
+and [VRAM](/glossary#vram), [CGRAM](/glossary#cgram) and [OAM](/glossary#oam) read back.
+Where Mesen and the desktop's build are there, its eleven pictures in Mesen must be the
+desktop's pixel for pixel. A mode drawn wrong shows there only, since dampf's emulator draws no
+picture.
 
 The emulator's run also writes the [frames](/glossary#frame) per tick to the example's
 `build/emu-check/frames.txt` (on average and over the slowest 60 ticks) and the [master
@@ -282,8 +289,9 @@ dev kit's library, and checks their best and worst cases against the table in `l
 `SnesHardwareGuideTest` checks the feature table of the guide to the SNES hardware,
 `lib/SNES_HARDWARE.md`, against `lib/snes` and against [Rachael](/glossary#rachael) in
 `lib/rachael`. `RachaelTest` checks that Rachael counts the register writes she does not draw
-and the writes the SNES would get while the picture is drawn, and runs her renderer's tests in
-C: small scenes, rendered and checked pixel by pixel.
+and the writes the SNES would get while the picture is drawn, that her ports remap VRAM
+addresses and read VRAM, CGRAM and OAM back by DMA as the SNES does, and runs her renderer's
+tests in C: small scenes, rendered and checked pixel by pixel.
 Like `StyleGuideTest`, each fails when its document is no longer true.
 
 `SplashTest` checks the course of the splash screen every game of the dev kit starts with, the
@@ -329,17 +337,17 @@ ways:
   line they run on, both take the interrupts on the same lines; Mesen showed that a write of
   `VTIME` that makes the current line the IRQ's fires it at once.
 
-In the Gradle tests, Mesen runs only for the execution tests and for `IrqCheckTest`'s pictures,
-and only when it is there: when `.mesen/` in the repository holds one (it is not in git) or
-`-Pmesen` names one.
+In the Gradle tests, Mesen runs only for the execution tests and for the pictures of
+`IrqCheckTest` and `ModesPictureTest`, and only when it is there: when `.mesen/` in the
+repository holds one (it is not in git) or `-Pmesen` names one.
 `dev/fetch_mesen.sh` puts MesenCE there, the Linux build `Mesen` and the Windows build
 `Mesen.exe`, both portable and with the settings the tests need; Gradle takes `.mesen/Mesen`
 when it exists, else `.mesen/Mesen.exe`. `MesenRunner` starts it headless (`--testrunner`) with
 a Lua script that waits for the write to `$21FB`, reads the globals and writes them to a file.
 It works with the Linux build, whose libraries it takes from `.mesen/lib` when that folder
-exists, and from WSL with the Windows build. `IrqCheckTest` plays its ROM there with
-`dev/check_example.sh`. On the SNES side, the random programs, the examples, their timing and
-reference functions, and the examples' benchmark run in dampf's emulator only.
+exists, and from WSL with the Windows build. `IrqCheckTest` and `ModesPictureTest` play their
+ROMs there with `dev/check_example.sh`. On the SNES side, the random programs, the examples,
+their timing and reference functions, and the examples' benchmark run in dampf's emulator only.
 
 The scripts `dev/check_example.sh` and `dev/compare_example.sh` start Mesen themselves. Each
 takes the Mesen that `MESEN` names, else `.mesen/Mesen`, else `.mesen/Mesen.exe`
@@ -359,7 +367,7 @@ guides. The rest is switched on with Gradle properties:
 | `./gradlew test` | the default tests only |
 | `./gradlew test --tests dampf.exec.ExecutionTest` | one test class |
 | `./gradlew test --tests dampf.exec.ExecutionTest -Pexec=<name>` | only the execution test of `<name>.c` |
-| `./gradlew test -Pmesen=<path to Mesen>` | execution tests and `IrqCheckTest`'s pictures also in this Mesen instead of the one in `.mesen/` |
+| `./gradlew test -Pmesen=<path to Mesen>` | execution tests and the pictures of `IrqCheckTest` and `ModesPictureTest` also in this Mesen instead of the one in `.mesen/` |
 | `./gradlew test -Prandom=<N>` | N random programs of each generator instead of 50 |
 | `./gradlew test -PrandomSeed=<S>` | random programs of both generators from seed S on (default 1, and today's for `RandomLoopProgram`) |
 | `./gradlew test -PppRandom=<N>` | N random macro programs instead of 300 |

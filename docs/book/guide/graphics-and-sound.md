@@ -65,6 +65,23 @@ has two background layers of 16 colours, BG1 and BG2, and a third, BG3, of 4; Er
 tiles2 = ["assets/hud.png"]
 ```
 
+Mode 0 draws all four layers, BG1 to BG4, from such tiles, each layer with 32 colours of its own
+in CGRAM.
+
+A picture with more colours takes `tiles8`, which writes tiles of 8 bits a pixel, 64 bytes a
+tile, and a palette of 256 colours (512 bytes). Such tiles are for BG1 of modes 3 and 4, whose
+pixels pick from all 256 colours of CGRAM, so the map entry's palette is ignored. An indexed PNG
+keeps its palette as it is, and an RGB picture may have up to 255 colours besides the
+transparent one; `examples/modes` converts a picture this way:
+
+```toml
+tiles8 = ["assets/picture_gfx.png"]
+```
+
+With direct colour, `SDEVKIT_CM_DIRECT_COLOR` written into `SDEVKIT_PPU_CGWSEL`, the same 8-bit
+tiles take no colours from CGRAM at all: each pixel is a colour itself, 3 bits of red, 3 of
+green and 2 of blue (see [The console API](/reference/console-api)).
+
 The same tiles can be shown in other colours, a character in another shirt or an enemy that
 flashes when hit. Use `palette` to convert only the colours, from a strip whose first row of
 pixels holds up to 16 colours, left to right:
@@ -250,13 +267,13 @@ written with `sdevkit_reg_write_twice`, then turn, scale and place the layer, an
 
 A game lives in a folder of its own, outside the
 [superdevkit home](/glossary#superdevkit-home), and names its pictures in the `[graphics]` table
-of its `superdevkit.toml`. The table has four keys, `tiles`, `tiles2`, `palette` and `mode7`, one
-for each kind of conversion, and each holds an array of entries. An entry is the path of a PNG
-file, relative to the folder of `superdevkit.toml`, and the name of its C is the file's name
-without `.png`. Where that name does not suit, or is not a valid C name, the entry gives one:
-`{ png = "assets/boss.png", name = "boss_gfx" }`. A `mode7` entry may add `first`. Two pictures
-with the same name are an error. This is the `[graphics]` table of Er-Tüp's `superdevkit.toml`,
-which uses three of the four kinds:
+of its `superdevkit.toml`. The table has five keys, `tiles`, `tiles2`, `tiles8`, `palette` and
+`mode7`, one for each kind of conversion, and each holds an array of entries. An entry is the
+path of a PNG file, relative to the folder of `superdevkit.toml`, and the name of its C is the
+file's name without `.png`. Where that name does not suit, or is not a valid C name, the entry
+gives one: `{ png = "assets/boss.png", name = "boss_gfx" }`. A `mode7` entry may add `first`. Two
+pictures with the same name are an error. This is the `[graphics]` table of Er-Tüp's
+`superdevkit.toml`, which uses three of the five kinds:
 
 ```toml
 [graphics]
@@ -306,7 +323,7 @@ what it takes: the kind, the PNG file, the name, the folder to write to and, for
 the first colour:
 
 ```
-superdevkit png tiles|tiles2|palette|mode7 picture.png NAME out_dir [FIRST]
+superdevkit png tiles|tiles2|tiles8|palette|mode7 picture.png NAME out_dir [FIRST]
 ```
 
 In a copy of Er-Tüp, this converts the Festzelt as the build does:

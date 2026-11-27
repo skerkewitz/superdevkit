@@ -165,7 +165,7 @@ void sdevkit_reg_write_twice(uint8_t reg, uint16_t value);
 #define SDEVKIT_PPU_OAMADDL 0x02   /**< OAM port: the word address, low byte (sdevkit_oam_copy sets it). */
 #define SDEVKIT_PPU_OAMADDH 0x03   /**< OAM port: bit 0 the word address's bit 8 (the high table is word 0x100); bit 7 priority rotation, leave 0. */
 #define SDEVKIT_PPU_OAMDATA 0x04   /**< OAM port: data; the low table takes bytes in pairs (the even one is kept until the odd one), the high table one at a time. */
-#define SDEVKIT_PPU_BGMODE  0x05   /**< Mode: bits 0-2 the mode (SDEVKIT_BG_MODE1, _MODE7), bit 3 BG3 in front in mode 1, bits 4-7 16 x 16 tiles for BG1..BG4. */
+#define SDEVKIT_PPU_BGMODE  0x05   /**< Mode: bits 0-2 the mode (SDEVKIT_BG_MODE0 to _MODE4, _MODE7), bit 3 BG3 in front in mode 1, bits 4-7 16 x 16 tiles for BG1..BG4. */
 #define SDEVKIT_PPU_MOSAIC  0x06   /**< Mosaic: bits 4-7 the block size - 1, bits 0-3 BG1..BG4 on: SDEVKIT_MOSAIC(). */
 #define SDEVKIT_PPU_BG1SC   0x07   /**< BG1's map: SDEVKIT_BGSC(address, size). BGnSC = 0x07 + (n - 1). */
 #define SDEVKIT_PPU_BG2SC   0x08   /**< BG2's map. */
