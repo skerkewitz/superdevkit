@@ -47,26 +47,30 @@
  * blank before the row has begun, and writes. A register it writes then shows from that row on,
  * to the end of the picture or until something writes it again.
  *
- * **The time it has**, measured in Mesen, in CPU cycles as dampf's timing report counts them:
+ * **The time it has**, measured in Mesen, in CPU cycles (dampf's timing report counts master cycles,
+ * about 6.3 a CPU cycle here):
  * - Before the wait: about 53 cycles from the handler's first instruction to the start of the
  *   blank. Reading a value from the published data takes about 33 (SDEVKIT_PUBLISHED finds the
  *   current copy in about 15). What the handler does before the wait that it does not need for
  *   its writes belongs after them.
  * - After the wait: its register writes must end within about 25 cycles of the wait's return,
- *   less about 6 for each HDMA channel of one byte on that line (more for more bytes). The wait
+ *   158 master cycles, less about 6 for each HDMA channel of one byte on that line (more for more
+ *   bytes). dampf checks it: the timing report gives the master cycles from the wait to the last
+ *   register write, and the build fails above 158, counted without HDMA on the line
+ *   (ADR-6FVNN9DW); with HDMA there, keep the margin. The wait
  *   returns up to 12 cycles after the blank has begun, a round of its loop, and the rest of the
  *   blank is the writes'. A scroll register (sdevkit_reg_write_twice) takes 17, a register of one
  *   byte about 10: one scroll register, or two registers of a byte. More goes in HDMA, or in an
  *   IRQ at another row.
  * - After its last write the handler may go on, up to the next IRQ; the timing report has a line
- *   for the IRQ, `dampf_irq`, with the entry stub's 97 cycles. While it waits, the tick does not
+ *   for the IRQ, `dampf_irq`, with the entry stub's 97 cycles (660 master cycles). While it waits, the tick does not
  *   run: the IRQ takes about 60 cycles of the tick's time beyond its code.
  * - Too long before the wait: the handler reaches the wait inside the blank, and the wait returns
  *   at once; its writes come late and may tear the row's left edge. Later still, after the blank,
  *   the wait waits for the next row's blank, and the writes show a row lower. The wait cannot tell
  *   either from a handler in time, and Rachael, who has no time, cannot either: the Mesen check
  *   (dev/compare_example.sh) shows it as a different picture. Keep the code before the wait short
- *   and look at the timing report.
+ *   and look at the timing report. Writes too late after the wait fail the build.
  *
  * **Several rows.** The handler may call sdevkit_irq_line itself, for the next split of the same
  * frame: a row below the one it runs at comes in this frame, a row at or above it in the next

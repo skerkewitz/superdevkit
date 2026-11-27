@@ -151,6 +151,34 @@ budget (`...; DAMPF_BUDGET counts master cycles now, not CPU cycles as it did up
 budget written in CPU cycles needs about 6.5 times its number`): multiply an old budget by 6.5, or
 take the worst case from the new report and keep the margin it had.
 
+### The IRQ's window
+
+The game's IRQ handler (`sdevkit/irq.h`) waits for the horizontal blank before its row
+(`sdevkit_irq_wait_hblank`) and then writes PPU registers, which show cleanly only if they land
+before the PPU fetches the row's first tiles: Mesen measured 158 master cycles from the wait's
+latest return to that moment, without HDMA on the line (ADR-6FRX1GYC). `dampf.backend.IrqWindow`
+finds, in the handler's code, the worst case from the end of the wait (the branch out of the loop
+that polls HVBJOY, where dampf inlined the wait, or the wait's `RTL`) to the end of the last write
+to a PPU register (`$2100-$213F` at a long address), on every way, calls included; a second wait
+on the way starts the count anew, and work after the last write is free. The report has a line
+for it after the functions (`102  _game_irq   (after the wait)` for `dev/irq_check`), and above
+158 the build fails at the handler:
+
+`irq_late.c:108:44: error: 'game_irq' ends its last register write up to 186 master cycles
+after sdevkit_irq_wait_hblank returns, over the 158 the horizontal blank leaves: the row may tear;
+move work before the wait; counted without HDMA on the line, ...` (`dev/irq_check`'s handler with
+a second scroll register written before the first).
+
+A loop between the wait and a write fails the build too. With `--opt-limit` both are warnings.
+
+HDMA is not counted (ADR-6FVNN9DW): it runs at the start of the same blank and delays the wait's
+return, about 18 master cycles a line, 8 a channel and 8 a byte, more for a new entry of the
+table or an indirect one; one channel of one byte took about 36 in Mesen. Which channels run on
+the IRQ's line is decided at run time, so a handler with HDMA on its line keeps that margin
+itself. Not seen: writes through a pointer. Checked against Mesen: `dev/irq_check` (102, with one
+HDMA channel of one byte on every line) shows the same picture as the desktop; the same handler
+with a second scroll register written before the first (186) tears row 72 in 10 of 11 shots.
+
 ### Checked against the emulator
 
 Every execution test and random program measures `test_main` and every call of every function
@@ -260,5 +288,7 @@ down; with it, the build refuses the change that causes it.
 - How to express impossible path combinations. The bounds did turn out too pessimistic for pair
   loops (Er-Tüp's `collide`); a hint for how often a path runs per call, or a bound per call
   chain, is a step of M11 ([roadmap.md](roadmap.md#m11-timing-and-debugging-0110)).
-- How the frame-level budget learns which HDMA channels a game has on, since a game turns them
-  on at run time.
+- How the frame-level budget, and the IRQ's window, learn which HDMA channels a game has on,
+  since a game turns them on at run time. The window is checked without HDMA for now
+  (ADR-6FVNN9DW); open are the channels found from constant arguments of `sdevkit_hdma_enable`
+  and `sdevkit_hdma_set`, where every write of HDMAEN is such a call, or a statement by the game.

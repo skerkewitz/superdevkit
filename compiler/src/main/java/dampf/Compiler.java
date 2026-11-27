@@ -278,10 +278,12 @@ public final class Compiler {
             withoutCode.forEach(label -> notes.merge(label, INLINED_EVERYWHERE, (x, y) -> x + "; " + y));
             handlers.forEach((c, label) -> notes.merge("dampf_" + c.key, "the " + c + " from the interrupt to the end of its RTI: entry stub and "
                     + label, (x, y) -> y + "; " + x));
-            writeTiming(timing, notes, asmFunctions, outDir.resolve(baseName + ".timing.txt"));
+            Map<String, dampf.backend.IrqWindow.Result> windows = gen.irqWindows();
+            writeTiming(timing, notes, asmFunctions, windows, outDir.resolve(baseName + ".timing.txt"));
             // with a pass limit, the passes that prove a loop's bound may not have run: a budget
             // that cannot be guaranteed is then a warning, so the program can still be bisected
             checkBudgets(program, timing, why, warnings, limit.limited());
+            checkIrqWindow(program, windows, warnings, limit.limited());
         } else {
             asm = new java.util.ArrayList<>(new NaiveCodeGen(program, entry, asmFunctions.keySet(), debugName)
                     .interrupts(contexts).generate());
@@ -399,6 +401,41 @@ public final class Compiler {
     /** The timing report's note on a function that has no code of its own in the ROM. */
     static final String INLINED_EVERYWHERE = "inlined at every call, no code of its own";
 
+    /**
+     * The IRQ's window (ADR-6FRX1GYC, ADR-6FVNN9DW): the handler's last PPU register write after
+     * its wait for the horizontal blank must end within {@link dampf.backend.IrqWindow#WINDOW}
+     * master cycles of the wait's end, counted without HDMA on the line.
+     */
+    private static void checkIrqWindow(Program program, Map<String, dampf.backend.IrqWindow.Result> windows,
+                                       List<String> warnings, boolean onlyWarn) throws CompileError {
+        List<dampf.frontend.Diagnostic> errors = new java.util.ArrayList<>();
+        for (Function f : program.functions()) {
+            dampf.backend.IrqWindow.Result w = windows.get(f.label());
+            if (w == null || !w.waits() || w.worst() == dampf.backend.IrqWindow.NONE) {
+                continue;
+            }
+            int window = dampf.backend.IrqWindow.WINDOW;
+            String hdma = "; counted without HDMA on the line, each HDMA channel there takes about 34 master cycles or more"
+                    + " of the window (ADR-6FRX1GYC, docs/timing.md)";
+            if (!w.bounded()) {
+                errors.add(new dampf.frontend.Diagnostic(dampf.frontend.Diagnostic.Severity.ERROR, f.definitionPos(), "'"
+                        + f.name() + "' has a loop between sdevkit_irq_wait_hblank and a register write, so its writes"
+                        + " cannot be shown to land in the horizontal blank's " + window + " master cycles" + hdma));
+            } else if (w.worst() > window) {
+                errors.add(new dampf.frontend.Diagnostic(dampf.frontend.Diagnostic.Severity.ERROR, f.definitionPos(), "'"
+                        + f.name() + "' ends its last register write up to " + w.worst() + " master cycles after"
+                        + " sdevkit_irq_wait_hblank returns, over the " + window + " the horizontal blank leaves: the row"
+                        + " may tear; move work before the wait" + hdma));
+            }
+        }
+        if (onlyWarn) {
+            errors.forEach(d -> warnings.add(new dampf.frontend.Diagnostic(dampf.frontend.Diagnostic.Severity.WARNING,
+                    d.pos(), d.message() + "; an error without the pass limit").toString()));
+        } else if (!errors.isEmpty()) {
+            throw new CompileError(errors);
+        }
+    }
+
     /** Above this share of its budget, a function gets a warning. */
     static final double BUDGET_WARNING = 0.9;
     /**
@@ -449,7 +486,7 @@ public final class Compiler {
 
     /** The timing report: every function's best and worst case, the most expensive first. */
     private static void writeTiming(Map<String, long[]> timing, Map<String, String> why, Map<String, AsmFunctions.Asm> asm,
-                                    Path file) throws IOException {
+                                    Map<String, dampf.backend.IrqWindow.Result> windows, Path file) throws IOException {
         Map<String, String> notes = new java.util.HashMap<>(why);
         asm.values().forEach(a -> notes.put(a.function().label(), "assembly, " + a.name()));
         StringBuilder out = new StringBuilder("""
@@ -470,6 +507,16 @@ public final class Compiler {
                             e.getValue()[1] < 0 ? "unbounded" : Long.toString(e.getValue()[1]), e.getKey(),
                             reason == null ? "" : "   (" + reason + ")"));
                 });
+        windows.forEach((label, w) -> {
+            if (!w.waits()) {
+                return;
+            }
+            out.append(String.format("%n# The IRQ's window (ADR-6FRX1GYC): master cycles from the end of the wait for the%n"
+                    + "# horizontal blank to the end of the last PPU register write, of %d without HDMA on%n"
+                    + "# the line; each HDMA channel there takes about 34 or more of them.%n", dampf.backend.IrqWindow.WINDOW));
+            out.append(String.format("%12s %12s  %s%n", "", w.worst() == dampf.backend.IrqWindow.NONE ? "no write"
+                    : w.bounded() ? Long.toString(w.worst()) : "unbounded", label + "   (after the wait)"));
+        });
         Files.writeString(file, out);
     }
 }

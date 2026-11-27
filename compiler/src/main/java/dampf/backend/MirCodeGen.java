@@ -671,6 +671,27 @@ public final class MirCodeGen {
         return out;
     }
 
+    /** The kit's wait for the horizontal blank in the game's IRQ (sdevkit/irq.h). */
+    static final String IRQ_WAIT = "_sdevkit_irq_wait_hblank";
+
+    /**
+     * The IRQ handler's window (ADR-6FRX1GYC): the master cycles from the end of its wait for the
+     * horizontal blank to the end of its last PPU register write, by its label; empty without an
+     * IRQ handler. After generate().
+     */
+    public Map<String, IrqWindow.Result> irqWindows() {
+        String irq = handlers.get(Interrupt.IRQ);
+        if (irq == null) {
+            return Map.of();
+        }
+        IrqWindow w = new IrqWindow(fastRom, IRQ_WAIT, label -> {
+            MFunction f = module.function(label);
+            Written code = f == null || f.isAsm() ? null : written.get(f);
+            return code == null ? null : code.code();
+        }, label -> bound(label, new HashSet<>()));
+        return Map.of(irq, w.of(irq));
+    }
+
     /**
      * Why a function has no worst case (by label, only for those): the first loop in it without a
      * bound ("loop at file:line"), else the first call of a function without one ("calls f").

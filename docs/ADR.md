@@ -106,6 +106,7 @@ document of its subject.
 | ADR-6FSHCP06 | [Rachael draws modes 0 to 4, mosaic and EXTBG; the picture's other sizes wait for a game](adr/6FSHCP06-rachael-draws-modes-0-to-4-mosaic-and-extbg-the.md) | Accepted | 2026-11-26 |
 | ADR-6FVMCY48 | [A function inlined at every call keeps its timing entry but no code](adr/6FVMCY48-a-function-inlined-at-every-call-keeps-its-timing.md) | Accepted | 2026-11-27 |
 | ADR-6FVMDV79 | [Timing, assembly comments and budgets count master cycles](adr/6FVMDV79-timing-assembly-comments-and-budgets-count-master.md) | Accepted | 2026-11-27 |
+| ADR-6FVNN9DW | [The build checks the IRQ's writes after the wait, counted without HDMA](adr/6FVNN9DW-the-build-checks-the-irq-s-writes-after-the-wait.md) | Accepted | 2026-11-27 |
 
 ## Former numbers
 
