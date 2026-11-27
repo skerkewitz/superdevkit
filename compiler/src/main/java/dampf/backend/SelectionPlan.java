@@ -144,16 +144,21 @@ final class SelectionPlan {
     }
 
     /** The code of comparison c (with its value, or fused with the branch) starts by loading v. */
-    static boolean cmpReadsFirst(Instr.Cmp c, Value v) {
+    boolean cmpReadsFirst(Instr.Cmp c, Value v) {
         if (Selection.words(c.op(0).type()) != 1 || c.op(0) == c.op(1)) {
             return false;
         }
         return switch (c.pred) {
             case EQ, NE, ULT, UGE -> c.op(0) == v;
-            case SLT, SGE -> c.op(0) == v && c.op(1) instanceof Value.Const;
+            // (of two i16 variables by subtraction, x - y, BranchSelection.bySubtraction; else y first)
+            case SLT, SGE -> c.op(0) == v && (c.op(1) instanceof Value.Const || bySubtraction(c));
             case UGT, ULE -> c.op(1) == v;
-            case SGT, SLE -> c.op(1) == v && c.op(0) instanceof Value.Const;
+            case SGT, SLE -> c.op(1) == v && (c.op(0) instanceof Value.Const || bySubtraction(c));
         };
+    }
+
+    private boolean bySubtraction(Instr.Cmp c) {
+        return c.op(0).type() == MType.I16 && !sel.branch.biased;
     }
 
     /** A load or store at this address needs A for nothing before the access itself. */

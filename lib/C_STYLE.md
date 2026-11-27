@@ -172,14 +172,14 @@ The worst case of each function in master cycles, from the timing report; "is" i
 test checks ("same": within 5 %).
 
 <!-- measurements: written by StyleGuideTest -->
-Measured 2026-11-27 (worst case of the timing report, code generator from MIR).
+Measured 2026-11-28 (worst case of the timing report, code generator from MIR).
 
 | Rule | This | master cycles | is | than this | master cycles |
 | --- | --- | ---: | --- | --- | ---: |
 | `fast-array-per-field` | `move_array_per_field` | 8,684 | faster | `move_array_of_structs` | 9,644 |
 | `fast-const-table` | `classify_by_table` | 304 | faster | `classify_by_chain` | 702 |
 | `fast-multiply-bytes` | `multiply_bytes` | 398 | faster | `multiply_words` | 894 |
-| `fast-pointer-walk-bound` | `nearest_by_pointer` | 12,814 | faster | `nearest_by_index` | 125,992 |
+| `fast-pointer-walk-bound` | `nearest_by_pointer` | 11,214 | faster | `nearest_by_index` | 86,618 |
 | `fast-switch-table` | `dispatch_switch` | 212 | faster | `dispatch_if_chain` | 554 |
 | `same-32-bit-bits` | `xor_32` | 246 | same | `xor_16_halves` | 246 |
 | `same-declaration-place` | `declared_at_top` | 32,564 | same | `declared_where_used` | 32,564 |
@@ -191,7 +191,7 @@ Measured 2026-11-27 (worst case of the timing report, code generator from MIR).
 | `same-named-temporary` | `with_temporary` | 304 | same | `inline_expression` | 304 |
 | `same-pointer-walk` | `move_by_pointer` | 9,644 | same | `move_by_index` | 9,644 |
 | `slow-32-bit` | `add_32` | 594 | slower | `add_16` | 212 |
-| `slow-compare-sum` | `compare_sum` | 666 | slower | `compare_sum_narrowed` | 558 |
+| `slow-compare-sum` | `compare_sum` | 588 | slower | `compare_sum_narrowed` | 480 |
 | `slow-divide-variable` | `divide_variables` | 5,442 | slower | `divide_constant` | 112 |
 | `slow-field-array-offset` | `sum_two_fields` | 23,532 | slower | `sum_one_field` | 15,806 |
 | `slow-hand-shifts` | `times_40_by_shifts` | 264 | slower | `times_40` | 204 |
@@ -199,5 +199,5 @@ Measured 2026-11-27 (worst case of the timing report, code generator from MIR).
 | `slow-multiply-variable` | `multiply_variables` | 894 | slower | `multiply_constant` | 204 |
 | `slow-pointer-global` | `show_by_pointer` | 438 | slower | `show_by_offset` | 388 |
 | `slow-signed-divide` | `divide_signed` | 624 | slower | `divide_unsigned` | 112 |
-| `slow-word-offsets` | `pairs_by_word_offsets` | 128,758 | slower | `pairs_by_byte_offsets` | 101,068 |
+| `slow-word-offsets` | `pairs_by_word_offsets` | 127,542 | slower | `pairs_by_byte_offsets` | 101,068 |
 <!-- end of measurements -->

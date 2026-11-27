@@ -4,6 +4,7 @@ import dampf.lir.LOperand;
 
 import dampf.lir.BranchRelax;
 import dampf.mir.Block;
+import dampf.mir.MFunction;
 import dampf.mir.Instr;
 import dampf.mir.MType;
 import dampf.mir.Value;
@@ -14,6 +15,32 @@ final class BranchSelection {
 
     BranchSelection(Selection sel) {
         this.sel = sel;
+    }
+
+    /**
+     * Signed comparisons of 16-bit values in the biased form, as unsigned ones of x ^ $8000 and
+     * y ^ $8000, instead of by subtraction ({@link #bySubtraction}): MirCodeGen writes a function
+     * with signed comparisons both ways and keeps the form with the smaller worst case.
+     */
+    boolean biased;
+
+    /** f has a signed comparison of 16-bit values (which {@link #bySubtraction} may write). */
+    static boolean hasSignedCompare(MFunction f) {
+        for (Block b : f.blocks()) {
+            for (Instr i : b.instrs()) {
+                if (i instanceof Instr.Cmp c && signed(c.pred) && c.op(0).type() == MType.I16) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    static boolean signed(Instr.Pred p) {
+        return switch (p) {
+            case SLT, SLE, SGT, SGE -> true;
+            default -> false;
+        };
     }
 
     /**
@@ -39,6 +66,11 @@ final class BranchSelection {
                 sel.result(c, 0);
             }
             default -> {
+                if (bySubtraction(c) && !(c.op(0) instanceof Value.Const) && !(c.op(1) instanceof Value.Const)) {
+                    signedValue(c);
+                    sel.result(c, 0);
+                    return;
+                }
                 boolean less = orderedFlags(c).equals("bcc");
                 sel.ins("lda", Selection.imm(0));
                 sel.ins("rol", "a");          // A = C = x >= y
@@ -48,6 +80,101 @@ final class BranchSelection {
                 sel.result(c, 0);
             }
         }
+    }
+
+    /**
+     * A signed comparison of 16-bit values decided by the sign of x - y (with x and y swapped for
+     * > and <=): of two variables, N xor V after SBC (or N alone after CMP where the value ranges
+     * say the difference cannot overflow), and of a variable and a constant where it cannot. (A
+     * constant otherwise: its biased form costs nothing, x ^ $8000 compared unsigned is cheaper.)
+     */
+    boolean bySubtraction(Instr.Cmp c) {
+        return !biased && signed(c.pred) && c.op(0).type() == MType.I16 && (!(c.op(1) instanceof Value.Const) || noOverflow(c));
+    }
+
+    /** The comparison's operands as x - y: x < y for slt and sgt, x >= y for sge and sle. */
+    private static boolean swapped(Instr.Cmp c) {
+        return c.pred == Instr.Pred.SGT || c.pred == Instr.Pred.SLE;
+    }
+
+    /** x - y cannot overflow 16 bits by the value ranges, so N alone is the sign of the difference. */
+    private boolean noOverflow(Instr.Cmp c) {
+        Value x = swapped(c) ? c.op(1) : c.op(0);
+        Value y = swapped(c) ? c.op(0) : c.op(1);
+        dampf.mir.Ranges.Range rx = sel.ranges == null ? null : sel.ranges.at(x, c.block());
+        dampf.mir.Ranges.Range ry = sel.ranges == null ? null : sel.ranges.at(y, c.block());
+        return rx != null && ry != null && rx.lo() - ry.hi() >= -0x8000 && rx.hi() - ry.lo() <= 0x7FFF;
+    }
+
+    /**
+     * Starts x - y: loads x and returns true, for SBC or CMP y to follow; or, where A holds y
+     * (just computed) and not x, computes ~y + x + 1 with ADC, which gives the same difference
+     * and the same N, V, Z and C as SBC (and costs less than storing y and loading x), and
+     * returns false.
+     */
+    private boolean subtract(Value x, Value y) {
+        LOperand xo = sel.operand(x, 0);
+        LOperand yo = sel.operand(y, 0);
+        if (!sel.m8 && sel.aHolds.contains(yo) && !sel.aHolds.contains(xo)) {
+            sel.ins("eor", Selection.imm(0xFFFF));
+            sel.ins("sec");
+            sel.ins("adc", xo);
+            return false;
+        }
+        sel.ins("lda", xo);
+        return true;
+    }
+
+    /**
+     * The flags of x - y for {@link #bySubtraction}: N is set if x < y. Returns the branch taken
+     * when the comparison is true ("bmi" or "bpl").
+     */
+    private String signedFlags(Instr.Cmp c) {
+        Value x = swapped(c) ? c.op(1) : c.op(0);
+        Value y = swapped(c) ? c.op(0) : c.op(1);
+        boolean loaded = subtract(x, y);
+        if (loaded && noOverflow(c)) {
+            sel.ins("cmp", sel.operand(y, 0));
+        } else if (loaded) {
+            sel.ins("sec");
+            sel.ins("sbc", sel.operand(y, 0));
+        }
+        if (!noOverflow(c)) {
+            String sign = sel.label();
+            sel.ins("bvc", sign);
+            sel.ins("eor", Selection.imm(0x8000));   // overflow: N is the opposite of the sign
+            sel.place(sign);
+        }
+        boolean less = c.pred == Instr.Pred.SLT || c.pred == Instr.Pred.SGT;
+        return less ? "bmi" : "bpl";
+    }
+
+    /**
+     * The truth value of a comparison {@link #bySubtraction} of two variables in A: bit 15 of
+     * x - y made the answer, then moved to bit 0. (Against a constant the biased form is cheaper.)
+     */
+    private void signedValue(Instr.Cmp c) {
+        Value x = swapped(c) ? c.op(1) : c.op(0);
+        Value y = swapped(c) ? c.op(0) : c.op(1);
+        boolean less = c.pred == Instr.Pred.SLT || c.pred == Instr.Pred.SGT;
+        if (subtract(x, y)) {
+            sel.ins("sec");
+            sel.ins("sbc", sel.operand(y, 0));
+        }
+        if (noOverflow(c)) {
+            if (!less) {
+                sel.ins("eor", Selection.imm(0x8000));
+            }
+        } else {
+            // bit 15 is x < y where V is clear (else its opposite); for >= the other way round
+            String done = sel.label();
+            sel.ins(less ? "bvc" : "bvs", done);
+            sel.ins("eor", Selection.imm(0x8000));
+            sel.place(done);
+        }
+        sel.ins("asl", "a");                 // C = the answer
+        sel.ins("lda", Selection.imm(0));
+        sel.ins("rol", "a");
     }
 
     /**
@@ -70,10 +197,14 @@ final class BranchSelection {
     }
 
     /**
-     * Sets the carry for an ordered comparison, C = x >= y (with x and y swapped for > and <=);
-     * returns the branch that is taken when the comparison is true ("bcc" or "bcs").
+     * Sets the flags for an ordered comparison: C = x >= y (with x and y swapped for > and <=), or
+     * for a signed one of 16-bit values N = x < y ({@link #bySubtraction}); returns the branch that
+     * is taken when the comparison is true ("bcc", "bcs", "bmi" or "bpl").
      */
     String orderedFlags(Instr.Cmp c) {
+        if (bySubtraction(c)) {
+            return signedFlags(c);
+        }
         MType t = c.op(0).type();
         int n = Selection.words(t);
         Value a = c.op(0);

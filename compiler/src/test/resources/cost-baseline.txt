@@ -87,11 +87,11 @@ catchme _sprite_hide 156
 catchme _sprite_set 5544
 catchme _sprites_copy 1704
 catchme _start_level -1
-catchme _step 1058
+catchme _step 1012
 catchme _text -1
 catchme _title -1
 catchme _title_parade -1
-catchme _touches 550
+catchme _touches 490
 catchme _towards 18196
 catchme _wall_tile 758
 catchme _wander 9014
@@ -102,13 +102,13 @@ catchme dampf_udiv16 5226
 catchme dampf_udiv32 16670
 ertuep _add_pfand 106758
 ertuep _aim 2264
-ertuep _autopilot 96716
+ertuep _autopilot 96200
 ertuep _barrel 4388
 ertuep _beermat 986
 ertuep _begin 2730
 ertuep _big 1750
 ertuep _boss_aim_y 462
-ertuep _boss_collide 1361974
+ertuep _boss_collide 1144308
 ertuep _boss_draw 987436
 ertuep _boss_start 241736
 ertuep _boss_update 95506
@@ -120,10 +120,10 @@ ertuep _build_rows 30286
 ertuep _build_wall 14200
 ertuep _bullet_dir 3794
 ertuep _bullet_new 3110
-ertuep _bullets_update 41932
+ertuep _bullets_update 40428
 ertuep _caps_flying 2884
 ertuep _carousel_aim_y 130
-ertuep _carousel_collide 427052
+ertuep _carousel_collide 425550
 ertuep _carousel_draw 19654
 ertuep _carousel_start 44404
 ertuep _carousel_update 94848
@@ -137,15 +137,15 @@ ertuep _collect 108338
 ertuep _collide -1
 ertuep _cos1024 488
 ertuep _crate_grow 4194
-ertuep _crate_update 2424
+ertuep _crate_update 2240
 ertuep _crate_volley 11496
 ertuep _crown_damage 35718
 ertuep _damage 36324
 ertuep _dartboard 11044
-ertuep _dicecup 7750
+ertuep _dicecup 7732
 ertuep _dma0 604
 ertuep _dma_source 406
-ertuep _draw_all 1779176
+ertuep _draw_all 1759724
 ertuep _draw_bullets 49540
 ertuep _draw_enemies 574862
 ertuep _draw_items 28468
@@ -153,12 +153,12 @@ ertuep _draw_parts 29844
 ertuep _draw_player 8428
 ertuep _draw_shots 29408
 ertuep _draw_sprite 1414
-ertuep _draw_title_logo 98836
+ertuep _draw_title_logo 79384
 ertuep _effects 27244
 ertuep _effects_vblank 2916
 ertuep _end_of_stage 41232
 ertuep _ending 1600404
-ertuep _enemies_update 1098930
+ertuep _enemies_update 1097682
 ertuep _enemy_destroyed 1002894
 ertuep _enemy_hit 1003490
 ertuep _enemy_spawn 9252
@@ -170,7 +170,7 @@ ertuep _festzelt_load 15658
 ertuep _festzelt_unload 152
 ertuep _festzelt_vblank 1448
 ertuep _festzelt_view 15848
-ertuep _finish 68012
+ertuep _finish 48560
 ertuep _fire 16964
 ertuep _fire_at_ship 6120
 ertuep _fire_cork 6538
@@ -180,8 +180,8 @@ ertuep _game_init -1
 ertuep _game_tick -1
 ertuep _game_vblank 22772
 ertuep _heart 7466
-ertuep _hendl 1672
-ertuep _hop 1646
+ertuep _hendl 1646
+ertuep _hop 1544
 ertuep _hud_blank_below 83308
 ertuep _hud_clear_row1 6444
 ertuep _hud_crate 3652
@@ -194,21 +194,21 @@ ertuep _hud_put 384
 ertuep _hud_sekt 840
 ertuep _hud_text 26762
 ertuep _huge 7226
-ertuep _in_box 706
+ertuep _in_box 506
 ertuep _item_spawn 3126
-ertuep _items_update 36526
-ertuep _kettle_collide 1361760
+ertuep _items_update 35626
+ertuep _kettle_collide 1144094
 ertuep _kettle_update 79412
 ertuep _load_stage_gfx 15852
 ertuep _lose_life 1804
-ertuep _machine_collide 471370
+ertuep _machine_collide 469720
 ertuep _machine_update 64918
 ertuep _main -1
 ertuep _memset_5 30238
 ertuep _memset_7 25950
-ertuep _mettigel 7876
+ertuep _mettigel 7858
 ertuep _mode1 210
-ertuep _near 942
+ertuep _near 674
 ertuep _new_game 1405286
 ertuep _objects_clear 99438
 ertuep _organ 31100
@@ -216,12 +216,12 @@ ertuep _overlap 800
 ertuep _part_spawn 1148
 ertuep _parts_update 13836
 ertuep _path_at 7450
-ertuep _picture 1779658
+ertuep _picture 1760206
 ertuep _place_chairs 26284
 ertuep _play -1
 ertuep _player_start 488
-ertuep _player_update 121254
-ertuep _pretzel 1804
+ertuep _player_update 121070
+ertuep _pretzel 1798
 ertuep _random16 446
 ertuep _receipts 6618
 ertuep _respawn 1403868
@@ -256,7 +256,7 @@ ertuep _sfx_voices_frame -1
 ertuep _ship_hit 31214
 ertuep _ship_in_wall 5176
 ertuep _shot_new 2350
-ertuep _shots_update 59326
+ertuep _shots_update 58226
 ertuep _sin1024 462
 ertuep _sine 154
 ertuep _slot 67036
@@ -281,7 +281,7 @@ ertuep _step 268
 ertuep _sway 10062
 ertuep _sway_init 5496
 ertuep _tentacles 19692
-ertuep _title 1471692
+ertuep _title 1452240
 ertuep _title_stage 24418
 ertuep _toward 1244
 ertuep _tuba 29470
@@ -391,14 +391,14 @@ hello dampf_mul32 2542
 hello dampf_sdiv32 17750
 hello dampf_udiv16 5226
 hello dampf_udiv32 16670
-mandelbrot _compute 132664
+mandelbrot _compute 132376
 mandelbrot _cycle_palette 23500
 mandelbrot _dma0 604
 mandelbrot _dma_source 406
 mandelbrot _game_init 8363978
-mandelbrot _game_tick 137854
+mandelbrot _game_tick 137566
 mandelbrot _game_vblank 2052
-mandelbrot _in_bulbs 14158
+mandelbrot _in_bulbs 14122
 mandelbrot _main -1
 mandelbrot _make_palette 907488
 mandelbrot _pixel_done 1330
@@ -636,7 +636,7 @@ schach _sfx_voices_frame -1
 schach _sfx_voices_init -1
 schach _sfx_voices_play 1038
 schach _shadow_check 42
-schach _skip_capture 2156
+schach _skip_capture 2136
 schach _slider_on_line -1
 schach _start_iteration -1
 schach _stop -1
@@ -673,12 +673,12 @@ spelling fill-words fill_u16_ne 6526
 spelling fill-words fill_u8 6526
 spelling fill-words fill_u8_down 6526
 spelling fill-words fill_while 6526
-spelling pairs pairs_down 247568
-spelling pairs pairs_hoisted 222262
-spelling pairs pairs_i16 222262
-spelling pairs pairs_ptr 222262
-spelling pairs pairs_u16 222262
-spelling pairs pairs_u8 222262
+spelling pairs pairs_down 237632
+spelling pairs pairs_hoisted 212326
+spelling pairs pairs_i16 212326
+spelling pairs pairs_ptr 212326
+spelling pairs pairs_u16 212326
+spelling pairs pairs_u8 212326
 spelling search find_break_u16 14996
 spelling search find_break_u8 14996
 spelling search find_cond_u16 14996
@@ -744,9 +744,9 @@ spelling table-2d rows_ptr 20986
 spelling table-2d rows_u16 20986
 spelling table-2d rows_u8 20986
 steinschlag _add_score -1
-steinschlag _approach 772
+steinschlag _approach 764
 steinschlag _blast 3164536
-steinschlag _camera 2042
+steinschlag _camera 1900
 steinschlag _cave_scan_rows 2529131202
 steinschlag _cave_start -1
 steinschlag _cave_tick_begin 156
