@@ -245,3 +245,91 @@ game uses HDMA for its colour windows), add the declaration at the start of `gam
 every channel that can be on at that row. Then build: the timing report's line `_game_irq (after
 the wait; room, worst)` shows how much room is left; if the build fails, move work from after
 the wait to before it, or write fewer registers there.
+
+## 11. `oam_add`: four changes take 21 % off each call (2026-11-27)
+
+The kit compared dampf's code for the game's three hottest functions in play with hand-written
+assembly (superdevkit's `docs/optimizations.md`, "The game's hottest functions by hand"). It
+played a copy of the game, solo and with the CPU partner, from two scripted inputs in dampf's
+emulator, and every changed version kept all of WRAM identical to today's build at the end of
+every tick. `oam_add` with `sprite_palette` inlined into it is the hottest function: 9.8 % of the
+work with the CPU partner and 12.3 % solo, 74,737 calls in 5,730 ticks. Four changes to its C,
+each behaving as today for every input (also on the PC):
+
+1. **No tinted flag.** Today a flag is set on each path that picks the palette and tested twice
+   later. Decide the rare tinted case once and branch to code of its own for it (a small static
+   function that records the entry for `video_sprites_end` and writes the sprite with palette 0),
+   then return. dampf inlines it. This alone saves 251 master cycles a call.
+2. **The palette classes that depend on the palette as two `const` tables of 8**, one per base
+   class, indexed by the palette, holding the palette bits as the sprite's attribute wants them,
+   with one value that no class has (`$FF`) for "tinted". The other base classes keep their
+   computed bits, which are even and never that value. This replaces the chain of tests and
+   constant returns of `sprite_palette` (another 89).
+3. **`slots` as an offset into its one table instead of a pointer global.** Every value the game
+   stores in `slots` points into the same sheet table, so a `uint16_t` offset (the sheet number
+   times the row length, set where the pointer is set today) reads the same byte through the
+   table as one byte array. dampf copies a pointer global into the function's frame at every call
+   and reads through it with a 24-bit address; the offset indexes the table directly (105 less).
+4. **`sprites_filled` incremented before the stores** that fill the entry, with the old value kept
+   for the entry's address (33 less).
+
+Measured with the CPU partner (solo in brackets): 2,268 master cycles a call on average before,
+1,790 after (2,223 and 1,790); the measured worst call 2,548 before, 2,252 after; the work per
+tick 2.1 % less (2.6 %); the function 489 bytes before, 400 after. The timing report's worst case
+falls from 3,332 to 2,382. The only difference from today is where C leaves the behaviour
+undefined: with 136 or more entries the entry's last byte lands past the table, on
+`sprites_filled` itself, and the increment then comes before that store instead of after it. The
+game never has more than 128 entries.
+
+Two things the game cannot do in C: a hand-written version took 1,067 a call (−5.3 %, −6.6 %
+solo), and copying the function's body into its five hottest call sites saved the call's cost of
+about 240 a call (−1.3 %, −2.3 % solo with today's body, for 1.7 KB); dampf does neither by
+itself yet. The hand-written version exists and can be handed over by the user, for a game that
+wants to link it with `DAMPF_ASM`; it is written against the C of change 3.
+
+## 12. `evaluate`: 39 % less time a call from its C (2026-11-27)
+
+The CPU partner's `evaluate` is 8.6 % of the work with the CPU partner (solo never calls it). Five
+changes, each giving the same result for every input (measured: the same result in all 5,045
+calls of the run and in 17,000 further inputs of game-like, random and edge data against
+today's version):
+
+1. **Return before the loops when the danger list is empty**, with the value the loops would
+   leave. One call in five has no danger, and the sample loop runs for nothing today (9,347
+   master cycles each).
+2. **Hoist what does not change out of the sample loop**: the player's position read through the
+   pointer once, the action decoded once into its left, right, jump and dash parts (a `switch`
+   on it does this best, with an action beyond the last counting as a dash, as today), and the
+   dash case decided before the loop instead of in every round.
+3. **The two 5-element coordinate arrays of `Danger` as one array of 10**, x of each sample
+   first, then y, so that the bytes stay where they are. dampf reaches an array field indexed by
+   a variable directly only at the struct's offset 0, and the second array today through a
+   24-bit pointer built for every pair (−3,617 a call). `add_danger`, `add_coming_shot` and the
+   debug view write the new array.
+4. **The end of the danger list computed once** as a pointer, and the list walked with a pointer
+   up to it instead of an index below `danger_count`. The pointer walk also gives the timing
+   report a bound of 32 dangers instead of 255: the function's static worst case falls from 2.45
+   million master cycles to 0.19 million.
+5. **The signed values compared biased**: keep `best`, the two distances and their maximum as
+   `v ^ 0x8000` in `uint16_t` and compare those unsigned, which keeps their order; flip the
+   result back on return. Sums wrap modulo 2^16 as today's casts do. dampf compares two signed
+   variables slowly today (an M12 row of the kit's roadmap will make this one unnecessary; drop
+   it then).
+
+Measured: 29,409 master cycles a call on average before, 17,923 after, the worst call 65,636
+before and 41,756 after; the work per tick with the CPU partner 3.0 % less. The function is 554
+bytes before and 529 after. A hand-written version (11,877 a call, −5.3 %) exists and can be
+handed over by the user.
+
+## 13. `separate`: keep it as it is for now (2026-11-27)
+
+The bubbles' pair loop is 8.0 % of the work with the CPU partner and 12.2 % solo. A spelling
+with a list of the floating bubbles (their indexes and copies of their pixel positions, built
+before the pair loop and renewed after a push) takes 10.4 % less a call on average in play, the
+work per tick 0.8 % less (1.2 % solo). It is not recommended now: its static worst case is about
+30 % larger, and on states where many bubbles touch it is 23 % slower than today, because dampf
+compiles the list poorly (its counters in memory, a mask on every byte, every index multiplied by
+the struct's size). A list of byte offsets, which the kit's C guide recommends for lists, cannot
+be written for `Bubble`: its size differs from the PC's, so `sizeof` is rejected, and its 16
+offsets do not fit a byte. It pays once dampf compiles such lists well; the kit will say so in a
+finding. A hand-written version (−3.8 %, −6.0 % solo) exists and can be handed over by the user.
