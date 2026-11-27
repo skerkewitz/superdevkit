@@ -19,6 +19,7 @@ sources:
   - examples/catchme/src/game.c
   - examples/ertuep/superdevkit.toml
   - examples/steinschlag/superdevkit.toml
+  - examples/modes/superdevkit.toml
   - examples/steinschlag/assets/sfx/sfx.json
   - examples/steinschlag/src/steinschlag.h
   - examples/steinschlag/src/game.c

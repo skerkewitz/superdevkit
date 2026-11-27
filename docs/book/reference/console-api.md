@@ -306,10 +306,10 @@ void sdevkit_reg_write(uint8_t reg, uint8_t value);
 
 Writes `value` to the PPU register `$21xx` whose low byte is `reg`, an `SDEVKIT_PPU_*` name from
 `$00` to `$33`. It is the core: the write goes to the hardware at once, and with a constant `reg`
-it is one store on the SNES. Rachael does not draw everything a register can switch on: a mode
-other than 1 and 7, mosaic, `SETINI`, direct colour and `VMAIN`'s address remapping. She counts
-such a write (`undrawn`), and the desktop check fails on it, because the SNES would show
-something else there. Cost: 25 cycles.
+it is one store on the SNES. Rachael does not draw everything a register can switch on: modes 5
+and 6, and `SETINI`'s high resolution, overscan and interlace, which would make the picture 512
+pixels wide or 239 or 448 lines high. She counts such a write (`undrawn`), and the desktop check
+fails on it, because the SNES would show something else there. Cost: 25 cycles.
 
 ### `sdevkit_reg_write_twice`
 
@@ -333,7 +333,7 @@ byte of its address.
 | `SDEVKIT_PPU_OAMADDH` | `$2103` | OAM port: bit 0 the address's bit 8; bit 7 priority rotation, leave 0 | |
 | `SDEVKIT_PPU_OAMDATA` | `$2104` | OAM port: data | |
 | `SDEVKIT_PPU_BGMODE` | `$2105` | the mode, BG3 in front in mode 1, 16 x 16 tiles per layer | |
-| `SDEVKIT_PPU_MOSAIC` | `$2106` | mosaic: block size and layers; not drawn on Rachael | |
+| `SDEVKIT_PPU_MOSAIC` | `$2106` | mosaic: block size and layers, `SDEVKIT_MOSAIC()` | |
 | `SDEVKIT_PPU_BG1SC` to `SDEVKIT_PPU_BG4SC` | `$2107` to `$210A` | a layer's map, `SDEVKIT_BGSC()` | |
 | `SDEVKIT_PPU_BG12NBA` | `$210B` | the tiles of BG1 and BG2, `SDEVKIT_BGNBA()` | |
 | `SDEVKIT_PPU_BG34NBA` | `$210C` | the tiles of BG3 and BG4 | |
@@ -342,7 +342,7 @@ byte of its address.
 | `SDEVKIT_PPU_BG2HOFS`, `_BG2VOFS` | `$210F`, `$2110` | BG2's scroll | yes |
 | `SDEVKIT_PPU_BG3HOFS`, `_BG3VOFS` | `$2111`, `$2112` | BG3's scroll | yes |
 | `SDEVKIT_PPU_BG4HOFS`, `_BG4VOFS` | `$2113`, `$2114` | BG4's scroll | yes |
-| `SDEVKIT_PPU_VMAIN` | `$2115` | VRAM port: when and by how much the address steps | |
+| `SDEVKIT_PPU_VMAIN` | `$2115` | VRAM port: when and by how much the address steps, address remapping | |
 | `SDEVKIT_PPU_VMADDL`, `_VMADDH` | `$2116`, `$2117` | VRAM port: the word address | |
 | `SDEVKIT_PPU_VMDATAL`, `_VMDATAH` | `$2118`, `$2119` | VRAM port: the low and the high byte of the word | |
 | `SDEVKIT_PPU_M7SEL` | `$211A` | mode 7: what lies outside the map, mirroring | |
@@ -361,24 +361,36 @@ byte of its address.
 | `SDEVKIT_PPU_TS` | `$212D` | the layers on the sub screen, for colour math | |
 | `SDEVKIT_PPU_TMW` | `$212E` | the main screen's layers that their windows mask | |
 | `SDEVKIT_PPU_TSW` | `$212F` | the same for the sub screen | |
-| `SDEVKIT_PPU_CGWSEL` | `$2130` | colour math, where and with what; bit 0 direct colour, not drawn on Rachael | |
+| `SDEVKIT_PPU_CGWSEL` | `$2130` | colour math, where and with what; bit 0 direct colour | |
 | `SDEVKIT_PPU_CGADSUB` | `$2131` | colour math, how and on which layers | |
 | `SDEVKIT_PPU_COLDATA` | `$2132` | colour math's fixed colour, one write per channel | |
-| `SDEVKIT_PPU_SETINI` | `$2133` | interlace, high resolution, overscan: keep 0, not drawn on Rachael | |
+| `SDEVKIT_PPU_SETINI` | `$2133` | bit 6 mode 7's second layer (EXTBG); interlace, high resolution, overscan: keep 0, not drawn on Rachael | |
 
 The copy functions set the ports of VRAM, CGRAM and OAM themselves; a game writes them only for
 [`sdevkit_dma`](#sdevkit-dma). The vertical scroll counts one line more than it seems: screen
 line y shows map line y + `VOFS` + 1, so `0x3FF` puts map line 0 on screen line 0.
+
+Bits 2 and 3 of `VMAIN` remap the VRAM port's address, for a game that draws into tiles as into
+a bitmap: the port rotates the low bits of the address so that a run of addresses steps along a
+row of pixels. With `SDEVKIT_VMAIN_REMAP_4BPP`, address bits `aaaaaaaYYYxxxxxx` reach the word
+`aaaaaaaxxxxxxYYY`. The step is still `VMAIN`'s bits 0 and 1.
 
 The macros below build the values of the registers.
 
 | Macro | Register | Value |
 | --- | --- | --- |
 | `SDEVKIT_FORCED_BLANK` | `INIDISP` | `0x80`: the screen off, black, and VRAM, CGRAM and OAM take writes at any time |
+| `SDEVKIT_BG_MODE0` | `BGMODE` | 0: BG1 to BG4 with 4 colours a tile each |
 | `SDEVKIT_BG_MODE1` | `BGMODE` | 1: BG1 and BG2 with 16 colours a tile, BG3 with 4, and the sprites |
+| `SDEVKIT_BG_MODE2` | `BGMODE` | 2: BG1 and BG2 with 16 colours, a scroll per column of tiles from BG3's map |
+| `SDEVKIT_BG_MODE3` | `BGMODE` | 3: BG1 with 256 colours a tile (or direct colour), BG2 with 16 |
+| `SDEVKIT_BG_MODE4` | `BGMODE` | 4: BG1 with 256 colours, BG2 with 4, a scroll per column of tiles |
 | `SDEVKIT_BG_MODE7` | `BGMODE` | 7: one layer, BG1, rotated and scaled ([mode 7](#colour-math-and-mode-7)) |
 | `SDEVKIT_BG3_MODE1_PRIORITY_HIGH` | `BGMODE` | BG3's tiles with the priority bit in front of everything (a status line) |
 | `SDEVKIT_BG1_TILES_16` to `SDEVKIT_BG4_TILES_16` | `BGMODE` | that layer with tiles of 16 x 16 pixels: map entry tile t draws t, t + 1, t + 16, t + 17 |
+| `SDEVKIT_MOSAIC(size, layers)` | `MOSAIC` | blocks of `size` x `size` pixels, 1 to 16 (1 is off), on `layers` (`SDEVKIT_BG1_ENABLE` ...) |
+| `SDEVKIT_VMAIN_REMAP_2BPP`, `_4BPP`, `_8BPP` | `VMAIN` | the low 8, 9 or 10 bits of the address rotated by 3: tiles of 2, 4 or 8 bits a pixel, 32 to a row |
+| `SDEVKIT_SETINI_EXTBG` | `SETINI` | mode 7's second layer ([mode 7](#colour-math-and-mode-7)) |
 | `SDEVKIT_BG1_ENABLE` to `SDEVKIT_BG4_ENABLE`, `SDEVKIT_OBJ_ENABLE` | `TM`, `TS`, `TMW`, `TSW` | the bits of the layers and of the sprites, joined with a bitwise or |
 | `SDEVKIT_BGSC(address, size)` | `BGnSC` | the map at a VRAM word address, a multiple of `0x400`, and its size |
 | `SDEVKIT_SC_32x32`, `_64x32`, `_32x64`, `_64x64` | `BGnSC` | 0 to 3: one map, two side by side, two one below the other, four |
@@ -393,8 +405,10 @@ The macros below build the values of the registers.
 A map is 32 x 32 entries of one word each, row by row; entry (column c, row r) of a 32 x 32 map
 is the word at `map + r * 32 + c`. A larger map is two or four of them one after the other in
 VRAM. A layer's tiles start at their address: tile n of a 16-colour layer (32 bytes, 16 words a
-tile) is at `address + 16n`, of a 4-colour layer (16 bytes) at `address + 8n`. A map entry is
-built from these macros, joined with `|`:
+tile) is at `address + 16n`, of a 4-colour layer (16 bytes) at `address + 8n`, and of a
+256-colour layer (64 bytes, 32 words: the bit planes 0-1, 2-3, 4-5 and 6-7, eight words each, as
+`superdevkit png tiles8` writes them) at `address + 32n`. A map entry is built from these macros,
+joined with `|`:
 
 | Macro | Bits |
 | --- | --- |
@@ -407,15 +421,43 @@ built from these macros, joined with `|`:
 In mode 1 the layers lie in front of each other in this order, front to back (P is a map entry
 with the priority bit, and a sprite's priority 0 to 3 is in its attributes): sprites 3, BG1 P,
 BG2 P, sprites 2, BG1, BG2, sprites 1, BG3 P, sprites 0, BG3, the
-[backdrop](/glossary#backdrop).
+[backdrop](/glossary#backdrop). In mode 0 the order is sprites 3, BG1 P, BG2 P, sprites 2, BG1,
+BG2, sprites 1, BG3 P, BG4 P, sprites 0, BG3, BG4; in modes 2 to 4 it is sprites 3, BG1 P,
+sprites 2, BG2 P, sprites 1, BG1, sprites 0, BG2.
 
 A colour is 15 bits, 5 each of red, green and blue, blue in the high bits. Two macros build one:
 `SDEVKIT_RGB5(r, g, b)` from values 0 to 31, and `SDEVKIT_RGB8(r, g, b)` from values 0 to 255, of
 which it keeps the top 5 bits. In mode 1 a background palette p of 16 colours is CGRAM colours
 16p to 16p + 15, a palette of 4 colours (BG3) colours 4p to 4p + 3, and sprite palette p colours
-128 + 16p to 128 + 16p + 15. Colour 0 of every palette is transparent; CGRAM colour 0 itself is
-the backdrop. Which modes and features the kit draws is in
+128 + 16p to 128 + 16p + 15. The same holds in the other modes, with one difference each: in
+mode 0 colour c of a tile of BGn with palette p is CGRAM colour (n − 1) · 32 + 4p + c, so each
+layer has 32 colours of its own; and a 256-colour tile (BG1 of modes 3 and 4) takes colour c of
+all 256 and ignores the map entry's palette. With direct colour (`SDEVKIT_CM_DIRECT_COLOR` in
+`CGWSEL`) such a tile uses no CGRAM at all: c is `BBGGGRRR`, and the palette's three bits `bgr`
+go below them, giving blue `BBb00`, green `GGGg0` and red `RRRr0`. Colour 0 of every palette is
+transparent; CGRAM colour 0 itself is the backdrop. Which modes and features the kit draws is in
 [The SNES hardware](/guide/snes-hardware#what-the-dev-kit-has).
+
+In modes 2 and 4 BG3 is no layer: its map holds a scroll for each column of tiles of BG1 and BG2
+instead, an offset per tile. Screen column k, from 1 to 32, takes the entry at tile column
+k − 1 + `BG3HOFS` / 8 of BG3's map, in row `BG3VOFS` / 8; the columns count from the first tile
+whose left edge the layer's own scroll puts at or right of x = 0, and column 0 keeps the layer's
+scroll. An entry applies to BG1 with `SDEVKIT_OPT_BG1` and to BG2 with `SDEVKIT_OPT_BG2`, and its
+bits 0 to 9 are the scroll; a horizontal one keeps the layer's own lowest three bits. In mode 2
+the row below holds a second entry, for the vertical scroll. In mode 4 there is one entry, and
+`SDEVKIT_OPT_VERTICAL` makes it the vertical scroll instead of the horizontal one. This fragment
+of `snes.h` scrolls BG1's column k + 1 down by k pixels in mode 2, a ramp across the screen,
+where `opt` is BG3's map in RAM, copied to VRAM:
+
+```c
+for (k = 0; k < 32; k++) {
+    opt[32 + k] = (uint16_t)(SDEVKIT_OPT_BG1 | k);   // BG3's second row: the vertical offsets
+}
+```
+
+Mosaic (`MOSAIC`) works on every layer: each layer it is on shows blocks of size x size pixels,
+each the colour of its top left pixel, counted from the picture's top left corner, for a fade
+into blocks or a picture that dissolves.
 
 The program below sets up mode 1 with one layer, puts one tile on it, and scrolls it with the
 joypad in `game_vblank`. VRAM starts as zeros, so every other map entry shows tile 0, which is
@@ -478,6 +520,7 @@ For `CGWSEL`:
 
 | Constant | Meaning |
 | --- | --- |
+| `SDEVKIT_CM_DIRECT_COLOR` | the 256-colour tiles of BG1 (modes 3, 4 and 7) are direct colours, not CGRAM indices ([Registers](#registers)) |
 | `SDEVKIT_CM_SUBBGOBJ_ENABLE` | add or subtract the sub screen, not the fixed colour; where the sub screen is transparent, the fixed colour |
 | `SDEVKIT_CM_ALWAYS_ENABLE` | colour math everywhere |
 | `SDEVKIT_CM_MATWIN_ENABLE` | only inside the colour window |
@@ -522,7 +565,10 @@ interleaved: the map in the low byte of words `0x0000` to `0x3FFF`, the tiles in
 ([`sdevkit_mode7_map_copy`](#sdevkit-mode7-map-copy),
 [`sdevkit_mode7_tiles_copy`](#sdevkit-mode7-tiles-copy)). Nothing else of a game may be there, so
 its sprite tiles go to `0x4000` or above. In front of the layer are the sprites of priority 1 to
-3, behind it those of priority 0.
+3, behind it those of priority 0. With `SDEVKIT_SETINI_EXTBG` in `SETINI`, mode 7 has a second
+layer: BG2 shows BG1's picture with bit 7 of a pixel as its priority and bits 0 to 6 as its
+colour, so the picture can be in front of some sprites and behind others. The order is then
+sprites 3, 2, BG2 P, sprites 1, BG1, BG2, sprites 0.
 
 A screen pixel (x, y) shows the map pixel
 
@@ -594,9 +640,34 @@ port's address first with `sdevkit_reg_write` (`VMAIN`, `VMADDL` and `VMADDH`, `
 `OAMADDL` and `OAMADDH`); the functions below do that for the usual copies. `dmap` is the
 transfer mode: `0x00` sends every byte to `bbad`, `0x01` to `bbad` and `bbad + 1` in turn (VRAM's
 two ports), `0x02` every byte to `bbad` for a register written twice, and `0x08` joined to one
-of them keeps the source from stepping, for a fill. A DMA from the PPU to memory (bit 7) Rachael
-does not model; she counts it as undrawn. Cost: 94 cycles, and `bytes` bytes of the vertical
-blank.
+of them keeps the source from stepping, for a fill. Joined with `SDEVKIT_DMA_FROM_PPU` (bit 7),
+the bytes go the other way, from a port of the PPU into `src`: VRAM, CGRAM or OAM read back,
+in the vertical blank as a copy to them. Rachael reads them back as the SNES does. Cost: 94
+cycles, and `bytes` bytes of the vertical blank.
+
+| Name | Address | What |
+| --- | --- | --- |
+| `SDEVKIT_DMA_FROM_PPU` | | the bit of `dmap`: from the PPU to memory |
+| `SDEVKIT_PPU_OAMDATAREAD` | `$2138` | OAM's read port, a byte at a time |
+| `SDEVKIT_PPU_VMDATALREAD`, `_VMDATAHREAD` | `$2139`, `$213A` | VRAM's read port, the low and the high byte |
+| `SDEVKIT_PPU_CGDATAREAD` | `$213B` | CGRAM's read port: the low byte, then the high byte of each colour |
+
+VRAM's port reads a word it fetched before: setting the address (`VMADDL`, `VMADDH`) fetches the
+word there, and each read that steps the address fetches the word at the address before the
+step. So a copy of words read from address a gives the word at a twice, then a + 1, a + 2 and
+so on: read one word more and drop the first. Bit 7 of a colour's high byte read from CGRAM is
+not defined on the SNES. This fragment, in `game_vblank`, reads the 16 words of VRAM from
+`0x1000` into RAM:
+
+```c
+static uint16_t back[17];
+
+sdevkit_reg_write(SDEVKIT_PPU_VMAIN, 0x80);
+sdevkit_reg_write(SDEVKIT_PPU_VMADDL, 0x00);
+sdevkit_reg_write(SDEVKIT_PPU_VMADDH, 0x10);
+sdevkit_dma(SDEVKIT_DMA_FROM_PPU | 0x01, SDEVKIT_PPU_VMDATALREAD, back, sizeof back);
+// back[1] to back[16] are the words from 0x1000
+```
 
 ### `sdevkit_vram_copy`
 
@@ -920,8 +991,9 @@ marks:
 | `SDEVKIT_MARK_ALL` | `0x3F` | every group | |
 
 Three fields differ from their register. `coldata` is one colour made with `SDEVKIT_RGB5`, which
-the commit writes as `COLDATA`'s three channels. The mode 7 fields are `int16_t`. `mosaic` and
-`setini` are not drawn on Rachael: keep them 0. The struct has no padding, 16-bit fields first,
+the commit writes as `COLDATA`'s three channels. The mode 7 fields are `int16_t`. `mosaic` takes
+`SDEVKIT_MOSAIC()`; of `setini`, Rachael draws only `SDEVKIT_SETINI_EXTBG`, so keep its other
+bits 0. The struct has no padding, 16-bit fields first,
 so it is the same on the SNES and the PC and a game may name it to
 [`sdevkit_dbg_hash`](#sdevkit-dbg-hash).
 

@@ -113,7 +113,7 @@ public final class Png2Snes {
         if (img.indexed()) {
             int used = maxIndex(img.indices());
             if (used > max - 1) {
-                throw new ConvertException(png + ": uses palette index " + used + "; a " + (max == 256 ? 8 : 4) + "-bit tile has "
+                throw new ConvertException(png + ": uses palette index " + used + "; " + (max == 256 ? "an 8" : "a 4") + "-bit tile has "
                         + max + " colours");
             }
             for (int i = 0; i < Math.min(max, img.palette().length); i++) {

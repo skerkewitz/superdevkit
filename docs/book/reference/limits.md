@@ -35,12 +35,17 @@ are not read until the upload ends.
 nothing else. The desktop and web builds check that the game's objects call only the kit's
 functions, because [Rachael](/glossary#rachael), the SNES rebuilt in C that those builds run on,
 cannot see a write that goes around her. Of the hardware, a game can use only what both
-`lib/snes` and Rachael draw. Rachael draws modes 1 and 7; a register write she does not draw (a
-mode other than 1 and 7, mosaic, `SETINI`, direct colour, `VMAIN`'s address remapping, a
-[DMA](/glossary#dma) from the PPU, indirect [HDMA](/glossary#hdma)) is counted,
-and the desktop's check fails on it, since the SNES would show something else there. That is
-decided: a feature that Rachael only reports is not usable, and a feature a game needs is built
-on both sides in the same change.
+`lib/snes` and Rachael draw. Rachael draws modes 0 to 4 and 7, with 256-colour tiles, direct
+colour, offsets per tile, mosaic and mode 7's second layer (EXTBG); she follows `VMAIN`'s address
+remapping and reads [VRAM](/glossary#vram), [CGRAM](/glossary#cgram) and [OAM](/glossary#oam)
+back by [DMA](/glossary#dma). The example `modes` shows each of them. A register write she does
+not draw is counted, and the desktop's check fails on it, since the SNES would show something
+else there: modes 5 and 6, and `SETINI`'s high resolution, overscan and interlace, which would
+change the size of the picture, and indirect [HDMA](/glossary#hdma). That is decided: a feature
+that Rachael only reports is not usable, and a feature a game needs is built on both sides in
+the same change. These wait for a game that needs them and have no milestone; meanwhile direct
+HDMA reaches the same pictures as indirect HDMA, with larger tables that hold the data written
+out per entry.
 
 **Interrupt code.** A game can have an IRQ in C (an interrupt request, raised here by the CPU's
 timer before a row of the picture): `game_irq` from `sdevkit/irq.h`. A game that publishes its
