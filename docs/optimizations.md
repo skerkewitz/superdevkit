@@ -26,15 +26,15 @@ on 2026-11-28:
 
 | Example | Work per tick, average | Busiest 60 ticks | In dampf's runtime |
 | --- | --- | --- | --- |
-| Er-Tüp | 129,061 | 252,268 | 1.1 % |
-| Schach | 364,621 | 513,450 | 1.2 % |
-| Steinschlag | 71,544 | 132,150 | 1.5 % |
+| Er-Tüp | 128,845 | 251,804 | 1.1 % |
+| Schach | 364,513 | 513,356 | 1.2 % |
+| Steinschlag | 71,509 | 132,054 | 1.5 % |
 | Mandelbrot | 74,622 | 87,493 | 62.7 % |
-| Catchme | 45,831 | 143,012 | 20.4 % |
-| Hello | 80,270 | 81,272 | 50.0 % |
-| Mode 7 | 10,604 | 10,634 | 49.2 % |
-| modes | 53,386 | 121,709 | 3.4 % |
-| Gruft | 130,683 | 435,653 | 7.3 % |
+| Catchme | 45,794 | 142,978 | 20.4 % |
+| Hello | 80,161 | 81,162 | 50.1 % |
+| Mode 7 | 10,581 | 10,604 | 49.3 % |
+| modes | 53,367 | 121,688 | 3.4 % |
+| Gruft | 130,306 | 435,198 | 7.3 % |
 
 On 2026-11-20, before the runtime used the CPU's multiplier, the naive code generator did 3.0
 times the work on the geometric mean of all seven examples, from 1.26 times (Mandelbrot, whose
@@ -93,7 +93,7 @@ entry.
 | H | Standard optimizations: folding, identities, branch folding, block merging, value numbering, redundant loads, dead code, loops that do nothing and are proved to end (`DeadLoops`), comparisons computed again next to each branch that uses them (`SinkCompares`), index parameters passed as the offset into their struct array (`IndexParams`) | Built | 6.12 → 5.17 ([after H](optimizations-log.md#after-the-standard-optimizations-h-2026-11-17)) |
 | I | Multiply and divide | Partly. Constants as shifts and adds (in MIR for i32, in A for 8 and 16 bits), powers of two with C's signed rounding; two variables on the CPU's 8 x 8 multiplier (2026-11-22; two bytes without a call). Open: the PPU's multiplier, the hardware divider | 2.29 → 2.07 ([multiplication in A](optimizations-log.md#arrays-indexed-with-x-multiplication-in-a-2026-11-17)) |
 | J | Banks and placement | Partly. All code and constant data in banks $80 and up at FastROM speed (`--slowrom` switches it off), registers at constant addresses as long addresses | 1.31 → 1.10 ([FastROM](optimizations-log.md#fastrom-2026-11-17)) |
-| K | Peephole | Partly. A remembers every place it equals, `INC`/`DEC` in place, `STZ`, no `CMP #0` where N and Z already describe A, `TAX` for a reload of a stored value, shifts as a mask, the high byte as a byte load (`Peephole`), no `CLC` where the carry is known clear (`KnownCarry`) | 391,423 → 386,306 ([no `CMP #0`](optimizations-log.md#no-cmp-0-where-the-flags-are-set-2026-11-17)) |
+| K | Peephole | Partly. A remembers every place it equals, `INC`/`DEC` in place, `STZ`, no `CMP #0`, `CPX #0` or `CPY #0` where N and Z describe the register on every way there ([log](optimizations-log.md#comparisons-with-0-where-n-and-z-describe-the-value-already-2026-11-28-on-the-examples-and-blubber-blasen)), `TAX` for a reload of a stored value, shifts as a mask, the high byte as a byte load (`Peephole`), no `CLC` where the carry is known clear (`KnownCarry`) | 391,423 → 386,306 ([no `CMP #0`](optimizations-log.md#no-cmp-0-where-the-flags-are-set-2026-11-17)) |
 | L | `switch` as a jump table (`JMP (abs,X)`) | Built (M10). A `switch` on an 8- or 16-bit value whose table costs fewer cycles than its compares on average over the cases, with at most four entries per case (ADR-6FM7MWGX): from 4 cases without a range check, 6 from 0, 7 far from 0 or negative; a first case 0 tested before the table. Open: a switch in a loop whose counter lives in X, 32-bit values, cases weighed by a profile | Ertüp's busiest tick 262,654 → 260,166 master clocks ([jump tables](optimizations-log.md#switch-as-a-jump-table-2026-11-24-on-the-examples)) |
 | M | Copy and fill with `MVN`/`MVP` or DMA | Not built | |
 | N | Values in X and Y | Partly. Loop counters in X (also next to an index in Y, and with their stepped value read after the step: a `do` loop's test, `i - 1` going down; compared with a constant or a 16-bit value in its place), a second index in Y, loop-invariant indexes in Y, the index through a pointer in Y (rows of 2D arrays included), what A, X and Y hold known across blocks, a load of what another register holds as a transfer, a place in X or Y for the part of a loop that leaves the register alone | 329,834 → 326,596 ([index in Y](optimizations-log.md#a-pointer-plus-an-index-the-index-in-y-2026-11-17)) |

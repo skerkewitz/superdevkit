@@ -542,6 +542,12 @@ Built on 2026-11-27, ahead of M11; not released yet.
   0.997 (geometric mean), the code 0.3 % smaller; in Blubber Blasen `evaluate` 23 % less a
   call and the work per tick with the CPU partner 3.0 % less, solo 0.8 %
   ([log](optimizations-log.md#signed-comparisons-by-subtraction-2026-11-28-on-the-examples-and-blubber-blasen)).
+- **Comparisons with 0 where the flags are set** (M12, 2026-11-28): `CMP #0`, `CPX #0` and
+  `CPY #0` go where N and Z describe that register on every way there, followed over the blocks,
+  and loads of X and Y that stand between a mask and its test move above the mask. 156 of them
+  were left in the examples' code, 54 now (none follows the load in `SDEVKIT_PUBLISHED`, which the roadmap had
+  named); the examples' work 0.999, Blubber Blasen's 0.10 % less
+  ([log](optimizations-log.md#comparisons-with-0-where-n-and-z-describe-the-value-already-2026-11-28-on-the-examples-and-blubber-blasen)).
 
 ## Publishing
 

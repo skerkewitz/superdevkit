@@ -120,8 +120,7 @@ Also in M12:
 - faster code for a register write, which the game's IRQ has about 25 cycles for after its wait
   ([ADR-6FRX1GYC](adr/6FRX1GYC-the-game-s-irq-runs-at-a-picture-row-and-writes.md)): `xba` in
   `sdevkit_reg_write_twice` instead of a second load and a register to keep it (7 cycles less: 22
-  instead of 29 for a scroll register from a struct's field), and no `cmp #$0000` right after
-  a load, which sets the flags already (3 less, in every `SDEVKIT_PUBLISHED`);
+  instead of 29 for a scroll register from a struct's field);
 - the CPU's hardware divider (16 by 8 bits) for a division by a variable whose divisor dampf's
   value ranges prove to fit a byte, chosen automatically, built when a measured program divides
   by variables on a hot path (the examples do it once: Schach's opening book). It replaces the

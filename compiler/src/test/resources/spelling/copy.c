@@ -1,5 +1,11 @@
 /* family: copy
  * tolerance: 10
+ * gap: copy_u16 reverse a loop counting up compares its counter with the bound every round, where copy_down's DEX sets Z for its BNE (its CPX #0 went on 2026-11-28); reversing a loop whose rounds are independent would close it (not in the plan)
+ * gap: copy_u8 reverse as copy_u16
+ * gap: copy_i16 reverse as copy_u16
+ * gap: copy_ptr reverse as copy_u16
+ * gap: copy_ptr_end reverse as copy_u16
+ * gap: copy_while_n reverse as copy_u16
  * One byte array copied into another, by index with every counter type, up and down, and by
  * pointer.
  */

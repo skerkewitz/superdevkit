@@ -2509,3 +2509,45 @@ values) 16,010 a call, B4 (B3 with the biased values and a `switch`) 17,923, as 
 its comparisons are unsigned. The biased spelling no longer pays, which went to the game
 ([game-findings.md](game-findings.md)). Comparisons of two bytes stay biased: the game has
 none, the examples three sites, all in Schach.
+
+## Comparisons with 0 where N and Z describe the value already (2026-11-28, on the examples and Blubber Blasen)
+
+M12's peepholes, first part. `Peephole` left out a `CMP #0` only right after an instruction that
+had set N and Z from A in the same block; 156 comparisons with 0 were left in the examples' code
+and 101 in the game's. Most of them came after a mask whose result a branch tests, with a load of
+X or Y between them (the counter of the loop the branch enters, an index for the next store:
+`AND #$00FF / LDX #0 / CMP #0`), or at the start of a block that every way enters with the flags
+set. Now:
+
+- what N and Z describe is followed over the blocks: a register in a width (A, X or Y, 8 or 16
+  bits, several after a transfer), set by the instructions that write a register, kept by
+  stores, pushes, the carry and `REP`/`SEP` without N and Z, lost at a call, a read-modify-write
+  of memory, anything not known; at a join it is what every way in brings. `CMP #0`, `CPX #0` and
+  `CPY #0` go where N and Z describe that register in that width and the carry they set is not
+  read;
+- loads of constants and of frame places into X or Y, and transfers between X and Y, that stand
+  between the instruction that set A's flags and a `CMP #0` (stores of A may stand between too)
+  move above that instruction where neither reads what the other writes: `LDA t,x / LDX #0 / AND
+  #$00FF`, and the comparison goes.
+
+Comparisons with 0 in the code of the execution tests, random programs and examples: 789 before,
+459 after; in the examples 156 and 54, in the game 101 and 62. Most of what is left follows a call
+(the callee's flags are not known), a transfer the other way (`TAX / TYA / CPX #0`) or a 32-bit
+shift by a variable, whose count is in X before the value is stored.
+
+Against `develop`, the worst cases of the timing reports of every execution test, random program
+and example: 93 smaller, 2,591 the same, none larger. Code 268 bytes smaller (158,205 to 157,937
+bytes over the nine examples). The examples' work: Gruft 0.997, Er-Tüp 0.998, Mode 7 0.998, Catch
+Me 0.999, Hello 0.999, the others 1.000; geometric mean 0.999.
+
+Blubber Blasen (the copy of the kit's study, played in dampf's emulator, WRAM `$7E:2000-$7F:FFFF`
+identical to develop's build at the end of every tick of both runs): the work per tick with the
+CPU partner 292,950 before, 292,667 after (−0.10 %), solo 204,779 and 204,521 (−0.13 %); in the
+game's timing report 20 worst cases smaller, none larger. The study had put the `CMP #0` after a
+load at 0.22 % (0.29 % solo); the rest follows calls.
+
+A loop counting down to 0 tests the flags of its `DEX` now, where it compared with 0 before, so
+two spelling families have new gaps: in `copy` the loops counting up take 20 % more than
+`copy_down`, in `sum-bytes` the `do`/`while` and the `!= 100` loop 12 % more than `g_u16_down`
+(the others counting up 4 %). Reversing a loop whose rounds do not depend on each other would
+close them; it is not planned.
