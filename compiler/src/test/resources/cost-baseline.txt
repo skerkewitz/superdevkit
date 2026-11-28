@@ -1,7 +1,7 @@
 # The static worst case in master cycles of every function of every example and of
 # every member of the spelling families (one call through spelling_entry; -1: unbounded).
 # Written by BackendOutputTest with -PbackendOutput=update; its diff shows what got slower.
-catchme _actors_draw 27390
+catchme _actors_draw 27372
 catchme _actors_hide 898
 catchme _actors_reset 4452
 catchme _actors_scare 2008
@@ -103,7 +103,7 @@ catchme dampf_udiv32 16670
 ertuep _add_pfand 106074
 ertuep _aim 2116
 ertuep _autopilot 96200
-ertuep _barrel 4380
+ertuep _barrel 4344
 ertuep _beermat 972
 ertuep _begin 2730
 ertuep _big 1616
@@ -124,7 +124,7 @@ ertuep _bullets_update 40428
 ertuep _caps_flying 2884
 ertuep _carousel_aim_y 130
 ertuep _carousel_collide 419864
-ertuep _carousel_draw 18662
+ertuep _carousel_draw 18644
 ertuep _carousel_start 43812
 ertuep _carousel_update 94340
 ertuep _carousel_view 6326
@@ -136,40 +136,40 @@ ertuep _coin_ring 32082
 ertuep _collect 107576
 ertuep _collide -1
 ertuep _cos1024 488
-ertuep _crate_grow 4140
+ertuep _crate_grow 4122
 ertuep _crate_update 2240
 ertuep _crate_volley 11276
 ertuep _crown_damage 35270
 ertuep _damage 35892
 ertuep _dartboard 11000
-ertuep _dicecup 7538
+ertuep _dicecup 7520
 ertuep _dma0 582
 ertuep _dma_source 398
-ertuep _draw_all 1680304
+ertuep _draw_all 1679818
 ertuep _draw_bullets 47268
-ertuep _draw_enemies 547694
+ertuep _draw_enemies 547406
 ertuep _draw_items 27048
 ertuep _draw_parts 28860
-ertuep _draw_player 8068
-ertuep _draw_shots 27988
+ertuep _draw_player 8050
+ertuep _draw_shots 27808
 ertuep _draw_sprite 1326
 ertuep _draw_title_logo 75802
-ertuep _effects 27138
+ertuep _effects 27078
 ertuep _effects_vblank 2818
 ertuep _end_of_stage 40842
-ertuep _ending 1547780
+ertuep _ending 1547702
 ertuep _enemies_update 1090674
 ertuep _enemy_destroyed 1000350
 ertuep _enemy_hit 1000920
 ertuep _enemy_spawn 8746
 ertuep _fade_to 162
-ertuep _festzelt_drunk 332
+ertuep _festzelt_drunk 314
 ertuep _festzelt_hash 2938
 ertuep _festzelt_hofs 124
-ertuep _festzelt_load 15466
+ertuep _festzelt_load 15406
 ertuep _festzelt_unload 146
 ertuep _festzelt_vblank 1352
-ertuep _festzelt_view 15754
+ertuep _festzelt_view 15694
 ertuep _finish 46946
 ertuep _fire 16732
 ertuep _fire_at_ship 5964
@@ -184,12 +184,12 @@ ertuep _hendl 1640
 ertuep _hop 1530
 ertuep _hud_blank_below 83308
 ertuep _hud_clear_row1 6252
-ertuep _hud_crate 3604
+ertuep _hud_crate 3586
 ertuep _hud_lives 1562
 ertuep _hud_message 35284
 ertuep _hud_pfand 68396
 ertuep _hud_pfand_at 68208
-ertuep _hud_play 109820
+ertuep _hud_play 109802
 ertuep _hud_put 378
 ertuep _hud_sekt 788
 ertuep _hud_text 26570
@@ -199,24 +199,24 @@ ertuep _item_spawn 3118
 ertuep _items_update 35106
 ertuep _kettle_collide 1138670
 ertuep _kettle_update 78386
-ertuep _load_stage_gfx 15648
+ertuep _load_stage_gfx 15588
 ertuep _lose_life 1744
 ertuep _machine_collide 464000
 ertuep _machine_update 63956
 ertuep _main -1
 ertuep _memset_5 30238
 ertuep _memset_7 25950
-ertuep _mettigel 7656
+ertuep _mettigel 7638
 ertuep _mode1 162
 ertuep _near 674
-ertuep _new_game 1354034
+ertuep _new_game 1353956
 ertuep _objects_clear 72186
 ertuep _organ 31052
 ertuep _overlap 564
 ertuep _part_spawn 1148
 ertuep _parts_update 13668
-ertuep _path_at 7450
-ertuep _picture 1680772
+ertuep _path_at 7390
+ertuep _picture 1680286
 ertuep _place_chairs 26228
 ertuep _play -1
 ertuep _player_start 440
@@ -224,7 +224,7 @@ ertuep _player_update 119956
 ertuep _pretzel 1798
 ertuep _random16 446
 ertuep _receipts 6462
-ertuep _respawn 1352622
+ertuep _respawn 1352544
 ertuep _room_at 248
 ertuep _scaled 1206
 ertuep _sdevkit__frame -1
@@ -274,14 +274,14 @@ ertuep _stage_scroll 46744
 ertuep _stage_select 966
 ertuep _stage_start 1046302
 ertuep _stage_vblank 17186
-ertuep _start_demo 1393728
+ertuep _start_demo 1393632
 ertuep _start_ruckel 35086
 ertuep _stein 33900
 ertuep _step 268
 ertuep _sway 10050
 ertuep _sway_init 4356
 ertuep _tentacles 19692
-ertuep _title 1398466
+ertuep _title 1398406
 ertuep _title_stage 24226
 ertuep _toward 1244
 ertuep _tuba 27278
@@ -297,7 +297,7 @@ gruft _carve -1
 gruft _clamp 208
 gruft _clear_lines 235130
 gruft _creatures 1762386
-gruft _direction 664
+gruft _direction 592
 gruft _dist_at 1178
 gruft _dist_row 452
 gruft _distances 482208356
@@ -305,7 +305,7 @@ gruft _dma0 582
 gruft _dma_source 398
 gruft _draw_seen 4587322
 gruft _draw_sight 52044
-gruft _draw_view 440376
+gruft _draw_view 440358
 gruft _dungeon_make -1
 gruft _game_init -1
 gruft _game_tick -1
@@ -395,7 +395,7 @@ mandelbrot _compute 132314
 mandelbrot _cycle_palette 23110
 mandelbrot _dma0 582
 mandelbrot _dma_source 398
-mandelbrot _game_init 8353882
+mandelbrot _game_init 8353522
 mandelbrot _game_tick 137374
 mandelbrot _game_vblank 1866
 mandelbrot _in_bulbs 14122
@@ -435,8 +435,8 @@ mandelbrot dampf_udiv32 16670
 mode7 _dma0 582
 mode7 _dma_source 398
 mode7 _game_init 20191824
-mode7 _game_tick 9604
-mode7 _game_vblank 870
+mode7 _game_tick 9586
+mode7 _game_vblank 852
 mode7 _main -1
 mode7 _make_map 19432914
 mode7 _make_sprite 556820
@@ -469,14 +469,14 @@ mode7 dampf_udiv16 5226
 mode7 dampf_udiv32 16670
 modes _dma0 582
 modes _dma_source 398
-modes _game_init 191738256
+modes _game_init 191441040
 modes _game_tick 35874
 modes _game_vblank -1
 modes _glyph -1
 modes _label -1
 modes _main -1
 modes _make_bitmap 94679038
-modes _make_mode7 97057038
+modes _make_mode7 96759822
 modes _memcpy 76062
 modes _memset 68830
 modes _picture 900706
@@ -567,11 +567,11 @@ schach _leave -1
 schach _left_in_check -1
 schach _list_legal -1
 schach _main -1
-schach _make_move 10152
+schach _make_move 9972
 schach _make_null 1530
 schach _move_cursor 1194
 schach _move_made -1
-schach _move_piece 1792
+schach _move_piece 1732
 schach _move_text -1
 schach _new_game -1
 schach _next -1
@@ -583,7 +583,7 @@ schach _panel -1
 schach _panel_yellow -1
 schach _piece_index 200
 schach _piece_of_char 514
-schach _play_move 10766
+schach _play_move 10586
 schach _player -1
 schach _player_turn -1
 schach _promote -1
@@ -593,7 +593,7 @@ schach _queue_source 390
 schach _repeated 51050
 schach _repetitions 152862
 schach _rnd32 1472
-schach _score_moves 154794232
+schach _score_moves 150862132
 schach _sdevkit__frame -1
 schach _sdevkit__read_pads -1
 schach _sdevkit__reset_ppu 83686
@@ -624,9 +624,9 @@ schach _sdevkit_vram_fill 724
 schach _search_clear 417900
 schach _search_run -1
 schach _search_start -1
-schach _set_fen 487576
-schach _set_start 487718
-schach _setup_from_board 271766
+schach _set_fen 479896
+schach _set_start 480038
+schach _setup_from_board 264086
 schach _sfx_dsp -1
 schach _sfx_upload -1
 schach _sfx_upload_begin -1
@@ -653,7 +653,7 @@ schach dampf_mul32 2542
 schach dampf_sdiv32 17750
 schach dampf_udiv16 5226
 schach dampf_udiv32 16670
-spelling copy copy_down 11344
+spelling copy copy_down 9526
 spelling copy copy_i16 11344
 spelling copy copy_ptr 11344
 spelling copy copy_ptr_end 11344
@@ -686,39 +686,39 @@ spelling search find_ptr 15260
 spelling search find_return_i16 15014
 spelling search find_return_u16 15014
 spelling search find_return_u8 15014
-spelling struct-fields struct_down 10028
+spelling struct-fields struct_down 9434
 spelling struct-fields struct_ptr 9644
 spelling struct-fields struct_ptr_count 9644
 spelling struct-fields struct_u16 9644
 spelling struct-fields struct_u8 9644
-spelling sum-bound-128 i16_down 22522
+spelling sum-bound-128 i16_down 20200
 spelling sum-bound-128 i16_up 20986
-spelling sum-bound-128 u16_down 22522
+spelling sum-bound-128 u16_down 20200
 spelling sum-bound-128 u16_up 20986
 spelling sum-bound-128 u8_up 20986
-spelling sum-bound-129 i16_down 22696
+spelling sum-bound-129 i16_down 20356
 spelling sum-bound-129 i16_up 21148
-spelling sum-bound-129 u16_down 22696
+spelling sum-bound-129 u16_down 20356
 spelling sum-bound-129 u16_up 21148
 spelling sum-bound-129 u8_up 21148
-spelling sum-bound-20 i16_down 3730
+spelling sum-bound-20 i16_down 3352
 spelling sum-bound-20 i16_up 3490
-spelling sum-bound-20 u16_down 3730
+spelling sum-bound-20 u16_down 3352
 spelling sum-bound-20 u16_up 3490
 spelling sum-bound-20 u8_up 3490
-spelling sum-bound-200 i16_down 35050
+spelling sum-bound-200 i16_down 31432
 spelling sum-bound-200 i16_up 32650
-spelling sum-bound-200 u16_down 35050
+spelling sum-bound-200 u16_down 31432
 spelling sum-bound-200 u16_up 32650
 spelling sum-bound-200 u8_up 32650
-spelling sum-bound-30 i16_down 5470
+spelling sum-bound-30 i16_down 4912
 spelling sum-bound-30 i16_up 5110
-spelling sum-bound-30 u16_down 5470
+spelling sum-bound-30 u16_down 4912
 spelling sum-bound-30 u16_up 5110
 spelling sum-bound-30 u8_up 5110
-spelling sum-bound-300 i16_down 52450
+spelling sum-bound-300 i16_down 47032
 spelling sum-bound-300 i16_up 48850
-spelling sum-bound-300 u16_down 52450
+spelling sum-bound-300 u16_down 47032
 spelling sum-bound-300 u16_up 48850
 spelling sum-bytes a_u16_lt100 16450
 spelling sum-bytes b_u8_lt100 16450
@@ -726,8 +726,8 @@ spelling sum-bytes c_i16_lt100 16450
 spelling sum-bytes d_u8_ne100 16450
 spelling sum-bytes e_u8_le99 16450
 spelling sum-bytes f_u16_le99 16450
-spelling sum-bytes g_u16_down 17650
-spelling sum-bytes h_u8_down 17650
+spelling sum-bytes g_u16_down 15832
+spelling sum-bytes h_u8_down 15832
 spelling sum-bytes i_u16_dowhile 17568
 spelling sum-bytes j_u16_var_bound 11272342
 spelling sum-bytes k_u8_var_bound 44200
@@ -755,7 +755,7 @@ steinschlag _crawl 3080174
 steinschlag _dma0 582
 steinschlag _dma_source 398
 steinschlag _draw_cave 1405674
-steinschlag _draw_miner 1424
+steinschlag _draw_miner 1388
 steinschlag _fall 3078032
 steinschlag _game_init -1
 steinschlag _game_tick -1

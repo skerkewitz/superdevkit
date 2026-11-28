@@ -542,6 +542,21 @@ Built on 2026-11-27, ahead of M11; not released yet.
   0.997 (geometric mean), the code 0.3 % smaller; in Blubber Blasen `evaluate` 23 % less a
   call and the work per tick with the CPU partner 3.0 % less, solo 0.8 %
   ([log](optimizations-log.md#signed-comparisons-by-subtraction-2026-11-28-on-the-examples-and-blubber-blasen)).
+- **Comparisons with 0 where the flags are set** (M12, 2026-11-28): `CMP #0`, `CPX #0` and
+  `CPY #0` go where N and Z describe that register on every way there, followed over the blocks,
+  and loads of X and Y that stand between a mask and its test move above the mask. 156 of them
+  were left in the examples' code, 54 now (none follows the load in `SDEVKIT_PUBLISHED`, which the roadmap had
+  named); the examples' work 0.999, Blubber Blasen's 0.10 % less
+  ([log](optimizations-log.md#comparisons-with-0-where-n-and-z-describe-the-value-already-2026-11-28-on-the-examples-and-blubber-blasen)).
+- **`x * 256` as `XBA`** (M12 row 11, 2026-11-28): eight shifts or more in a row of a
+  multiplication by a constant are `XBA / AND #$FF00` and the rest, as `x << 8` is: 36 master
+  cycles for `x * 256` instead of 96; Schach 0.4 % less work
+  ([log](optimizations-log.md#multiplication-by-256-as-xba-2026-11-28-on-the-examples-and-blubber-blasen)).
+- **Constant arrays' elements folded** (M12 row 11, 2026-11-28): a load from a `const` object
+  with an initializer at a constant place, also one that inlining makes constant, is the value
+  of its initializer there (`ConstLoads`, from inlining on, so that it does not change what is
+  inlined); code 37 bytes smaller, the examples' work the same
+  ([log](optimizations-log.md#elements-of-constant-arrays-folded-2026-11-28-on-the-examples-and-blubber-blasen)).
 - **The accumulator's width across blocks** (M12 row 3, 2026-11-28): the LIR pass `Widths`
   takes out every `REP #$20`/`SEP #$20` of a function and places them again by a minimum cut
   over the blocks' weighted cycles, so byte code stays in 8 bits across branches and loops, and
@@ -550,8 +565,8 @@ Built on 2026-11-27, ahead of M11; not released yet.
   ([ADR-6FXZQXQB](adr/6FXZQXQB-a-speed-rule-of-dampf-never-makes-a-function-s.md)). Then
   `HighByteZero` runs 16-bit stretches between 8-bit code in 8 bits where the high byte of A is
   known to be 0, which takes the `AND #$00FF` off a byte before `TAX`, a compare or a 16-bit
-  store. 670 worst cases smaller, none larger; the examples' work 0.990 (geometric mean), the
-  code 2.7 % smaller; Blubber Blasen's work per tick 1.0 % less with the CPU partner, 1.1 % solo
+  store. Against `develop` with the peepholes above: 674 worst cases smaller, none larger; the
+  examples' work 0.990 (geometric mean), the code 2.7 % smaller; Blubber Blasen's work per tick 1.0 % less with the CPU partner, 1.1 % solo
   ([log](optimizations-log.md#the-accumulators-width-placed-across-blocks-2026-11-28-on-the-examples-and-blubber-blasen),
   [log](optimizations-log.md#the-high-byte-of-a-kept-at-zero-in-8-bit-code-2026-11-28-on-the-examples-and-blubber-blasen)).
 

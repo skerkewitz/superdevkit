@@ -1,5 +1,7 @@
 /* family: sum-bytes
  * tolerance: 10
+ * gap: i_u16_dowhile reverse as copy_u16 in copy.c, against g_u16_down; the other loops counting up are within 10 %
+ * gap: n_u16_ne100 reverse as i_u16_dowhile
  * The sum of data[0] to data[99] into a uint16_t, by index and by pointer, with every counter
  * type, direction, test and loop form. The appendix of docs/archive/compiler-flaws.md.
  */

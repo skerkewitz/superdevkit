@@ -2510,6 +2510,91 @@ its comparisons are unsigned. The biased spelling no longer pays, which went to 
 ([game-findings.md](game-findings.md)). Comparisons of two bytes stay biased: the game has
 none, the examples three sites, all in Schach.
 
+## Comparisons with 0 where N and Z describe the value already (2026-11-28, on the examples and Blubber Blasen)
+
+M12's peepholes, first part. `Peephole` left out a `CMP #0` only right after an instruction that
+had set N and Z from A in the same block; 156 comparisons with 0 were left in the examples' code
+and 101 in the game's. Most of them came after a mask whose result a branch tests, with a load of
+X or Y between them (the counter of the loop the branch enters, an index for the next store:
+`AND #$00FF / LDX #0 / CMP #0`), or at the start of a block that every way enters with the flags
+set. Now:
+
+- what N and Z describe is followed over the blocks: a register in a width (A, X or Y, 8 or 16
+  bits, several after a transfer), set by the instructions that write a register, kept by
+  stores, pushes, the carry and `REP`/`SEP` without N and Z, lost at a call, a read-modify-write
+  of memory, anything not known; at a join it is what every way in brings. `CMP #0`, `CPX #0` and
+  `CPY #0` go where N and Z describe that register in that width and the carry they set is not
+  read;
+- loads of constants and of frame places into X or Y, and transfers between X and Y, that stand
+  between the instruction that set A's flags and a `CMP #0` (stores of A may stand between too)
+  move above that instruction where neither reads what the other writes: `LDA t,x / LDX #0 / AND
+  #$00FF`, and the comparison goes.
+
+Comparisons with 0 in the code of the execution tests, random programs and examples: 789 before,
+459 after; in the examples 156 and 54, in the game 101 and 62. Most of what is left follows a call
+(the callee's flags are not known), a transfer the other way (`TAX / TYA / CPX #0`) or a 32-bit
+shift by a variable, whose count is in X before the value is stored.
+
+Against `develop`, the worst cases of the timing reports of every execution test, random program
+and example: 93 smaller, 2,591 the same, none larger. Code 268 bytes smaller (158,205 to 157,937
+bytes over the nine examples). The examples' work: Gruft 0.997, Er-Tüp 0.998, Mode 7 0.998, Catch
+Me 0.999, Hello 0.999, the others 1.000; geometric mean 0.999.
+
+Blubber Blasen (the copy of the kit's study, played in dampf's emulator, WRAM `$7E:2000-$7F:FFFF`
+identical to develop's build at the end of every tick of both runs): the work per tick with the
+CPU partner 292,950 before, 292,667 after (−0.10 %), solo 204,779 and 204,521 (−0.13 %); in the
+game's timing report 20 worst cases smaller, none larger. The study had put the `CMP #0` after a
+load at 0.22 % (0.29 % solo); the rest follows calls.
+
+A loop counting down to 0 tests the flags of its `DEX` now, where it compared with 0 before, so
+two spelling families have new gaps: in `copy` the loops counting up take 20 % more than
+`copy_down`, in `sum-bytes` the `do`/`while` and the `!= 100` loop 12 % more than `g_u16_down`
+(the others counting up 4 %). Reversing a loop whose rounds do not depend on each other would
+close them; it is not planned.
+
+## Multiplication by 256 as XBA (2026-11-28, on the examples and Blubber Blasen)
+
+M12's peepholes, second part (row 11). A 16-bit multiplication by a constant is shifts and adds
+in A, the constant in non-adjacent form worked from the top digit down; `x * 256` was eight `ASL
+A` (96 master cycles), where `x << 8` is `XBA / AND #$FF00` (36). Eight or more shifts in a row
+in that chain are now written as the shift by 8 is (`ArithSelection.shiftA`): `x * 1024` is `XBA
+/ AND #$FF00 / ASL A / ASL A`, `x * 257` `XBA / AND #$FF00 / CLC / ADC x`. Fewer than eight stay
+`ASL`s: `x * 128` cannot be done with the swap without a byte of x getting lost.
+
+Against the commit before: 39 worst cases smaller, none larger (against `develop` with both: 122
+smaller, 2,562 the same, none larger). Schach 0.996, the other examples
+1.000; code 36 bytes smaller. Blubber Blasen: work per tick with the CPU partner 292,667 to
+292,605, solo 204,521 to 204,458, WRAM identical to develop's build at the end of every tick;
+one worst case of its timing report smaller.
+
+## Elements of constant arrays folded (2026-11-28, on the examples and Blubber Blasen)
+
+M12's peepholes, third part (row 11). A load from a `const` global or static local with an
+initializer, at a constant place within it, stayed a load: `tab[3]`, `things[1].x`, `grid[r][c]`
+once inlining had made r and c constants. The new MIR pass `ConstLoads` replaces it with the
+bytes of the initializer there, laid out as the interpreter lays them out (little endian, later
+data over earlier, bytes no initializer gives 0), for loads of 8, 16 and 32 bits; a struct's
+field is a load at its offset like any other. It leaves alone a volatile load, a place outside
+the object (before its start or past its end), bytes that hold an address and a load of a
+pointer. gcc folds the same loads: such an object cannot change, C forbids a store to it, and it
+lies in ROM.
+
+Run from the start, the pass made Blubber Blasen slower: its work per tick 292,605 to 292,750
+with the CPU partner (+0.05 %), solo 204,458 to 204,620, and one worst case of its timing report
+larger (2,106 to 2,940 master cycles). A callee whose constant loads went became small enough to
+be inlined; its caller, larger now, was no longer inlined into its own callers, and the callee's
+own copy, which the timing report keeps, lost the offset form of its pointer parameter
+(`PointerParams`), since no call of it is left. So the pass runs only from inlining on, where
+it does not change what is inlined: then the game's work is 292,600 (−0.002 %) and 204,454, 27
+worst cases of its timing report are smaller and none larger, and WRAM is identical to
+develop's build at the end of every tick of both runs.
+
+Against the commit before: 7 worst cases smaller, none larger (against `develop` with all three
+parts: 129 smaller, 2,555 the same, none larger). The examples' work is the same to the master
+cycle; code 37 bytes smaller (Mandelbrot 36). In the MIR of `exec/const_elements.c` 45 loads
+and address computations of its constant arrays were left after the passes, 5 now: those at a
+variable index in its loops and in the copies of the callees the timing report keeps.
+
 ## The accumulator's width placed across blocks (2026-11-28, on the examples and Blubber Blasen)
 
 M12 row 3, first step (B5 of [archive/compiler-flaws.md](archive/compiler-flaws.md#b5-the-accumulators-width-as-a-data-flow-problem)).
@@ -2546,8 +2631,9 @@ estimate it is 0.4 % faster.
 
 Each function is written both ways and keeps the switches as they were where the new placement
 would make its worst case with its calls larger (ADR-6FXZQXQB); the functions are finished
-callees first for it. Against `develop`, the worst cases of the timing reports of every
-execution test, random program and example: 656 smaller, 2,028 the same, none larger.
+callees first for it. Against `develop` at cd726c6 (before the peepholes above), the worst cases
+of the timing reports of every execution test, random program and example: 656 smaller, 2,028
+the same, none larger.
 
 | Example | Work before | After | Ratio |
 | --- | ---: | ---: | ---: |
@@ -2618,3 +2704,11 @@ with the index stepped in 16 bits (`TXA / CLC / ADC #23 / TAX`), where a pair of
 more than the mask; the 54 hottest sites are 2.0 % of the cycles, none above 0.15 %. The rest
 needs B known to be 0 where the switches go: today a `SEP` lies where the cut put it, and B is
 often not known there (after `ADC` or a call).
+
+Merged with the peepholes above (`develop` at fa128be) and measured again against it: 674 worst
+cases smaller, 2,086 the same, none larger; code 157,864 to 153,609 bytes (−2.7 %); the examples'
+work Catch Me 0.994, Er-Tüp 0.988, Gruft 0.975, Hello 0.996, Mandelbrot 0.997, Mode 7 0.983,
+Modes 0.993, Schach 0.992, Steinschlag 0.993, geometric mean 0.990; Blubber Blasen's work per
+tick with the CPU partner 292,600 to 289,705 (−1.0 %), solo 204,454 to 202,201 (−1.1 %), WRAM
+identical to `develop`'s build at the end of every tick of both runs, in its timing report 142
+worst cases smaller and none larger.

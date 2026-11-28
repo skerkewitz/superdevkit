@@ -47,7 +47,8 @@ constants (`StrengthReduce`), common subexpressions and redundant loads (`Gvn`),
 removal (`DeadCode`, `DeadLoops`) and two loops over the rows of a table as one (`Collapse`),
 repeated until nothing changes; then parameter ranges from the calls
 (`ParamRanges`), inlining (`Inline`), pointer parameters as offsets (`PointerParams`) and scaled
-index parameters as their product (`IndexParams`), and the passes once more; then 32-bit values
+index parameters as their product (`IndexParams`), loads from constant objects at constant
+places as their values (`ConstLoads`, from here on in every round), and the passes once more; then 32-bit values
 only combined bit by bit as two 16-bit values (`SplitWords`) and a 32-bit comparison with a sum
 of 16-bit values as a 16-bit one (`CompareSum`), each followed by the passes on what it changed;
 last, comparisons next to the branches that use them (`SinkCompares`) and the order of the
