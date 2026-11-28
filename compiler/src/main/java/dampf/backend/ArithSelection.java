@@ -270,7 +270,9 @@ final class ArithSelection {
     /**
      * A = x * c (low 16 bits): the constant in non-adjacent form, worked through from the top
      * digit down (Horner): shift A left one place per digit, add or subtract x where the digit is
-     * +1 or -1. A run of ones such as 15 costs one subtraction: 16 - 1.
+     * +1 or -1. A run of ones such as 15 costs one subtraction: 16 - 1. Eight or more shifts in a
+     * row are {@code XBA / AND #$FF00} and the rest, as {@code x << 8} is ({@link #shiftA}): 36
+     * master cycles for x * 256 instead of 96.
      */
     void multiplyBy(Value x, long c, MType t) {
         List<long[]> digits = dampf.mir.StrengthReduce.naf(t.wrap(c), 16);
@@ -287,9 +289,12 @@ final class ArithSelection {
             sel.ins("inc", "a");
         }
         int k = digits.size() - 2;
+        int shifts = 0;   // the ASLs not written yet: eight or more in a row are an XBA and a mask
         for (int pos = top - 1; pos >= 0; pos--) {
-            sel.ins("asl", "a");
+            shifts++;
             if (k >= 0 && digits.get(k)[0] == pos) {
+                shiftA(Instr.BinOp.SHL, shifts);
+                shifts = 0;
                 if (digits.get(k)[1] > 0) {
                     sel.ins("clc");
                     sel.ins("adc", xs);
@@ -300,6 +305,7 @@ final class ArithSelection {
                 k--;
             }
         }
+        shiftA(Instr.BinOp.SHL, shifts);
     }
 
     void to32(Value v, LOperand lo, LOperand hi) {

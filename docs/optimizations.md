@@ -26,15 +26,15 @@ on 2026-11-28:
 
 | Example | Work per tick, average | Busiest 60 ticks | In dampf's runtime |
 | --- | --- | --- | --- |
-| Er-Tüp | 129,061 | 252,268 | 1.1 % |
-| Schach | 364,621 | 513,450 | 1.2 % |
-| Steinschlag | 71,544 | 132,150 | 1.5 % |
+| Er-Tüp | 128,839 | 251,804 | 1.1 % |
+| Schach | 362,882 | 510,729 | 1.2 % |
+| Steinschlag | 71,509 | 132,054 | 1.5 % |
 | Mandelbrot | 74,622 | 87,493 | 62.7 % |
-| Catchme | 45,831 | 143,012 | 20.4 % |
-| Hello | 80,270 | 81,272 | 50.0 % |
-| Mode 7 | 10,604 | 10,634 | 49.2 % |
-| modes | 53,386 | 121,709 | 3.4 % |
-| Gruft | 130,683 | 435,653 | 7.3 % |
+| Catchme | 45,794 | 142,978 | 20.4 % |
+| Hello | 80,161 | 81,162 | 50.1 % |
+| Mode 7 | 10,581 | 10,604 | 49.3 % |
+| modes | 53,367 | 121,688 | 3.4 % |
+| Gruft | 130,306 | 435,198 | 7.3 % |
 
 On 2026-11-20, before the runtime used the CPU's multiplier, the naive code generator did 3.0
 times the work on the geometric mean of all seven examples, from 1.26 times (Mandelbrot, whose
@@ -90,10 +90,10 @@ entry.
 | E | 8.8 fixed point: the integer part as a byte access | Partly. A load shifted right by 8 or more is a byte load (`ByteLoads`); open: `<<8` | 1.49 → 1.48 ([byte loads for 8.8 values](optimizations-log.md#a-remembers-every-place-it-equals-byte-loads-for-88-values-2026-11-17)) |
 | F | Loops | Partly. Counters in X, induction variables, the loop test moved to the offset, `INC`/`DEC` steps, loop-invariant code and loads (`Licm`), loop rotation; open: unrolling | 356,238 → 329,834, −7.4 % ([loop test on the offset](optimizations-log.md#the-loop-test-on-the-offset-2026-11-17)) |
 | G | Branches | Partly. Compare and branch in one, a signed comparison of two 16-bit values by the sign of one subtraction (N xor V; [log](optimizations-log.md#signed-comparisons-by-subtraction-2026-11-28-on-the-examples-and-blubber-blasen)), `a > b ? a - b : b - a` as one subtraction and a negation (`AbsDiff`; [log](optimizations-log.md#the-absolute-difference-as-one-subtraction-2026-11-28-on-the-examples-and-blubber-blasen)), jump threading, short branches wherever they reach, `BRA` for near jumps, bit selections without a branch, tests against neighbouring constants as one range check (`RangeChecks`), the latch and single-predecessor successors laid out first, rare blocks laid out by a profile (`--block-counts`) | 494,619 → 488,323 with a profile ([blocks by a profile](optimizations-log.md#blocks-laid-out-by-a-profile-2026-11-17)) |
-| H | Standard optimizations: folding, identities, branch folding, block merging, value numbering, redundant loads, dead code, loops that do nothing and are proved to end (`DeadLoops`), comparisons computed again next to each branch that uses them (`SinkCompares`), index parameters passed as the offset into their struct array (`IndexParams`) | Built | 6.12 → 5.17 ([after H](optimizations-log.md#after-the-standard-optimizations-h-2026-11-17)) |
-| I | Multiply and divide | Partly. Constants as shifts and adds (in MIR for i32, in A for 8 and 16 bits), powers of two with C's signed rounding; two variables on the CPU's 8 x 8 multiplier (2026-11-22; two bytes without a call). Open: the PPU's multiplier, the hardware divider | 2.29 → 2.07 ([multiplication in A](optimizations-log.md#arrays-indexed-with-x-multiplication-in-a-2026-11-17)) |
+| H | Standard optimizations: folding (also of a constant array's element at a constant index, after inlining: `ConstLoads`, [log](optimizations-log.md#elements-of-constant-arrays-folded-2026-11-28-on-the-examples-and-blubber-blasen)), identities, branch folding, block merging, value numbering, redundant loads, dead code, loops that do nothing and are proved to end (`DeadLoops`), comparisons computed again next to each branch that uses them (`SinkCompares`), index parameters passed as the offset into their struct array (`IndexParams`) | Built | 6.12 → 5.17 ([after H](optimizations-log.md#after-the-standard-optimizations-h-2026-11-17)) |
+| I | Multiply and divide | Partly. Constants as shifts and adds (in MIR for i32, in A for 8 and 16 bits, eight shifts in a row as `XBA` and a mask, [log](optimizations-log.md#multiplication-by-256-as-xba-2026-11-28-on-the-examples-and-blubber-blasen)), powers of two with C's signed rounding; two variables on the CPU's 8 x 8 multiplier (2026-11-22; two bytes without a call). Open: the PPU's multiplier, the hardware divider | 2.29 → 2.07 ([multiplication in A](optimizations-log.md#arrays-indexed-with-x-multiplication-in-a-2026-11-17)) |
 | J | Banks and placement | Partly. All code and constant data in banks $80 and up at FastROM speed (`--slowrom` switches it off), registers at constant addresses as long addresses | 1.31 → 1.10 ([FastROM](optimizations-log.md#fastrom-2026-11-17)) |
-| K | Peephole | Partly. A remembers every place it equals, `INC`/`DEC` in place, `STZ`, no `CMP #0` where N and Z already describe A, `TAX` for a reload of a stored value, shifts as a mask, the high byte as a byte load (`Peephole`), no `CLC` where the carry is known clear (`KnownCarry`) | 391,423 → 386,306 ([no `CMP #0`](optimizations-log.md#no-cmp-0-where-the-flags-are-set-2026-11-17)) |
+| K | Peephole | Partly. A remembers every place it equals, `INC`/`DEC` in place, `STZ`, no `CMP #0`, `CPX #0` or `CPY #0` where N and Z describe the register on every way there ([log](optimizations-log.md#comparisons-with-0-where-n-and-z-describe-the-value-already-2026-11-28-on-the-examples-and-blubber-blasen)), `TAX` for a reload of a stored value, shifts as a mask, the high byte as a byte load (`Peephole`), no `CLC` where the carry is known clear (`KnownCarry`) | 391,423 → 386,306 ([no `CMP #0`](optimizations-log.md#no-cmp-0-where-the-flags-are-set-2026-11-17)) |
 | L | `switch` as a jump table (`JMP (abs,X)`) | Built (M10). A `switch` on an 8- or 16-bit value whose table costs fewer cycles than its compares on average over the cases, with at most four entries per case (ADR-6FM7MWGX): from 4 cases without a range check, 6 from 0, 7 far from 0 or negative; a first case 0 tested before the table. Open: a switch in a loop whose counter lives in X, 32-bit values, cases weighed by a profile | Ertüp's busiest tick 262,654 → 260,166 master clocks ([jump tables](optimizations-log.md#switch-as-a-jump-table-2026-11-24-on-the-examples)) |
 | M | Copy and fill with `MVN`/`MVP` or DMA | Not built | |
 | N | Values in X and Y | Partly. Loop counters in X (also next to an index in Y, and with their stepped value read after the step: a `do` loop's test, `i - 1` going down; compared with a constant or a 16-bit value in its place), a second index in Y, loop-invariant indexes in Y, the index through a pointer in Y (rows of 2D arrays included), what A, X and Y hold known across blocks, a load of what another register holds as a transfer, a place in X or Y for the part of a loop that leaves the register alone | 329,834 → 326,596 ([index in Y](optimizations-log.md#a-pointer-plus-an-index-the-index-in-y-2026-11-17)) |

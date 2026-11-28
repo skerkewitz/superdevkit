@@ -43,6 +43,17 @@ public final class Optimizer {
         boolean again = inline && limit.allows() && Inline.run(m, r::function, limit);
         again |= r.module("PointerParams", () -> PointerParams.run(m));
         again |= r.module("IndexParams", () -> IndexParams.run(m));
+        // loads from constant objects folded only from here on: before inlining, a callee made
+        // smaller by them changes which functions are inlined (on Blubber Blasen a callee then
+        // lost its pointer parameter's offset form: 0.05 % more work)
+        r.constLoads = true;
+        again |= r.module("ConstLoads", () -> {
+            boolean folded = false;
+            for (MFunction f : m.functions()) {
+                folded |= !f.isAsm() && ConstLoads.run(m, f);
+            }
+            return folded;
+        });
         if (again) {
             r.functions();
             // pointers that became offsets in callers may now reach more callees
@@ -84,6 +95,8 @@ public final class Optimizer {
         // which functions may write memory: passes never add a store, a copy or a call, so this
         // stays true while they run
         final java.util.Map<MFunction, Boolean> writes;
+        /** Whether the passes fold loads from constant objects ({@link ConstLoads}). */
+        boolean constLoads;
 
         Run(MModule m, boolean verifyEach, PassLimit limit) {
             this.m = m;
@@ -106,6 +119,9 @@ public final class Optimizer {
             boolean changed = true;
             for (int round = 0; changed && round < 20; round++) {
                 changed = pass("Simplify", f, () -> Simplify.run(f));
+                if (constLoads) {
+                    changed |= pass("ConstLoads", f, () -> ConstLoads.run(m, f));
+                }
                 changed |= pass("RangeChecks", f, () -> RangeChecks.run(f));
                 changed |= pass("BitSelect", f, () -> BitSelect.run(f));
                 changed |= pass("AbsDiff", f, () -> AbsDiff.run(f));

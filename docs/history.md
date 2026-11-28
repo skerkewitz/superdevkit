@@ -542,6 +542,21 @@ Built on 2026-11-27, ahead of M11; not released yet.
   0.997 (geometric mean), the code 0.3 % smaller; in Blubber Blasen `evaluate` 23 % less a
   call and the work per tick with the CPU partner 3.0 % less, solo 0.8 %
   ([log](optimizations-log.md#signed-comparisons-by-subtraction-2026-11-28-on-the-examples-and-blubber-blasen)).
+- **Comparisons with 0 where the flags are set** (M12, 2026-11-28): `CMP #0`, `CPX #0` and
+  `CPY #0` go where N and Z describe that register on every way there, followed over the blocks,
+  and loads of X and Y that stand between a mask and its test move above the mask. 156 of them
+  were left in the examples' code, 54 now (none follows the load in `SDEVKIT_PUBLISHED`, which the roadmap had
+  named); the examples' work 0.999, Blubber Blasen's 0.10 % less
+  ([log](optimizations-log.md#comparisons-with-0-where-n-and-z-describe-the-value-already-2026-11-28-on-the-examples-and-blubber-blasen)).
+- **`x * 256` as `XBA`** (M12 row 11, 2026-11-28): eight shifts or more in a row of a
+  multiplication by a constant are `XBA / AND #$FF00` and the rest, as `x << 8` is: 36 master
+  cycles for `x * 256` instead of 96; Schach 0.4 % less work
+  ([log](optimizations-log.md#multiplication-by-256-as-xba-2026-11-28-on-the-examples-and-blubber-blasen)).
+- **Constant arrays' elements folded** (M12 row 11, 2026-11-28): a load from a `const` object
+  with an initializer at a constant place, also one that inlining makes constant, is the value
+  of its initializer there (`ConstLoads`, from inlining on, so that it does not change what is
+  inlined); code 37 bytes smaller, the examples' work the same
+  ([log](optimizations-log.md#elements-of-constant-arrays-folded-2026-11-28-on-the-examples-and-blubber-blasen)).
 
 ## Publishing
 
