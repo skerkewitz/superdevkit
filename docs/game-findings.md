@@ -333,3 +333,19 @@ the struct's size). A list of byte offsets, which the kit's C guide recommends f
 be written for `Bubble`: its size differs from the PC's, so `sizeof` is rejected, and its 16
 offsets do not fit a byte. It pays once dampf compiles such lists well; the kit will say so in a
 finding. A hand-written version (−3.8 %, −6.0 % solo) exists and can be handed over by the user.
+
+## 14. Signed comparisons are fast now: drop change 5 of finding 12 (2026-11-28)
+
+dampf now compares two signed 16-bit variables with one subtraction and the sign of the true
+difference, and compiles `a > b ? a - b : b - a` (any of the four relations, either order) and
+`v < 0 ? -v : v` as one subtraction and a negation, both exact for every input. Nothing in the
+game has to change for it. Measured on a copy of the game in dampf's emulator, with WRAM
+identical to today's build at the end of every tick of both scripted runs:
+
+- today's code: `evaluate` 22,581 master cycles a call on average instead of 29,409, the work
+  per tick with the CPU partner 3.0 % less, solo 0.8 % less;
+- with the changes of finding 12 but without change 5 (the values compared biased) and without
+  the `switch` of change 2, `evaluate` takes 16,010 a call; with change 5 and the `switch` it
+  takes 17,923, and the work per tick with the CPU partner is 290,203 master cycles against
+  288,468 without them. So leave change 5 out: compare the signed values as they are. The
+  `switch` of change 2 was measured only together with change 5.

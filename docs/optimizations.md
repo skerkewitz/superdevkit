@@ -22,18 +22,18 @@ Since 2026-11-19 dampf is measured on its examples: `dev/bench_examples.sh` give
 tick of each (master cycles without the main loop's waiting; it counts a frame as 262 lines of
 1,364, 357,368) and compares a
 change with a baseline on all of them ([testing.md](testing.md)). Code from MIR, FastROM, measured
-on 2026-11-27:
+on 2026-11-28:
 
 | Example | Work per tick, average | Busiest 60 ticks | In dampf's runtime |
 | --- | --- | --- | --- |
-| Er-Tüp | 130,237 | 257,309 | 1.0 % |
-| Schach | 366,974 | 515,798 | 1.2 % |
-| Steinschlag | 71,724 | 132,344 | 1.5 % |
-| Mandelbrot | 74,647 | 87,564 | 62.7 % |
-| Catchme | 46,048 | 143,012 | 20.3 % |
-| Hello | 80,271 | 81,270 | 50.0 % |
+| Er-Tüp | 129,061 | 252,268 | 1.1 % |
+| Schach | 364,621 | 513,450 | 1.2 % |
+| Steinschlag | 71,544 | 132,150 | 1.5 % |
+| Mandelbrot | 74,622 | 87,493 | 62.7 % |
+| Catchme | 45,831 | 143,012 | 20.4 % |
+| Hello | 80,270 | 81,272 | 50.0 % |
 | Mode 7 | 10,604 | 10,634 | 49.2 % |
-| modes | 53,393 | 121,709 | 3.4 % |
+| modes | 53,386 | 121,709 | 3.4 % |
 | Gruft | 130,683 | 435,653 | 7.3 % |
 
 On 2026-11-20, before the runtime used the CPU's multiplier, the naive code generator did 3.0
@@ -89,7 +89,7 @@ entry.
 | D | Data layout: arrays of structs split into one array per field, or D pointed at the current object | Not built | |
 | E | 8.8 fixed point: the integer part as a byte access | Partly. A load shifted right by 8 or more is a byte load (`ByteLoads`); open: `<<8` | 1.49 → 1.48 ([byte loads for 8.8 values](optimizations-log.md#a-remembers-every-place-it-equals-byte-loads-for-88-values-2026-11-17)) |
 | F | Loops | Partly. Counters in X, induction variables, the loop test moved to the offset, `INC`/`DEC` steps, loop-invariant code and loads (`Licm`), loop rotation; open: unrolling | 356,238 → 329,834, −7.4 % ([loop test on the offset](optimizations-log.md#the-loop-test-on-the-offset-2026-11-17)) |
-| G | Branches | Partly. Compare and branch in one, a signed comparison of two 16-bit values by the sign of one subtraction (N xor V; [log](optimizations-log.md#signed-comparisons-by-subtraction-2026-11-28-on-the-examples-and-blubber-blasen)), jump threading, short branches wherever they reach, `BRA` for near jumps, bit selections without a branch, tests against neighbouring constants as one range check (`RangeChecks`), the latch and single-predecessor successors laid out first, rare blocks laid out by a profile (`--block-counts`) | 494,619 → 488,323 with a profile ([blocks by a profile](optimizations-log.md#blocks-laid-out-by-a-profile-2026-11-17)) |
+| G | Branches | Partly. Compare and branch in one, a signed comparison of two 16-bit values by the sign of one subtraction (N xor V; [log](optimizations-log.md#signed-comparisons-by-subtraction-2026-11-28-on-the-examples-and-blubber-blasen)), `a > b ? a - b : b - a` as one subtraction and a negation (`AbsDiff`; [log](optimizations-log.md#the-absolute-difference-as-one-subtraction-2026-11-28-on-the-examples-and-blubber-blasen)), jump threading, short branches wherever they reach, `BRA` for near jumps, bit selections without a branch, tests against neighbouring constants as one range check (`RangeChecks`), the latch and single-predecessor successors laid out first, rare blocks laid out by a profile (`--block-counts`) | 494,619 → 488,323 with a profile ([blocks by a profile](optimizations-log.md#blocks-laid-out-by-a-profile-2026-11-17)) |
 | H | Standard optimizations: folding, identities, branch folding, block merging, value numbering, redundant loads, dead code, loops that do nothing and are proved to end (`DeadLoops`), comparisons computed again next to each branch that uses them (`SinkCompares`), index parameters passed as the offset into their struct array (`IndexParams`) | Built | 6.12 → 5.17 ([after H](optimizations-log.md#after-the-standard-optimizations-h-2026-11-17)) |
 | I | Multiply and divide | Partly. Constants as shifts and adds (in MIR for i32, in A for 8 and 16 bits), powers of two with C's signed rounding; two variables on the CPU's 8 x 8 multiplier (2026-11-22; two bytes without a call). Open: the PPU's multiplier, the hardware divider | 2.29 → 2.07 ([multiplication in A](optimizations-log.md#arrays-indexed-with-x-multiplication-in-a-2026-11-17)) |
 | J | Banks and placement | Partly. All code and constant data in banks $80 and up at FastROM speed (`--slowrom` switches it off), registers at constant addresses as long addresses | 1.31 → 1.10 ([FastROM](optimizations-log.md#fastrom-2026-11-17)) |

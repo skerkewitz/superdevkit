@@ -83,6 +83,7 @@ public final class RangeNarrow {
                 case SHL -> rb.lo() >= 0 && rb.hi() < 16 && inside(rr, S16);
                 case ASHR -> rb.lo() >= 0;
                 case LSHR, UDIV, UREM -> ra.lo() >= 0 && rb.lo() >= 0;
+                case ABDS -> false;   // made in 16 bits only (AbsDiff)
             };
             if (ok) {
                 // neither is negative: the unsigned operation at once, since StrengthReduce, later
@@ -104,6 +105,7 @@ public final class RangeNarrow {
                 case SREM -> Instr.BinOp.UREM;
                 case ASHR -> Instr.BinOp.LSHR;
                 case SHL -> rb.hi() < 16 && inside(rr, U16) ? op : null;
+                case ABDS -> null;
             };
             if (narrow != null) {
                 return make(x, narrow, Instr.CastKind.ZEXT);

@@ -105,7 +105,9 @@ above `hi`).
   `v` is outside the range (the role of LLVM's `llvm.assume`). The range analysis treats them
   like any condition: `v` has the range in every block the hint dominates, so
   `while (s[n]) { DAMPF_RANGE(n, 0, 10); n++; }` gives the loop a bound for the timing analysis
-  and the counter a range for the narrowing.
+  and the counter a range for the narrowing. A signed comparison of two values whose ranges keep
+  their difference within 16 bits becomes a plain `CMP` and `BMI`, without the test for an
+  overflow.
 - **The MIR interpreter** fails at `unreachable` ("a hint does not hold"), so the tests check
   every hint on the MIR level as well.
 - **The code generator** computes the ranges first and then takes the checks out

@@ -141,7 +141,7 @@ public final class Gvn {
 
     private static boolean commutative(Instr.BinOp op) {
         return switch (op) {
-            case ADD, MUL, AND, OR, XOR -> true;
+            case ADD, MUL, AND, OR, XOR, ABDS -> true;
             default -> false;
         };
     }

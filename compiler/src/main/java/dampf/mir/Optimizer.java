@@ -108,6 +108,7 @@ public final class Optimizer {
                 changed = pass("Simplify", f, () -> Simplify.run(f));
                 changed |= pass("RangeChecks", f, () -> RangeChecks.run(f));
                 changed |= pass("BitSelect", f, () -> BitSelect.run(f));
+                changed |= pass("AbsDiff", f, () -> AbsDiff.run(f));
                 changed |= pass("ByteLoads", f, () -> ByteLoads.run(f));
                 changed |= pass("Narrow", f, () -> Narrow.run(f));
                 changed |= pass("RangeNarrow", f, () -> RangeNarrow.run(f));

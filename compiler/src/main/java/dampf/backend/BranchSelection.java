@@ -106,6 +106,14 @@ final class BranchSelection {
         return rx != null && ry != null && rx.lo() - ry.hi() >= -0x8000 && rx.hi() - ry.lo() <= 0x7FFF;
     }
 
+    /** A = x - y of 16-bit values, with its N, V, Z and C as SBC sets them. */
+    void difference(Value x, Value y) {
+        if (subtract(x, y)) {
+            sel.ins("sec");
+            sel.ins("sbc", sel.operand(y, 0));
+        }
+    }
+
     /**
      * Starts x - y: loads x and returns true, for SBC or CMP y to follow; or, where A holds y
      * (just computed) and not x, computes ~y + x + 1 with ADC, which gives the same difference
@@ -157,10 +165,7 @@ final class BranchSelection {
         Value x = swapped(c) ? c.op(1) : c.op(0);
         Value y = swapped(c) ? c.op(0) : c.op(1);
         boolean less = c.pred == Instr.Pred.SLT || c.pred == Instr.Pred.SGT;
-        if (subtract(x, y)) {
-            sel.ins("sec");
-            sel.ins("sbc", sel.operand(y, 0));
-        }
+        difference(x, y);
         if (noOverflow(c)) {
             if (!less) {
                 sel.ins("eor", Selection.imm(0x8000));

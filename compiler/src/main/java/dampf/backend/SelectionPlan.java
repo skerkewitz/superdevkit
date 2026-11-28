@@ -96,6 +96,7 @@ final class SelectionPlan {
             case Instr.Bin x -> Selection.words(x.type()) == 1 && switch (x.op) {
                 case ADD, AND, OR, XOR -> true;     // commutative: v is loaded first either way (bin swaps)
                 case SUB -> x.op(0) == v;
+                case ABDS -> x.op(0) == v && x.op(1) != v;   // ArithSelection.absDiff: x - y or |x|
                 case SHL, LSHR, ASHR -> x.op(0) == v && ArithSelection.unrolled(x);
                 default -> false;
             };

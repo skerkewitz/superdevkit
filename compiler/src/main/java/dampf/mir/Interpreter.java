@@ -330,6 +330,7 @@ public final class Interpreter {
             case SHL -> y >= bits ? 0 : x << y;
             case LSHR -> y >= bits ? 0 : x >>> y;
             case ASHR -> t.signed(x) >> Math.min(y, bits - 1);
+            case ABDS -> t.signed(x) > t.signed(y) ? x - y : y - x;
         });
     }
 

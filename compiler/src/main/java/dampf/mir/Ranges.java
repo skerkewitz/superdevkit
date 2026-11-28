@@ -590,6 +590,12 @@ public final class Ranges {
         return switch (op) {
             case ADD -> fit(a.lo + b.lo, a.hi + b.hi, t);
             case SUB -> fit(a.lo - b.hi, a.hi - b.lo, t);
+            case ABDS -> {
+                // |d| of the true difference d, which wraps where it passes the type's top
+                long lo = a.lo - b.hi;
+                long hi = a.hi - b.lo;
+                yield lo >= 0 ? fit(lo, hi, t) : hi <= 0 ? fit(-hi, -lo, t) : fit(0, Math.max(-lo, hi), t);
+            }
             case MUL -> {
                 long p1 = a.lo * b.lo;
                 long p2 = a.lo * b.hi;
@@ -702,7 +708,7 @@ public final class Ranges {
             case LSHR -> b.lo == b.hi ? (b.lo >= w ? new Range(0, 0) : new Range(a.lo >> b.lo, a.hi >> b.lo)) : new Range(0, a.hi);
             case UDIV -> b.lo >= 1 ? new Range(a.lo / b.hi, a.hi / b.lo) : new Range(0, a.hi);
             case UREM -> b.lo >= 1 ? new Range(0, Math.min(b.hi - 1, a.hi)) : new Range(0, a.hi);
-            case ASHR, SDIV, SREM -> all;   // reduce gives what the signed reading knows
+            case ASHR, SDIV, SREM, ABDS -> all;   // reduce gives what the signed reading knows
         };
     }
 
