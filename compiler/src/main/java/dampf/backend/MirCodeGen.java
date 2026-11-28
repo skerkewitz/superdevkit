@@ -222,6 +222,16 @@ public final class MirCodeGen {
             }
             // selection writes the function once, assuming nothing about the registers where a
             // block starts and every jump and branch in its long form
+            if (BranchSelection.hasSignedCompare(f)) {
+                // the same function with the biased signed comparisons as well (written first, so
+                // the selection's state is the other one's afterwards): colourPlaces keeps the
+                // form whose worst case is smaller
+                AsmWriter biased = new AsmWriter();
+                sel.branch.biased = true;
+                function(f, biased);
+                sel.branch.biased = false;
+                biasedCodes.put(f, biased);
+            }
             AsmWriter code = new AsmWriter();
             orders.put(f, function(f, code));
             codes.put(f, code);
@@ -535,6 +545,12 @@ public final class MirCodeGen {
 
     /** The code of each function, for {@link #finishedWorst}. */
     private Map<MFunction, AsmWriter> codes0 = Map.of();
+    /**
+     * The code of the functions with signed comparisons of 16-bit values, written with the
+     * biased form ({@link BranchSelection#biased}); {@link #colourPlaces} takes it instead where
+     * the form by subtraction would make the function's worst case larger.
+     */
+    private final Map<MFunction, AsmWriter> biasedCodes = new HashMap<>();
 
     /** Where each function's frame begins, after colouring. */
     final Map<MFunction, Integer> placedBase = new HashMap<>();
@@ -613,22 +629,11 @@ public final class MirCodeGen {
         };
         LFunction lf = codes.get(f).function();
         java.util.function.Predicate<LOperand.Owner> tracked = o -> own.contains(o.key());
-        report(f, dampf.lir.PlaceCheck.written(lf, tracked, o -> o.key() instanceof Value.Param));
-        java.util.function.Function<String, Long> counts = blockCounts == null ? null : name -> blockCounts.apply(f.name(), name);
-        Map<String, Double> weights = Weights.of(f, counts);
-        Map<String, Integer> loopBounds = codes.get(f).loopBounds();
-        boolean highX = Selection.words(f.result()) == 2;
-        boolean resultInA = f.result() != MType.VOID;
-        RegisterChoice.run(lf, tracked, frame, Weights.of(lf, weights), highX, resultInA, Weights.loops(f, lf), limit);
-        // then parts of loops in registers, each where the worst case of the code as it is now
-        // does not grow, and all of them only where the finished code's worst case does not grow
-        // either (the passes after the choice can make the two forms differ)
-        List<dampf.lir.LItem> whole = new ArrayList<>(lf.items());
-        if (RegisterChoice.runParts(lf, tracked, frame, Weights.of(lf, Weights.estimated(f, counts)), code -> worstOf(f, code, loopBounds),
-                highX, resultInA, Weights.loops(f, lf), limit) > 0
-                && finishedWorst(f, lf.items(), tracked, frame, newBase + l.slotsEnd, l, own, loopBounds)
-                        > finishedWorst(f, whole, tracked, frame, newBase + l.slotsEnd, l, own, loopBounds)) {
-            lf.rebuild(whole);
+        AsmWriter biased = biasedCodes.remove(f);
+        long worst = chooseRegisters(f, codes.get(f), tracked, frame, newBase + l.slotsEnd, l, own, biased != null);
+        if (biased != null && chooseRegisters(f, biased, tracked, frame, newBase + l.slotsEnd, l, own, true) < worst) {
+            codes.put(f, biased);   // the signed comparisons by subtraction would make the worst case larger
+            lf = biased.function();
         }
         Map<PlaceColouring.Place, Integer> at = PlaceColouring.colour(lf, tracked, frame, newBase + l.slotsEnd, limit);
         int end = newBase + l.slotsEnd;
@@ -651,6 +656,41 @@ public final class MirCodeGen {
         placedSize.put(f, end - newBase);
         frameTotal = Math.max(frameTotal, end);
         done.add(f);
+    }
+
+    /**
+     * Chooses the registers on f's code (written by selection, places not coloured yet); returns
+     * the finished code's worst case ({@link #finishedWorst}) where {@code needWorst} (else where
+     * it was computed anyway, or Long.MIN_VALUE).
+     */
+    private long chooseRegisters(MFunction f, AsmWriter written, java.util.function.Predicate<LOperand.Owner> tracked,
+                                 PlaceColouring.Frame frame, int from, FrameLayout l, java.util.Set<Object> own, boolean needWorst) {
+        LFunction lf = written.function();
+        report(f, dampf.lir.PlaceCheck.written(lf, tracked, o -> o.key() instanceof Value.Param));
+        java.util.function.Function<String, Long> counts = blockCounts == null ? null : name -> blockCounts.apply(f.name(), name);
+        Map<String, Double> weights = Weights.of(f, counts);
+        Map<String, Integer> loopBounds = written.loopBounds();
+        boolean highX = Selection.words(f.result()) == 2;
+        boolean resultInA = f.result() != MType.VOID;
+        RegisterChoice.run(lf, tracked, frame, Weights.of(lf, weights), highX, resultInA, Weights.loops(f, lf), limit);
+        // then parts of loops in registers, each where the worst case of the code as it is now
+        // does not grow, and all of them only where the finished code's worst case does not grow
+        // either (the passes after the choice can make the two forms differ)
+        List<dampf.lir.LItem> whole = new ArrayList<>(lf.items());
+        long worst = Long.MIN_VALUE;
+        if (RegisterChoice.runParts(lf, tracked, frame, Weights.of(lf, Weights.estimated(f, counts)), code -> worstOf(f, code, loopBounds),
+                highX, resultInA, Weights.loops(f, lf), limit) > 0) {
+            long withParts = finishedWorst(f, lf.items(), tracked, frame, from, l, own, loopBounds);
+            long without = finishedWorst(f, whole, tracked, frame, from, l, own, loopBounds);
+            if (withParts > without) {
+                lf.rebuild(whole);
+            }
+            worst = Math.min(withParts, without);
+        }
+        if (worst == Long.MIN_VALUE && needWorst) {
+            worst = finishedWorst(f, lf.items(), tracked, frame, from, l, own, loopBounds);
+        }
+        return worst;
     }
 
     /** The notes that say where f's parameters are, at the start of its code. */

@@ -530,6 +530,18 @@ Built on 2026-11-27, ahead of M11; not released yet.
   ([ADR-6FVWK4JE](adr/6FVWK4JE-the-build-checks-the-irq-s-writes-after-the-wait.md)). Mesen
   agrees on `dev/irq_check` (102 of 116, clean) and on a handler that writes too late (186, row 72
   torn).
+- **Signed comparisons by subtraction, and the absolute difference** (M12 row 12, 2026-11-28): a
+  signed comparison of two 16-bit variables is one `SBC` and the sign of the true difference (N
+  xor V), 86 to 98 master cycles before the branch instead of 148 for the biased form, and `CMP`
+  with N alone where the value ranges rule out an overflow, also against a constant. A function
+  keeps the biased form where it would have the smaller worst case. `a > b ? a - b : b - a` and
+  `v < 0 ? -v : v` are one MIR instruction, `abds` (`AbsDiff`), written as one subtraction and
+  a conditional negation. No worst case larger than before (139 smaller), as a speed rule of
+  dampf must keep it
+  ([ADR-6FXZQXQB](adr/6FXZQXQB-a-speed-rule-of-dampf-never-makes-a-function-s.md)); the examples' work
+  0.997 (geometric mean), the code 0.3 % smaller; in Blubber Blasen `evaluate` 23 % less a
+  call and the work per tick with the CPU partner 3.0 % less, solo 0.8 %
+  ([log](optimizations-log.md#signed-comparisons-by-subtraction-2026-11-28-on-the-examples-and-blubber-blasen)).
 
 ## Publishing
 

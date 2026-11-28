@@ -2414,3 +2414,98 @@ brackets):
   is the step from 2.45 million to 0.30 million (B1) in `evaluate`'s worst case (row 9).
 - Three small folds dampf misses: a constant array's element at a constant index stays a load,
   `x * 256` of a byte is eight `ASL` where `x << 8` is an `XBA`, and `(v >> 6) & 1` is six `LSR`.
+
+## Signed comparisons by subtraction (2026-11-28, on the examples and Blubber Blasen)
+
+M12 row 12, first part. A signed comparison of two 16-bit variables was the biased form: both
+operands with `EOR #$8000`, one stored to `R0`, and an unsigned `CMP` (148 master cycles before
+the branch, with both in the direct page). Now it is one subtraction, and the sign of the true
+difference, N xor V, decides:
+
+```
+lda a           ; 28        a < b: N xor V of a - b; a > b and a <= b with the operands swapped
+sec             ; 12
+sbc b           ; 28
+bvc :+          ; 18 (12 when V is set)
+eor #$8000      ; 18, only when the difference overflowed: N is then the opposite of the sign
+: bmi ...       ; the branch, as before
+```
+
+86 master cycles before the branch, 98 where the difference overflows. Where the value ranges
+say the difference cannot overflow, `LDA a / CMP b` and N alone, 56; that also holds against a
+constant (`CMP #k` instead of `EOR #$8000 / CMP #k ^ $8000`, 46 instead of 64), where the biased
+form is otherwise kept, since its constant costs nothing. Where A holds b already (just computed)
+and not a, `EOR #$FFFF / SEC / ADC a` computes a + ~b + 1, the same difference with the same N,
+V, Z and C as `SBC`, without storing b first. As a value, the answer is bit 15 after the same
+code (for >= and <= with `BVS` instead of `BVC`, or a plain `EOR #$8000` without overflow),
+then `ASL A / LDA #0 / ROL A`: 128 to 140 master cycles instead of 178 to 196. Comparisons of
+two bytes keep the biased form: their operands are clean bytes in 16-bit places, and a
+subtraction in 8 bits would need `SEP` and `REP` around it.
+
+The subtraction needs b in memory, where the biased form could keep both operands in X and Y
+and read them with transfers; in eleven worst cases of the execution tests, random programs and
+examples that made it larger (up to 48 master cycles, Er-Tüp's `boss_update`, which
+inlines `fly`: e->y in Y and `ship_y` in X before). So the code generator writes every function
+with a signed comparison of 16-bit values twice, by subtraction and biased, chooses the
+registers on both, finishes both (as the register choice's parts of loops are checked) and keeps
+the biased one only where its worst case is smaller.
+
+Against `develop`, the worst cases of the timing reports of every execution test, random program
+and example: 79 smaller, 2,573 the same, none larger. The examples' work: Catch Me 0.995, Er-Tüp
+0.993, Schach 0.994, Steinschlag 0.997, the others 1.000; geometric mean 0.998. Code 0.24 %
+smaller (158,687 to 158,310 bytes over the nine examples, Er-Tüp 285 bytes less).
+
+Blubber Blasen (the copy of the kit's study, played in dampf's emulator, WRAM identical to
+develop's build at the end of every tick of both runs, every call of `evaluate` with the same
+result): `evaluate` 29,409 master cycles a call on average before, 24,354 after (the worst call
+65,636 and 52,258); the work per tick with the CPU partner 302,068 before, 297,201 after
+(−1.6 %), solo 206,380 and 206,320.
+
+## The absolute difference as one subtraction (2026-11-28, on the examples and Blubber Blasen)
+
+M12 row 12, second part. `a > b ? a - b : b - a` of two `int16_t` was a signed comparison, a
+branch and a subtraction on each side. MIR now has `abds a, b`, the absolute difference of signed
+values (LLVM's name), `a > b ? a - b : b - a` with the difference wrapped to the type. The pass
+`AbsDiff` makes it from a φ that takes a - b where a signed comparison of a and b says a >= b and
+b - a where it says a <= b: every relation, either operand order, an arm computed before the
+branch (value numbering often leaves only one side), and |v| as `v < 0 ? -v : v`, which is
+`abds v, 0`. Where a and b are equal both sides are 0, so whether the comparison includes
+equality does not matter; in 16 bits both sides wrap as C's conversion of the `int` difference
+to `int16_t` does, so the result is the same bit for bit. Only 16 bits: `Narrow` has made the
+game's form 16 bits by then, and the code generator has code only for that. The code:
+
+```
+lda a / sec / sbc b         ; 68 (or EOR #$FFFF / SEC / ADC a where A holds b)
+bvc @nv                     ; V clear: 18
+bpl @neg                    ; V set: the true difference is negative where N is clear
+bra @done
+@nv: bpl @done              ; V clear: negative where N is set
+@neg: eor #$FFFF / inc a    ; 30
+@done:
+```
+
+60 master cycles at most after the subtraction, against a signed comparison (86 to 98 by now),
+the branch and a second subtraction (68). |v| is `LDA v / BPL / EOR #$FFFF / INC A`.
+
+Against `develop`, the worst cases of the timing reports of every execution test, random program
+and example: 139 smaller, 2,513 the same, none larger (84 smaller than with the comparisons
+alone). Code another 105 bytes smaller (158,205 bytes, 0.31 % below `develop`).
+
+The examples' work against `develop` with both parts: Er-Tüp 0.991, Catch Me 0.995, Schach
+0.994, Steinschlag 0.997, the others 1.000; geometric mean 0.997.
+
+Blubber Blasen, measured as above (WRAM identical to develop's build at the end of every tick of
+both runs, every call of `evaluate` with the same result):
+
+| Build | `evaluate` a call, average / worst call | Static worst case | Bytes | Work per tick, CPU partner | Solo |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `develop` | 29,409 / 65,636 | 2,451,626 | 554 | 302,068 | 206,380 |
+| comparisons by subtraction | 24,354 / 52,258 | 1,982,106 | 525 | 297,201 (−1.6 %) | 206,320 |
+| and `abds` | 22,581 / 47,428 | 1,737,306 | 502 | 292,950 (−3.0 %) | 204,779 (−0.8 %) |
+
+In the game's timing report 46 worst cases are smaller and none larger. The study's spellings
+of `evaluate` played again with this code: B3 (the function respelled, without the biased
+values) 16,010 a call, B4 (B3 with the biased values and a `switch`) 17,923, as before, since
+its comparisons are unsigned. The biased spelling no longer pays, which went to the game
+([game-findings.md](game-findings.md)). Comparisons of two bytes stay biased: the game has
+none, the examples three sites, all in Schach.

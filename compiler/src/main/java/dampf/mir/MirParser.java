@@ -213,7 +213,7 @@ public final class MirParser {
         Instr instr;
         List<Pending> pending = new ArrayList<>();
         switch (op) {
-            case "add", "sub", "mul", "udiv", "sdiv", "urem", "srem", "and", "or", "xor", "shl", "lshr", "ashr" -> {
+            case "add", "sub", "mul", "udiv", "sdiv", "urem", "srem", "and", "or", "xor", "shl", "lshr", "ashr", "abds" -> {
                 MType type = type(t.next());
                 Value x = value(t.next(), type, pending, 0);
                 t.expect(",");

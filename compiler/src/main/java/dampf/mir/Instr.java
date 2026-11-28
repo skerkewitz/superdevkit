@@ -66,8 +66,13 @@ public abstract sealed class Instr implements Value
 
     // ------------------------------------------------------------------ arithmetic
 
+    /**
+     * The operations of {@link Bin}. ABDS, the absolute difference of signed values, is
+     * {@code a > b ? a - b : b - a} with a and b read as signed numbers and the difference wrapped
+     * to the type ({@link AbsDiff} makes it from that φ; there is no C operator for it).
+     */
     public enum BinOp {
-        ADD, SUB, MUL, UDIV, SDIV, UREM, SREM, AND, OR, XOR, SHL, LSHR, ASHR;
+        ADD, SUB, MUL, UDIV, SDIV, UREM, SREM, AND, OR, XOR, SHL, LSHR, ASHR, ABDS;
 
         @Override
         public String toString() {

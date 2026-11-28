@@ -287,38 +287,48 @@ about 240 a call (−1.3 %, −2.3 % solo with today's body, for 1.7 KB); dampf 
 itself yet. The hand-written version exists and can be handed over by the user, for a game that
 wants to link it with `DAMPF_ASM`; it is written against the C of change 3.
 
-## 12. `evaluate`: 39 % less time a call from its C (2026-11-27)
+## 12. `evaluate`: 29 % less time a call from its C, and signed comparisons are fast now (2026-11-28)
 
-The CPU partner's `evaluate` is 8.6 % of the work with the CPU partner (solo never calls it). Five
-changes, each giving the same result for every input (measured: the same result in all 5,045
-calls of the run and in 17,000 further inputs of game-like, random and edge data against
-today's version):
+The CPU partner's `evaluate` is 8.6 % of the work with the CPU partner (solo never calls it).
+
+dampf now compares two signed 16-bit variables with one subtraction and the sign of the true
+difference, and compiles `a > b ? a - b : b - a` (any of the four relations, either order) and
+`v < 0 ? -v : v` as one subtraction and a negation, both exact for every input. Nothing in the
+game has to change for it: `evaluate` as it is takes 22,581 master cycles a call on average
+instead of 29,409, the work per tick with the CPU partner 3.0 % less, solo 0.8 % less.
+
+Four changes to its C take another 29 % off each call. Each gives the same result for every
+input (measured: the same result in all 5,045 calls of the run and in 17,000 further inputs of
+game-like, random and edge data against today's version):
 
 1. **Return before the loops when the danger list is empty**, with the value the loops would
-   leave. One call in five has no danger, and the sample loop runs for nothing today (9,347
-   master cycles each).
+   leave. One call in five has no danger, and the sample loop runs for nothing today.
 2. **Hoist what does not change out of the sample loop**: the player's position read through the
-   pointer once, the action decoded once into its left, right, jump and dash parts (a `switch`
-   on it does this best, with an action beyond the last counting as a dash, as today), and the
-   dash case decided before the loop instead of in every round.
+   pointer once, the action decoded once into its left, right, jump and dash parts (by the
+   comparisons it uses today, with an action beyond the last counting as a dash, as today), and
+   the dash case decided before the loop instead of in every round.
 3. **The two 5-element coordinate arrays of `Danger` as one array of 10**, x of each sample
    first, then y, so that the bytes stay where they are. dampf reaches an array field indexed by
    a variable directly only at the struct's offset 0, and the second array today through a
-   24-bit pointer built for every pair (−3,617 a call). `add_danger`, `add_coming_shot` and the
-   debug view write the new array.
+   24-bit pointer built for every pair. `add_danger`, `add_coming_shot` and the debug view write
+   the new array.
 4. **The end of the danger list computed once** as a pointer, and the list walked with a pointer
    up to it instead of an index below `danger_count`. The pointer walk also gives the timing
-   report a bound of 32 dangers instead of 255: the function's static worst case falls from 2.45
-   million master cycles to 0.19 million.
-5. **The signed values compared biased**: keep `best`, the two distances and their maximum as
-   `v ^ 0x8000` in `uint16_t` and compare those unsigned, which keeps their order; flip the
-   result back on return. Sums wrap modulo 2^16 as today's casts do. dampf compares two signed
-   variables slowly today (an M12 row of the kit's roadmap will make this one unnecessary; drop
-   it then).
+   report a bound of 32 dangers instead of 255.
 
-Measured: 29,409 master cycles a call on average before, 17,923 after, the worst call 65,636
-before and 41,756 after; the work per tick with the CPU partner 3.0 % less. The function is 554
-bytes before and 529 after. A hand-written version (11,877 a call, −5.3 %) exists and can be
+Compare the signed values as they are. The earlier version of this finding (not forwarded) also
+kept them biased, as `v ^ 0x8000` in `uint16_t`, and decoded the action with a `switch`; with
+today's dampf that version takes 17,923 a call, slower than the four changes alone.
+
+Measured in dampf's emulator on a copy of the game, with the kit after the signed comparisons:
+
+| | `evaluate` a call, average / worst call | Static worst case | Bytes | Work per tick, CPU partner |
+| --- | ---: | ---: | ---: | ---: |
+| today's C | 22,581 / 47,428 | 1,737,306 | 502 | 292,950 |
+| with the four changes | 16,010 / 36,806 | 178,050 | 472 | 288,468 (−1.5 %) |
+
+Against kit 0.10.1 and today's C (29,409 a call, 302,068 a tick) both together take 4.5 % off
+the work per tick with the CPU partner. A hand-written version (11,877 a call) exists and can be
 handed over by the user.
 
 ## 13. `separate`: keep it as it is for now (2026-11-27)

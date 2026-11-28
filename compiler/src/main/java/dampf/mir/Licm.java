@@ -91,7 +91,7 @@ public final class Licm {
     private static boolean movable(Instr i) {
         return switch (i) {
             case Instr.Bin b -> switch (b.op) {
-                case ADD, SUB, AND, OR, XOR -> true;
+                case ADD, SUB, AND, OR, XOR, ABDS -> true;
                 case SHL, LSHR, ASHR -> b.op(1) instanceof Value.Const;
                 default -> false;   // multiplication and division call the runtime
             };

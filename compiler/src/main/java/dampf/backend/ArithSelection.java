@@ -200,7 +200,38 @@ final class ArithSelection {
                 }
             }
             case SHL, LSHR, ASHR -> shift(b);
+            case ABDS -> absDiff(b);
         }
+    }
+
+    /**
+     * The absolute difference of signed 16-bit values (made by {@link dampf.mir.AbsDiff}): x - y
+     * once, negated where the true difference is negative, which is where N xor V is set; |x|
+     * against 0, which cannot overflow. 60 master cycles at most after the subtraction.
+     */
+    private void absDiff(Instr.Bin b) {
+        if (b.type() != MType.I16) {
+            throw new IllegalStateException("abds of " + b.type() + ": only i16 is made");
+        }
+        String negate = sel.label();
+        String done = sel.label();
+        if (b.op(1) instanceof Value.Const k && k.bits() == 0) {
+            sel.flagsOf(sel.operand(b.op(0), 0));
+            sel.ins("bpl", done);
+        } else {
+            sel.branch.difference(b.op(0), b.op(1));
+            String noOverflow = sel.label();
+            sel.ins("bvc", noOverflow);
+            sel.ins("bpl", negate);   // overflow: the true difference has the opposite sign of N
+            sel.ins("bra", done);
+            sel.place(noOverflow);
+            sel.ins("bpl", done);
+        }
+        sel.place(negate);
+        sel.ins("eor", Selection.imm(0xFFFF));
+        sel.ins("inc", "a");
+        sel.place(done);
+        sel.result(b, 0);
     }
 
     private static final LOperand.Mem WRMPYA = Selection.number(SnesTarget.WRMPYA);
