@@ -260,7 +260,6 @@ public final class MirCodeGen {
                 continue;
             }
             AsmWriter code = codes.get(f);
-            List<Block> order = orders.get(f);
             sel.absFrame = frameSymbol(f);
             String frame = sel.absFrame;
             // loads of what a register holds on every way in, then stores no path reads; then the
@@ -276,14 +275,40 @@ public final class MirCodeGen {
             limit.apply("Peephole", f.name(), () -> new Peephole(frame).run(lf));
             limit.apply("ByteStretches", f.name(), () -> ByteStretches.run(lf));
             limit.apply("ByteLoops", f.name(), () -> dampf.lir.ByteLoops.run(lf, resultInA));
-            limit.apply("KnownCarry", f.name(), () -> KnownCarry.run(lf));
-            limit.apply("DeadStores", f.name(), () -> new DeadStores(ownValueBytes(f)).run(lf));
-            limit.apply("SinkStores", f.name(), () -> new DeadStores(ownValueBytes(f)).sink(lf));
-            BranchRelax.run(lf);
+        }
+        // then the widths across blocks, callees first: where they would make a function's worst
+        // case (with its calls, as the timing report has it) larger, it keeps its switches as they
+        // were (ADR-6FXZQXQB)
+        for (MFunction f : calleesFirst()) {
+            AsmWriter code = codes.get(f);
+            List<Block> order = orders.get(f);
+            LFunction lf = code.function();
+            List<dampf.lir.LItem> before = new ArrayList<>(lf.items());
+            boolean resultInA = f.result() != MType.VOID;
+            java.util.function.Function<String, Long> counts = blockCounts == null ? null : name -> blockCounts.apply(f.name(), name);
+            if (limit.apply("Widths", f.name(), () -> dampf.lir.Widths.run(lf, resultInA, Weights.of(lf, Weights.estimated(f, counts)), fastRom)) > 0) {
+                LFunction without = new LFunction(lf.proc());
+                without.rebuild(before);
+                finish(f, without, dampf.util.PassLimit.none());
+                finish(f, lf, limit);
+                if (worstWithCalls(f, lf, code.loopBounds(), order, ranges.get(f))
+                        > worstWithCalls(f, without, code.loopBounds(), order, ranges.get(f))) {
+                    lf.rebuild(without.items());
+                }
+            } else {
+                finish(f, lf, limit);
+            }
             Map<String, String> renamed = dampf.lir.LocalLabels.renumber(code.function(), "@L");
             Map<String, Integer> bounds = new HashMap<>();
             code.loopBounds().forEach((label, rounds) -> bounds.put(renamed.getOrDefault(label, label), rounds));
             written.put(f, new Written(code.function(), bounds, order, ranges.get(f)));
+            bound(f.name(), new HashSet<>());   // with this code (its C lines' sums too), for its callers
+        }
+        for (MFunction f : module.functions()) {
+            if (f.isAsm()) {
+                continue;
+            }
+            AsmWriter code = codes.get(f);
             if (code.unknownInstructions() > 0) {
                 throw new IllegalStateException("the cycle table does not know an instruction in " + f.name());
             }
@@ -326,6 +351,46 @@ public final class MirCodeGen {
             modules.add(w.text(code()));
         }
         return modules;
+    }
+
+    /** The passes after the widths: known carries, dead and sunk stores, branch forms. */
+    private void finish(MFunction f, LFunction lf, dampf.util.PassLimit limit) {
+        limit.apply("KnownCarry", f.name(), () -> KnownCarry.run(lf));
+        limit.apply("DeadStores", f.name(), () -> new DeadStores(ownValueBytes(f)).run(lf));
+        limit.apply("SinkStores", f.name(), () -> new DeadStores(ownValueBytes(f)).sink(lf));
+        BranchRelax.run(lf);
+    }
+
+    /** f's worst case on this code with the bounds of its callees (written already); Long.MAX_VALUE without one. */
+    private long worstWithCalls(MFunction f, LFunction code, Map<String, Integer> loopBounds, List<Block> order, Ranges r) {
+        try {
+            Timing.Bound b = Timing.of(f, code, loopBounds, order, r, code(), callee -> bound(callee, new HashSet<>()));
+            return b.bounded() ? b.worst() : Long.MAX_VALUE;
+        } catch (RuntimeException e) {
+            return Long.MAX_VALUE;
+        }
+    }
+
+    /** The functions with code from MIR, every one after all it calls. */
+    private List<MFunction> calleesFirst() {
+        List<MFunction> out = new ArrayList<>();
+        Set<MFunction> seen = new HashSet<>();
+        for (MFunction f : module.functions()) {
+            calleesFirst(f, seen, out);
+        }
+        return out;
+    }
+
+    private void calleesFirst(MFunction f, Set<MFunction> seen, List<MFunction> out) {
+        if (!seen.add(f)) {
+            return;
+        }
+        for (MFunction c : callees.getOrDefault(f.name(), List.of())) {
+            calleesFirst(c, seen, out);
+        }
+        if (!f.isAsm()) {
+            out.add(f);
+        }
     }
 
     /** The code of the C bodies that assembly functions are checked against ({@link #checkModule}). */
@@ -530,10 +595,22 @@ public final class MirCodeGen {
             new Peephole(sel.absFrame).run(code);
             ByteStretches.run(code);
             dampf.lir.ByteLoops.run(code, resultInA);
+            List<dampf.lir.LItem> before = new ArrayList<>(code.items());
+            java.util.function.Function<String, Long> counts = blockCounts == null ? null : name -> blockCounts.apply(f.name(), name);
+            boolean widths = dampf.lir.Widths.run(code, resultInA, Weights.of(code, Weights.estimated(f, counts)), fastRom) > 0;
             KnownCarry.run(code);
             new DeadStores(ownValueBytes(f)).run(code);
             new DeadStores(ownValueBytes(f)).sink(code);
-            return worstOf(f, code, loopBounds);
+            long worst = worstOf(f, code, loopBounds);
+            if (widths) {
+                // as generate: the widths only where they do not make the worst case larger
+                code.rebuild(before);
+                KnownCarry.run(code);
+                new DeadStores(ownValueBytes(f)).run(code);
+                new DeadStores(ownValueBytes(f)).sink(code);
+                worst = Math.min(worst, worstOf(f, code, loopBounds));
+            }
+            return worst;
         } catch (RuntimeException e) {
             return Long.MAX_VALUE;
         } finally {

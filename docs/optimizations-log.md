@@ -2509,3 +2509,63 @@ values) 16,010 a call, B4 (B3 with the biased values and a `switch`) 17,923, as 
 its comparisons are unsigned. The biased spelling no longer pays, which went to the game
 ([game-findings.md](game-findings.md)). Comparisons of two bytes stay biased: the game has
 none, the examples three sites, all in Schach.
+
+## The accumulator's width placed across blocks (2026-11-28, on the examples and Blubber Blasen)
+
+M12 row 3, first step (B5 of [archive/compiler-flaws.md](archive/compiler-flaws.md#b5-the-accumulators-width-as-a-data-flow-problem)).
+Since M9 every block boundary of dampf's code ran with 16 bits, except the loops of
+`ByteLoops`, and `ByteStretches` joined stretches inside a block only. The new LIR pass
+`Widths` takes every `REP #$20` and `SEP #$20` of a function out and places them again across
+the blocks, after `ByteLoops`:
+
+- an instruction that depends on the width keeps its own, except a load, `AND`/`ORA`/`EOR`,
+  `ADC`/`SBC`, `TXA`/`TYA`, `ASL A`, `INC A`, `DEC A` whose low byte is the same in 8 bits
+  and whose flags nothing reads: it may run in 8 bits, where nothing reads the high byte of A
+  before A is loaded again in 16 bits (no 16-bit use of A, no `TAX`/`TAY`/`XBA`, no call, no
+  return of A);
+- calls and returns run with 16 bits, as does the start of a function;
+- the choice is a minimum cut: each such instruction is 16 or 8 bits, a switch between two
+  neighbours of different widths in a block costs its 18 master cycles times the block's
+  weight (the estimate of `Weights`: a loop's head 8 times per entry, a branch's ways sharing
+  equally), the end of a block and the start of every block it goes to have the same width,
+  and a reader of the high byte in 16 bits keeps the instructions before it in 16 bits. Each
+  of these costs is paid only where two choices differ, so the cut is exact.
+
+Where the cut is cheaper than the code as it was, the code is rewritten with the switches at the
+first instruction of their width or before the branch that ends a block. So `SEP` goes before a
+loop whose entry also branches elsewhere, byte stores on both ways of an `if` share one switch,
+and a byte loaded and stored after the join stays in 8 bits. `LParser` now follows the width
+along the edges (ca65 sizes the immediates by `.a8`/`.a16`, which surround every immediate in
+8 bits), so a block entered by a branch with another width than the text above it ends with
+reads back as it runs.
+
+With the block weights of the loop depth alone (each way of a branch as often as the block
+before it) Catch Me did 0.5 % more work: in `commit_registers` a chain of `if (dirty & bit)`
+paid a `REP` and a `SEP` on every test instead of a pair in each rarely taken branch. With the
+estimate it is 0.4 % faster.
+
+Each function is written both ways and keeps the switches as they were where the new placement
+would make its worst case with its calls larger (ADR-6FXZQXQB); the functions are finished
+callees first for it. Against `develop`, the worst cases of the timing reports of every
+execution test, random program and example: 656 smaller, 2,028 the same, none larger.
+
+| Example | Work before | After | Ratio |
+| --- | ---: | ---: | ---: |
+| Catch Me | 45,831 | 45,626 | 0.996 |
+| Er-Tüp | 129,061 | 128,126 | 0.993 |
+| Gruft | 130,683 | 127,574 | 0.976 |
+| Hello | 80,270 | 79,999 | 0.997 |
+| Mandelbrot | 74,622 | 74,444 | 0.998 |
+| Mode 7 | 10,604 | 10,568 | 0.997 |
+| Modes | 53,386 | 53,004 | 0.993 |
+| Schach | 364,621 | 362,876 | 0.995 |
+| Steinschlag | 71,544 | 71,338 | 0.997 |
+
+Geometric mean 0.993. Code 1.7 % smaller (158,205 to 155,518 bytes over the nine examples).
+The kit's IRQ write of a scroll register (`sdevkit_reg_write_twice`) went from 138 to 102 master
+cycles after the wait, since both bytes are now stored in 8 bits.
+
+Blubber Blasen (played in dampf's emulator as in the entries before, WRAM identical to
+`develop`'s build at the end of every tick of both runs): the work per tick with the CPU partner
+292,950 before, 290,583 after (−0.8 %), solo 204,779 and 202,955 (−0.9 %); in its timing report
+141 worst cases smaller, none larger.

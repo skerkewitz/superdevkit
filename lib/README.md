@@ -116,45 +116,45 @@ write with a constant register is one store. The layers' commits are in the next
 
 | Function | SNES | desktop | CPU cycles on the SNES |
 | --- | --- | --- | ---: |
-| `sdevkit_reg_write` | built | built | 164 to 170 |
-| `sdevkit_reg_write_twice` | built | built | 276 to 288 |
-| `sdevkit_dma` | built | built (VRAM, CGRAM, OAM and the registers by their ports, both ways: from the PPU to memory VRAM, CGRAM and OAM read back) | 604 |
-| `sdevkit_vram_copy` | built | built | 734 |
-| `sdevkit_vram_column_copy` | built | built | 734 |
-| `sdevkit_vram_fill` | built | built | 752 |
-| `sdevkit_cgram_copy` | built | built | 638 |
-| `sdevkit_cgram_set` | built | built | 298 |
-| `sdevkit_oam_copy` | built | built | 662 |
-| `sdevkit_mode7_map_copy` | built | built | 734 |
-| `sdevkit_mode7_tiles_copy` | built | built | 734 |
+| `sdevkit_reg_write` | built | built | 156 to 162 |
+| `sdevkit_reg_write_twice` | built | built | 268 to 280 |
+| `sdevkit_dma` | built | built (VRAM, CGRAM, OAM and the registers by their ports, both ways: from the PPU to memory VRAM, CGRAM and OAM read back) | 582 |
+| `sdevkit_vram_copy` | built | built | 708 |
+| `sdevkit_vram_column_copy` | built | built | 708 |
+| `sdevkit_vram_fill` | built | built | 724 |
+| `sdevkit_cgram_copy` | built | built | 616 |
+| `sdevkit_cgram_set` | built | built | 290 |
+| `sdevkit_oam_copy` | built | built | 642 |
+| `sdevkit_mode7_map_copy` | built | built | 708 |
+| `sdevkit_mode7_tiles_copy` | built | built | 708 |
 | `sdevkit_dma_fits` | built (from the line the picture is at) | built (from the bytes copied in this vertical blank) | 500 to 530 |
-| `sdevkit_hdma_set` | built | built (the direct modes; another is counted as undrawn) | 544 to 554 |
-| `sdevkit_hdma_enable` | built | built | 136 |
-| `sdevkit_irq_line` | built (the CPU's timer: VTIME, HTIME, NMITIMEN) | built (Rachael calls `game_irq` before the row) | 358 |
-| `sdevkit_irq_off` | built | built | 222 |
+| `sdevkit_hdma_set` | built | built (the direct modes; another is counted as undrawn) | 528 to 538 |
+| `sdevkit_hdma_enable` | built | built | 128 |
+| `sdevkit_irq_line` | built (the CPU's timer: VTIME, HTIME, NMITIMEN) | built (Rachael calls `game_irq` before the row) | 302 |
+| `sdevkit_irq_off` | built | built | 172 |
 | `sdevkit_irq_hdma` | built (does nothing: dampf reads the macro `SDEVKIT_IRQ_HDMA` and takes the declared HDMA from the IRQ's window) | built (compares the HDMA on the IRQ's line with the declaration: more fails the check) | 42 |
 | `sdevkit_irq_wait_hblank` | built (polls HVBJOY's horizontal blank) | built (notes that the handler waited: its register writes are free from then on) | 108 to unbounded |
-| `sdevkit_shadow_commit` | built | built (and counts a group changed without its mark) | 870 to 13,570 |
-| `sdevkit_sprite` | built | built | 136 to 836 |
-| `sdevkit_sprites_commit` | built | built | 398 to 3,534 |
-| `sdevkit_queue_dma` | built | built | 382 to 1,300 |
-| `sdevkit_queue_vram` | built | built | 186 |
-| `sdevkit_queue_vram_column` | built | built | 186 |
-| `sdevkit_queue_cgram` | built | built | 186 |
-| `sdevkit_queue_color` | built | built | 502 to 1,580 |
-| `sdevkit_queue_mode7_map` | built | built | 186 |
-| `sdevkit_queue_mode7_tiles` | built | built | 186 |
+| `sdevkit_shadow_commit` | built | built (and counts a group changed without its mark) | 826 to 13,166 |
+| `sdevkit_sprite` | built | built | 136 to 808 |
+| `sdevkit_sprites_commit` | built | built | 398 to 3,452 |
+| `sdevkit_queue_dma` | built | built | 368 to 1,278 |
+| `sdevkit_queue_vram` | built | built | 172 |
+| `sdevkit_queue_vram_column` | built | built | 172 |
+| `sdevkit_queue_cgram` | built | built | 172 |
+| `sdevkit_queue_color` | built | built | 488 to 1,560 |
+| `sdevkit_queue_mode7_map` | built | built | 172 |
+| `sdevkit_queue_mode7_tiles` | built | built | 172 |
 | `sdevkit_queue_room` | built | built | 274 to 340 |
-| `sdevkit_queue_commit` | built | built | 306 to 22,962 |
+| `sdevkit_queue_commit` | built | built | 306 to 22,242 |
 | `sdevkit_input_update` | built | built | 582 to 590 |
-| `sdevkit_commit` | built | built | 1,618 to 40,110 |
+| `sdevkit_commit` | built | built | 1,610 to 38,940 |
 | `sdevkit_sfx_init` | built | built | 348 to unbounded |
-| `sdevkit_sfx_play` | built | built | 264 to 1,038 |
+| `sdevkit_sfx_play` | built | built | 264 to 996 |
 | `sdevkit_music_play` | empty, not built yet: dampf removes the calls (`DebugCallsTest`) | built (the track's file, over and over, in the window) | 42 |
 | `sdevkit_music_stop` | empty, not built yet: dampf removes the calls | built | 42 |
 | `sdevkit_sram` | built (the cartridge's battery RAM at $70:0000, `dampf --sram`) | built (`<game>.srm` next to the program) | 72 |
 | `sdevkit_dbg_vram` | built (a single zero word: the SNES cannot read VRAM) | built | 90 |
-| `sdevkit_dbg_hash` | built (the address and size to a port; the checker hashes) | built | 510 |
+| `sdevkit_dbg_hash` | built (the address and size to a port; the checker hashes) | built | 502 |
 | `sdevkit_dbg_toggle` | empty: dampf removes the calls (`DebugCallsTest`) | built (the debug view, F1) | 42 |
 | `sdevkit_dbg_range` | empty: dampf removes the calls | built (the debug view) | 42 |
 | `sdevkit_dbg_color` | empty: dampf removes the calls | built (the debug view) | 42 |
