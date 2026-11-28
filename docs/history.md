@@ -552,6 +552,11 @@ Built on 2026-11-27, ahead of M11; not released yet.
   multiplication by a constant are `XBA / AND #$FF00` and the rest, as `x << 8` is: 36 master
   cycles for `x * 256` instead of 96; Schach 0.4 % less work
   ([log](optimizations-log.md#multiplication-by-256-as-xba-2026-11-28-on-the-examples-and-blubber-blasen)).
+- **Constant arrays' elements folded** (M12 row 11, 2026-11-28): a load from a `const` object
+  with an initializer at a constant place, also one that inlining makes constant, is the value
+  of its initializer there (`ConstLoads`, from inlining on, so that it does not change what is
+  inlined); code 37 bytes smaller, the examples' work the same
+  ([log](optimizations-log.md#elements-of-constant-arrays-folded-2026-11-28-on-the-examples-and-blubber-blasen)).
 
 ## Publishing
 

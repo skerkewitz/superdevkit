@@ -395,7 +395,7 @@ mandelbrot _compute 132376
 mandelbrot _cycle_palette 23500
 mandelbrot _dma0 604
 mandelbrot _dma_source 406
-mandelbrot _game_init 8363978
+mandelbrot _game_init 8363618
 mandelbrot _game_tick 137566
 mandelbrot _game_vblank 2052
 mandelbrot _in_bulbs 14122

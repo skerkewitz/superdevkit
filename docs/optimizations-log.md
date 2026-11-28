@@ -2566,3 +2566,31 @@ smaller, 2,562 the same, none larger). Schach 0.996, the other examples
 1.000; code 36 bytes smaller. Blubber Blasen: work per tick with the CPU partner 292,667 to
 292,605, solo 204,521 to 204,458, WRAM identical to develop's build at the end of every tick;
 one worst case of its timing report smaller.
+
+## Elements of constant arrays folded (2026-11-28, on the examples and Blubber Blasen)
+
+M12's peepholes, third part (row 11). A load from a `const` global or static local with an
+initializer, at a constant place within it, stayed a load: `tab[3]`, `things[1].x`, `grid[r][c]`
+once inlining had made r and c constants. The new MIR pass `ConstLoads` replaces it with the
+bytes of the initializer there, laid out as the interpreter lays them out (little endian, later
+data over earlier, bytes no initializer gives 0), for loads of 8, 16 and 32 bits; a struct's
+field is a load at its offset like any other. It leaves alone a volatile load, a place outside
+the object (before its start or past its end), bytes that hold an address and a load of a
+pointer. gcc folds the same loads: such an object cannot change, C forbids a store to it, and it
+lies in ROM.
+
+Run from the start, the pass made Blubber Blasen slower: its work per tick 292,605 to 292,750
+with the CPU partner (+0.05 %), solo 204,458 to 204,620, and one worst case of its timing report
+larger (2,106 to 2,940 master cycles). A callee whose constant loads went became small enough to
+be inlined; its caller, larger now, was no longer inlined into its own callers, and the callee's
+own copy, which the timing report keeps, lost the offset form of its pointer parameter
+(`PointerParams`), since no call of it is left. So the pass runs only from inlining on, where
+it does not change what is inlined: then the game's work is 292,600 (−0.002 %) and 204,454, 27
+worst cases of its timing report are smaller and none larger, and WRAM is identical to
+develop's build at the end of every tick of both runs.
+
+Against the commit before: 7 worst cases smaller, none larger (against `develop` with all three
+parts: 129 smaller, 2,555 the same, none larger). The examples' work is the same to the master
+cycle; code 37 bytes smaller (Mandelbrot 36). In the MIR of `exec/const_elements.c` 45 loads
+and address computations of its constant arrays were left after the passes, 5 now: those at a
+variable index in its loops and in the copies of the callees the timing report keeps.
