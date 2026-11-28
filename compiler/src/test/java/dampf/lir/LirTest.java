@@ -188,16 +188,14 @@ class LirTest {
                 ins("rtl", null),
                 ".endproc")));
         assertTrue(e.stream().anyMatch(s -> s.contains("depends on the way in")), e.toString());
-        // written for 16 bit, runs in 8 (a branch from 8-bit code to a label where 16 was assumed)
-        List<String> e2 = LVerifier.verify(LParser.parse(text(
-                ".proc f",
-                ins("sep", "#$20"),
-                ins8("bra", "j"),
-                ins8("rep", "#$20"),
-                "j:",
-                ins("lda", "#$0001"),
-                ins("rtl", null),
-                ".endproc")));
+        // written for 16 bit, runs in 8 (a branch from 8-bit code to a label where 16 was assumed);
+        // LParser would give it the width of the way in, so the code is built from its lines
+        LUnit u = LParser.parse(text(".proc f", ins("rtl", null), ".endproc"));
+        LFunction f = u.functions().getFirst();
+        f.rebuild(List.of(LParser.line(ins("sep", "#$20")), LParser.line(ins8("bra", "j"), false),
+                LParser.line(ins8("rep", "#$20"), false), LParser.line("j:"), LParser.line(ins("lda", "#$0001")),
+                LParser.line(ins("rtl", null))));
+        List<String> e2 = LVerifier.verify(u);
         assertTrue(e2.stream().anyMatch(s -> s.contains("written for 16-bit A but runs with 8")), e2.toString());
     }
 

@@ -59,20 +59,22 @@ class IrqWindowTest {
     void oneScrollRegisterFits() throws Exception {
         build("sdevkit_reg_write_twice(SDEVKIT_PPU_BG1HOFS, a);");
         String report = Files.readString(tmp.resolve("irq.timing.txt"));
-        // TYA, SEP, STA long, REP, TXA, SEP, STA long: 23 CPU cycles, 138 master cycles from FastROM
-        assertTrue(report.contains("158          138  _game_irq   (after the wait; room, worst)"), report);
+        // TYA, SEP, STA long, TXA, STA long (the second byte in 8 bits too): 17 CPU cycles, 102
+        // master cycles from FastROM
+        assertTrue(report.contains("158          102  _game_irq   (after the wait; room, worst)"), report);
     }
 
     @Test
     void declaredHdmaTakesFromTheWindow() throws Exception {
-        // the same handler fits without HDMA, but not with a channel of one byte on its line:
-        // 18 + 16 + 8 = 42 of the 158 leave 116
-        CompileError e = assertThrows(CompileError.class, () -> build("SDEVKIT_IRQ_HDMA(SDEVKIT_HDMA_CHANNEL1, 1);",
+        // the same handler fits without HDMA, but not with two channels of one byte on its line:
+        // 18 + 2 * 16 + 8 = 58 of the 158 leave 100
+        CompileError e = assertThrows(CompileError.class, () -> build(
+                "SDEVKIT_IRQ_HDMA(SDEVKIT_HDMA_CHANNEL1 | SDEVKIT_HDMA_CHANNEL2, 1);",
                 "sdevkit_reg_write_twice(SDEVKIT_PPU_BG1HOFS, a);"));
         String msg = e.diagnostics().getFirst().message();
-        assertTrue(msg.contains("'game_irq' ends its last register write up to 138 master cycles after"
-                + " sdevkit_irq_wait_hblank returns, over the 116 the horizontal blank leaves"), msg);
-        assertTrue(msg.contains("158 less the 42 of the HDMA it declares (SDEVKIT_IRQ_HDMA: channels $02, 1 bytes)"), msg);
+        assertTrue(msg.contains("'game_irq' ends its last register write up to 102 master cycles after"
+                + " sdevkit_irq_wait_hblank returns, over the 100 the horizontal blank leaves"), msg);
+        assertTrue(msg.contains("158 less the 58 of the HDMA it declares (SDEVKIT_IRQ_HDMA: channels $06, 1 bytes)"), msg);
         assertEquals(42, dampf.backend.IrqWindow.hdma(0x02, 1));
         assertEquals(0, dampf.backend.IrqWindow.hdma(0, 0));
     }

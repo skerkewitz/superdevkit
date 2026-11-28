@@ -2594,3 +2594,121 @@ parts: 129 smaller, 2,555 the same, none larger). The examples' work is the same
 cycle; code 37 bytes smaller (Mandelbrot 36). In the MIR of `exec/const_elements.c` 45 loads
 and address computations of its constant arrays were left after the passes, 5 now: those at a
 variable index in its loops and in the copies of the callees the timing report keeps.
+
+## The accumulator's width placed across blocks (2026-11-28, on the examples and Blubber Blasen)
+
+M12 row 3, first step (B5 of [archive/compiler-flaws.md](archive/compiler-flaws.md#b5-the-accumulators-width-as-a-data-flow-problem)).
+Since M9 every block boundary of dampf's code ran with 16 bits, except the loops of
+`ByteLoops`, and `ByteStretches` joined stretches inside a block only. The new LIR pass
+`Widths` takes every `REP #$20` and `SEP #$20` of a function out and places them again across
+the blocks, after `ByteLoops`:
+
+- an instruction that depends on the width keeps its own, except a load, `AND`/`ORA`/`EOR`,
+  `ADC`/`SBC`, `TXA`/`TYA`, `ASL A`, `INC A`, `DEC A` whose low byte is the same in 8 bits
+  and whose flags nothing reads: it may run in 8 bits, where nothing reads the high byte of A
+  before A is loaded again in 16 bits (no 16-bit use of A, no `TAX`/`TAY`/`XBA`, no call, no
+  return of A);
+- calls and returns run with 16 bits, as does the start of a function;
+- the choice is a minimum cut: each such instruction is 16 or 8 bits, a switch between two
+  neighbours of different widths in a block costs its 18 master cycles times the block's
+  weight (the estimate of `Weights`: a loop's head 8 times per entry, a branch's ways sharing
+  equally), the end of a block and the start of every block it goes to have the same width,
+  and a reader of the high byte in 16 bits keeps the instructions before it in 16 bits. Each
+  of these costs is paid only where two choices differ, so the cut is exact.
+
+Where the cut is cheaper than the code as it was, the code is rewritten with the switches at the
+first instruction of their width or before the branch that ends a block. So `SEP` goes before a
+loop whose entry also branches elsewhere, byte stores on both ways of an `if` share one switch,
+and a byte loaded and stored after the join stays in 8 bits. `LParser` now follows the width
+along the edges (ca65 sizes the immediates by `.a8`/`.a16`, which surround every immediate in
+8 bits), so a block entered by a branch with another width than the text above it ends with
+reads back as it runs.
+
+With the block weights of the loop depth alone (each way of a branch as often as the block
+before it) Catch Me did 0.5 % more work: in `commit_registers` a chain of `if (dirty & bit)`
+paid a `REP` and a `SEP` on every test instead of a pair in each rarely taken branch. With the
+estimate it is 0.4 % faster.
+
+Each function is written both ways and keeps the switches as they were where the new placement
+would make its worst case with its calls larger (ADR-6FXZQXQB); the functions are finished
+callees first for it. Against `develop` at cd726c6 (before the peepholes above), the worst cases
+of the timing reports of every execution test, random program and example: 656 smaller, 2,028
+the same, none larger.
+
+| Example | Work before | After | Ratio |
+| --- | ---: | ---: | ---: |
+| Catch Me | 45,831 | 45,626 | 0.996 |
+| Er-Tüp | 129,061 | 128,126 | 0.993 |
+| Gruft | 130,683 | 127,574 | 0.976 |
+| Hello | 80,270 | 79,999 | 0.997 |
+| Mandelbrot | 74,622 | 74,444 | 0.998 |
+| Mode 7 | 10,604 | 10,568 | 0.997 |
+| Modes | 53,386 | 53,004 | 0.993 |
+| Schach | 364,621 | 362,876 | 0.995 |
+| Steinschlag | 71,544 | 71,338 | 0.997 |
+
+Geometric mean 0.993. Code 1.7 % smaller (158,205 to 155,518 bytes over the nine examples).
+The kit's IRQ write of a scroll register (`sdevkit_reg_write_twice`) went from 138 to 102 master
+cycles after the wait, since both bytes are now stored in 8 bits.
+
+Blubber Blasen (played in dampf's emulator as in the entries before, WRAM identical to
+`develop`'s build at the end of every tick of both runs): the work per tick with the CPU partner
+292,950 before, 290,583 after (−0.8 %), solo 204,779 and 202,955 (−0.9 %); in its timing report
+141 worst cases smaller, none larger.
+
+## The high byte of A kept at zero in 8-bit code (2026-11-28, on the examples and Blubber Blasen)
+
+M12 row 3, second step. An instruction in 8 bits leaves B, the high byte of A, as it is. Where B
+is 0 and the 16-bit code would leave a high byte of 0 as well, A holds the same value in both
+widths, and a byte needs no mask: `LDA b / AND #$00FF / TAX` is `LDA b / TAX` in 8 bits, since
+`TAX` copies B too. The LIR pass `HighByteZero`, after `Widths`, follows which high bytes are
+known to be 0 (of A, X and Y, over the blocks): after a 16-bit `AND` with a constant below 256,
+a 16-bit load of such a constant or of a byte's place (every store keeps a byte zero-extended in
+its two bytes), `LSR A`, a transfer of an index register known to hold a byte; 8-bit code keeps
+B, a call, `XBA` and the block moves do not. Then a 16-bit stretch of a block goes to 8 bits
+whole (its `REP` and `SEP` go), from its start (the `REP` moves down to the first instruction
+that needs 16 bits, such as a store of the word) or at its end (the `SEP` moves up), where B is
+0 where the part starts and the high byte of the 16-bit code is 0 where it ends. In the part,
+loads and logic run in 8 bits where they give the same low byte and the flags that are read
+(Z only where the 16-bit result's high byte is 0), `LSR A` and `CMP` with a byte constant or a
+byte's place where B is 0 (the same C and Z), `TAX`/`TAY` where B is 0, and `AND #$00FF` goes
+where its flags are not read or are those of the 8-bit load before it. No path gets a cycle
+more, so no worst case can grow.
+
+Against `develop`, with the step before: 670 worst cases smaller, 2,014 the same, none larger.
+Code 2.7 % smaller (158,205 to 153,948 bytes over the nine examples).
+
+| Example | Work, `develop` | With both steps | Ratio |
+| --- | ---: | ---: | ---: |
+| Catch Me | 45,831 | 45,551 | 0.994 |
+| Er-Tüp | 129,061 | 127,511 | 0.988 |
+| Gruft | 130,683 | 127,504 | 0.976 |
+| Hello | 80,270 | 79,964 | 0.996 |
+| Mandelbrot | 74,622 | 74,389 | 0.997 |
+| Mode 7 | 10,604 | 10,429 | 0.983 |
+| Modes | 53,386 | 52,996 | 0.993 |
+| Schach | 364,621 | 361,678 | 0.992 |
+| Steinschlag | 71,544 | 71,052 | 0.993 |
+
+Geometric mean 0.990 (0.993 after the first step).
+
+Blubber Blasen, measured as before (WRAM identical to `develop`'s build at the end of every tick of
+both runs): the work per tick with the CPU partner 292,950 on `develop`, 290,583 after the first
+step, 290,054 after this one (−1.0 % in all); solo 204,779, 202,955 and 202,522 (−1.1 %). In its
+timing report 142 worst cases smaller, none larger.
+
+What is left of the masks: `AND #$00FF` still takes 4.1 % of the CPU cycles of the run with the
+CPU partner (it was 4.2 %, both counted with the main loop's waiting; 5.1 % of the work in the
+study). Most of it sits in loops over arrays of structs, `LDA a,X / AND #$00FF / CMP #k / BEQ`
+with the index stepped in 16 bits (`TXA / CLC / ADC #23 / TAX`), where a pair of switches costs
+more than the mask; the 54 hottest sites are 2.0 % of the cycles, none above 0.15 %. The rest
+needs B known to be 0 where the switches go: today a `SEP` lies where the cut put it, and B is
+often not known there (after `ADC` or a call).
+
+Merged with the peepholes above (`develop` at fa128be) and measured again against it: 674 worst
+cases smaller, 2,086 the same, none larger; code 157,864 to 153,609 bytes (−2.7 %); the examples'
+work Catch Me 0.994, Er-Tüp 0.988, Gruft 0.975, Hello 0.996, Mandelbrot 0.997, Mode 7 0.983,
+Modes 0.993, Schach 0.992, Steinschlag 0.993, geometric mean 0.990; Blubber Blasen's work per
+tick with the CPU partner 292,600 to 289,705 (−1.0 %), solo 204,454 to 202,201 (−1.1 %), WRAM
+identical to `develop`'s build at the end of every tick of both runs, in its timing report 142
+worst cases smaller and none larger.

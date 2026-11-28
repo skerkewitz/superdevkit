@@ -26,15 +26,15 @@ on 2026-11-28:
 
 | Example | Work per tick, average | Busiest 60 ticks | In dampf's runtime |
 | --- | --- | --- | --- |
-| Er-Tüp | 128,839 | 251,804 | 1.1 % |
-| Schach | 362,882 | 510,729 | 1.2 % |
-| Steinschlag | 71,509 | 132,054 | 1.5 % |
-| Mandelbrot | 74,622 | 87,493 | 62.7 % |
-| Catchme | 45,794 | 142,978 | 20.4 % |
-| Hello | 80,161 | 81,162 | 50.1 % |
-| Mode 7 | 10,581 | 10,604 | 49.3 % |
-| modes | 53,367 | 121,688 | 3.4 % |
-| Gruft | 130,306 | 435,198 | 7.3 % |
+| Er-Tüp | 127,288 | 248,627 | 1.1 % |
+| Schach | 359,938 | 507,249 | 1.2 % |
+| Steinschlag | 71,017 | 131,403 | 1.5 % |
+| Mandelbrot | 74,389 | 87,262 | 62.9 % |
+| Catchme | 45,526 | 142,665 | 20.5 % |
+| Hello | 79,854 | 80,856 | 50.3 % |
+| Mode 7 | 10,401 | 10,419 | 50.2 % |
+| modes | 52,977 | 120,828 | 3.4 % |
+| Gruft | 127,110 | 399,048 | 7.5 % |
 
 On 2026-11-20, before the runtime used the CPU's multiplier, the naive code generator did 3.0
 times the work on the geometric mean of all seven examples, from 1.26 times (Mandelbrot, whose
@@ -84,7 +84,7 @@ entry.
 | # | Optimization | Status | Latest measured gain |
 | --- | --- | --- | --- |
 | A | Static frames in the direct page: locals, parameters and temporaries in fixed direct page places, shared between functions never active at the same time (the call graph is complete and has no recursion, [subset.md](subset.md)) | Partly. Frames as a compiled stack with the leaves in the direct page, places shared within a function by liveness, values every use takes from A not stored, a value in X or Y for the common part of a loop (`RegisterChoice`), a store only a rare way reads moved onto it (`DeadStores`); open: a model of the whole function (roadmap M12, row 2) | 386,306 → 379,855 ([values not stored](optimizations-log.md#values-not-stored-2026-11-17)) |
-| B | Width analysis (8/16 bit) and value ranges | Partly. Narrowing from the types, 16-bit pointer offsets, value ranges (see below), switches on bytes in 16 bits, 8 bit kept between a byte load and a byte store and across register accesses, short 16-bit stretches between byte stores in 8 bits (`ByteStretches`), loops over bytes in 8 bits from entry to exit (`ByteLoops`); open: full `REP`/`SEP` tracking | 379,855 → 370,620 ([switches on bytes](optimizations-log.md#switches-on-bytes-compare-16-bits-2026-11-17)) |
+| B | Width analysis (8/16 bit) and value ranges | Partly. Narrowing from the types, 16-bit pointer offsets, value ranges (see below), switches on bytes in 16 bits, 8 bit kept between a byte load and a byte store and across register accesses, short 16-bit stretches between byte stores in 8 bits (`ByteStretches`), loops over bytes in 8 bits from entry to exit (`ByteLoops`), the switches placed across blocks by a minimum cut (`Widths`), 16-bit stretches between 8-bit code in 8 bits where the high byte of A is known to be 0 (`HighByteZero`); open: the masks of bytes in loops that step a 16-bit index (roadmap M12, rows 3 and 5) | 379,855 → 370,620 ([switches on bytes](optimizations-log.md#switches-on-bytes-compare-16-bits-2026-11-17)) |
 | C | Inlining and calling convention | Partly. Inlining (`Inline`), arguments computed in the callee's parameter place, returns copied into each path; open: parameters in registers, tail calls | 370,620 → 364,829 ([returns copied](optimizations-log.md#returns-copied-into-each-path-2026-11-17)) |
 | D | Data layout: arrays of structs split into one array per field, or D pointed at the current object | Not built | |
 | E | 8.8 fixed point: the integer part as a byte access | Partly. A load shifted right by 8 or more is a byte load (`ByteLoads`); open: `<<8` | 1.49 → 1.48 ([byte loads for 8.8 values](optimizations-log.md#a-remembers-every-place-it-equals-byte-loads-for-88-values-2026-11-17)) |
@@ -214,7 +214,7 @@ allowed (the platform layer uses them); this form does not need the rule against
 ## Ideas not yet built
 
 The open parts of the catalogue (D, L, M, the divider and mode 7's multiplier, parameters in registers and
-tail calls, `<<8` as a byte access, full `REP`/`SEP` tracking, unrolling); page-aligned arrays with
+tail calls, `<<8` as a byte access, switches placed where the high byte of A is known to be 0, unrolling); page-aligned arrays with
 8-bit index registers; a points-to analysis for pointers into several objects or loaded from
 memory; induction variables for counters that count down, and an induction variable as the index
 in Y (the range analysis cannot yet see that the offset never wraps); the transforming hints

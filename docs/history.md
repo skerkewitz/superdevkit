@@ -557,6 +557,18 @@ Built on 2026-11-27, ahead of M11; not released yet.
   of its initializer there (`ConstLoads`, from inlining on, so that it does not change what is
   inlined); code 37 bytes smaller, the examples' work the same
   ([log](optimizations-log.md#elements-of-constant-arrays-folded-2026-11-28-on-the-examples-and-blubber-blasen)).
+- **The accumulator's width across blocks** (M12 row 3, 2026-11-28): the LIR pass `Widths`
+  takes out every `REP #$20`/`SEP #$20` of a function and places them again by a minimum cut
+  over the blocks' weighted cycles, so byte code stays in 8 bits across branches and loops, and
+  a load or logic whose low byte is the same in 8 bits joins it where nothing reads the high
+  byte or the flags; a function keeps its old switches where its worst case would grow
+  ([ADR-6FXZQXQB](adr/6FXZQXQB-a-speed-rule-of-dampf-never-makes-a-function-s.md)). Then
+  `HighByteZero` runs 16-bit stretches between 8-bit code in 8 bits where the high byte of A is
+  known to be 0, which takes the `AND #$00FF` off a byte before `TAX`, a compare or a 16-bit
+  store. Against `develop` with the peepholes above: 674 worst cases smaller, none larger; the
+  examples' work 0.990 (geometric mean), the code 2.7 % smaller; Blubber Blasen's work per tick 1.0 % less with the CPU partner, 1.1 % solo
+  ([log](optimizations-log.md#the-accumulators-width-placed-across-blocks-2026-11-28-on-the-examples-and-blubber-blasen),
+  [log](optimizations-log.md#the-high-byte-of-a-kept-at-zero-in-8-bit-code-2026-11-28-on-the-examples-and-blubber-blasen)).
 
 ## Publishing
 

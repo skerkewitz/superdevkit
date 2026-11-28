@@ -9,8 +9,9 @@ import java.util.regex.Pattern;
  * Reads LIR from its text, the ca65 source dampf writes ({@link LPrinter}): {@link #line} one
  * line, {@link #parse} a whole file into a unit with functions and blocks. It knows the
  * directives dampf writes; any other line is an error. The accumulator width of an instruction
- * follows {@code REP}/{@code SEP #$20} in the order of the text, as ca65 does with
- * {@code .smart off} and as the printer's cycle column assumes.
+ * follows {@code REP}/{@code SEP #$20} along the edges of its function's blocks, as the code
+ * runs and as the printer's cycle column assumes (in the order of the text where no way reaches a
+ * block); ca65 sizes the immediates by {@code .a8}/{@code .a16}.
  */
 public final class LParser {
     private static final Pattern SOURCE_LINE = Pattern.compile("^(; [^\\s:]+:\\d+(?:   .*?)?)(?:\\s+\\[ (\\d+)(?:-(\\d+))? mc( \\+ calls)? \\])?$");
@@ -46,7 +47,51 @@ public final class LParser {
             }
             unit.add(item);
         }
+        for (LFunction f : unit.functions()) {
+            followEdges(f);
+        }
         return unit;
+    }
+
+    /**
+     * The accumulator width of each instruction along the edges, from the function's start with
+     * 16 bits, where the text order says otherwise: a block that a branch enters with another
+     * width than the code above it in the text ends with (dampf's code places the switches by the
+     * edges, {@link Widths}). Blocks no way reaches, and functions whose ways in disagree, keep the
+     * order of the text.
+     */
+    private static void followEdges(LFunction f) {
+        if (f.blocks().isEmpty()) {
+            return;
+        }
+        java.util.Map<LBlock, Integer> entry = Widths.entryWidths(f);
+        if (entry == null) {
+            return;
+        }
+        boolean changed = false;
+        for (LBlock b : f.blocks()) {
+            Integer start = entry.get(b);
+            if (start == null) {
+                continue;
+            }
+            boolean m16 = start == 16;
+            List<LItem> items = b.items();
+            for (int k = 0; k < items.size(); k++) {
+                if (!(items.get(k) instanceof LInstr in)) {
+                    continue;
+                }
+                if (in.m16() != m16) {
+                    items.set(k, new LInstr(in.mnemonic(), in.op(), in.comment(), m16, in.x16(), in.relaxable()));
+                    changed = true;
+                }
+                if ("#$20".equals(in.operand()) && (in.mnemonic().equals("rep") || in.mnemonic().equals("sep"))) {
+                    m16 = in.mnemonic().equals("rep");
+                }
+            }
+        }
+        if (changed) {
+            f.rebuild(f.items());
+        }
     }
 
     /** One line; an instruction runs with a 16-bit accumulator. */

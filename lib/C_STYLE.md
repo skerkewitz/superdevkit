@@ -177,16 +177,16 @@ Measured 2026-11-28 (worst case of the timing report, code generator from MIR).
 | Rule | This | master cycles | is | than this | master cycles |
 | --- | --- | ---: | --- | --- | ---: |
 | `fast-array-per-field` | `move_array_per_field` | 8,684 | faster | `move_array_of_structs` | 9,644 |
-| `fast-const-table` | `classify_by_table` | 304 | faster | `classify_by_chain` | 702 |
+| `fast-const-table` | `classify_by_table` | 304 | faster | `classify_by_chain` | 694 |
 | `fast-multiply-bytes` | `multiply_bytes` | 398 | faster | `multiply_words` | 894 |
 | `fast-pointer-walk-bound` | `nearest_by_pointer` | 11,214 | faster | `nearest_by_index` | 86,618 |
 | `fast-switch-table` | `dispatch_switch` | 212 | faster | `dispatch_if_chain` | 554 |
 | `same-32-bit-bits` | `xor_32` | 246 | same | `xor_16_halves` | 246 |
 | `same-declaration-place` | `declared_at_top` | 32,564 | same | `declared_where_used` | 32,564 |
-| `same-enum-object` | `step_enum` | 17,604 | same | `step_uint8` | 17,604 |
+| `same-enum-object` | `step_enum` | 17,348 | same | `step_uint8` | 17,348 |
 | `same-increment-form` | `count_postfix` | 32,564 | same | `count_prefix` | 32,564 |
 | `same-index-form` | `read_indexed` | 32,564 | same | `read_pointer_arithmetic` | 32,564 |
-| `same-list-of-offsets` | `pairs_by_offsets` | 101,068 | same | `pairs_by_counter` | 99,740 |
+| `same-list-of-offsets` | `pairs_by_offsets` | 100,972 | same | `pairs_by_counter` | 99,740 |
 | `same-loop-form` | `loop_for` | 32,564 | same | `loop_while` | 32,564 |
 | `same-named-temporary` | `with_temporary` | 304 | same | `inline_expression` | 304 |
 | `same-pointer-walk` | `move_by_pointer` | 9,644 | same | `move_by_index` | 9,644 |
@@ -199,5 +199,5 @@ Measured 2026-11-28 (worst case of the timing report, code generator from MIR).
 | `slow-multiply-variable` | `multiply_variables` | 894 | slower | `multiply_constant` | 204 |
 | `slow-pointer-global` | `show_by_pointer` | 438 | slower | `show_by_offset` | 388 |
 | `slow-signed-divide` | `divide_signed` | 624 | slower | `divide_unsigned` | 112 |
-| `slow-word-offsets` | `pairs_by_word_offsets` | 127,542 | slower | `pairs_by_byte_offsets` | 101,068 |
+| `slow-word-offsets` | `pairs_by_word_offsets` | 127,542 | slower | `pairs_by_byte_offsets` | 100,972 |
 <!-- end of measurements -->

@@ -18,7 +18,10 @@ that saves cycles (`RegisterChoice`), and the others get their addresses on the 
 (`PlaceColouring`, checked by `PlaceCheck`, ADR-6F8NBG4P); the LIR passes then remove loads of what a
 register holds, turn loads of what another register holds into transfers or move them out of a loop (`RedundantLoads`, on `RegContents`), apply peephole rules
 (`Peephole`), run short 16-bit stretches between byte stores in 8 bits (`ByteStretches`) and
-loops over bytes in 8 bits from entry to exit (`ByteLoops`), drop a
+loops over bytes in 8 bits from entry to exit (`ByteLoops`), place the accumulator's width
+switches across the blocks by a minimum cut (`Widths`, callees first, kept only where no worst
+case grows), run 16-bit stretches in 8 bits where the high byte of A is known to be 0
+(`HighByteZero`), drop a
 `CLC` or `SEC` where the carry is known (`KnownCarry`), remove stores nobody
 reads and move a store only some ways read onto those ways (`DeadStores`), choose the branch forms (`BranchRelax`) and number the local labels
 (`LocalLabels`); `Timing` gives the best and worst case on the LIR. The way there is in
@@ -128,7 +131,7 @@ not LLVM's machine IR; dampf's LIR plays the role of LLVM's machine IR.
 | --- | --- | --- | --- |
 | **HIR** (high-level) | Rust MIR, Swift SIL | A control flow graph that still has struct fields, array indexing, calls and intrinsics. C's integer promotions are made explicit here, so the meaning of every operation is unambiguous. *Not built: the typed AST makes the conversions explicit.* | Call graph and recursion check; inlining; recognising loops; `DAMPF_SPLIT` (arrays of structs into one array per field); `DAMPF_TABLE` (evaluating functions at compile time). *As built: the recursion check runs on the AST (`dampf.check.CallGraph`), inlining and loops on MIR (`Inline`, `Loops`); `DAMPF_SPLIT` and `DAMPF_TABLE` are not built.* |
 | **MIR** (mid-level) | LLVM IR | SSA form (every value is assigned exactly once). Types `i8`, `i16`, `i24`; pointers as `ptr16` (within the current data bank) or `ptr24` (any bank). Memory as symbol plus offset. *As built: `i1`, `i8`, `i16`, `i32` (C's int) and one `ptr` type; signedness in the operations (sdiv/udiv, ashr/lshr, slt/ult, sext/zext, and abds, the absolute difference of signed values); memory through `load`/`store`/`copy` on addresses from `ptradd`; locals whose address is taken, and arrays and structs, in frame slots.* | Constant propagation, dead code removal, common subexpressions, hoisting invariant code out of loops, **narrowing widths** using value ranges (16 → 8 bit where provably identical), recognising 8.8 fixed-point patterns as byte accesses. *As built: all of these (constants in `Simplify`), plus the other passes listed above.* |
-| **LIR** (low-level) | LLVM machine IR | Real 65816 instructions on virtual locations, with the processor state (M, X, D, DB) as part of the representation | Instruction selection; placing `REP`/`SEP` optimally; direct page slot allocation; assigning A, X and Y; peephole optimization; branch distances; **counting cycles and computing bounds** ([timing.md](timing.md)). *Built (`dampf.lir`): instruction selection (`MirCodeGen`), branch distances, redundant loads and dead stores, peephole rules, 8-bit stretches, cycles and bounds; `REP`/`SEP` across blocks comes next.* |
+| **LIR** (low-level) | LLVM machine IR | Real 65816 instructions on virtual locations, with the processor state (M, X, D, DB) as part of the representation | Instruction selection; placing `REP`/`SEP` optimally; direct page slot allocation; assigning A, X and Y; peephole optimization; branch distances; **counting cycles and computing bounds** ([timing.md](timing.md)). *Built (`dampf.lir`): instruction selection (`MirCodeGen`), branch distances, redundant loads and dead stores, peephole rules, 8-bit stretches, `REP`/`SEP` placed across blocks, cycles and bounds.* |
 
 ### What runs through all levels
 
