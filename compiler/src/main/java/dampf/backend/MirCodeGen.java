@@ -355,10 +355,18 @@ public final class MirCodeGen {
 
     /** The passes after the widths: known carries, dead and sunk stores, branch forms. */
     private void finish(MFunction f, LFunction lf, dampf.util.PassLimit limit) {
+        limit.apply("HighByteZero", f.name(), () -> dampf.lir.HighByteZero.run(lf, MirCodeGen::zeroExtended));
         limit.apply("KnownCarry", f.name(), () -> KnownCarry.run(lf));
         limit.apply("DeadStores", f.name(), () -> new DeadStores(ownValueBytes(f)).run(lf));
         limit.apply("SinkStores", f.name(), () -> new DeadStores(ownValueBytes(f)).sink(lf));
         BranchRelax.run(lf);
+    }
+
+    /** A place whose value is a byte or a truth value, which every store keeps zero-extended to 16 bits. */
+    static boolean zeroExtended(LOperand.Owner o) {
+        Object k = o.key();
+        MType t = k instanceof Value.Param p ? p.type() : k instanceof Instr i ? i.type() : null;
+        return t == MType.I8 || t == MType.I1;
     }
 
     /** f's worst case on this code with the bounds of its callees (written already); Long.MAX_VALUE without one. */
@@ -598,6 +606,7 @@ public final class MirCodeGen {
             List<dampf.lir.LItem> before = new ArrayList<>(code.items());
             java.util.function.Function<String, Long> counts = blockCounts == null ? null : name -> blockCounts.apply(f.name(), name);
             boolean widths = dampf.lir.Widths.run(code, resultInA, Weights.of(code, Weights.estimated(f, counts)), fastRom) > 0;
+            dampf.lir.HighByteZero.run(code, MirCodeGen::zeroExtended);
             KnownCarry.run(code);
             new DeadStores(ownValueBytes(f)).run(code);
             new DeadStores(ownValueBytes(f)).sink(code);
@@ -605,6 +614,7 @@ public final class MirCodeGen {
             if (widths) {
                 // as generate: the widths only where they do not make the worst case larger
                 code.rebuild(before);
+                dampf.lir.HighByteZero.run(code, MirCodeGen::zeroExtended);
                 KnownCarry.run(code);
                 new DeadStores(ownValueBytes(f)).run(code);
                 new DeadStores(ownValueBytes(f)).sink(code);

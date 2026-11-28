@@ -20,7 +20,8 @@ register holds, turn loads of what another register holds into transfers or move
 (`Peephole`), run short 16-bit stretches between byte stores in 8 bits (`ByteStretches`) and
 loops over bytes in 8 bits from entry to exit (`ByteLoops`), place the accumulator's width
 switches across the blocks by a minimum cut (`Widths`, callees first, kept only where no worst
-case grows), drop a
+case grows), run 16-bit stretches in 8 bits where the high byte of A is known to be 0
+(`HighByteZero`), drop a
 `CLC` or `SEC` where the carry is known (`KnownCarry`), remove stores nobody
 reads and move a store only some ways read onto those ways (`DeadStores`), choose the branch forms (`BranchRelax`) and number the local labels
 (`LocalLabels`); `Timing` gives the best and worst case on the LIR. The way there is in

@@ -2569,3 +2569,52 @@ Blubber Blasen (played in dampf's emulator as in the entries before, WRAM identi
 `develop`'s build at the end of every tick of both runs): the work per tick with the CPU partner
 292,950 before, 290,583 after (−0.8 %), solo 204,779 and 202,955 (−0.9 %); in its timing report
 141 worst cases smaller, none larger.
+
+## The high byte of A kept at zero in 8-bit code (2026-11-28, on the examples and Blubber Blasen)
+
+M12 row 3, second step. An instruction in 8 bits leaves B, the high byte of A, as it is. Where B
+is 0 and the 16-bit code would leave a high byte of 0 as well, A holds the same value in both
+widths, and a byte needs no mask: `LDA b / AND #$00FF / TAX` is `LDA b / TAX` in 8 bits, since
+`TAX` copies B too. The LIR pass `HighByteZero`, after `Widths`, follows which high bytes are
+known to be 0 (of A, X and Y, over the blocks): after a 16-bit `AND` with a constant below 256,
+a 16-bit load of such a constant or of a byte's place (every store keeps a byte zero-extended in
+its two bytes), `LSR A`, a transfer of an index register known to hold a byte; 8-bit code keeps
+B, a call, `XBA` and the block moves do not. Then a 16-bit stretch of a block goes to 8 bits
+whole (its `REP` and `SEP` go), from its start (the `REP` moves down to the first instruction
+that needs 16 bits, such as a store of the word) or at its end (the `SEP` moves up), where B is
+0 where the part starts and the high byte of the 16-bit code is 0 where it ends. In the part,
+loads and logic run in 8 bits where they give the same low byte and the flags that are read
+(Z only where the 16-bit result's high byte is 0), `LSR A` and `CMP` with a byte constant or a
+byte's place where B is 0 (the same C and Z), `TAX`/`TAY` where B is 0, and `AND #$00FF` goes
+where its flags are not read or are those of the 8-bit load before it. No path gets a cycle
+more, so no worst case can grow.
+
+Against `develop`, with the step before: 670 worst cases smaller, 2,014 the same, none larger.
+Code 2.7 % smaller (158,205 to 153,948 bytes over the nine examples).
+
+| Example | Work, `develop` | With both steps | Ratio |
+| --- | ---: | ---: | ---: |
+| Catch Me | 45,831 | 45,551 | 0.994 |
+| Er-Tüp | 129,061 | 127,511 | 0.988 |
+| Gruft | 130,683 | 127,504 | 0.976 |
+| Hello | 80,270 | 79,964 | 0.996 |
+| Mandelbrot | 74,622 | 74,389 | 0.997 |
+| Mode 7 | 10,604 | 10,429 | 0.983 |
+| Modes | 53,386 | 52,996 | 0.993 |
+| Schach | 364,621 | 361,678 | 0.992 |
+| Steinschlag | 71,544 | 71,052 | 0.993 |
+
+Geometric mean 0.990 (0.993 after the first step).
+
+Blubber Blasen, measured as before (WRAM identical to `develop`'s build at the end of every tick of
+both runs): the work per tick with the CPU partner 292,950 on `develop`, 290,583 after the first
+step, 290,054 after this one (−1.0 % in all); solo 204,779, 202,955 and 202,522 (−1.1 %). In its
+timing report 142 worst cases smaller, none larger.
+
+What is left of the masks: `AND #$00FF` still takes 4.1 % of the CPU cycles of the run with the
+CPU partner (it was 4.2 %, both counted with the main loop's waiting; 5.1 % of the work in the
+study). Most of it sits in loops over arrays of structs, `LDA a,X / AND #$00FF / CMP #k / BEQ`
+with the index stepped in 16 bits (`TXA / CLC / ADC #23 / TAX`), where a pair of switches costs
+more than the mask; the 54 hottest sites are 2.0 % of the cycles, none above 0.15 %. The rest
+needs B known to be 0 where the switches go: today a `SEP` lies where the cut put it, and B is
+often not known there (after `ADC` or a call).

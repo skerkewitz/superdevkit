@@ -137,7 +137,7 @@ write with a constant register is one store. The layers' commits are in the next
 | `sdevkit_shadow_commit` | built | built (and counts a group changed without its mark) | 826 to 13,166 |
 | `sdevkit_sprite` | built | built | 136 to 808 |
 | `sdevkit_sprites_commit` | built | built | 398 to 3,452 |
-| `sdevkit_queue_dma` | built | built | 368 to 1,278 |
+| `sdevkit_queue_dma` | built | built | 368 to 1,272 |
 | `sdevkit_queue_vram` | built | built | 172 |
 | `sdevkit_queue_vram_column` | built | built | 172 |
 | `sdevkit_queue_cgram` | built | built | 172 |
@@ -145,9 +145,9 @@ write with a constant register is one store. The layers' commits are in the next
 | `sdevkit_queue_mode7_map` | built | built | 172 |
 | `sdevkit_queue_mode7_tiles` | built | built | 172 |
 | `sdevkit_queue_room` | built | built | 274 to 340 |
-| `sdevkit_queue_commit` | built | built | 306 to 22,242 |
+| `sdevkit_queue_commit` | built | built | 306 to 22,098 |
 | `sdevkit_input_update` | built | built | 582 to 590 |
-| `sdevkit_commit` | built | built | 1,610 to 38,940 |
+| `sdevkit_commit` | built | built | 1,610 to 38,796 |
 | `sdevkit_sfx_init` | built | built | 348 to unbounded |
 | `sdevkit_sfx_play` | built | built | 264 to 996 |
 | `sdevkit_music_play` | empty, not built yet: dampf removes the calls (`DebugCallsTest`) | built (the track's file, over and over, in the window) | 42 |
