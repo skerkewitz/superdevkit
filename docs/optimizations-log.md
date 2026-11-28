@@ -2551,3 +2551,18 @@ two spelling families have new gaps: in `copy` the loops counting up take 20 % m
 `copy_down`, in `sum-bytes` the `do`/`while` and the `!= 100` loop 12 % more than `g_u16_down`
 (the others counting up 4 %). Reversing a loop whose rounds do not depend on each other would
 close them; it is not planned.
+
+## Multiplication by 256 as XBA (2026-11-28, on the examples and Blubber Blasen)
+
+M12's peepholes, second part (row 11). A 16-bit multiplication by a constant is shifts and adds
+in A, the constant in non-adjacent form worked from the top digit down; `x * 256` was eight `ASL
+A` (96 master cycles), where `x << 8` is `XBA / AND #$FF00` (36). Eight or more shifts in a row
+in that chain are now written as the shift by 8 is (`ArithSelection.shiftA`): `x * 1024` is `XBA
+/ AND #$FF00 / ASL A / ASL A`, `x * 257` `XBA / AND #$FF00 / CLC / ADC x`. Fewer than eight stay
+`ASL`s: `x * 128` cannot be done with the swap without a byte of x getting lost.
+
+Against the commit before: 39 worst cases smaller, none larger (against `develop` with both: 122
+smaller, 2,562 the same, none larger). Schach 0.996, the other examples
+1.000; code 36 bytes smaller. Blubber Blasen: work per tick with the CPU partner 292,667 to
+292,605, solo 204,521 to 204,458, WRAM identical to develop's build at the end of every tick;
+one worst case of its timing report smaller.

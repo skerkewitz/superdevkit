@@ -548,6 +548,10 @@ Built on 2026-11-27, ahead of M11; not released yet.
   were left in the examples' code, 54 now (none follows the load in `SDEVKIT_PUBLISHED`, which the roadmap had
   named); the examples' work 0.999, Blubber Blasen's 0.10 % less
   ([log](optimizations-log.md#comparisons-with-0-where-n-and-z-describe-the-value-already-2026-11-28-on-the-examples-and-blubber-blasen)).
+- **`x * 256` as `XBA`** (M12 row 11, 2026-11-28): eight shifts or more in a row of a
+  multiplication by a constant are `XBA / AND #$FF00` and the rest, as `x << 8` is: 36 master
+  cycles for `x * 256` instead of 96; Schach 0.4 % less work
+  ([log](optimizations-log.md#multiplication-by-256-as-xba-2026-11-28-on-the-examples-and-blubber-blasen)).
 
 ## Publishing
 
