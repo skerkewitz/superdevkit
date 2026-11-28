@@ -536,7 +536,9 @@ Built on 2026-11-27, ahead of M11; not released yet.
   with N alone where the value ranges rule out an overflow, also against a constant. A function
   keeps the biased form where it would have the smaller worst case. `a > b ? a - b : b - a` and
   `v < 0 ? -v : v` are one MIR instruction, `abds` (`AbsDiff`), written as one subtraction and
-  a conditional negation. No worst case larger than before (139 smaller), the examples' work
+  a conditional negation. No worst case larger than before (139 smaller), as a speed rule of
+  dampf must keep it
+  ([ADR-6FXZQXQB](adr/6FXZQXQB-a-speed-rule-of-dampf-never-makes-a-function-s.md)); the examples' work
   0.997 (geometric mean), the code 0.3 % smaller; in Blubber Blasen `evaluate` 23 % less a
   call and the work per tick with the CPU partner 3.0 % less, solo 0.8 %
   ([log](optimizations-log.md#signed-comparisons-by-subtraction-2026-11-28-on-the-examples-and-blubber-blasen)).
